@@ -1515,8 +1515,8 @@ function App() {
       const email = (signupEmailRef.current || "").trim();
       const username = (signupUsernameRef.current || "").trim();
       const password = signupPasswordRef.current;
-      // Get select value from the DOM element's value property
-      const role = signupRoleRef.current?.value || "STUDENT";
+      // Get role from auth state (updated by onChange)
+      const role = auth.signupRole || "STUDENT";
       const inviteCode = signupInviteCodeRef.current;
       
       console.log("Registering with:", { email, username, role });
@@ -2370,7 +2370,7 @@ function App() {
 
                 <input ref={signupPasswordRef} type="password" onChange={(e) => { signupPasswordRef.current = e.target.value; }} placeholder="password" />
 
-                <select ref={signupRoleRef} onChange={(e) => { signupRoleRef.current = e.target.value; setAuth((a) => ({ ...a, signupRole: e.target.value })); }} defaultValue="STUDENT">
+                <select ref={signupRoleRef} onChange={(e) => { setAuth((a) => ({ ...a, signupRole: e.target.value })); }} defaultValue="STUDENT">
                   <option value="STUDENT">Student</option>
                   <option value="TEACHER">Teacher</option>
                 </select>
