@@ -10,7 +10,7 @@ export default defineConfig({
       srcDir: "src",
       filename: "sw.js",
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "icon-192.png", "icon-512.png", "icon-192-maskable.png", "icon-512-maskable.png", "icon-96.png"],
+      includeAssets: ["icon-32.png", "icon-192.png", "icon-512.png", "icon-192-maskable.png", "icon-512-maskable.png", "icon-96.png", "privacy.html"],
       manifest: {
         id: "scholars-circle-pwa",
         name: "Scholar's Circle",
@@ -28,10 +28,6 @@ export default defineConfig({
           { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
           { src: "/icon-192-maskable.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
           { src: "/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-        ],
-        screenshots: [
-          { src: "/screenshot-wide.png", sizes: "1280x720", type: "image/png", form_factor: "wide" },
-          { src: "/screenshot-narrow.png", sizes: "720x1280", type: "image/png", form_factor: "narrow" },
         ],
         categories: ["education", "productivity"],
         prefer_related_applications: false,
