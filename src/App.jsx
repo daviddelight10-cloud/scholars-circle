@@ -2417,6 +2417,10 @@ function App() {
 
           {auth.error && <p className="muted" style={{ color: "#ff6b6b" }}>{auth.error}</p>}
 
+          <p className="muted" style={{ marginTop: "20px", fontSize: "12px" }}>
+            By using this app, you agree to our <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+          </p>
+
         </div>
 
       </main>
