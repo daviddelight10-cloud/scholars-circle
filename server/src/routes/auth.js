@@ -89,6 +89,7 @@ router.post("/register", async (req, res) => {
     return res.status(201).json({ id: user.id, username: user.username, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated });
 
   } catch (e) {
+    console.error("Registration error:", e);
 
     if (e.code === "P2002") {
       const field = e.meta?.target?.includes("email") ? "email" : "username";
