@@ -1512,8 +1512,8 @@ function App() {
 
       setAuth((a) => ({ ...a, error: "", info: "" }));
 
-      const email = signupEmailRef.current;
-      const username = signupUsernameRef.current;
+      const email = (signupEmailRef.current || "").trim();
+      const username = (signupUsernameRef.current || "").trim();
       const password = signupPasswordRef.current;
       // Get select value from the DOM element's value property
       const role = signupRoleRef.current?.value || "STUDENT";
