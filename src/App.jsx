@@ -1505,6 +1505,8 @@ function App() {
 
       setAuth((a) => ({ ...a, error: "", info: "" }));
 
+      console.log("Registering with:", { email: auth.email, username: auth.username, role: auth.signupRole });
+
       await api("/auth/register", {
 
         method: "POST",
@@ -1519,7 +1521,7 @@ function App() {
 
           role: auth.signupRole,
 
-          inviteCode: auth.inviteCode || undefined,
+          inviteCode: auth.signupRole === "TEACHER" ? auth.inviteCode : undefined,
 
         },
 
