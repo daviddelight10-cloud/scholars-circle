@@ -99,11 +99,9 @@ router.post("/register", async (req, res) => {
 
 
 router.post("/login", async (req, res) => {
-
+  console.log("Login request body:", JSON.stringify(req.body));
   const schema = z.object({ login: z.string(), password: z.string() });
-
   try {
-
     const { login, password } = schema.parse(req.body);
 
     const user = await prisma.user.findFirst({
