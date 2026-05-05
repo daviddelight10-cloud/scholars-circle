@@ -21,7 +21,9 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "https://adorable-alpaca-de885b.netlify.app",
-  "https://*.netlify.app"
+  "https://*.netlify.app",
+  "https://scholars-circle-mu.vercel.app",
+  "https://*.vercel.app"
 ];
 
 app.use(cors({
