@@ -2370,15 +2370,12 @@ function App() {
 
                 <input ref={signupPasswordRef} type="password" onChange={(e) => { signupPasswordRef.current = e.target.value; }} placeholder="password" />
 
-                <select ref={signupRoleRef} onChange={(e) => { signupRoleRef.current = e.target.value; }} defaultValue="STUDENT">
-
+                <select ref={signupRoleRef} onChange={(e) => { signupRoleRef.current = e.target.value; setAuth((a) => ({ ...a, signupRole: e.target.value })); }} defaultValue="STUDENT">
                   <option value="STUDENT">Student</option>
-
                   <option value="TEACHER">Teacher</option>
-
                 </select>
 
-                {signupRoleRef.current?.value === "TEACHER" && (
+                {auth.signupRole === "TEACHER" && (
                   <input
                     ref={signupInviteCodeRef}
                     onChange={(e) => { signupInviteCodeRef.current = e.target.value; }}
