@@ -92,7 +92,8 @@ router.post("/register", async (req, res) => {
     console.error("Registration error:", e);
 
     if (e.code === "P2002") {
-      const field = e.meta?.target?.includes("email") ? "email" : "username";
+      const target = e.meta?.target || [];
+      const field = Array.isArray(target) && target.includes("email") ? "email" : "username";
       return res.status(400).json({ error: `An account with that ${field} already exists. Please use a different ${field} or log in.` });
     }
 
