@@ -12,6 +12,7 @@ import userRoutes from "./routes/users.js";
 import aiRoutes from "./routes/ai.js";
 import userDataRoutes from "./routes/userData.js";
 import keyRoutes from "./routes/keys.js";
+import { prisma } from "./db.js";
 
 const app = express();
 
@@ -53,7 +54,9 @@ app.use(cors({
 
 app.use(express.json());
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
 app.use("/auth", authRoutes);
 app.use("/subjects", subjectRoutes);
 app.use("/questions", questionRoutes);
@@ -72,7 +75,20 @@ app.use((err, _req, res, _next) => {
 });
 
 const port = Number(process.env.PORT || 4000);
-app.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`API running on http://localhost:${port}`);
+
+// Handle uncaught errors
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
+  process.exit(1);
+});
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`API running on port ${port}`);
+  console.log("Environment:", process.env.NODE_ENV || "development");
+  console.log("Database URL exists:", !!process.env.DATABASE_URL);
 });
