@@ -15,15 +15,40 @@ import keyRoutes from "./routes/keys.js";
 
 const app = express();
 
-// Handle preflight requests for all routes
-app.options("*", cors());
+// CORS configuration
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://adorable-alpaca-de885b.netlify.app",
+  "https://*.netlify.app"
+];
 
-// Main CORS config
 app.use(cors({
-  origin: true,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed.includes("*")) {
+        const pattern = allowed.replace("*", ".*");
+        return new RegExp(pattern).test(origin);
+      }
+      return allowed === origin;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log("CORS blocked origin:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 app.use(express.json());
