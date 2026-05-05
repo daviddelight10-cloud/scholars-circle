@@ -1515,7 +1515,8 @@ function App() {
       const email = signupEmailRef.current;
       const username = signupUsernameRef.current;
       const password = signupPasswordRef.current;
-      const role = signupRoleRef.current;
+      // Get select value from the DOM element's value property
+      const role = signupRoleRef.current?.value || "STUDENT";
       const inviteCode = signupInviteCodeRef.current;
       
       console.log("Registering with:", { email, username, role });
