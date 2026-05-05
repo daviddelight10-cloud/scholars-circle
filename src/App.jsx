@@ -749,6 +749,11 @@ function App() {
 
   });
 
+  const authRef = useRef(auth);
+  useEffect(() => {
+    authRef.current = auth;
+  }, [auth]);
+
   const [token, setToken] = useState("");
 
   const [backendSubjects, setBackendSubjects] = useState([]);
@@ -1505,36 +1510,25 @@ function App() {
 
       setAuth((a) => ({ ...a, error: "", info: "" }));
 
-      console.log("Registering with:", { email: auth.email, username: auth.username, role: auth.signupRole });
+      const currentAuth = authRef.current;
+      console.log("Registering with:", { email: currentAuth.email, username: currentAuth.username, role: currentAuth.signupRole });
 
       await api("/auth/register", {
-
         method: "POST",
-
         body: {
-
-          email: auth.email,
-
-          username: auth.username,
-
-          password: auth.password,
-
-          role: auth.signupRole,
-
-          inviteCode: auth.signupRole === "TEACHER" ? auth.inviteCode : undefined,
-
+          email: currentAuth.email,
+          username: currentAuth.username,
+          password: currentAuth.password,
+          role: currentAuth.signupRole,
+          inviteCode: currentAuth.signupRole === "TEACHER" ? currentAuth.inviteCode : undefined,
         },
-
       });
 
       // auto-login after successful registration
 
       const data = await api("/auth/login", {
-
         method: "POST",
-
-        body: { login: auth.email, password: auth.password },
-
+        body: { login: currentAuth.email, password: currentAuth.password },
       });
 
       setToken(data.token);
