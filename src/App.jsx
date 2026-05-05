@@ -2378,14 +2378,12 @@ function App() {
 
                 </select>
 
-                {auth.signupRole === "TEACHER" && (
-
+                {signupRoleRef.current?.value === "TEACHER" && (
                   <input
                     ref={signupInviteCodeRef}
                     onChange={(e) => { signupInviteCodeRef.current = e.target.value; }}
                     placeholder="teacher invite code"
                   />
-
                 )}
 
                 <button onClick={signup}>Create Account</button>
