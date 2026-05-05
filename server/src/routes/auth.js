@@ -143,9 +143,8 @@ router.post("/login", async (req, res) => {
     return res.json({ token, user: { id: user.id, username: user.username, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated } });
 
   } catch (e) {
-
+    console.error("Login error:", e);
     return res.status(400).json({ error: "Login failed", details: e.message });
-
   }
 
 });
