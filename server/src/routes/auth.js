@@ -33,9 +33,8 @@ const registerSchema = z.object({
 
 
 router.post("/register", async (req, res) => {
-
+  console.log("Register request body:", JSON.stringify(req.body));
   try {
-
     const data = registerSchema.parse(req.body);
 
     const desiredRole = data.role || "STUDENT";
