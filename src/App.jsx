@@ -749,10 +749,12 @@ function App() {
 
   });
 
-  const authRef = useRef(auth);
-  useEffect(() => {
-    authRef.current = auth;
-  }, [auth]);
+  // Refs for signup form to avoid stale closure issues
+  const signupEmailRef = useRef("");
+  const signupUsernameRef = useRef("");
+  const signupPasswordRef = useRef("");
+  const signupRoleRef = useRef("STUDENT");
+  const signupInviteCodeRef = useRef("");
 
   const [token, setToken] = useState("");
 
@@ -1510,17 +1512,22 @@ function App() {
 
       setAuth((a) => ({ ...a, error: "", info: "" }));
 
-      const currentAuth = authRef.current;
-      console.log("Registering with:", { email: currentAuth.email, username: currentAuth.username, role: currentAuth.signupRole });
+      const email = signupEmailRef.current;
+      const username = signupUsernameRef.current;
+      const password = signupPasswordRef.current;
+      const role = signupRoleRef.current;
+      const inviteCode = signupInviteCodeRef.current;
+      
+      console.log("Registering with:", { email, username, role });
 
       await api("/auth/register", {
         method: "POST",
         body: {
-          email: currentAuth.email,
-          username: currentAuth.username,
-          password: currentAuth.password,
-          role: currentAuth.signupRole,
-          inviteCode: currentAuth.signupRole === "TEACHER" ? currentAuth.inviteCode : undefined,
+          email,
+          username,
+          password,
+          role,
+          inviteCode: role === "TEACHER" ? inviteCode : undefined,
         },
       });
 
@@ -1528,7 +1535,7 @@ function App() {
 
       const data = await api("/auth/login", {
         method: "POST",
-        body: { login: currentAuth.email, password: currentAuth.password },
+        body: { login: email, password: password },
       });
 
       setToken(data.token);
@@ -2356,13 +2363,13 @@ function App() {
 
               <div className="row" style={{ flexWrap: "wrap" }}>
 
-                <input value={auth.email} onChange={(e) => setAuth((a) => ({ ...a, email: e.target.value }))} placeholder="email" />
+                <input ref={signupEmailRef} onChange={(e) => { signupEmailRef.current = e.target.value; }} placeholder="email" />
 
-                <input value={auth.username} onChange={(e) => setAuth((a) => ({ ...a, username: e.target.value }))} placeholder="username" />
+                <input ref={signupUsernameRef} onChange={(e) => { signupUsernameRef.current = e.target.value; }} placeholder="username" />
 
-                <input type="password" value={auth.password} onChange={(e) => setAuth((a) => ({ ...a, password: e.target.value }))} placeholder="password" />
+                <input ref={signupPasswordRef} type="password" onChange={(e) => { signupPasswordRef.current = e.target.value; }} placeholder="password" />
 
-                <select value={auth.signupRole} onChange={(e) => setAuth((a) => ({ ...a, signupRole: e.target.value }))}>
+                <select ref={signupRoleRef} onChange={(e) => { signupRoleRef.current = e.target.value; }} defaultValue="STUDENT">
 
                   <option value="STUDENT">Student</option>
 
@@ -2373,13 +2380,9 @@ function App() {
                 {auth.signupRole === "TEACHER" && (
 
                   <input
-
-                    value={auth.inviteCode}
-
-                    onChange={(e) => setAuth((a) => ({ ...a, inviteCode: e.target.value }))}
-
+                    ref={signupInviteCodeRef}
+                    onChange={(e) => { signupInviteCodeRef.current = e.target.value; }}
                     placeholder="teacher invite code"
-
                   />
 
                 )}
