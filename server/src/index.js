@@ -15,13 +15,22 @@ import keyRoutes from "./routes/keys.js";
 
 const app = express();
 app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://agent-69f92ed27827a884bd--adorable-alpaca-de885b.netlify.app",
-    "https://*.netlify.app"
-  ],
-  credentials: true
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://agent-69f92ed27827a884bd--adorable-alpaca-de885b.netlify.app",
+      "https://adorable-alpaca-de885b.netlify.app"
+    ];
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".netlify.app")) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
 
