@@ -14,7 +14,15 @@ import userDataRoutes from "./routes/userData.js";
 import keyRoutes from "./routes/keys.js";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://agent-69f92ed27827a884bd--adorable-alpaca-de885b.netlify.app",
+    "https://*.netlify.app"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
