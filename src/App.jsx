@@ -4024,6 +4024,117 @@ function App() {
 
           <p className="muted">Create table: learning_profiles(user_id text primary key, payload jsonb).</p>
 
+          <h3>Customer Support</h3>
+
+          <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <p style={{ margin: "0 0 12px 0", fontWeight: 600 }}>Need help? We're here for you!</p>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <a
+                href="https://wa.link/yj2em4"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: "#25D366",
+                  color: "white",
+                  textDecoration: "none",
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  transition: "transform 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+              >
+                <span style={{ fontSize: 20 }}>💬</span>
+                <span>Chat on WhatsApp</span>
+              </a>
+
+              <a
+                href="tel:09028617178"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: "#3b82f6",
+                  color: "white",
+                  textDecoration: "none",
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  transition: "transform 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+              >
+                <span style={{ fontSize: 20 }}>📞</span>
+                <span>Call: 09028617178</span>
+              </a>
+            </div>
+
+            <p className="muted" style={{ marginTop: 12, fontSize: 12 }}>
+              Available 9AM - 6PM (Mon-Fri). For faster response, use WhatsApp.
+            </p>
+          </div>
+
+          <div style={{ background: "rgba(148,163,184,0.1)", border: "1px solid rgba(148,163,184,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>Common Issues</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <details style={{ cursor: "pointer" }}>
+                <summary style={{ fontWeight: 500, padding: 4 }}>How do I reset my password?</summary>
+                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
+                  Contact support via WhatsApp with your username and email. We'll help you reset it.
+                </p>
+              </details>
+              <details style={{ cursor: "pointer" }}>
+                <summary style={{ fontWeight: 500, padding: 4 }}>App not installing on iPhone?</summary>
+                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
+                  Tap Share → Add to Home Screen. Make sure you're on Safari and HTTPS.
+                </p>
+              </details>
+              <details style={{ cursor: "pointer" }}>
+                <summary style={{ fontWeight: 500, padding: 4 }}>How to activate my account?</summary>
+                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
+                  Share your activation key (shown above) with your teacher. They'll activate you.
+                </p>
+              </details>
+              <details style={{ cursor: "pointer" }}>
+                <summary style={{ fontWeight: 500, padding: 4 }}>AI not working?</summary>
+                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
+                  Add your API key in the AI Assistant section above. We support OpenAI and Gemini.
+                </p>
+              </details>
+            </div>
+          </div>
+
+          <div style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: 10, padding: 16 }}>
+            <h4 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Feedback & Suggestions</h4>
+            <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+              We love hearing from you! Share your ideas for new features or report bugs.
+            </p>
+            <button
+              onClick={() => {
+                const message = encodeURIComponent("Hi Scholar's Circle team, I have a suggestion/feedback:");
+                window.open(`https://wa.link/yj2em4?text=${message}`, "_blank");
+              }}
+              style={{
+                background: "#34d399",
+                color: "white",
+                border: "none",
+                padding: "10px 16px",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontWeight: 600,
+                width: "100%"
+              }}
+            >
+              📝 Send Feedback
+            </button>
+          </div>
+
         </div>
 
       )}
