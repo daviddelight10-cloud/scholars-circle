@@ -2577,24 +2577,6 @@ function App() {
 
               </div>
 
-              <div style={{ marginTop: 16, padding: 12, background: "rgba(59,130,246,0.08)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.2)" }}>
-                <p style={{ margin: "0 0 8px 0", fontSize: 12, fontWeight: 600, color: "#60a5fa" }}>Try Demo Accounts</p>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() => { setAuth((a) => ({ ...a, username: "teacher", password: "teacher123" })); }}
-                    style={{ fontSize: 11, padding: "4px 10px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 4 }}
-                  >
-                    Teacher Demo
-                  </button>
-                  <button
-                    onClick={() => { setAuth((a) => ({ ...a, username: "student", password: "student123" })); }}
-                    style={{ fontSize: 11, padding: "4px 10px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 4 }}
-                  >
-                    Student Demo
-                  </button>
-                </div>
-              </div>
-
             </>
 
           )}
