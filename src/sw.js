@@ -3,8 +3,10 @@ import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute, setCatchHandler } from "workbox-routing";
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
+import { clientsClaim } from "workbox-core";
 
 self.skipWaiting();
+clientsClaim();
 cleanupOutdatedCaches();
 
 // Precache build assets injected by vite-plugin-pwa

@@ -9,7 +9,12 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.js",
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      injectRegister: "auto",
+      devOptions: {
+        enabled: true,
+        type: "module",
+      },
       includeAssets: ["icon-32.png", "icon-192.png", "icon-512.png", "icon-192-maskable.png", "icon-512-maskable.png", "icon-96.png", "privacy.html"],
       manifest: {
         id: "scholars-circle-pwa",

@@ -779,8 +779,8 @@ function App() {
   const [globalSearchFilter, setGlobalSearchFilter] = useState("all");
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   const [examQuestionCount, setExamQuestionCount] = useState("all");
 
@@ -1906,6 +1906,11 @@ function App() {
 
   // PWA Install Prompt
   useEffect(() => {
+    // Detect iOS
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    setIsIOS(isIOSDevice);
+    console.log('iOS device:', isIOSDevice);
+
     console.log('Setting up beforeinstallprompt listener');
     const handler = (e) => {
       console.log('beforeinstallprompt event fired!', e);
@@ -2748,7 +2753,7 @@ function App() {
 
           </button>
 
-          {deferredPrompt && (
+          {deferredPrompt && !isIOS && (
             <button
               onClick={handleInstallClick}
               style={{
@@ -2766,7 +2771,27 @@ function App() {
             </button>
           )}
 
-          {!deferredPrompt && (
+          {isIOS && (
+            <button
+              onClick={() => {
+                alert("To install on iOS:\n\n1. Tap the Share button (box with arrow) at the bottom\n2. Scroll down and tap 'Add to Home Screen'\n3. Tap 'Add' in the top right");
+              }}
+              style={{
+                background: "#818cf8",
+                color: "white",
+                border: "none",
+                padding: "6px 12px",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600
+              }}
+            >
+              📱 Install App
+            </button>
+          )}
+
+          {!deferredPrompt && !isIOS && (
             <button
               onClick={() => {
                 console.log("PWA not installable yet. Check console for details.");
