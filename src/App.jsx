@@ -3409,7 +3409,7 @@ function App() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 16 }}>🔒</span>
                 <span style={{ fontSize: 13 }}>Demo: Limited to 4 subjects. Upgrade for full access.</span>
-                <button style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+                <button onClick={() => setShowPaymentModal(true)} style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
                   Upgrade
                 </button>
               </div>
@@ -3474,7 +3474,7 @@ function App() {
                 <span style={{ fontSize: 20 }}>⭐</span>
                 <span style={{ fontSize: 13, flex: 1 }}>Mastery capped at {DEMO_LIMITS.masteryCap}% in demo. Upgrade to unlock full mastery tracking!</span>
                 <button
-                  onClick={() => setShowDemoSummary(true)}
+                  onClick={() => setShowPaymentModal(true)}
                   style={{ background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}
                 >
                   Upgrade
@@ -3636,7 +3636,7 @@ function App() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 16 }}>⚡</span>
                 <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.practiceQuestions - demoUsage.practiceQuestions} practice questions remaining today.</span>
-                <button style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+                <button onClick={() => setShowPaymentModal(true)} style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
                   Upgrade
                 </button>
               </div>
@@ -4116,7 +4116,7 @@ function App() {
                     transition: "width 0.3s"
                   }} />
                 </div>
-                <button style={{ marginTop: 12, width: "100%", background: "#3b82f6", color: "white", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
+                <button onClick={() => setShowPaymentModal(true)} style={{ marginTop: 12, width: "100%", background: "#3b82f6", color: "white", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
                   Upgrade to Full Version
                 </button>
               </div>
