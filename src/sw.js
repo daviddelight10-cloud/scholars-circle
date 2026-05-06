@@ -10,6 +10,13 @@ self.skipWaiting();
 clientsClaim();
 cleanupOutdatedCaches();
 
+// Listen for skip waiting message from the app (for controlled updates)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Precache build assets injected by vite-plugin-pwa
 precacheAndRoute(self.__WB_MANIFEST || []);
 

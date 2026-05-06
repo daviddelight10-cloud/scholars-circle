@@ -787,6 +787,8 @@ function App() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showUpdateToast, setShowUpdateToast] = useState(false);
+  const [updatePending, setUpdatePending] = useState(false);
 
   const [examQuestionCount, setExamQuestionCount] = useState("all");
 
@@ -1506,8 +1508,8 @@ function App() {
 
       setAuth((a) => ({ ...a, email: "", username: "", password: "", user: { username: hit.username, role: hit.role, isActivated: hit.isActivated }, error: "", info: "" }));
 
-      // Reset demo mode for demo users too
-      setDemoMode(false);
+      // Enable demo mode for demo users so their usage data persists
+      setDemoMode(true);
 
       setLoadingOverlay(false);
 
@@ -1960,6 +1962,75 @@ function App() {
     };
   }, []);
 
+  // Service Worker update detection
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    let updateCheckInterval;
+
+    // Detect when a new service worker takes control (app updated)
+    const handleControllerChange = () => {
+      console.log('New service worker activated');
+      setShowUpdateToast(true);
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+
+    // Check for updates periodically and on visibility change
+    navigator.serviceWorker.ready.then((registration) => {
+      // Check every 30 minutes for updates
+      updateCheckInterval = setInterval(() => {
+        registration.update().catch(() => {});
+      }, 30 * 60 * 1000);
+
+      // Also check when page becomes visible
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          registration.update().catch(() => {});
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      // Check for waiting worker and show prompt
+      const checkForWaiting = () => {
+        if (registration.waiting) {
+          setUpdatePending(true);
+          setShowUpdateToast(true);
+        }
+      };
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // New worker is waiting
+              setUpdatePending(true);
+              setShowUpdateToast(true);
+            }
+          });
+        }
+      });
+      checkForWaiting();
+    });
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      if (updateCheckInterval) clearInterval(updateCheckInterval);
+    };
+  }, []);
+
+  function applyUpdate() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then((registration) => {
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+    });
+    // Reload after a short delay to let the new SW take control
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  }
+
   async function handleInstallClick() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -2403,6 +2474,68 @@ function App() {
 
         )}
 
+        {/* PWA Update Toast */}
+        {showUpdateToast && (
+          <div style={{
+            position: "fixed",
+            bottom: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#1e293b",
+            color: "white",
+            padding: "12px 20px",
+            borderRadius: 12,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            fontSize: 14,
+            maxWidth: 400,
+            border: "1px solid rgba(59,130,246,0.3)"
+          }}>
+            <span>🔄</span>
+            <span style={{ flex: 1 }}>
+              {updatePending ? "A new version is available!" : "App updated. Refresh to see changes."}
+            </span>
+            <button
+              onClick={() => {
+                if (updatePending) {
+                  applyUpdate();
+                } else {
+                  window.location.reload();
+                }
+              }}
+              style={{
+                background: "#3b82f6",
+                color: "white",
+                border: "none",
+                padding: "6px 14px",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap"
+              }}
+            >
+              {updatePending ? "Update Now" : "Reload"}
+            </button>
+            <button
+              onClick={() => setShowUpdateToast(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+                fontSize: 18,
+                padding: 0
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
 
           <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -2657,6 +2790,67 @@ function App() {
   if (auth.user && !isActivated && !demoMode) {
     return (
       <main className={darkMode ? "app dark" : "app light"}>
+        {/* PWA Update Toast */}
+        {showUpdateToast && (
+          <div style={{
+            position: "fixed",
+            bottom: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#1e293b",
+            color: "white",
+            padding: "12px 20px",
+            borderRadius: 12,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            fontSize: 14,
+            maxWidth: 400,
+            border: "1px solid rgba(59,130,246,0.3)"
+          }}>
+            <span>🔄</span>
+            <span style={{ flex: 1 }}>
+              {updatePending ? "A new version is available!" : "App updated. Refresh to see changes."}
+            </span>
+            <button
+              onClick={() => {
+                if (updatePending) {
+                  applyUpdate();
+                } else {
+                  window.location.reload();
+                }
+              }}
+              style={{
+                background: "#3b82f6",
+                color: "white",
+                border: "none",
+                padding: "6px 14px",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap"
+              }}
+            >
+              {updatePending ? "Update Now" : "Reload"}
+            </button>
+            <button
+              onClick={() => setShowUpdateToast(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+                fontSize: 18,
+                padding: 0
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <LockedScreen
           activationKey={auth.user.activationKey}
           username={auth.user.username}
@@ -2683,6 +2877,68 @@ function App() {
 
           </div>
 
+        )}
+
+        {/* PWA Update Toast */}
+        {showUpdateToast && (
+          <div style={{
+            position: "fixed",
+            bottom: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#1e293b",
+            color: "white",
+            padding: "12px 20px",
+            borderRadius: 12,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            fontSize: 14,
+            maxWidth: 400,
+            border: "1px solid rgba(59,130,246,0.3)"
+          }}>
+            <span>🔄</span>
+            <span style={{ flex: 1 }}>
+              {updatePending ? "A new version is available!" : "App updated. Refresh to see changes."}
+            </span>
+            <button
+              onClick={() => {
+                if (updatePending) {
+                  applyUpdate();
+                } else {
+                  window.location.reload();
+                }
+              }}
+              style={{
+                background: "#3b82f6",
+                color: "white",
+                border: "none",
+                padding: "6px 14px",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap"
+              }}
+            >
+              {updatePending ? "Update Now" : "Reload"}
+            </button>
+            <button
+              onClick={() => setShowUpdateToast(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+                fontSize: 18,
+                padding: 0
+              }}
+            >
+              ✕
+            </button>
+          </div>
         )}
 
         <SessionPlayer
@@ -2753,6 +3009,68 @@ function App() {
 
         </div>
 
+      )}
+
+      {/* PWA Update Toast */}
+      {showUpdateToast && (
+        <div style={{
+          position: "fixed",
+          bottom: 20,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#1e293b",
+          color: "white",
+          padding: "12px 20px",
+          borderRadius: 12,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontSize: 14,
+          maxWidth: 400,
+          border: "1px solid rgba(59,130,246,0.3)"
+        }}>
+          <span>🔄</span>
+          <span style={{ flex: 1 }}>
+            {updatePending ? "A new version is available!" : "App updated. Refresh to see changes."}
+          </span>
+          <button
+            onClick={() => {
+              if (updatePending) {
+                applyUpdate();
+              } else {
+                window.location.reload();
+              }
+            }}
+            style={{
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              padding: "6px 14px",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: "nowrap"
+            }}
+          >
+            {updatePending ? "Update Now" : "Reload"}
+          </button>
+          <button
+            onClick={() => setShowUpdateToast(false)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#94a3b8",
+              cursor: "pointer",
+              fontSize: 18,
+              padding: 0
+            }}
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       {showTimeWarning && demoMode && (
