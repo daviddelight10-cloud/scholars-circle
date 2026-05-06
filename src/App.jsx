@@ -825,23 +825,59 @@ function App() {
 
   const [outlineProgress, setOutlineProgress] = useState({});
 
-  const [demoMode, setDemoMode] = useState(false);
+  const [demoMode, setDemoMode] = useState(() => {
+    try {
+      const authRaw = localStorage.getItem("scholars-circle-auth");
+      let uid = "guest";
+      if (authRaw) {
+        const authParsed = JSON.parse(authRaw);
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+      }
+      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
+      if (raw) return JSON.parse(raw).demoMode ?? false;
+    } catch { /* ignore */ }
+    return false;
+  });
 
-  const [demoUsage, setDemoUsage] = useState({
-    aiMessages: 0,
-    practiceQuestions: 0,
-    questionBankQuestions: 0,
-    flashcardReviews: 0,
-    timetableSlots: 0,
-    reminders: 0,
-    sessionTimeMinutes: 0,
-    totalSessionsUsed: 0,
-    trialStartDate: null,
-    demoProgress: {
-      tabsVisited: new Set(),
-      featuresTried: new Set(),
-      achievements: [],
-    },
+  const [demoUsage, setDemoUsage] = useState(() => {
+    try {
+      const authRaw = localStorage.getItem("scholars-circle-auth");
+      let uid = "guest";
+      if (authRaw) {
+        const authParsed = JSON.parse(authRaw);
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+      }
+      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.demoUsage) {
+          return {
+            ...parsed.demoUsage,
+            demoProgress: {
+              tabsVisited: new Set(parsed.demoUsage.demoProgress?.tabsVisited || []),
+              featuresTried: new Set(parsed.demoUsage.demoProgress?.featuresTried || []),
+              achievements: parsed.demoUsage.demoProgress?.achievements || [],
+            },
+          };
+        }
+      }
+    } catch { /* ignore */ }
+    return {
+      aiMessages: 0,
+      practiceQuestions: 0,
+      questionBankQuestions: 0,
+      flashcardReviews: 0,
+      timetableSlots: 0,
+      reminders: 0,
+      sessionTimeMinutes: 0,
+      totalSessionsUsed: 0,
+      trialStartDate: null,
+      demoProgress: {
+        tabsVisited: new Set(),
+        featuresTried: new Set(),
+        achievements: [],
+      },
+    };
   });
 
   const [showTimeWarning, setShowTimeWarning] = useState(false);
@@ -1977,10 +2013,10 @@ function App() {
 
     // Check for updates periodically and on visibility change
     navigator.serviceWorker.ready.then((registration) => {
-      // Check every 30 minutes for updates
+      // Check every 5 minutes for updates
       updateCheckInterval = setInterval(() => {
         registration.update().catch(() => {});
-      }, 30 * 60 * 1000);
+      }, 5 * 60 * 1000);
 
       // Also check when page becomes visible
       const handleVisibilityChange = () => {
