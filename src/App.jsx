@@ -753,8 +753,13 @@ function App() {
   const signupEmailRef = useRef("");
   const signupUsernameRef = useRef("");
   const signupPasswordRef = useRef("");
+  const signupConfirmPasswordRef = useRef("");
   const signupRoleRef = useRef("STUDENT");
   const signupInviteCodeRef = useRef("");
+
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
 
   const [token, setToken] = useState("");
 
@@ -1457,13 +1462,17 @@ function App() {
 
     setLoadingOverlay(true);
 
+    // Trim spaces from inputs
+    const trimmedUsername = (auth.username || "").trim();
+    const trimmedPassword = (auth.password || "").trim();
+
     try {
 
       const data = await api("/auth/login", {
 
         method: "POST",
 
-        body: { login: auth.username, password: auth.password },
+        body: { login: trimmedUsername, password: trimmedPassword },
 
       });
 
@@ -1483,7 +1492,7 @@ function App() {
 
     } catch {
 
-      const hit = DEMO_USERS.find((u) => u.username === auth.username && u.password === auth.password);
+      const hit = DEMO_USERS.find((u) => u.username === trimmedUsername && u.password === trimmedPassword);
 
       if (!hit) {
 
@@ -1518,10 +1527,17 @@ function App() {
 
       const email = (signupEmailRef.current || "").trim();
       const username = (signupUsernameRef.current || "").trim();
-      const password = signupPasswordRef.current;
+      const password = (signupPasswordRef.current || "").trim();
+      const confirmPassword = (signupConfirmPasswordRef.current || "").trim();
       // Get role from auth state (updated by onChange)
       const role = auth.signupRole || "STUDENT";
-      const inviteCode = signupInviteCodeRef.current;
+      const inviteCode = (signupInviteCodeRef.current || "").trim();
+      
+      if (password !== confirmPassword) {
+        setAuth((a) => ({ ...a, error: "Passwords do not match. Please re-enter your password.", info: "" }));
+        setLoadingOverlay(false);
+        return;
+      }
       
       console.log("Registering with:", { email, username, role });
 
@@ -2387,45 +2403,111 @@ function App() {
 
         )}
 
-        <div className="card">
+        <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
 
-          <div className="row">
-
-            <h2 style={{ margin: 0 }}>{auth.mode === "signup" ? "Sign Up" : "Login"}</h2>
-
-            <div style={{ display: "flex", gap: 8 }}>
-
-              <button onClick={() => setAuth((a) => ({ ...a, mode: "login", error: "", info: "" }))} disabled={auth.mode === "login"}>
-
-                Login
-
-              </button>
-
-              <button onClick={() => setAuth((a) => ({ ...a, mode: "signup", error: "", info: "" }))} disabled={auth.mode === "signup"}>
-
-                Sign Up
-
-              </button>
-
-            </div>
-
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>🎓</div>
+            <h2 style={{ margin: 0, fontSize: 24 }}>Scholar's Circle</h2>
+            <p className="muted" style={{ margin: "4px 0 0 0", fontSize: 13 }}>Your personal learning companion</p>
           </div>
 
-
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <button
+              onClick={() => setAuth((a) => ({ ...a, mode: "login", error: "", info: "" }))}
+              disabled={auth.mode === "login"}
+              style={{ flex: 1 }}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => setAuth((a) => ({ ...a, mode: "signup", error: "", info: "" }))}
+              disabled={auth.mode === "signup"}
+              style={{ flex: 1 }}
+            >
+              Sign Up
+            </button>
+          </div>
 
           {auth.mode === "signup" ? (
 
             <>
 
-              <p className="muted">Create a student account, or teacher account with invite code.</p>
+              <p className="muted">Create your account to start learning.</p>
 
-              <div className="row" style={{ flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-                <input ref={signupEmailRef} onChange={(e) => { signupEmailRef.current = e.target.value; }} placeholder="email" />
+                <input
+                  ref={signupEmailRef}
+                  onChange={(e) => { signupEmailRef.current = e.target.value.replace(/\s/g, ""); }}
+                  placeholder="Email"
+                  type="email"
+                  autoComplete="email"
+                />
 
-                <input ref={signupUsernameRef} onChange={(e) => { signupUsernameRef.current = e.target.value; }} placeholder="username" />
+                <input
+                  ref={signupUsernameRef}
+                  onChange={(e) => { signupUsernameRef.current = e.target.value.replace(/\s/g, ""); }}
+                  placeholder="Username"
+                  autoComplete="username"
+                />
 
-                <input ref={signupPasswordRef} type="password" onChange={(e) => { signupPasswordRef.current = e.target.value; }} placeholder="password" />
+                <div style={{ position: "relative" }}>
+                  <input
+                    ref={signupPasswordRef}
+                    type={showSignupPassword ? "text" : "password"}
+                    onChange={(e) => { signupPasswordRef.current = e.target.value; }}
+                    placeholder="Password (min 6 characters)"
+                    autoComplete="new-password"
+                    style={{ width: "100%", paddingRight: 40 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignupPassword((v) => !v)}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 18,
+                      padding: 4
+                    }}
+                    tabIndex={-1}
+                  >
+                    {showSignupPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
+
+                <div style={{ position: "relative" }}>
+                  <input
+                    ref={signupConfirmPasswordRef}
+                    type={showSignupConfirmPassword ? "text" : "password"}
+                    onChange={(e) => { signupConfirmPasswordRef.current = e.target.value; }}
+                    placeholder="Confirm password"
+                    autoComplete="new-password"
+                    style={{ width: "100%", paddingRight: 40 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignupConfirmPassword((v) => !v)}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 18,
+                      padding: 4
+                    }}
+                    tabIndex={-1}
+                  >
+                    {showSignupConfirmPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
 
                 <select ref={signupRoleRef} onChange={(e) => { setAuth((a) => ({ ...a, signupRole: e.target.value })); }} defaultValue="STUDENT">
                   <option value="STUDENT">Student</option>
@@ -2435,12 +2517,12 @@ function App() {
                 {auth.signupRole === "TEACHER" && (
                   <input
                     ref={signupInviteCodeRef}
-                    onChange={(e) => { signupInviteCodeRef.current = e.target.value; }}
-                    placeholder="teacher invite code"
+                    onChange={(e) => { signupInviteCodeRef.current = e.target.value.replace(/\s/g, ""); }}
+                    placeholder="Teacher invite code"
                   />
                 )}
 
-                <button onClick={signup}>Create Account</button>
+                <button onClick={signup} style={{ marginTop: 4 }}>Create Account</button>
 
               </div>
 
@@ -2450,31 +2532,134 @@ function App() {
 
             <>
 
-              <p className="muted">Log in with email or username.</p>
+              <p className="muted">Welcome back! Log in to continue your learning journey.</p>
 
-              <div className="row" style={{ flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-                <input value={auth.username} onChange={(e) => setAuth((a) => ({ ...a, username: e.target.value }))} placeholder="email or username" />
+                <input
+                  value={auth.username}
+                  onChange={(e) => setAuth((a) => ({ ...a, username: e.target.value.replace(/\s/g, "") }))}
+                  placeholder="Email or username"
+                  autoComplete="username"
+                />
 
-                <input type="password" value={auth.password} onChange={(e) => setAuth((a) => ({ ...a, password: e.target.value }))} placeholder="password" />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showLoginPassword ? "text" : "password"}
+                    value={auth.password}
+                    onChange={(e) => setAuth((a) => ({ ...a, password: e.target.value }))}
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    style={{ width: "100%", paddingRight: 40 }}
+                    onKeyDown={(e) => { if (e.key === "Enter") login(); }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword((v) => !v)}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 18,
+                      padding: 4
+                    }}
+                    tabIndex={-1}
+                  >
+                    {showLoginPassword ? "🙈" : "👁️"}
+                  </button>
+                </div>
 
-                <button onClick={login}>Login</button>
+                <button onClick={login} style={{ marginTop: 4 }}>Login</button>
 
               </div>
 
-              <p className="muted">Demo fallback: teacher/teacher123 or student/student123 (if backend login fails).</p>
+              <div style={{ marginTop: 16, padding: 12, background: "rgba(59,130,246,0.08)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.2)" }}>
+                <p style={{ margin: "0 0 8px 0", fontSize: 12, fontWeight: 600, color: "#60a5fa" }}>Try Demo Accounts</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => { setAuth((a) => ({ ...a, username: "teacher", password: "teacher123" })); }}
+                    style={{ fontSize: 11, padding: "4px 10px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 4 }}
+                  >
+                    Teacher Demo
+                  </button>
+                  <button
+                    onClick={() => { setAuth((a) => ({ ...a, username: "student", password: "student123" })); }}
+                    style={{ fontSize: 11, padding: "4px 10px", background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa", borderRadius: 4 }}
+                  >
+                    Student Demo
+                  </button>
+                </div>
+              </div>
 
             </>
 
           )}
 
+          {auth.info && (
+            <div style={{ marginTop: 16, padding: 12, background: "rgba(52,211,153,0.1)", borderRadius: 8, border: "1px solid rgba(52,211,153,0.3)" }}>
+              <p style={{ margin: 0, color: "#34d399", fontSize: 13 }}>{auth.info}</p>
+            </div>
+          )}
 
+          {auth.error && (
+            <div style={{ marginTop: 16, padding: 12, background: "rgba(248,113,113,0.1)", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)" }}>
+              <p style={{ margin: 0, color: "#f87171", fontSize: 13 }}>{auth.error}</p>
+            </div>
+          )}
 
-          {auth.info && <p className="muted">{auth.info}</p>}
+          {/* Customer Support Section */}
+          <div style={{ marginTop: 24, padding: 16, background: "rgba(148,163,184,0.08)", borderRadius: 12, border: "1px solid rgba(148,163,184,0.2)" }}>
+            <p style={{ margin: "0 0 12px 0", fontSize: 13, fontWeight: 600 }}>Need Help?</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <a
+                href="https://wa.link/yj2em4?text=Hi%20Scholar's%20Circle%20team,%20I%20need%20help%20with%20my%20account."
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#25D366",
+                  color: "white",
+                  textDecoration: "none",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  justifyContent: "center"
+                }}
+              >
+                💬 Chat on WhatsApp
+              </a>
+              <a
+                href="tel:09028617178"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "#3b82f6",
+                  color: "white",
+                  textDecoration: "none",
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  justifyContent: "center"
+                }}
+              >
+                📞 Call: 09028617178
+              </a>
+            </div>
+            <p className="muted" style={{ marginTop: 8, fontSize: 11, textAlign: "center" }}>
+              Having trouble logging in or signing up? Reach out and we'll help you right away.
+            </p>
+          </div>
 
-          {auth.error && <p className="muted" style={{ color: "#ff6b6b" }}>{auth.error}</p>}
-
-          <p className="muted" style={{ marginTop: "20px", fontSize: "12px" }}>
+          <p className="muted" style={{ marginTop: "20px", fontSize: "12px", textAlign: "center" }}>
             By using this app, you agree to our <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
           </p>
 
