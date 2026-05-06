@@ -809,6 +809,9 @@ function App() {
 
   const [notificationPermission, setNotificationPermission] = useState("default");
 
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
   const [loadingOverlay, setLoadingOverlay] = useState(true);
 
   const [outlineSubjectId, setOutlineSubjectId] = useState(SUBJECTS[0]?.id || "");
@@ -2610,7 +2613,7 @@ function App() {
               Dismiss
             </button>
             <button
-              onClick={() => { setShowTimeWarning(false); setShowDemoSummary(true); }}
+              onClick={() => { setShowTimeWarning(false); setShowPaymentModal(true); }}
               style={{ flex: 1, background: "white", color: "#ef4444", border: "none", padding: "8px", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}
             >
               Upgrade
@@ -2662,7 +2665,203 @@ function App() {
                 Continue Demo
               </button>
               <button
+                onClick={() => { setShowDemoSummary(false); setShowPaymentModal(true); }}
+                style={{ background: "#3b82f6", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+              >
+                Upgrade Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentModal && (
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <h3 style={{ margin: "0 0 16px 0" }}>💳 Upgrade Your Account</h3>
+            
+            <div style={{ marginBottom: 20 }}>
+              <p className="muted" style={{ marginBottom: 16 }}>Choose a plan that works for you:</p>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div
+                  onClick={() => setSelectedPlan("week1")}
+                  style={{
+                    border: selectedPlan === "week1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: 12,
+                    padding: 16,
+                    cursor: "pointer",
+                    background: selectedPlan === "week1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 16 }}>1 Week Plan</div>
+                      <div className="muted" style={{ fontSize: 12 }}>Perfect for trying out</div>
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>₦700</div>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setSelectedPlan("week2")}
+                  style={{
+                    border: selectedPlan === "week2" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: 12,
+                    padding: 16,
+                    cursor: "pointer",
+                    background: selectedPlan === "week2" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 16 }}>2 Weeks Plan</div>
+                      <div className="muted" style={{ fontSize: 12 }}>Save ₦100</div>
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>₦1,300</div>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setSelectedPlan("month1")}
+                  style={{
+                    border: selectedPlan === "month1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: 12,
+                    padding: 16,
+                    cursor: "pointer",
+                    background: selectedPlan === "month1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                    transition: "all 0.2s",
+                    position: "relative"
+                  }}
+                >
+                  <div style={{ position: "absolute", top: -10, right: 10, background: "#10b981", color: "white", fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>BEST VALUE</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 16 }}>1 Month Plan</div>
+                      <div className="muted" style={{ fontSize: 12 }}>Save ₦400</div>
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>₦2,400</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {selectedPlan && (
+              <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>🏦 Payment Details</h4>
+                <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+                  <div><strong>Bank:</strong> Opay</div>
+                  <div><strong>Account Number:</strong> 9069372522</div>
+                  <div><strong>Account Name:</strong> Zibiri-David Delight Aluaye</div>
+                  <div><strong>Amount:</strong> {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"}</div>
+                </div>
+              </div>
+            )}
+
+            {selectedPlan && (
+              <div style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>📱 After Payment</h4>
+                <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+                  Send a screenshot of your payment receipt along with your activation key to our WhatsApp:
+                </p>
+                <div style={{ fontSize: 13, marginBottom: 8 }}>
+                  <strong>Your Activation Key:</strong>
+                </div>
+                <div style={{
+                  fontFamily: "monospace",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#fbbf24",
+                  letterSpacing: 2,
+                  background: "rgba(0,0,0,0.3)",
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  textAlign: "center",
+                  marginBottom: 12
+                }}>
+                  {auth.user?.activationKey || "Log in to see your key"}
+                </div>
+                <a
+                  href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've made a payment for ${selectedPlan === "week1" ? "1 week" : selectedPlan === "week2" ? "2 weeks" : "1 month"} plan. My activation key is: ${auth.user?.activationKey || "N/A"}. Here's my payment proof:`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "block",
+                    textAlign: "center",
+                    background: "#25D366",
+                    color: "white",
+                    textDecoration: "none",
+                    padding: "12px",
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    transition: "transform 0.2s"
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                  onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+                >
+                  💬 Send Payment Proof on WhatsApp
+                </a>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDemoSummary && demoMode && (
+        <div className="modal-overlay" onClick={() => setShowDemoSummary(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <h3 style={{ margin: "0 0 16px 0" }}>📊 Demo Summary</h3>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div style={{ background: "rgba(59,130,246,0.1)", padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>{demoUsage.demoProgress.achievements.length}/{DEMO_ACHIEVEMENTS.length}</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Achievements</div>
+                </div>
+                <div style={{ background: "rgba(52,211,153,0.1)", padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#34d399" }}>{demoUsage.demoProgress.tabsVisited.size}</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Tabs Visited</div>
+                </div>
+                <div style={{ background: "rgba(250,204,21,0.1)", padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#facc15" }}>{demoUsage.practiceQuestions}</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Questions</div>
+                </div>
+                <div style={{ background: "rgba(168,85,247,0.1)", padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#a855f7" }}>{demoUsage.sessionTimeMinutes}m</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Study Time</div>
+                </div>
+              </div>
+              <div style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>🎁 What You'll Get with Full Version:</div>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
+                  <li>Unlimited practice questions & AI messages</li>
+                  <li>Advanced analytics & confidence heatmap</li>
+                  <li>Full subject library (all courses)</li>
+                  <li>No time limits - study as much as you want</li>
+                  <li>Export your data & progress</li>
+                  <li>Priority support & new features</li>
+                </ul>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
                 onClick={() => setShowDemoSummary(false)}
+                style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
+              >
+                Continue Demo
+              </button>
+              <button
+                onClick={() => { setShowDemoSummary(false); setShowPaymentModal(true); }}
                 style={{ background: "#3b82f6", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
               >
                 Upgrade Now
@@ -7605,6 +7804,9 @@ function KeyManagement({ token }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // all, pending, activated
   const [search, setSearch] = useState("");
+  const [showActivateModal, setShowActivateModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedDuration, setSelectedDuration] = useState("month1");
 
   async function loadStudents() {
     setLoading(true);
@@ -7619,10 +7821,13 @@ function KeyManagement({ token }) {
 
   useEffect(() => { loadStudents(); }, []);
 
-  async function activate(userId) {
+  async function activate(userId, duration = "month1") {
     try {
-      await api(`/keys/activate/${userId}`, { token, method: "POST" });
+      await api(`/keys/activate/${userId}`, { token, method: "POST", body: { duration } });
       loadStudents();
+      setShowActivateModal(false);
+      setSelectedStudent(null);
+      setSelectedDuration("month1");
     } catch (e) {
       alert(e.message);
     }
@@ -7701,7 +7906,9 @@ function KeyManagement({ token }) {
                     {s.activationKey || "—"}
                   </td>
                   <td style={{ padding: "8px 6px" }}>
-                    {s.isActivated ? (
+                    {s.isExpired ? (
+                      <span style={{ color: "#f87171", fontWeight: 600 }}>● Expired</span>
+                    ) : s.isActivated ? (
                       <span style={{ color: "#34d399", fontWeight: 600 }}>● Active</span>
                     ) : (
                       <span style={{ color: "#f87171", fontWeight: 600 }}>○ Pending</span>
@@ -7713,6 +7920,22 @@ function KeyManagement({ token }) {
                         {new Date(s.activatedAt).toLocaleDateString()} {new Date(s.activatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         <br />
                         <span className="muted">by {s.activatedByUsername}</span>
+                        {s.planType && (
+                          <>
+                            <br />
+                            <span style={{ color: "#facc15" }}>
+                              {s.planType === "week1" ? "1 Week" : s.planType === "week2" ? "2 Weeks" : "1 Month"}
+                            </span>
+                          </>
+                        )}
+                        {s.activationExpiry && (
+                          <>
+                            <br />
+                            <span className="muted">
+                              Expires: {new Date(s.activationExpiry).toLocaleDateString()}
+                            </span>
+                          </>
+                        )}
                       </>
                     ) : "—"}
                   </td>
@@ -7729,7 +7952,7 @@ function KeyManagement({ token }) {
                       </button>
                     ) : (
                       <button
-                        onClick={() => activate(s.id)}
+                        onClick={() => { setSelectedStudent(s); setShowActivateModal(true); }}
                         style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
                       >
                         Activate
@@ -7740,6 +7963,95 @@ function KeyManagement({ token }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showActivateModal && selectedStudent && (
+        <div className="modal-overlay" onClick={() => setShowActivateModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <h3 style={{ margin: "0 0 16px 0" }}>Activate {selectedStudent.username}</h3>
+            
+            <p className="muted" style={{ marginBottom: 16 }}>Select activation duration:</p>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+              <div
+                onClick={() => setSelectedDuration("week1")}
+                style={{
+                  border: selectedDuration === "week1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 12,
+                  padding: 16,
+                  cursor: "pointer",
+                  background: selectedDuration === "week1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  transition: "all 0.2s"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 16 }}>1 Week</div>
+                    <div className="muted" style={{ fontSize: 12 }}>₦700</div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>7 days</div>
+                </div>
+              </div>
+
+              <div
+                onClick={() => setSelectedDuration("week2")}
+                style={{
+                  border: selectedDuration === "week2" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 12,
+                  padding: 16,
+                  cursor: "pointer",
+                  background: selectedDuration === "week2" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  transition: "all 0.2s"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 16 }}>2 Weeks</div>
+                    <div className="muted" style={{ fontSize: 12 }}>₦1,300</div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>14 days</div>
+                </div>
+              </div>
+
+              <div
+                onClick={() => setSelectedDuration("month1")}
+                style={{
+                  border: selectedDuration === "month1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 12,
+                  padding: 16,
+                  cursor: "pointer",
+                  background: selectedDuration === "month1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  transition: "all 0.2s",
+                  position: "relative"
+                }}
+              >
+                <div style={{ position: "absolute", top: -10, right: 10, background: "#10b981", color: "white", fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>POPULAR</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 16 }}>1 Month</div>
+                    <div className="muted" style={{ fontSize: 12 }}>₦2,400</div>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>30 days</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => { setShowActivateModal(false); setSelectedStudent(null); setSelectedDuration("month1"); }}
+                style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => activate(selectedStudent.id, selectedDuration)}
+                style={{ background: "#16a34a", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+              >
+                Activate
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

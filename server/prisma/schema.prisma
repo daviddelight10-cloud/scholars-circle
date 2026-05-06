@@ -21,6 +21,26 @@ enum Role {
 
 }
 
+enum PlanType {
+
+  week1
+
+  week2
+
+  month1
+
+}
+
+enum PaymentStatus {
+
+  pending
+
+  verified
+
+  rejected
+
+}
+
 
 
 model User {
@@ -42,6 +62,14 @@ model User {
   activatedAt    DateTime?
 
   activatedBy    String?
+
+  activationExpiry DateTime?
+
+  planType       PlanType?
+
+  paymentStatus  PaymentStatus     @default(pending)
+
+  transactionId  String?
 
   createdAt      DateTime          @default(now())
 

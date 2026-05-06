@@ -24,6 +24,9 @@ router.get("/students", requireAuth, requireRole("TEACHER"), async (req, res) =>
         isActivated: true,
         activatedAt: true,
         activatedBy: true,
+        activationExpiry: true,
+        planType: true,
+        paymentStatus: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },
@@ -39,6 +42,7 @@ router.get("/students", requireAuth, requireRole("TEACHER"), async (req, res) =>
     const result = students.map(s => ({
       ...s,
       activatedByUsername: s.activatedBy ? teacherMap[s.activatedBy] || "Unknown" : null,
+      isExpired: s.activationExpiry ? new Date(s.activationExpiry) < new Date() : false,
     }));
 
     res.json(result);
@@ -52,6 +56,7 @@ router.get("/students", requireAuth, requireRole("TEACHER"), async (req, res) =>
 router.post("/activate/:userId", requireAuth, requireRole("TEACHER"), async (req, res) => {
   try {
     const { userId } = req.params;
+    const { duration = "month1" } = req.body; // week1, week2, month1
     const teacherId = req.user.sub;
 
     const student = await prisma.user.findUnique({ where: { id: userId } });
@@ -59,12 +64,32 @@ router.post("/activate/:userId", requireAuth, requireRole("TEACHER"), async (req
     if (student.role !== "STUDENT") return res.status(400).json({ error: "User is not a student" });
     if (student.isActivated) return res.status(400).json({ error: "Student is already activated" });
 
+    // Calculate expiry date based on duration
+    const now = new Date();
+    let activationExpiry;
+    switch (duration) {
+      case "week1":
+        activationExpiry = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "week2":
+        activationExpiry = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+        break;
+      case "month1":
+        activationExpiry = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        activationExpiry = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
         isActivated: true,
         activatedAt: new Date(),
         activatedBy: teacherId,
+        activationExpiry,
+        planType: duration,
+        paymentStatus: "verified",
       },
       select: {
         id: true,
@@ -73,6 +98,9 @@ router.post("/activate/:userId", requireAuth, requireRole("TEACHER"), async (req
         isActivated: true,
         activatedAt: true,
         activatedBy: true,
+        activationExpiry: true,
+        planType: true,
+        paymentStatus: true,
       },
     });
 
