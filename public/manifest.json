@@ -53,6 +53,27 @@
       "description": "Check your ranking",
       "url": "/?tab=leaderboard",
       "icons": [{"src": "/icon-96.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "Quick Quiz",
+      "short_name": "Quiz",
+      "description": "Jump into a quick quiz",
+      "url": "/?tab=quiz&quick=true",
+      "icons": [{"src": "/icon-96.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "My Notes",
+      "short_name": "Notes",
+      "description": "View your study notes",
+      "url": "/?tab=notes",
+      "icons": [{"src": "/icon-96.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "Flashcards",
+      "short_name": "Cards",
+      "description": "Review flashcards",
+      "url": "/?tab=flashcards",
+      "icons": [{"src": "/icon-96.png", "sizes": "96x96"}]
     }
   ]
 }

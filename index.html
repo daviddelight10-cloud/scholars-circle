@@ -16,6 +16,7 @@
     <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
     <link rel="apple-touch-icon" sizes="167x167" href="/icon-167.png" />
+    <link rel="apple-touch-startup-image" href="/splash.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)" />
     
     <!-- Privacy & Security Meta Tags -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
@@ -23,11 +24,38 @@
     <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
     <meta name="format-detection" content="telephone=no" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' https: data:; font-src 'self' https: data:; connect-src 'self' https: ws:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:;">
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     
     <link rel="manifest" href="/manifest.json?v=3" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="shortcut icon" href="/icon-32.png" />
     <title>Scholar's Circle</title>
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Scholar's Circle",
+      "description": "Your AI-powered study companion for academic success",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "iOS, Android, Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1000"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

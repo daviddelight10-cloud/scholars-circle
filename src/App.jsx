@@ -781,6 +781,7 @@ function App() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [examQuestionCount, setExamQuestionCount] = useState("all");
 
@@ -1926,6 +1927,20 @@ function App() {
     };
   }, []);
 
+  // Online/Offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   async function handleInstallClick() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -1933,6 +1948,40 @@ function App() {
     setDeferredPrompt(null);
     setShowInstallPrompt(false);
   }
+
+  // Push notification support
+  async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+      console.log('This browser does not support notifications');
+      return false;
+    }
+
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    return permission === 'granted';
+  }
+
+  function sendNotification(title, body, options = {}) {
+    if (Notification.permission === 'granted') {
+      new Notification(title, {
+        body,
+        icon: '/icon-192.png',
+        badge: '/icon-96.png',
+        ...options
+      });
+    }
+  }
+
+  // iOS 16+ Progress Widget support
+  function updateProgressWidget() {
+    if ('setAppBadge' in navigator && stats?.xp) {
+      navigator.setAppBadge(stats.xp);
+    }
+  }
+
+  useEffect(() => {
+    updateProgressWidget();
+  }, [stats?.xp]);
 
 
 

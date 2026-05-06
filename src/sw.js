@@ -4,6 +4,7 @@ import { registerRoute, setCatchHandler } from "workbox-routing";
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { clientsClaim } from "workbox-core";
+import { BackgroundSyncPlugin } from "workbox-background-sync";
 
 self.skipWaiting();
 clientsClaim();
@@ -11,6 +12,15 @@ cleanupOutdatedCaches();
 
 // Precache build assets injected by vite-plugin-pwa
 precacheAndRoute(self.__WB_MANIFEST || []);
+
+// App shell caching - cache core UI files
+registerRoute(
+  ({ request }) => request.destination === "script" || request.destination === "style",
+  new StaleWhileRevalidate({
+    cacheName: "app-shell",
+    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 })],
+  })
+);
 
 // Cache Google Fonts with stale-while-revalidate
 registerRoute(
@@ -30,13 +40,20 @@ registerRoute(
   })
 );
 
-// Network-first for API calls
+// Network-first for API calls with background sync
+const bgSyncPlugin = new BackgroundSyncPlugin("api-queue", {
+  maxRetentionTime: 24 * 60, // Retry for up to 24 hours
+});
+
 registerRoute(
   ({ url }) => url.pathname.startsWith("/api/") || url.href.includes("railway.app"),
   new NetworkFirst({
     cacheName: "api-cache",
     networkTimeoutSeconds: 4,
-    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 86400 })],
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 86400 }),
+      bgSyncPlugin,
+    ],
   })
 );
 

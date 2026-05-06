@@ -28,6 +28,13 @@ export default defineConfig({
         scope: "/",
         lang: "en",
         dir: "ltr",
+        shortcuts: [
+          { name: "Start Practice", short_name: "Practice", description: "Start a practice session", url: "/?tab=quiz", icons: [{src: "/icon-96.png", sizes: "96x96"}] },
+          { name: "View Leaderboard", short_name: "Leaderboard", description: "Check your ranking", url: "/?tab=leaderboard", icons: [{src: "/icon-96.png", sizes: "96x96"}] },
+          { name: "Quick Quiz", short_name: "Quiz", description: "Jump into a quick quiz", url: "/?tab=quiz&quick=true", icons: [{src: "/icon-96.png", sizes: "96x96"}] },
+          { name: "My Notes", short_name: "Notes", description: "View your study notes", url: "/?tab=notes", icons: [{src: "/icon-96.png", sizes: "96x96"}] },
+          { name: "Flashcards", short_name: "Cards", description: "Review flashcards", url: "/?tab=flashcards", icons: [{src: "/icon-96.png", sizes: "96x96"}] },
+        ],
         icons: [
           { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
           { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
