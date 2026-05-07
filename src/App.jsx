@@ -4518,23 +4518,7 @@ function App() {
 
 
       {tab === "studygroups" && (
-        demoMode ? (
-          <DemoLockedOverlay
-            title="👥 Study Groups"
-            description="Join thousands of students studying together! Form study groups, share notes, quiz each other, and stay motivated with peer accountability."
-            icon="👥"
-            features={[
-              "Create or join unlimited study groups",
-              "Real-time group chat & discussions",
-              "Share flashcards and notes with group",
-              "Group challenges & competitions",
-              "Peer-to-peer tutoring sessions",
-              "Study session scheduling"
-            ]}
-          />
-        ) : (
-          <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
-        )
+        <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
       )}
 
 
@@ -5573,23 +5557,7 @@ function App() {
       )}
 
       {tab === "leaderboard" && (
-        demoMode ? (
-          <DemoLockedOverlay
-            title="🏆 Global Leaderboard"
-            description="Compete with students worldwide! See your ranking, earn badges, and climb the leagues. Top performers win monthly prizes!"
-            icon="🏆"
-            features={[
-              "Global & subject-specific rankings",
-              "Weekly MVP recognition",
-              "Special badges & achievements",
-              "League promotions (Bronze → Champion)",
-              "Monthly prizes for top students",
-              "Friend challenges & duels"
-            ]}
-          />
-        ) : (
-          <Leaderboard username={auth.user.username} xp={stats.xp} sessions={stats.sessions} streak={stats.streak} mastery={mastery} subjects={subjects} token={token} />
-        )
+        <Leaderboard username={auth.user.username} xp={stats.xp} sessions={stats.sessions} streak={stats.streak} mastery={mastery} subjects={subjects} token={token} />
       )}
 
       {tab === "pomodoro" && (
