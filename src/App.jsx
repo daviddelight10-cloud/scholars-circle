@@ -711,7 +711,19 @@ function App() {
 
   const [darkMode, setDarkMode] = useState(true);
 
-  const [lastStudied, setLastStudied] = useState(null);
+  const [lastStudied, setLastStudied] = useState(() => {
+    try {
+      const authRaw = localStorage.getItem("scholars-circle-auth");
+      let uid = "guest";
+      if (authRaw) {
+        const authParsed = JSON.parse(authRaw);
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+      }
+      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
+      if (raw) return JSON.parse(raw).lastStudied ?? null;
+    } catch { /* ignore */ }
+    return null;
+  });
 
   const [syncConfig, setSyncConfig] = useState({ url: "", key: "", userId: "local-user" });
 
@@ -785,6 +797,7 @@ function App() {
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
@@ -2013,10 +2026,10 @@ function App() {
 
     // Check for updates periodically and on visibility change
     navigator.serviceWorker.ready.then((registration) => {
-      // Check every 5 minutes for updates
+      // Check every 30 seconds for updates
       updateCheckInterval = setInterval(() => {
         registration.update().catch(() => {});
-      }, 5 * 60 * 1000);
+      }, 30 * 1000);
 
       // Also check when page becomes visible
       const handleVisibilityChange = () => {
@@ -3703,7 +3716,138 @@ function App() {
         </div>
       )}
 
-      <nav className="tabs">
+      {/* Mobile Bottom Navigation */}
+      <nav className="mobile-nav">
+        <button
+          className={tab === "dashboard" ? "active" : ""}
+          onClick={() => setTab("dashboard")}
+          title="Home"
+        >
+          <span className="nav-icon">🏠</span>
+          <span className="nav-label">Home</span>
+        </button>
+        <button
+          className={tab === "practice" ? "active" : ""}
+          onClick={() => setTab("practice")}
+          title="Practice"
+        >
+          <span className="nav-icon">📝</span>
+          <span className="nav-label">Practice</span>
+        </button>
+        <button
+          className={tab === "aiassistant" ? "active" : ""}
+          onClick={() => setTab("aiassistant")}
+          title="AI Assistant"
+        >
+          <span className="nav-icon">🤖</span>
+          <span className="nav-label">AI</span>
+        </button>
+        <button
+          className={tab === "planner" ? "active" : ""}
+          onClick={() => setTab("planner")}
+          title="Planner"
+        >
+          <span className="nav-icon">📅</span>
+          <span className="nav-label">Plan</span>
+        </button>
+        <button
+          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "today", "aitutor", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          title="More"
+        >
+          <span className="nav-icon">{showMobileMenu ? "✕" : "☰"}</span>
+          <span className="nav-label">More</span>
+        </button>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
+      {showMobileMenu && (
+        <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
+          <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-menu-grid">
+              <button className={tab === "today" ? "active" : ""} onClick={() => { setTab("today"); setShowMobileMenu(false); }}>
+                <span>📆</span> Today
+              </button>
+              <button className={tab === "studypaths" ? "active" : ""} onClick={() => { setTab("studypaths"); setShowMobileMenu(false); }}>
+                <span>🛤️</span> Study Paths
+              </button>
+              <button className={tab === "learn" ? "active" : ""} onClick={() => { setTab("learn"); setShowMobileMenu(false); }}>
+                <span>📚</span> Learn
+              </button>
+              <button className={tab === "practicehints" ? "active" : ""} onClick={() => { setTab("practicehints"); setShowMobileMenu(false); }}>
+                <span>💡</span> Hints
+              </button>
+              <button className={tab === "lectures" ? "active" : ""} onClick={() => { setTab("lectures"); setShowMobileMenu(false); }}>
+                <span>🎓</span> Lectures
+              </button>
+              <button className={tab === "pastpapers" ? "active" : ""} onClick={() => { setTab("pastpapers"); setShowMobileMenu(false); }}>
+                <span>📄</span> Past Papers
+              </button>
+              <button className={tab === "classroom" ? "active" : ""} onClick={() => { setTab("classroom"); setShowMobileMenu(false); }}>
+                <span>🏫</span> Classroom
+              </button>
+              <button className={tab === "bank" ? "active" : ""} onClick={() => { setTab("bank"); setShowMobileMenu(false); }}>
+                <span>🏦</span> Question Bank
+              </button>
+              <button className={tab === "analytics" ? "active" : ""} onClick={() => { setTab("analytics"); setShowMobileMenu(false); }}>
+                <span>📊</span> Stats
+              </button>
+              <button className={tab === "outline" ? "active" : ""} onClick={() => { setTab("outline"); setShowMobileMenu(false); }}>
+                <span>📋</span> Outline
+              </button>
+              {isTeacher && (
+                <>
+                  <button className={tab === "keys" ? "active" : ""} onClick={() => { setTab("keys"); setShowMobileMenu(false); }}>
+                    <span>🔑</span> Keys
+                  </button>
+                  <button className={tab === "admin" ? "active" : ""} onClick={() => { setTab("admin"); setShowMobileMenu(false); }}>
+                    <span>⚙️</span> Admin
+                  </button>
+                </>
+              )}
+              <button className={tab === "flashcards" ? "active" : ""} onClick={() => { setTab("flashcards"); setShowMobileMenu(false); }}>
+                <span>🃏</span> Flashcards
+              </button>
+              <button className={tab === "aitutor" ? "active" : ""} onClick={() => { setTab("aitutor"); setShowMobileMenu(false); }}>
+                <span>👨‍🏫</span> AI Tutor
+              </button>
+              <button className={tab === "reminders" ? "active" : ""} onClick={() => { setTab("reminders"); setShowMobileMenu(false); }}>
+                <span>🔔</span> Reminders
+              </button>
+              <button className={tab === "leaderboard" ? "active" : ""} onClick={() => { setTab("leaderboard"); setShowMobileMenu(false); }}>
+                <span>🏆</span> Leaderboard
+              </button>
+              <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
+                <span>👥</span> Groups
+              </button>
+              <button className={tab === "pomodoro" ? "active" : ""} onClick={() => { setTab("pomodoro"); setShowMobileMenu(false); }}>
+                <span>⏱️</span> Timer
+              </button>
+              <button className={tab === "notes" ? "active" : ""} onClick={() => { setTab("notes"); setShowMobileMenu(false); }}>
+                <span>📝</span> Notes
+              </button>
+              <button className={tab === "achievements" ? "active" : ""} onClick={() => { setTab("achievements"); setShowMobileMenu(false); }}>
+                <span>🏅</span> Achievements
+              </button>
+              <button className={tab === "timetable" ? "active" : ""} onClick={() => { setTab("timetable"); setShowMobileMenu(false); }}>
+                <span>🗓️</span> Timetable
+              </button>
+              <button className={tab === "cheatsheet" ? "active" : ""} onClick={() => { setTab("cheatsheet"); setShowMobileMenu(false); }}>
+                <span>📄</span> Cheat Sheet
+              </button>
+              <button className={tab === "discuss" ? "active" : ""} onClick={() => { setTab("discuss"); setShowMobileMenu(false); }}>
+                <span>💬</span> Discuss
+              </button>
+              <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setShowMobileMenu(false); }}>
+                <span>⚙️</span> Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Tabs Navigation */}
+      <nav className="tabs desktop-tabs">
 
         {[
 
