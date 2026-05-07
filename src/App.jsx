@@ -244,37 +244,115 @@ const EMPTY_QUESTS = [
 
 const BADGES = [
 
+  // Session badges
   { id: "first_session",  icon: "🌱", label: "First Steps",    desc: "Complete your first session",            check: (s)       => s.sessions >= 1 },
 
   { id: "sessions_10",   icon: "📚", label: "Dedicated",       desc: "Complete 10 study sessions",             check: (s)       => s.sessions >= 10 },
 
   { id: "sessions_25",   icon: "🏅", label: "Veteran",         desc: "Complete 25 study sessions",             check: (s)       => s.sessions >= 25 },
 
+  { id: "sessions_50",   icon: "🎖️", label: "Legend",         desc: "Complete 50 study sessions",             check: (s)       => s.sessions >= 50 },
+
+  { id: "sessions_100",  icon: "🏆", label: "Hall of Fame",    desc: "Complete 100 study sessions",            check: (s)       => s.sessions >= 100, rare: true },
+
+  // Streak badges
   { id: "streak_3",      icon: "⚡", label: "On Fire",         desc: "Keep a 3-day streak",                    check: (s)       => s.streak >= 3 },
 
   { id: "streak_7",      icon: "🔥", label: "7-Day Streak",    desc: "Keep a 7-day streak",                    check: (s)       => s.streak >= 7 },
 
+  { id: "streak_14",     icon: "💫", label: "14-Day Streak",   desc: "Keep a 14-day streak",                   check: (s)       => s.streak >= 14 },
+
+  { id: "streak_30",     icon: "🌟", label: "30-Day Streak",   desc: "Keep a 30-day streak",                   check: (s)       => s.streak >= 30, rare: true },
+
+  { id: "streak_100",    icon: "💎", label: "100-Day Legend",  desc: "Keep a 100-day streak",                  check: (s)       => s.streak >= 100, rare: true, legendary: true },
+
+  // XP badges
   { id: "xp_100",        icon: "⭐", label: "Scholar",         desc: "Earn 100 XP",                            check: (s)       => s.xp >= 100 },
 
   { id: "xp_500",        icon: "💫", label: "Expert",          desc: "Earn 500 XP",                            check: (s)       => s.xp >= 500 },
 
+  { id: "xp_1000",       icon: "🌟", label: "Master Scholar",  desc: "Earn 1000 XP",                           check: (s)       => s.xp >= 1000 },
+
+  { id: "xp_5000",       icon: "👑", label: "XP King",         desc: "Earn 5000 XP",                           check: (s)       => s.xp >= 5000, rare: true },
+
+  // Accuracy badges
   { id: "correct_50",    icon: "🎯", label: "Sharpshooter",    desc: "Get 50 correct answers total",           check: (s)       => s.totalCorrect >= 50 },
+
+  { id: "correct_100",   icon: "🎪", label: "Centurion",       desc: "Get 100 correct answers total",          check: (s)       => s.totalCorrect >= 100 },
+
+  { id: "correct_500",   icon: "🎯", label: "Accuracy Master", desc: "Get 500 correct answers total",         check: (s)       => s.totalCorrect >= 500, rare: true },
 
   { id: "perfect_score", icon: "🏆", label: "Perfectionist",   desc: "Score 100% on any exam",                 check: (s, h)    => h.some(x => x.score === x.total && x.total > 0 && x.mode === "exam") },
 
-  { id: "speed_demon",   icon: "💨", label: "Speed Demon",     desc: "Finish an exam in under 2 minutes",      check: (s, h)    => h.some(x => x.mode === "exam" && x.seconds > 0 && x.seconds < 120) },
+  { id: "perfect_5",     icon: "🎖️", label: "5x Perfect",      desc: "Score 100% on 5 exams",                  check: (s, h)    => h.filter(x => x.score === x.total && x.total > 0 && x.mode === "exam").length >= 5, rare: true },
 
-  { id: "night_owl",     icon: "🦉", label: "Night Owl",       desc: "Study after 10 pm",                      check: (s, h)    => h.some(x => new Date(x.ts).getHours() >= 22) },
+  // Time-based badges (collectible)
+  { id: "night_owl",     icon: "🦉", label: "Night Owl",       desc: "Study after 10 pm",                      check: (s, h)    => h.some(x => new Date(x.ts).getHours() >= 22), rare: true },
 
+  { id: "early_bird",    icon: "🐦", label: "Early Bird",      desc: "Study before 6 am",                      check: (s, h)    => h.some(x => new Date(x.ts).getHours() < 6), rare: true },
+
+  { id: "weekend_warrior", icon: "⚔️", label: "Weekend Warrior", desc: "Study on Saturday and Sunday",         check: (s, h)    => { const days = h.map(x => new Date(x.ts).getDay()); return days.includes(0) && days.includes(6); }, rare: true },
+
+  { id: "lunch_learner", icon: "🍽️", label: "Lunch Learner",   desc: "Study between 12pm-2pm",                 check: (s, h)    => h.some(x => { const hr = new Date(x.ts).getHours(); return hr >= 12 && hr < 14; }) },
+
+  { id: "midnight_oil",  icon: "🕯️", label: "Midnight Oil",    desc: "Study past midnight",                    check: (s, h)    => h.some(x => { const hr = new Date(x.ts).getHours(); return hr >= 0 && hr < 4; }), rare: true },
+
+  // Subject badges
   { id: "all_subjects",  icon: "🌈", label: "Well Rounded",    desc: "Study every subject at least once",      check: (s, h, sub) => new Set(h.map(x => x.subjectId)).size >= sub.length },
 
+  { id: "subject_master", icon: "🎓", label: "Subject Master", desc: "Study one subject 10 times",             check: (s, h)    => { const counts = {}; h.forEach(x => counts[x.subjectId] = (counts[x.subjectId] || 0) + 1); return Object.values(counts).some(c => c >= 10); } },
+
+  // Mastery badges
   { id: "mastery_80",    icon: "🎓", label: "Master",          desc: "Reach 80% mastery in any subject",       check: (s, h, sub, m) => Object.values(m).some(v => v >= 80) },
 
-  { id: "mastery_100",   icon: "👑", label: "Grandmaster",     desc: "Reach 100% mastery in any subject",      check: (s, h, sub, m) => Object.values(m).some(v => v >= 100) },
+  { id: "mastery_100",   icon: "👑", label: "Grandmaster",     desc: "Reach 100% mastery in any subject",       check: (s, h, sub, m) => Object.values(m).some(v => v >= 100) },
 
+  { id: "mastery_all",   icon: "🏆", label: "All Master",      desc: "Reach 80% in all subjects",              check: (s, h, sub, m) => sub.every(s => (m[s.id] || 0) >= 80), rare: true },
+
+  // Coin badges
   { id: "coins_50",      icon: "💰", label: "Coin Collector",  desc: "Accumulate 50 coins",                    check: (s)       => s.coins >= 50 },
 
+  { id: "coins_100",     icon: "💎", label: "Rich Scholar",    desc: "Accumulate 100 coins",                   check: (s)       => s.coins >= 100 },
+
+  { id: "coins_500",     icon: "👑", label: "Coin King",       desc: "Accumulate 500 coins",                   check: (s)       => s.coins >= 500, rare: true },
+
+  // Speed badges
+  { id: "speed_demon",   icon: "💨", label: "Speed Demon",     desc: "Finish an exam in under 2 minutes",      check: (s, h)    => h.some(x => x.mode === "exam" && x.seconds > 0 && x.seconds < 120) },
+
+  { id: "lightning",     icon: "⚡", label: "Lightning Fast",  desc: "Finish a quiz in under 30 seconds",      check: (s, h)    => h.some(x => x.seconds > 0 && x.seconds < 30), rare: true },
+
+  // Hidden achievements (secret until unlocked)
+  { id: "comeback",      icon: "🔄", label: "Comeback Kid",    desc: "Study after 7+ day break",               check: (s, h)    => { if (h.length < 2) return false; const sorted = [...h].sort((a,b) => b.ts - a.ts); const gap = sorted[0].ts - sorted[1].ts; return gap > 7 * 24 * 60 * 60 * 1000; }, hidden: true },
+
+  { id: "marathon",      icon: "🏃", label: "Marathon",        desc: "Study 5 sessions in one day",            check: (s, h)    => { const today = new Date().toDateString(); return h.filter(x => new Date(x.ts).toDateString() === today).length >= 5; }, hidden: true },
+
+  { id: "first_blood",   icon: "🩸", label: "First Blood",     desc: "Be the first to study today",            check: (s, h)    => { const today = new Date().toDateString(); const todaySessions = h.filter(x => new Date(x.ts).toDateString() === today); return todaySessions.length === 1 && Date.now() - todaySessions[0].ts < 60000; }, hidden: true },
+
 ];
+
+// League system
+const LEAGUES = [
+  { id: "bronze", name: "Bronze", icon: "🥉", minXP: 0, color: "#cd7f32" },
+  { id: "silver", name: "Silver", icon: "🥈", minXP: 200, color: "#c0c0c0" },
+  { id: "gold", name: "Gold", icon: "🥇", minXP: 500, color: "#ffd700" },
+  { id: "platinum", name: "Platinum", icon: "💎", minXP: 1000, color: "#e5e4e2" },
+  { id: "diamond", name: "Diamond", icon: "💠", minXP: 2500, color: "#b9f2ff" },
+  { id: "champion", name: "Champion", icon: "👑", minXP: 5000, color: "#ff6b6b" },
+];
+
+function getLeague(xp) {
+  for (let i = LEAGUES.length - 1; i >= 0; i--) {
+    if (xp >= LEAGUES[i].minXP) return LEAGUES[i];
+  }
+  return LEAGUES[0];
+}
+
+function getNextLeague(xp) {
+  const current = getLeague(xp);
+  const idx = LEAGUES.findIndex(l => l.id === current.id);
+  if (idx < LEAGUES.length - 1) return LEAGUES[idx + 1];
+  return null;
+}
 
 
 
@@ -689,6 +767,271 @@ async function loadUserDataFromBackend(token) {
 
 
 
+// Confetti celebration overlay
+function ConfettiOverlay() {
+  const [particles, setParticles] = useState([]);
+
+  useEffect(() => {
+    const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#1dd1a1', '#ff9f43', '#ee5a24'];
+    const newParticles = [];
+    for (let i = 0; i < 150; i++) {
+      newParticles.push({
+        id: i,
+        x: Math.random() * 100,
+        y: -10 - Math.random() * 20,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 4 + Math.random() * 8,
+        speedY: 2 + Math.random() * 4,
+        speedX: (Math.random() - 0.5) * 3,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 10,
+      });
+    }
+    setParticles(newParticles);
+  }, []);
+
+  return (
+    <div className="confetti-container">
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="confetti-particle"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: p.size,
+            height: p.size * 0.6,
+            background: p.color,
+            transform: `rotate(${p.rotation}deg)`,
+            animation: `confetti-fall 3s ease-out forwards`,
+            animationDelay: `${Math.random() * 0.5}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Celebration toast notification
+function CelebrationToast({ celebration, onClose }) {
+  const messages = {
+    streak: (data) => `🔥 ${data.days}-Day Streak! Keep it up!`,
+    league: (data) => `🎉 Promoted to ${data.league.icon} ${data.league.name}!`,
+    perfect: (data) => `🏆 Perfect Score! ${data.score}/${data.total}`,
+    badge: (data) => `🏅 Badge Unlocked: ${data.icon} ${data.label}`,
+  };
+
+  return (
+    <div className="celebration-toast" onClick={onClose}>
+      <div className="celebration-content">
+        <span className="celebration-icon">
+          {celebration.type === 'streak' && celebration.data.icon}
+          {celebration.type === 'league' && celebration.data.league.icon}
+          {celebration.type === 'perfect' && '🏆'}
+          {celebration.type === 'badge' && celebration.data.icon}
+        </span>
+        <span className="celebration-message">
+          {messages[celebration.type]?.(celebration.data) || '🎉 Achievement!'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Streak loss warning component
+function StreakLossWarning({ streak, lastStudied }) {
+  const [showWarning, setShowWarning] = useState(false);
+  const [hoursLeft, setHoursLeft] = useState(0);
+
+  useEffect(() => {
+    if (!lastStudied || streak < 3) {
+      setShowWarning(false);
+      return;
+    }
+
+    const checkStreak = () => {
+      const now = new Date();
+      const lastDate = new Date(lastStudied);
+      const tomorrow = new Date(lastDate);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(23, 59, 59, 999);
+
+      const hoursRemaining = (tomorrow - now) / (1000 * 60 * 60);
+
+      if (hoursRemaining < 6 && hoursRemaining > 0) {
+        setHoursLeft(Math.ceil(hoursRemaining));
+        setShowWarning(true);
+      } else {
+        setShowWarning(false);
+      }
+    };
+
+    checkStreak();
+    const interval = setInterval(checkStreak, 60000);
+    return () => clearInterval(interval);
+  }, [lastStudied, streak]);
+
+  if (!showWarning) return null;
+
+  return (
+    <div className="streak-warning">
+      <span className="streak-warning-icon">⚠️</span>
+      <span className="streak-warning-text">
+        Your <strong>{streak}-day streak</strong> will break in <strong>{hoursLeft} hours!</strong>
+      </span>
+      <button className="streak-warning-btn" onClick={() => setShowWarning(false)}>
+        Study Now
+      </button>
+    </div>
+  );
+}
+
+// Study Heatmap Calendar Component
+function StudyHeatmap({ heatmap }) {
+  const [showTooltip, setShowTooltip] = useState(null);
+
+  const generateCalendar = () => {
+    const days = [];
+    const today = new Date();
+
+    for (let i = 89; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const key = date.toISOString().split('T')[0];
+      const count = heatmap[key] || 0;
+      days.push({ date: key, count, day: date.getDay() });
+    }
+
+    return days;
+  };
+
+  const days = generateCalendar();
+  const maxCount = Math.max(...Object.values(heatmap), 1);
+
+  const getColor = (count) => {
+    if (count === 0) return 'rgba(148, 163, 184, 0.1)';
+    const intensity = count / maxCount;
+    if (intensity >= 0.75) return '#22c55e';
+    if (intensity >= 0.5) return '#4ade80';
+    if (intensity >= 0.25) return '#86efac';
+    return '#bbf7d0';
+  };
+
+  const totalSessions = Object.values(heatmap).reduce((a, b) => a + b, 0);
+  const activeDays = Object.values(heatmap).filter(v => v > 0).length;
+
+  return (
+    <div className="heatmap-container">
+      <div className="heatmap-header">
+        <span className="heatmap-title">📊 Study Activity</span>
+        <span className="heatmap-stats">{activeDays} active days • {totalSessions} total</span>
+      </div>
+      <div className="heatmap-grid">
+        {days.map((d, i) => (
+          <div
+            key={i}
+            className="heatmap-cell"
+            style={{ background: getColor(d.count) }}
+            onMouseEnter={() => setShowTooltip(d)}
+            onMouseLeave={() => setShowTooltip(null)}
+          >
+            {showTooltip?.date === d.date && (
+              <div className="heatmap-tooltip">
+                <strong>{d.date}</strong>
+                <br />
+                {d.count} questions answered
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="heatmap-legend">
+        <span>Less</span>
+        <div className="heatmap-legend-cells">
+          <div style={{ background: getColor(0) }} />
+          <div style={{ background: getColor(maxCount * 0.25) }} />
+          <div style={{ background: getColor(maxCount * 0.5) }} />
+          <div style={{ background: getColor(maxCount * 0.75) }} />
+          <div style={{ background: getColor(maxCount) }} />
+        </div>
+        <span>More</span>
+      </div>
+    </div>
+  );
+}
+
+// League Progress Component
+function LeagueProgress({ xp }) {
+  const currentLeague = getLeague(xp);
+  const nextLeague = getNextLeague(xp);
+  const progress = nextLeague
+    ? ((xp - currentLeague.minXP) / (nextLeague.minXP - currentLeague.minXP)) * 100
+    : 100;
+
+  return (
+    <div className="league-progress">
+      <div className="league-current">
+        <span className="league-icon" style={{ color: currentLeague.color }}>{currentLeague.icon}</span>
+        <span className="league-name">{currentLeague.name}</span>
+      </div>
+      {nextLeague && (
+        <>
+          <div className="league-bar">
+            <div
+              className="league-bar-fill"
+              style={{ width: `${progress}%`, background: currentLeague.color }}
+            />
+          </div>
+          <div className="league-next">
+            <span>{nextLeague.icon} {nextLeague.name}</span>
+            <span>{nextLeague.minXP - xp} XP to go</span>
+          </div>
+        </>
+      )}
+      {!nextLeague && (
+        <div className="league-max">
+          👑 Maximum League Reached!
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Celebration Notification Component
+function CelebrationNotification({ stats, history, yesterdayTime }) {
+  const [notification, setNotification] = useState(null);
+
+  useEffect(() => {
+    // Check if studied more than yesterday
+    const today = new Date().toDateString();
+    const todaySessions = history.filter(h => new Date(h.ts).toDateString() === today);
+    const todayTime = todaySessions.length * 5; // rough estimate in minutes
+
+    if (yesterdayTime > 0 && todayTime > yesterdayTime + 10) {
+      setNotification({
+        type: 'improvement',
+        message: `You studied ${todayTime - yesterdayTime} minutes more than yesterday! 🎉`,
+      });
+    }
+
+    // Check if in top 10% (simulated)
+    if (stats.xp > 500 && Math.random() > 0.9) {
+      setNotification({
+        type: 'top10',
+        message: "You're in the top 10% this week! 🏆",
+      });
+    }
+  }, [stats.xp, history, yesterdayTime]);
+
+  if (!notification) return null;
+
+  return (
+    <div className="celebration-notification" onClick={() => setNotification(null)}>
+      <span>{notification.message}</span>
+    </div>
+  );
+}
+
 function App() {
 
   const [tab, setTab] = useState("today");
@@ -802,6 +1145,16 @@ function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [updatePending, setUpdatePending] = useState(false);
+
+  // Celebration system
+  const [celebration, setCelebration] = useState(null); // { type: 'streak'|'level'|'badge', data }
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [studyHeatmap, setStudyHeatmap] = useState(() => {
+    try {
+      const raw = localStorage.getItem("scholars-circle-heatmap");
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
 
   const [examQuestionCount, setExamQuestionCount] = useState("all");
 
@@ -1686,6 +2039,13 @@ function App() {
 
 
 
+  function triggerCelebration(type, data) {
+    setCelebration({ type, data });
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 3000);
+    setTimeout(() => setCelebration(null), 4000);
+  }
+
   function updateStreak() {
     const now = new Date();
     const nowKey = now.toDateString();
@@ -1717,8 +2077,36 @@ function App() {
   function completeSession(result, sourceSubject) {
 
     const gained = result.score * XP_PER_CORRECT;
-
+    const oldStreak = stats.streak;
     const newStreak = updateStreak();
+    const oldXP = stats.xp;
+    const newXP = oldXP + gained;
+    const oldLeague = getLeague(oldXP);
+    const newLeague = getLeague(newXP);
+
+    // Update study heatmap
+    const today = new Date().toISOString().split('T')[0];
+    setStudyHeatmap(prev => {
+      const updated = { ...prev, [today]: (prev[today] || 0) + result.score };
+      localStorage.setItem("scholars-circle-heatmap", JSON.stringify(updated));
+      return updated;
+    });
+
+    // Celebration triggers
+    // Streak milestones
+    if ([3, 7, 14, 30, 50, 100].includes(newStreak) && newStreak !== oldStreak) {
+      triggerCelebration('streak', { days: newStreak, icon: newStreak >= 30 ? '🌟' : newStreak >= 14 ? '💫' : newStreak >= 7 ? '🔥' : '⚡' });
+    }
+
+    // League promotion
+    if (newLeague.id !== oldLeague.id) {
+      triggerCelebration('league', { league: newLeague, oldLeague });
+    }
+
+    // Perfect score
+    if (result.score === result.total && result.total >= 5) {
+      triggerCelebration('perfect', { score: result.score, total: result.total });
+    }
 
     // Demo streak cap warning
     if (demoMode && newStreak >= DEMO_LIMITS.maxStreak) {
@@ -3060,6 +3448,17 @@ function App() {
 
       )}
 
+      {/* Confetti Celebration */}
+      {showConfetti && <ConfettiOverlay />}
+
+      {/* Celebration Toast */}
+      {celebration && (
+        <CelebrationToast celebration={celebration} onClose={() => setCelebration(null)} />
+      )}
+
+      {/* Streak Loss Warning */}
+      <StreakLossWarning streak={stats.streak} lastStudied={lastStudied} />
+
       {/* PWA Update Toast */}
       {showUpdateToast && (
         <div style={{
@@ -4063,7 +4462,21 @@ function App() {
 
       {tab === "dashboard" && (
 
-        <div className="card">
+        <>
+
+          {/* Stats Overview */}
+          <div className="card">
+            <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <LeagueProgress xp={stats.xp} />
+              </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <StudyHeatmap heatmap={studyHeatmap} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
 
           <h2>Learning Paths</h2>
 
@@ -4233,6 +4646,8 @@ function App() {
           </ul>
 
         </div>
+
+        </>
 
       )}
 
