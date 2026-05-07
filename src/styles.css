@@ -120,9 +120,11 @@
 
 
 body {
-
   margin: 0;
-
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 
@@ -200,11 +202,12 @@ body {
 
 
 .app {
-
   min-height: 100vh;
-
+  min-height: 100dvh;
   padding: 20px;
-
+  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 
@@ -223,6 +226,12 @@ body {
 
   margin-bottom: 14px;
 
+}
+
+@media (max-width: 768px) {
+  .hero-banner {
+    height: 160px;
+  }
 }
 
 
@@ -398,8 +407,8 @@ kbd {
 
 
 .dark {
-
-  background: #0b0f14;
+  background: #0b0f14 !important;
+  color: #e2e8f0;
 
   color: #eaf0f8;
 
@@ -408,8 +417,8 @@ kbd {
 
 
 .light {
-
-  background: #f7f7fb;
+  background: #f7f7fb !important;
+  color: #1e293b;
 
   color: #121212;
 
@@ -501,6 +510,9 @@ kbd {
 
   margin-bottom: 16px;
 
+  width: 100%;
+  box-sizing: border-box;
+
 }
 
 
@@ -513,6 +525,18 @@ kbd {
 
   gap: 10px;
 
+}
+
+@media (max-width: 768px) {
+  .subjects {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .card {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
 }
 
 
@@ -1438,9 +1462,8 @@ textarea {
 @media (max-width: 768px) {
 
   .app {
-
-    padding: 10px 10px 80px;
-
+    padding: 10px 10px calc(70px + env(safe-area-inset-bottom));
+    min-height: 100dvh;
   }
 
   .mobile-nav {
@@ -1453,6 +1476,7 @@ textarea {
     background: #0b0f14;
     border-top: 1px solid #3e4752;
     padding: 8px 4px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
     gap: 4px;
     justify-content: space-around;
     align-items: center;
@@ -1476,6 +1500,7 @@ textarea {
     cursor: pointer;
     border-radius: 8px;
     transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .mobile-nav button:active,
@@ -1576,6 +1601,58 @@ textarea {
     font-size: 20px;
   }
 
+  /* Additional mobile optimizations */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  
+  body {
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  button {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  
+  input, textarea, select {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Prevent white flash on scroll */
+  .app::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom);
+    background: inherit;
+    z-index: -1;
+  }
+  
+  /* Optimize heatmap for mobile */
+  .heatmap-grid {
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+  }
+  
+  .heatmap-cell {
+    width: 100%;
+    aspect-ratio: 1;
+  }
+  
+  /* League progress mobile */
+  .league-progress, .heatmap-container {
+    padding: 12px;
+  }
 }
 
 .tabs button {
