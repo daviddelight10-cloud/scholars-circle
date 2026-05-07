@@ -5321,44 +5321,13 @@ function App() {
             </div>
           )}
 
-          <h3>AI Assistant (Real API)</h3>
-
-          <div className="row">
-
-            <select value={aiConfig.provider} onChange={(e) => {
-              const nextProvider = e.target.value;
-              let defaultModel = "gpt-4o-mini";
-              if (nextProvider === "gemini") defaultModel = "gemini-1.5-flash";
-              else if (nextProvider === "openrouter") defaultModel = "qwen/qwen-2.5-7b-instruct";
-              setAiConfig((p) => ({
-                ...p,
-                provider: nextProvider,
-                model: defaultModel,
-              }));
-            }}>
-              <option value="openai">OpenAI-compatible</option>
-              <option value="gemini">Google Gemini</option>
-              <option value="openrouter">OpenRouter</option>
-            </select>
-            <input
-              placeholder={
-                aiConfig.provider === "gemini" ? "Gemini API key" :
-                aiConfig.provider === "openrouter" ? "OpenRouter API key" :
-                "OpenAI API key"
-              }
-              type="password"
-              value={aiConfig.apiKey}
-              onChange={(e) => setAiConfig((p) => ({ ...p, apiKey: e.target.value }))}
-            />
-            <input
-              placeholder="Model"
-              value={aiConfig.model}
-              onChange={(e) => setAiConfig((p) => ({ ...p, model: e.target.value }))}
-            />
-
+          <h3>AI Assistant</h3>
+          <div style={{ background: "rgba(45,212,160,0.1)", border: "1px solid rgba(45,212,160,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <p style={{ margin: 0, color: "#2dd4a0", fontWeight: 600 }}>✅ AI Powered by OpenRouter (Qwen 2.5 7B)</p>
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>AI features are enabled automatically. No configuration needed!</p>
           </div>
 
-          <AIHelper aiConfig={aiConfig} onUsed={() => {
+          <AIHelper aiConfig={{ provider: "openrouter", model: "qwen/qwen-2.5-7b-instruct", apiKey: "" }} onUsed={() => {
 
             setAiHelpUsed(true);
 
@@ -8189,85 +8158,26 @@ function AIQuestionGen({ onImportQuestions }) {
 
   const [difficulty, setDifficulty] = useState("medium");
 
-  const [provider, setProvider] = useState("openrouter");
-  const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("qwen/qwen-2.5-7b-instruct");
-
   const [loading, setLoading] = useState(false);
-
   const [preview, setPreview] = useState([]);
-
   const [error, setError] = useState("");
 
-
-
   async function generate() {
-
     if (!topic.trim()) return;
-
-    if (!apiKey.trim()) { setError(`Enter your ${provider === "gemini" ? "Gemini" : "OpenAI"} API key above.`); return; }
-
     setLoading(true); setError(""); setPreview([]);
 
     const prompt = `Generate exactly ${count} multiple-choice questions about "${topic}" for a first-year university student. Difficulty: ${difficulty}.\nReturn ONLY a JSON array with this structure (no extra text):\n[{"q":"question","options":["A","B","C","D"],"answer":0,"explanation":"why","difficulty":"${difficulty}"}]\nThe "answer" field is the index (0-3) of the correct option.`;
 
     try {
-
-      const effectiveModel = model || (provider === "gemini" ? "gemini-2.0-flash" : 
-                                        provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
-                                        "gpt-4o-mini");
-      let raw = "";
-      if (provider === "gemini") {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${effectiveModel}:generateContent?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        });
-        const data = await res.json();
-        raw = (data?.candidates?.[0]?.content?.parts?.[0]?.text || data.error?.message || "").trim();
-      } else if (provider === "openrouter") {
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
-            "HTTP-Referer": window.location.origin,
-            "X-Title": "Scholar's Circle",
-          },
-          body: JSON.stringify({
-            model: effectiveModel,
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 2000,
-          }),
-        });
-        const data = await res.json();
-        raw = (data.choices?.[0]?.message?.content || "").trim();
-      } else {
-        const res = await fetch("https://api.openai.com/v1/responses", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model: effectiveModel, input: prompt }),
-        });
-        const data = await res.json();
-        raw = (data.output_text || "").trim();
-      }
-
+      const raw = await callAI(prompt, { provider: "openrouter", model: "qwen/qwen-2.5-7b-instruct" });
       const jsonStr = raw.startsWith("[") ? raw : raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1);
-
       const parsed = JSON.parse(jsonStr);
-
       setPreview(parsed);
-
     } catch (e) {
-
-      setError(`Generation failed: ${e.message}. Make sure your API key is valid and the model supports text generation.`);
-
+      setError(`Generation failed: ${e.message}`);
     } finally {
-
       setLoading(false);
-
     }
-
   }
 
 
@@ -8309,29 +8219,6 @@ function AIQuestionGen({ onImportQuestions }) {
           <option value="hard">hard</option>
 
         </select>
-
-      </div>
-
-      <div className="row" style={{ flexWrap: "wrap", marginTop: 8, gap: 8 }}>
-
-        <select value={provider} onChange={(e) => {
-          const next = e.target.value;
-          setProvider(next);
-          if (next === "gemini") setModel("gemini-2.0-flash");
-          else if (next === "openrouter") setModel("qwen/qwen-2.5-7b-instruct");
-          else setModel("gpt-4o-mini");
-        }}>
-          <option value="openrouter">OpenRouter</option>
-          <option value="openai">OpenAI-compatible</option>
-          <option value="gemini">Google Gemini</option>
-        </select>
-        <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={
-          provider === "gemini" ? "Gemini API key" :
-          provider === "openrouter" ? "OpenRouter API key" :
-          "OpenAI API key"
-        } style={{ flex: 1, minWidth: 220 }} />
-
-        <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Model" />
 
       </div>
 
