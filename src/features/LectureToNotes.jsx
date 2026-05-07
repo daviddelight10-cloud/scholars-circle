@@ -110,7 +110,7 @@ Return ONLY a JSON object with this exact shape (no extra commentary):
 Generate exactly 8 flashcards as multiple-choice with 4 options. The "answer" field is the index of the correct option (0-3).`;
     try {
       setLoading(true);
-      const raw = await callAI(prompt, { provider: "gemini", model: "gemini-2.5-flash", apiKey: aiConfig?.apiKey });
+      const raw = await callAI(prompt, { provider: aiConfig?.provider || "openrouter", model: aiConfig?.model || "qwen/qwen-2.5-7b-instruct", apiKey: aiConfig?.apiKey });
       const parsed = extractJSON(raw);
       setResult(parsed);
     } catch (e) {

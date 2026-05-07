@@ -1137,13 +1137,9 @@ function App() {
   const [syncStatus, setSyncStatus] = useState("");
 
   const [aiConfig, setAiConfig] = useState({
-
-    provider: import.meta.env.VITE_GEMINI_API_KEY ? "gemini" : "openai",
-
-    model: import.meta.env.VITE_GEMINI_API_KEY ? "gemini-2.0-flash" : "gpt-4o-mini",
-
-    apiKey: import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_OPENAI_API_KEY || "",
-
+    provider: "openrouter",
+    model: "qwen/qwen-2.5-7b-instruct",
+    apiKey: "",
   });
 
   const [auth, setAuth] = useState({
@@ -1456,31 +1452,15 @@ function App() {
         setSyncConfig(parsed.syncConfig ?? { url: "", key: "", userId: "local-user" });
 
         setAiConfig((prev) => {
-
-          if (import.meta.env.VITE_GEMINI_API_KEY) {
-
-            return { provider: "gemini", model: "gemini-2.0-flash", apiKey: import.meta.env.VITE_GEMINI_API_KEY };
-
+          const saved = parsed.aiConfig;
+          if (saved?.provider && saved?.model) {
+            return {
+              provider: saved.provider,
+              model: saved.model,
+              apiKey: saved.apiKey ?? "",
+            };
           }
-
-          const savedModel = parsed.aiConfig?.model;
-
-          const migratedModel = savedModel === "gemini-1.5-flash" || savedModel === "gemini-1.5-pro"
-
-            ? "gemini-2.0-flash"
-
-            : savedModel;
-
-          return {
-
-            provider: parsed.aiConfig?.provider ?? prev.provider,
-
-            model: migratedModel ?? prev.model,
-
-            apiKey: parsed.aiConfig?.apiKey ?? (import.meta.env.VITE_OPENAI_API_KEY ?? prev.apiKey),
-
-          };
-
+          return prev;
         });
 
         setNotes(parsed.notes ?? {});
@@ -8209,15 +8189,9 @@ function AIQuestionGen({ onImportQuestions }) {
 
   const [difficulty, setDifficulty] = useState("medium");
 
-  const [provider, setProvider] = useState(import.meta.env.VITE_GEMINI_API_KEY ? "gemini" : "openai");
-
-  const [apiKey, setApiKey] = useState(
-    (import.meta.env.VITE_GEMINI_API_KEY && import.meta.env.VITE_GEMINI_API_KEY) ||
-    import.meta.env.VITE_OPENAI_API_KEY ||
-    ""
-  );
-
-  const [model, setModel] = useState(import.meta.env.VITE_GEMINI_API_KEY ? "gemini-2.0-flash" : "gpt-4o-mini");
+  const [provider, setProvider] = useState("openrouter");
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState("qwen/qwen-2.5-7b-instruct");
 
   const [loading, setLoading] = useState(false);
 
@@ -8239,42 +8213,43 @@ function AIQuestionGen({ onImportQuestions }) {
 
     try {
 
-      const effectiveModel = model || (provider === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini");
-
+      const effectiveModel = model || (provider === "gemini" ? "gemini-2.0-flash" : 
+                                        provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
+                                        "gpt-4o-mini");
       let raw = "";
-
       if (provider === "gemini") {
-
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${effectiveModel}:generateContent?key=${apiKey}`, {
-
           method: "POST",
-
           headers: { "Content-Type": "application/json" },
-
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-
         });
-
         const data = await res.json();
-
         raw = (data?.candidates?.[0]?.content?.parts?.[0]?.text || data.error?.message || "").trim();
-
-      } else {
-
-        const res = await fetch("https://api.openai.com/v1/responses", {
-
+      } else if (provider === "openrouter") {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-
-          body: JSON.stringify({ model: effectiveModel, input: prompt }),
-
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": window.location.origin,
+            "X-Title": "Scholar's Circle",
+          },
+          body: JSON.stringify({
+            model: effectiveModel,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 2000,
+          }),
         });
-
         const data = await res.json();
-
+        raw = (data.choices?.[0]?.message?.content || "").trim();
+      } else {
+        const res = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: effectiveModel, input: prompt }),
+        });
+        const data = await res.json();
         raw = (data.output_text || "").trim();
-
       }
 
       const jsonStr = raw.startsWith("[") ? raw : raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1);
@@ -8340,22 +8315,21 @@ function AIQuestionGen({ onImportQuestions }) {
       <div className="row" style={{ flexWrap: "wrap", marginTop: 8, gap: 8 }}>
 
         <select value={provider} onChange={(e) => {
-
           const next = e.target.value;
-
           setProvider(next);
-
-          setModel(next === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini");
-
+          if (next === "gemini") setModel("gemini-2.0-flash");
+          else if (next === "openrouter") setModel("qwen/qwen-2.5-7b-instruct");
+          else setModel("gpt-4o-mini");
         }}>
-
+          <option value="openrouter">OpenRouter</option>
           <option value="openai">OpenAI-compatible</option>
-
           <option value="gemini">Google Gemini</option>
-
         </select>
-
-        <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={provider === "gemini" ? "Gemini API key" : "OpenAI API key"} style={{ flex: 1, minWidth: 220 }} />
+        <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={
+          provider === "gemini" ? "Gemini API key" :
+          provider === "openrouter" ? "OpenRouter API key" :
+          "OpenAI API key"
+        } style={{ flex: 1, minWidth: 220 }} />
 
         <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Model" />
 

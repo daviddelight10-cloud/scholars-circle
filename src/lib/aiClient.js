@@ -37,8 +37,10 @@ async function callViaProxy(prompt, provider, model) {
 }
 
 async function callDirect(prompt, aiConfig) {
-  const provider = aiConfig?.provider || "gemini";
-  const model = aiConfig?.model || (provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini");
+  const provider = aiConfig?.provider || "openrouter";
+  const model = aiConfig?.model || (provider === "gemini" ? "gemini-2.5-flash" : 
+                                     provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
+                                     "gpt-4o-mini");
   if (!aiConfig?.apiKey) {
     throw new Error("No AI key set. Either configure the server proxy or paste a key in Settings.");
   }
@@ -99,8 +101,10 @@ async function callDirect(prompt, aiConfig) {
 export async function callAI(prompt, aiConfig = {}) {
   const status = await getProxyStatus();
   if (status?.enabled) {
-    const provider = aiConfig.provider || status.defaultProvider || "gemini";
-    const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini");
+    const provider = aiConfig.provider || status.defaultProvider || "openrouter";
+    const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : 
+                                     provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
+                                     "gpt-4o-mini");
     return callViaProxy(prompt, provider, model);
   }
   return callDirect(prompt, aiConfig);

@@ -196,9 +196,8 @@ Generate exactly ${questionCount} MCQ questions and 10 flashcards. Ensure questi
     try {
       setIsProcessing(true);
       console.log("Starting AI processing...");
-      console.log("API Key available:", !!import.meta.env.VITE_GEMINI_API_KEY);
       
-      const raw = await callAI(prompt, { provider: "gemini", model: "gemini-2.5-flash", apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+      const raw = await callAI(prompt, { provider: "openrouter", model: "qwen/qwen-2.5-7b-instruct" });
       console.log("AI response received:", raw?.substring(0, 200));
       
       const parsed = extractJSON(raw);
