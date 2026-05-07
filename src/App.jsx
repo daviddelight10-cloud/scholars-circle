@@ -20,6 +20,19 @@ function loadFromStorage(key) {
   }
 }
 
+function DemoLockedOverlay({ title, description, icon = "🔒" }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 16, textAlign: "center", padding: 32 }}>
+      <span style={{ fontSize: 48 }}>{icon}</span>
+      <h3 style={{ margin: 0 }}>{title}</h3>
+      <p className="muted" style={{ maxWidth: 400 }}>{description}</p>
+      <button onClick={() => alert("Upgrade to Scholar's Circle Pro to unlock this feature!\n\nBenefits:\n• Unlimited AI tutoring\n• Full analytics dashboard\n• Study groups & leaderboard\n• Unlimited past papers\n• Classroom features")}>
+        Upgrade to Pro
+      </button>
+    </div>
+  );
+}
+
 function GlobalSearchDropdown({ query, filter, subjects }) {
   const allContent = useMemo(() => {
     const userNotes = loadFromStorage(NOTES_KEY);
@@ -374,7 +387,7 @@ const DEMO_LIMITS = {
   allowedTabs: ["today", "subjects", "quiz", "settings"],
   dailyTimeLimit: 30, // minutes per day
   totalSessions: 5, // total demo sessions allowed
-  exportEnabled: true, // allow data export
+  exportEnabled: false, // disable data export in demo
   analyticsDepth: "basic", // vs "advanced"
   trialDays: 14, // 14-day trial period
   masteryCap: 70, // max mastery % in demo
@@ -384,6 +397,14 @@ const DEMO_LIMITS = {
   maxCustomFlashcardDecks: 1, // limit flashcard decks
   allowedThemes: ["aurora", "paper"], // lock premium themes
   premiumThemes: ["neon"], // requires upgrade
+  leaderboardAccess: false, // hide leaderboard in demo
+  studyGroupsAccess: "view", // "view" | "full" in demo
+  pastPapersLimit: 1, // only 1 past paper in demo
+  aiTutorMessages: 3, // separate from AI assistant
+  classroomAccess: false, // lock classroom in demo
+  pomodoroSessions: 2, // per day in demo
+  notesLimit: 5, // max notes in demo
+  hidePremiumTabs: true, // completely hide locked tabs
 };
 
 const DEMO_ACHIEVEMENTS = [
@@ -646,7 +667,7 @@ function CourseOutline({ subjects, outlineSubjectId, setOutlineSubjectId, startS
 
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
 
-                <input type="checkbox" checked={!!outlineSemState[noteView.weekKey]} onChange={() => toggleStudied(noteView.weekKey)} />
+                <input type="checkbox" checked={!!outlineState[noteView.weekKey]} onChange={() => toggleStudied(noteView.weekKey)} />
 
                 Mark as studied
 
@@ -1237,6 +1258,10 @@ function App() {
       reminders: 0,
       sessionTimeMinutes: 0,
       totalSessionsUsed: 0,
+      pomodoroSessions: 0,
+      notesCount: 0,
+      pastPapersUsed: 0,
+      aiTutorMessages: 0,
       trialStartDate: null,
       demoProgress: {
         tabsVisited: new Set(),
@@ -2019,6 +2044,10 @@ function App() {
         reminders: 0,
         sessionTimeMinutes: 0,
         totalSessionsUsed: 0,
+        pomodoroSessions: 0,
+        notesCount: 0,
+        pastPapersUsed: 0,
+        aiTutorMessages: 0,
         trialStartDate: null,
         demoProgress: {
           tabsVisited: new Set(),
@@ -4182,9 +4211,11 @@ function App() {
               <button className={tab === "pastpapers" ? "active" : ""} onClick={() => { setTab("pastpapers"); setShowMobileMenu(false); }}>
                 <span>📄</span> Past Papers
               </button>
-              <button className={tab === "classroom" ? "active" : ""} onClick={() => { setTab("classroom"); setShowMobileMenu(false); }}>
-                <span>🏫</span> Classroom
-              </button>
+              {!demoMode && (
+                <button className={tab === "classroom" ? "active" : ""} onClick={() => { setTab("classroom"); setShowMobileMenu(false); }}>
+                  <span>🏫</span> Classroom
+                </button>
+              )}
               <button className={tab === "bank" ? "active" : ""} onClick={() => { setTab("bank"); setShowMobileMenu(false); }}>
                 <span>🏦</span> Question Bank
               </button>
@@ -4213,12 +4244,16 @@ function App() {
               <button className={tab === "reminders" ? "active" : ""} onClick={() => { setTab("reminders"); setShowMobileMenu(false); }}>
                 <span>🔔</span> Reminders
               </button>
-              <button className={tab === "leaderboard" ? "active" : ""} onClick={() => { setTab("leaderboard"); setShowMobileMenu(false); }}>
-                <span>🏆</span> Leaderboard
-              </button>
-              <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
-                <span>👥</span> Groups
-              </button>
+              {!demoMode && (
+                <>
+                  <button className={tab === "leaderboard" ? "active" : ""} onClick={() => { setTab("leaderboard"); setShowMobileMenu(false); }}>
+                    <span>🏆</span> Leaderboard
+                  </button>
+                  <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
+                    <span>👥</span> Groups
+                  </button>
+                </>
+              )}
               <button className={tab === "pomodoro" ? "active" : ""} onClick={() => { setTab("pomodoro"); setShowMobileMenu(false); }}>
                 <span>⏱️</span> Timer
               </button>
@@ -4304,7 +4339,12 @@ function App() {
 
           ["settings", "Settings"],
 
-        ].map(([id, label]) => (
+        ].filter(([id]) => {
+          // In demo mode, hide premium tabs completely
+          if (!demoMode) return true;
+          const lockedTabs = ["leaderboard", "classroom", "studygroups"];
+          return !lockedTabs.includes(id);
+        }).map(([id, label]) => (
 
           <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
 
@@ -4380,7 +4420,15 @@ function App() {
 
 
       {tab === "studygroups" && (
-        <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
+        demoMode ? (
+          <DemoLockedOverlay
+            title="👥 Study Groups Locked"
+            description="Join study groups, collaborate with peers, and learn together. Upgrade to Pro to connect with other students!"
+            icon="👥"
+          />
+        ) : (
+          <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
+        )
       )}
 
 
@@ -4443,19 +4491,32 @@ function App() {
 
 
       {tab === "pastpapers" && (
-
-        <PastPaperDrill
-
-          subjects={subjects}
-
-          onStartPastPaper={(qs, yr, mins) => {
-
-            setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: qs, totalSeconds: mins * 60 });
-
-          }}
-
-        />
-
+        <>
+          {demoMode && (
+            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>📄</span>
+                <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.pastPapersLimit - (demoUsage.pastPapersUsed || 0)} past paper remaining.</span>
+              </div>
+            </div>
+          )}
+          <PastPaperDrill
+            subjects={subjects}
+            demoMode={demoMode}
+            demoUsage={demoUsage}
+            setDemoUsage={setDemoUsage}
+            onStartPastPaper={(qs, yr, mins) => {
+              if (demoMode && (demoUsage.pastPapersUsed || 0) >= DEMO_LIMITS.pastPapersLimit) {
+                alert(`Demo limit: Only ${DEMO_LIMITS.pastPapersLimit} past paper allowed. Upgrade to access all past papers!`);
+                return;
+              }
+              setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: qs, totalSeconds: mins * 60 });
+              if (demoMode) {
+                setDemoUsage(prev => ({ ...prev, pastPapersUsed: (prev.pastPapersUsed || 0) + 1 }));
+              }
+            }}
+          />
+        </>
       )}
 
 
@@ -4783,7 +4844,13 @@ function App() {
       )}
 
       {tab === "classroom" && (
-
+        demoMode ? (
+          <DemoLockedOverlay
+            title="🏫 Classroom Locked"
+            description="Join virtual classrooms, participate in discussions, and submit assignments. Upgrade to Pro for full classroom access!"
+            icon="🏫"
+          />
+        ) : (
         <Classroom
 
           subjects={subjects}
@@ -4795,75 +4862,38 @@ function App() {
           setTeacherMode={() => {}}
 
           onCreate={async (a) => {
-
             try {
-
               if (token) {
-
                 const backendSubject = backendSubjects.find((s) => s.label === subjects.find((x) => x.id === a.subjectId)?.label);
-
                 if (backendSubject) {
-
                   await api("/assignments", {
-
                     token,
-
                     method: "POST",
-
                     body: { title: a.title, subjectId: backendSubject.id, dueAt: a.due || null },
-
                   });
-
                   refreshAssignments();
-
-                  return;
-
                 }
-
               }
-
             } catch {
-
-              // fallback below
-
+              setAssignments((prev) => [...prev, a]);
             }
-
-            setAssignments((p) => [...p, a]);
-
           }}
-
           onComplete={async (id) => {
-
             try {
-
-              if (token) {
-
-                await api(`/assignments/${id}/submit`, { token, method: "POST" });
-
-                refreshAssignments();
-
-                return;
-
-              }
-
+              await apiRequest("/api/assignments/complete", "POST", { id }, token);
             } catch {
-
-              // fallback
-
+              // ignore offline
             }
-
-            setAssignments((p) => p.map((a) => (a.id === id ? { ...a, done: true } : a)));
-
+            setAssignments((prev) =>
+              prev.map((a) => (a.id === id ? { ...a, completed: true, completedAt: new Date().toISOString() } : a))
+            );
           }}
-
           onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-
         />
-
+        )
       )}
 
       {tab === "bank" && <QuestionBank subjects={subjects} onStartPastPaper={(qs, yr, mins) => {
-
         setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: qs, totalSeconds: mins * 60 });
 
       }} />}
@@ -5437,25 +5467,79 @@ function App() {
       )}
 
       {tab === "leaderboard" && (
-
-        <Leaderboard username={auth.user.username} xp={stats.xp} sessions={stats.sessions} streak={stats.streak} mastery={mastery} subjects={subjects} token={token} />
-
+        demoMode ? (
+          <DemoLockedOverlay
+            title="🏆 Leaderboard Locked"
+            description="Compete with other students and see how you rank globally. Upgrade to Pro to unlock the leaderboard and join the competition!"
+            icon="🏆"
+          />
+        ) : (
+          <Leaderboard username={auth.user.username} xp={stats.xp} sessions={stats.sessions} streak={stats.streak} mastery={mastery} subjects={subjects} token={token} />
+        )
       )}
 
       {tab === "pomodoro" && (
-
-        <PomodoroTimer onSessionDone={() =>
-
-          setStats((s) => ({ ...s, questsDone: { ...s.questsDone, q7: s.questsDone.q7 } }))
-
-        } />
-
+        demoMode ? (
+          demoUsage.pomodoroSessions >= DEMO_LIMITS.pomodoroSessions ? (
+            <DemoLockedOverlay
+              title="⏱️ Pomodoro Locked"
+              description={`You've used all ${DEMO_LIMITS.pomodoroSessions} focus sessions for today. Upgrade for unlimited focus sessions!`}
+              icon="⏱️"
+            />
+          ) : (
+            <>
+              {demoMode && (
+                <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>⏱️</span>
+                    <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.pomodoroSessions - demoUsage.pomodoroSessions} focus sessions remaining today.</span>
+                  </div>
+                </div>
+              )}
+              <PomodoroTimer
+                demoMode={demoMode}
+                onSessionDone={() => {
+                  setStats((s) => ({ ...s, questsDone: { ...s.questsDone, q7: s.questsDone.q7 } }));
+                  if (demoMode) {
+                    setDemoUsage(prev => ({ ...prev, pomodoroSessions: prev.pomodoroSessions + 1 }));
+                  }
+                }}
+              />
+            </>
+          )
+        ) : (
+          <PomodoroTimer onSessionDone={() =>
+            setStats((s) => ({ ...s, questsDone: { ...s.questsDone, q7: s.questsDone.q7 } }))
+          } />
+        )
       )}
 
       {tab === "notes" && (
-
-        <NotesEditor subjects={subjects} notes={notes} setNotes={setNotes} />
-
+        <>
+          {demoMode && (
+            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>📝</span>
+                <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.notesLimit - Object.values(notes).flat().length} notes remaining.</span>
+              </div>
+            </div>
+          )}
+          <NotesEditor
+            subjects={subjects}
+            notes={notes}
+            setNotes={(newNotes) => {
+              if (demoMode) {
+                const noteCount = Object.values(newNotes).flat().length;
+                if (noteCount > DEMO_LIMITS.notesLimit) {
+                  alert(`Demo limit: Maximum ${DEMO_LIMITS.notesLimit} notes allowed. Upgrade to Pro for unlimited notes!`);
+                  return;
+                }
+              }
+              setNotes(newNotes);
+            }}
+            demoMode={demoMode}
+          />
+        </>
       )}
 
       {tab === "achievements" && (
@@ -7185,17 +7269,7 @@ function PomodoroTimer({ onSessionDone }) {
 
       if (e.key === "Escape") {
 
-        setShowCheckpoint(null);
-
-        setShowPalette(false);
-
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-
-        e.preventDefault();
-
-        setShowPalette((v) => !v);
+        // Close any open modals - handled by parent App component
 
       }
 
@@ -8336,8 +8410,8 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
     if (!message.trim() || loading) return;
 
-    if (demoMode && demoUsage.aiMessages >= DEMO_LIMITS.aiMessages) {
-      setChatHistory([...chatHistory, { role: "assistant", content: `Demo limit reached: You've used ${DEMO_LIMITS.aiMessages} AI messages. Register for full access.`, timestamp: Date.now() }]);
+    if (demoMode && (demoUsage.aiTutorMessages || 0) >= DEMO_LIMITS.aiTutorMessages) {
+      setChatHistory([...chatHistory, { role: "assistant", content: `Demo limit reached: You've used ${DEMO_LIMITS.aiTutorMessages} AI tutor messages. Register for full access.`, timestamp: Date.now() }]);
       return;
     }
 
@@ -8360,7 +8434,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
     setChatHistory(newHistory);
 
     if (demoMode) {
-      setDemoUsage(prev => ({ ...prev, aiMessages: prev.aiMessages + 1 }));
+      setDemoUsage(prev => ({ ...prev, aiTutorMessages: (prev.aiTutorMessages || 0) + 1 }));
     }
 
 

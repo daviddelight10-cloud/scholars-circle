@@ -17,18 +17,25 @@ const router = express.Router();
 
 
 const registerSchema = z.object({
-  email: z.string().trim().email(),
-  username: z.string().trim().min(3),
+
+  email: z.string().email(),
+
+  username: z.string().min(3),
+
   password: z.string().min(6),
+
   role: z.enum(["STUDENT", "TEACHER"]).optional(),
+
   inviteCode: z.string().optional(),
+
 });
 
 
 
 router.post("/register", async (req, res) => {
-  console.log("Register request body:", JSON.stringify(req.body));
+
   try {
+
     const data = registerSchema.parse(req.body);
 
     const desiredRole = data.role || "STUDENT";
@@ -99,9 +106,11 @@ router.post("/register", async (req, res) => {
 
 
 router.post("/login", async (req, res) => {
-  console.log("Login request body:", JSON.stringify(req.body));
+
   const schema = z.object({ login: z.string(), password: z.string() });
+
   try {
+
     const { login, password } = schema.parse(req.body);
 
     const user = await prisma.user.findFirst({
@@ -143,8 +152,9 @@ router.post("/login", async (req, res) => {
     return res.json({ token, user: { id: user.id, username: user.username, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated } });
 
   } catch (e) {
-    console.error("Login error:", e);
+
     return res.status(400).json({ error: "Login failed", details: e.message });
+
   }
 
 });
