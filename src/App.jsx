@@ -20,15 +20,58 @@ function loadFromStorage(key) {
   }
 }
 
-function DemoLockedOverlay({ title, description, icon = "🔒" }) {
+function DemoLockedOverlay({ title, description, icon = "🔒", features = [], price = "$4.99/month" }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 16, textAlign: "center", padding: 32 }}>
-      <span style={{ fontSize: 48 }}>{icon}</span>
-      <h3 style={{ margin: 0 }}>{title}</h3>
-      <p className="muted" style={{ maxWidth: 400 }}>{description}</p>
-      <button onClick={() => alert("Upgrade to Scholar's Circle Pro to unlock this feature!\n\nBenefits:\n• Unlimited AI tutoring\n• Full analytics dashboard\n• Study groups & leaderboard\n• Unlimited past papers\n• Classroom features")}>
-        Upgrade to Pro
-      </button>
+    <div className="card" style={{ textAlign: "center", padding: "48px 32px", maxWidth: 500, margin: "0 auto" }}>
+      <div style={{ fontSize: 64, marginBottom: 16 }}>{icon}</div>
+      <h2 style={{ margin: "0 0 12px 0", color: "#facc15" }}>⭐ Premium Feature</h2>
+      <h3 style={{ margin: "0 0 16px 0" }}>{title}</h3>
+      <p className="muted" style={{ marginBottom: 24, lineHeight: 1.6 }}>{description}</p>
+      
+      {features.length > 0 && (
+        <div style={{ background: "rgba(45,212,160,0.1)", borderRadius: 12, padding: 20, marginBottom: 24, textAlign: "left" }}>
+          <strong style={{ color: "#2dd4a0", display: "block", marginBottom: 12 }}>✨ What you'll unlock:</strong>
+          <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
+            {features.map((f, i) => <li key={i} style={{ color: "#aab4c4" }}>{f}</li>)}
+          </ul>
+        </div>
+      )}
+      
+      <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+        <button 
+          onClick={() => alert(`🚀 Upgrade to Scholar's Circle Pro!\n\nOnly ${price}\n\n✅ Unlimited AI Tutoring\n✅ Study Groups & Leaderboard\n✅ Full Analytics Dashboard\n✅ Unlimited Past Papers\n✅ Unlimited Notes & Flashcards\n✅ Priority Support\n\nStart your 14-day free trial today!`)}
+          style={{ 
+            background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)", 
+            color: "#000", 
+            fontWeight: 700,
+            padding: "14px 32px",
+            fontSize: 16,
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer"
+          }}
+        >
+          🚀 Upgrade to Pro — {price}
+        </button>
+        <button 
+          onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
+          style={{ 
+            background: "transparent", 
+            border: "2px solid #2dd4a0",
+            color: "#2dd4a0",
+            padding: "12px 24px",
+            fontSize: 14,
+            borderRadius: 8,
+            cursor: "pointer"
+          }}
+        >
+          🎁 Free Trial
+        </button>
+      </div>
+      
+      <p style={{ fontSize: 12, color: "#6b7280", marginTop: 20 }}>
+        💡 89% of Pro users improved their grades within 30 days
+      </p>
     </div>
   );
 }
@@ -2539,7 +2582,67 @@ function App() {
     updateProgressWidget();
   }, [stats?.xp]);
 
+  // Automatic practice reminders
+  useEffect(() => {
+    if (!booted || notificationPermission !== 'granted') return;
 
+    // Schedule daily study reminder (if not studied today)
+    const now = new Date();
+    const today = now.toDateString();
+    const studiedToday = lastStudied === today;
+
+    if (!studiedToday) {
+      // Schedule reminder for 6 PM if not studied by then
+      const reminderTime = new Date(today);
+      reminderTime.setHours(18, 0, 0, 0);
+
+      if (now < reminderTime) {
+        const timeoutMs = reminderTime.getTime() - now.getTime();
+        const timeout = setTimeout(() => {
+          sendNotification(
+            "📚 Time to Study!",
+            "You haven't studied today. Take 10 minutes to maintain your streak!",
+            { tag: 'daily-reminder', requireInteraction: false }
+          );
+        }, timeoutMs);
+        return () => clearTimeout(timeout);
+      }
+    }
+
+    // Spaced review reminder (if due cards exist)
+    if (dueCards.length > 0) {
+      const reminderDelay = 30 * 60 * 1000; // 30 minutes after app load
+      const timeout = setTimeout(() => {
+        sendNotification(
+          "🔄 Spaced Review Due",
+          `You have ${dueCards.length} cards ready for review. Keep your knowledge fresh!`,
+          { tag: 'spaced-review', requireInteraction: false }
+        );
+      }, reminderDelay);
+      return () => clearTimeout(timeout);
+    }
+
+    // Streak danger warning (if streak will be lost tomorrow)
+    if (stats.streak > 0 && lastStudied) {
+      const lastStudiedDate = new Date(lastStudied);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(20, 0, 0, 0);
+
+      const daysSinceStudied = Math.floor((now - lastStudiedDate) / (1000 * 60 * 60 * 24));
+      if (daysSinceStudied === 1) {
+        const timeoutMs = tomorrow.getTime() - now.getTime();
+        const timeout = setTimeout(() => {
+          sendNotification(
+            "⚠️ Streak in Danger!",
+            `Your ${stats.streak}-day streak ends tonight. Study now to keep it alive!`,
+            { tag: 'streak-warning', requireInteraction: true }
+          );
+        }, timeoutMs);
+        return () => clearTimeout(timeout);
+      }
+    }
+  }, [booted, notificationPermission, lastStudied, dueCards.length, stats.streak]);
 
   const allQuestions = useMemo(
 
@@ -4244,16 +4347,12 @@ function App() {
               <button className={tab === "reminders" ? "active" : ""} onClick={() => { setTab("reminders"); setShowMobileMenu(false); }}>
                 <span>🔔</span> Reminders
               </button>
-              {!demoMode && (
-                <>
-                  <button className={tab === "leaderboard" ? "active" : ""} onClick={() => { setTab("leaderboard"); setShowMobileMenu(false); }}>
-                    <span>🏆</span> Leaderboard
-                  </button>
-                  <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
-                    <span>👥</span> Groups
-                  </button>
-                </>
-              )}
+              <button className={tab === "leaderboard" ? "active" : ""} onClick={() => { setTab("leaderboard"); setShowMobileMenu(false); }}>
+                <span>🏆</span> Leaderboard
+              </button>
+              <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
+                <span>👥</span> Groups
+              </button>
               <button className={tab === "pomodoro" ? "active" : ""} onClick={() => { setTab("pomodoro"); setShowMobileMenu(false); }}>
                 <span>⏱️</span> Timer
               </button>
@@ -4340,10 +4439,11 @@ function App() {
           ["settings", "Settings"],
 
         ].filter(([id]) => {
-          // In demo mode, hide premium tabs completely
+          // In demo mode, only hide classroom completely (institutional feature)
+          // Leaderboard and Study Groups are shown but locked to encourage upgrades
           if (!demoMode) return true;
-          const lockedTabs = ["leaderboard", "classroom", "studygroups"];
-          return !lockedTabs.includes(id);
+          const hiddenTabs = ["classroom"];
+          return !hiddenTabs.includes(id);
         }).map(([id, label]) => (
 
           <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
@@ -4422,9 +4522,17 @@ function App() {
       {tab === "studygroups" && (
         demoMode ? (
           <DemoLockedOverlay
-            title="👥 Study Groups Locked"
-            description="Join study groups, collaborate with peers, and learn together. Upgrade to Pro to connect with other students!"
+            title="👥 Study Groups"
+            description="Join thousands of students studying together! Form study groups, share notes, quiz each other, and stay motivated with peer accountability."
             icon="👥"
+            features={[
+              "Create or join unlimited study groups",
+              "Real-time group chat & discussions",
+              "Share flashcards and notes with group",
+              "Group challenges & competitions",
+              "Peer-to-peer tutoring sessions",
+              "Study session scheduling"
+            ]}
           />
         ) : (
           <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
@@ -5469,9 +5577,17 @@ function App() {
       {tab === "leaderboard" && (
         demoMode ? (
           <DemoLockedOverlay
-            title="🏆 Leaderboard Locked"
-            description="Compete with other students and see how you rank globally. Upgrade to Pro to unlock the leaderboard and join the competition!"
+            title="🏆 Global Leaderboard"
+            description="Compete with students worldwide! See your ranking, earn badges, and climb the leagues. Top performers win monthly prizes!"
             icon="🏆"
+            features={[
+              "Global & subject-specific rankings",
+              "Weekly MVP recognition",
+              "Special badges & achievements",
+              "League promotions (Bronze → Champion)",
+              "Monthly prizes for top students",
+              "Friend challenges & duels"
+            ]}
           />
         ) : (
           <Leaderboard username={auth.user.username} xp={stats.xp} sessions={stats.sessions} streak={stats.streak} mastery={mastery} subjects={subjects} token={token} />
