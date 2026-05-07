@@ -6,15 +6,19 @@ const router = Router();
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
+const DEFAULT_OPENROUTER_MODEL = "qwen/qwen-2.5-7b-instruct";
 
 router.get("/status", (_req, res) => {
   res.json({
-    enabled: Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY),
+    enabled: Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY),
     providers: {
       gemini: Boolean(process.env.GEMINI_API_KEY),
       openai: Boolean(process.env.OPENAI_API_KEY),
+      openrouter: Boolean(process.env.OPENROUTER_API_KEY),
     },
-    defaultProvider: process.env.GEMINI_API_KEY ? "gemini" : (process.env.OPENAI_API_KEY ? "openai" : null),
+    defaultProvider: process.env.GEMINI_API_KEY ? "gemini" : 
+                     (process.env.OPENAI_API_KEY ? "openai" : 
+                     (process.env.OPENROUTER_API_KEY ? "openrouter" : null)),
   });
 });
 
@@ -24,7 +28,10 @@ router.post("/generate", async (req, res) => {
     return res.status(400).json({ error: "prompt is required" });
   }
 
-  const requestedProvider = provider || (process.env.GEMINI_API_KEY ? "gemini" : "openai");
+  const requestedProvider = provider || 
+    (process.env.GEMINI_API_KEY ? "gemini" : 
+     process.env.OPENAI_API_KEY ? "openai" : 
+     process.env.OPENROUTER_API_KEY ? "openrouter" : "openai");
 
   try {
     if (requestedProvider === "gemini") {
@@ -58,6 +65,30 @@ router.post("/generate", async (req, res) => {
       if (!r.ok) return res.status(r.status).json({ error: data?.error?.message || "OpenAI error" });
       const text = data.output_text || "";
       return res.json({ text, provider: "openai", model: useModel });
+    }
+
+    if (requestedProvider === "openrouter") {
+      const key = process.env.OPENROUTER_API_KEY;
+      if (!key) return res.status(503).json({ error: "Server has no OpenRouter key configured" });
+      const useModel = model || DEFAULT_OPENROUTER_MODEL;
+      const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${key}`,
+          "HTTP-Referer": "https://scholars-circle.vercel.app",
+          "X-Title": "Scholar's Circle",
+        },
+        body: JSON.stringify({
+          model: useModel,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 2000,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json({ error: data?.error?.message || "OpenRouter error" });
+      const text = data.choices?.[0]?.message?.content || "";
+      return res.json({ text, provider: "openrouter", model: useModel });
     }
 
     return res.status(400).json({ error: `Unknown provider: ${requestedProvider}` });
