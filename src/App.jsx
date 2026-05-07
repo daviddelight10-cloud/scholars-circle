@@ -2582,7 +2582,37 @@ function App() {
     updateProgressWidget();
   }, [stats?.xp]);
 
-  // Automatic practice reminders
+  const allQuestions = useMemo(
+
+    () =>
+
+      subjects.flatMap((s) =>
+
+        s.questions.map((q, i) => ({
+
+          ...q,
+
+          subjectId: s.id,
+
+          subjectLabel: s.label,
+
+          subjectIcon: s.icon,
+
+          key: `${s.id}-${i}`,
+
+        }))
+
+      ),
+
+    [subjects]
+
+  );
+
+
+
+  const dueCards = allQuestions.filter((q) => (srData[q.key]?.due || 0) <= Date.now() && srData[q.key]);
+
+  // Automatic practice reminders (must be after dueCards definition)
   useEffect(() => {
     if (!booted || notificationPermission !== 'granted') return;
 
@@ -2643,38 +2673,6 @@ function App() {
       }
     }
   }, [booted, notificationPermission, lastStudied, dueCards.length, stats.streak]);
-
-  const allQuestions = useMemo(
-
-    () =>
-
-      subjects.flatMap((s) =>
-
-        s.questions.map((q, i) => ({
-
-          ...q,
-
-          subjectId: s.id,
-
-          subjectLabel: s.label,
-
-          subjectIcon: s.icon,
-
-          key: `${s.id}-${i}`,
-
-        }))
-
-      ),
-
-    [subjects]
-
-  );
-
-
-
-  const dueCards = allQuestions.filter((q) => (srData[q.key]?.due || 0) <= Date.now() && srData[q.key]);
-
-
 
   async function startSubjectPractice(subjectId, mode = "practice", questionCount = null, customMinutes = null) {
 
