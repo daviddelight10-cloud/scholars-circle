@@ -5346,47 +5346,34 @@ function App() {
           <div className="row">
 
             <select value={aiConfig.provider} onChange={(e) => {
-
               const nextProvider = e.target.value;
-
+              let defaultModel = "gpt-4o-mini";
+              if (nextProvider === "gemini") defaultModel = "gemini-1.5-flash";
+              else if (nextProvider === "openrouter") defaultModel = "qwen/qwen-2.5-7b-instruct";
               setAiConfig((p) => ({
-
                 ...p,
-
                 provider: nextProvider,
-
-                model: nextProvider === "gemini" ? "gemini-1.5-flash" : (p.model || "gpt-4o-mini"),
-
+                model: defaultModel,
               }));
-
             }}>
-
               <option value="openai">OpenAI-compatible</option>
-
               <option value="gemini">Google Gemini</option>
-
+              <option value="openrouter">OpenRouter</option>
             </select>
-
             <input
-
-              placeholder={aiConfig.provider === "gemini" ? "Gemini API key" : "OpenAI API key"}
-
+              placeholder={
+                aiConfig.provider === "gemini" ? "Gemini API key" :
+                aiConfig.provider === "openrouter" ? "OpenRouter API key" :
+                "OpenAI API key"
+              }
               type="password"
-
               value={aiConfig.apiKey}
-
               onChange={(e) => setAiConfig((p) => ({ ...p, apiKey: e.target.value }))}
-
             />
-
             <input
-
               placeholder="Model"
-
               value={aiConfig.model}
-
               onChange={(e) => setAiConfig((p) => ({ ...p, model: e.target.value }))}
-
             />
 
           </div>

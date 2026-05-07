@@ -60,6 +60,30 @@ async function callDirect(prompt, aiConfig) {
     }
     return (data?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
   }
+  if (provider === "openrouter") {
+    console.log("Calling OpenRouter API with model:", model);
+    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${aiConfig.apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Scholar's Circle",
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 2000,
+      }),
+    });
+    const data = await r.json();
+    console.log("OpenRouter response status:", r.status);
+    if (!r.ok) {
+      console.error("OpenRouter error response:", data);
+      throw new Error(data?.error?.message || `OpenRouter error: ${r.status}`);
+    }
+    return (data?.choices?.[0]?.message?.content || "").trim();
+  }
   const r = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${aiConfig.apiKey}` },
