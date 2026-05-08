@@ -1434,6 +1434,34 @@ function App() {
   const [showExpirationWarning, setShowExpirationWarning] = useState(false);
   const [showDemoTour, setShowDemoTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
+  const [demoLocked, setDemoLocked] = useState(() => {
+    try {
+      const authRaw = localStorage.getItem("scholars-circle-auth");
+      let uid = "guest";
+      if (authRaw) {
+        const authParsed = JSON.parse(authRaw);
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+      }
+      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const today = new Date().toDateString();
+        // Check if demo is locked due to time limit (same day)
+        if (parsed.demoLocked && parsed.demoLockedDate === today) {
+          return true;
+        }
+        // Check if time limit was reached (same day)
+        if (parsed.demoUsage?.sessionDate === today && parsed.demoUsage?.sessionTimeMinutes >= DEMO_LIMITS.dailyTimeLimit) {
+          return true;
+        }
+        // Check if quiz limit was reached (same day)
+        if (parsed.demoUsage?.quizDate === today && (parsed.demoUsage?.quizUsed || 0) >= DEMO_LIMITS.quizDaily) {
+          return true;
+        }
+      }
+    } catch { /* ignore */ }
+    return false;
+  });
 
 
 
@@ -1655,10 +1683,10 @@ function App() {
         if (newMinutes === Math.floor(DEMO_LIMITS.dailyTimeLimit * 0.8)) {
           setShowTimeWarning(true);
         }
-        // Block at 100% of daily limit
+        // Block at 100% of daily limit - lock demo
         if (newMinutes >= DEMO_LIMITS.dailyTimeLimit) {
           setShowTimeWarning(false);
-          setShowDemoSummary(true);
+          setDemoLocked(true);
         }
         return {
           ...prev,
@@ -1940,6 +1968,9 @@ function App() {
         notificationPermission,
 
         demoMode,
+
+        demoLocked,
+        demoLockedDate: demoLocked ? new Date().toDateString() : null,
 
         demoUsage: {
           ...demoUsage,
@@ -2866,12 +2897,17 @@ function App() {
 
     setLoadingOverlay(false);
 
+    // Check if demo is locked
+    if (demoMode && demoLocked) {
+      return;
+    }
+
     // Check daily quiz limit for demo mode
     if (demoMode) {
       const today = new Date().toDateString();
       const usedToday = demoUsage.quizDate === today ? demoUsage.quizUsed : 0;
       if (usedToday >= DEMO_LIMITS.quizDaily) {
-        alert(`Demo limit reached: You've used ${DEMO_LIMITS.quizDaily} quizzes today. Upgrade for unlimited access!`);
+        setDemoLocked(true);
         return;
       }
     }
@@ -2897,12 +2933,17 @@ function App() {
 
   function startDiagnostic() {
 
+    // Check if demo is locked
+    if (demoMode && demoLocked) {
+      return;
+    }
+
     // Check daily quiz limit for demo mode
     if (demoMode) {
       const today = new Date().toDateString();
       const usedToday = demoUsage.quizDate === today ? demoUsage.quizUsed : 0;
       if (usedToday >= DEMO_LIMITS.quizDaily) {
-        alert(`Demo limit reached: You've used ${DEMO_LIMITS.quizDaily} quizzes today. Upgrade for unlimited access!`);
+        setDemoLocked(true);
         return;
       }
     }
@@ -4017,7 +4058,49 @@ function App() {
         </div>
       )}
 
-      {showDemoSummary && demoMode && (
+      {/* Demo Locked Screen - shown when time limit reached */}
+      {demoLocked && demoMode && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="modal-box" style={{ maxWidth: 500, textAlign: "center" }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>⏰</div>
+            <h2 style={{ margin: "0 0 12px 0", color: "#facc15" }}>Daily Time Limit Reached</h2>
+            <p className="muted" style={{ marginBottom: 20, lineHeight: 1.6 }}>
+              You've used your {DEMO_LIMITS.dailyTimeLimit} minutes for today. Upgrade for unlimited access or wait until tomorrow!
+            </p>
+            <div style={{ background: "rgba(45,212,160,0.1)", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left" }}>
+              <strong style={{ color: "#2dd4a0", display: "block", marginBottom: 10 }}>✨ Upgrade for:</strong>
+              <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12 }}>
+                <li>Unlimited study time</li>
+                <li>Unlimited quizzes & practice</li>
+                <li>Full subject library</li>
+                <li>AI Tutor & flashcards</li>
+              </ul>
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                style={{ background: "#3b82f6", color: "white", fontWeight: 600, padding: "12px 24px", fontSize: 14, border: "none", borderRadius: 6, cursor: "pointer" }}
+              >
+                Upgrade Now
+              </button>
+              <button
+                onClick={() => {
+                  const tomorrow = new Date();
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  tomorrow.setHours(0, 0, 0, 0);
+                  const hoursLeft = Math.ceil((tomorrow.getTime() - Date.now()) / (1000 * 60 * 60));
+                  alert(`Come back tomorrow! Your limits will reset at midnight.\n\n⏰ About ${hoursLeft} hours remaining.`);
+                }}
+                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", color: "white", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
+              >
+                Wait Till Tomorrow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDemoSummary && demoMode && !demoLocked && (
         <div className="modal-overlay" onClick={() => setShowDemoSummary(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <h3 style={{ margin: "0 0 16px 0" }}>📊 Demo Summary</h3>
@@ -4836,7 +4919,7 @@ function App() {
               <div style={{ background: "rgba(45,212,160,0.1)", border: "1px solid rgba(45,212,160,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 16 }}>📝</span>
-                  <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.quizDaily - (demoUsage.quizDate === new Date().toDateString() ? demoUsage.quizUsed : 0)} quiz(es) remaining today.</span>
+                  <span style={{ fontSize: 13 }}>Demo: {Math.max(0, DEMO_LIMITS.quizDaily - (demoUsage.quizDate === new Date().toDateString() ? demoUsage.quizUsed : 0))} quiz(es) remaining today.</span>
                 </div>
               </div>
             </>
