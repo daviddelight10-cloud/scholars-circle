@@ -10,6 +10,8 @@ import { prisma } from "../db.js";
 
 import { generateActivationKey } from "./keys.js";
 
+import { requireAuth } from "../middleware/auth.js";
+
 
 
 const router = express.Router();
