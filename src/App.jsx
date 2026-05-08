@@ -3648,7 +3648,9 @@ function App() {
   }
 
   // Gate: non-activated students see locked screen
+  console.log("[GATE CHECK] auth.user:", !!auth.user, "isActivated:", isActivated, "demoMode:", demoMode, "willLock:", auth.user && !isActivated && !demoMode);
   if (auth.user && !isActivated && !demoMode) {
+    console.log("[GATE] Showing locked screen");
     return (
       <main className={darkMode ? "app dark" : "app light"}>
         {/* PWA Update Toast */}
