@@ -1375,8 +1375,21 @@ function App() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.demoUsage) {
+          const today = new Date().toDateString();
+          const storedDate = parsed.demoUsage.sessionDate;
+          // Reset daily counters if it's a new day
+          const isSameDay = storedDate === today;
           return {
             ...parsed.demoUsage,
+            // Reset daily counters if new day
+            sessionTimeMinutes: isSameDay ? (parsed.demoUsage.sessionTimeMinutes || 0) : 0,
+            sessionDate: today,
+            quizUsed: isSameDay && parsed.demoUsage.quizDate === today ? (parsed.demoUsage.quizUsed || 0) : 0,
+            quizDate: isSameDay && parsed.demoUsage.quizDate === today ? parsed.demoUsage.quizDate : null,
+            aiStudyAssistantUsed: isSameDay && parsed.demoUsage.aiStudyAssistantDate === today ? (parsed.demoUsage.aiStudyAssistantUsed || 0) : 0,
+            aiStudyAssistantDate: isSameDay && parsed.demoUsage.aiStudyAssistantDate === today ? parsed.demoUsage.aiStudyAssistantDate : null,
+            lectureToNotesUsed: isSameDay && parsed.demoUsage.lectureToNotesDate === today ? (parsed.demoUsage.lectureToNotesUsed || 0) : 0,
+            lectureToNotesDate: isSameDay && parsed.demoUsage.lectureToNotesDate === today ? parsed.demoUsage.lectureToNotesDate : null,
             demoProgress: {
               tabsVisited: new Set(parsed.demoUsage.demoProgress?.tabsVisited || []),
               featuresTried: new Set(parsed.demoUsage.demoProgress?.featuresTried || []),
@@ -1394,6 +1407,7 @@ function App() {
       timetableSlots: 0,
       reminders: 0,
       sessionTimeMinutes: 0,
+      sessionDate: new Date().toDateString(),
       totalSessionsUsed: 0,
       pomodoroSessions: 0,
       notesCount: 0,
@@ -1634,14 +1648,22 @@ function App() {
     if (!demoMode || !booted) return;
     const interval = setInterval(() => {
       setDemoUsage(prev => {
-        const newMinutes = prev.sessionTimeMinutes + 1;
+        const today = new Date().toDateString();
+        const currentMinutes = prev.sessionDate === today ? prev.sessionTimeMinutes : 0;
+        const newMinutes = currentMinutes + 1;
         // Show warning at 80% of daily limit
         if (newMinutes === Math.floor(DEMO_LIMITS.dailyTimeLimit * 0.8)) {
           setShowTimeWarning(true);
         }
+        // Block at 100% of daily limit
+        if (newMinutes >= DEMO_LIMITS.dailyTimeLimit) {
+          setShowTimeWarning(false);
+          setShowDemoSummary(true);
+        }
         return {
           ...prev,
           sessionTimeMinutes: newMinutes,
+          sessionDate: today,
         };
       });
     }, 60000); // Every minute
@@ -2171,12 +2193,19 @@ function App() {
         timetableSlots: 0,
         reminders: 0,
         sessionTimeMinutes: 0,
+        sessionDate: new Date().toDateString(),
         totalSessionsUsed: 0,
         pomodoroSessions: 0,
         notesCount: 0,
         pastPapersUsed: 0,
         aiTutorMessages: 0,
         trialStartDate: null,
+        aiStudyAssistantUsed: 0,
+        aiStudyAssistantDate: null,
+        lectureToNotesUsed: 0,
+        lectureToNotesDate: null,
+        quizUsed: 0,
+        quizDate: null,
         demoProgress: {
           tabsVisited: new Set(),
           featuresTried: new Set(),
