@@ -2625,16 +2625,18 @@ function App() {
     // Detect when a new service worker takes control (app updated)
     const handleControllerChange = () => {
       console.log('New service worker activated');
-      setShowUpdateToast(true);
+      // Don't show toast - the new SW is already active, just refresh quietly
+      // Data is preserved in localStorage
+      window.location.reload();
     };
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
     // Check for updates periodically and on visibility change
     navigator.serviceWorker.ready.then((registration) => {
-      // Check every 30 seconds for updates
+      // Check every 2 minutes for updates (more frequent polling)
       updateCheckInterval = setInterval(() => {
         registration.update().catch(() => {});
-      }, 30 * 1000);
+      }, 2 * 60 * 1000);
 
       // Also check when page becomes visible
       const handleVisibilityChange = () => {
@@ -2647,6 +2649,7 @@ function App() {
       // Check for waiting worker and show prompt
       const checkForWaiting = () => {
         if (registration.waiting) {
+          console.log('Update waiting to be applied');
           setUpdatePending(true);
           setShowUpdateToast(true);
         }
@@ -2656,7 +2659,8 @@ function App() {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New worker is waiting
+              // New worker is waiting - show update prompt
+              console.log('New service worker installed and waiting');
               setUpdatePending(true);
               setShowUpdateToast(true);
             }
@@ -2674,6 +2678,11 @@ function App() {
 
   function applyUpdate() {
     if (!('serviceWorker' in navigator)) return;
+    
+    // Save current state to localStorage before updating
+    // (This is already done automatically by the save effect)
+    console.log('Applying update - data preserved in localStorage');
+    
     navigator.serviceWorker.ready.then((registration) => {
       if (registration.waiting) {
         registration.waiting.postMessage({ type: 'SKIP_WAITING' });
