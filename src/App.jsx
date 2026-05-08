@@ -1884,7 +1884,8 @@ function App() {
 
     return () => { active = false; };
 
-  }, [auth.user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.id]);
 
 
 
