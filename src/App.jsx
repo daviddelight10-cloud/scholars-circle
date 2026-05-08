@@ -22,12 +22,19 @@ function loadFromStorage(key) {
 
 function DemoLockedOverlay({ title, description, icon = "🔒", features = [], showPlans = false }) {
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
 
   const plans = [
-    { id: "monthly", name: "Monthly", price: "$4.99", period: "/month", highlight: false },
-    { id: "quarterly", name: "Quarterly", price: "$12.99", period: "/3 months", highlight: false, savings: "Save 13%" },
-    { id: "yearly", name: "Yearly", price: "$39.99", period: "/year", highlight: true, savings: "Save 33%" },
+    { id: "monthly", name: "Monthly", price: "₦5,000", period: "/month", highlight: false },
+    { id: "quarterly", name: "Quarterly", price: "₦12,000", period: "/3 months", highlight: false, savings: "Save 20%" },
+    { id: "yearly", name: "Yearly", price: "₦40,000", period: "/year", highlight: true, savings: "Save 33%" },
   ];
+
+  const bankDetails = {
+    bank: "Opay",
+    accountNumber: "8066398155",
+    accountName: "David Opeyemi Eluti",
+  };
 
   return (
     <div className="card" style={{ textAlign: "center", padding: "48px 32px", maxWidth: 500, margin: "0 auto" }}>
@@ -45,7 +52,7 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
         </div>
       )}
 
-      {showPlans && (
+      {showPlans && !showPayment && (
         <div style={{ marginBottom: 24 }}>
           <h4 style={{ margin: "0 0 16px 0", color: "#818cf8" }}>Choose Your Plan</h4>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
@@ -85,43 +92,108 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
         </div>
       )}
 
+      {showPayment && selectedPlan && (
+        <div style={{ marginBottom: 24, background: "rgba(129,140,248,0.1)", borderRadius: 12, padding: 20, textAlign: "left" }}>
+          <h4 style={{ margin: "0 0 16px 0", color: "#818cf8", textAlign: "center" }}>💳 Payment via Bank Transfer</h4>
+          <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span className="muted">Bank:</span>
+              <strong style={{ color: "#2dd4a0" }}>{bankDetails.bank}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span className="muted">Account Number:</span>
+              <strong style={{ color: "#2dd4a0", fontSize: 18 }}>{bankDetails.accountNumber}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span className="muted">Account Name:</span>
+              <strong style={{ color: "#2dd4a0" }}>{bankDetails.accountName}</strong>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <span className="muted">Amount to Pay:</span>
+              <strong style={{ color: "#facc15", fontSize: 20 }}>{plans.find(p => p.id === selectedPlan)?.price}</strong>
+            </div>
+          </div>
+          <p style={{ fontSize: 12, color: "#6b7280", textAlign: "center" }}>
+            📱 Send proof of payment via WhatsApp to activate your account
+          </p>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-        <button
-          onClick={() => {
-            if (showPlans && !selectedPlan) {
-              alert("Please select a plan first");
-              return;
-            }
-            const planText = selectedPlan ? plans.find(p => p.id === selectedPlan)?.name + " plan" : "Pro";
-            alert(`🚀 Upgrade to Scholar's Circle ${planText}!\n\n✅ Unlimited AI Tutoring\n✅ Study Groups & Leaderboard\n✅ Full Analytics Dashboard\n✅ Unlimited Past Papers\n✅ Unlimited Notes & Flashcards\n✅ Priority Support\n\nContact us to complete your subscription!`);
-          }}
-          style={{
-            background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)",
-            color: "#000",
-            fontWeight: 700,
-            padding: "14px 32px",
-            fontSize: 16,
-            border: "none",
-            borderRadius: 8,
-            cursor: "pointer"
-          }}
-        >
-          🚀 {selectedPlan ? `Subscribe ${plans.find(p => p.id === selectedPlan)?.name}` : "Upgrade to Pro"}
-        </button>
-        <button
-          onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
-          style={{
-            background: "transparent",
-            border: "2px solid #2dd4a0",
-            color: "#2dd4a0",
-            padding: "12px 24px",
-            fontSize: 14,
-            borderRadius: 8,
-            cursor: "pointer"
-          }}
-        >
-          🎁 Free Trial
-        </button>
+        {!showPayment ? (
+          <>
+            <button
+              onClick={() => {
+                if (showPlans && !selectedPlan) {
+                  alert("Please select a plan first");
+                  return;
+                }
+                setShowPayment(true);
+              }}
+              style={{
+                background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)",
+                color: "#000",
+                fontWeight: 700,
+                padding: "14px 32px",
+                fontSize: 16,
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer"
+              }}
+            >
+              🚀 {selectedPlan ? `Pay for ${plans.find(p => p.id === selectedPlan)?.name}` : "Upgrade to Pro"}
+            </button>
+            <button
+              onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
+              style={{
+                background: "transparent",
+                border: "2px solid #2dd4a0",
+                color: "#2dd4a0",
+                padding: "12px 24px",
+                fontSize: 14,
+                borderRadius: 8,
+                cursor: "pointer"
+              }}
+            >
+              🎁 Free Trial
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setShowPayment(false)}
+              style={{
+                background: "transparent",
+                border: "2px solid #4f5a67",
+                color: "#aab4c4",
+                padding: "12px 24px",
+                fontSize: 14,
+                borderRadius: 8,
+                cursor: "pointer"
+              }}
+            >
+              ← Back to Plans
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(bankDetails.accountNumber);
+                alert("Account number copied! Send payment and contact us with proof to activate.");
+              }}
+              style={{
+                background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)",
+                color: "#000",
+                fontWeight: 700,
+                padding: "14px 32px",
+                fontSize: 16,
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer"
+              }}
+            >
+              📋 Copy Account Number
+            </button>
+          </>
+        )}
       </div>
 
       <p style={{ fontSize: 12, color: "#6b7280", marginTop: 20 }}>
