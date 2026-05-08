@@ -165,10 +165,7 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
         </button>
       </div>
 
-      <p style={{ fontSize: 11, color: "#6b7280", marginTop: 16 }}>
-        💡 89% of Pro users improved their grades within 30 days
-      </p>
-    </div>
+      </div>
   );
 }
 
