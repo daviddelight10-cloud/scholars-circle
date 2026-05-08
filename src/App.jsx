@@ -6893,7 +6893,7 @@ function FlashcardDeck({ subjects, srData, customFlashcards, setCustomFlashcards
 
               <div className="flashcard-back">
 
-                <p style={{ fontSize: "1.1rem", color: "#2dd4a0" }}>{card.back}</p>
+                <p className="flashcard-answer">{card.back}</p>
 
               </div>
 
@@ -8527,7 +8527,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
       </div>
 
-      <div style={{ height: 400, overflowY: "auto", border: "1px solid #3e4752", borderRadius: 10, padding: 12, background: "rgba(0,0,0,0.2)" }}>
+      <div className="ai-chat-container">
 
         {chatHistory.length === 0 && (
 
@@ -8547,7 +8547,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
               <span style={{ fontSize: 20 }}>{msg.role === "user" ? "👤" : "🤖"}</span>
 
-              <div style={{ flex: 1, background: msg.role === "user" ? "rgba(129,140,248,0.15)" : "rgba(45,212,160,0.1)", padding: 10, borderRadius: 8 }}>
+              <div className={msg.role === "user" ? "ai-chat-msg-user" : "ai-chat-msg-assistant"} style={{ flex: 1 }}>
 
                 <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>
 

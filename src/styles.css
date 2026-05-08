@@ -286,6 +286,48 @@ body {
 
 .theme-paper .muted { color: #4b5563; opacity: 1; }
 
+/* Light mode input styles */
+.light input,
+.light textarea,
+.light select,
+.theme-paper input,
+.theme-paper textarea,
+.theme-paper select {
+  background: #ffffff;
+  border-color: #c4c8d0;
+  color: #1e293b;
+}
+
+.light input::placeholder,
+.light textarea::placeholder,
+.theme-paper input::placeholder,
+.theme-paper textarea::placeholder {
+  color: #9ca3af;
+}
+
+.light button,
+.theme-paper button {
+  color: #1e293b;
+}
+
+.light .lesson-block,
+.theme-paper .lesson-block {
+  background: rgba(0,0,0,0.02);
+  border-color: #e0e2ea;
+  color: #1e293b;
+}
+
+.light .history-row,
+.theme-paper .history-row {
+  background: rgba(0,0,0,0.02);
+  border-color: #e0e2ea;
+}
+
+.light .history-row:hover,
+.theme-paper .history-row:hover {
+  background: rgba(0,0,0,0.04);
+}
+
 
 
 /* ── Density toggle ── */
@@ -438,6 +480,54 @@ kbd {
 
   opacity: 0.75;
 
+}
+
+/* Light mode muted text */
+.light .muted,
+.theme-paper .muted {
+  color: #4b5563 !important;
+  opacity: 1;
+}
+
+/* AI Chat container styles */
+.ai-chat-container {
+  height: 400px;
+  overflow-y: auto;
+  border: 1px solid #3e4752;
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(0,0,0,0.2);
+}
+
+.light .ai-chat-container,
+.theme-paper .ai-chat-container {
+  border-color: #c4c8d0;
+  background: rgba(0,0,0,0.03);
+}
+
+/* AI Chat message styles */
+.ai-chat-msg-user {
+  background: rgba(129,140,248,0.15);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.ai-chat-msg-assistant {
+  background: rgba(45,212,160,0.1);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.light .ai-chat-msg-user,
+.theme-paper .ai-chat-msg-user {
+  background: rgba(129,140,248,0.12);
+  color: #1e293b;
+}
+
+.light .ai-chat-msg-assistant,
+.theme-paper .ai-chat-msg-assistant {
+  background: rgba(45,212,160,0.1);
+  color: #1e293b;
 }
 
 
@@ -1111,6 +1201,39 @@ textarea {
 
   transform: rotateY(180deg);
 
+}
+
+/* Light mode flashcards */
+.light .flashcard-front,
+.theme-paper .flashcard-front {
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: #c4c8d0;
+  color: #1e293b;
+}
+
+.light .flashcard-back,
+.theme-paper .flashcard-back {
+  background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+  border-color: #2dd4a0;
+  color: #1e293b;
+}
+
+.light .flashcard-front .question,
+.light .flashcard-back p,
+.theme-paper .flashcard-front .question,
+.theme-paper .flashcard-back p {
+  color: #1e293b !important;
+}
+
+/* Flashcard answer styling */
+.flashcard-answer {
+  font-size: 1.1rem;
+  color: #2dd4a0;
+}
+
+.light .flashcard-answer,
+.theme-paper .flashcard-answer {
+  color: #059669 !important;
 }
 
 
