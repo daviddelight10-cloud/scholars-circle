@@ -56,8 +56,16 @@ app.use(cors({
 
 app.use(express.json());
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+// Health endpoint - always returns ok even if DB is not ready
+app.get("/health", async (_req, res) => {
+  try {
+    // Try to ping the database
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, database: "connected" });
+  } catch (err) {
+    // Still return ok for healthcheck, but note DB status
+    res.json({ ok: true, database: "connecting" });
+  }
 });
 app.use("/auth", authRoutes);
 app.use("/subjects", subjectRoutes);
@@ -89,8 +97,18 @@ process.on("unhandledRejection", (err) => {
   process.exit(1);
 });
 
-app.listen(port, "0.0.0.0", () => {
+// Start server first, then sync database
+app.listen(port, "0.0.0.0", async () => {
   console.log(`API running on port ${port}`);
   console.log("Environment:", process.env.NODE_ENV || "development");
   console.log("Database URL exists:", !!process.env.DATABASE_URL);
+  
+  // Try to connect to database in background
+  try {
+    await prisma.$connect();
+    console.log("Database connected successfully");
+  } catch (err) {
+    console.error("Database connection failed:", err.message);
+    // Don't exit - let the container stay up for debugging
+  }
 });
