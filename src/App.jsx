@@ -8658,14 +8658,6 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
       return;
     }
 
-    if (!aiConfig.apiKey) {
-
-      setChatHistory([...chatHistory, { role: "assistant", content: "Please configure your API key in Settings first.", timestamp: Date.now() }]);
-
-      return;
-
-    }
-
     const userMsg = message.trim();
 
     setMessage("");
