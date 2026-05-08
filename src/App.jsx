@@ -1472,6 +1472,13 @@ function App() {
   const isTeacher = String(auth.user?.role || "").toLowerCase() === "teacher";
 
   const isActivated = isTeacher || auth.user?.isActivated === true;
+  
+  // Debug log for activation status
+  useEffect(() => {
+    if (auth.user) {
+      console.log("[isActivated] auth.user.isActivated:", auth.user.isActivated, "isTeacher:", isTeacher, "isActivated:", isActivated);
+    }
+  }, [auth.user, isTeacher, isActivated]);
 
   const subjects = useMemo(() => {
 
@@ -2534,10 +2541,12 @@ function App() {
         const userIsTeacher = String(res.user.role || "").toLowerCase() === "teacher";
         
         console.log("[refreshAuth] prevIsActivated:", prevIsActivated, "newIsActivated:", newIsActivated);
+        console.log("[refreshAuth] res.user.isActivated:", res.user.isActivated, "res.user:", res.user);
         
         // Update token and user in state and localStorage
         setToken(res.token);
         setAuth((a) => ({ ...a, user: res.user }));
+        console.log("[refreshAuth] Updated auth.user to:", res.user);
         
         // Update localStorage
         const authRaw = localStorage.getItem("scholars-circle-auth");
@@ -2598,7 +2607,8 @@ function App() {
       console.log("[polling] Cleaning up interval");
       clearInterval(interval);
     };
-  }, [token, auth.user?.id, demoMode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.id, demoMode]);
 
   // Sync data with backend
   async function syncData() {
