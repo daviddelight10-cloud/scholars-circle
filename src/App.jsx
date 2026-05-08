@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 
 import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT } from "./data";
 
@@ -1304,6 +1304,9 @@ function App() {
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [updatePending, setUpdatePending] = useState(false);
   const [isCheckingActivation, setIsCheckingActivation] = useState(false);
+  
+  // Ref to track previous activation status for comparison
+  const prevActivationRef = useRef(null);
 
   // Celebration system
   const [celebration, setCelebration] = useState(null); // { type: 'streak'|'level'|'badge', data }
@@ -2511,8 +2514,8 @@ function App() {
     try {
       const res = await api("/auth/refresh", { method: "GET" });
       if (res.token && res.user) {
-        // Check current activation status from auth.user (before update)
-        const currentIsActivated = auth.user?.isActivated === true;
+        // Use ref to get previous activation status (avoids stale closure)
+        const prevIsActivated = prevActivationRef.current;
         const newIsActivated = res.user.isActivated === true;
         const userIsTeacher = String(res.user.role || "").toLowerCase() === "teacher";
         
@@ -2529,14 +2532,18 @@ function App() {
           localStorage.setItem("scholars-circle-auth", JSON.stringify(authParsed));
         }
         
+        // Update the ref with new status
+        prevActivationRef.current = newIsActivated;
+        
         // Show notification if activation status changed
-        if (!currentIsActivated && newIsActivated) {
+        if (prevIsActivated === false && newIsActivated === true) {
           // User was just activated
           console.log("Account activated! Welcome aboard!");
-          // Could show a toast notification here
-        } else if (currentIsActivated && !newIsActivated && !userIsTeacher) {
+          alert("🎉 Your account has been activated! Welcome aboard!");
+        } else if (prevIsActivated === true && newIsActivated === false && !userIsTeacher) {
           // User was deactivated
           console.log("Account has been deactivated.");
+          alert("Your account has been deactivated. Please contact your teacher.");
           // Exit demo mode if active
           setDemoMode(false);
         }
@@ -2552,14 +2559,17 @@ function App() {
   useEffect(() => {
     if (!token || !auth.user || demoMode) return;
     
+    // Initialize ref with current activation status
+    prevActivationRef.current = auth.user?.isActivated === true;
+    
     // Check immediately on mount
     refreshAuth();
     
-    // Then check every 10 seconds for changes
-    const interval = setInterval(refreshAuth, 10000);
+    // Then check every 5 seconds for changes (faster polling)
+    const interval = setInterval(refreshAuth, 5000);
     
     return () => clearInterval(interval);
-  }, [token, auth.user?.id, demoMode]); // Use auth.user?.id instead of auth.user to avoid re-triggering on every auth change
+  }, [token, auth.user?.id, demoMode]);
 
   // Sync data with backend
   async function syncData() {
