@@ -19,7 +19,7 @@ function saveNotes(list) {
 
 const extractJSON = (raw) => extractJSONShared(raw, "object");
 
-export function LectureToNotes({ subjects, aiConfig, onImportQuestions }) {
+export function LectureToNotes({ subjects, aiConfig, onImportQuestions, demoMode, demoUsage, setDemoUsage }) {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || "");
   const [title, setTitle] = useState("");
   const [transcript, setTranscript] = useState("");
@@ -119,6 +119,16 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
       const raw = await callAI(prompt, { provider: aiConfig?.provider || "openrouter", model: aiConfig?.model || "qwen/qwen-2.5-7b-instruct", apiKey: aiConfig?.apiKey });
       const parsed = extractJSON(raw);
       setResult(parsed);
+      
+      // Track demo usage
+      if (demoMode && setDemoUsage) {
+        const today = new Date().toDateString();
+        setDemoUsage(prev => ({
+          ...prev,
+          lectureToNotesUsed: prev.lectureToNotesDate === today ? (prev.lectureToNotesUsed || 0) + 1 : 1,
+          lectureToNotesDate: today,
+        }));
+      }
     } catch (e) {
       setError(`${e.message}. Try with shorter content.`);
     } finally {

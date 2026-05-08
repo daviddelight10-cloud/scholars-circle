@@ -33,7 +33,7 @@ function saveCustomSubjects(list) {
 
 const extractJSON = (raw) => extractJSONShared(raw, "object");
 
-export function AIStudyAssistant({ subjects, onImportQuestions }) {
+export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUsage, setDemoUsage }) {
   const [customSubjects, setCustomSubjects] = useState(loadCustomSubjects());
   const [allSubjects, setAllSubjects] = useState([...subjects, ...loadCustomSubjects()]);
   
@@ -189,6 +189,16 @@ Generate ${Math.min(questionCount, 5)} MCQ questions and 5 flashcards. Keep all 
       
       setResult(parsed);
       setActiveTab("results");
+      
+      // Track demo usage
+      if (demoMode && setDemoUsage) {
+        const today = new Date().toDateString();
+        setDemoUsage(prev => ({
+          ...prev,
+          aiStudyAssistantUsed: prev.aiStudyAssistantDate === today ? (prev.aiStudyAssistantUsed || 0) + 1 : 1,
+          aiStudyAssistantDate: today,
+        }));
+      }
     } catch (e) {
       console.error("AI processing error:", e);
       setError(`${e.message}. Try reducing the document length or question count.`);

@@ -20,14 +20,22 @@ function loadFromStorage(key) {
   }
 }
 
-function DemoLockedOverlay({ title, description, icon = "🔒", features = [], price = "$4.99/month" }) {
+function DemoLockedOverlay({ title, description, icon = "🔒", features = [], showPlans = false }) {
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
+  const plans = [
+    { id: "monthly", name: "Monthly", price: "$4.99", period: "/month", highlight: false },
+    { id: "quarterly", name: "Quarterly", price: "$12.99", period: "/3 months", highlight: false, savings: "Save 13%" },
+    { id: "yearly", name: "Yearly", price: "$39.99", period: "/year", highlight: true, savings: "Save 33%" },
+  ];
+
   return (
     <div className="card" style={{ textAlign: "center", padding: "48px 32px", maxWidth: 500, margin: "0 auto" }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>{icon}</div>
       <h2 style={{ margin: "0 0 12px 0", color: "#facc15" }}>⭐ Premium Feature</h2>
       <h3 style={{ margin: "0 0 16px 0" }}>{title}</h3>
       <p className="muted" style={{ marginBottom: 24, lineHeight: 1.6 }}>{description}</p>
-      
+
       {features.length > 0 && (
         <div style={{ background: "rgba(45,212,160,0.1)", borderRadius: 12, padding: 20, marginBottom: 24, textAlign: "left" }}>
           <strong style={{ color: "#2dd4a0", display: "block", marginBottom: 12 }}>✨ What you'll unlock:</strong>
@@ -36,13 +44,60 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], p
           </ul>
         </div>
       )}
-      
+
+      {showPlans && (
+        <div style={{ marginBottom: 24 }}>
+          <h4 style={{ margin: "0 0 16px 0", color: "#818cf8" }}>Choose Your Plan</h4>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            {plans.map((plan) => (
+              <button
+                key={plan.id}
+                onClick={() => setSelectedPlan(plan.id)}
+                style={{
+                  flex: 1,
+                  minWidth: 120,
+                  padding: "16px 12px",
+                  background: selectedPlan === plan.id
+                    ? "linear-gradient(135deg, rgba(45,212,160,0.2), rgba(14,165,233,0.2))"
+                    : plan.highlight
+                      ? "rgba(129,140,248,0.1)"
+                      : "rgba(255,255,255,0.05)",
+                  border: selectedPlan === plan.id
+                    ? "2px solid #2dd4a0"
+                    : plan.highlight
+                      ? "2px solid #818cf8"
+                      : "1px solid #4f5a67",
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  textAlign: "center",
+                }}
+              >
+                {plan.highlight && (
+                  <div style={{ background: "#818cf8", color: "#000", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, marginBottom: 8, display: "inline-block" }}>BEST VALUE</div>
+                )}
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{plan.name}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#2dd4a0" }}>{plan.price}</div>
+                <div style={{ fontSize: 11, color: "#6b7280" }}>{plan.period}</div>
+                {plan.savings && <div style={{ fontSize: 10, color: "#facc15", marginTop: 4 }}>{plan.savings}</div>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-        <button 
-          onClick={() => alert(`🚀 Upgrade to Scholar's Circle Pro!\n\nOnly ${price}\n\n✅ Unlimited AI Tutoring\n✅ Study Groups & Leaderboard\n✅ Full Analytics Dashboard\n✅ Unlimited Past Papers\n✅ Unlimited Notes & Flashcards\n✅ Priority Support\n\nStart your 14-day free trial today!`)}
-          style={{ 
-            background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)", 
-            color: "#000", 
+        <button
+          onClick={() => {
+            if (showPlans && !selectedPlan) {
+              alert("Please select a plan first");
+              return;
+            }
+            const planText = selectedPlan ? plans.find(p => p.id === selectedPlan)?.name + " plan" : "Pro";
+            alert(`🚀 Upgrade to Scholar's Circle ${planText}!\n\n✅ Unlimited AI Tutoring\n✅ Study Groups & Leaderboard\n✅ Full Analytics Dashboard\n✅ Unlimited Past Papers\n✅ Unlimited Notes & Flashcards\n✅ Priority Support\n\nContact us to complete your subscription!`);
+          }}
+          style={{
+            background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)",
+            color: "#000",
             fontWeight: 700,
             padding: "14px 32px",
             fontSize: 16,
@@ -51,12 +106,12 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], p
             cursor: "pointer"
           }}
         >
-          🚀 Upgrade to Pro — {price}
+          🚀 {selectedPlan ? `Subscribe ${plans.find(p => p.id === selectedPlan)?.name}` : "Upgrade to Pro"}
         </button>
-        <button 
+        <button
           onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
-          style={{ 
-            background: "transparent", 
+          style={{
+            background: "transparent",
             border: "2px solid #2dd4a0",
             color: "#2dd4a0",
             padding: "12px 24px",
@@ -68,7 +123,7 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], p
           🎁 Free Trial
         </button>
       </div>
-      
+
       <p style={{ fontSize: 12, color: "#6b7280", marginTop: 20 }}>
         💡 89% of Pro users improved their grades within 30 days
       </p>
@@ -441,13 +496,18 @@ const DEMO_LIMITS = {
   allowedThemes: ["aurora", "paper"], // lock premium themes
   premiumThemes: ["neon"], // requires upgrade
   leaderboardAccess: false, // hide leaderboard in demo
-  studyGroupsAccess: "view", // "view" | "full" in demo
+  studyGroupsAccess: false, // lock study groups completely
   pastPapersLimit: 1, // only 1 past paper in demo
   aiTutorMessages: 3, // separate from AI assistant
   classroomAccess: false, // lock classroom in demo
   pomodoroSessions: 2, // per day in demo
   notesLimit: 5, // max notes in demo
   hidePremiumTabs: true, // completely hide locked tabs
+  // New daily limits
+  aiStudyAssistantDaily: 1, // 1 per day
+  lectureToNotesDaily: 1, // 1 per day
+  questionBankLocked: true, // completely locked
+  quizDaily: 5, // 5 quizzes per day
 };
 
 const DEMO_ACHIEVEMENTS = [
@@ -1302,6 +1362,13 @@ function App() {
       pastPapersUsed: 0,
       aiTutorMessages: 0,
       trialStartDate: null,
+      // New daily usage counters
+      aiStudyAssistantUsed: 0,
+      aiStudyAssistantDate: null,
+      lectureToNotesUsed: 0,
+      lectureToNotesDate: null,
+      quizUsed: 0,
+      quizDate: null,
       demoProgress: {
         tabsVisited: new Set(),
         featuresTried: new Set(),
@@ -2732,9 +2799,14 @@ function App() {
 
     setLoadingOverlay(false);
 
-    if (demoMode && demoUsage.practiceQuestions >= DEMO_LIMITS.practiceQuestions) {
-      alert(`Demo limit reached: You've used ${DEMO_LIMITS.practiceQuestions} practice questions. Register for full access.`);
-      return;
+    // Check daily quiz limit for demo mode
+    if (demoMode) {
+      const today = new Date().toDateString();
+      const usedToday = demoUsage.quizDate === today ? demoUsage.quizUsed : 0;
+      if (usedToday >= DEMO_LIMITS.quizDaily) {
+        alert(`Demo limit reached: You've used ${DEMO_LIMITS.quizDaily} quizzes today. Upgrade for unlimited access!`);
+        return;
+      }
     }
 
     const autoMinutes = Math.max(10, Math.round((pool.length * 90) / 60));
@@ -2743,7 +2815,13 @@ function App() {
     setActiveSession({ mode, source: subject, questions: pool, totalSeconds });
 
     if (demoMode) {
-      setDemoUsage(prev => ({ ...prev, practiceQuestions: prev.practiceQuestions + 1 }));
+      const today = new Date().toDateString();
+      setDemoUsage(prev => ({
+        ...prev,
+        quizUsed: prev.quizDate === today ? (prev.quizUsed || 0) + 1 : 1,
+        quizDate: today,
+        practiceQuestions: prev.practiceQuestions + 1,
+      }));
     }
 
   }
@@ -2752,9 +2830,14 @@ function App() {
 
   function startDiagnostic() {
 
-    if (demoMode && demoUsage.practiceQuestions >= DEMO_LIMITS.practiceQuestions) {
-      alert(`Demo limit reached: You've used ${DEMO_LIMITS.practiceQuestions} practice questions. Register for full access.`);
-      return;
+    // Check daily quiz limit for demo mode
+    if (demoMode) {
+      const today = new Date().toDateString();
+      const usedToday = demoUsage.quizDate === today ? demoUsage.quizUsed : 0;
+      if (usedToday >= DEMO_LIMITS.quizDaily) {
+        alert(`Demo limit reached: You've used ${DEMO_LIMITS.quizDaily} quizzes today. Upgrade for unlimited access!`);
+        return;
+      }
     }
 
     const questions = SUBJECTS.map((s) => {
@@ -2768,7 +2851,13 @@ function App() {
     setActiveSession({ mode: "diagnostic", source: { id: "diagnostic", label: "Diagnostic", icon: "🧪" }, questions });
 
     if (demoMode) {
-      setDemoUsage(prev => ({ ...prev, practiceQuestions: prev.practiceQuestions + 1 }));
+      const today = new Date().toDateString();
+      setDemoUsage(prev => ({
+        ...prev,
+        quizUsed: prev.quizDate === today ? (prev.quizUsed || 0) + 1 : 1,
+        quizDate: today,
+        practiceQuestions: prev.practiceQuestions + 1,
+      }));
     }
 
   }
@@ -4467,17 +4556,38 @@ function App() {
 
 
       {tab === "lectures" && (
-
-        <LectureToNotes
-
-          subjects={subjects}
-
-          aiConfig={aiConfig}
-
-          onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-
-        />
-
+        demoMode && (() => {
+          const today = new Date().toDateString();
+          const usedToday = demoUsage.lectureToNotesDate === today ? demoUsage.lectureToNotesUsed : 0;
+          return usedToday >= DEMO_LIMITS.lectureToNotesDaily;
+        })() ? (
+          <DemoLockedOverlay
+            title="Lecture to Notes"
+            description={`You've used your daily Lecture to Notes limit (${DEMO_LIMITS.lectureToNotesDaily}/day). Upgrade for unlimited access!`}
+            icon="🎓"
+            features={["Unlimited lecture conversions", "AI-powered summaries", "Auto-generated flashcards", "Key term extraction"]}
+            showPlans={true}
+          />
+        ) : (
+          <>
+            {demoMode && (
+              <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🎓</span>
+                  <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.lectureToNotesDaily - (demoUsage.lectureToNotesDate === new Date().toDateString() ? demoUsage.lectureToNotesUsed : 0)} Lecture to Notes use(s) remaining today.</span>
+                </div>
+              </div>
+            )}
+            <LectureToNotes
+              subjects={subjects}
+              aiConfig={aiConfig}
+              onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
+              demoMode={demoMode}
+              demoUsage={demoUsage}
+              setDemoUsage={setDemoUsage}
+            />
+          </>
+        )
       )}
 
 
@@ -4498,7 +4608,17 @@ function App() {
 
 
       {tab === "studygroups" && (
-        <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
+        demoMode && !DEMO_LIMITS.studyGroupsAccess ? (
+          <DemoLockedOverlay
+            title="Study Groups"
+            description="Study Groups is a premium feature. Upgrade to collaborate with other students and join study sessions!"
+            icon="👥"
+            features={["Join study groups", "Collaborate with peers", "Share notes & resources", "Group study sessions"]}
+            showPlans={true}
+          />
+        ) : (
+          <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
+        )
       )}
 
 
@@ -4547,15 +4667,37 @@ function App() {
 
 
       {tab === "aiassistant" && (
-
-        <AIStudyAssistant
-
-          subjects={subjects}
-
-          onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-
-        />
-
+        demoMode && (() => {
+          const today = new Date().toDateString();
+          const usedToday = demoUsage.aiStudyAssistantDate === today ? demoUsage.aiStudyAssistantUsed : 0;
+          return usedToday >= DEMO_LIMITS.aiStudyAssistantDaily;
+        })() ? (
+          <DemoLockedOverlay
+            title="AI Study Assistant"
+            description={`You've used your daily AI Study Assistant limit (${DEMO_LIMITS.aiStudyAssistantDaily}/day). Upgrade for unlimited access!`}
+            icon="🤖"
+            features={["Unlimited document uploads", "AI-generated questions", "Smart flashcards", "Study summaries"]}
+            showPlans={true}
+          />
+        ) : (
+          <>
+            {demoMode && (
+              <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🤖</span>
+                  <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.aiStudyAssistantDaily - (demoUsage.aiStudyAssistantDate === new Date().toDateString() ? demoUsage.aiStudyAssistantUsed : 0)} AI Study Assistant use(s) remaining today.</span>
+                </div>
+              </div>
+            )}
+            <AIStudyAssistant
+              subjects={subjects}
+              onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
+              demoMode={demoMode}
+              demoUsage={demoUsage}
+              setDemoUsage={setDemoUsage}
+            />
+          </>
+        )
       )}
 
 
@@ -4614,15 +4756,23 @@ function App() {
           <p className="muted">Complete subjects in sequence and unlock mastery progression.</p>
 
           {demoMode && (
-            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>🔒</span>
-                <span style={{ fontSize: 13 }}>Demo: Limited to 4 subjects. Upgrade for full access.</span>
-                <button onClick={() => setShowPaymentModal(true)} style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
-                  Upgrade
-                </button>
+            <>
+              <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>🔒</span>
+                  <span style={{ fontSize: 13 }}>Demo: Limited to 4 subjects. Upgrade for full access.</span>
+                  <button onClick={() => setShowPaymentModal(true)} style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
+                    Upgrade
+                  </button>
+                </div>
               </div>
-            </div>
+              <div style={{ background: "rgba(45,212,160,0.1)", border: "1px solid rgba(45,212,160,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>📝</span>
+                  <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.quizDaily - (demoUsage.quizDate === new Date().toDateString() ? demoUsage.quizUsed : 0)} quiz(es) remaining today.</span>
+                </div>
+              </div>
+            </>
           )}
 
           <div className="subjects">
@@ -4963,10 +5113,21 @@ function App() {
         )
       )}
 
-      {tab === "bank" && <QuestionBank subjects={subjects} onStartPastPaper={(qs, yr, mins) => {
-        setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: qs, totalSeconds: mins * 60 });
-
-      }} />}
+      {tab === "bank" && (
+        demoMode && DEMO_LIMITS.questionBankLocked ? (
+          <DemoLockedOverlay
+            title="Question Bank"
+            description="The Question Bank is a premium feature. Upgrade to access unlimited custom questions and past papers!"
+            icon="🏦"
+            features={["Unlimited custom questions", "Import from past papers", "AI-generated questions", "Subject-specific banks"]}
+            showPlans={true}
+          />
+        ) : (
+          <QuestionBank subjects={subjects} onStartPastPaper={(qs, yr, mins) => {
+            setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: qs, totalSeconds: mins * 60 });
+          }} />
+        )
+      )}
 
       {tab === "planner" && <RevisionPlanner mastery={mastery} dueCards={dueCards} subjects={subjects} />}
 
