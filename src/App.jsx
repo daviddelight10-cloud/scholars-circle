@@ -2524,7 +2524,7 @@ function App() {
     console.log("[refreshAuth] Checking activation status...");
     setIsCheckingActivation(true);
     try {
-      const res = await api("/auth/refresh", { method: "GET" });
+      const res = await api("/auth/refresh", { token: currentToken, method: "GET" });
       console.log("[refreshAuth] Response:", res);
       
       if (res.token && res.user) {
