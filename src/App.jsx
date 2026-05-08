@@ -8910,7 +8910,6 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
         responseText = data.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
 
       }
-      }
 
       setChatHistory([...newHistory, { role: "assistant", content: responseText, timestamp: Date.now() }]);
 
