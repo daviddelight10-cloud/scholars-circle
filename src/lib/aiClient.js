@@ -5,20 +5,35 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 let _proxyStatus = null; // { enabled, providers, defaultProvider }
+let _proxyStatusPromise = null;
 
 export async function getProxyStatus() {
+  // Return cached status if available
   if (_proxyStatus !== null) return _proxyStatus;
-  try {
-    const res = await fetch(`${API_BASE}/ai/status`);
-    if (res.ok) {
-      _proxyStatus = await res.json();
-    } else {
+  
+  // If a request is already in progress, wait for it
+  if (_proxyStatusPromise) return _proxyStatusPromise;
+  
+  _proxyStatusPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/ai/status`, { 
+        // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(5000)
+      });
+      if (res.ok) {
+        _proxyStatus = await res.json();
+      } else {
+        _proxyStatus = { enabled: false };
+      }
+    } catch (e) {
+      console.log("AI proxy status check failed:", e.message);
       _proxyStatus = { enabled: false };
     }
-  } catch {
-    _proxyStatus = { enabled: false };
-  }
-  return _proxyStatus;
+    _proxyStatusPromise = null;
+    return _proxyStatus;
+  })();
+  
+  return _proxyStatusPromise;
 }
 
 export function resetProxyStatusCache() {
@@ -99,14 +114,27 @@ async function callDirect(prompt, aiConfig) {
 // Main entrypoint. Tries proxy first, falls back to direct call only if proxy
 // is disabled. Returns plain text string.
 export async function callAI(prompt, aiConfig = {}) {
+  console.log("callAI called with provider:", aiConfig.provider || "default");
   const status = await getProxyStatus();
+  console.log("Proxy status:", status);
+  
   if (status?.enabled) {
     const provider = aiConfig.provider || status.defaultProvider || "openrouter";
     const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : 
                                      provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
                                      "gpt-4o-mini");
-    return callViaProxy(prompt, provider, model);
+    console.log(`Calling proxy with provider=${provider}, model=${model}`);
+    try {
+      const result = await callViaProxy(prompt, provider, model);
+      console.log("Proxy call successful, response length:", result?.length || 0);
+      return result;
+    } catch (proxyError) {
+      console.error("Proxy call failed:", proxyError);
+      throw proxyError;
+    }
   }
+  
+  console.log("Proxy disabled, using direct call");
   return callDirect(prompt, aiConfig);
 }
 

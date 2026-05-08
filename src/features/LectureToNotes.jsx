@@ -77,10 +77,25 @@ export function LectureToNotes({ subjects, aiConfig, onImportQuestions, demoMode
 
   function handleFileUpload(e) {
     const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') {
+    if (!file) return;
+    
+    if (file.type === 'application/pdf') {
       extractTextFromPDF(file);
+    } else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+      // Handle text files
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setTranscript(event.target.result);
+        if (!title) {
+          setTitle(file.name.replace('.txt', ''));
+        }
+      };
+      reader.onerror = () => {
+        setError('Failed to read text file');
+      };
+      reader.readAsText(file);
     } else {
-      setError('Please upload a valid PDF file');
+      setError('Please upload a PDF or text (.txt) file');
     }
   }
 
@@ -285,10 +300,10 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
           cursor: "pointer",
           fontSize: 13
         }}>
-          📄 Upload PDF
+          📄 Upload PDF/TXT
           <input
             type="file"
-            accept=".pdf"
+            accept=".pdf,.txt,text/plain"
             onChange={handleFileUpload}
             style={{ display: "none" }}
           />
