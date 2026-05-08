@@ -2503,7 +2503,7 @@ function App() {
     }
   }
 
-  // Refresh auth status - check if user has been activated
+  // Refresh auth status - check if user has been activated or deactivated
   async function refreshAuth() {
     if (!token) return;
     
@@ -2511,6 +2511,11 @@ function App() {
     try {
       const res = await api("/auth/refresh", { method: "GET" });
       if (res.token && res.user) {
+        // Check current activation status from auth.user (before update)
+        const currentIsActivated = auth.user?.isActivated === true;
+        const newIsActivated = res.user.isActivated === true;
+        const userIsTeacher = String(res.user.role || "").toLowerCase() === "teacher";
+        
         // Update token and user in state and localStorage
         setToken(res.token);
         setAuth((a) => ({ ...a, user: res.user }));
@@ -2524,9 +2529,16 @@ function App() {
           localStorage.setItem("scholars-circle-auth", JSON.stringify(authParsed));
         }
         
-        // If user is now activated, show success message
-        if (res.user.isActivated && !isActivated) {
+        // Show notification if activation status changed
+        if (!currentIsActivated && newIsActivated) {
+          // User was just activated
           console.log("Account activated! Welcome aboard!");
+          // Could show a toast notification here
+        } else if (currentIsActivated && !newIsActivated && !userIsTeacher) {
+          // User was deactivated
+          console.log("Account has been deactivated.");
+          // Exit demo mode if active
+          setDemoMode(false);
         }
       }
     } catch (err) {
@@ -2536,18 +2548,18 @@ function App() {
     }
   }
 
-  // Poll for activation status when user is not activated
+  // Poll for activation status changes (both activation and deactivation)
   useEffect(() => {
-    if (!token || !auth.user || isActivated || demoMode) return;
+    if (!token || !auth.user || demoMode) return;
     
-    // Check immediately
+    // Check immediately on mount
     refreshAuth();
     
-    // Then check every 10 seconds
+    // Then check every 10 seconds for changes
     const interval = setInterval(refreshAuth, 10000);
     
     return () => clearInterval(interval);
-  }, [token, auth.user, isActivated, demoMode]);
+  }, [token, auth.user?.id, demoMode]); // Use auth.user?.id instead of auth.user to avoid re-triggering on every auth change
 
   // Sync data with backend
   async function syncData() {
