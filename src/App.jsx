@@ -2507,17 +2507,25 @@ function App() {
   }
 
   // Refresh auth status - check if user has been activated or deactivated
-  async function refreshAuth() {
-    if (!token) return;
+  const refreshAuth = useCallback(async () => {
+    if (!token) {
+      console.log("[refreshAuth] No token, skipping");
+      return;
+    }
     
+    console.log("[refreshAuth] Checking activation status...");
     setIsCheckingActivation(true);
     try {
       const res = await api("/auth/refresh", { method: "GET" });
+      console.log("[refreshAuth] Response:", res);
+      
       if (res.token && res.user) {
         // Use ref to get previous activation status (avoids stale closure)
         const prevIsActivated = prevActivationRef.current;
         const newIsActivated = res.user.isActivated === true;
         const userIsTeacher = String(res.user.role || "").toLowerCase() === "teacher";
+        
+        console.log("[refreshAuth] prevIsActivated:", prevIsActivated, "newIsActivated:", newIsActivated);
         
         // Update token and user in state and localStorage
         setToken(res.token);
@@ -2538,38 +2546,51 @@ function App() {
         // Show notification if activation status changed
         if (prevIsActivated === false && newIsActivated === true) {
           // User was just activated
-          console.log("Account activated! Welcome aboard!");
+          console.log("[refreshAuth] Account activated!");
           alert("🎉 Your account has been activated! Welcome aboard!");
         } else if (prevIsActivated === true && newIsActivated === false && !userIsTeacher) {
           // User was deactivated
-          console.log("Account has been deactivated.");
+          console.log("[refreshAuth] Account deactivated!");
           alert("Your account has been deactivated. Please contact your teacher.");
           // Exit demo mode if active
           setDemoMode(false);
         }
       }
     } catch (err) {
-      console.error("Failed to refresh auth status:", err);
+      console.error("[refreshAuth] Failed:", err);
     } finally {
       setIsCheckingActivation(false);
     }
-  }
+  }, [token]);
 
   // Poll for activation status changes (both activation and deactivation)
   useEffect(() => {
-    if (!token || !auth.user || demoMode) return;
+    if (!token || !auth.user || demoMode) {
+      console.log("[polling] Skipping - no token/user or demo mode");
+      return;
+    }
     
-    // Initialize ref with current activation status
-    prevActivationRef.current = auth.user?.isActivated === true;
+    console.log("[polling] Starting activation polling for user:", auth.user?.username);
+    
+    // Initialize ref with current activation status ONLY if not already set
+    if (prevActivationRef.current === null) {
+      prevActivationRef.current = auth.user?.isActivated === true;
+      console.log("[polling] Initialized prevActivationRef to:", prevActivationRef.current);
+    }
     
     // Check immediately on mount
     refreshAuth();
     
-    // Then check every 5 seconds for changes (faster polling)
+    // Then check every 5 seconds for changes
     const interval = setInterval(refreshAuth, 5000);
     
-    return () => clearInterval(interval);
-  }, [token, auth.user?.id, demoMode]);
+    console.log("[polling] Interval set up, will check every 5 seconds");
+    
+    return () => {
+      console.log("[polling] Cleaning up interval");
+      clearInterval(interval);
+    };
+  }, [token, auth.user?.id, demoMode, refreshAuth]);
 
   // Sync data with backend
   async function syncData() {
