@@ -24,7 +24,22 @@ router.get("/", async (_req, res) => {
       }
     }
   });
-  res.json(rows);
+  
+  // Transform questions to match frontend format
+  const transformedRows = rows.map(subject => ({
+    ...subject,
+    questions: subject.questions.map(q => ({
+      id: q.id,
+      q: q.question,
+      options: [q.optionA, q.optionB, q.optionC, q.optionD],
+      answer: q.answerIndex,
+      difficulty: q.difficulty,
+      year: q.year,
+      explanation: q.explanation
+    }))
+  }));
+  
+  res.json(transformedRows);
 });
 
 router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
