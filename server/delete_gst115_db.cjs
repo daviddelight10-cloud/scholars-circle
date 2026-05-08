@@ -1,4 +1,4 @@
-process.env.DATABASE_URL = 'YOUR_DATABASE_URL_HERE';
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
