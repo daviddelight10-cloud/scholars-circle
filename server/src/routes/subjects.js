@@ -5,7 +5,25 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 const router = express.Router();
 
 router.get("/", async (_req, res) => {
-  const rows = await prisma.subject.findMany({ orderBy: { label: "asc" } });
+  const rows = await prisma.subject.findMany({
+    orderBy: { label: "asc" },
+    include: {
+      questions: {
+        select: {
+          id: true,
+          question: true,
+          optionA: true,
+          optionB: true,
+          optionC: true,
+          optionD: true,
+          answerIndex: true,
+          difficulty: true,
+          year: true,
+          explanation: true
+        }
+      }
+    }
+  });
   res.json(rows);
 });
 
