@@ -3916,7 +3916,7 @@ function App() {
       )}
 
       {showPaymentModal && (
-        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)} style={{ zIndex: 10001 }}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <h3 style={{ margin: "0 0 16px 0" }}>💳 Upgrade Your Account</h3>
             
@@ -4078,7 +4078,9 @@ function App() {
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
               <button
-                onClick={() => setShowPaymentModal(true)}
+                onClick={() => {
+                  setShowPaymentModal(true);
+                }}
                 style={{ background: "#3b82f6", color: "white", fontWeight: 600, padding: "12px 24px", fontSize: 14, border: "none", borderRadius: 6, cursor: "pointer" }}
               >
                 Upgrade Now
