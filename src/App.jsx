@@ -8792,7 +8792,6 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
 
   async function sendMessage() {
-
     if (!message.trim() || loading) return;
 
     if (demoMode && (demoUsage.aiTutorMessages || 0) >= DEMO_LIMITS.aiTutorMessages) {
@@ -8801,33 +8800,22 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
     }
 
     const userMsg = message.trim();
-
     setMessage("");
-
     setLoading(true);
 
     const newHistory = [...chatHistory, { role: "user", content: userMsg, timestamp: Date.now() }];
-
     setChatHistory(newHistory);
 
     if (demoMode) {
       setDemoUsage(prev => ({ ...prev, aiTutorMessages: (prev.aiTutorMessages || 0) + 1 }));
     }
 
-
-
     try {
-
       const context = selectedSubject
-
         ? `You are a helpful tutor for ${selectedSubject}. The user is studying this subject. Keep answers concise and educational.`
-
         : "You are a helpful study tutor. Keep answers concise and educational.";
 
       const systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
-
-
-
       let responseText = "";
 
       // Use backend proxy if available, otherwise use direct call
@@ -8838,99 +8826,55 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
         // Fallback to direct call if proxy fails
         if (aiConfig.provider === "gemini") {
-
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiConfig.model}:generateContent?key=${aiConfig.apiKey}`, {
-
             method: "POST",
-
             headers: { "Content-Type": "application/json" },
-
             body: JSON.stringify({
-
               contents: [{ parts: [{ text: `${systemPrompt}\n\nUser: ${userMsg}` }] }],
-
               generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
-
             }),
-
           });
-
           const data = await res.json();
-
           if (!res.ok) {
-
             throw new Error(data.error?.message || "API request failed");
-
           }
-
           responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
-
         } else {
-
           const res = await fetch("https://api.openai.com/v1/chat/completions", {
-
             method: "POST",
-
-          headers: { 
-
-            "Content-Type": "application/json", 
-
-            "Authorization": `Bearer ${aiConfig.apiKey}` 
-
-          },
-
-          body: JSON.stringify({
-
-            model: aiConfig.model,
-
-            messages: [
-
-              { role: "system", content: systemPrompt },
-
-              ...newHistory.slice(-10).map(m => ({ role: m.role, content: m.content }))
-
-            ],
-
-            max_tokens: 500,
-
-            temperature: 0.7,
-
-          }),
-
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-
-          throw new Error(data.error?.message || "API request failed");
-
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${aiConfig.apiKey}`
+            },
+            body: JSON.stringify({
+              model: aiConfig.model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                ...newHistory.slice(-10).map(m => ({ role: m.role, content: m.content }))
+              ],
+              max_tokens: 500,
+              temperature: 0.7,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error?.message || "API request failed");
+          }
+          responseText = data.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
         }
-
-        responseText = data.choices?.[0]?.message?.content || "Sorry, I couldn't generate a response.";
-
       }
 
       setChatHistory([...newHistory, { role: "assistant", content: responseText, timestamp: Date.now() }]);
 
       if (token) {
-
         api("/user-data/chat", { token, method: "POST", body: { role: "assistant", content: responseText } }).catch(console.error);
-
       }
-
     } catch (e) {
-
       console.error("AI Tutor error:", e);
-
       setChatHistory([...newHistory, { role: "assistant", content: "Error: " + e.message, timestamp: Date.now() }]);
-
     } finally {
-
       setLoading(false);
-
     }
-
   }
 
 
@@ -9024,27 +8968,17 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
       </div>
 
       <div className="row" style={{ marginTop: 12 }}>
-
         <input
-
+          className="ai-chat-input"
           style={{ flex: 1 }}
-
           value={message}
-
           onChange={(e) => setMessage(e.target.value)}
-
           placeholder="Ask a question..."
-
           onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-
         />
-
         <button onClick={sendMessage} disabled={loading || !message.trim()} style={{ borderColor: "#818cf8", color: "#818cf8" }}>
-
           Send
-
         </button>
-
       </div>
 
     </div>
