@@ -1481,18 +1481,38 @@ function App() {
   }, [auth.user, isTeacher, isActivated]);
 
   const subjects = useMemo(() => {
-
-    if (!customQuestions.length) return SUBJECTS;
-
-    return [
-
-      ...SUBJECTS,
-
-      { id: "custom", label: "Custom Bank", icon: "🧩", image: SUBJECTS[0].image, lessons: [], questions: customQuestions },
-
-    ];
-
-  }, [customQuestions]);
+    // Start with local subjects
+    let result = SUBJECTS.map(s => {
+      // Find matching backend subject and merge questions
+      const backend = backendSubjects.find(b => b.label === s.label);
+      if (backend && backend.questions && backend.questions.length > 0) {
+        return { ...s, questions: [...(s.questions || []), ...backend.questions] };
+      }
+      return s;
+    });
+    
+    // Add backend subjects that don't exist in local SUBJECTS (like MTH-111)
+    for (const backend of backendSubjects) {
+      if (!result.find(s => s.label === backend.label)) {
+        result.push({
+          id: backend.id,
+          label: backend.label,
+          icon: backend.label.includes("MTH") ? "∫" : backend.label.includes("BIO") ? "🐟" : backend.label.includes("CHM") ? "🧪" : backend.label.includes("PHY") ? "⚡" : backend.label.includes("GST") ? "📚" : "📖",
+          accent: "#fb923c",
+          image: SUBJECTS[0]?.image || "",
+          lessons: [],
+          questions: backend.questions || []
+        });
+      }
+    }
+    
+    // Add custom questions bank
+    if (customQuestions.length) {
+      result.push({ id: "custom", label: "Custom Bank", icon: "🧩", image: SUBJECTS[0]?.image || "", lessons: [], questions: customQuestions });
+    }
+    
+    return result;
+  }, [customQuestions, backendSubjects]);
 
 
 
