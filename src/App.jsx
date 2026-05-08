@@ -1816,10 +1816,12 @@ function App() {
         if (data.progress) {
           setStats((prev) => ({
             ...prev,
-            xp: data.progress.xp ?? prev.xp,
-            sessions: data.progress.sessions ?? prev.sessions,
-            streak: data.progress.streak ?? prev.streak,
-            coins: data.progress.coins ?? prev.coins,
+            // Take max of backend and local to prevent reset when local is higher
+            xp: Math.max(data.progress.xp ?? 0, prev.xp),
+            sessions: Math.max(data.progress.sessions ?? 0, prev.sessions),
+            streak: Math.max(data.progress.streak ?? 0, prev.streak),
+            coins: Math.max(data.progress.coins ?? 0, prev.coins),
+            totalCorrect: Math.max(data.progress.totalCorrect ?? 0, prev.totalCorrect ?? 0),
             weeklyGoal: data.progress.weeklyGoal ?? prev.weeklyGoal,
           }));
           if (data.progress.wrongCounts) setWrongCounts(data.progress.wrongCounts);
@@ -2671,15 +2673,16 @@ function App() {
     try {
       const data = await api("/user-data");
       if (data.progress) {
-        setStats({
-          xp: data.progress.xp,
-          sessions: data.progress.sessions,
-          streak: data.progress.streak,
-          coins: data.progress.coins,
-          weeklyGoal: data.progress.weeklyGoal,
+        setStats((prev) => ({
+          // Take max of backend and local to prevent reset when local is higher
+          xp: Math.max(data.progress.xp ?? 0, prev.xp),
+          sessions: Math.max(data.progress.sessions ?? 0, prev.sessions),
+          streak: Math.max(data.progress.streak ?? 0, prev.streak),
+          coins: Math.max(data.progress.coins ?? 0, prev.coins),
+          weeklyGoal: data.progress.weeklyGoal ?? prev.weeklyGoal,
           questsDone: {},
-          totalCorrect: data.progress.totalCorrect,
-        });
+          totalCorrect: Math.max(data.progress.totalCorrect ?? 0, prev.totalCorrect ?? 0),
+        }));
         setMastery(data.progress.mastery || {});
         setWrongCounts(data.progress.wrongCounts || {});
         setSrData(data.progress.srData || {});
