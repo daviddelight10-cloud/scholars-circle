@@ -157,41 +157,25 @@ export function AIStudyAssistant({ subjects, onImportQuestions }) {
     
     const subject = allSubjects.find((s) => s.id === selectedSubjectId);
     
-    const prompt = `You are an expert study assistant for first-year university students (100 level).
-A student has uploaded study material for ${subject?.label || "their course"}.
-Difficulty level: ${difficulty}
-Number of questions requested: ${questionCount}
+    // Limit content length to avoid JSON truncation
+    const maxLength = 8000;
+    const content = extractedText.length > maxLength 
+      ? extractedText.slice(0, maxLength) + "\n...[content truncated for processing]"
+      : extractedText;
+    
+    const prompt = `You are a study assistant. Create study materials from this content for ${subject?.label || "a course"}.
+
+IMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no extra text.
 
 Content:
 """
-${extractedText.slice(0, 15000)}
+${content}
 """
 
-Return ONLY a JSON object with this exact shape (no extra commentary):
-{
-  "summary": ["8-12 bullet points covering the main concepts and key ideas"],
-  "key_concepts": [{"concept": string, "explanation": string, "importance": "high"|"medium"|"low"}],
-  "mcq_questions": [
-    {
-      "question": string,
-      "options": [string, string, string, string],
-      "answer": 0-3,
-      "explanation": string,
-      "difficulty": "easy"|"medium"|"hard"
-    }
-  ],
-  "flashcards": [
-    {
-      "front": string,
-      "back": string,
-      "category": string
-    }
-  ],
-  "study_tips": ["3-5 specific study tips for this topic"],
-  "exam_prep": ["3-5 likely exam questions with short answer format"]
-}
+Return this exact JSON structure:
+{"summary":["point1","point2","point3","point4","point5"],"key_concepts":[{"concept":"name","explanation":"brief explanation","importance":"high"}],"mcq_questions":[{"question":"text","options":["A","B","C","D"],"answer":0,"explanation":"why","difficulty":"${difficulty}"}],"flashcards":[{"front":"question","back":"answer","category":"topic"}],"study_tips":["tip1","tip2","tip3"],"exam_prep":["question1","question2","question3"]}
 
-Generate exactly ${questionCount} MCQ questions and 10 flashcards. Ensure questions are appropriate for ${difficulty} difficulty level.`;
+Generate ${Math.min(questionCount, 5)} MCQ questions and 5 flashcards. Keep all text concise.`;
 
     try {
       setIsProcessing(true);
@@ -201,13 +185,13 @@ Generate exactly ${questionCount} MCQ questions and 10 flashcards. Ensure questi
       console.log("AI response received:", raw?.substring(0, 200));
       
       const parsed = extractJSON(raw);
-      console.log("Parsed result:", parsed);
+      console.log("Parsed result keys:", Object.keys(parsed || {}));
       
       setResult(parsed);
       setActiveTab("results");
     } catch (e) {
       console.error("AI processing error:", e);
-      setError(`Failed to process: ${e.message}`);
+      setError(`${e.message}. Try reducing the document length or question count.`);
     } finally {
       setIsProcessing(false);
     }

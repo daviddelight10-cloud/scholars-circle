@@ -112,10 +112,51 @@ export async function callAI(prompt, aiConfig = {}) {
 
 // Helper for the common pattern of asking AI for a JSON array/object response.
 export function extractJSON(raw, kind = "object") {
+  if (!raw || typeof raw !== "string") throw new Error("AI returned empty response.");
+  
   const open = kind === "array" ? "[" : "{";
   const close = kind === "array" ? "]" : "}";
   const start = raw.indexOf(open);
   const end = raw.lastIndexOf(close);
-  if (start === -1 || end === -1) throw new Error("AI did not return JSON.");
-  return JSON.parse(raw.slice(start, end + 1));
+  
+  if (start === -1 || end === -1) {
+    throw new Error("AI did not return valid JSON. Try again with a shorter document.");
+  }
+  
+  const jsonStr = raw.slice(start, end + 1);
+  
+  // Try parsing as-is first
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    // Try to fix common JSON issues
+    try {
+      // Remove trailing commas before ] or }
+      let fixed = jsonStr.replace(/,\s*([\]\}])/g, '$1');
+      
+      // Fix unescaped quotes in strings (common AI mistake)
+      fixed = fixed.replace(/"([^"]*)"([^":,}\]]*)"([^"]*)":/g, '"$1\\"$2$3":');
+      
+      // Try to close truncated arrays/objects
+      const openBrackets = (fixed.match(/[\[{]/g) || []).length;
+      const closeBrackets = (fixed.match(/[\]}]/g) || []).length;
+      if (openBrackets > closeBrackets) {
+        const diff = openBrackets - closeBrackets;
+        // Find the last valid element and close properly
+        const lastComma = fixed.lastIndexOf(',');
+        if (lastComma > 0) {
+          fixed = fixed.substring(0, lastComma);
+        }
+        for (let i = 0; i < diff; i++) {
+          fixed += close;
+        }
+      }
+      
+      return JSON.parse(fixed);
+    } catch (fixError) {
+      // Last resort: try to extract partial valid data
+      console.error("JSON parse failed, raw preview:", jsonStr.substring(0, 500));
+      throw new Error("AI returned malformed JSON. The document may be too long. Try with a shorter document or fewer questions.");
+    }
+  }
 }

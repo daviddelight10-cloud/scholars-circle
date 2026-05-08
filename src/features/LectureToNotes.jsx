@@ -92,29 +92,35 @@ export function LectureToNotes({ subjects, aiConfig, onImportQuestions }) {
       return;
     }
     const subject = subjects.find((s) => s.id === subjectId);
-    const prompt = `You are a study assistant for first-year university students.
-A student pasted this lecture content for ${subject?.label || "their course"}.
-Lecture title: "${title || "Untitled"}".
-Lecture content:
+    
+    // Limit content length to avoid JSON truncation
+    const maxLength = 8000;
+    const content = transcript.length > maxLength 
+      ? transcript.slice(0, maxLength) + "\n...[content truncated for processing]"
+      : transcript;
+    
+    const prompt = `You are a study assistant. Create notes from this lecture for ${subject?.label || "a course"}.
+
+IMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no extra text.
+
+Lecture title: "${title || "Untitled"}"
+Content:
 """
-${transcript.slice(0, 12000)}
+${content}
 """
 
-Return ONLY a JSON object with this exact shape (no extra commentary):
-{
-  "summary": ["6-10 short bullet points covering the key ideas"],
-  "key_terms": [{"term": string, "definition": string}],
-  "exam_questions": ["5 likely short-answer exam questions"],
-  "flashcards": [{"q": string, "options": [string, string, string, string], "answer": 0, "explanation": string, "difficulty": "easy"|"medium"|"hard"}]
-}
-Generate exactly 8 flashcards as multiple-choice with 4 options. The "answer" field is the index of the correct option (0-3).`;
+Return this exact JSON structure:
+{"summary":["point1","point2","point3","point4","point5"],"key_terms":[{"term":"word","definition":"meaning"}],"exam_questions":["question1","question2","question3"],"flashcards":[{"q":"question","options":["A","B","C","D"],"answer":0,"explanation":"why","difficulty":"medium"}]}
+
+Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`;
+
     try {
       setLoading(true);
       const raw = await callAI(prompt, { provider: aiConfig?.provider || "openrouter", model: aiConfig?.model || "qwen/qwen-2.5-7b-instruct", apiKey: aiConfig?.apiKey });
       const parsed = extractJSON(raw);
       setResult(parsed);
     } catch (e) {
-      setError(`Failed: ${e.message}`);
+      setError(`${e.message}. Try with shorter content.`);
     } finally {
       setLoading(false);
     }
