@@ -22,181 +22,150 @@ function loadFromStorage(key) {
 
 function DemoLockedOverlay({ title, description, icon = "🔒", features = [], showPlans = false }) {
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [showPayment, setShowPayment] = useState(false);
 
   const plans = [
-    { id: "monthly", name: "Monthly", price: "₦5,000", period: "/month", highlight: false },
-    { id: "quarterly", name: "Quarterly", price: "₦12,000", period: "/3 months", highlight: false, savings: "Save 20%" },
-    { id: "yearly", name: "Yearly", price: "₦40,000", period: "/year", highlight: true, savings: "Save 33%" },
+    { id: "week1", name: "1 Week Plan", price: "₦700", savings: "Perfect for trying out" },
+    { id: "week2", name: "2 Weeks Plan", price: "₦1,300", savings: "Save ₦100" },
+    { id: "month1", name: "1 Month Plan", price: "₦2,400", savings: "Save ₦400", highlight: true },
   ];
 
   const bankDetails = {
     bank: "Opay",
-    accountNumber: "8066398155",
-    accountName: "David Opeyemi Eluti",
+    accountNumber: "9069372522",
+    accountName: "Zibiri-David Delight Aluaye",
   };
 
   return (
-    <div className="card" style={{ textAlign: "center", padding: "48px 32px", maxWidth: 500, margin: "0 auto" }}>
-      <div style={{ fontSize: 64, marginBottom: 16 }}>{icon}</div>
-      <h2 style={{ margin: "0 0 12px 0", color: "#facc15" }}>⭐ Premium Feature</h2>
-      <h3 style={{ margin: "0 0 16px 0" }}>{title}</h3>
-      <p className="muted" style={{ marginBottom: 24, lineHeight: 1.6 }}>{description}</p>
+    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto" }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>{icon}</div>
+      <h2 style={{ margin: "0 0 8px 0", fontSize: 20 }}>⭐ Premium Feature</h2>
+      <h3 style={{ margin: "0 0 12px 0", fontSize: 16 }}>{title}</h3>
+      <p className="muted" style={{ marginBottom: 20, lineHeight: 1.5, fontSize: 13 }}>{description}</p>
 
       {features.length > 0 && (
-        <div style={{ background: "rgba(45,212,160,0.1)", borderRadius: 12, padding: 20, marginBottom: 24, textAlign: "left" }}>
-          <strong style={{ color: "#2dd4a0", display: "block", marginBottom: 12 }}>✨ What you'll unlock:</strong>
-          <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
+        <div style={{ background: "rgba(45,212,160,0.1)", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left" }}>
+          <strong style={{ color: "#2dd4a0", display: "block", marginBottom: 10, fontSize: 13 }}>✨ What you'll unlock:</strong>
+          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12 }}>
             {features.map((f, i) => <li key={i} style={{ color: "#aab4c4" }}>{f}</li>)}
           </ul>
         </div>
       )}
 
-      {showPlans && !showPayment && (
-        <div style={{ marginBottom: 24 }}>
-          <h4 style={{ margin: "0 0 16px 0", color: "#818cf8" }}>Choose Your Plan</h4>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+      {showPlans && (
+        <div style={{ marginBottom: 20 }}>
+          <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>Choose a plan that works for you:</p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {plans.map((plan) => (
-              <button
+              <div
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
                 style={{
-                  flex: 1,
-                  minWidth: 120,
-                  padding: "16px 12px",
-                  background: selectedPlan === plan.id
-                    ? "linear-gradient(135deg, rgba(45,212,160,0.2), rgba(14,165,233,0.2))"
-                    : plan.highlight
-                      ? "rgba(129,140,248,0.1)"
-                      : "rgba(255,255,255,0.05)",
-                  border: selectedPlan === plan.id
-                    ? "2px solid #2dd4a0"
-                    : plan.highlight
-                      ? "2px solid #818cf8"
-                      : "1px solid #4f5a67",
-                  borderRadius: 12,
+                  border: selectedPlan === plan.id ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 10,
+                  padding: 14,
                   cursor: "pointer",
-                  textAlign: "center",
+                  background: selectedPlan === plan.id ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  transition: "all 0.2s",
+                  position: "relative"
                 }}
               >
                 {plan.highlight && (
-                  <div style={{ background: "#818cf8", color: "#000", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, marginBottom: 8, display: "inline-block" }}>BEST VALUE</div>
+                  <div style={{ position: "absolute", top: -8, right: 10, background: "#10b981", color: "white", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>BEST VALUE</div>
                 )}
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>{plan.name}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: "#2dd4a0" }}>{plan.price}</div>
-                <div style={{ fontSize: 11, color: "#6b7280" }}>{plan.period}</div>
-                {plan.savings && <div style={{ fontSize: 10, color: "#facc15", marginTop: 4 }}>{plan.savings}</div>}
-              </button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{plan.name}</div>
+                    <div className="muted" style={{ fontSize: 11 }}>{plan.savings}</div>
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#3b82f6" }}>{plan.price}</div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       )}
 
-      {showPayment && selectedPlan && (
-        <div style={{ marginBottom: 24, background: "rgba(129,140,248,0.1)", borderRadius: 12, padding: 20, textAlign: "left" }}>
-          <h4 style={{ margin: "0 0 16px 0", color: "#818cf8", textAlign: "center" }}>💳 Payment via Bank Transfer</h4>
-          <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span className="muted">Bank:</span>
-              <strong style={{ color: "#2dd4a0" }}>{bankDetails.bank}</strong>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span className="muted">Account Number:</span>
-              <strong style={{ color: "#2dd4a0", fontSize: 18 }}>{bankDetails.accountNumber}</strong>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span className="muted">Account Name:</span>
-              <strong style={{ color: "#2dd4a0" }}>{bankDetails.accountName}</strong>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              <span className="muted">Amount to Pay:</span>
-              <strong style={{ color: "#facc15", fontSize: 20 }}>{plans.find(p => p.id === selectedPlan)?.price}</strong>
-            </div>
+      {showPlans && selectedPlan && (
+        <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: 13 }}>🏦 Payment Details</h4>
+          <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+            <div><strong>Bank:</strong> {bankDetails.bank}</div>
+            <div><strong>Account Number:</strong> {bankDetails.accountNumber}</div>
+            <div><strong>Account Name:</strong> {bankDetails.accountName}</div>
+            <div><strong>Amount:</strong> {plans.find(p => p.id === selectedPlan)?.price}</div>
           </div>
-          <p style={{ fontSize: 12, color: "#6b7280", textAlign: "center" }}>
-            📱 Send proof of payment via WhatsApp to activate your account
-          </p>
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-        {!showPayment ? (
-          <>
-            <button
-              onClick={() => {
-                if (showPlans && !selectedPlan) {
-                  alert("Please select a plan first");
-                  return;
-                }
-                setShowPayment(true);
-              }}
-              style={{
-                background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)",
-                color: "#000",
-                fontWeight: 700,
-                padding: "14px 32px",
-                fontSize: 16,
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer"
-              }}
-            >
-              🚀 {selectedPlan ? `Pay for ${plans.find(p => p.id === selectedPlan)?.name}` : "Upgrade to Pro"}
-            </button>
-            <button
-              onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
-              style={{
-                background: "transparent",
-                border: "2px solid #2dd4a0",
-                color: "#2dd4a0",
-                padding: "12px 24px",
-                fontSize: 14,
-                borderRadius: 8,
-                cursor: "pointer"
-              }}
-            >
-              🎁 Free Trial
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setShowPayment(false)}
-              style={{
-                background: "transparent",
-                border: "2px solid #4f5a67",
-                color: "#aab4c4",
-                padding: "12px 24px",
-                fontSize: 14,
-                borderRadius: 8,
-                cursor: "pointer"
-              }}
-            >
-              ← Back to Plans
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(bankDetails.accountNumber);
-                alert("Account number copied! Send payment and contact us with proof to activate.");
-              }}
-              style={{
-                background: "linear-gradient(135deg, #2dd4a0, #0ea5e9)",
-                color: "#000",
-                fontWeight: 700,
-                padding: "14px 32px",
-                fontSize: 16,
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer"
-              }}
-            >
-              📋 Copy Account Number
-            </button>
-          </>
-        )}
+      {showPlans && selectedPlan && (
+        <div style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: 13 }}>📱 After Payment</h4>
+          <p className="muted" style={{ fontSize: 11, marginBottom: 10 }}>
+            Send a screenshot of your payment receipt to our WhatsApp to activate:
+          </p>
+          <a
+            href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've made a payment for ${plans.find(p => p.id === selectedPlan)?.name}. Here's my payment proof:`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "block",
+              textAlign: "center",
+              background: "#25D366",
+              color: "white",
+              textDecoration: "none",
+              padding: "10px",
+              borderRadius: 6,
+              fontWeight: 600,
+              fontSize: 13
+            }}
+          >
+            💬 Send Payment Proof on WhatsApp
+          </a>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={() => {
+            if (showPlans && !selectedPlan) {
+              alert("Please select a plan first");
+              return;
+            }
+            if (!selectedPlan) {
+              alert(`🚀 Upgrade to access ${title}!\n\n✅ Unlimited AI Tutoring\n✅ Study Groups & Leaderboard\n✅ Full Analytics Dashboard\n✅ Unlimited Past Papers\n✅ Unlimited Notes & Flashcards`);
+            }
+          }}
+          style={{
+            background: "#3b82f6",
+            color: "white",
+            fontWeight: 600,
+            padding: "12px 24px",
+            fontSize: 14,
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer"
+          }}
+        >
+          {selectedPlan ? `Pay ${plans.find(p => p.id === selectedPlan)?.price}` : "Upgrade Now"}
+        </button>
+        <button
+          onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
+          style={{
+            background: "transparent",
+            border: "1px solid rgba(255,255,255,0.3)",
+            color: "white",
+            padding: "10px 20px",
+            fontSize: 13,
+            borderRadius: 6,
+            cursor: "pointer"
+          }}
+        >
+          Free Trial
+        </button>
       </div>
 
-      <p style={{ fontSize: 12, color: "#6b7280", marginTop: 20 }}>
+      <p style={{ fontSize: 11, color: "#6b7280", marginTop: 16 }}>
         💡 89% of Pro users improved their grades within 30 days
       </p>
     </div>
