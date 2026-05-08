@@ -1303,6 +1303,7 @@ function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [updatePending, setUpdatePending] = useState(false);
+  const [isCheckingActivation, setIsCheckingActivation] = useState(false);
 
   // Celebration system
   const [celebration, setCelebration] = useState(null); // { type: 'streak'|'level'|'badge', data }
@@ -2502,6 +2503,52 @@ function App() {
     }
   }
 
+  // Refresh auth status - check if user has been activated
+  async function refreshAuth() {
+    if (!token) return;
+    
+    setIsCheckingActivation(true);
+    try {
+      const res = await api("/auth/refresh", { method: "GET" });
+      if (res.token && res.user) {
+        // Update token and user in state and localStorage
+        setToken(res.token);
+        setAuth((a) => ({ ...a, user: res.user }));
+        
+        // Update localStorage
+        const authRaw = localStorage.getItem("scholars-circle-auth");
+        if (authRaw) {
+          const authParsed = JSON.parse(authRaw);
+          authParsed.authToken = res.token;
+          authParsed.authUser = res.user;
+          localStorage.setItem("scholars-circle-auth", JSON.stringify(authParsed));
+        }
+        
+        // If user is now activated, show success message
+        if (res.user.isActivated && !isActivated) {
+          console.log("Account activated! Welcome aboard!");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to refresh auth status:", err);
+    } finally {
+      setIsCheckingActivation(false);
+    }
+  }
+
+  // Poll for activation status when user is not activated
+  useEffect(() => {
+    if (!token || !auth.user || isActivated || demoMode) return;
+    
+    // Check immediately
+    refreshAuth();
+    
+    // Then check every 10 seconds
+    const interval = setInterval(refreshAuth, 10000);
+    
+    return () => clearInterval(interval);
+  }, [token, auth.user, isActivated, demoMode]);
+
   // Sync data with backend
   async function syncData() {
     if (!token || !auth.user?.id) {
@@ -3609,6 +3656,8 @@ function App() {
           username={auth.user.username}
           onLogout={logout}
           onTryDemo={() => setDemoMode(true)}
+          onRefresh={refreshAuth}
+          isChecking={isCheckingActivation}
         />
       </main>
     );
@@ -9456,7 +9505,7 @@ function KeyManagement({ token }) {
   );
 }
 
-function LockedScreen({ activationKey, username, onLogout, onTryDemo }) {
+function LockedScreen({ activationKey, username, onLogout, onTryDemo, onRefresh, isChecking }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div className="card" style={{ maxWidth: 480, textAlign: "center" }}>
@@ -9466,6 +9515,32 @@ function LockedScreen({ activationKey, username, onLogout, onTryDemo }) {
           Welcome, <strong>{username}</strong>! Your account has been created but is not yet activated.
           A teacher must activate your key before you can access the full app.
         </p>
+        
+        {/* Auto-checking status indicator */}
+        <div style={{ 
+          background: "rgba(59,130,246,0.1)", 
+          border: "1px solid rgba(59,130,246,0.3)", 
+          borderRadius: 10, 
+          padding: 12, 
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8
+        }}>
+          <span style={{ 
+            display: "inline-block",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: isChecking ? "#3b82f6" : "#22c55e",
+            animation: isChecking ? "pulse 1s infinite" : "none"
+          }}></span>
+          <span style={{ fontSize: 12, color: isChecking ? "#3b82f6" : "#22c55e" }}>
+            {isChecking ? "Checking for activation..." : "Waiting for activation (auto-checking every 10s)"}
+          </span>
+        </div>
+        
         <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <p className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Your Activation Key</p>
           <div style={{ fontFamily: "monospace", fontSize: 28, fontWeight: 700, color: "#facc15", letterSpacing: 3 }}>
@@ -9484,7 +9559,10 @@ function LockedScreen({ activationKey, username, onLogout, onTryDemo }) {
             <li>Discussion board & much more</li>
           </ul>
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={onRefresh} disabled={isChecking} style={{ padding: "8px 24px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 6, cursor: isChecking ? "wait" : "pointer", opacity: isChecking ? 0.7 : 1 }}>
+            {isChecking ? "Checking..." : "Check Now"}
+          </button>
           <button onClick={onTryDemo} style={{ padding: "8px 24px", background: "#2dd4a0", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>
             Try Demo Mode
           </button>

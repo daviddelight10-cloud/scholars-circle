@@ -161,5 +161,47 @@ router.post("/login", async (req, res) => {
 
 
 
+// GET /auth/refresh — Refresh user's auth status and get new token
+router.get("/refresh", requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        activationKey: true,
+        isActivated: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Generate new token with updated isActivated status
+    const token = jwt.sign(
+      { sub: user.id, role: user.role, username: user.username, isActivated: user.isActivated },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        activationKey: user.activationKey,
+        isActivated: user.isActivated,
+      },
+    });
+  } catch (e) {
+    console.error("Refresh error:", e);
+    return res.status(400).json({ error: "Failed to refresh auth status" });
+  }
+});
+
+
 export default router;
 
