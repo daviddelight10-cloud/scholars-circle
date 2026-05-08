@@ -2508,7 +2508,15 @@ function App() {
 
   // Refresh auth status - check if user has been activated or deactivated
   const refreshAuth = useCallback(async () => {
-    if (!token) {
+    const authRaw = localStorage.getItem("scholars-circle-auth");
+    if (!authRaw) {
+      console.log("[refreshAuth] No auth data, skipping");
+      return;
+    }
+    
+    const authParsed = JSON.parse(authRaw);
+    const currentToken = authParsed.authToken;
+    if (!currentToken) {
       console.log("[refreshAuth] No token, skipping");
       return;
     }
@@ -2561,7 +2569,7 @@ function App() {
     } finally {
       setIsCheckingActivation(false);
     }
-  }, [token]);
+  }, []);
 
   // Poll for activation status changes (both activation and deactivation)
   useEffect(() => {
@@ -2581,16 +2589,16 @@ function App() {
     // Check immediately on mount
     refreshAuth();
     
-    // Then check every 5 seconds for changes
-    const interval = setInterval(refreshAuth, 5000);
+    // Then check every 2 seconds for faster updates
+    const interval = setInterval(refreshAuth, 2000);
     
-    console.log("[polling] Interval set up, will check every 5 seconds");
+    console.log("[polling] Interval set up, will check every 2 seconds");
     
     return () => {
       console.log("[polling] Cleaning up interval");
       clearInterval(interval);
     };
-  }, [token, auth.user?.id, demoMode, refreshAuth]);
+  }, [token, auth.user?.id, demoMode]);
 
   // Sync data with backend
   async function syncData() {
