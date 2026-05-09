@@ -2021,8 +2021,8 @@ function App() {
 
     );
 
-    // Also sync to backend if logged in
-    if (token) {
+    // Also sync to backend if logged in (but not in demo mode)
+    if (token && !demoMode) {
 
       syncUserDataToBackend(token, {
 
