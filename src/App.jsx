@@ -8940,7 +8940,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
 
 
-  async function sendMessage(overrideMessage = null) {
+  async function sendMessage(overrideMessage = null, followUpContext = null) {
     const msgToSend = overrideMessage || message;
     if (!msgToSend.trim() || loading) return;
 
@@ -8964,11 +8964,20 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
     }
 
     try {
+      // Find the last user question for context (if this is a follow-up)
+      const lastUserQuestion = followUpContext || chatHistory.filter(m => m.role === "user").pop()?.content || "";
+      
       const context = selectedSubject
         ? `You are a helpful tutor for ${selectedSubject}. The user is studying this subject. Keep answers concise and educational. After explaining, always ask if the user wants you to: break the concept down more, or explain it like they're 6 years old.`
         : "You are a helpful study tutor. Keep answers concise and educational. After explaining, always ask if the user wants you to: break the concept down more, or explain it like they're 6 years old.";
 
-      const systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
+      let systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
+      
+      // If this is a follow-up, include the original question context
+      if (followUpContext && lastUserQuestion) {
+        systemPrompt += `\n\nThe user originally asked about: "${lastUserQuestion}"\nNow they want you to continue explaining that same topic. Do NOT treat this as a new question - continue from where you left off.`;
+      }
+      
       let responseText = "";
 
       // Use backend proxy if available, otherwise use direct call
@@ -9104,7 +9113,11 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
                       flexWrap: "wrap"
                     }}>
                       <button
-                        onClick={() => sendMessage("Break this concept down more for me")}
+                        onClick={() => {
+                          // Find the last user question before this AI response
+                          const lastUserMsg = chatHistory.slice(0, chatHistory.findIndex(m => m === msg)).reverse().find(m => m.role === "user");
+                          sendMessage("Please break this concept down more for me", lastUserMsg?.content || null);
+                        }}
                         disabled={loading}
                         style={{
                           background: "#1e3a5f",
@@ -9120,7 +9133,11 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
                         🔍 Break it down more
                       </button>
                       <button
-                        onClick={() => sendMessage("Explain this like I'm 6 years old")}
+                        onClick={() => {
+                          // Find the last user question before this AI response
+                          const lastUserMsg = chatHistory.slice(0, chatHistory.findIndex(m => m === msg)).reverse().find(m => m.role === "user");
+                          sendMessage("Please explain this like I'm 6 years old", lastUserMsg?.content || null);
+                        }}
                         disabled={loading}
                         style={{
                           background: "#1e3a5f",
