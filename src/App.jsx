@@ -36,24 +36,24 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
   };
 
   return (
-    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto" }}>
+    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
       <div style={{ fontSize: 48, marginBottom: 12 }}>{icon}</div>
-      <h2 style={{ margin: "0 0 8px 0", fontSize: 20 }}>⭐ Premium Feature</h2>
-      <h3 style={{ margin: "0 0 12px 0", fontSize: 16 }}>{title}</h3>
-      <p className="muted" style={{ marginBottom: 20, lineHeight: 1.5, fontSize: 13 }}>{description}</p>
+      <h2 style={{ margin: "0 0 8px 0", fontSize: 20, color: "var(--text-primary, #f1f5f9)" }}>⭐ Premium Feature</h2>
+      <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "var(--text-primary, #f1f5f9)" }}>{title}</h3>
+      <p style={{ marginBottom: 20, lineHeight: 1.5, fontSize: 13, color: "var(--text-secondary, #cbd5e1)" }}>{description}</p>
 
       {features.length > 0 && (
-        <div style={{ background: "rgba(45,212,160,0.1)", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left" }}>
-          <strong style={{ color: "#2dd4a0", display: "block", marginBottom: 10, fontSize: 13 }}>✨ What you'll unlock:</strong>
-          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12 }}>
-            {features.map((f, i) => <li key={i} style={{ color: "#aab4c4" }}>{f}</li>)}
+        <div style={{ background: "var(--success-bg, rgba(45,212,160,0.1))", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--success-border, rgba(45,212,160,0.3))" }}>
+          <strong style={{ color: "var(--success-text, #2dd4a0)", display: "block", marginBottom: 10, fontSize: 13 }}>✨ What you'll unlock:</strong>
+          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12, color: "var(--text-primary, #f1f5f9)" }}>
+            {features.map((f, i) => <li key={i}>{f}</li>)}
           </ul>
         </div>
       )}
 
       {showPlans && (
         <div style={{ marginBottom: 20 }}>
-          <p className="muted" style={{ marginBottom: 12, fontSize: 13 }}>Choose a plan that works for you:</p>
+          <p style={{ marginBottom: 12, fontSize: 13, color: "var(--text-secondary, #cbd5e1)" }}>Choose a plan that works for you:</p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {plans.map((plan) => (
@@ -61,11 +61,11 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
                 style={{
-                  border: selectedPlan === plan.id ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedPlan === plan.id ? "2px solid var(--accent-color, #3b82f6)" : "1px solid var(--border-color, #334155)",
                   borderRadius: 10,
                   padding: 14,
                   cursor: "pointer",
-                  background: selectedPlan === plan.id ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedPlan === plan.id ? "var(--selected-bg, rgba(59,130,246,0.1))" : "var(--item-bg, rgba(255,255,255,0.05))",
                   transition: "all 0.2s",
                   position: "relative"
                 }}
@@ -75,10 +75,10 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
                 )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{plan.name}</div>
-                    <div className="muted" style={{ fontSize: 11 }}>{plan.savings}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary, #f1f5f9)" }}>{plan.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted, #94a3b8)" }}>{plan.savings}</div>
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "#3b82f6" }}>{plan.price}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "var(--accent-color, #3b82f6)" }}>{plan.price}</div>
                 </div>
               </div>
             ))}
@@ -87,9 +87,9 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
       )}
 
       {showPlans && selectedPlan && (
-        <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
-          <h4 style={{ margin: "0 0 10px 0", fontSize: 13 }}>🏦 Payment Details</h4>
-          <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+        <div style={{ background: "var(--selected-bg, rgba(59,130,246,0.1))", border: "1px solid var(--accent-color, rgba(59,130,246,0.3))", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: 13, color: "var(--text-primary, #f1f5f9)" }}>🏦 Payment Details</h4>
+          <div style={{ fontSize: 12, lineHeight: 1.7, color: "var(--text-secondary, #cbd5e1)" }}>
             <div><strong>Bank:</strong> {bankDetails.bank}</div>
             <div><strong>Account Number:</strong> {bankDetails.accountNumber}</div>
             <div><strong>Account Name:</strong> {bankDetails.accountName}</div>
@@ -99,9 +99,9 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
       )}
 
       {showPlans && selectedPlan && (
-        <div style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
-          <h4 style={{ margin: "0 0 10px 0", fontSize: 13 }}>📱 After Payment</h4>
-          <p className="muted" style={{ fontSize: 11, marginBottom: 10 }}>
+        <div style={{ background: "var(--warning-bg, rgba(251,191,36,0.1))", border: "1px solid var(--warning-border, rgba(251,191,36,0.3))", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: 13, color: "var(--text-primary, #f1f5f9)" }}>📱 After Payment</h4>
+          <p style={{ fontSize: 11, marginBottom: 10, color: "var(--text-secondary, #cbd5e1)" }}>
             Send a screenshot of your payment receipt to our WhatsApp to activate:
           </p>
           <a
@@ -137,7 +137,7 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
             }
           }}
           style={{
-            background: "#3b82f6",
+            background: "var(--accent-color, #3b82f6)",
             color: "white",
             fontWeight: 600,
             padding: "12px 24px",
@@ -153,8 +153,8 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
           onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
           style={{
             background: "transparent",
-            border: "1px solid rgba(255,255,255,0.3)",
-            color: "white",
+            border: "1px solid var(--border-color, #334155)",
+            color: "var(--text-primary, #f1f5f9)",
             padding: "10px 20px",
             fontSize: 13,
             borderRadius: 6,
@@ -4255,27 +4255,27 @@ function App() {
       {/* Demo Locked Screen - shown when time limit reached */}
       {demoLocked && demoMode && (
         <div className="modal-overlay" style={{ zIndex: 10000 }}>
-          <div className="modal-box" style={{ maxWidth: 500, textAlign: "center" }}>
+          <div className="modal-box" style={{ maxWidth: 500, textAlign: "center", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>⏰</div>
-            <h2 style={{ margin: "0 0 12px 0", color: "#facc15" }}>Daily Time Limit Reached</h2>
-            <p className="muted" style={{ marginBottom: 20, lineHeight: 1.6 }}>
+            <h2 style={{ margin: "0 0 12px 0", color: "var(--warning-color, #fbbf24)" }}>Daily Time Limit Reached</h2>
+            <p style={{ marginBottom: 20, lineHeight: 1.6, color: "var(--text-secondary, #cbd5e1)" }}>
               You've used your {DEMO_LIMITS.dailyTimeLimit} minutes for today. Upgrade for unlimited access or wait until tomorrow!
             </p>
-            <div style={{ background: "rgba(45,212,160,0.1)", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left" }}>
-              <strong style={{ color: "#2dd4a0", display: "block", marginBottom: 10 }}>✨ Upgrade for:</strong>
-              <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12 }}>
+            <div style={{ background: "var(--success-bg, rgba(45,212,160,0.1))", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--success-border, rgba(45,212,160,0.3))" }}>
+              <strong style={{ color: "var(--success-text, #2dd4a0)", display: "block", marginBottom: 10 }}>✨ Upgrade for:</strong>
+              <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12, color: "var(--text-primary, #f1f5f9)" }}>
                 <li>Unlimited study time</li>
                 <li>Unlimited quizzes & practice</li>
                 <li>Full subject library</li>
                 <li>AI Tutor & flashcards</li>
               </ul>
             </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <button
                 onClick={() => {
                   setShowPaymentModal(true);
                 }}
-                style={{ background: "#3b82f6", color: "white", fontWeight: 600, padding: "12px 24px", fontSize: 14, border: "none", borderRadius: 6, cursor: "pointer" }}
+                style={{ background: "var(--accent-color, #3b82f6)", color: "white", fontWeight: 600, padding: "12px 24px", fontSize: 14, border: "none", borderRadius: 6, cursor: "pointer" }}
               >
                 Upgrade Now
               </button>
@@ -4287,9 +4287,21 @@ function App() {
                   const hoursLeft = Math.ceil((tomorrow.getTime() - Date.now()) / (1000 * 60 * 60));
                   alert(`Come back tomorrow! Your limits will reset at midnight.\n\n⏰ About ${hoursLeft} hours remaining.`);
                 }}
-                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", color: "white", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
+                style={{ background: "transparent", border: "1px solid var(--border-color, #334155)", color: "var(--text-primary, #f1f5f9)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
               >
                 Wait Till Tomorrow
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Are you sure you want to log out? Your demo progress will be saved.")) {
+                    localStorage.removeItem("sc_user_v2");
+                    localStorage.removeItem("sc_demo_locked");
+                    window.location.reload();
+                  }
+                }}
+                style={{ background: "var(--danger-bg, rgba(239,68,68,0.1))", border: "1px solid var(--danger-border, #ef4444)", color: "var(--danger-text, #fca5a5)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
+              >
+                Log Out
               </button>
             </div>
           </div>

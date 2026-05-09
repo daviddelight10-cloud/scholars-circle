@@ -31,6 +31,26 @@
   --hint-text: #1e40af;
   --hint-item-bg: rgba(59, 130, 246, 0.1);
   --skip-bg: #6b7280;
+  
+  /* Quiz and flashcard colors */
+  --quiz-bg: #f0fdf4;
+  --quiz-header: #059669;
+  --flashcard-header: #d97706;
+  --flashcard-front: #fefce8;
+  --flashcard-back: #fef3c7;
+  --flashcard-border: #d97706;
+  
+  /* Warning and danger colors */
+  --warning-color: #f59e0b;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  --warning-border: rgba(251, 191, 36, 0.3);
+  --warning-text: #92400e;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --danger-border: #ef4444;
+  --danger-text: #dc2626;
+  --success-bg: rgba(45, 212, 160, 0.1);
+  --success-border: rgba(45, 212, 160, 0.3);
+  --success-text: #059669;
 
 }
 
@@ -513,6 +533,26 @@ kbd {
   --hint-text: #bfdbfe;
   --hint-item-bg: rgba(59, 130, 246, 0.15);
   --skip-bg: #475569;
+  
+  /* Quiz and flashcard colors - dark mode */
+  --quiz-bg: #064e3b;
+  --quiz-header: #6ee7b7;
+  --flashcard-header: #fbbf24;
+  --flashcard-front: #1e293b;
+  --flashcard-back: #292524;
+  --flashcard-border: #fbbf24;
+  
+  /* Warning and danger colors - dark mode */
+  --warning-color: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.15);
+  --warning-border: rgba(251, 191, 36, 0.4);
+  --warning-text: #fbbf24;
+  --danger-bg: rgba(239, 68, 68, 0.15);
+  --danger-border: #ef4444;
+  --danger-text: #fca5a5;
+  --success-bg: rgba(45, 212, 160, 0.15);
+  --success-border: rgba(45, 212, 160, 0.4);
+  --success-text: #2dd4a0;
 
 }
 
@@ -553,6 +593,26 @@ kbd {
   --hint-text: #1e40af;
   --hint-item-bg: rgba(59, 130, 246, 0.1);
   --skip-bg: #6b7280;
+  
+  /* Quiz and flashcard colors */
+  --quiz-bg: #f0fdf4;
+  --quiz-header: #059669;
+  --flashcard-header: #d97706;
+  --flashcard-front: #fefce8;
+  --flashcard-back: #fef3c7;
+  --flashcard-border: #d97706;
+  
+  /* Warning and danger colors */
+  --warning-color: #f59e0b;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+  --warning-border: rgba(251, 191, 36, 0.3);
+  --warning-text: #92400e;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --danger-border: #ef4444;
+  --danger-text: #dc2626;
+  --success-bg: rgba(45, 212, 160, 0.1);
+  --success-border: rgba(45, 212, 160, 0.3);
+  --success-text: #059669;
 
 }
 

@@ -495,17 +495,17 @@ All text must be plain English. No special characters or symbols.`;
 
           {/* Quiz Mode */}
           {quizMode && materials.questions && (
-            <div style={{ padding: 16, background: "#f0fdf4", borderRadius: 8, marginBottom: 16 }}>
+            <div style={{ padding: 16, background: "var(--quiz-bg, #f0fdf4)", borderRadius: 8, marginBottom: 16, border: "1px solid var(--border-color, #e5e7eb)" }}>
               <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: "#059669" }}>
+                <span style={{ fontSize: 12, color: "var(--quiz-header, #059669)" }}>
                   Question {currentQ + 1} of {materials.questions.length}
                 </span>
-                <span style={{ fontSize: 12, color: "#059669" }}>
+                <span style={{ fontSize: 12, color: "var(--quiz-header, #059669)" }}>
                   Score: {score}/{answered.length}
                 </span>
               </div>
               
-              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
+              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: "var(--text-primary, #111)" }}>
                 {materials.questions[currentQ].q}
               </p>
               
@@ -513,14 +513,15 @@ All text must be plain English. No special characters or symbols.`;
                 {materials.questions[currentQ].options?.map((opt, j) => {
                   const isSelected = selectedAnswer === j;
                   const isCorrect = j === materials.questions[currentQ].answer;
-                  let bg = "#fff";
-                  let border = "#d1d5db";
+                  let bg = "var(--option-bg, #fff)";
+                  let border = "var(--border-color, #d1d5db)";
+                  let textColor = "var(--text-primary, #111)";
                   if (showResult) {
-                    if (isCorrect) { bg = "#dcfce7"; border = "#22c55e"; }
-                    else if (isSelected) { bg = "#fee2e2"; border = "#ef4444"; }
+                    if (isCorrect) { bg = "var(--correct-bg, #dcfce7)"; border = "var(--correct-border, #22c55e)"; textColor = "var(--correct-text, #166534)"; }
+                    else if (isSelected) { bg = "var(--wrong-bg, #fee2e2)"; border = "var(--wrong-border, #ef4444)"; textColor = "var(--wrong-text, #991b1b)"; }
                   } else if (isSelected) {
-                    bg = "#e0f2fe";
-                    border = "#0ea5e9";
+                    bg = "var(--selected-bg, #e0f2fe)";
+                    border = "var(--selected-border, #0ea5e9)";
                   }
                   return (
                     <button
@@ -536,11 +537,12 @@ All text must be plain English. No special characters or symbols.`;
                         cursor: showResult ? "default" : "pointer",
                         fontSize: 13,
                         transition: "all 0.2s",
+                        color: textColor,
                       }}
                     >
                       <strong>{String.fromCharCode(65 + j)})</strong> {opt}
-                      {showResult && isCorrect && <span style={{ marginLeft: 8 }}>✓</span>}
-                      {showResult && isSelected && !isCorrect && <span style={{ marginLeft: 8 }}>✗</span>}
+                      {showResult && isCorrect && <span style={{ marginLeft: 8, color: "#16a34a" }}>✓</span>}
+                      {showResult && isSelected && !isCorrect && <span style={{ marginLeft: 8, color: "#dc2626" }}>✗</span>}
                     </button>
                   );
                 })}
@@ -548,12 +550,12 @@ All text must be plain English. No special characters or symbols.`;
               
               {showResult && (
                 <>
-                  <p style={{ fontSize: 12, marginTop: 12, padding: 8, background: "#fff", borderRadius: 4 }}>
+                  <p style={{ fontSize: 12, marginTop: 12, padding: 8, background: "var(--card-bg, #fff)", borderRadius: 4, color: "var(--text-primary, #111)", border: "1px solid var(--border-light, #e5e7eb)" }}>
                     💡 {materials.questions[currentQ].explanation}
                   </p>
                   <button
                     onClick={nextQuestion}
-                    style={{ marginTop: 12, borderColor: "#059669", color: "#059669" }}
+                    style={{ marginTop: 12, borderColor: "var(--quiz-header, #059669)", color: "var(--quiz-header, #059669)" }}
                   >
                     {currentQ < materials.questions.length - 1 ? "Next Question →" : "Finish Quiz"}
                   </button>
@@ -566,7 +568,7 @@ All text must be plain English. No special characters or symbols.`;
           {flashcardMode && materials.flashcards && (
             <div style={{ marginBottom: 16 }}>
               <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: "#d97706" }}>
+                <span style={{ fontSize: 12, color: "var(--flashcard-header, #d97706)" }}>
                   Card {currentCard + 1} of {materials.flashcards.length}
                 </span>
                 <button onClick={() => setFlashcardMode(false)} style={{ fontSize: 11 }}>Exit</button>
@@ -576,7 +578,7 @@ All text must be plain English. No special characters or symbols.`;
                 onClick={() => setShowBack(!showBack)}
                 style={{
                   padding: 24,
-                  background: showBack ? "#fef3c7" : "#fefce8",
+                  background: showBack ? "var(--flashcard-back, #fef3c7)" : "var(--flashcard-front, #fefce8)",
                   borderRadius: 12,
                   minHeight: 150,
                   display: "flex",
@@ -584,9 +586,10 @@ All text must be plain English. No special characters or symbols.`;
                   justifyContent: "center",
                   textAlign: "center",
                   cursor: "pointer",
-                  border: "2px solid #d97706",
+                  border: `2px solid var(--flashcard-border, #d97706)`,
                   fontSize: 16,
                   transition: "all 0.3s",
+                  color: "var(--text-primary, #111)",
                 }}
               >
                 {showBack 
@@ -619,19 +622,19 @@ All text must be plain English. No special characters or symbols.`;
           {/* Summary (hidden during quiz/flashcard mode) */}
           {!quizMode && !flashcardMode && (
             <>
-              <h4>📝 Summary</h4>
-              <p style={{ fontSize: 14, lineHeight: 1.6 }}>{materials.summary}</p>
+              <h4 style={{ color: "var(--text-primary, #111)" }}>📝 Summary</h4>
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-primary, #111)" }}>{materials.summary}</p>
               
-              <h4 style={{ marginTop: 12 }}>🔑 Key Points</h4>
-              <ul style={{ fontSize: 13, lineHeight: 1.8 }}>
-                {materials.keyPoints?.map((p, i) => <li key={i}>{p}</li>)}
+              <h4 style={{ marginTop: 12, color: "var(--text-primary, #111)" }}>🔑 Key Points</h4>
+              <ul style={{ fontSize: 13, lineHeight: 1.8, color: "var(--text-primary, #111)" }}>
+                {materials.keyPoints?.map((p, i) => <li key={i} style={{ color: "var(--text-primary, #111)" }}>{p}</li>)}
               </ul>
               
-              <h4 style={{ marginTop: 12 }}>❓ Practice Questions</h4>
-              <p className="muted" style={{ fontSize: 11 }}>Click "Practice MCQs" above to take the quiz interactively</p>
+              <h4 style={{ marginTop: 12, color: "var(--text-primary, #111)" }}>❓ Practice Questions</h4>
+              <p style={{ fontSize: 11, color: "var(--text-secondary, #374151)" }}>Click "Practice MCQs" above to take the quiz interactively</p>
               
-              <h4 style={{ marginTop: 12 }}>🃏 Flashcards</h4>
-              <p className="muted" style={{ fontSize: 11 }}>Click "Review Flashcards" above to practice interactively</p>
+              <h4 style={{ marginTop: 12, color: "var(--text-primary, #111)" }}>🃏 Flashcards</h4>
+              <p style={{ fontSize: 11, color: "var(--text-secondary, #374151)" }}>Click "Review Flashcards" above to practice interactively</p>
             </>
           )}
         </div>
