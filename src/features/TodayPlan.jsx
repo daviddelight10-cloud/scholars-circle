@@ -3,6 +3,8 @@ import { callAI, extractJSON as extractJSONShared } from "../lib/aiClient";
 
 // Maximum days for day-by-day plan before switching to weekly
 const MAX_DAILY_DAYS = 21;
+// Maximum weeks allowed (to prevent JSON overflow)
+const MAX_WEEKS = 8;
 
 const BASE_STORE_KEY = "sc_study_plan_v1";
 
@@ -55,23 +57,26 @@ export function StudyPlanGenerator({ subjects, aiConfig, onPlanCreated, userId, 
     
     // Use weekly format for long durations
     const isWeekly = days > MAX_DAILY_DAYS;
-    const weeksCount = Math.ceil(days / 7);
+    const weeksCount = Math.min(MAX_WEEKS, Math.ceil(days / 7));
+    
+    // Warn if duration exceeds max weeks
+    const actualWeeks = Math.ceil(days / 7);
+    if (actualWeeks > MAX_WEEKS) {
+      const proceed = confirm(`Your plan spans ${actualWeeks} weeks. For best results, we'll generate a ${MAX_WEEKS}-week condensed plan. Continue?`);
+      if (!proceed) {
+        setLoading(false);
+        return;
+      }
+    }
     
     let prompt;
     if (isWeekly) {
-      prompt = `You are an expert tutor for first-year university students.
-Create a WEEKLY study plan to prepare for the ${subject?.label || "course"} exam on ${examDate}.
-Student details:
-- Weeks remaining: ${weeksCount}
-- Daily study time available: ${dailyMinutes} minutes
-- Current confidence (1=lost, 5=ready): ${confidence}
-- Lesson topics in this course: ${lessons.join("; ") || "general first-year content"}
-${focusAreas ? `- Specific areas to focus on: ${focusAreas}` : ""}
+      prompt = `You are an expert tutor. Create a ${weeksCount}-week study plan for ${subject?.label || "course"}.
 
-Return ONLY a JSON array. Each item represents ONE WEEK:
-{"week": <1-based number>, "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "focusTopics": ["topic1", "topic2"], "tasks": [{"title": string, "type": "read"|"practice"|"flashcards"|"pastpaper"|"review"|"video"|"quiz", "minutes": number, "priority": "high"|"medium"|"low", "day": "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday"}]}
+Return ONLY a JSON array with ${weeksCount} items. Each item:
+{"week":1,"focus":"topic name","goals":["goal1","goal2"]}
 
-Build exactly ${weeksCount} weeks. Start with fundamentals in early weeks, progress to advanced topics, and end with revision + past papers in the final 2 weeks. Spread ${dailyMinutes * 7} total minutes across each week. Include at least 1 rest day per week. Mix reading + practice + videos.`;
+Keep it simple. Week 1-${Math.floor(weeksCount/2)}: learn fundamentals. Week ${Math.floor(weeksCount/2)+1}-${weeksCount-1}: advanced topics. Week ${weeksCount}: revision + past papers.`;
     } else {
       prompt = `You are an expert tutor for first-year university students.
 Create a day-by-day study plan to prepare for the ${subject?.label || "course"} exam on ${examDate}.
@@ -150,9 +155,16 @@ Build exactly ${days} days. Front-load weak topics. Add at least one past-paper 
         {loading ? "Building plan…" : "✨ Generate Plan"}
       </button>
       <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-        {examDate && Math.ceil((new Date(examDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) > MAX_DAILY_DAYS 
-          ? `Long-term plan: will generate ${Math.ceil((new Date(examDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 7))} weekly summaries`
-          : "Day-by-day plan for short durations"}
+        {examDate && (() => {
+          const d = Math.ceil((new Date(examDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          const w = Math.ceil(d / 7);
+          if (d > MAX_DAILY_DAYS) {
+            return w > MAX_WEEKS 
+              ? `⚠️ ${w} weeks detected - will generate ${MAX_WEEKS}-week condensed plan`
+              : `Long-term plan: will generate ${w} weekly summaries`;
+          }
+          return "Day-by-day plan for short durations";
+        })()}
       </p>
       {error && <p style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</p>}
     </div>
@@ -160,8 +172,10 @@ Build exactly ${days} days. Front-load weak topics. Add at least one past-paper 
 }
 
 // Study Materials Generator Component
-export function StudyMaterialsGenerator({ aiConfig, onMaterialsGenerated }) {
-  const [topic, setTopic] = useState("");
+export function StudyMaterialsGenerator({ aiConfig, subjects, onMaterialsGenerated }) {
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedLesson, setSelectedLesson] = useState("");
+  const [customTopic, setCustomTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [materials, setMaterials] = useState(null);
@@ -179,10 +193,17 @@ export function StudyMaterialsGenerator({ aiConfig, onMaterialsGenerated }) {
   const [currentCard, setCurrentCard] = useState(0);
   const [showBack, setShowBack] = useState(false);
 
+  // Get lessons for selected subject
+  const selectedSubject = subjects?.find(s => s.id === selectedSubjectId);
+  const lessons = selectedSubject?.lessons || [];
+
+  // Determine the topic to use
+  const topic = customTopic.trim() || selectedLesson || "";
+
   async function generateMaterials() {
     setError("");
     if (!topic.trim()) {
-      setError("Enter a topic to generate materials for.");
+      setError("Select a topic from the dropdown or enter a custom topic.");
       return;
     }
     
@@ -270,23 +291,60 @@ Make questions challenging but fair for first-year university students.`;
   return (
     <div className="lesson-block">
       <h3>📚 Study Materials Generator</h3>
-      <p className="muted">Enter a topic to generate summary, MCQs, and flashcards.</p>
-      <div className="row" style={{ gap: 8, marginTop: 8 }}>
-        <input
-          type="text"
-          placeholder="e.g., Mitosis and Cell Division"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          style={{ flex: 1, padding: 8 }}
-        />
-        <button
-          onClick={generateMaterials}
-          disabled={loading}
-          style={{ borderColor: "#818cf8", color: "#818cf8" }}
-        >
-          {loading ? "Generating..." : "✨ Generate"}
-        </button>
+      <p className="muted">Select a topic from your course or enter a custom topic.</p>
+      
+      {/* Subject and Topic Selection */}
+      <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <select 
+            value={selectedSubjectId} 
+            onChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedLesson(""); }}
+            style={{ flex: 1 }}
+          >
+            <option value="">Select Subject (optional)</option>
+            {subjects?.map(s => (
+              <option key={s.id} value={s.id}>{s.icon} {s.label}</option>
+            ))}
+          </select>
+        </div>
+        
+        {selectedSubjectId && lessons.length > 0 && (
+          <select 
+            value={selectedLesson} 
+            onChange={(e) => setSelectedLesson(e.target.value)}
+            style={{ flex: 1 }}
+          >
+            <option value="">Select Topic from {selectedSubject?.label}</option>
+            {lessons.map((l, i) => (
+              <option key={i} value={l.title}>{l.title}</option>
+            ))}
+          </select>
+        )}
+        
+        <div className="row" style={{ gap: 8 }}>
+          <input
+            type="text"
+            placeholder={selectedSubjectId ? "Or enter custom topic..." : "Enter topic (e.g., Mitosis)"}
+            value={customTopic}
+            onChange={(e) => setCustomTopic(e.target.value)}
+            style={{ flex: 1, padding: 8 }}
+          />
+          <button
+            onClick={generateMaterials}
+            disabled={loading}
+            style={{ borderColor: "#818cf8", color: "#818cf8" }}
+          >
+            {loading ? "Generating..." : "✨ Generate"}
+          </button>
+        </div>
       </div>
+      
+      {topic && !materials && (
+        <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+          Topic: <strong>{topic}</strong>
+        </p>
+      )}
+      
       {error && <p style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</p>}
       
       {materials && (
@@ -490,23 +548,26 @@ export function TodayScreen({
       const subject = subjects.find((s) => s.id === sid);
       
       if (plan.isWeekly) {
-        // Weekly plan: find the week containing today
-        const week = (plan.days || []).find((w) => 
-          w.startDate <= todayStr && w.endDate >= todayStr
-        );
+        // Simplified weekly plan - show current week's goals as tasks
+        const planStartDate = new Date(plan.createdAt || Date.now());
+        const daysSinceStart = Math.floor((Date.now() - planStartDate.getTime()) / (1000 * 60 * 60 * 24));
+        const currentWeekNum = Math.floor(daysSinceStart / 7) + 1;
+        const week = (plan.days || []).find((w) => w.week === currentWeekNum);
         if (week) {
-          // Get tasks for today's day of week
-          const todayTasks = (week.tasks || []).filter((t) => t.day === dayOfWeek);
-          for (let i = 0; i < todayTasks.length; i++) {
+          // Convert goals to tasks for display
+          (week.goals || []).forEach((goal, i) => {
             out.push({
               sid,
               subjectLabel: subject?.label || sid,
               subjectIcon: subject?.icon || "📚",
               taskIndex: i,
-              weekFocus: week.focusTopics?.join(", "),
-              ...todayTasks[i],
+              title: goal,
+              type: "goal",
+              minutes: dailyMinutes,
+              priority: "medium",
+              weekFocus: week.focus,
             });
-          }
+          });
         }
       } else {
         // Daily plan: find the day matching today
@@ -641,7 +702,7 @@ export function TodayScreen({
 
       <StudyPlanGenerator subjects={subjects} aiConfig={aiConfig} onPlanCreated={() => setRefresh((r) => r + 1)} userId={userId} />
 
-      <StudyMaterialsGenerator aiConfig={aiConfig} />
+      <StudyMaterialsGenerator subjects={subjects} aiConfig={aiConfig} />
 
       {planSubjectIds.length > 0 && (
         <>
@@ -653,14 +714,12 @@ export function TodayScreen({
             const progress = Math.round((completedTasks / (todaysTasks.length || 1)) * 100);
             
             // Calculate totals differently for weekly vs daily
-            let totalTasks, totalMinutes, upcoming;
+            let totalTasks, upcoming;
             if (plan.isWeekly) {
-              totalTasks = (plan.days || []).reduce((sum, w) => sum + (w.tasks?.length || 0), 0);
-              totalMinutes = (plan.days || []).reduce((sum, w) => sum + (w.tasks?.reduce((s, t) => s + (t.minutes || 0), 0) || 0), 0);
-              upcoming = (plan.days || []).filter((w) => w.endDate >= todayStr).slice(0, 3);
+              totalTasks = (plan.days || []).reduce((sum, w) => sum + (w.goals?.length || 0), 0);
+              upcoming = (plan.days || []).slice(0, 3);
             } else {
               totalTasks = (plan.days || []).reduce((sum, d) => sum + (d.tasks?.length || 0), 0);
-              totalMinutes = (plan.days || []).reduce((sum, d) => sum + (d.tasks?.reduce((s, t) => s + (t.minutes || 0), 0) || 0), 0);
               upcoming = (plan.days || []).filter((d) => d.date >= todayStr).slice(0, 5);
             }
             
@@ -679,8 +738,8 @@ export function TodayScreen({
                 </div>
                 <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                   {plan.isWeekly 
-                    ? `${plan.days?.length || 0} weeks · ${totalTasks} tasks · ${Math.round(totalMinutes / 60)}h total`
-                    : `${plan.days?.length || 0} days · ${totalTasks} tasks · ${Math.round(totalMinutes / 60)}h total`
+                    ? `${plan.days?.length || 0} weeks · ${totalTasks} goals`
+                    : `${plan.days?.length || 0} days · ${totalTasks} tasks`
                   }
                   · Confidence: {plan.confidence || "N/A"}
                   {plan.focusAreas && ` · Focus: ${plan.focusAreas}`}
@@ -700,11 +759,11 @@ export function TodayScreen({
                   {plan.isWeekly ? (
                     upcoming.map((w, i) => (
                       <li key={i}>
-                        <span className="muted">Week {w.week} ({fmtDate(w.startDate)} - {fmtDate(w.endDate)}):</span>
+                        <span className="muted">Week {w.week}:</span>
                         <br />
-                        <span style={{ fontSize: 11 }}>Focus: {w.focusTopics?.join(", ") || "General review"}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600 }}>Focus: {w.focus || "General review"}</span>
                         <br />
-                        <span style={{ fontSize: 11 }}>{(w.tasks || []).map((t) => t.title).join(" · ") || "—"}</span>
+                        <span style={{ fontSize: 11 }}>Goals: {(w.goals || []).join(" · ") || "—"}</span>
                       </li>
                     ))
                   ) : (
