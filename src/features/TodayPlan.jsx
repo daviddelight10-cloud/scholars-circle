@@ -59,16 +59,6 @@ export function StudyPlanGenerator({ subjects, aiConfig, onPlanCreated, userId, 
     const isWeekly = days > MAX_DAILY_DAYS;
     const weeksCount = Math.min(MAX_WEEKS, Math.ceil(days / 7));
     
-    // Warn if duration exceeds max weeks
-    const actualWeeks = Math.ceil(days / 7);
-    if (actualWeeks > MAX_WEEKS) {
-      const proceed = confirm(`Your plan spans ${actualWeeks} weeks. For best results, we'll generate a ${MAX_WEEKS}-week condensed plan. Continue?`);
-      if (!proceed) {
-        setLoading(false);
-        return;
-      }
-    }
-    
     let prompt;
     if (isWeekly) {
       prompt = `You are an expert tutor. Create a ${weeksCount}-week study plan for ${subject?.label || "course"}.
