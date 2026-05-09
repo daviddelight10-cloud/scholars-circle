@@ -529,7 +529,6 @@ export function TodayScreen({
   }, [subjects, mastery]);
 
   const todayStr = todayKey();
-  const dayOfWeek = new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   
   const todaysTasks = useMemo(() => {
     const out = [];
@@ -553,7 +552,7 @@ export function TodayScreen({
               taskIndex: i,
               title: goal,
               type: "goal",
-              minutes: dailyMinutes,
+              minutes: plan.dailyMinutes || 60,
               priority: "medium",
               weekFocus: week.focus,
             });
@@ -576,7 +575,7 @@ export function TodayScreen({
       }
     }
     return out;
-  }, [planState, subjects, todayStr, dayOfWeek]);
+  }, [planState, subjects, todayStr]);
 
   function toggleDone(sid, taskIndex) {
     const state = loadPlan(userId);
