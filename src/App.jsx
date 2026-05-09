@@ -8940,7 +8940,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
 
 
-  async function sendMessage(overrideMessage = null, followUpContext = null) {
+  async function sendMessage(overrideMessage = null, followUpContext = null, previousAIResponse = null) {
     const msgToSend = overrideMessage || message;
     if (!msgToSend.trim() || loading) return;
 
@@ -8964,18 +8964,20 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
     }
 
     try {
-      // Find the last user question for context (if this is a follow-up)
-      const lastUserQuestion = followUpContext || chatHistory.filter(m => m.role === "user").pop()?.content || "";
-      
       const context = selectedSubject
         ? `You are a helpful tutor for ${selectedSubject}. The user is studying this subject. Keep answers concise and educational. After explaining, always ask if the user wants you to: break the concept down more, or explain it like they're 6 years old.`
         : "You are a helpful study tutor. Keep answers concise and educational. After explaining, always ask if the user wants you to: break the concept down more, or explain it like they're 6 years old.";
 
       let systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
       
-      // If this is a follow-up, include the original question context
-      if (followUpContext && lastUserQuestion) {
-        systemPrompt += `\n\nThe user originally asked about: "${lastUserQuestion}"\nNow they want you to continue explaining that same topic. Do NOT treat this as a new question - continue from where you left off.`;
+      // If this is a follow-up, include the full conversation context
+      if (followUpContext && previousAIResponse) {
+        systemPrompt += `\n\n[CONTINUATION REQUEST - NOT A NEW TOPIC]
+The user previously asked: "${followUpContext}"
+
+You responded with: "${previousAIResponse.replace("[FollowUpButtons]", "").slice(0, 500)}..."
+
+Now the user wants you to CONTINUE explaining that EXACT same topic. Do NOT introduce new topics. Continue from where your previous explanation left off.`;
       }
       
       let responseText = "";
@@ -9114,9 +9116,10 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
                     }}>
                       <button
                         onClick={() => {
-                          // Find the last user question before this AI response
-                          const lastUserMsg = chatHistory.slice(0, chatHistory.findIndex(m => m === msg)).reverse().find(m => m.role === "user");
-                          sendMessage("Please break this concept down more for me", lastUserMsg?.content || null);
+                          // Find the last user question before this AI response (index i)
+                          const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
+                          // Pass the user question AND this AI response for context
+                          sendMessage("Please break this concept down more for me", lastUserMsg?.content || null, msg.content);
                         }}
                         disabled={loading}
                         style={{
@@ -9134,9 +9137,10 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
                       </button>
                       <button
                         onClick={() => {
-                          // Find the last user question before this AI response
-                          const lastUserMsg = chatHistory.slice(0, chatHistory.findIndex(m => m === msg)).reverse().find(m => m.role === "user");
-                          sendMessage("Please explain this like I'm 6 years old", lastUserMsg?.content || null);
+                          // Find the last user question before this AI response (index i)
+                          const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
+                          // Pass the user question AND this AI response for context
+                          sendMessage("Please explain this like I'm 6 years old", lastUserMsg?.content || null, msg.content);
                         }}
                         disabled={loading}
                         style={{
