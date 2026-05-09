@@ -61,24 +61,30 @@ export function StudyPlanGenerator({ subjects, aiConfig, onPlanCreated, userId, 
     
     let prompt;
     if (isWeekly) {
+      // Build explicit week list to force AI to generate all weeks
+      const weekList = Array.from({length: weeksCount}, (_, i) => `{"week":${i+1},"focus":"[topic for week ${i+1}]","goals":["[goal 1]","[goal 2]"]}`).join(',\n  ');
+      
       prompt = `You are an expert tutor. Create a ${weeksCount}-week study plan for ${subject?.label || "course"}.
 
-CRITICAL: You MUST generate EXACTLY ${weeksCount} weeks. No more, no less.
+Course topics: ${lessons.join(", ") || "general first-year content"}
+${focusAreas ? `Student wants to focus on: ${focusAreas}` : ""}
+Exam date: ${examDate}
+Daily study time: ${dailyMinutes} minutes
+Current confidence: ${confidence}/5
 
-Return ONLY a JSON array with EXACTLY ${weeksCount} items:
+You MUST return a JSON array with EXACTLY ${weeksCount} weeks. Here is the EXACT format:
+
 [
-  {"week":1,"focus":"topic","goals":["goal1","goal2"]},
-  {"week":2,"focus":"topic","goals":["goal1","goal2"]},
-  ...continue for all ${weeksCount} weeks...
-  {"week":${weeksCount},"focus":"revision","goals":["past papers","review"]}
+  ${weekList}
 ]
 
-Structure:
-- Weeks 1-${Math.ceil(weeksCount/3)}: Learn fundamentals and basics
+Replace [topic] and [goal] placeholders with actual content based on the course topics above.
+Distribute topics across ${weeksCount} weeks:
+- Weeks 1-${Math.ceil(weeksCount/3)}: Learn fundamentals
 - Weeks ${Math.ceil(weeksCount/3)+1}-${weeksCount-1}: Advanced topics and practice
 - Week ${weeksCount}: Final revision and past papers
 
-IMPORTANT: Include all ${weeksCount} weeks in your response. Do not stop early.`;
+Return ONLY the JSON array. No other text.`;
     } else {
       prompt = `You are an expert tutor for first-year university students.
 Create a day-by-day study plan to prepare for the ${subject?.label || "course"} exam on ${examDate}.

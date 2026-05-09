@@ -3061,10 +3061,19 @@ function App() {
       }
     }
 
-    const autoMinutes = Math.max(10, Math.round((pool.length * 90) / 60));
+    // Limit questions to 10 for demo users
+    let finalPool = pool;
+    if (demoMode && pool.length > 10) {
+      finalPool = pool.slice(0, 10);
+      setTimeout(() => {
+        alert(`Demo: Limited to 10 questions per quiz. Upgrade for unlimited questions!`);
+      }, 300);
+    }
+
+    const autoMinutes = Math.max(10, Math.round((finalPool.length * 90) / 60));
     const totalSeconds = mode === "exam" ? (customMinutes ? customMinutes * 60 : autoMinutes * 60) : null;
 
-    setActiveSession({ mode, source: subject, questions: pool, totalSeconds });
+    setActiveSession({ mode, source: subject, questions: finalPool, totalSeconds });
 
     if (demoMode) {
       const today = new Date().toDateString();
@@ -3105,7 +3114,15 @@ function App() {
 
     });
 
-    setActiveSession({ mode: "diagnostic", source: { id: "diagnostic", label: "Diagnostic", icon: "🧪" }, questions });
+    // Limit to 10 questions for demo users
+    const finalQuestions = demoMode && questions.length > 10 ? questions.slice(0, 10) : questions;
+    if (demoMode && questions.length > 10) {
+      setTimeout(() => {
+        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+      }, 300);
+    }
+
+    setActiveSession({ mode: "diagnostic", source: { id: "diagnostic", label: "Diagnostic", icon: "🧪" }, questions: finalQuestions });
 
     if (demoMode) {
       const today = new Date().toDateString();
@@ -3127,7 +3144,9 @@ function App() {
 
     const seen = new Set();
 
-    while (picked.length < Math.min(8, allQuestions.length)) {
+    const maxQuestions = demoMode ? 10 : 8;
+
+    while (picked.length < Math.min(maxQuestions, allQuestions.length)) {
 
       const candidate = pickAdaptiveQuestion(allQuestions, wrongCounts, mastery);
 
@@ -3139,6 +3158,12 @@ function App() {
 
       }
 
+    }
+
+    if (demoMode) {
+      setTimeout(() => {
+        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+      }, 300);
     }
 
     setActiveSession({ mode: "adaptive", source: { id: "adaptive", label: "Adaptive", icon: "🎯" }, questions: picked });
@@ -3174,8 +3199,16 @@ function App() {
   function startWeakDrill() {
 
     const weak = allQuestions.filter((q) => (wrongCounts[q.key] || 0) > 0);
+    
+    // Limit to 10 questions for demo users
+    const finalWeak = demoMode && weak.length > 10 ? weak.slice(0, 10) : weak;
+    if (demoMode && weak.length > 10) {
+      setTimeout(() => {
+        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+      }, 300);
+    }
 
-    setActiveSession({ mode: "weak", source: { id: "weak", label: "Weak Drill", icon: "⚔️" }, questions: weak });
+    setActiveSession({ mode: "weak", source: { id: "weak", label: "Weak Drill", icon: "⚔️" }, questions: finalWeak });
 
   }
 
@@ -3186,8 +3219,16 @@ function App() {
     const wrongs = allQuestions.filter((q) => (wrongCounts[q.key] || 0) > 0).slice(0, 12);
 
     if (!wrongs.length) return alert("No wrong answers yet. Practice first!");
+    
+    // Limit to 10 questions for demo users
+    const finalWrongs = demoMode && wrongs.length > 10 ? wrongs.slice(0, 10) : wrongs;
+    if (demoMode && wrongs.length > 10) {
+      setTimeout(() => {
+        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+      }, 300);
+    }
 
-    setActiveSession({ mode: "error", source: { id: "error", label: "Error Drill", icon: "🔁" }, questions: wrongs, totalSeconds: wrongs.length * 60 });
+    setActiveSession({ mode: "error", source: { id: "error", label: "Error Drill", icon: "🔁" }, questions: finalWrongs, totalSeconds: finalWrongs.length * 60 });
 
   }
 
@@ -5046,7 +5087,12 @@ function App() {
                 alert(`Demo limit: Only ${DEMO_LIMITS.pastPapersLimit} past paper allowed. Upgrade to access all past papers!`);
                 return;
               }
-              setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: qs, totalSeconds: mins * 60 });
+              // Limit to 10 questions for demo users
+              const finalQs = demoMode && qs.length > 10 ? qs.slice(0, 10) : qs;
+              if (demoMode && qs.length > 10) {
+                alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+              }
+              setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
               if (demoMode) {
                 setDemoUsage(prev => ({ ...prev, pastPapersUsed: (prev.pastPapersUsed || 0) + 1 }));
               }
@@ -5448,7 +5494,12 @@ function App() {
           />
         ) : (
           <QuestionBank subjects={subjects} onStartPastPaper={(qs, yr, mins) => {
-            setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: qs, totalSeconds: mins * 60 });
+            // Limit to 10 questions for demo users
+            const finalQs = demoMode && qs.length > 10 ? qs.slice(0, 10) : qs;
+            if (demoMode && qs.length > 10) {
+              alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+            }
+            setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
           }} />
         )
       )}
