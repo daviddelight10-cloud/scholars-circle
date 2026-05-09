@@ -1356,10 +1356,10 @@ function App() {
   const [demoMode, setDemoMode] = useState(() => {
     try {
       const authRaw = localStorage.getItem("scholars-circle-auth");
-      let uid = "guest";
+      let uid = localStorage.getItem("scholars-circle-current-user") || "guest";
       if (authRaw) {
         const authParsed = JSON.parse(authRaw);
-        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || uid;
       }
       const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
       if (raw) return JSON.parse(raw).demoMode ?? false;
@@ -1370,10 +1370,10 @@ function App() {
   const [demoUsage, setDemoUsage] = useState(() => {
     try {
       const authRaw = localStorage.getItem("scholars-circle-auth");
-      let uid = "guest";
+      let uid = localStorage.getItem("scholars-circle-current-user") || "guest";
       if (authRaw) {
         const authParsed = JSON.parse(authRaw);
-        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || uid;
       }
       const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
       if (raw) {
@@ -1441,10 +1441,10 @@ function App() {
   const [demoLocked, setDemoLocked] = useState(() => {
     try {
       const authRaw = localStorage.getItem("scholars-circle-auth");
-      let uid = "guest";
+      let uid = localStorage.getItem("scholars-circle-current-user") || "guest";
       if (authRaw) {
         const authParsed = JSON.parse(authRaw);
-        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || uid;
       }
       const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
       if (raw) {
@@ -1943,13 +1943,15 @@ function App() {
 
     if (!booted) return;
 
-    // Don't save user data when no user is logged in (prevents overwriting after logout)
-    if (!auth.user) return;
+    // Don't save user data when no user is logged in AND not in demo mode
+    if (!auth.user && !demoMode) return;
 
-    // Save auth info to shared key
-    localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: auth.user, authToken: token }));
-    if (auth.user?.id || auth.user?.username) {
-      localStorage.setItem("scholars-circle-current-user", auth.user.id || auth.user.username);
+    // Save auth info to shared key (only if logged in)
+    if (auth.user) {
+      localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: auth.user, authToken: token }));
+      if (auth.user?.id || auth.user?.username) {
+        localStorage.setItem("scholars-circle-current-user", auth.user.id || auth.user.username);
+      }
     }
 
     // Save user-specific data
@@ -2097,6 +2099,12 @@ function App() {
     token,
 
     booted,
+
+    demoMode,
+
+    demoUsage,
+
+    demoLocked,
 
   ]);
 
