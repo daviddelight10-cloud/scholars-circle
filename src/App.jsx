@@ -9017,17 +9017,17 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
         }
       }
 
-      // Add follow-up suggestion if not already present
+      // Add follow-up buttons to all responses (except errors)
       let finalResponse = responseText;
-      const hasFollowUp = responseText.toLowerCase().includes("break down") || responseText.toLowerCase().includes("6 year");
-      if (!hasFollowUp) {
+      const isError = responseText.toLowerCase().startsWith("error:") || responseText.toLowerCase().includes("demo limit");
+      if (!isError) {
         finalResponse = responseText + "\n\n[FollowUpButtons]";
       }
 
       setChatHistory([...newHistory, { role: "assistant", content: finalResponse, timestamp: Date.now() }]);
 
       if (token) {
-        api("/user-data/chat", { token, method: "POST", body: { role: "assistant", content: responseText } }).catch(console.error);
+        api("/user-data/chat", { token, method: "POST", body: { role: "assistant", content: finalResponse } }).catch(console.error);
       }
     } catch (e) {
       console.error("AI Tutor error:", e);

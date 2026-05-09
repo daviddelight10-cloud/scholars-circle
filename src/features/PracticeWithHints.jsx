@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { XP_PER_CORRECT } from "../data";
 
 const HINTS_KEY = "sc_practice_hints_v1";
 
@@ -164,12 +165,35 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         display: "flex", 
         justifyContent: "space-between", 
         alignItems: "center", 
-        marginBottom: 16 
+        marginBottom: 16,
+        flexWrap: "wrap",
+        gap: 8
       }}>
         <h3 style={{ color: "var(--text-primary, #111)" }}>Practice Mode with Hints</h3>
-        <span style={{ color: "var(--text-secondary, #374151)" }}>
-          Question {currentIndex + 1} of {questions.length} | Score: {score}/{currentIndex}
-        </span>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ color: "var(--text-secondary, #374151)" }}>
+            Question {currentIndex + 1} of {questions.length}
+          </span>
+          <span style={{ color: "var(--text-secondary, #374151)" }}>
+            Score: {score}/{currentIndex + (showResult ? 1 : 0)}
+          </span>
+          {/* XP Counter */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
+            padding: "4px 12px",
+            borderRadius: 20,
+            fontWeight: 600,
+            fontSize: 13,
+            color: "#fff",
+            boxShadow: "0 2px 8px rgba(251, 191, 36, 0.3)"
+          }}>
+            <span>⚡</span>
+            <span>+{score * XP_PER_CORRECT} XP</span>
+          </div>
+        </div>
       </div>
 
       {/* Progress Bar */}

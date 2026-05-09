@@ -40,16 +40,28 @@ export function LectureToNotes({ subjects, aiConfig, onImportQuestions, demoMode
       script.type = 'text/javascript';
       
       await new Promise((resolve, reject) => {
+        // Check if already loaded
+        if (window.pdfjsLib) {
+          resolve();
+          return;
+        }
         script.onload = resolve;
-        script.onerror = reject;
+        script.onerror = () => reject(new Error("Failed to load PDF.js library"));
         document.head.appendChild(script);
       });
       
       // Set worker source
       const pdfjsLib = window.pdfjsLib;
+      if (!pdfjsLib) {
+        throw new Error("PDF.js library not available");
+      }
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       
       const arrayBuffer = await file.arrayBuffer();
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+        throw new Error("File is empty or could not be read");
+      }
+      
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       
@@ -61,6 +73,10 @@ export function LectureToNotes({ subjects, aiConfig, onImportQuestions, demoMode
         const textContent = await page.getTextContent();
         const pageText = textContent.items.map(item => item.str).join(' ');
         fullText += pageText + '\n';
+      }
+      
+      if (!fullText.trim()) {
+        throw new Error("No text could be extracted from this PDF. It may be a scanned image or protected document.");
       }
       
       setTranscript(fullText);
