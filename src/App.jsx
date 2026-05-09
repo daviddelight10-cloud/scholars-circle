@@ -2530,8 +2530,10 @@ function App() {
     setToken("");
     setAuth((a) => ({ ...a, mode: "login", email: "", username: "", password: "", user: null, error: "", info: "" }));
     setDemoMode(false);
+    setDemoLocked(false);
     localStorage.removeItem("scholars-circle-auth");
     localStorage.removeItem("scholars-circle-current-user");
+    localStorage.removeItem("sc_demo_locked");
     // Clear demo mode from localStorage on logout
     const uid = storageKey("scholars-circle-state");
     const raw = localStorage.getItem(uid);
@@ -4294,9 +4296,7 @@ function App() {
               <button
                 onClick={() => {
                   if (confirm("Are you sure you want to log out? Your demo progress will be saved.")) {
-                    localStorage.removeItem("sc_user_v2");
-                    localStorage.removeItem("sc_demo_locked");
-                    window.location.reload();
+                    logout();
                   }
                 }}
                 style={{ background: "var(--danger-bg, rgba(239,68,68,0.1))", border: "1px solid var(--danger-border, #ef4444)", color: "var(--danger-text, #fca5a5)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
