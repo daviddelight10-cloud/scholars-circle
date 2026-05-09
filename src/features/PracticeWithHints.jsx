@@ -156,15 +156,18 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
   console.log("Current hints to display:", currentHints, "Length:", currentHints.length, "Hint level:", hintLevel);
 
   return (
-    <div className="card">
+    <div className="card" style={{ 
+      background: "var(--card-bg, #fff)", 
+      color: "var(--text-primary, #111)"
+    }}>
       <div style={{ 
         display: "flex", 
         justifyContent: "space-between", 
         alignItems: "center", 
         marginBottom: 16 
       }}>
-        <h3>Practice Mode with Hints</h3>
-        <span className="muted">
+        <h3 style={{ color: "var(--text-primary, #111)" }}>Practice Mode with Hints</h3>
+        <span style={{ color: "var(--text-secondary, #374151)" }}>
           Question {currentIndex + 1} of {questions.length} | Score: {score}/{currentIndex}
         </span>
       </div>
@@ -172,7 +175,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       {/* Progress Bar */}
       <div style={{ 
         height: 8, 
-        background: "#374151", 
+        background: "var(--progress-bg, #e5e7eb)", 
         borderRadius: 4, 
         marginBottom: 20,
         overflow: "hidden"
@@ -180,14 +183,14 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         <div style={{
           height: "100%",
           width: `${((currentIndex + 1) / questions.length) * 100}%`,
-          background: "#818cf8",
+          background: "var(--accent-color, #6366f1)",
           transition: "width 0.3s"
         }} />
       </div>
 
       {/* Question */}
       <div style={{ marginBottom: 20 }}>
-        <p style={{ fontSize: 16, lineHeight: 1.6, marginBottom: 16 }}>
+        <p style={{ fontSize: 16, lineHeight: 1.6, marginBottom: 16, color: "var(--text-primary, #111)" }}>
           {currentQuestion.q || currentQuestion.question}
         </p>
 
@@ -198,20 +201,24 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
             const isSelected = selectedAnswer === i;
             const isCorrectOption = i === currentQuestion.answer;
             
-            let backgroundColor = "#1f2937";
-            let borderColor = "#374151";
+            let backgroundColor = "var(--option-bg, #f3f4f6)";
+            let borderColor = "var(--border-color, #e5e7eb)";
+            let textColor = "var(--text-primary, #111)";
             
             if (showResult) {
               if (isCorrectOption) {
-                backgroundColor = "#065f46";
-                borderColor = "#10b981";
+                backgroundColor = "var(--correct-bg, #dcfce7)";
+                borderColor = "var(--correct-border, #16a34a)";
+                textColor = "var(--correct-text, #166534)";
               } else if (isSelected && !isCorrectOption) {
-                backgroundColor = "#7f1d1d";
-                borderColor = "#ef4444";
+                backgroundColor = "var(--wrong-bg, #fee2e2)";
+                borderColor = "var(--wrong-border, #dc2626)";
+                textColor = "var(--wrong-text, #991b1b)";
               }
             } else if (isSelected) {
-              backgroundColor = "#3730a3";
-              borderColor = "#818cf8";
+              backgroundColor = "var(--selected-bg, #e0e7ff)";
+              borderColor = "var(--selected-border, #6366f1)";
+              textColor = "var(--selected-text, #3730a3)";
             }
 
             return (
@@ -224,7 +231,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                   background: backgroundColor,
                   border: `2px solid ${borderColor}`,
                   borderRadius: 8,
-                  color: "white",
+                  color: textColor,
                   textAlign: "left",
                   cursor: showResult ? "default" : "pointer",
                   fontSize: 14,
@@ -234,15 +241,15 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                 <span style={{ fontWeight: 600, marginRight: 8 }}>{letter})</span>
                 {option}
                 {isSelected && (
-                  <span style={{ marginLeft: 8, fontWeight: 700, color: showResult ? (isCorrectOption ? "#10b981" : "#ef4444") : "#93c5fd" }}>
+                  <span style={{ marginLeft: 8, fontWeight: 700, color: showResult ? (isCorrectOption ? "#16a34a" : "#dc2626") : "#6366f1" }}>
                     ✓
                   </span>
                 )}
                 {showResult && isCorrectOption && !isSelected && (
-                  <span style={{ float: "right", color: "#10b981" }}>✓ Correct</span>
+                  <span style={{ float: "right", color: "#16a34a", fontWeight: 600 }}>✓ Correct</span>
                 )}
                 {showResult && isSelected && !isCorrectOption && (
-                  <span style={{ float: "right", color: "#ef4444" }}>✗ Wrong</span>
+                  <span style={{ float: "right", color: "#dc2626", fontWeight: 600 }}>✗ Wrong</span>
                 )}
               </button>
             );
@@ -252,21 +259,21 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
 
       {/* Hints Section */}
       <div style={{ 
-        background: "#1e3a5f", 
+        background: "var(--hint-bg, #eff6ff)", 
         borderRadius: 8, 
         padding: 16, 
         marginBottom: 16,
-        border: "1px solid #3b82f6"
+        border: "1px solid var(--hint-border, #3b82f6)"
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontWeight: 600, color: "#93c5fd" }}>
+          <span style={{ fontWeight: 600, color: "var(--hint-title, #1d4ed8)" }}>
             💡 Hints ({hintLevel}/4)
           </span>
           {hintLevel < 4 && (
             <button
               onClick={requestHint}
               style={{
-                background: "#3b82f6",
+                background: "var(--accent-color, #3b82f6)",
                 color: "white",
                 border: "none",
                 padding: "8px 16px",
@@ -286,18 +293,18 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
             {currentHints.map((hint, i) => (
               <div key={i} style={{ 
                 padding: 10, 
-                background: "rgba(59, 130, 246, 0.15)", 
+                background: "var(--hint-item-bg, rgba(59, 130, 246, 0.1))", 
                 borderRadius: 6,
                 fontSize: 14,
-                color: "#bfdbfe",
-                borderLeft: "3px solid #3b82f6"
+                color: "var(--hint-text, #1e40af)",
+                borderLeft: "3px solid var(--accent-color, #3b82f6)"
               }}>
                 {hint}
               </div>
             ))}
           </div>
         ) : (
-          <p className="muted" style={{ fontSize: 13, color: "#6b7280" }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted, #6b7280)" }}>
             Click "Get Hint" to reveal progressive hints.
           </p>
         )}
@@ -306,15 +313,16 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       {/* Explanation (shown after answer) */}
       {showResult && currentQuestion.explanation && (
         <div style={{ 
-          background: isCorrect ? "#064e3b" : "#450a0a", 
+          background: isCorrect ? "var(--correct-bg, #dcfce7)" : "var(--wrong-bg, #fee2e2)", 
           borderRadius: 8, 
           padding: 16, 
-          marginBottom: 16 
+          marginBottom: 16,
+          border: `1px solid ${isCorrect ? "var(--correct-border, #16a34a)" : "var(--wrong-border, #dc2626)"}`
         }}>
-          <p style={{ fontWeight: 600, marginBottom: 4 }}>
+          <p style={{ fontWeight: 600, marginBottom: 4, color: isCorrect ? "var(--correct-text, #166534)" : "var(--wrong-text, #991b1b)" }}>
             {isCorrect ? "✅ Correct!" : "❌ Incorrect"}
           </p>
-          <p style={{ fontSize: 13, opacity: 0.9 }}>
+          <p style={{ fontSize: 13, color: "var(--text-primary, #111)", lineHeight: 1.5 }}>
             {currentQuestion.explanation}
           </p>
         </div>
@@ -326,7 +334,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
           <button
             onClick={skipQuestion}
             style={{
-              background: "#374151",
+              background: "var(--skip-bg, #6b7280)",
               color: "white",
               border: "none",
               padding: "10px 20px",
@@ -342,7 +350,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
           <button
             onClick={handleNext}
             style={{
-              background: "#818cf8",
+              background: "var(--accent-color, #6366f1)",
               color: "white",
               border: "none",
               padding: "10px 20px",

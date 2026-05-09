@@ -852,11 +852,22 @@ export function TodayScreen({
             }
             
             return (
-              <div key={sid} className="lesson-block">
+              <div key={sid} className="lesson-block" style={{ 
+                background: "var(--card-bg, #fff)", 
+                border: "1px solid var(--border-color, #e5e7eb)",
+                borderRadius: 8 
+              }}>
                 <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <strong>
+                  <strong style={{ color: "var(--text-primary, #111)" }}>
                     {subject?.icon} {subject?.label} — exam {fmtDate(plan.examDate)}
-                    {plan.isWeekly && <span style={{ color: "#818cf8", marginLeft: 8 }}>(Weekly Plan)</span>}
+                    {plan.isWeekly && <span style={{ 
+                      color: "var(--accent-color, #6366f1)", 
+                      background: "var(--accent-bg, rgba(99, 102, 241, 0.1))",
+                      padding: "2px 8px",
+                      borderRadius: 4,
+                      marginLeft: 8,
+                      fontSize: 11
+                    }}>Weekly Plan</span>}
                   </strong>
                   <div className="row" style={{ gap: 8 }}>
                     <button onClick={() => deletePlan(sid)} style={{ fontSize: 12 }}>
@@ -864,7 +875,7 @@ export function TodayScreen({
                     </button>
                   </div>
                 </div>
-                <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-secondary, #374151)" }}>
                   {plan.isWeekly 
                     ? `${plan.days?.length || 0} weeks · ${totalTasks} goals`
                     : `${plan.days?.length || 0} days · ${totalTasks} tasks`
@@ -872,33 +883,53 @@ export function TodayScreen({
                   · Confidence: {plan.confidence || "N/A"}
                   {plan.focusAreas && ` · Focus: ${plan.focusAreas}`}
                 </div>
-                <div style={{ marginTop: 8, background: "#e5e7eb", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                <div style={{ marginTop: 8, background: "var(--progress-bg, #e5e7eb)", borderRadius: 4, height: 6, overflow: "hidden" }}>
                   <div style={{ 
                     width: `${progress}%`, 
-                    background: progress >= 80 ? "#22c55e" : progress >= 50 ? "#facc15" : "#3b82f6", 
+                    background: progress >= 80 ? "#16a34a" : progress >= 50 ? "#ca8a04" : "#2563eb", 
                     height: "100%", 
                     transition: "width 0.3s" 
                   }} />
                 </div>
-                <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                <p style={{ fontSize: 11, marginTop: 4, color: "var(--text-secondary, #374151)" }}>
                   Today's progress: {completedTasks}/{todaysTasks.length} tasks completed ({progress}%)
                 </p>
-                <ul className="plan-tasks" style={{ marginTop: 8 }}>
+                <ul style={{ marginTop: 8, listStyle: "none", padding: 0, margin: 0 }}>
                   {plan.isWeekly ? (
                     upcoming.map((w, i) => (
-                      <li key={i}>
-                        <span className="muted">Week {w.week}:</span>
-                        <br />
-                        <span style={{ fontSize: 11, fontWeight: 600 }}>Focus: {w.focus || "General review"}</span>
-                        <br />
-                        <span style={{ fontSize: 11 }}>Goals: {(w.goals || []).join(" · ") || "—"}</span>
+                      <li key={i} style={{ 
+                        padding: "8px 12px", 
+                        marginBottom: 6, 
+                        background: "var(--item-bg, #f3f4f6)", 
+                        borderRadius: 6,
+                        border: "1px solid var(--border-light, #e5e7eb)"
+                      }}>
+                        <div style={{ 
+                          fontSize: 12, 
+                          fontWeight: 600, 
+                          color: "var(--text-primary, #111)",
+                          marginBottom: 4
+                        }}>
+                          Week {w.week}: <span style={{ color: "var(--accent-color, #6366f1)" }}>{w.focus || "General review"}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--text-secondary, #374151)" }}>
+                          Goals: {(w.goals || []).join(" · ") || "—"}
+                        </div>
                       </li>
                     ))
                   ) : (
                     upcoming.map((d, i) => (
-                      <li key={i}>
-                        <span className="muted">{fmtDate(d.date)}:</span>{" "}
-                        {(d.tasks || []).map((t) => t.title).join(" · ") || "—"}
+                      <li key={i} style={{ 
+                        padding: "8px 12px", 
+                        marginBottom: 6, 
+                        background: "var(--item-bg, #f3f4f6)", 
+                        borderRadius: 6,
+                        border: "1px solid var(--border-light, #e5e7eb)"
+                      }}>
+                        <span style={{ color: "var(--text-muted, #6b7280)", fontSize: 11 }}>{fmtDate(d.date)}:</span>{" "}
+                        <span style={{ color: "var(--text-primary, #111)", fontSize: 12 }}>
+                          {(d.tasks || []).map((t) => t.title).join(" · ") || "—"}
+                        </span>
                       </li>
                     ))
                   )}
