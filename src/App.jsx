@@ -8940,7 +8940,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
 
 
-  async function sendMessage(overrideMessage = null, followUpContext = null, previousAIResponse = null) {
+  async function sendMessage(overrideMessage = null) {
     const msgToSend = overrideMessage || message;
     if (!msgToSend.trim() || loading) return;
 
@@ -8970,26 +8970,11 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
       let systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
       
-      // Build the user message with context if this is a follow-up
-      let fullUserMessage = userMsg;
-      if (followUpContext && previousAIResponse) {
-        const cleanResponse = previousAIResponse.replace("[FollowUpButtons]", "").trim();
-        fullUserMessage = `⚠️ THIS IS A FOLLOW-UP REQUEST - CONTINUE THE PREVIOUS CONVERSATION ⚠️
-
-The user's ORIGINAL question was: "${followUpContext}"
-
-Your PREVIOUS response was: "${cleanResponse.slice(0, 400)}..."
-
-The user now says: "${userMsg}"
-
-IMPORTANT: You must CONTINUE explaining "${followUpContext}" - do NOT treat this as a new topic!`;
-      }
-      
       let responseText = "";
 
       // Use backend proxy if available, otherwise use direct call
       try {
-        responseText = await callAI(`${systemPrompt}\n\nUser: ${fullUserMessage}`, aiConfig);
+        responseText = await callAI(`${systemPrompt}\n\nUser: ${userMsg}`, aiConfig);
       } catch (proxyError) {
         console.log("Backend proxy failed, trying direct call:", proxyError);
 
@@ -8999,7 +8984,7 @@ IMPORTANT: You must CONTINUE explaining "${followUpContext}" - do NOT treat this
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: `${systemPrompt}\n\nUser: ${fullUserMessage}` }] }],
+              contents: [{ parts: [{ text: `${systemPrompt}\n\nUser: ${userMsg}` }] }],
               generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
             }),
           });
@@ -9019,7 +9004,7 @@ IMPORTANT: You must CONTINUE explaining "${followUpContext}" - do NOT treat this
               model: aiConfig.model,
               messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: fullUserMessage }
+                { role: "user", content: userMsg }
               ],
               max_tokens: 500,
               temperature: 0.7,
@@ -9121,10 +9106,13 @@ IMPORTANT: You must CONTINUE explaining "${followUpContext}" - do NOT treat this
                     }}>
                       <button
                         onClick={() => {
-                          // Find the last user question before this AI response (index i)
+                          // Find the last user question and rewrite it with follow-up
                           const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
-                          // Pass the user question AND this AI response for context
-                          sendMessage("Please break this concept down more for me", lastUserMsg?.content || null, msg.content);
+                          if (lastUserMsg) {
+                            // Extract the topic from the original question and rewrite it
+                            const originalQ = lastUserMsg.content;
+                            sendMessage(`Break down ${originalQ} in more detail for me`);
+                          }
                         }}
                         disabled={loading}
                         style={{
@@ -9142,10 +9130,13 @@ IMPORTANT: You must CONTINUE explaining "${followUpContext}" - do NOT treat this
                       </button>
                       <button
                         onClick={() => {
-                          // Find the last user question before this AI response (index i)
+                          // Find the last user question and rewrite it with follow-up
                           const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
-                          // Pass the user question AND this AI response for context
-                          sendMessage("Please explain this like I'm 6 years old", lastUserMsg?.content || null, msg.content);
+                          if (lastUserMsg) {
+                            // Extract the topic from the original question and rewrite it
+                            const originalQ = lastUserMsg.content;
+                            sendMessage(`Explain ${originalQ} like I'm 6 years old to me`);
+                          }
                         }}
                         disabled={loading}
                         style={{
