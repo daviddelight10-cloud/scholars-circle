@@ -9108,11 +9108,8 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
                         onClick={() => {
                           // Find the last user question and rewrite it with follow-up
                           const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
-                          if (lastUserMsg) {
-                            // Extract the topic from the original question and rewrite it
-                            const originalQ = lastUserMsg.content;
-                            sendMessage(`Break down ${originalQ} in more detail for me`);
-                          }
+                          const originalQ = lastUserMsg?.content || "the previous topic";
+                          sendMessage(`Break down ${originalQ} in more detail for me`);
                         }}
                         disabled={loading}
                         style={{
@@ -9132,11 +9129,8 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
                         onClick={() => {
                           // Find the last user question and rewrite it with follow-up
                           const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
-                          if (lastUserMsg) {
-                            // Extract the topic from the original question and rewrite it
-                            const originalQ = lastUserMsg.content;
-                            sendMessage(`Explain ${originalQ} like I'm 6 years old to me`);
-                          }
+                          const originalQ = lastUserMsg?.content || "the previous topic";
+                          sendMessage(`Explain ${originalQ} like I'm 6 years old to me`);
                         }}
                         disabled={loading}
                         style={{
