@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 
-import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT } from "./data";
+import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPLIERS } from "./data";
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -2349,7 +2349,12 @@ function App() {
 
   function completeSession(result, sourceSubject) {
 
-    const gained = result.score * XP_PER_CORRECT;
+    // Calculate base XP with mode multiplier
+    const modeMultiplier = MODE_MULTIPLIERS[result.mode] || 1;
+    const baseXP = result.score * XP_PER_CORRECT;
+    const streakBonusXP = result.streakBonus || 0;
+    const gained = Math.round((baseXP + streakBonusXP) * modeMultiplier);
+    
     const oldStreak = stats.streak;
     const newStreak = updateStreak();
     const oldXP = stats.xp;
@@ -6255,8 +6260,17 @@ function SessionPlayer({ session, onExit, onComplete, aiConfig }) {
 
   const [aiExplanation, setAiExplanation] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  
+  // Streak tracking for bonus XP
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [streakBonus, setStreakBonus] = useState(0);
+  const [totalStreakBonus, setTotalStreakBonus] = useState(0);
 
   const current = session.questions[idx];
+  
+  // Calculate XP in real-time
+  const modeMultiplier = MODE_MULTIPLIERS[session.mode] || 1;
+  const currentXP = Math.round((score * XP_PER_CORRECT + totalStreakBonus) * modeMultiplier);
 
   async function askAIForExplanation() {
     if (!current) return;
@@ -6295,13 +6309,24 @@ ${isCorrect
 
 
 
+  // Auto-save when finalResult is set
+  useEffect(() => {
+    if (finalResult && !finalResult.saved) {
+      // Auto-save after a brief delay to show the results first
+      const timer = setTimeout(() => {
+        onComplete({ ...finalResult, streakBonus: totalStreakBonus, saved: true });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [finalResult]);
+
   useEffect(() => {
 
     if (timeLeft == null || showResult) return undefined;
 
     if (timeLeft <= 0) {
 
-      onComplete({ score, total: session.questions.length, results, mode: session.mode, seconds: session.totalSeconds });
+      setFinalResult({ score, total: session.questions.length, results, mode: session.mode, seconds: session.totalSeconds });
 
       return undefined;
 
@@ -6346,6 +6371,11 @@ ${isCorrect
     const calibrationGap = avgConf - pct;
 
     const gapLabel = calibrationGap > 5 ? "Overconfident" : calibrationGap < -5 ? "Underconfident" : "Well calibrated";
+    
+    // Calculate final XP with breakdown
+    const baseXP = finalResult.score * XP_PER_CORRECT;
+    const modeBonusXP = Math.round(baseXP * (modeMultiplier - 1));
+    const finalXP = Math.round((baseXP + totalStreakBonus) * modeMultiplier);
 
     return (
 
@@ -6356,12 +6386,25 @@ ${isCorrect
         <p style={{ fontSize: "3rem", margin: "8px 0" }}>{pct}%</p>
 
         <p className="muted">{finalResult.score} / {finalResult.total} correct &nbsp;·&nbsp; {finalResult.seconds}s &nbsp;·&nbsp; {session.source.label}</p>
+        
+        {/* XP Breakdown */}
+        <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%)", borderRadius: 12, padding: 16, margin: "16px auto", maxWidth: 320, border: "1px solid rgba(251,191,36,0.3)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 24 }}>⚡</span>
+            <span style={{ fontSize: 28, fontWeight: 700, color: "#fbbf24" }}>+{finalXP} XP</span>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <div>Base: {baseXP} XP ({finalResult.score} × {XP_PER_CORRECT})</div>
+            {totalStreakBonus > 0 && <div style={{ color: "#fbbf24" }}>🔥 Streak Bonus: +{totalStreakBonus} XP</div>}
+            {modeBonusXP > 0 && <div style={{ color: "#60a5fa" }}>🎯 Mode Bonus: +{modeBonusXP} XP ({Math.round((modeMultiplier - 1) * 100)}%)</div>}
+          </div>
+        </div>
 
         <p className="muted" style={{ marginTop: 4 }}>Avg confidence {avgConf}% → {gapLabel} ({calibrationGap >=0 ? "+" : ""}{calibrationGap} pts vs score)</p>
 
         <div className="row" style={{ justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
 
-          <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }} onClick={() => onComplete(finalResult)}>Save & Continue</button>
+          <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }} onClick={() => onComplete({ ...finalResult, streakBonus: totalStreakBonus })}>{finalResult.saved ? "✓ Saved" : "Continue"}</button>
 
           {finalResult.results.some(r => !r.correct) && (
 
@@ -6455,7 +6498,24 @@ ${isCorrect
 
     const correct = selected === current.answer;
 
-    if (correct) setScore((s) => s + 1);
+    if (correct) {
+      setScore((s) => s + 1);
+      
+      // Update streak and calculate bonus
+      const newStreak = currentStreak + 1;
+      setCurrentStreak(newStreak);
+      
+      // Check for streak bonus milestones
+      if (STREAK_BONUS[newStreak]) {
+        const bonus = STREAK_BONUS[newStreak];
+        setStreakBonus(bonus);
+        setTotalStreakBonus(prev => prev + bonus);
+      }
+    } else {
+      // Reset streak on wrong answer
+      setCurrentStreak(0);
+      setStreakBonus(0);
+    }
 
     setResults((r) => [
 
@@ -6520,6 +6580,7 @@ ${isCorrect
   function next() {
 
     setAiExplanation(null);
+    setStreakBonus(0); // Reset streak bonus display for next question
 
     if (idx === session.questions.length - 1) {
 
@@ -6555,7 +6616,7 @@ ${isCorrect
 
     <div className="card">
 
-      <div className="row">
+      <div className="row" style={{ flexWrap: "wrap", gap: 12 }}>
 
         <h2>
 
@@ -6563,8 +6624,48 @@ ${isCorrect
 
         </h2>
 
-        <div className="row">
+        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
 
+          {/* XP Counter */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
+            padding: "6px 14px",
+            borderRadius: 20,
+            fontWeight: 600,
+            fontSize: 14,
+            color: "#fff",
+            boxShadow: "0 2px 8px rgba(251, 191, 36, 0.3)"
+          }}>
+            <span>⚡</span>
+            <span>{currentXP} XP</span>
+          </div>
+          
+          {/* Streak Counter */}
+          {currentStreak >= 2 && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: currentStreak >= 7 ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" 
+                         : currentStreak >= 5 ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                         : "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+              padding: "6px 14px",
+              borderRadius: 20,
+              fontWeight: 600,
+              fontSize: 14,
+              color: "#fff",
+              boxShadow: "0 2px 8px rgba(34, 197, 94, 0.3)",
+              animation: "pulse 1s infinite"
+            }}>
+              <span>🔥</span>
+              <span>{currentStreak} streak!</span>
+              {streakBonus > 0 && <span style={{ fontSize: 11 }}>+{streakBonus}XP</span>}
+            </div>
+          )}
+          
           {timeLeft != null && <strong>⏱ {timeLeft}s</strong>}
 
           <button onClick={onExit}>Exit</button>

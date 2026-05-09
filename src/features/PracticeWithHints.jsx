@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { XP_PER_CORRECT } from "../data";
+import { XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPLIERS } from "../data";
 
 const HINTS_KEY = "sc_practice_hints_v1";
 
@@ -26,9 +26,19 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
   const [hintsUsed, setHintsUsed] = useState(loadHints());
   const [score, setScore] = useState(0);
   const [results, setResults] = useState([]);
+  const [completed, setCompleted] = useState(false);
+  
+  // Streak tracking
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [streakBonus, setStreakBonus] = useState(0);
+  const [totalStreakBonus, setTotalStreakBonus] = useState(0);
 
   const currentQuestion = questions && questions[currentIndex];
   const isCorrect = selectedAnswer === currentQuestion?.answer;
+  
+  // Calculate XP in real-time
+  const modeMultiplier = MODE_MULTIPLIERS["practicehints"] || 1.1;
+  const currentXP = Math.round((score * XP_PER_CORRECT + totalStreakBonus) * modeMultiplier);
 
   console.log("Current question:", currentQuestion, "Hint level:", hintLevel);
 
@@ -81,9 +91,11 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
     setSelectedAnswer(answerIndex);
     setShowResult(true);
     
+    const correct = answerIndex === currentQuestion.answer;
+    
     const result = {
       questionId: currentQuestion.id || currentIndex,
-      correct: answerIndex === currentQuestion.answer,
+      correct,
       selected: answerIndex,
       hintsUsed: hintLevel
     };
@@ -91,12 +103,29 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
     const newResults = [...results, result];
     setResults(newResults);
     
-    if (answerIndex === currentQuestion.answer) {
+    if (correct) {
       setScore(score + 1);
+      
+      // Update streak and calculate bonus
+      const newStreak = currentStreak + 1;
+      setCurrentStreak(newStreak);
+      
+      // Check for streak bonus milestones
+      if (STREAK_BONUS[newStreak]) {
+        const bonus = STREAK_BONUS[newStreak];
+        setStreakBonus(bonus);
+        setTotalStreakBonus(prev => prev + bonus);
+      }
+    } else {
+      // Reset streak on wrong answer
+      setCurrentStreak(0);
+      setStreakBonus(0);
     }
   }
 
   function handleNext() {
+    setStreakBonus(0); // Reset streak bonus display
+    
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setSelectedAnswer(null);
@@ -108,7 +137,9 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         total: questions.length,
         correct: score,
         percentage: Math.round((score / questions.length) * 100),
-        results: results
+        results: results,
+        mode: "practicehints",
+        streakBonus: totalStreakBonus
       };
       
       // Save hints usage
@@ -118,7 +149,12 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       };
       saveHints(newHintsUsed);
       
-      onComplete(finalScore);
+      setCompleted(true);
+      
+      // Auto-save after brief delay
+      setTimeout(() => {
+        onComplete(finalScore);
+      }, 500);
     }
   }
 
@@ -170,29 +206,52 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         gap: 8
       }}>
         <h3 style={{ color: "var(--text-primary, #111)" }}>Practice Mode with Hints</h3>
-        <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ color: "var(--text-secondary, #374151)" }}>
-            Question {currentIndex + 1} of {questions.length}
+            Q{currentIndex + 1}/{questions.length}
           </span>
           <span style={{ color: "var(--text-secondary, #374151)" }}>
             Score: {score}/{currentIndex + (showResult ? 1 : 0)}
           </span>
+          
           {/* XP Counter */}
           <div style={{
             display: "flex",
             alignItems: "center",
             gap: 4,
             background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
-            padding: "4px 12px",
+            padding: "6px 14px",
             borderRadius: 20,
             fontWeight: 600,
-            fontSize: 13,
+            fontSize: 14,
             color: "#fff",
             boxShadow: "0 2px 8px rgba(251, 191, 36, 0.3)"
           }}>
             <span>⚡</span>
-            <span>+{score * XP_PER_CORRECT} XP</span>
+            <span>{currentXP} XP</span>
           </div>
+          
+          {/* Streak Counter */}
+          {currentStreak >= 2 && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: currentStreak >= 7 ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" 
+                         : currentStreak >= 5 ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+                         : "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+              padding: "6px 14px",
+              borderRadius: 20,
+              fontWeight: 600,
+              fontSize: 14,
+              color: "#fff",
+              boxShadow: "0 2px 8px rgba(34, 197, 94, 0.3)"
+            }}>
+              <span>🔥</span>
+              <span>{currentStreak} streak!</span>
+              {streakBonus > 0 && <span style={{ fontSize: 11 }}>+{streakBonus}XP</span>}
+            </div>
+          )}
         </div>
       </div>
 

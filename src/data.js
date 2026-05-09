@@ -2191,3 +2191,21 @@ export const SUBJECTS = [
 
 export const XP_PER_CORRECT = 10;
 export const COINS_PER_SESSION = 5;
+
+// Streak bonus: consecutive correct answers give bonus XP
+export const STREAK_BONUS = {
+  3: 5,   // 3 in a row = +5 bonus XP
+  5: 10,  // 5 in a row = +10 bonus XP
+  7: 20,  // 7 in a row = +20 bonus XP
+  10: 50, // 10 in a row = +50 bonus XP (perfect streak!)
+};
+
+// Mode XP multipliers
+export const MODE_MULTIPLIERS = {
+  adaptive: 1.2,  // 20% bonus for adaptive
+  spaced: 1.3,    // 30% bonus for spaced review
+  weak: 1.25,     // 25% bonus for weak drill
+  exam: 1.0,      // normal for exam
+  practice: 1.0,  // normal for practice
+  practicehints: 1.1, // 10% bonus for practice with hints
+};
