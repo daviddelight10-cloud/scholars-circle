@@ -63,10 +63,22 @@ export function StudyPlanGenerator({ subjects, aiConfig, onPlanCreated, userId, 
     if (isWeekly) {
       prompt = `You are an expert tutor. Create a ${weeksCount}-week study plan for ${subject?.label || "course"}.
 
-Return ONLY a JSON array with ${weeksCount} items. Each item:
-{"week":1,"focus":"topic name","goals":["goal1","goal2"]}
+CRITICAL: You MUST generate EXACTLY ${weeksCount} weeks. No more, no less.
 
-Keep it simple. Week 1-${Math.floor(weeksCount/2)}: learn fundamentals. Week ${Math.floor(weeksCount/2)+1}-${weeksCount-1}: advanced topics. Week ${weeksCount}: revision + past papers.`;
+Return ONLY a JSON array with EXACTLY ${weeksCount} items:
+[
+  {"week":1,"focus":"topic","goals":["goal1","goal2"]},
+  {"week":2,"focus":"topic","goals":["goal1","goal2"]},
+  ...continue for all ${weeksCount} weeks...
+  {"week":${weeksCount},"focus":"revision","goals":["past papers","review"]}
+]
+
+Structure:
+- Weeks 1-${Math.ceil(weeksCount/3)}: Learn fundamentals and basics
+- Weeks ${Math.ceil(weeksCount/3)+1}-${weeksCount-1}: Advanced topics and practice
+- Week ${weeksCount}: Final revision and past papers
+
+IMPORTANT: Include all ${weeksCount} weeks in your response. Do not stop early.`;
     } else {
       prompt = `You are an expert tutor for first-year university students.
 Create a day-by-day study plan to prepare for the ${subject?.label || "course"} exam on ${examDate}.
@@ -161,14 +173,47 @@ Build exactly ${days} days. Front-load weak topics. Add at least one past-paper 
   );
 }
 
+// Storage for saved materials
+const SAVED_MATERIALS_KEY = "sc_saved_materials_v1";
+
+function loadSavedMaterials(userId) {
+  const key = userId ? `${SAVED_MATERIALS_KEY}::${userId}` : SAVED_MATERIALS_KEY;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMaterialsToStorage(materials, userId) {
+  const key = userId ? `${SAVED_MATERIALS_KEY}::${userId}` : SAVED_MATERIALS_KEY;
+  const saved = loadSavedMaterials(userId);
+  const newEntry = {
+    id: Date.now(),
+    topic: materials.topic,
+    createdAt: Date.now(),
+    ...materials
+  };
+  saved.unshift(newEntry);
+  // Keep only last 20 saved materials
+  const trimmed = saved.slice(0, 20);
+  localStorage.setItem(key, JSON.stringify(trimmed));
+  return newEntry;
+}
+
 // Study Materials Generator Component
-export function StudyMaterialsGenerator({ aiConfig, subjects, onMaterialsGenerated }) {
+export function StudyMaterialsGenerator({ aiConfig, subjects, onMaterialsGenerated, userId, onImportToBank }) {
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedLesson, setSelectedLesson] = useState("");
   const [customTopic, setCustomTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [materials, setMaterials] = useState(null);
+  const [questionCount, setQuestionCount] = useState(10);
+  const [savedList, setSavedList] = useState(loadSavedMaterials(userId));
+  const [showSaved, setShowSaved] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   
   // Quiz state
   const [quizMode, setQuizMode] = useState(false);
@@ -197,32 +242,38 @@ export function StudyMaterialsGenerator({ aiConfig, subjects, onMaterialsGenerat
       return;
     }
     
-    const prompt = `You are an expert tutor. Create study materials for the topic: "${topic}".
+    const prompt = `You are an expert tutor. Create study materials for: "${topic}".
 
-Return ONLY a JSON object with this structure:
+IMPORTANT: For math, physics, or chemistry questions, write equations in SIMPLE TEXT format. Do NOT use LaTeX, special symbols, or complex notation. Use words like "squared", "divided by", "times", etc.
+
+Example: Instead of "x² + y² = r²", write "x squared plus y squared equals r squared".
+
+Return ONLY a JSON object:
 {
-  "summary": "A 2-3 paragraph summary of the key concepts",
+  "summary": "2-3 paragraph summary in plain text",
   "keyPoints": ["point1", "point2", "point3", "point4", "point5"],
   "questions": [
-    {"q": "question text", "options": ["A", "B", "C", "D"], "answer": 0, "explanation": "why this answer"}
+    {"q": "question in plain text", "options": ["option A", "option B", "option C", "option D"], "answer": 0, "explanation": "explanation"}
   ],
   "flashcards": [
-    {"front": "question or term", "back": "answer or definition"}
+    {"front": "term or question", "back": "answer or definition"}
   ]
 }
 
 Generate exactly:
-- 1 summary (2-3 paragraphs)
+- 1 summary (2-3 paragraphs, plain text)
 - 5 key points
-- 5 multiple choice questions with 4 options each
+- ${questionCount} multiple choice questions with 4 options each
 - 5 flashcards
 
-Make questions challenging but fair for first-year university students.`;
+All text must be plain English. No special characters or symbols.`;
 
     try {
       setLoading(true);
+      setSaveSuccess(false);
       const raw = await callAI(prompt, aiConfig);
       const data = extractJSONShared(raw, "object");
+      data.topic = topic;
       setMaterials(data);
       setQuizMode(false);
       setFlashcardMode(false);
@@ -233,6 +284,36 @@ Make questions challenging but fair for first-year university students.`;
     } finally {
       setLoading(false);
     }
+  }
+
+  function saveMaterials() {
+    if (!materials) return;
+    const entry = saveMaterialsToStorage(materials, userId);
+    setSavedList(loadSavedMaterials(userId));
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
+  }
+
+  function loadSavedMaterial(entry) {
+    setMaterials(entry);
+    setQuizMode(false);
+    setFlashcardMode(false);
+    resetQuiz();
+    setShowSaved(false);
+  }
+
+  function deleteSavedMaterial(id) {
+    const key = userId ? `${SAVED_MATERIALS_KEY}::${userId}` : SAVED_MATERIALS_KEY;
+    const filtered = savedList.filter(m => m.id !== id);
+    localStorage.setItem(key, JSON.stringify(filtered));
+    setSavedList(filtered);
+  }
+
+  function importToQuestionBank() {
+    if (!materials?.questions || !onImportToBank) return;
+    onImportToBank(materials.questions, materials.topic);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
   }
 
   function resetQuiz() {
@@ -280,8 +361,30 @@ Make questions challenging but fair for first-year university students.`;
 
   return (
     <div className="lesson-block">
-      <h3>📚 Study Materials Generator</h3>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <h3>📚 Study Materials Generator</h3>
+        {savedList.length > 0 && (
+          <button onClick={() => setShowSaved(!showSaved)} style={{ fontSize: 11 }}>
+            📁 Saved ({savedList.length})
+          </button>
+        )}
+      </div>
       <p className="muted">Select a topic from your course or enter a custom topic.</p>
+      
+      {/* Saved Materials List */}
+      {showSaved && (
+        <div style={{ marginBottom: 12, padding: 8, background: "#f3f4f6", borderRadius: 6, maxHeight: 200, overflowY: "auto" }}>
+          <strong style={{ fontSize: 12 }}>Saved Materials:</strong>
+          {savedList.map((entry) => (
+            <div key={entry.id} className="row" style={{ justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #e5e7eb" }}>
+              <span style={{ fontSize: 12, cursor: "pointer" }} onClick={() => loadSavedMaterial(entry)}>
+                {entry.topic}
+              </span>
+              <button onClick={() => deleteSavedMaterial(entry.id)} style={{ fontSize: 10, color: "#ef4444" }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* Subject and Topic Selection */}
       <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -319,33 +422,62 @@ Make questions challenging but fair for first-year university students.`;
             onChange={(e) => setCustomTopic(e.target.value)}
             style={{ flex: 1, padding: 8 }}
           />
+          <select 
+            value={questionCount} 
+            onChange={(e) => setQuestionCount(Number(e.target.value))}
+            style={{ width: 80 }}
+            title="Number of questions"
+          >
+            <option value={5}>5 Qs</option>
+            <option value={10}>10 Qs</option>
+            <option value={15}>15 Qs</option>
+          </select>
           <button
             onClick={generateMaterials}
             disabled={loading}
             style={{ borderColor: "#818cf8", color: "#818cf8" }}
           >
-            {loading ? "Generating..." : "✨ Generate"}
+            {loading ? "..." : "✨"}
           </button>
         </div>
       </div>
       
       {topic && !materials && (
         <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-          Topic: <strong>{topic}</strong>
+          Topic: <strong>{topic}</strong> · Questions: <strong>{questionCount}</strong>
         </p>
       )}
       
       {error && <p style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</p>}
       
+      {saveSuccess && (
+        <p style={{ color: "#059669", fontSize: 12, marginTop: 4 }}>✓ Saved successfully!</p>
+      )}
+      
       {materials && (
         <div style={{ marginTop: 16 }}>
+          {/* Topic header */}
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{materials.topic}</span>
+            <div className="row" style={{ gap: 4 }}>
+              <button onClick={saveMaterials} style={{ fontSize: 11, borderColor: "#6b7280", color: "#6b7280" }}>
+                💾 Save
+              </button>
+              {onImportToBank && (
+                <button onClick={importToQuestionBank} style={{ fontSize: 11, borderColor: "#059669", color: "#059669" }}>
+                  📥 Import to Bank
+                </button>
+              )}
+            </div>
+          </div>
+          
           {/* Action buttons */}
           <div className="row" style={{ gap: 8, marginBottom: 12 }}>
             <button 
               onClick={startQuiz}
               style={{ borderColor: "#059669", color: "#059669", fontSize: 13 }}
             >
-              🎯 Practice MCQs
+              🎯 Practice MCQs ({materials.questions?.length || 0})
             </button>
             <button 
               onClick={() => { setFlashcardMode(true); setCurrentCard(0); setShowBack(false); }}
@@ -513,6 +645,7 @@ export function TodayScreen({
   onStartSubject,
   onOpenTab,
   userId,
+  onImportToBank,
 }) {
   const [planState, setPlanState] = useState(loadPlan(userId));
   const [refresh, setRefresh] = useState(0);
@@ -691,7 +824,7 @@ export function TodayScreen({
 
       <StudyPlanGenerator subjects={subjects} aiConfig={aiConfig} onPlanCreated={() => setRefresh((r) => r + 1)} userId={userId} />
 
-      <StudyMaterialsGenerator subjects={subjects} aiConfig={aiConfig} />
+      <StudyMaterialsGenerator subjects={subjects} aiConfig={aiConfig} userId={userId} onImportToBank={onImportToBank} />
 
       {planSubjectIds.length > 0 && (
         <>

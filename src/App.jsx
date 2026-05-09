@@ -4854,6 +4854,25 @@ function App() {
 
           userId={auth.user?.id || auth.user?.username || "guest"}
 
+          onImportToBank={(questions, topic) => {
+            // Save imported questions to localStorage
+            const key = `sc_custom_questions::${auth.user?.id || auth.user?.username || "guest"}`;
+            const existing = JSON.parse(localStorage.getItem(key) || "[]");
+            const newQuestions = questions.map((q, i) => ({
+              id: `custom_${Date.now()}_${i}`,
+              q: q.q,
+              options: q.options,
+              answer: q.answer,
+              explanation: q.explanation,
+              topic: topic,
+              subject: "custom",
+              year: new Date().getFullYear(),
+              difficulty: "medium",
+            }));
+            localStorage.setItem(key, JSON.stringify([...existing, ...newQuestions]));
+            alert(`✓ Imported ${newQuestions.length} questions to your custom question bank! You can practice them in the Question Bank tab.`);
+          }}
+
         />
 
       )}
@@ -6944,17 +6963,35 @@ function QuestionBank({ subjects, onStartPastPaper }) {
 
   const [customMinutes, setCustomMinutes] = useState("");
 
-  const allRows = subjects.flatMap((s) =>
+  const [customQuestions, setCustomQuestions] = useState([]);
 
-    s.questions.map((qu, i) => ({ ...qu, subjectId: s.id, subjectLabel: s.label, subjectIcon: s.icon, subject: s.label, year: qu.year || 2020 + (i % 6) }))
+  // Load custom questions from localStorage
+  useEffect(() => {
+    const uid = localStorage.getItem("scholars-circle-current-user") || "guest";
+    const key = `sc_custom_questions::${uid}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) setCustomQuestions(JSON.parse(raw));
+    } catch {}
+  }, []);
 
-  );
+  const allRows = [
+    ...subjects.flatMap((s) =>
+      s.questions.map((qu, i) => ({ ...qu, subjectId: s.id, subjectLabel: s.label, subjectIcon: s.icon, subject: s.label, year: qu.year || 2020 + (i % 6) }))
+    ),
+    ...customQuestions.map((qu) => ({
+      ...qu,
+      subjectId: "custom",
+      subjectLabel: qu.topic || "Custom",
+      subjectIcon: "✨",
+    }))
+  ];
 
   const rows = allRows.filter(
 
     (row) =>
 
-      (subj === "all" || row.subject === subj) &&
+      (subj === "all" || row.subject === subj || (subj === "Custom" && row.subjectId === "custom")) &&
 
       (diff === "all" || row.difficulty === diff) &&
 
@@ -6965,6 +7002,9 @@ function QuestionBank({ subjects, onStartPastPaper }) {
   );
 
   const years = [...new Set(allRows.map(r => r.year))].sort();
+  
+  // Get unique subjects including custom
+  const subjectOptions = [...new Set(allRows.map(r => r.subjectLabel))];
 
   // Calculate selected questions
   const selectedRows = questionCount === "all" 
@@ -6989,7 +7029,7 @@ function QuestionBank({ subjects, onStartPastPaper }) {
 
           <option value="all">All Subjects</option>
 
-          {subjects.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
+          {subjectOptions.map((s) => <option key={s} value={s}>{s}</option>)}
 
         </select>
 
