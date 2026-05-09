@@ -8940,16 +8940,20 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
 
 
-  async function sendMessage() {
-    if (!message.trim() || loading) return;
+  async function sendMessage(overrideMessage = null) {
+    const msgToSend = overrideMessage || message;
+    if (!msgToSend.trim() || loading) return;
 
     if (demoMode && (demoUsage.aiTutorMessages || 0) >= DEMO_LIMITS.aiTutorMessages) {
       setChatHistory([...chatHistory, { role: "assistant", content: `Demo limit reached: You've used ${DEMO_LIMITS.aiTutorMessages} AI tutor messages. Register for full access.`, timestamp: Date.now() }]);
       return;
     }
 
-    const userMsg = message.trim();
-    setMessage("");
+    const userMsg = msgToSend.trim();
+    // Only clear if not using override (which means it was typed)
+    if (!overrideMessage) {
+      setMessage("");
+    }
     setLoading(true);
 
     const newHistory = [...chatHistory, { role: "user", content: userMsg, timestamp: Date.now() }];
@@ -9014,11 +9018,13 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
       }
 
       // Add follow-up suggestion if not already present
-      if (!responseText.toLowerCase().includes("break down") && !responseText.toLowerCase().includes("6 year")) {
-        responseText += "\n\n🤔 Would you like me to:\n• Break this concept down more?\n• Explain it like you're 6 years old?";
+      let finalResponse = responseText;
+      const hasFollowUp = responseText.toLowerCase().includes("break down") || responseText.toLowerCase().includes("6 year");
+      if (!hasFollowUp) {
+        finalResponse = responseText + "\n\n[FollowUpButtons]";
       }
 
-      setChatHistory([...newHistory, { role: "assistant", content: responseText, timestamp: Date.now() }]);
+      setChatHistory([...newHistory, { role: "assistant", content: finalResponse, timestamp: Date.now() }]);
 
       if (token) {
         api("/user-data/chat", { token, method: "POST", body: { role: "assistant", content: responseText } }).catch(console.error);
@@ -9088,7 +9094,52 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
               <div className={msg.role === "user" ? "ai-chat-msg-user" : "ai-chat-msg-assistant"} style={{ flex: 1 }}>
 
-                <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>
+                {msg.content.includes("[FollowUpButtons]") ? (
+                  <>
+                    <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content.replace("[FollowUpButtons]", "")}</p>
+                    <div style={{ 
+                      display: "flex", 
+                      gap: 8, 
+                      marginTop: 12,
+                      flexWrap: "wrap"
+                    }}>
+                      <button
+                        onClick={() => sendMessage("Break this concept down more for me")}
+                        disabled={loading}
+                        style={{
+                          background: "#1e3a5f",
+                          border: "1px solid #3b82f6",
+                          color: "#60a5fa",
+                          padding: "8px 16px",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: 500
+                        }}
+                      >
+                        🔍 Break it down more
+                      </button>
+                      <button
+                        onClick={() => sendMessage("Explain this like I'm 6 years old")}
+                        disabled={loading}
+                        style={{
+                          background: "#1e3a5f",
+                          border: "1px solid #3b82f6",
+                          color: "#60a5fa",
+                          padding: "8px 16px",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: 500
+                        }}
+                      >
+                        👶 Explain like I'm 6
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content}</p>
+                )}
 
                 <span className="muted" style={{ fontSize: 11 }}>{new Date(msg.timestamp).toLocaleTimeString()}</span>
 

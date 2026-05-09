@@ -308,7 +308,34 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
             style={{ display: "none" }}
           />
         </label>
-        {pdfLoading && <span className="muted" style={{ fontSize: 12 }}>Extracting text from PDF...</span>}
+        {pdfLoading && (
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: 8, 
+          background: "#1e3a5f", 
+          color: "#60a5fa", 
+          padding: "12px 16px", 
+          borderRadius: 8,
+          border: "1px solid #3b82f6",
+          fontSize: 14,
+          fontWeight: 500,
+          marginTop: 8,
+          marginBottom: 8,
+          animation: "pulse 2s infinite"
+        }}>
+          <span style={{ 
+            display: "inline-block", 
+            width: 18, 
+            height: 18, 
+            border: "2px solid #3b82f6", 
+            borderTopColor: "transparent", 
+            borderRadius: "50%", 
+            animation: "spin 1s linear infinite" 
+          }} />
+          📄 Extracting text from PDF... Please wait
+        </div>
+      )}
       </div>
 
       <textarea
