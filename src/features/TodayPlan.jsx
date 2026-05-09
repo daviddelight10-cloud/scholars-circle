@@ -162,10 +162,22 @@ Build exactly ${days} days. Front-load weak topics. Add at least one past-paper 
 // Study Materials Generator Component
 export function StudyMaterialsGenerator({ aiConfig, onMaterialsGenerated }) {
   const [topic, setTopic] = useState("");
-  const [subjectId, setSubjectId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [materials, setMaterials] = useState(null);
+  
+  // Quiz state
+  const [quizMode, setQuizMode] = useState(false);
+  const [currentQ, setCurrentQ] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [showResult, setShowResult] = useState(false);
+  const [score, setScore] = useState(0);
+  const [answered, setAnswered] = useState([]);
+  
+  // Flashcard state
+  const [flashcardMode, setFlashcardMode] = useState(false);
+  const [currentCard, setCurrentCard] = useState(0);
+  const [showBack, setShowBack] = useState(false);
 
   async function generateMaterials() {
     setError("");
@@ -201,11 +213,57 @@ Make questions challenging but fair for first-year university students.`;
       const raw = await callAI(prompt, aiConfig);
       const data = extractJSONShared(raw, "object");
       setMaterials(data);
+      setQuizMode(false);
+      setFlashcardMode(false);
+      resetQuiz();
       if (onMaterialsGenerated) onMaterialsGenerated(data);
     } catch (e) {
       setError(`Could not generate materials: ${e.message}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function resetQuiz() {
+    setCurrentQ(0);
+    setSelectedAnswer(null);
+    setShowResult(false);
+    setScore(0);
+    setAnswered([]);
+  }
+
+  function handleAnswer(idx) {
+    if (showResult) return;
+    setSelectedAnswer(idx);
+    setShowResult(true);
+    const correct = idx === materials.questions[currentQ].answer;
+    if (correct) setScore(s => s + 1);
+    setAnswered([...answered, { q: currentQ, selected: idx, correct }]);
+  }
+
+  function nextQuestion() {
+    if (currentQ < materials.questions.length - 1) {
+      setCurrentQ(currentQ + 1);
+      setSelectedAnswer(null);
+      setShowResult(false);
+    } else {
+      // Quiz complete - show results
+      setQuizMode(false);
+    }
+  }
+
+  function startQuiz() {
+    resetQuiz();
+    setQuizMode(true);
+  }
+
+  function nextCard() {
+    setShowBack(false);
+    if (currentCard < materials.flashcards.length - 1) {
+      setCurrentCard(currentCard + 1);
+    } else {
+      setFlashcardMode(false);
+      setCurrentCard(0);
     }
   }
 
@@ -233,41 +291,163 @@ Make questions challenging but fair for first-year university students.`;
       
       {materials && (
         <div style={{ marginTop: 16 }}>
-          <h4>📝 Summary</h4>
-          <p style={{ fontSize: 14, lineHeight: 1.6 }}>{materials.summary}</p>
-          
-          <h4 style={{ marginTop: 12 }}>🔑 Key Points</h4>
-          <ul style={{ fontSize: 13, lineHeight: 1.8 }}>
-            {materials.keyPoints?.map((p, i) => <li key={i}>{p}</li>)}
-          </ul>
-          
-          <h4 style={{ marginTop: 12 }}>❓ Practice Questions</h4>
-          <div style={{ fontSize: 13 }}>
-            {materials.questions?.map((q, i) => (
-              <div key={i} style={{ marginBottom: 12, padding: 8, background: "#f3f4f6", borderRadius: 6 }}>
-                <p><strong>Q{i+1}:</strong> {q.q}</p>
-                <div style={{ marginLeft: 8 }}>
-                  {q.options?.map((opt, j) => (
-                    <div key={j} style={{ color: j === q.answer ? "#059669" : "#374151" }}>
-                      {String.fromCharCode(65 + j)}) {opt} {j === q.answer && "✓"}
-                    </div>
-                  ))}
-                </div>
-                <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>{q.explanation}</p>
-              </div>
-            ))}
+          {/* Action buttons */}
+          <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+            <button 
+              onClick={startQuiz}
+              style={{ borderColor: "#059669", color: "#059669", fontSize: 13 }}
+            >
+              🎯 Practice MCQs
+            </button>
+            <button 
+              onClick={() => { setFlashcardMode(true); setCurrentCard(0); setShowBack(false); }}
+              style={{ borderColor: "#d97706", color: "#d97706", fontSize: 13 }}
+            >
+              🃏 Review Flashcards
+            </button>
           </div>
-          
-          <h4 style={{ marginTop: 12 }}>🃏 Flashcards</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-            {materials.flashcards?.map((card, i) => (
-              <div key={i} style={{ padding: 12, background: "#fef3c7", borderRadius: 6, fontSize: 12 }}>
-                <strong>Front:</strong> {card.front}
-                <hr style={{ border: "none", borderTop: "1px dashed #d97706", margin: "8px 0" }} />
-                <strong>Back:</strong> {card.back}
+
+          {/* Quiz Mode */}
+          {quizMode && materials.questions && (
+            <div style={{ padding: 16, background: "#f0fdf4", borderRadius: 8, marginBottom: 16 }}>
+              <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: "#059669" }}>
+                  Question {currentQ + 1} of {materials.questions.length}
+                </span>
+                <span style={{ fontSize: 12, color: "#059669" }}>
+                  Score: {score}/{answered.length}
+                </span>
               </div>
-            ))}
-          </div>
+              
+              <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
+                {materials.questions[currentQ].q}
+              </p>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {materials.questions[currentQ].options?.map((opt, j) => {
+                  const isSelected = selectedAnswer === j;
+                  const isCorrect = j === materials.questions[currentQ].answer;
+                  let bg = "#fff";
+                  let border = "#d1d5db";
+                  if (showResult) {
+                    if (isCorrect) { bg = "#dcfce7"; border = "#22c55e"; }
+                    else if (isSelected) { bg = "#fee2e2"; border = "#ef4444"; }
+                  } else if (isSelected) {
+                    bg = "#e0f2fe";
+                    border = "#0ea5e9";
+                  }
+                  return (
+                    <button
+                      key={j}
+                      onClick={() => handleAnswer(j)}
+                      disabled={showResult}
+                      style={{
+                        padding: "10px 12px",
+                        background: bg,
+                        border: `2px solid ${border}`,
+                        borderRadius: 6,
+                        textAlign: "left",
+                        cursor: showResult ? "default" : "pointer",
+                        fontSize: 13,
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <strong>{String.fromCharCode(65 + j)})</strong> {opt}
+                      {showResult && isCorrect && <span style={{ marginLeft: 8 }}>✓</span>}
+                      {showResult && isSelected && !isCorrect && <span style={{ marginLeft: 8 }}>✗</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {showResult && (
+                <>
+                  <p style={{ fontSize: 12, marginTop: 12, padding: 8, background: "#fff", borderRadius: 4 }}>
+                    💡 {materials.questions[currentQ].explanation}
+                  </p>
+                  <button
+                    onClick={nextQuestion}
+                    style={{ marginTop: 12, borderColor: "#059669", color: "#059669" }}
+                  >
+                    {currentQ < materials.questions.length - 1 ? "Next Question →" : "Finish Quiz"}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Flashcard Mode */}
+          {flashcardMode && materials.flashcards && (
+            <div style={{ marginBottom: 16 }}>
+              <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: "#d97706" }}>
+                  Card {currentCard + 1} of {materials.flashcards.length}
+                </span>
+                <button onClick={() => setFlashcardMode(false)} style={{ fontSize: 11 }}>Exit</button>
+              </div>
+              
+              <div
+                onClick={() => setShowBack(!showBack)}
+                style={{
+                  padding: 24,
+                  background: showBack ? "#fef3c7" : "#fefce8",
+                  borderRadius: 12,
+                  minHeight: 150,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  border: "2px solid #d97706",
+                  fontSize: 16,
+                  transition: "all 0.3s",
+                }}
+              >
+                {showBack 
+                  ? materials.flashcards[currentCard].back 
+                  : materials.flashcards[currentCard].front
+                }
+              </div>
+              <p className="muted" style={{ fontSize: 11, textAlign: "center", marginTop: 8 }}>
+                {showBack ? "Click to see front" : "Click to flip"}
+              </p>
+              
+              <div className="row" style={{ justifyContent: "center", gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => { setShowBack(false); setCurrentCard(Math.max(0, currentCard - 1)); }}
+                  disabled={currentCard === 0}
+                  style={{ fontSize: 12 }}
+                >
+                  ← Previous
+                </button>
+                <button
+                  onClick={nextCard}
+                  style={{ borderColor: "#d97706", color: "#d97706", fontSize: 12 }}
+                >
+                  {currentCard < materials.flashcards.length - 1 ? "Next →" : "Finish"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Summary (hidden during quiz/flashcard mode) */}
+          {!quizMode && !flashcardMode && (
+            <>
+              <h4>📝 Summary</h4>
+              <p style={{ fontSize: 14, lineHeight: 1.6 }}>{materials.summary}</p>
+              
+              <h4 style={{ marginTop: 12 }}>🔑 Key Points</h4>
+              <ul style={{ fontSize: 13, lineHeight: 1.8 }}>
+                {materials.keyPoints?.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+              
+              <h4 style={{ marginTop: 12 }}>❓ Practice Questions</h4>
+              <p className="muted" style={{ fontSize: 11 }}>Click "Practice MCQs" above to take the quiz interactively</p>
+              
+              <h4 style={{ marginTop: 12 }}>🃏 Flashcards</h4>
+              <p className="muted" style={{ fontSize: 11 }}>Click "Review Flashcards" above to practice interactively</p>
+            </>
+          )}
         </div>
       )}
     </div>
