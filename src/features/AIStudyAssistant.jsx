@@ -69,49 +69,90 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
     setError("");
     
     try {
-      if (file.type === 'application/pdf') {
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
         // Load PDF.js from CDN dynamically
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
         script.type = 'text/javascript';
         
         await new Promise((resolve, reject) => {
+          // Check if already loaded
+          if (window.pdfjsLib) {
+            resolve();
+            return;
+          }
           script.onload = resolve;
-          script.onerror = reject;
+          script.onerror = () => reject(new Error("Failed to load PDF.js library"));
           document.head.appendChild(script);
         });
         
         const pdfjsLib = window.pdfjsLib;
+        if (!pdfjsLib) {
+          throw new Error("PDF.js library not available");
+        }
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         
         const arrayBuffer = await file.arrayBuffer();
+        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+          throw new Error("File is empty or could not be read");
+        }
+        
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
+        
+        if (!pdf || pdf.numPages === 0) {
+          throw new Error("PDF has no pages");
+        }
         
         let fullText = "";
         const totalPages = pdf.numPages;
         
         for (let i = 1; i <= totalPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items.map(item => item.str).join(' ');
-          fullText += pageText + '\n';
+          try {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            
+            if (textContent && textContent.items && textContent.items.length > 0) {
+              const pageText = textContent.items
+                .map(item => item.str || '')
+                .filter(str => str.trim().length > 0)
+                .join(' ');
+              fullText += pageText + '\n\n';
+            }
+          } catch (pageError) {
+            console.warn(`Error extracting page ${i}:`, pageError);
+          }
         }
         
-        setExtractedText(fullText);
+        // Clean up the text
+        fullText = fullText
+          .replace(/\s+/g, ' ')  // Normalize whitespace
+          .replace(/\n\s*\n/g, '\n\n')  // Normalize line breaks
+          .trim();
+        
+        if (fullText.length < 20) {
+          setError("Warning: Very little text was extracted. The PDF might be scanned images. Try a text-based PDF or paste the content directly.");
+          setExtractedText(fullText);
+        } else {
+          setExtractedText(fullText);
+          console.log(`Extracted ${fullText.length} characters from ${totalPages} pages`);
+        }
       } else if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
         const text = await file.text();
-        setExtractedText(text);
+        if (!text || text.trim().length === 0) {
+          throw new Error("Text file is empty");
+        }
+        setExtractedText(text.trim());
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
         setError('DOCX support requires mammoth.js library. Please convert to PDF or TXT for now.');
       } else {
-        setError('Unsupported file type. Please upload PDF, TXT, or DOCX files.');
+        setError('Unsupported file type. Please upload PDF, TXT, or paste text directly.');
       }
       
       setUploadedFile(file);
     } catch (e) {
       console.error('File extraction error:', e);
-      setError(`Failed to extract text: ${e.message || 'Unknown error'}`);
+      setError(`Failed to extract text: ${e.message || 'Unknown error'}. Try pasting the text directly.`);
     } finally {
       setIsExtracting(false);
     }
@@ -489,15 +530,15 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
 
       {/* ===== PRACTICE MODE TAKES OVER ===== */}
       {practiceMode === "mcq" && practiceDoc && (
-        <div className="lesson-block" style={{ background: "#1f2937", border: "2px solid #3b82f6", marginBottom: 16 }}>
+        <div className="lesson-block" style={{ background: "#000000", border: "2px solid #3b82f6", marginBottom: 16, color: "white" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3>📝 MCQ Practice</h3>
-            <span className="muted">
+            <h3 style={{ color: "white" }}>📝 MCQ Practice</h3>
+            <span style={{ color: "#9ca3af" }}>
               Question {mcqIndex + 1} of {(practiceDoc.mcqQuestions || practiceDoc.mcq_questions || []).length} · Score: {mcqScore}/{mcqIndex + (mcqShowResult ? 1 : 0)}
             </span>
           </div>
           
-          <div style={{ height: 6, background: "#374151", borderRadius: 3, marginBottom: 16 }}>
+          <div style={{ height: 6, background: "#1f2937", borderRadius: 3, marginBottom: 16 }}>
             <div style={{
               height: "100%",
               width: `${((mcqIndex + 1) / (practiceDoc.mcqQuestions || practiceDoc.mcq_questions || []).length) * 100}%`,
@@ -514,7 +555,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
             
             return (
               <>
-                <p style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 16 }}>{q.question}</p>
+                <p style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 16, color: "white" }}>{q.question}</p>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                   {(q.options || []).map((opt, i) => {
@@ -522,14 +563,14 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                     const isSelected = mcqSelected === i;
                     const isCorrect = i === q.answer;
                     
-                    let bg = "#1f2937";
+                    let bg = "#111111";
                     let border = "1px solid #374151";
                     
                     if (mcqShowResult) {
                       if (isCorrect) { bg = "#064e3b"; border = "2px solid #10b981"; }
                       else if (isSelected && !isCorrect) { bg = "#7f1d1d"; border = "2px solid #ef4444"; }
                     } else if (isSelected) {
-                      bg = "#3730a3"; border = "2px solid #818cf8";
+                      bg = "#1e3a5f"; border = "2px solid #3b82f6";
                     }
                     
                     return (
@@ -561,15 +602,16 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                 {mcqShowResult && (
                   <div style={{ 
                     padding: 12, 
-                    background: mcqSelected === q.answer ? "#064e3b" : "#7f1d1d", 
+                    background: "#111111", 
                     borderRadius: 8, 
-                    marginBottom: 16 
+                    marginBottom: 16,
+                    border: `2px solid ${mcqSelected === q.answer ? "#10b981" : "#ef4444"}`
                   }}>
-                    <p style={{ fontWeight: 600, color: "white", marginBottom: 4 }}>
+                    <p style={{ fontWeight: 600, color: mcqSelected === q.answer ? "#10b981" : "#ef4444", marginBottom: 4 }}>
                       {mcqSelected === q.answer ? "✅ Correct!" : "❌ Incorrect"}
                     </p>
                     {q.explanation && (
-                      <p style={{ fontSize: 13, color: "#e5e7eb" }}>{q.explanation}</p>
+                      <p style={{ fontSize: 13, color: "white" }}>{q.explanation}</p>
                     )}
                   </div>
                 )}

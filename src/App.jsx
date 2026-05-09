@@ -4705,12 +4705,12 @@ function App() {
           <span className="nav-label">Practice</span>
         </button>
         <button
-          className={tab === "aiassistant" ? "active" : ""}
-          onClick={() => setTab("aiassistant")}
-          title="AI Assistant"
+          className={tab === "aitutor" ? "active" : ""}
+          onClick={() => setTab("aitutor")}
+          title="AI Tutor"
         >
-          <span className="nav-icon">🤖</span>
-          <span className="nav-label">AI</span>
+          <span className="nav-icon">👨‍🏫</span>
+          <span className="nav-label">Tutor</span>
         </button>
         <button
           className={tab === "planner" ? "active" : ""}
@@ -8900,22 +8900,40 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
   const [selectedSubject, setSelectedSubject] = useState("");
 
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const prevHistoryLengthRef = useRef(0);
 
 
 
   const scrollToBottom = () => {
 
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
 
   };
 
 
 
   useEffect(() => {
-
-    scrollToBottom();
-
+    // Only scroll when a new message is added (length increased)
+    if (chatHistory.length > prevHistoryLengthRef.current) {
+      scrollToBottom();
+    }
+    prevHistoryLengthRef.current = chatHistory.length;
   }, [chatHistory]);
+
+  // Initialize with welcome message if chat is empty
+  useEffect(() => {
+    if (chatHistory.length === 0) {
+      const welcomeMsg = {
+        role: "assistant",
+        content: "👋 Hello! I'm your AI Tutor. What should I teach you today? I can help you with any subject - just ask me a question or select a specific subject from the dropdown above.",
+        timestamp: Date.now()
+      };
+      setChatHistory([welcomeMsg]);
+    }
+  }, []);
 
 
 
@@ -8940,8 +8958,8 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
     try {
       const context = selectedSubject
-        ? `You are a helpful tutor for ${selectedSubject}. The user is studying this subject. Keep answers concise and educational.`
-        : "You are a helpful study tutor. Keep answers concise and educational.";
+        ? `You are a helpful tutor for ${selectedSubject}. The user is studying this subject. Keep answers concise and educational. After explaining, always ask if the user wants you to: break the concept down more, or explain it like they're 6 years old.`
+        : "You are a helpful study tutor. Keep answers concise and educational. After explaining, always ask if the user wants you to: break the concept down more, or explain it like they're 6 years old.";
 
       const systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
       let responseText = "";
@@ -8992,6 +9010,11 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
         }
       }
 
+      // Add follow-up suggestion if not already present
+      if (!responseText.toLowerCase().includes("break down") && !responseText.toLowerCase().includes("6 year")) {
+        responseText += "\n\n🤔 Would you like me to:\n• Break this concept down more?\n• Explain it like you're 6 years old?";
+      }
+
       setChatHistory([...newHistory, { role: "assistant", content: responseText, timestamp: Date.now() }]);
 
       if (token) {
@@ -9009,7 +9032,12 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
   function clearHistory() {
 
-    setChatHistory([]);
+    const welcomeMsg = {
+      role: "assistant",
+      content: "👋 Hello! I'm your AI Tutor. What should I teach you today? I can help you with any subject - just ask me a question or select a specific subject from the dropdown above.",
+      timestamp: Date.now()
+    };
+    setChatHistory([welcomeMsg]);
 
     if (token) {
 
@@ -9045,17 +9073,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
       </div>
 
-      <div className="ai-chat-container">
-
-        {chatHistory.length === 0 && (
-
-          <p className="muted" style={{ textAlign: "center", marginTop: 160 }}>
-
-            👋 Ask me anything about your studies!
-
-          </p>
-
-        )}
+      <div className="ai-chat-container" ref={chatContainerRef} style={{ maxHeight: "400px", overflowY: "auto" }}>
 
         {chatHistory.map((msg, i) => (
 

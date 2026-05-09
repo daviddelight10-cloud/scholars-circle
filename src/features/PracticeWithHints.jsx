@@ -313,16 +313,16 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       {/* Explanation (shown after answer) */}
       {showResult && currentQuestion.explanation && (
         <div style={{ 
-          background: isCorrect ? "var(--correct-bg, #dcfce7)" : "var(--wrong-bg, #fee2e2)", 
+          background: "#000000", 
           borderRadius: 8, 
           padding: 16, 
           marginBottom: 16,
-          border: `1px solid ${isCorrect ? "var(--correct-border, #16a34a)" : "var(--wrong-border, #dc2626)"}`
+          border: `2px solid ${isCorrect ? "#10b981" : "#ef4444"}`
         }}>
-          <p style={{ fontWeight: 600, marginBottom: 4, color: isCorrect ? "var(--correct-text, #166534)" : "var(--wrong-text, #991b1b)" }}>
+          <p style={{ fontWeight: 600, marginBottom: 4, color: isCorrect ? "#10b981" : "#ef4444" }}>
             {isCorrect ? "✅ Correct!" : "❌ Incorrect"}
           </p>
-          <p style={{ fontSize: 13, color: "var(--text-primary, #111)", lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: "white", lineHeight: 1.5 }}>
             {currentQuestion.explanation}
           </p>
         </div>
