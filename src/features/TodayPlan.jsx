@@ -301,7 +301,7 @@ export function TodayScreen({
   }, [subjects, mastery]);
 
   const todayStr = todayKey();
-  const dayOfWeek = new Date().toLocaleDateString("en-US", { weekday: "lowercase" });
+  const dayOfWeek = new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
   
   const todaysTasks = useMemo(() => {
     const out = [];
