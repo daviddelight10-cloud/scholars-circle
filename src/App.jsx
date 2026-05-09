@@ -8970,21 +8970,26 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
       let systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
       
-      // If this is a follow-up, include the full conversation context
+      // Build the user message with context if this is a follow-up
+      let fullUserMessage = userMsg;
       if (followUpContext && previousAIResponse) {
-        systemPrompt += `\n\n[CONTINUATION REQUEST - NOT A NEW TOPIC]
-The user previously asked: "${followUpContext}"
+        const cleanResponse = previousAIResponse.replace("[FollowUpButtons]", "").trim();
+        fullUserMessage = `⚠️ THIS IS A FOLLOW-UP REQUEST - CONTINUE THE PREVIOUS CONVERSATION ⚠️
 
-You responded with: "${previousAIResponse.replace("[FollowUpButtons]", "").slice(0, 500)}..."
+The user's ORIGINAL question was: "${followUpContext}"
 
-Now the user wants you to CONTINUE explaining that EXACT same topic. Do NOT introduce new topics. Continue from where your previous explanation left off.`;
+Your PREVIOUS response was: "${cleanResponse.slice(0, 400)}..."
+
+The user now says: "${userMsg}"
+
+IMPORTANT: You must CONTINUE explaining "${followUpContext}" - do NOT treat this as a new topic!`;
       }
       
       let responseText = "";
 
       // Use backend proxy if available, otherwise use direct call
       try {
-        responseText = await callAI(`${systemPrompt}\n\nUser: ${userMsg}`, aiConfig);
+        responseText = await callAI(`${systemPrompt}\n\nUser: ${fullUserMessage}`, aiConfig);
       } catch (proxyError) {
         console.log("Backend proxy failed, trying direct call:", proxyError);
 
@@ -8994,7 +8999,7 @@ Now the user wants you to CONTINUE explaining that EXACT same topic. Do NOT intr
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: `${systemPrompt}\n\nUser: ${userMsg}` }] }],
+              contents: [{ parts: [{ text: `${systemPrompt}\n\nUser: ${fullUserMessage}` }] }],
               generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
             }),
           });
@@ -9014,7 +9019,7 @@ Now the user wants you to CONTINUE explaining that EXACT same topic. Do NOT intr
               model: aiConfig.model,
               messages: [
                 { role: "system", content: systemPrompt },
-                ...newHistory.slice(-10).map(m => ({ role: m.role, content: m.content }))
+                { role: "user", content: fullUserMessage }
               ],
               max_tokens: 500,
               temperature: 0.7,
