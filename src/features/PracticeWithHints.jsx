@@ -132,30 +132,29 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       setShowResult(false);
       setHintLevel(0);
     } else {
-      // Complete session
-      const finalScore = {
-        total: questions.length,
-        correct: score,
-        percentage: Math.round((score / questions.length) * 100),
-        results: results,
-        mode: "practicehints",
-        streakBonus: totalStreakBonus
-      };
-      
-      // Save hints usage
-      const newHintsUsed = {
-        ...hintsUsed,
-        [subject?.id || "practice"]: (hintsUsed[subject?.id || "practice"] || 0) + results.reduce((sum, r) => sum + r.hintsUsed, 0)
-      };
-      saveHints(newHintsUsed);
-      
+      // Complete session - show results, don't auto-save
       setCompleted(true);
-      
-      // Auto-save after brief delay
-      setTimeout(() => {
-        onComplete(finalScore);
-      }, 500);
     }
+  }
+  
+  function handleSaveAndExit() {
+    const finalScore = {
+      total: questions.length,
+      correct: score,
+      percentage: Math.round((score / questions.length) * 100),
+      results: results,
+      mode: "practicehints",
+      streakBonus: totalStreakBonus
+    };
+    
+    // Save hints usage
+    const newHintsUsed = {
+      ...hintsUsed,
+      [subject?.id || "practice"]: (hintsUsed[subject?.id || "practice"] || 0) + results.reduce((sum, r) => sum + r.hintsUsed, 0)
+    };
+    saveHints(newHintsUsed);
+    
+    onComplete(finalScore);
   }
 
   function requestHint() {
@@ -185,6 +184,91 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       <div className="card">
         <h3>Practice Mode with Hints</h3>
         <p className="muted">No questions available. Please select a subject from the main menu.</p>
+      </div>
+    );
+  }
+  
+  // Completion screen with review
+  if (completed) {
+    const pct = Math.round((score / questions.length) * 100);
+    const emoji = pct === 100 ? "🏆" : pct >= 80 ? "🎉" : pct >= 50 ? "👍" : "📖";
+    const baseXP = score * XP_PER_CORRECT;
+    const finalXP = Math.round((baseXP + totalStreakBonus) * modeMultiplier);
+    
+    return (
+      <div className="card" style={{ textAlign: "center" }}>
+        <h2>{emoji} Practice Complete!</h2>
+        <p style={{ fontSize: "3rem", margin: "8px 0" }}>{pct}%</p>
+        <p className="muted">{score} / {questions.length} correct &nbsp;·&nbsp; {subject?.label || "Practice"}</p>
+        
+        {/* XP Breakdown */}
+        <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%)", borderRadius: 12, padding: 16, margin: "16px auto", maxWidth: 320, border: "1px solid rgba(251,191,36,0.3)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 24 }}>⚡</span>
+            <span style={{ fontSize: 28, fontWeight: 700, color: "#fbbf24" }}>+{finalXP} XP</span>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            <div>Base: {baseXP} XP ({score} × {XP_PER_CORRECT})</div>
+            {totalStreakBonus > 0 && <div style={{ color: "#fbbf24" }}>🔥 Streak Bonus: +{totalStreakBonus} XP</div>}
+            <div style={{ color: "#60a5fa" }}>🎯 Mode Bonus: +{Math.round(baseXP * (modeMultiplier - 1))} XP ({Math.round((modeMultiplier - 1) * 100)}%)</div>
+          </div>
+        </div>
+        
+        <div className="row" style={{ justifyContent: "center", marginTop: 16, flexWrap: "wrap", gap: 8 }}>
+          <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0", background: "rgba(45, 212, 160, 0.1)" }} onClick={handleSaveAndExit}>✓ Save & Exit</button>
+        </div>
+        
+        {/* Review all answers */}
+        <div style={{ textAlign: "left", marginTop: 24, maxHeight: 400, overflowY: "auto" }}>
+          <h3 style={{ textAlign: "center", marginBottom: 16 }}>📝 Review All Answers</h3>
+          {results.map((r, i) => {
+            const q = questions[i];
+            if (!q) return null;
+            const isCorrect = r.correct;
+            
+            return (
+              <div key={i} className="lesson-block" style={{ 
+                borderLeft: `3px solid ${isCorrect ? "#2dd4a0" : "#ff6b6b"}`,
+                marginBottom: 12,
+                background: isCorrect ? "rgba(45, 212, 160, 0.05)" : "rgba(255, 107, 107, 0.05)"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <p style={{ margin: 0, fontWeight: 600, flex: 1 }}>Q{i + 1}: {q.q || q.question}</p>
+                  <span style={{ fontSize: 18 }}>{isCorrect ? "✅" : "❌"}</span>
+                </div>
+                
+                {!isCorrect && (
+                  <>
+                    <p style={{ margin: "4px 0", color: "#ff6b6b", fontSize: 14 }}>
+                      Your answer: <strong>{r.selected >= 0 ? q.options?.[r.selected] : "Skipped"}</strong>
+                    </p>
+                    <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                      Correct: <strong>{q.options?.[q.answer]}</strong>
+                    </p>
+                  </>
+                )}
+                
+                {isCorrect && (
+                  <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                    ✓ <strong>{q.options?.[q.answer]}</strong>
+                  </p>
+                )}
+                
+                {q.explanation && (
+                  <p style={{ margin: "8px 0 0", fontSize: 13 }} className="muted">
+                    💡 {q.explanation}
+                  </p>
+                )}
+                
+                {r.hintsUsed > 0 && (
+                  <p style={{ margin: "4px 0", fontSize: 12, color: "#fbbf24" }}>
+                    💡 Used {r.hintsUsed} hint{r.hintsUsed > 1 ? "s" : ""}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }

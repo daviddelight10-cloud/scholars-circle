@@ -6256,8 +6256,6 @@ function SessionPlayer({ session, onExit, onComplete, aiConfig }) {
 
   const [finalResult, setFinalResult] = useState(null);
 
-  const [showWrongReview, setShowWrongReview] = useState(false);
-
   const [aiExplanation, setAiExplanation] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   
@@ -6309,16 +6307,7 @@ ${isCorrect
 
 
 
-  // Auto-save when finalResult is set
-  useEffect(() => {
-    if (finalResult && !finalResult.saved) {
-      // Auto-save after a brief delay to show the results first
-      const timer = setTimeout(() => {
-        onComplete({ ...finalResult, streakBonus: totalStreakBonus, saved: true });
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [finalResult]);
+  // No auto-save - let user review results until they click Exit
 
   useEffect(() => {
 
@@ -6402,19 +6391,12 @@ ${isCorrect
 
         <p className="muted" style={{ marginTop: 4 }}>Avg confidence {avgConf}% → {gapLabel} ({calibrationGap >=0 ? "+" : ""}{calibrationGap} pts vs score)</p>
 
-        <div className="row" style={{ justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
+        <div className="row" style={{ justifyContent: "center", marginTop: 16, flexWrap: "wrap", gap: 8 }}>
 
-          <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }} onClick={() => onComplete({ ...finalResult, streakBonus: totalStreakBonus })}>{finalResult.saved ? "✓ Saved" : "Continue"}</button>
-
-          {finalResult.results.some(r => !r.correct) && (
-
-            <button style={{ borderColor: "#ff6b6b", color: "#ff6b6b" }} onClick={() => setShowWrongReview(v => !v)}>
-
-              {showWrongReview ? "Hide" : "Review"} Wrong Answers ({finalResult.results.filter(r => !r.correct).length})
-
-            </button>
-
-          )}
+          <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0", background: "rgba(45, 212, 160, 0.1)" }} onClick={() => {
+            onComplete({ ...finalResult, streakBonus: totalStreakBonus });
+            onExit();
+          }}>✓ Save & Exit</button>
 
           <button onClick={() => {
 
@@ -6426,61 +6408,53 @@ ${isCorrect
 
           }}>📤 Share Score</button>
 
-          <button onClick={onExit}>Back</button>
-
         </div>
 
-        {showWrongReview && (
-
-          <div style={{ textAlign: "left", marginTop: 18 }}>
-
-            <h3 style={{ textAlign: "center" }}>Wrong Answers</h3>
-
-            {finalResult.results.map((r, i) => {
-
-              if (r.correct) return null;
-
-              const q = session.questions[i];
-
-              if (!q) return null;
-
-              return (
-
-                <div key={i} className="lesson-block" style={{ borderLeft: "3px solid #ff6b6b" }}>
-
-                  <p style={{ margin: "0 0 8px", fontWeight: 600 }}>Q{i + 1}: {q.q}</p>
-
-                  <p style={{ margin: "4px 0", color: "#ff6b6b", fontSize: 14 }}>
-
-                    Your answer: <strong>{q.options[r.selected] ?? "—"}</strong>
-
-                  </p>
-
-                  <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
-
-                    Correct: <strong>{q.options[q.answer]}</strong>
-
-                  </p>
-
-                  {q.explanation && (
-
-                    <p style={{ margin: "8px 0 0", fontSize: 13 }} className="muted">
-
-                      💡 {q.explanation}
-
-                    </p>
-
-                  )}
-
+        {/* Always show all questions with corrections */}
+        <div style={{ textAlign: "left", marginTop: 24, maxHeight: 400, overflowY: "auto" }}>
+          <h3 style={{ textAlign: "center", marginBottom: 16 }}>📝 Review All Answers</h3>
+          {finalResult.results.map((r, i) => {
+            const q = session.questions[i];
+            if (!q) return null;
+            const isCorrect = r.correct;
+            
+            return (
+              <div key={i} className="lesson-block" style={{ 
+                borderLeft: `3px solid ${isCorrect ? "#2dd4a0" : "#ff6b6b"}`,
+                marginBottom: 12,
+                background: isCorrect ? "rgba(45, 212, 160, 0.05)" : "rgba(255, 107, 107, 0.05)"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <p style={{ margin: 0, fontWeight: 600, flex: 1 }}>Q{i + 1}: {q.q}</p>
+                  <span style={{ fontSize: 18 }}>{isCorrect ? "✅" : "❌"}</span>
                 </div>
-
-              );
-
-            })}
-
-          </div>
-
-        )}
+                
+                {!isCorrect && (
+                  <>
+                    <p style={{ margin: "4px 0", color: "#ff6b6b", fontSize: 14 }}>
+                      Your answer: <strong>{q.options[r.selected] ?? "—"}</strong>
+                    </p>
+                    <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                      Correct: <strong>{q.options[q.answer]}</strong>
+                    </p>
+                  </>
+                )}
+                
+                {isCorrect && (
+                  <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                    ✓ <strong>{q.options[q.answer]}</strong>
+                  </p>
+                )}
+                
+                {q.explanation && (
+                  <p style={{ margin: "8px 0 0", fontSize: 13 }} className="muted">
+                    💡 {q.explanation}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
       </div>
 
