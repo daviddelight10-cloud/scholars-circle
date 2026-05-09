@@ -4721,7 +4721,7 @@ function App() {
           <span className="nav-label">Plan</span>
         </button>
         <button
-          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "today", "aitutor", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "today", "aitutor", "aiassistant", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
           onClick={() => setShowMobileMenu(!showMobileMenu)}
           title="More"
         >
@@ -4782,6 +4782,9 @@ function App() {
               </button>
               <button className={tab === "aitutor" ? "active" : ""} onClick={() => { setTab("aitutor"); setShowMobileMenu(false); }}>
                 <span>👨‍🏫</span> AI Tutor
+              </button>
+              <button className={tab === "aiassistant" ? "active" : ""} onClick={() => { setTab("aiassistant"); setShowMobileMenu(false); }}>
+                <span>🤖</span> AI Assistant
               </button>
               <button className={tab === "reminders" ? "active" : ""} onClick={() => { setTab("reminders"); setShowMobileMenu(false); }}>
                 <span>🔔</span> Reminders
