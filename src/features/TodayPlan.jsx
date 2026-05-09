@@ -248,18 +248,32 @@ export function StudyMaterialsGenerator({ aiConfig, subjects, onMaterialsGenerat
       return;
     }
     
-    const prompt = `You are an expert tutor. Create study materials for: "${topic}".
+    // Determine if this is a calculation-heavy subject
+    const calculationSubjects = ['mathematics', 'math', 'physics', 'chemistry', 'further maths', 'further mathematics', 'statistics', 'accounting', 'economics', 'mth', 'phy', 'chm', 'gst'];
+    const isCalculationSubject = calculationSubjects.some(s => 
+      topic.toLowerCase().includes(s) || (selectedSubject?.label || '').toLowerCase().includes(s)
+    );
+    
+    const prompt = `You are an expert tutor creating study materials for: "${topic}".
 
-IMPORTANT: For math, physics, or chemistry questions, write equations in SIMPLE TEXT format. Do NOT use LaTeX, special symbols, or complex notation. Use words like "squared", "divided by", "times", etc.
+${isCalculationSubject ? `
+CRITICAL INSTRUCTIONS FOR CALCULATION-BASED SUBJECTS:
+1. Write ALL equations and formulas in PLAIN TEXT - NO LaTeX, NO special symbols
+2. Use words: "squared" for ², "cubed" for ³, "divided by" for ÷, "times" for ×
+3. Write fractions as "numerator/denominator" or "numerator over denominator"
+4. Example: "x squared plus y squared equals r squared" instead of "x² + y² = r²"
+5. Include step-by-step solutions in explanations
+6. For numerical problems, show the calculation method clearly
+` : `
+IMPORTANT: Write clearly and concisely for 100-level university students.
+`}
 
-Example: Instead of "x² + y² = r²", write "x squared plus y squared equals r squared".
-
-Return ONLY a JSON object:
+Return ONLY a valid JSON object with NO additional text, markdown, or code blocks:
 {
-  "summary": "2-3 paragraph summary in plain text",
+  "summary": "2-3 paragraph summary explaining key concepts${isCalculationSubject ? ' and formulas' : ''}",
   "keyPoints": ["point1", "point2", "point3", "point4", "point5"],
   "questions": [
-    {"q": "question in plain text", "options": ["option A", "option B", "option C", "option D"], "answer": 0, "explanation": "explanation"}
+    {"q": "question text", "options": ["option A", "option B", "option C", "option D"], "answer": 0, "explanation": "step-by-step explanation${isCalculationSubject ? ' showing calculation' : ''}"}
   ],
   "flashcards": [
     {"front": "term or question", "back": "answer or definition"}
@@ -267,7 +281,7 @@ Return ONLY a JSON object:
 }
 
 Generate exactly:
-- 1 summary (2-3 paragraphs, plain text)
+- 1 summary (2-3 paragraphs)
 - 5 key points
 - ${questionCount} multiple choice questions with 4 options each
 - 5 flashcards
@@ -278,7 +292,36 @@ All text must be plain English. No special characters or symbols.`;
       setLoading(true);
       setSaveSuccess(false);
       const raw = await callAI(prompt, aiConfig);
+      
+      if (!raw || raw.trim().length < 10) {
+        throw new Error("AI returned an empty response. Please try again.");
+      }
+      
       const data = extractJSONShared(raw, "object");
+      
+      if (!data || typeof data !== 'object') {
+        throw new Error("Failed to parse AI response. Please try again with a different topic.");
+      }
+      
+      // Validate and set defaults for missing fields
+      data.summary = data.summary || "";
+      data.keyPoints = Array.isArray(data.keyPoints) ? data.keyPoints : [];
+      data.questions = Array.isArray(data.questions) ? data.questions : [];
+      data.flashcards = Array.isArray(data.flashcards) ? data.flashcards : [];
+      
+      // Validate each question
+      data.questions = data.questions.filter((q, i) => {
+        if (!q.q || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.answer !== 'number') {
+          console.warn(`Invalid question at index ${i}, skipping`);
+          return false;
+        }
+        return true;
+      });
+      
+      if (data.questions.length === 0) {
+        setError("Warning: No valid questions were generated. Try with a different topic or fewer questions.");
+      }
+      
       data.topic = topic;
       setMaterials(data);
       setQuizMode(false);
@@ -286,7 +329,23 @@ All text must be plain English. No special characters or symbols.`;
       resetQuiz();
       if (onMaterialsGenerated) onMaterialsGenerated(data);
     } catch (e) {
-      setError(`Could not generate materials: ${e.message}`);
+      console.error("Material generation error:", e);
+      
+      let errorMessage = "Could not generate materials.";
+      
+      if (e.message?.includes("JSON") || e.message?.includes("parse")) {
+        errorMessage = "Failed to parse AI response. The topic may be too complex. Try being more specific.";
+      } else if (e.message?.includes("timeout") || e.message?.includes("ETIMEDOUT")) {
+        errorMessage = "Request timed out. Please try with fewer questions or a simpler topic.";
+      } else if (e.message?.includes("rate limit") || e.message?.includes("429")) {
+        errorMessage = "Too many requests. Please wait a moment and try again.";
+      } else if (e.message?.includes("network") || e.message?.includes("fetch")) {
+        errorMessage = "Network error. Please check your internet connection.";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

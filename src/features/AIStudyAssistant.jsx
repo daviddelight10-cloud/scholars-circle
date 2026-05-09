@@ -46,7 +46,7 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
   const [isExtracting, setIsExtracting] = useState(false);
   
   const [difficulty, setDifficulty] = useState("medium");
-  const [questionCount, setQuestionCount] = useState(10);
+  const [questionCount, setQuestionCount] = useState(20);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
@@ -157,25 +157,38 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
     
     const subject = allSubjects.find((s) => s.id === selectedSubjectId);
     
-    // Limit content length to avoid JSON truncation
-    const maxLength = 8000;
+    // Limit content length to 12000 characters
+    const maxLength = 12000;
     const content = extractedText.length > maxLength 
       ? extractedText.slice(0, maxLength) + "\n...[content truncated for processing]"
       : extractedText;
     
-    const prompt = `You are a study assistant. Create study materials from this content for ${subject?.label || "a course"}.
+    // Determine if this is a calculation-heavy subject (math, physics, chemistry)
+    const calculationSubjects = ['mathematics', 'math', 'physics', 'chemistry', 'further maths', 'further mathematics', 'statistics', 'accounting', 'economics'];
+    const isCalculationSubject = calculationSubjects.some(s => 
+      (subject?.label || '').toLowerCase().includes(s)
+    );
+    
+    const actualQuestionCount = Math.min(questionCount, 100);
+    
+    const prompt = `You are an expert study assistant. Create comprehensive study materials from this content for ${subject?.label || "a course"}.
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no extra text.
+IMPORTANT INSTRUCTIONS:
+1. Return ONLY valid JSON. No markdown, no code blocks, no extra text before or after.
+2. Generate exactly ${actualQuestionCount} MCQ questions.
+3. ${isCalculationSubject ? `This is a calculation-based subject. Include questions with formulas, numerical problems, and step-by-step solutions in explanations.` : 'Focus on conceptual understanding and application.'}
+4. Each question must have exactly 4 options and the correct answer index (0-3).
+5. Make questions challenging but fair for 100-level university students.
 
 Content:
 """
 ${content}
 """
 
-Return this exact JSON structure:
-{"summary":["point1","point2","point3","point4","point5"],"key_concepts":[{"concept":"name","explanation":"brief explanation","importance":"high"}],"mcq_questions":[{"question":"text","options":["A","B","C","D"],"answer":0,"explanation":"why","difficulty":"${difficulty}"}],"flashcards":[{"front":"question","back":"answer","category":"topic"}],"study_tips":["tip1","tip2","tip3"],"exam_prep":["question1","question2","question3"]}
+Return this EXACT JSON structure (no other text):
+{"summary":["point1","point2","point3","point4","point5","point6","point7"],"key_concepts":[{"concept":"name","explanation":"brief explanation","importance":"high"}],"mcq_questions":[{"question":"text","options":["A","B","C","D"],"answer":0,"explanation":"why this answer is correct","difficulty":"${difficulty}"}],"flashcards":[{"front":"question or concept","back":"answer or explanation","category":"topic"}],"study_tips":["tip1","tip2","tip3","tip4","tip5"],"exam_prep":["question1","question2","question3","question4","question5"]}
 
-Generate ${Math.min(questionCount, 5)} MCQ questions and 5 flashcards. Keep all text concise.`;
+Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text concise but informative.`;
 
     try {
       setIsProcessing(true);
@@ -184,8 +197,37 @@ Generate ${Math.min(questionCount, 5)} MCQ questions and 5 flashcards. Keep all 
       const raw = await callAI(prompt, { provider: "openrouter", model: "qwen/qwen-2.5-7b-instruct" });
       console.log("AI response received:", raw?.substring(0, 200));
       
+      if (!raw || raw.trim().length < 10) {
+        throw new Error("AI returned an empty response. Please try again with shorter content.");
+      }
+      
       const parsed = extractJSON(raw);
       console.log("Parsed result keys:", Object.keys(parsed || {}));
+      
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error("Failed to parse AI response. The content may be too long or complex.");
+      }
+      
+      // Validate required fields
+      if (!parsed.mcq_questions || !Array.isArray(parsed.mcq_questions)) {
+        console.warn("No MCQ questions generated, creating empty array");
+        parsed.mcq_questions = [];
+      }
+      
+      if (parsed.mcq_questions.length === 0) {
+        setError("Warning: No MCQ questions were generated. Try with different content or fewer questions.");
+      }
+      
+      // Validate each MCQ question
+      parsed.mcq_questions = parsed.mcq_questions.filter((q, i) => {
+        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.answer !== 'number') {
+          console.warn(`Invalid MCQ question at index ${i}, skipping`);
+          return false;
+        }
+        return true;
+      });
+      
+      console.log(`Successfully parsed ${parsed.mcq_questions.length} valid MCQ questions`);
       
       setResult(parsed);
       setActiveTab("results");
@@ -201,7 +243,23 @@ Generate ${Math.min(questionCount, 5)} MCQ questions and 5 flashcards. Keep all 
       }
     } catch (e) {
       console.error("AI processing error:", e);
-      setError(`${e.message}. Try reducing the document length or question count.`);
+      
+      // Provide user-friendly error messages
+      let errorMessage = "An error occurred while processing your content.";
+      
+      if (e.message?.includes("JSON") || e.message?.includes("parse")) {
+        errorMessage = "Failed to parse AI response. The content may be too long or complex. Try reducing the question count to 20-30.";
+      } else if (e.message?.includes("timeout") || e.message?.includes("ETIMEDOUT")) {
+        errorMessage = "Request timed out. Please try with fewer questions (20-30) or shorter content.";
+      } else if (e.message?.includes("rate limit") || e.message?.includes("429")) {
+        errorMessage = "Too many requests. Please wait a moment and try again.";
+      } else if (e.message?.includes("network") || e.message?.includes("fetch")) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -801,16 +859,22 @@ Generate ${Math.min(questionCount, 5)} MCQ questions and 5 flashcards. Keep all 
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>Questions</label>
+                <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>Questions (up to 100)</label>
                 <select
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
                   style={{ minWidth: 120 }}
                 >
-                  <option value={5}>5 questions</option>
                   <option value={10}>10 questions</option>
-                  <option value={15}>15 questions</option>
                   <option value={20}>20 questions</option>
+                  <option value={30}>30 questions</option>
+                  <option value={40}>40 questions</option>
+                  <option value={50}>50 questions</option>
+                  <option value={60}>60 questions</option>
+                  <option value={70}>70 questions</option>
+                  <option value={80}>80 questions</option>
+                  <option value={90}>90 questions</option>
+                  <option value={100}>100 questions</option>
                 </select>
               </div>
             </div>

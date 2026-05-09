@@ -2106,6 +2106,20 @@ function App() {
 
     demoLocked,
 
+    themePack,
+
+    density,
+
+    outlineProgress,
+
+    customFlashcards,
+
+    aiChatHistory,
+
+    reminders,
+
+    notificationPermission,
+
   ]);
 
 
