@@ -9176,7 +9176,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
           placeholder="Ask a question..."
           onKeyPress={(e) => e.key === "Enter" && sendMessage()}
         />
-        <button onClick={sendMessage} disabled={loading || !message.trim()} style={{ borderColor: "#818cf8", color: "#818cf8" }}>
+        <button onClick={() => sendMessage()} disabled={loading || !message.trim()} style={{ borderColor: "#818cf8", color: "#818cf8" }}>
           Send
         </button>
       </div>

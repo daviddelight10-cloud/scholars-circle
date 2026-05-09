@@ -108,20 +108,53 @@ export function LectureToNotes({ subjects, aiConfig, onImportQuestions, demoMode
     }
     const subject = subjects.find((s) => s.id === subjectId);
     
-    // Limit content length to avoid JSON truncation
-    const maxLength = 8000;
-    const content = transcript.length > maxLength 
-      ? transcript.slice(0, maxLength) + "\n...[content truncated for processing]"
-      : transcript;
+    // For longer content, process in chunks and combine results
+    const CHUNK_SIZE = 6000; // Characters per chunk
+    const MAX_CHUNKS = 4; // Process up to 4 chunks for very long content
     
-    const prompt = `You are a study assistant. Create notes from this lecture for ${subject?.label || "a course"}.
+    try {
+      setLoading(true);
+      
+      let allSummaries = [];
+      let allKeyTerms = [];
+      let allExamQuestions = [];
+      let allFlashcards = [];
+      
+      // Split content into chunks
+      const chunks = [];
+      if (transcript.length <= CHUNK_SIZE) {
+        chunks.push(transcript);
+      } else {
+        // Split by paragraphs or sentences for better chunking
+        const paragraphs = transcript.split(/\n\n+|\.\s+/);
+        let currentChunk = "";
+        for (const para of paragraphs) {
+          if (currentChunk.length + para.length > CHUNK_SIZE && currentChunk.length > 0) {
+            chunks.push(currentChunk);
+            currentChunk = para;
+            if (chunks.length >= MAX_CHUNKS) break;
+          } else {
+            currentChunk += (currentChunk ? ". " : "") + para;
+          }
+        }
+        if (currentChunk && chunks.length < MAX_CHUNKS) {
+          chunks.push(currentChunk);
+        }
+      }
+      
+      // Process each chunk
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkNum = i + 1;
+        const isMultiChunk = chunks.length > 1;
+        
+        const prompt = `You are a study assistant. Create notes from this ${isMultiChunk ? `section ${chunkNum} of ${chunks.length} of` : ""} lecture for ${subject?.label || "a course"}.
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no code blocks, no extra text.
 
 Lecture title: "${title || "Untitled"}"
 Content:
 """
-${content}
+${chunks[i]}
 """
 
 Return this exact JSON structure:
@@ -129,11 +162,30 @@ Return this exact JSON structure:
 
 Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`;
 
-    try {
-      setLoading(true);
-      const raw = await callAI(prompt, { provider: aiConfig?.provider || "openrouter", model: aiConfig?.model || "qwen/qwen-2.5-7b-instruct", apiKey: aiConfig?.apiKey });
-      const parsed = extractJSON(raw);
-      setResult(parsed);
+        const raw = await callAI(prompt, { provider: aiConfig?.provider || "openrouter", model: aiConfig?.model || "qwen/qwen-2.5-7b-instruct", apiKey: aiConfig?.apiKey });
+        const parsed = extractJSON(raw);
+        
+        // Combine results
+        if (parsed.summary) allSummaries.push(...parsed.summary);
+        if (parsed.key_terms) allKeyTerms.push(...parsed.key_terms);
+        if (parsed.exam_questions) allExamQuestions.push(...parsed.exam_questions);
+        if (parsed.flashcards) allFlashcards.push(...parsed.flashcards);
+      }
+      
+      // Deduplicate and limit results
+      const uniqueSummaries = [...new Set(allSummaries)].slice(0, 15);
+      const uniqueKeyTerms = allKeyTerms.filter((term, index, self) => 
+        index === self.findIndex(t => t.term?.toLowerCase() === term.term?.toLowerCase())
+      ).slice(0, 15);
+      const uniqueExamQuestions = [...new Set(allExamQuestions)].slice(0, 10);
+      const uniqueFlashcards = allFlashcards.slice(0, 10);
+      
+      setResult({
+        summary: uniqueSummaries,
+        key_terms: uniqueKeyTerms,
+        exam_questions: uniqueExamQuestions,
+        flashcards: uniqueFlashcards
+      });
       
       // Track demo usage
       if (demoMode && setDemoUsage) {
