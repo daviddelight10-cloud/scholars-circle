@@ -150,7 +150,7 @@ async function checkAndSendReminders() {
       }
       
       // Update cache
-      await cache.put('/pending-reminders', new JSON.stringify(reminders));
+      await cache.put('/pending-reminders', new Response(JSON.stringify(reminders)));
     }
   } catch (err) {
     console.error('Error checking reminders:', err);
