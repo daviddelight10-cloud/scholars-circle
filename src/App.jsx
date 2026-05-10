@@ -2872,17 +2872,38 @@ function App() {
 
     const permission = await Notification.requestPermission();
     setNotificationPermission(permission);
+    
+    // Store preference
+    if (permission === 'granted') {
+      localStorage.setItem('scholars-circle-notifications', 'enabled');
+    }
+    
     return permission === 'granted';
   }
 
   function sendNotification(title, body, options = {}) {
     if (Notification.permission === 'granted') {
-      new Notification(title, {
+      const notification = new Notification(title, {
         body,
         icon: '/icon-192.png',
         badge: '/icon-96.png',
+        vibrate: [200, 100, 200],
+        requireInteraction: options.requireInteraction || false,
+        tag: options.tag || 'default',
+        data: options.data || {},
         ...options
       });
+      
+      // Handle notification click
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+        if (options.data?.tab) {
+          setTab(options.data.tab);
+        }
+      };
+      
+      return notification;
     }
   }
 
@@ -2896,6 +2917,174 @@ function App() {
   useEffect(() => {
     updateProgressWidget();
   }, [stats?.xp]);
+  
+  // ============ COMPREHENSIVE NOTIFICATION SYSTEM ============
+  
+  // Notification settings state
+  const [notificationSettings, setNotificationSettings] = useState(() => {
+    const saved = localStorage.getItem('scholars-circle-notification-settings');
+    return saved ? JSON.parse(saved) : {
+      dailyReminder: true,
+      dailyReminderTime: '18:00', // 6 PM default
+      streakWarning: true,
+      inactivityReminder: true,
+      inactivityDays: 2,
+      spacedReviewReminder: true,
+      leaderboardAlerts: true,
+      weeklyProgress: true,
+      motivationalQuotes: false
+    };
+  });
+  
+  // Save notification settings
+  useEffect(() => {
+    localStorage.setItem('scholars-circle-notification-settings', JSON.stringify(notificationSettings));
+  }, [notificationSettings]);
+  
+  // Schedule all notifications
+  useEffect(() => {
+    if (!booted || notificationPermission !== 'granted') return;
+    
+    const timeouts = [];
+    const now = new Date();
+    
+    // 1. DAILY STUDY REMINDER
+    if (notificationSettings.dailyReminder) {
+      const today = now.toDateString();
+      const studiedToday = lastStudied === today;
+      
+      if (!studiedToday) {
+        const [hours, minutes] = notificationSettings.dailyReminderTime.split(':').map(Number);
+        const reminderTime = new Date();
+        reminderTime.setHours(hours, minutes, 0, 0);
+        
+        // If time has passed today, schedule for tomorrow
+        if (now >= reminderTime) {
+          reminderTime.setDate(reminderTime.getDate() + 1);
+        }
+        
+        const timeoutMs = reminderTime.getTime() - now.getTime();
+        
+        if (timeoutMs > 0 && timeoutMs < 24 * 60 * 60 * 1000) { // Within 24 hours
+          const timeout = setTimeout(() => {
+            const messages = [
+              { title: "📚 Time to Study!", body: "Your daily study session awaits. Keep your streak going!" },
+              { title: "🎯 Ready to Learn?", body: "Take 10 minutes to review and maintain your progress!" },
+              { title: "💪 Don't Break the Chain!", body: "A quick study session now keeps your streak alive!" },
+              { title: "🧠 Knowledge Awaits!", body: "Your brain is ready for some exercise. Let's study!" }
+            ];
+            const msg = messages[Math.floor(Math.random() * messages.length)];
+            sendNotification(msg.title, msg.body, { 
+              tag: 'daily-reminder',
+              data: { tab: 'practice' }
+            });
+          }, timeoutMs);
+          timeouts.push(timeout);
+        }
+      }
+    }
+    
+    // 2. STREAK WARNING (if streak > 2 and about to lose it)
+    if (notificationSettings.streakWarning && stats.streak >= 2 && lastStudied) {
+      const lastStudiedDate = new Date(lastStudied);
+      const hoursSinceStudied = (now - lastStudiedDate) / (1000 * 60 * 60);
+      
+      // Warn if 20+ hours since last study (streak will break in ~4 hours)
+      if (hoursSinceStudied >= 20 && hoursSinceStudied < 24) {
+        const hoursLeft = Math.ceil(24 - hoursSinceStudied);
+        timeouts.push(setTimeout(() => {
+          sendNotification(
+            "⚠️ Streak in Danger!",
+            `Your ${stats.streak}-day streak will break in ${hoursLeft} hours! Study now to save it.`,
+            { tag: 'streak-warning', requireInteraction: true, data: { tab: 'practice' } }
+          );
+        }, 0));
+      }
+    }
+    
+    // 3. INACTIVITY REMINDER (if not studied for X days)
+    if (notificationSettings.inactivityReminder && lastStudied) {
+      const lastStudiedDate = new Date(lastStudied);
+      const daysSinceStudied = Math.floor((now - lastStudiedDate) / (1000 * 60 * 60 * 24));
+      
+      if (daysSinceStudied >= notificationSettings.inactivityDays) {
+        timeouts.push(setTimeout(() => {
+          const messages = [
+            { title: "👋 We Miss You!", body: `It's been ${daysSinceStudied} days since your last study session. Time to get back on track!` },
+            { title: "📚 Your Books Are Gathering Dust!", body: "Your knowledge needs refreshing. Come back for a quick review!" },
+            { title: "🌟 Don't Give Up!", body: "Every expert was once a beginner. Keep going with your studies!" }
+          ];
+          const msg = messages[Math.floor(Math.random() * messages.length)];
+          sendNotification(msg.title, msg.body, { tag: 'inactivity', data: { tab: 'home' } });
+        }, 0));
+      }
+    }
+    
+    // 4. SPACED REVIEW REMINDER (if cards are due)
+    if (notificationSettings.spacedReviewReminder && dueCards.length > 0) {
+      // Remind 30 minutes after app load if user hasn't done spaced review
+      timeouts.push(setTimeout(() => {
+        sendNotification(
+          "🔄 Spaced Review Due",
+          `You have ${dueCards.length} cards waiting for review. Spaced repetition helps you remember 90% better!`,
+          { tag: 'spaced-review', data: { tab: 'spaced' } }
+        );
+      }, 30 * 60 * 1000));
+    }
+    
+    // 5. WEEKLY PROGRESS SUMMARY (Sunday evenings)
+    if (notificationSettings.weeklyProgress) {
+      const dayOfWeek = now.getDay(); // 0 = Sunday
+      const hours = now.getHours();
+      
+      if (dayOfWeek === 0 && hours >= 18 && hours < 19) { // Sunday 6-7 PM
+        timeouts.push(setTimeout(() => {
+          const weekXP = Object.entries(studyHeatmap)
+            .filter(([date]) => {
+              const d = new Date(date);
+              const weekAgo = new Date(now);
+              weekAgo.setDate(weekAgo.getDate() - 7);
+              return d >= weekAgo;
+            })
+            .reduce((sum, [, count]) => sum + count, 0);
+          
+          sendNotification(
+            "📊 Weekly Progress",
+            `This week: ${weekXP} XP earned, ${stats.sessions} sessions completed, ${stats.streak}-day streak! Keep it up!`,
+            { tag: 'weekly-progress', data: { tab: 'stats' } }
+          );
+        }, 0));
+      }
+    }
+    
+    // 6. MOTIVATIONAL QUOTES (if enabled, once daily)
+    if (notificationSettings.motivationalQuotes) {
+      const quoteTime = new Date();
+      quoteTime.setHours(8, 0, 0, 0); // 8 AM
+      
+      if (now < quoteTime) {
+        const timeoutMs = quoteTime.getTime() - now.getTime();
+        timeouts.push(setTimeout(() => {
+          const quotes = [
+            { quote: "The expert in anything was once a beginner.", author: "Helen Hayes" },
+            { quote: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
+            { quote: "The beautiful thing about learning is that no one can take it away from you.", author: "B.B. King" },
+            { quote: "Education is not preparation for life; education is life itself.", author: "John Dewey" },
+            { quote: "The more that you read, the more things you will know.", author: "Dr. Seuss" },
+            { quote: "Learning never exhausts the mind.", author: "Leonardo da Vinci" }
+          ];
+          const q = quotes[Math.floor(Math.random() * quotes.length)];
+          sendNotification(
+            "💡 Daily Inspiration",
+            `"${q.quote}" — ${q.author}`,
+            { tag: 'motivational-quote' }
+          );
+        }, timeoutMs));
+      }
+    }
+    
+    return () => timeouts.forEach(clearTimeout);
+  }, [booted, notificationPermission, lastStudied, stats.streak, stats.sessions, dueCards.length, notificationSettings, studyHeatmap]);
 
   const allQuestions = useMemo(
 
@@ -2926,68 +3115,6 @@ function App() {
 
 
   const dueCards = allQuestions.filter((q) => (srData[q.key]?.due || 0) <= Date.now() && srData[q.key]);
-
-  // Automatic practice reminders (must be after dueCards definition)
-  useEffect(() => {
-    if (!booted || notificationPermission !== 'granted') return;
-
-    // Schedule daily study reminder (if not studied today)
-    const now = new Date();
-    const today = now.toDateString();
-    const studiedToday = lastStudied === today;
-
-    if (!studiedToday) {
-      // Schedule reminder for 6 PM if not studied by then
-      const reminderTime = new Date(today);
-      reminderTime.setHours(18, 0, 0, 0);
-
-      if (now < reminderTime) {
-        const timeoutMs = reminderTime.getTime() - now.getTime();
-        const timeout = setTimeout(() => {
-          sendNotification(
-            "📚 Time to Study!",
-            "You haven't studied today. Take 10 minutes to maintain your streak!",
-            { tag: 'daily-reminder', requireInteraction: false }
-          );
-        }, timeoutMs);
-        return () => clearTimeout(timeout);
-      }
-    }
-
-    // Spaced review reminder (if due cards exist)
-    if (dueCards.length > 0) {
-      const reminderDelay = 30 * 60 * 1000; // 30 minutes after app load
-      const timeout = setTimeout(() => {
-        sendNotification(
-          "🔄 Spaced Review Due",
-          `You have ${dueCards.length} cards ready for review. Keep your knowledge fresh!`,
-          { tag: 'spaced-review', requireInteraction: false }
-        );
-      }, reminderDelay);
-      return () => clearTimeout(timeout);
-    }
-
-    // Streak danger warning (if streak will be lost tomorrow)
-    if (stats.streak > 0 && lastStudied) {
-      const lastStudiedDate = new Date(lastStudied);
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(20, 0, 0, 0);
-
-      const daysSinceStudied = Math.floor((now - lastStudiedDate) / (1000 * 60 * 60 * 24));
-      if (daysSinceStudied === 1) {
-        const timeoutMs = tomorrow.getTime() - now.getTime();
-        const timeout = setTimeout(() => {
-          sendNotification(
-            "⚠️ Streak in Danger!",
-            `Your ${stats.streak}-day streak ends tonight. Study now to keep it alive!`,
-            { tag: 'streak-warning', requireInteraction: true }
-          );
-        }, timeoutMs);
-        return () => clearTimeout(timeout);
-      }
-    }
-  }, [booted, notificationPermission, lastStudied, dueCards.length, stats.streak]);
 
   async function startSubjectPractice(subjectId, mode = "practice", questionCount = null, customMinutes = null) {
 
@@ -5985,6 +6112,133 @@ function App() {
             </p>
           </div>
 
+          <h3>🔔 Notifications</h3>
+          
+          <div style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            {notificationPermission !== 'granted' ? (
+              <div>
+                <p style={{ margin: "0 0 12px 0" }}>Enable notifications to get study reminders and stay on track!</p>
+                <button 
+                  onClick={requestNotificationPermission}
+                  style={{ background: "#fbbf24", color: "#000", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                >
+                  Enable Notifications
+                </button>
+              </div>
+            ) : (
+              <div>
+                <p style={{ margin: "0 0 12px 0", color: "#34d399", fontWeight: 600 }}>✅ Notifications enabled</p>
+                
+                <div style={{ display: "grid", gap: 12 }}>
+                  {/* Daily Reminder */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>📚 Daily Reminder</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Get reminded to study daily</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input 
+                        type="time" 
+                        value={notificationSettings.dailyReminderTime}
+                        onChange={(e) => setNotificationSettings(s => ({ ...s, dailyReminderTime: e.target.value }))}
+                        style={{ width: 90, padding: "4px 8px", fontSize: 13 }}
+                      />
+                      <input 
+                        type="checkbox" 
+                        checked={notificationSettings.dailyReminder}
+                        onChange={(e) => setNotificationSettings(s => ({ ...s, dailyReminder: e.target.checked }))}
+                        style={{ width: 18, height: 18 }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Streak Warning */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>🔥 Streak Warning</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Alert when streak is about to break</div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={notificationSettings.streakWarning}
+                      onChange={(e) => setNotificationSettings(s => ({ ...s, streakWarning: e.target.checked }))}
+                      style={{ width: 18, height: 18 }}
+                    />
+                  </div>
+                  
+                  {/* Inactivity Reminder */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>👋 Inactivity Reminder</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Nudge when you haven't studied</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <select 
+                        value={notificationSettings.inactivityDays}
+                        onChange={(e) => setNotificationSettings(s => ({ ...s, inactivityDays: Number(e.target.value) }))}
+                        style={{ padding: "4px 8px", fontSize: 13 }}
+                      >
+                        <option value={1}>1 day</option>
+                        <option value={2}>2 days</option>
+                        <option value={3}>3 days</option>
+                        <option value={5}>5 days</option>
+                        <option value={7}>1 week</option>
+                      </select>
+                      <input 
+                        type="checkbox" 
+                        checked={notificationSettings.inactivityReminder}
+                        onChange={(e) => setNotificationSettings(s => ({ ...s, inactivityReminder: e.target.checked }))}
+                        style={{ width: 18, height: 18 }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Spaced Review */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>🔄 Spaced Review</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Remind when cards are due</div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={notificationSettings.spacedReviewReminder}
+                      onChange={(e) => setNotificationSettings(s => ({ ...s, spacedReviewReminder: e.target.checked }))}
+                      style={{ width: 18, height: 18 }}
+                    />
+                  </div>
+                  
+                  {/* Weekly Progress */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>📊 Weekly Progress</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Sunday evening summary</div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={notificationSettings.weeklyProgress}
+                      onChange={(e) => setNotificationSettings(s => ({ ...s, weeklyProgress: e.target.checked }))}
+                      style={{ width: 18, height: 18 }}
+                    />
+                  </div>
+                  
+                  {/* Motivational Quotes */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>💡 Daily Inspiration</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Morning motivational quotes</div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={notificationSettings.motivationalQuotes}
+                      onChange={(e) => setNotificationSettings(s => ({ ...s, motivationalQuotes: e.target.checked }))}
+                      style={{ width: 18, height: 18 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div style={{ background: "rgba(148,163,184,0.1)", border: "1px solid rgba(148,163,184,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
             <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>Common Issues</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -6309,23 +6563,26 @@ ${isCorrect
 
   // No auto-save - let user review results until they click Exit
 
+  // Timer effect - only depends on timeLeft and showResult
   useEffect(() => {
-
-    if (timeLeft == null || showResult) return undefined;
-
+    if (timeLeft == null || showResult || finalResult) return undefined;
+    
     if (timeLeft <= 0) {
-
-      setFinalResult({ score, total: session.questions.length, results, mode: session.mode, seconds: session.totalSeconds });
-
+      // Time's up - end session
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
+      setFinalResult({ 
+        score, 
+        total: session.questions.length, 
+        results, 
+        mode: session.mode, 
+        seconds: elapsedSeconds 
+      });
       return undefined;
-
     }
-
+    
     const t = setTimeout(() => setTimeLeft((v) => v - 1), 1000);
-
     return () => clearTimeout(t);
-
-  }, [timeLeft, showResult, score, session, onComplete, results]);
+  }, [timeLeft, showResult, finalResult]); // Removed unnecessary dependencies
 
 
 
