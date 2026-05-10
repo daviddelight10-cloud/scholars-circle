@@ -196,66 +196,129 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
     const finalXP = Math.round((baseXP + totalStreakBonus) * modeMultiplier);
     
     return (
-      <div className="card" style={{ textAlign: "center" }}>
-        <h2>{emoji} Practice Complete!</h2>
-        <p style={{ fontSize: "3rem", margin: "8px 0" }}>{pct}%</p>
-        <p className="muted">{score} / {questions.length} correct &nbsp;·&nbsp; {subject?.label || "Practice"}</p>
-        
-        {/* XP Breakdown */}
-        <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%)", borderRadius: 12, padding: 16, margin: "16px auto", maxWidth: 320, border: "1px solid rgba(251,191,36,0.3)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 24 }}>⚡</span>
-            <span style={{ fontSize: 28, fontWeight: 700, color: "#fbbf24" }}>+{finalXP} XP</span>
+      <div className="card" style={{ 
+        textAlign: "center",
+        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
+        border: "1px solid rgba(99, 102, 241, 0.2)",
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+        borderRadius: 20
+      }}>
+        {/* Hero Section */}
+        <div style={{ 
+          background: pct >= 80 
+            ? "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))"
+            : "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+          padding: "32px 24px",
+          borderRadius: "20px 20px 0 0",
+          borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
+        }}>
+          <div style={{ fontSize: 64, marginBottom: 16, animation: "bounce 1s" }}>{emoji}</div>
+          <h2 style={{ margin: 0, fontSize: 28, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice Complete!</h2>
+          <div style={{ 
+            fontSize: "4rem", 
+            fontWeight: 800, 
+            margin: "16px 0",
+            background: pct >= 80 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #3b82f6)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent"
+          }}>
+            {pct}%
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-            <div>Base: {baseXP} XP ({score} × {XP_PER_CORRECT})</div>
-            {totalStreakBonus > 0 && <div style={{ color: "#fbbf24" }}>🔥 Streak Bonus: +{totalStreakBonus} XP</div>}
-            <div style={{ color: "#60a5fa" }}>🎯 Mode Bonus: +{Math.round(baseXP * (modeMultiplier - 1))} XP ({Math.round((modeMultiplier - 1) * 100)}%)</div>
-          </div>
+          <p style={{ color: "#9ca3af", fontSize: 14 }}>{score} / {questions.length} correct · {subject?.label || "Practice"}</p>
         </div>
         
-        <div className="row" style={{ justifyContent: "center", marginTop: 16, flexWrap: "wrap", gap: 8 }}>
-          <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0", background: "rgba(45, 212, 160, 0.1)" }} onClick={handleSaveAndExit}>✓ Save & Exit</button>
+        {/* XP Breakdown */}
+        <div style={{ padding: 24 }}>
+          <div style={{ 
+            background: "linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.1))", 
+            borderRadius: 16, 
+            padding: 20, 
+            marginBottom: 20,
+            border: "1px solid rgba(251,191,36,0.3)",
+            boxShadow: "0 4px 20px rgba(251, 191, 36, 0.1)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 32 }}>⚡</span>
+              <span style={{ fontSize: 36, fontWeight: 800, color: "#fbbf24" }}>+{finalXP}</span>
+              <span style={{ fontSize: 18, color: "#fbbf24", opacity: 0.8 }}>XP</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                <span>Base XP</span>
+                <span style={{ color: "#e0e7ff" }}>{baseXP} ({score} × {XP_PER_CORRECT})</span>
+              </div>
+              {totalStreakBonus > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#fbbf24" }}>
+                  <span>🔥 Streak Bonus</span>
+                  <span>+{totalStreakBonus} XP</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#60a5fa" }}>
+                <span>🎯 Mode Bonus</span>
+                <span>+{Math.round(baseXP * (modeMultiplier - 1))} XP</span>
+              </div>
+            </div>
+          </div>
+          
+          <button 
+            onClick={handleSaveAndExit}
+            style={{ 
+              background: "linear-gradient(135deg, #22c55e, #16a34a)",
+              border: "none",
+              padding: "16px 32px",
+              borderRadius: 12,
+              color: "white",
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: "pointer",
+              boxShadow: "0 4px 20px rgba(34, 197, 94, 0.4)",
+              width: "100%"
+            }}
+          >
+            ✓ Save & Exit
+          </button>
         </div>
         
         {/* Review all answers */}
-        <div style={{ textAlign: "left", marginTop: 24, maxHeight: 400, overflowY: "auto" }}>
-          <h3 style={{ textAlign: "center", marginBottom: 16 }}>📝 Review All Answers</h3>
+        <div style={{ textAlign: "left", padding: "0 24px 24px", maxHeight: 400, overflowY: "auto" }}>
+          <h3 style={{ textAlign: "center", marginBottom: 16, color: "#e0e7ff" }}>📝 Review All Answers</h3>
           {results.map((r, i) => {
             const q = questions[i];
             if (!q) return null;
             const isCorrect = r.correct;
             
             return (
-              <div key={i} className="lesson-block" style={{ 
-                borderLeft: `3px solid ${isCorrect ? "#2dd4a0" : "#ff6b6b"}`,
+              <div key={i} style={{ 
+                borderLeft: `3px solid ${isCorrect ? "#22c55e" : "#ef4444"}`,
                 marginBottom: 12,
-                background: isCorrect ? "rgba(45, 212, 160, 0.05)" : "rgba(255, 107, 107, 0.05)"
+                background: isCorrect ? "linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.05))" : "linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05))",
+                borderRadius: 12,
+                padding: 16
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <p style={{ margin: 0, fontWeight: 600, flex: 1 }}>Q{i + 1}: {q.q || q.question}</p>
-                  <span style={{ fontSize: 18 }}>{isCorrect ? "✅" : "❌"}</span>
+                  <p style={{ margin: 0, fontWeight: 600, flex: 1, color: "#f1f5f9" }}>Q{i + 1}: {q.q || q.question}</p>
+                  <span style={{ fontSize: 20 }}>{isCorrect ? "✅" : "❌"}</span>
                 </div>
                 
                 {!isCorrect && (
                   <>
-                    <p style={{ margin: "4px 0", color: "#ff6b6b", fontSize: 14 }}>
+                    <p style={{ margin: "4px 0", color: "#f87171", fontSize: 14 }}>
                       Your answer: <strong>{r.selected >= 0 ? q.options?.[r.selected] : "Skipped"}</strong>
                     </p>
-                    <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                    <p style={{ margin: "4px 0", color: "#4ade80", fontSize: 14 }}>
                       Correct: <strong>{q.options?.[q.answer]}</strong>
                     </p>
                   </>
                 )}
                 
                 {isCorrect && (
-                  <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                  <p style={{ margin: "4px 0", color: "#4ade80", fontSize: 14 }}>
                     ✓ <strong>{q.options?.[q.answer]}</strong>
                   </p>
                 )}
                 
                 {q.explanation && (
-                  <p style={{ margin: "8px 0 0", fontSize: 13 }} className="muted">
+                  <p style={{ margin: "8px 0 0", fontSize: 13, color: "#94a3b8" }}>
                     💡 {q.explanation}
                   </p>
                 )}
@@ -278,114 +341,163 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
 
   return (
     <div className="card" style={{ 
-      background: "var(--card-bg, #fff)", 
-      color: "var(--text-primary, #111)"
+      background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
+      border: "1px solid rgba(99, 102, 241, 0.2)",
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+      borderRadius: 20,
+      overflow: "hidden"
     }}>
+      {/* Animated Header */}
       <div style={{ 
-        display: "flex", 
-        justifyContent: "space-between", 
-        alignItems: "center", 
-        marginBottom: 16,
-        flexWrap: "wrap",
-        gap: 8
+        background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+        padding: "20px 24px",
+        borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
       }}>
-        <h3 style={{ color: "var(--text-primary, #111)" }}>Practice Mode with Hints</h3>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ color: "var(--text-secondary, #374151)" }}>
-            Q{currentIndex + 1}/{questions.length}
-          </span>
-          <span style={{ color: "var(--text-secondary, #374151)" }}>
-            Score: {score}/{currentIndex + (showResult ? 1 : 0)}
-          </span>
-          
-          {/* XP Counter */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
-            padding: "6px 14px",
-            borderRadius: 20,
-            fontWeight: 600,
-            fontSize: 14,
-            color: "#fff",
-            boxShadow: "0 2px 8px rgba(251, 191, 36, 0.3)"
-          }}>
-            <span>⚡</span>
-            <span>{currentXP} XP</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 24,
+              boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)"
+            }}>
+              💡
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice with Hints</h3>
+              <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{subject?.label || "Subject"}</p>
+            </div>
           </div>
           
-          {/* Streak Counter */}
-          {currentStreak >= 2 && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            {/* Question Counter */}
+            <div style={{
+              background: "rgba(30, 41, 59, 0.8)",
+              border: "1px solid rgba(99, 102, 241, 0.3)",
+              padding: "8px 16px",
+              borderRadius: 30,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#e0e7ff"
+            }}>
+              Q{currentIndex + 1}<span style={{ color: "#6b7280" }}>/{questions.length}</span>
+            </div>
+            
+            {/* XP Counter */}
             <div style={{
               display: "flex",
               alignItems: "center",
-              gap: 4,
-              background: currentStreak >= 7 ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" 
-                         : currentStreak >= 5 ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
-                         : "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-              padding: "6px 14px",
-              borderRadius: 20,
-              fontWeight: 600,
+              gap: 6,
+              background: "linear-gradient(135deg, #fbbf24, #f59e0b)",
+              padding: "8px 16px",
+              borderRadius: 30,
+              fontWeight: 700,
               fontSize: 14,
               color: "#fff",
-              boxShadow: "0 2px 8px rgba(34, 197, 94, 0.3)"
+              boxShadow: "0 4px 15px rgba(251, 191, 36, 0.4)",
+              animation: "pulse 2s infinite"
             }}>
-              <span>🔥</span>
-              <span>{currentStreak} streak!</span>
-              {streakBonus > 0 && <span style={{ fontSize: 11 }}>+{streakBonus}XP</span>}
+              <span style={{ fontSize: 16 }}>⚡</span>
+              <span>{currentXP}</span>
+              <span style={{ fontSize: 11, opacity: 0.9 }}>XP</span>
             </div>
-          )}
+            
+            {/* Streak Counter */}
+            {currentStreak >= 2 && (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: currentStreak >= 7 ? "linear-gradient(135deg, #f97316, #ea580c)" 
+                           : currentStreak >= 5 ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                           : "linear-gradient(135deg, #22c55e, #16a34a)",
+                padding: "8px 16px",
+                borderRadius: 30,
+                fontWeight: 700,
+                fontSize: 14,
+                color: "#fff",
+                boxShadow: `0 4px 15px ${currentStreak >= 7 ? "rgba(249, 115, 22, 0.4)" : currentStreak >= 5 ? "rgba(239, 68, 68, 0.4)" : "rgba(34, 197, 94, 0.4)"}`,
+                animation: "pulse 1s infinite"
+              }}>
+                <span style={{ fontSize: 16 }}>🔥</span>
+                <span>{currentStreak}</span>
+                {streakBonus > 0 && <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", padding: "2px 6px", borderRadius: 10 }}>+{streakBonus}</span>}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div style={{ 
-        height: 8, 
-        background: "var(--progress-bg, #e5e7eb)", 
-        borderRadius: 4, 
-        marginBottom: 20,
-        overflow: "hidden"
-      }}>
-        <div style={{
-          height: "100%",
-          width: `${((currentIndex + 1) / questions.length) * 100}%`,
-          background: "var(--accent-color, #6366f1)",
-          transition: "width 0.3s"
-        }} />
+      <div style={{ padding: "0 24px", marginTop: 20 }}>
+        <div style={{ 
+          height: 6, 
+          background: "rgba(30, 41, 59, 0.8)", 
+          borderRadius: 10, 
+          overflow: "hidden",
+          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)"
+        }}>
+          <div style={{
+            height: "100%",
+            width: `${((currentIndex + 1) / questions.length) * 100}%`,
+            background: "linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)",
+            borderRadius: 10,
+            transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: "0 0 20px rgba(99, 102, 241, 0.5)"
+          }} />
+        </div>
       </div>
 
       {/* Question */}
-      <div style={{ marginBottom: 20 }}>
-        <p style={{ fontSize: 16, lineHeight: 1.6, marginBottom: 16, color: "var(--text-primary, #111)" }}>
-          {currentQuestion.q || currentQuestion.question}
-        </p>
+      <div style={{ padding: "24px" }}>
+        <div style={{
+          background: "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 20,
+          border: "1px solid rgba(99, 102, 241, 0.15)",
+          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)"
+        }}>
+          <p style={{ 
+            fontSize: 17, 
+            lineHeight: 1.7, 
+            color: "#f1f5f9",
+            margin: 0
+          }}>
+            {currentQuestion.q || currentQuestion.question}
+          </p>
+        </div>
 
         {/* Options */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {(currentQuestion.options || []).map((option, i) => {
             const letter = String.fromCharCode(65 + i);
             const isSelected = selectedAnswer === i;
             const isCorrectOption = i === currentQuestion.answer;
             
-            let backgroundColor = "var(--option-bg, #f3f4f6)";
-            let borderColor = "var(--border-color, #e5e7eb)";
-            let textColor = "var(--text-primary, #111)";
+            let bgGradient = "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))";
+            let borderColor = "rgba(99, 102, 241, 0.2)";
+            let glowColor = "transparent";
             
             if (showResult) {
               if (isCorrectOption) {
-                backgroundColor = "var(--correct-bg, #dcfce7)";
-                borderColor = "var(--correct-border, #16a34a)";
-                textColor = "var(--correct-text, #166534)";
+                bgGradient = "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))";
+                borderColor = "rgba(34, 197, 94, 0.5)";
+                glowColor = "rgba(34, 197, 94, 0.3)";
               } else if (isSelected && !isCorrectOption) {
-                backgroundColor = "var(--wrong-bg, #fee2e2)";
-                borderColor = "var(--wrong-border, #dc2626)";
-                textColor = "var(--wrong-text, #991b1b)";
+                bgGradient = "linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))";
+                borderColor = "rgba(239, 68, 68, 0.5)";
+                glowColor = "rgba(239, 68, 68, 0.3)";
               }
             } else if (isSelected) {
-              backgroundColor = "var(--selected-bg, #e0e7ff)";
-              borderColor = "var(--selected-border, #6366f1)";
-              textColor = "var(--selected-text, #3730a3)";
+              bgGradient = "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.1))";
+              borderColor = "rgba(99, 102, 241, 0.5)";
+              glowColor = "rgba(99, 102, 241, 0.3)";
             }
 
             return (
@@ -394,30 +506,51 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                 onClick={() => !showResult && handleAnswer(i)}
                 disabled={showResult}
                 style={{
-                  padding: 12,
-                  background: backgroundColor,
+                  padding: "16px 20px",
+                  background: bgGradient,
                   border: `2px solid ${borderColor}`,
-                  borderRadius: 8,
-                  color: textColor,
+                  borderRadius: 14,
+                  color: "#f1f5f9",
                   textAlign: "left",
                   cursor: showResult ? "default" : "pointer",
-                  fontSize: 14,
-                  transition: "all 0.2s"
+                  fontSize: 15,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: `0 4px 15px ${glowColor}, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                  transform: isSelected && !showResult ? "scale(1.02)" : "scale(1)"
                 }}
               >
-                <span style={{ fontWeight: 600, marginRight: 8 }}>{letter})</span>
-                {option}
-                {isSelected && (
-                  <span style={{ marginLeft: 8, fontWeight: 700, color: showResult ? (isCorrectOption ? "#16a34a" : "#dc2626") : "#6366f1" }}>
-                    ✓
-                  </span>
-                )}
-                {showResult && isCorrectOption && !isSelected && (
-                  <span style={{ float: "right", color: "#16a34a", fontWeight: 600 }}>✓ Correct</span>
-                )}
-                {showResult && isSelected && !isCorrectOption && (
-                  <span style={{ float: "right", color: "#dc2626", fontWeight: 600 }}>✗ Wrong</span>
-                )}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ 
+                      width: 32, 
+                      height: 32, 
+                      borderRadius: 10,
+                      background: showResult && isCorrectOption ? "linear-gradient(135deg, #22c55e, #16a34a)" 
+                                : showResult && isSelected && !isCorrectOption ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                                : isSelected ? "linear-gradient(135deg, #6366f1, #8b5cf6)" 
+                                : "rgba(99, 102, 241, 0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      color: isSelected || (showResult && isCorrectOption) ? "#fff" : "#a5b4fc"
+                    }}>
+                      {showResult && isCorrectOption ? "✓" : showResult && isSelected && !isCorrectOption ? "✗" : letter}
+                    </span>
+                    <span>{option}</span>
+                  </div>
+                  {showResult && isCorrectOption && (
+                    <span style={{ 
+                      background: "linear-gradient(135deg, #22c55e, #16a34a)", 
+                      padding: "4px 12px", 
+                      borderRadius: 20, 
+                      fontSize: 12, 
+                      fontWeight: 600,
+                      color: "#fff"
+                    }}>Correct</span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -425,88 +558,117 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       </div>
 
       {/* Hints Section */}
-      <div style={{ 
-        background: "var(--hint-bg, #eff6ff)", 
-        borderRadius: 8, 
-        padding: 16, 
-        marginBottom: 16,
-        border: "1px solid var(--hint-border, #3b82f6)"
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontWeight: 600, color: "var(--hint-title, #1d4ed8)" }}>
-            💡 Hints ({hintLevel}/4)
-          </span>
-          {hintLevel < 4 && (
-            <button
-              onClick={requestHint}
-              style={{
-                background: "var(--accent-color, #3b82f6)",
-                color: "white",
-                border: "none",
-                padding: "8px 16px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600
-              }}
-            >
-              Get Hint
-            </button>
+      <div style={{ padding: "0 24px 24px" }}>
+        <div style={{ 
+          background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))",
+          borderRadius: 16, 
+          padding: 20,
+          border: "1px solid rgba(59, 130, 246, 0.2)",
+          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1)"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>💡</span>
+              <span style={{ fontWeight: 600, color: "#60a5fa", fontSize: 15 }}>Progressive Hints</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {[1, 2, 3, 4].map((level) => (
+                <div key={level} style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: level <= hintLevel ? "linear-gradient(135deg, #3b82f6, #2563eb)" : "rgba(59, 130, 246, 0.2)",
+                  boxShadow: level <= hintLevel ? "0 0 10px rgba(59, 130, 246, 0.5)" : "none",
+                  transition: "all 0.3s"
+                }} />
+              ))}
+              {hintLevel < 4 && !showResult && (
+                <button
+                  onClick={requestHint}
+                  style={{
+                    background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                    color: "white",
+                    border: "none",
+                    padding: "10px 20px",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    marginLeft: 8,
+                    boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)"
+                  }}
+                >
+                  Get Hint
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {currentHints.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {currentHints.map((hint, i) => (
+                <div key={i} style={{ 
+                  padding: 14, 
+                  background: "rgba(30, 41, 59, 0.6)", 
+                  borderRadius: 12,
+                  fontSize: 14,
+                  color: "#93c5fd",
+                  borderLeft: "3px solid",
+                  borderImage: `linear-gradient(180deg, #3b82f6, #60a5fa) 1`,
+                  animation: `fadeIn 0.3s ease-out ${i * 0.1}s both`
+                }}>
+                  {hint}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: 14, color: "#6b7280", margin: 0 }}>
+              Stuck? Click "Get Hint" to reveal progressive hints that guide you to the answer.
+            </p>
           )}
         </div>
-        
-        {currentHints.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {currentHints.map((hint, i) => (
-              <div key={i} style={{ 
-                padding: 10, 
-                background: "var(--hint-item-bg, rgba(59, 130, 246, 0.1))", 
-                borderRadius: 6,
-                fontSize: 14,
-                color: "var(--hint-text, #1e40af)",
-                borderLeft: "3px solid var(--accent-color, #3b82f6)"
-              }}>
-                {hint}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ fontSize: 13, color: "var(--text-muted, #6b7280)" }}>
-            Click "Get Hint" to reveal progressive hints.
-          </p>
-        )}
       </div>
 
       {/* Explanation (shown after answer) */}
       {showResult && currentQuestion.explanation && (
-        <div style={{ 
-          background: "#000000", 
-          borderRadius: 8, 
-          padding: 16, 
-          marginBottom: 16,
-          border: `2px solid ${isCorrect ? "#10b981" : "#ef4444"}`
-        }}>
-          <p style={{ fontWeight: 600, marginBottom: 4, color: isCorrect ? "#10b981" : "#ef4444" }}>
-            {isCorrect ? "✅ Correct!" : "❌ Incorrect"}
-          </p>
-          <p style={{ fontSize: 13, color: "white", lineHeight: 1.5 }}>
-            {currentQuestion.explanation}
-          </p>
+        <div style={{ padding: "0 24px 24px" }}>
+          <div style={{ 
+            background: isCorrect 
+              ? "linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.05))" 
+              : "linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.05))",
+            borderRadius: 16, 
+            padding: 20,
+            border: `2px solid ${isCorrect ? "rgba(34, 197, 94, 0.4)" : "rgba(239, 68, 68, 0.4)"}`,
+            boxShadow: `0 4px 20px ${isCorrect ? "rgba(34, 197, 94, 0.2)" : "rgba(239, 68, 68, 0.2)"}`
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 24 }}>{isCorrect ? "✅" : "❌"}</span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: isCorrect ? "#4ade80" : "#f87171" }}>
+                {isCorrect ? "Correct!" : "Incorrect"}
+              </span>
+            </div>
+            <p style={{ fontSize: 14, color: "#cbd5e1", lineHeight: 1.6, margin: 0 }}>
+              {currentQuestion.explanation}
+            </p>
+          </div>
         </div>
       )}
 
       {/* Action Buttons */}
-      <div className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
+      <div style={{ padding: "0 24px 24px", display: "flex", gap: 12, justifyContent: "flex-end" }}>
         {!showResult && (
           <button
             onClick={skipQuestion}
             style={{
-              background: "var(--skip-bg, #6b7280)",
-              color: "white",
-              border: "none",
-              padding: "10px 20px",
-              borderRadius: 6,
-              cursor: "pointer"
+              background: "rgba(107, 114, 128, 0.2)",
+              color: "#9ca3af",
+              border: "1px solid rgba(107, 114, 128, 0.3)",
+              padding: "12px 24px",
+              borderRadius: 12,
+              cursor: "pointer",
+              fontSize: 14,
+              fontWeight: 600,
+              transition: "all 0.2s"
             }}
           >
             Skip
@@ -517,15 +679,19 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
           <button
             onClick={handleNext}
             style={{
-              background: "var(--accent-color, #6366f1)",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
               color: "white",
               border: "none",
-              padding: "10px 20px",
-              borderRadius: 6,
-              cursor: "pointer"
+              padding: "14px 28px",
+              borderRadius: 12,
+              cursor: "pointer",
+              fontSize: 15,
+              fontWeight: 600,
+              boxShadow: "0 4px 20px rgba(99, 102, 241, 0.4)",
+              transition: "all 0.2s"
             }}
           >
-            {currentIndex < questions.length - 1 ? "Next Question" : "Finish Practice"}
+            {currentIndex < questions.length - 1 ? "Next Question →" : "Finish Practice 🎉"}
           </button>
         )}
       </div>

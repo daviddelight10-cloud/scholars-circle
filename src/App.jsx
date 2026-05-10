@@ -1240,6 +1240,9 @@ function App() {
     apiKey: "",
   });
 
+  // Global announcement popup (shows on login for students)
+  const [globalAnnouncement, setGlobalAnnouncement] = useState(null);
+
   const [auth, setAuth] = useState({
 
     mode: "login",
@@ -1913,6 +1916,45 @@ function App() {
       setStats(prev => ({ ...prev, streak: 0 }));
     }
   }, []); // Run once on mount
+
+  // Check for important announcements on login (for students)
+  useEffect(() => {
+    if (!token || isTeacher) return;
+    
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+    
+    async function checkAnnouncements() {
+      try {
+        // Fetch user's classrooms
+        const classroomsRes = await fetch(`${API_BASE}/classroom/my`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const classrooms = await classroomsRes.json();
+        
+        // Check each classroom for unread important announcements
+        for (const classroom of (classrooms || [])) {
+          const detailRes = await fetch(`${API_BASE}/classroom/${classroom.id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const details = await detailRes.json();
+          
+          if (details.announcements) {
+            const unreadImportant = details.announcements.find(
+              a => a.isImportant && (!a.reads || a.reads.length === 0)
+            );
+            if (unreadImportant) {
+              setGlobalAnnouncement(unreadImportant);
+              return; // Show one announcement at a time
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check announcements:", err);
+      }
+    }
+    
+    checkAnnouncements();
+  }, [token, isTeacher]);
 
 
 
@@ -4585,6 +4627,50 @@ function App() {
 
       <AchievementNotification stats={stats} history={history} subjects={subjects} mastery={mastery} />
 
+      {/* Global Announcement Popup - shows on login for students */}
+      {globalAnnouncement && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{
+            maxWidth: 500,
+            border: "2px solid rgba(239, 68, 68, 0.5)",
+            background: "linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(239, 68, 68, 0.15))",
+            boxShadow: "0 25px 50px -12px rgba(239, 68, 68, 0.25)"
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <span style={{ fontSize: 48, display: "block", marginBottom: 8 }}>⚠️</span>
+              <h3 style={{ color: "#fbbf24", fontSize: 20, textTransform: "uppercase", letterSpacing: 1 }}>Important Announcement</h3>
+            </div>
+            <h4 style={{ fontSize: 18, marginBottom: 12 }}>{globalAnnouncement.title}</h4>
+            <p style={{ marginBottom: 16, lineHeight: 1.6 }}>{globalAnnouncement.content}</p>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 20 }}>
+              Posted: {new Date(globalAnnouncement.createdAt).toLocaleString()}
+            </div>
+            <button
+              onClick={async () => {
+                const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+                await fetch(`${API_BASE}/classroom/announcements/${globalAnnouncement.id}/read`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                setGlobalAnnouncement(null);
+              }}
+              style={{ 
+                width: "100%", 
+                background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                border: "none",
+                padding: "12px 24px",
+                borderRadius: 8,
+                color: "white",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              ✓ Got it, dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {showExpirationWarning && demoMode && demoUsage.trialStartDate && (
         <div style={{
           position: "fixed",
@@ -4947,15 +5033,15 @@ function App() {
           <span className="nav-label">Tutor</span>
         </button>
         <button
-          className={tab === "planner" ? "active" : ""}
-          onClick={() => setTab("planner")}
-          title="Planner"
+          className={tab === "today" ? "active" : ""}
+          onClick={() => setTab("today")}
+          title="Today"
         >
-          <span className="nav-icon">📅</span>
-          <span className="nav-label">Plan</span>
+          <span className="nav-icon">📆</span>
+          <span className="nav-label">Today</span>
         </button>
         <button
-          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "today", "aitutor", "aiassistant", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
           onClick={() => setShowMobileMenu(!showMobileMenu)}
           title="More"
         >
@@ -4969,9 +5055,6 @@ function App() {
         <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
           <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-menu-grid">
-              <button className={tab === "today" ? "active" : ""} onClick={() => { setTab("today"); setShowMobileMenu(false); }}>
-                <span>📆</span> Today
-              </button>
               <button className={tab === "studypaths" ? "active" : ""} onClick={() => { setTab("studypaths"); setShowMobileMenu(false); }}>
                 <span>🛤️</span> Study Paths
               </button>
