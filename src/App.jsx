@@ -5289,20 +5289,14 @@ function App() {
 
           {demoMode && (
             <>
-              <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🔒</span>
-                  <span style={{ fontSize: 13 }}>Demo: Limited to 4 subjects. Upgrade for full access.</span>
-                  <button onClick={() => setShowPaymentModal(true)} style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
-                    Upgrade
-                  </button>
-                </div>
+              <div className="demo-banner warning">
+                <span className="banner-icon">🔒</span>
+                <span className="banner-text">Demo: Limited to 4 subjects. Upgrade for full access.</span>
+                <button className="banner-action" onClick={() => setShowPaymentModal(true)}>Upgrade</button>
               </div>
-              <div style={{ background: "rgba(45,212,160,0.1)", border: "1px solid rgba(45,212,160,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>📝</span>
-                  <span style={{ fontSize: 13 }}>Demo: {Math.max(0, DEMO_LIMITS.quizDaily - (demoUsage.quizDate === new Date().toDateString() ? demoUsage.quizUsed : 0))} quiz(es) remaining today.</span>
-                </div>
+              <div className="demo-banner info">
+                <span className="banner-icon">📝</span>
+                <span className="banner-text">Demo: {Math.max(0, DEMO_LIMITS.quizDaily - (demoUsage.quizDate === new Date().toDateString() ? demoUsage.quizUsed : 0))} quiz(es) remaining today.</span>
               </div>
             </>
           )}
@@ -5360,25 +5354,18 @@ function App() {
           </div>
 
           {demoMode && subjects.some(s => (mastery[s.id] || 0) >= DEMO_LIMITS.masteryCap) && (
-            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginTop: 16, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 20 }}>⭐</span>
-                <span style={{ fontSize: 13, flex: 1 }}>Mastery capped at {DEMO_LIMITS.masteryCap}% in demo. Upgrade to unlock full mastery tracking!</span>
-                <button
-                  onClick={() => setShowPaymentModal(true)}
-                  style={{ background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}
-                >
-                  Upgrade
-                </button>
-              </div>
+            <div className="demo-banner warning" style={{ marginTop: 16 }}>
+              <span className="banner-icon">⭐</span>
+              <span className="banner-text">Mastery capped at {DEMO_LIMITS.masteryCap}% in demo. Upgrade to unlock full mastery tracking!</span>
+              <button className="banner-action" onClick={() => setShowPaymentModal(true)}>Upgrade</button>
             </div>
           )}
 
-          <div className="row">
+          <div className="row" style={{ marginTop: 16 }}>
 
-            <button onClick={startDiagnostic}>Start Diagnostic</button>
+            <button className="btn-neon-blue" onClick={startDiagnostic}>Start Diagnostic</button>
 
-            <button onClick={startAdaptive}>Adaptive Practice</button>
+            <button className="btn-neon-green" onClick={startAdaptive}>Adaptive Practice</button>
 
             {demoMode ? (
               <button
@@ -5389,12 +5376,12 @@ function App() {
                 Weak Drill 🔒
               </button>
             ) : (
-              <button onClick={startWeakDrill}>Weak Drill</button>
+              <button className="btn-neon-yellow" onClick={startWeakDrill}>Weak Drill</button>
             )}
 
-            <button onClick={startErrorDrill}>Error Drill</button>
+            <button className="btn-neon-orange" onClick={startErrorDrill}>Error Drill</button>
 
-            <button
+            <button className="btn-neon-purple"
 
               onClick={() => {
 
@@ -5428,9 +5415,9 @@ function App() {
 
           </div>
 
-          <div className="row">
+          <div className="row" style={{ marginTop: 12 }}>
 
-            <button onClick={startSpacedReview} disabled={dueCards.length === 0}>
+            <button className="btn-neon-green" onClick={startSpacedReview} disabled={dueCards.length === 0}>
 
               {demoMode && dueCards.length > DEMO_LIMITS.maxSpacedReviewCards
                 ? `Spaced Review (${DEMO_LIMITS.maxSpacedReviewCards}/${dueCards.length}) 🔒`
@@ -5438,25 +5425,29 @@ function App() {
 
             </button>
 
-            <button onClick={() => setTab("learn")}>Read Lessons</button>
+            <button className="btn-neon-blue" onClick={() => setTab("learn")}>Read Lessons</button>
 
           </div>
 
-          <h3>Daily Quests</h3>
+          <h3 style={{ marginTop: 20 }}>Daily Quests</h3>
 
-          <ul>
+          <div className="quests-grid">
 
             {EMPTY_QUESTS.map((q) => (
 
-              <li key={q.id}>
+              <div key={q.id} className={`quest-card ${stats.questsDone[q.id] ? 'completed' : ''}`}>
 
-                {stats.questsDone[q.id] ? "✅" : "⬜"} {q.label}
+                <div className="quest-check">{stats.questsDone[q.id] ? "✓" : "○"}</div>
 
-              </li>
+                <span className="quest-label">{q.label}</span>
+
+                <span className="quest-reward">+{q.xp || 10} XP</span>
+
+              </div>
 
             ))}
 
-          </ul>
+          </div>
 
         </div>
 
@@ -5525,22 +5516,26 @@ function App() {
           <p className="muted">Choose a mode.</p>
 
           {demoMode && (
-            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>⚡</span>
-                <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.practiceQuestions - demoUsage.practiceQuestions} practice questions remaining today.</span>
-                <button onClick={() => setShowPaymentModal(true)} style={{ marginLeft: "auto", background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>
-                  Upgrade
-                </button>
-              </div>
+            <div className="demo-banner warning">
+              <span className="banner-icon">⚡</span>
+              <span className="banner-text">Demo: {DEMO_LIMITS.practiceQuestions - demoUsage.practiceQuestions} practice questions remaining today.</span>
+              <button className="banner-action" onClick={() => setShowPaymentModal(true)}>Upgrade</button>
             </div>
           )}
 
-          <div className="row">
+          <div className="practice-modes">
 
-            <button onClick={startAdaptive}>Adaptive</button>
+            <button className="practice-mode-btn mode-adaptive" onClick={startAdaptive}>
+              <span className="mode-icon">🎯</span>
+              <span className="mode-label">Adaptive</span>
+              <span className="mode-desc">AI-powered practice</span>
+            </button>
 
-            <button onClick={startSpacedReview}>Spaced</button>
+            <button className="practice-mode-btn mode-spaced" onClick={startSpacedReview}>
+              <span className="mode-icon">🧠</span>
+              <span className="mode-label">Spaced</span>
+              <span className="mode-desc">Memory retention</span>
+            </button>
 
             {demoMode ? (
               <button
@@ -5551,8 +5546,18 @@ function App() {
                 Weak Drill 🔒
               </button>
             ) : (
-              <button onClick={startWeakDrill}>Weak Drill</button>
+              <button className="practice-mode-btn mode-weak" onClick={startWeakDrill}>
+                <span className="mode-icon">💪</span>
+                <span className="mode-label">Weak Drill</span>
+                <span className="mode-desc">Focus on weak areas</span>
+              </button>
             )}
+
+            <button className="practice-mode-btn mode-error" onClick={startErrorDrill}>
+              <span className="mode-icon">❌</span>
+              <span className="mode-label">Error Drill</span>
+              <span className="mode-desc">Learn from mistakes</span>
+            </button>
 
           </div>
 
@@ -5572,6 +5577,8 @@ function App() {
               </select>
             </label>
           </div>
+
+          <h3 style={{ marginTop: 20 }}>Subject Exams</h3>
 
           <div className="subjects">
 
@@ -8028,20 +8035,12 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
       <p className="muted">Ranked by total XP earned.</p>
 
       {/* Time period filter */}
-      <div className="row" style={{ gap: 8, marginBottom: 16 }}>
+      <div className="filter-tabs">
         {["all", "weekly", "monthly"].map((period) => (
           <button
             key={period}
+            className={`filter-tab ${timePeriod === period ? 'active' : ''}`}
             onClick={() => setTimePeriod(period)}
-            style={{
-              padding: "6px 12px",
-              background: timePeriod === period ? "#818cf8" : "#374151",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 12
-            }}
           >
             {period.charAt(0).toUpperCase() + period.slice(1)}
           </button>
@@ -8054,13 +8053,13 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
           value={subjectFilter}
           onChange={(e) => setSubjectFilter(e.target.value)}
           style={{
-            padding: "6px 12px",
-            background: "#374151",
+            padding: "8px 14px",
+            background: "rgba(30, 41, 59, 0.8)",
             color: "white",
-            border: "1px solid #4b5563",
-            borderRadius: 4,
+            border: "1px solid rgba(99, 102, 241, 0.3)",
+            borderRadius: 8,
             cursor: "pointer",
-            fontSize: 12
+            fontSize: 13
           }}
         >
           <option value="all">All Subjects</option>
@@ -8072,18 +8071,11 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
       {/* MVP of the week */}
       {mvp && timePeriod === "weekly" && (
-        <div style={{
-          background: "linear-gradient(135deg, rgba(250,204,21,0.2), rgba(251,191,36,0.1))",
-          border: "2px solid #facc15",
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 20,
-          textAlign: "center"
-        }}>
-          <div style={{ fontSize: 32 }}>👑</div>
-          <div style={{ fontWeight: 700, fontSize: 18, color: "#facc15", marginBottom: 4 }}>MVP of the Week</div>
-          <div style={{ fontSize: 24, fontWeight: 600 }}>{mvp.username}</div>
-          <div style={{ color: "#facc15", fontWeight: 600 }}>{mvp.xp} XP</div>
+        <div className="leaderboard-mvp">
+          <div className="crown">👑</div>
+          <div className="mvp-title">MVP of the Week</div>
+          <div className="mvp-name">{mvp.username}</div>
+          <div className="mvp-xp">{mvp.xp} XP</div>
         </div>
       )}
 
@@ -8098,32 +8090,17 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
           const earnedBadges = calculateBadges(entry);
 
           return (
-            <div key={entry.username} className="history-row" style={{
+            <div key={entry.username} className={`leaderboard-row ${entry.isMe ? 'is-me' : ''} ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}`}>
 
-              padding: "12px 14px",
-
-              borderRadius: 8,
-
-              background: entry.isMe ? "rgba(45,212,160,0.08)" : "transparent",
-
-              border: entry.isMe ? "1px solid #2dd4a0" : "1px solid #3e4752",
-
-            }}>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <strong style={{ fontSize: 18, minWidth: 28 }}>{medals[i] || `#${i + 1}`}</strong>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    {entry.username} {entry.isMe ? "(you)" : ""}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                <div className={`leaderboard-rank ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}`}>
+                  {medals[i] || `#${i + 1}`}
+                </div>
+                <div className="leaderboard-user-info">
+                  <div className="leaderboard-username">
+                    {entry.username} {entry.isMe ? <span style={{ color: '#22c55e', fontSize: 12 }}>(you)</span> : ""}
                     {tier && (
-                      <span style={{
-                        background: tier.color,
-                        color: "#000",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        fontSize: 10,
-                        fontWeight: 700
-                      }}>
+                      <span className="leaderboard-tier" style={{ background: tier.color, color: tier.color === '#facc15' || tier.color === '#94a3b8' ? '#000' : '#fff' }}>
                         {tier.icon} {tier.name}
                       </span>
                     )}
@@ -8140,17 +8117,20 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
                 </div>
               </div>
 
-              <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <span>
-                  <strong style={{ color: "#facc15" }}>{entry.xp} XP</strong>
-                  <span className="muted" style={{ marginLeft: 10 }}>{entry.sessions} sessions</span>
-                  {entry.streak > 0 && (
-                    <span className="muted" style={{ marginLeft: 10 }}>{streakEmoji} {entry.streak} day streak</span>
-                  )}
+              <div className="leaderboard-stats">
+                <span className="leaderboard-stat">
+                  <strong>{entry.xp} XP</strong>
                 </span>
-                <span className="muted" style={{ fontSize: 11 }}>
-                  Avg Mastery: {entry.avgMastery}% | Correct: {entry.correctRate}% | Hours: {entry.studyHours}h
-                  {entry.personalBest > 0 && ` | Best: ${entry.personalBest}%`}
+                <span className="leaderboard-stat">
+                  {entry.sessions} sessions
+                </span>
+                {entry.streak > 0 && (
+                  <span className="leaderboard-stat">
+                    {streakEmoji} {entry.streak} day streak
+                  </span>
+                )}
+                <span className="leaderboard-stat" style={{ marginLeft: 'auto', fontSize: 11 }}>
+                  Mastery: {entry.avgMastery}% | Correct: {entry.correctRate}%
                 </span>
               </div>
 
