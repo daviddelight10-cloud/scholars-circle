@@ -57,7 +57,7 @@ async function callDirect(prompt, aiConfig) {
                                      provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
                                      "gpt-4o-mini");
   if (!aiConfig?.apiKey) {
-    throw new Error("No AI key set. Either configure the server proxy or paste a key in Settings.");
+    throw new Error("No API key configured. Go to Settings > AI Assistant to add your API key (OpenRouter, Gemini, or OpenAI).");
   }
   if (provider === "gemini") {
     console.log("Calling Gemini API with model:", model);

@@ -8303,93 +8303,19 @@ function AIHelper({ aiConfig, onUsed }) {
 
     if (!q.trim()) return;
 
-    if (!aiConfig.apiKey) {
-
-      setA("Add API key in settings to use live AI.");
-
-      return;
-
-    }
-
     try {
 
       setLoading(true);
 
-      const provider = aiConfig.provider || "openai";
-
-      const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini");
-
-      let text = "";
-
-      if (provider === "gemini") {
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${aiConfig.apiKey}`, {
-
-          method: "POST",
-
-          headers: { "Content-Type": "application/json" },
-
-          body: JSON.stringify({
-
-            contents: [
-
-              {
-
-                parts: [
-
-                  { text: `Explain this for a university student in simple terms and give one memory trick: ${q}` },
-
-                ],
-
-              },
-
-            ],
-
-          }),
-
-        });
-
-        const data = await res.json();
-
-        text = data?.candidates?.[0]?.content?.parts?.[0]?.text || data.error?.message || "No response.";
-
-      } else {
-
-        const res = await fetch("https://api.openai.com/v1/responses", {
-
-          method: "POST",
-
-          headers: {
-
-            "Content-Type": "application/json",
-
-            Authorization: `Bearer ${aiConfig.apiKey}`,
-
-          },
-
-          body: JSON.stringify({
-
-            model,
-
-            input: `Explain this for a university student in simple terms and give one memory trick: ${q}`,
-
-          }),
-
-        });
-
-        const data = await res.json();
-
-        text = data.output_text || data.error?.message || "No response.";
-
-      }
+      const text = await callAI(q, aiConfig);
 
       setA(text);
 
-      if (onUsed) onUsed();
+      onUsed?.();
 
-    } catch (e) {
+    } catch (err) {
 
-      setA(`AI request failed: ${e.message}`);
+      setA(err.message || "AI request failed. Please check your API key in Settings.");
 
     } finally {
 
@@ -10937,7 +10863,7 @@ function StudyReminders({ reminders, setReminders, timetable, notificationPermis
 
           <div className="history">
 
-            {timetableReminders.slice(0, 5).map((r, i) => {
+            {timetableReminders.slice(0, 15).map((r, i) => {
 
               const [hours, minutes] = r.hour.toString().padStart(2, '0').match(/.{1,2}/g) || ['00', '00'];
 
