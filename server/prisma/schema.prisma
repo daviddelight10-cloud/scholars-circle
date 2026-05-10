@@ -101,6 +101,14 @@ model User {
 
   outlineProgress CourseOutlineProgress[]
 
+  classrooms       Classroom[]       @relation("ClassroomCreatedBy")
+
+  classroomMembers ClassroomMember[]
+
+  announcementReads AnnouncementRead[]
+
+  documentDownloads DocumentDownload[]
+
 }
 
 
@@ -129,6 +137,8 @@ model Question {
 
   subjectId   String
 
+  topic       String?  // e.g., "Quadratic Equations", "Cell Biology"
+
   question    String
 
   optionA     String
@@ -150,6 +160,8 @@ model Question {
   subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   answers     AttemptAnswer[]
+
+  @@index([subjectId, topic])
 
 }
 
@@ -497,6 +509,218 @@ model CourseOutlineProgress {
 
 
   @@unique([userId, subjectId, semester])
+
+}
+
+
+
+// Classroom models for teacher-student interaction
+
+model Classroom {
+
+  id          String              @id @default(cuid())
+
+  name        String
+
+  subjectId   String?
+
+  createdById String
+
+  createdAt   DateTime            @default(now())
+
+  createdBy   User                 @relation("ClassroomCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  links       ClassroomLink[]
+
+  announcements ClassroomAnnouncement[]
+
+  documents   ClassroomDocument[]
+
+  exams       Exam[]
+
+  members     ClassroomMember[]
+
+}
+
+
+
+model ClassroomMember {
+
+  id          String    @id @default(cuid())
+
+  classroomId String
+
+  userId      String
+
+  joinedAt    DateTime  @default(now())
+
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([classroomId, userId])
+
+}
+
+
+
+model ClassroomLink {
+
+  id          String    @id @default(cuid())
+
+  classroomId String
+
+  title       String
+
+  url         String
+
+  isPinned    Boolean   @default(false)
+
+  createdAt   DateTime  @default(now())
+
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId])
+
+}
+
+
+
+model ClassroomAnnouncement {
+
+  id          String    @id @default(cuid())
+
+  classroomId String
+
+  title       String
+
+  content     String
+
+  isImportant Boolean   @default(false)
+
+  createdAt   DateTime  @default(now())
+
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  reads       AnnouncementRead[]
+
+  @@index([classroomId])
+
+}
+
+
+
+model AnnouncementRead {
+
+  id             String               @id @default(cuid())
+
+  announcementId String
+
+  userId         String
+
+  readAt         DateTime             @default(now())
+
+  announcement   ClassroomAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+
+}
+
+
+
+model ClassroomDocument {
+
+  id          String    @id @default(cuid())
+
+  classroomId String
+
+  title       String
+
+  filename    String
+
+  fileUrl     String
+
+  fileType    String    // pdf, docx, txt
+
+  fileSize    Int       // in bytes
+
+  uploadedAt  DateTime  @default(now())
+
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  downloads   DocumentDownload[]
+
+  @@index([classroomId])
+
+}
+
+
+
+model DocumentDownload {
+
+  id         String            @id @default(cuid())
+
+  documentId String
+
+  userId     String
+
+  downloadedAt DateTime        @default(now())
+
+  document   ClassroomDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+
+}
+
+
+
+model Exam {
+
+  id          String    @id @default(cuid())
+
+  classroomId String?
+
+  subjectId   String?
+
+  title       String
+
+  examDate    DateTime
+
+  duration    Int       // in minutes
+
+  isPublic    Boolean   @default(true)
+
+  createdAt   DateTime  @default(now())
+
+  classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@index([examDate])
+
+}
+
+
+
+model TopicAnalytics {
+
+  id           String   @id @default(cuid())
+
+  subjectId    String
+
+  topic        String
+
+  totalQuestions Int   @default(0)
+
+  avgScore     Float    @default(0)
+
+  attempts     Int      @default(0)
+
+  updatedAt    DateTime @updatedAt
+
+  @@unique([subjectId, topic])
 
 }
 

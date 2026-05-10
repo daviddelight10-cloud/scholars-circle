@@ -4,21 +4,120 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// Get all questions with filters
 router.get("/", async (req, res) => {
-  const { subjectId, difficulty, year } = req.query;
+  const { subjectId, difficulty, year, topic } = req.query;
   const rows = await prisma.question.findMany({
     where: {
       ...(subjectId ? { subjectId } : {}),
       ...(difficulty ? { difficulty: String(difficulty) } : {}),
       ...(year ? { year: Number(year) } : {}),
+      ...(topic ? { topic: String(topic) } : {}),
+    },
+    include: {
+      subject: { select: { id: true, label: true } },
     },
   });
   res.json(rows);
 });
 
+// Get unique topics for a subject
+router.get("/topics", async (req, res) => {
+  const { subjectId } = req.query;
+
+  if (!subjectId) {
+    return res.status(400).json({ error: "subjectId is required" });
+  }
+
+  const questions = await prisma.question.findMany({
+    where: { subjectId },
+    select: { topic: true },
+    distinct: ["topic"],
+  });
+
+  const topics = questions
+    .filter((q) => q.topic)
+    .map((q) => q.topic);
+
+  res.json(topics);
+});
+
+// Get topic analytics (class averages)
+router.get("/topics/analytics", requireAuth, async (req, res) => {
+  const { subjectId, topic } = req.query;
+
+  if (!subjectId) {
+    return res.status(400).json({ error: "subjectId is required" });
+  }
+
+  // Get all questions for this topic
+  const questions = await prisma.question.findMany({
+    where: {
+      subjectId,
+      ...(topic ? { topic } : {}),
+    },
+    select: { id: true },
+  });
+
+  const questionIds = questions.map((q) => q.id);
+
+  // Get all attempts for these questions
+  const attempts = await prisma.attemptAnswer.findMany({
+    where: { questionId: { in: questionIds } },
+    select: {
+      correct: true,
+      questionId: true,
+    },
+  });
+
+  // Calculate analytics
+  const totalAttempts = attempts.length;
+  const correctAttempts = attempts.filter((a) => a.correct).length;
+  const avgScore = totalAttempts > 0 ? (correctAttempts / totalAttempts) * 100 : 0;
+
+  // Get user's performance
+  const userAttempts = await prisma.attemptAnswer.findMany({
+    where: {
+      questionId: { in: questionIds },
+      session: { userId: req.user.sub },
+    },
+    select: { correct: true },
+  });
+
+  const userTotal = userAttempts.length;
+  const userCorrect = userAttempts.filter((a) => a.correct).length;
+  const userScore = userTotal > 0 ? (userCorrect / userTotal) * 100 : 0;
+
+  res.json({
+    topic: topic || "All Topics",
+    totalQuestions: questions.length,
+    totalAttempts,
+    avgScore: Math.round(avgScore * 10) / 10,
+    userScore: Math.round(userScore * 10) / 10,
+    userAttempts: userTotal,
+    comparison: userScore > avgScore ? "above" : userScore < avgScore ? "below" : "at",
+  });
+});
+
+// Create question with topic (teacher only)
 router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
   const q = await prisma.question.create({ data: req.body });
   res.status(201).json(q);
+});
+
+// Bulk create questions with topics (teacher only)
+router.post("/bulk", requireAuth, requireRole("TEACHER"), async (req, res) => {
+  const { questions } = req.body;
+
+  if (!Array.isArray(questions)) {
+    return res.status(400).json({ error: "questions must be an array" });
+  }
+
+  const created = await prisma.question.createMany({
+    data: questions,
+  });
+
+  res.status(201).json({ count: created.count });
 });
 
 export default router;

@@ -5720,6 +5720,7 @@ function App() {
           teacherMode={isTeacher}
 
           setTeacherMode={() => {}}
+          token={token}
 
           onCreate={async (a) => {
             try {
@@ -7184,102 +7185,616 @@ ${isCorrect
 
 
 
-function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreate, onComplete, onImportQuestions }) {
+function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreate, onComplete, onImportQuestions, token }) {
 
-  const [subjectId, setSubjectId] = useState(subjects[0].id);
+  const [subjectId, setSubjectId] = useState(subjects[0]?.id || "");
 
   const [title, setTitle] = useState("");
 
   const [due, setDue] = useState("");
 
+  const [classrooms, setClassrooms] = useState([]);
+
+  const [selectedClassroom, setSelectedClassroom] = useState(null);
+
+  const [loading, setLoading] = useState(false);
+
+  const [showCreateClass, setShowCreateClass] = useState(false);
+
+  const [newClassName, setNewClassName] = useState("");
+
+  // Link state
+  const [newLinkTitle, setNewLinkTitle] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [popupLink, setPopupLink] = useState(null);
+
+  // Announcement state
+  const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", isImportant: false });
+  const [showAnnouncementPopup, setShowAnnouncementPopup] = useState(null);
+
+  // Document state
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  // Exam state
+  const [showExamModal, setShowExamModal] = useState(false);
+  const [newExam, setNewExam] = useState({ title: "", examDate: "", duration: 60 });
+
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+
+  // Fetch classrooms
+  useEffect(() => {
+    if (!token) return;
+    setLoading(true);
+    fetch(`${API_BASE}/classroom/my`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setClassrooms(data || []);
+        if (data && data.length > 0 && !selectedClassroom) {
+          setSelectedClassroom(data[0]);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  // Fetch classroom details when selected
+  useEffect(() => {
+    if (!token || !selectedClassroom?.id) return;
+    fetch(`${API_BASE}/classroom/${selectedClassroom.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((r) => r.json())
+      .then((data) => setSelectedClassroom(data))
+      .catch(() => {});
+  }, [token, selectedClassroom?.id]);
+
+  // Check for new important announcements on mount
+  useEffect(() => {
+    if (selectedClassroom?.announcements) {
+      const unreadImportant = selectedClassroom.announcements.find(
+        (a) => a.isImportant && (!a.reads || a.reads.length === 0)
+      );
+      if (unreadImportant) {
+        setShowAnnouncementPopup(unreadImportant);
+      }
+    }
+  }, [selectedClassroom?.announcements]);
+
+  // Create classroom
+  async function createClassroom() {
+    if (!newClassName.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/classroom`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newClassName, subjectId }),
+      });
+      const data = await res.json();
+      setClassrooms((prev) => [...prev, data]);
+      setNewClassName("");
+      setShowCreateClass(false);
+    } catch (err) {
+      console.error("Failed to create classroom:", err);
+    }
+  }
+
+  // Add link
+  async function addLink() {
+    if (!newLinkTitle.trim() || !newLinkUrl.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/classroom/${selectedClassroom.id}/links`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: newLinkTitle, url: newLinkUrl }),
+      });
+      const link = await res.json();
+      setSelectedClassroom((prev) => ({
+        ...prev,
+        links: [...(prev.links || []), link],
+      }));
+      setNewLinkTitle("");
+      setNewLinkUrl("");
+    } catch (err) {
+      console.error("Failed to add link:", err);
+    }
+  }
+
+  // Create announcement
+  async function createAnnouncement() {
+    if (!newAnnouncement.title.trim() || !newAnnouncement.content.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/classroom/${selectedClassroom.id}/announcements`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newAnnouncement),
+      });
+      const announcement = await res.json();
+      setSelectedClassroom((prev) => ({
+        ...prev,
+        announcements: [announcement, ...(prev.announcements || [])],
+      }));
+      setNewAnnouncement({ title: "", content: "", isImportant: false });
+    } catch (err) {
+      console.error("Failed to create announcement:", err);
+    }
+  }
+
+  // Upload document
+  async function uploadDocument(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingDoc(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", file.name);
+
+    try {
+      const res = await fetch(`${API_BASE}/classroom/${selectedClassroom.id}/documents`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const doc = await res.json();
+      setSelectedClassroom((prev) => ({
+        ...prev,
+        documents: [...(prev.documents || []), doc],
+      }));
+    } catch (err) {
+      console.error("Failed to upload document:", err);
+    } finally {
+      setUploadingDoc(false);
+    }
+  }
+
+  // Create exam
+  async function createExam() {
+    if (!newExam.title.trim() || !newExam.examDate) return;
+    try {
+      const res = await fetch(`${API_BASE}/classroom/${selectedClassroom.id}/exams`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newExam),
+      });
+      const exam = await res.json();
+      setSelectedClassroom((prev) => ({
+        ...prev,
+        exams: [...(prev.exams || []), exam],
+      }));
+      setShowExamModal(false);
+      setNewExam({ title: "", examDate: "", duration: 60 });
+    } catch (err) {
+      console.error("Failed to create exam:", err);
+    }
+  }
+
+  // Mark announcement as read
+  async function markAnnouncementRead(announcementId) {
+    try {
+      await fetch(`${API_BASE}/classroom/announcements/${announcementId}/read`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      console.error("Failed to mark as read:", err);
+    }
+  }
+
+  // Calculate days until exam
+  function getDaysUntilExam(examDate) {
+    const now = new Date();
+    const exam = new Date(examDate);
+    const diff = exam - now;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
   return (
-
     <div className="card">
-
-      <div className="row">
-
-        <h2>Classroom</h2>
-
-        <button onClick={() => setTeacherMode((v) => !v)}>{teacherMode ? "Teacher Mode: ON" : "Teacher Mode: OFF"}</button>
-
+      <div className="row" style={{ marginBottom: 16 }}>
+        <h2>🏫 Classroom</h2>
+        {teacherMode && (
+          <button onClick={() => setShowCreateClass(true)} style={{ marginLeft: "auto" }}>
+            + New Class
+          </button>
+        )}
       </div>
 
-      {teacherMode && (
-
-        <div className="lesson-block">
-
-          <h3>Create Assignment</h3>
-
-          <div className="row">
-
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Assignment title" />
-
-            <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
-
-              {subjects.map((s) => (
-
-                <option key={s.id} value={s.id}>
-
-                  {s.label}
-
-                </option>
-
-              ))}
-
-            </select>
-
-            <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-
-            <button
-
-              onClick={() => {
-
-                if (!title.trim()) return;
-
-                onCreate({ id: Date.now().toString(), title, subjectId, due, done: false });
-
-                setTitle("");
-
-              }}
-
-            >
-
-              Add
-
-            </button>
-
-          </div>
-
+      {/* Classroom selector */}
+      {classrooms.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <select
+            value={selectedClassroom?.id || ""}
+            onChange={(e) => {
+              const classroom = classrooms.find((c) => c.id === e.target.value);
+              setSelectedClassroom(classroom);
+            }}
+            style={{ padding: "8px 14px", minWidth: 200 }}
+          >
+            {classrooms.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} {c._count ? `(${c._count.members} students)` : ""}
+              </option>
+            ))}
+          </select>
         </div>
-
       )}
 
-      {teacherMode && <BulkImport onImportQuestions={onImportQuestions} />}
+      {loading && <p className="muted">Loading...</p>}
 
-      {teacherMode && <AIQuestionGen onImportQuestions={onImportQuestions} />}
-
-      <h3>Assignments</h3>
-
-      {assignments.length === 0 && <p className="muted">No assignments yet.</p>}
-
-      {assignments.map((a) => (
-
-        <div key={a.id} className="history-row">
-
-          <span>
-
-            {a.title} ({subjects.find((s) => s.id === a.subjectId)?.label}) {a.due ? `- Due ${a.due}` : ""}
-
-          </span>
-
-          <button onClick={() => onComplete(a.id)}>{a.done ? "Done" : "Mark Done"}</button>
-
+      {/* Exam Countdown */}
+      {selectedClassroom?.exams && selectedClassroom.exams.length > 0 && (
+        <div style={{
+          background: "linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(245, 158, 11, 0.1))",
+          padding: 16,
+          borderRadius: 12,
+          marginBottom: 16,
+          border: "1px solid rgba(239, 68, 68, 0.3)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 24 }}>📅</span>
+            <div>
+              <div style={{ fontWeight: 600, color: "#fbbf24" }}>
+                Next Exam: {selectedClassroom.exams[0]?.title}
+              </div>
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                {selectedClassroom.exams[0]?.examDate && (
+                  <>
+                    {getDaysUntilExam(selectedClassroom.exams[0].examDate)} days left
+                    {" "} ({new Date(selectedClassroom.exams[0].examDate).toLocaleDateString()})
+                  </>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                // Exam mode - filter weak topics
+                if (window.confirm("Start Exam Mode? This will prioritize your weak topics for practice.")) {
+                  // Navigate to practice with weak topics
+                  window.dispatchEvent(new CustomEvent("startExamMode", { detail: selectedClassroom.exams[0] }));
+                }
+              }}
+              style={{
+                marginLeft: "auto",
+                background: "linear-gradient(135deg, #ef4444, #f97316)",
+                color: "white",
+                border: "none",
+                padding: "8px 16px",
+                borderRadius: 8,
+                cursor: "pointer"
+              }}
+            >
+              🎯 Exam Mode
+            </button>
+          </div>
         </div>
+      )}
 
+      {/* Teacher: Create Exam */}
+      {teacherMode && selectedClassroom && (
+        <button onClick={() => setShowExamModal(true)} style={{ marginBottom: 16 }}>
+          📅 Add Exam
+        </button>
+      )}
+
+      {/* Links Section */}
+      {selectedClassroom && (
+        <div className="lesson-block" style={{ marginBottom: 16 }}>
+          <h3>📎 Quick Links</h3>
+
+          {teacherMode && (
+            <div className="row" style={{ marginBottom: 12 }}>
+              <input
+                value={newLinkTitle}
+                onChange={(e) => setNewLinkTitle(e.target.value)}
+                placeholder="Link name (e.g., 'Lecture Notes')"
+                style={{ flex: 1 }}
+              />
+              <input
+                value={newLinkUrl}
+                onChange={(e) => setNewLinkUrl(e.target.value)}
+                placeholder="https://..."
+                style={{ flex: 2 }}
+              />
+              <button onClick={addLink}>Add Link</button>
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {(selectedClassroom.links || []).map((link) => (
+              <button
+                key={link.id}
+                onClick={() => setPopupLink(link)}
+                style={{
+                  background: "rgba(99, 102, 241, 0.1)",
+                  border: "1px solid rgba(99, 102, 241, 0.3)",
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
+                }}
+              >
+                🔗 {link.title}
+              </button>
+            ))}
+            {(!selectedClassroom.links || selectedClassroom.links.length === 0) && (
+              <span className="muted">No links yet</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Announcements Section */}
+      {selectedClassroom && (
+        <div className="lesson-block" style={{ marginBottom: 16 }}>
+          <h3>📢 Announcements</h3>
+
+          {teacherMode && (
+            <div style={{ marginBottom: 12 }}>
+              <input
+                value={newAnnouncement.title}
+                onChange={(e) => setNewAnnouncement((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Announcement title"
+                style={{ width: "100%", marginBottom: 8 }}
+              />
+              <textarea
+                value={newAnnouncement.content}
+                onChange={(e) => setNewAnnouncement((prev) => ({ ...prev, content: e.target.value }))}
+                placeholder="Announcement content..."
+                style={{ width: "100%", minHeight: 60, marginBottom: 8 }}
+              />
+              <div className="row">
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={newAnnouncement.isImportant}
+                    onChange={(e) => setNewAnnouncement((prev) => ({ ...prev, isImportant: e.target.checked }))}
+                  />
+                  ⚠️ Important (show as popup)
+                </label>
+                <button onClick={createAnnouncement}>Post Announcement</button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+            {(selectedClassroom.announcements || []).map((a) => (
+              <div
+                key={a.id}
+                style={{
+                  padding: 12,
+                  background: a.isImportant ? "rgba(239, 68, 68, 0.1)" : "rgba(30, 41, 59, 0.5)",
+                  borderRadius: 8,
+                  marginBottom: 8,
+                  border: a.isImportant ? "1px solid rgba(239, 68, 68, 0.3)" : "none"
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  {a.isImportant && "⚠️ "}{a.title}
+                </div>
+                <div style={{ fontSize: 13, color: "#9ca3af" }}>{a.content}</div>
+                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+                  {new Date(a.createdAt).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Documents Section */}
+      {selectedClassroom && (
+        <div className="lesson-block" style={{ marginBottom: 16 }}>
+          <h3>📄 Documents</h3>
+
+          {teacherMode && (
+            <div style={{ marginBottom: 12 }}>
+              <input
+                type="file"
+                accept=".pdf,.docx,.doc,.txt"
+                onChange={uploadDocument}
+                disabled={uploadingDoc}
+                style={{ marginBottom: 8 }}
+              />
+              {uploadingDoc && <span className="muted">Uploading...</span>}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(selectedClassroom.documents || []).map((doc) => (
+              <div
+                key={doc.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: 12,
+                  background: "rgba(30, 41, 59, 0.5)",
+                  borderRadius: 8
+                }}
+              >
+                <span style={{ fontSize: 20 }}>
+                  {doc.fileType === "pdf" ? "📕" : doc.fileType === "docx" ? "📘" : "📄"}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 500 }}>{doc.title}</div>
+                  <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                    {doc.fileType.toUpperCase()} • {(doc.fileSize / 1024).toFixed(1)} KB
+                  </div>
+                </div>
+                <a
+                  href={`${API_BASE}/classroom/documents/${doc.id}/download`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    background: "rgba(34, 197, 94, 0.2)",
+                    color: "#4ade80",
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    textDecoration: "none",
+                    fontSize: 13
+                  }}
+                >
+                  ⬇️ Download
+                </a>
+              </div>
+            ))}
+            {(!selectedClassroom.documents || selectedClassroom.documents.length === 0) && (
+              <span className="muted">No documents yet</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Legacy Assignments */}
+      <h3>📝 Assignments</h3>
+      {assignments.length === 0 && <p className="muted">No assignments yet.</p>}
+      {assignments.map((a) => (
+        <div key={a.id} className="history-row">
+          <span>
+            {a.title} ({subjects.find((s) => s.id === a.subjectId)?.label}) {a.due ? `- Due ${a.due}` : ""}
+          </span>
+          <button onClick={() => onComplete(a.id)}>{a.done ? "Done" : "Mark Done"}</button>
+        </div>
       ))}
 
-    </div>
+      {/* Create Class Modal */}
+      {showCreateClass && (
+        <div className="modal-overlay" onClick={() => setShowCreateClass(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Create New Classroom</h3>
+            <input
+              value={newClassName}
+              onChange={(e) => setNewClassName(e.target.value)}
+              placeholder="Classroom name (e.g., 'MTH111 - 2024')"
+              style={{ width: "100%", marginBottom: 12 }}
+            />
+            <select
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              style={{ width: "100%", marginBottom: 12 }}
+            >
+              <option value="">Select Subject (optional)</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+            <div className="row">
+              <button onClick={() => setShowCreateClass(false)}>Cancel</button>
+              <button onClick={createClassroom}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Link Popup Modal */}
+      {popupLink && (
+        <div className="modal-overlay" onClick={() => setPopupLink(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <h3>🔗 {popupLink.title}</h3>
+            <p style={{ wordBreak: "break-all", color: "#a5b4fc", marginBottom: 16 }}>
+              {popupLink.url}
+            </p>
+            <div className="row">
+              <button onClick={() => setPopupLink(null)}>Close</button>
+              <button
+                onClick={() => {
+                  window.open(popupLink.url, "_blank");
+                  setPopupLink(null);
+                }}
+                style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+              >
+                Open Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Important Announcement Popup */}
+      {showAnnouncementPopup && (
+        <div className="modal-overlay" onClick={() => {
+          markAnnouncementRead(showAnnouncementPopup.id);
+          setShowAnnouncementPopup(null);
+        }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{
+            maxWidth: 500,
+            border: "2px solid rgba(239, 68, 68, 0.5)",
+            background: "linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(239, 68, 68, 0.1))"
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <span style={{ fontSize: 40 }}>⚠️</span>
+              <h3 style={{ color: "#fbbf24" }}>Important Announcement</h3>
+            </div>
+            <h4>{showAnnouncementPopup.title}</h4>
+            <p style={{ marginBottom: 16 }}>{showAnnouncementPopup.content}</p>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 16 }}>
+              Posted: {new Date(showAnnouncementPopup.createdAt).toLocaleString()}
+            </div>
+            <button
+              onClick={() => {
+                markAnnouncementRead(showAnnouncementPopup.id);
+                setShowAnnouncementPopup(null);
+              }}
+              style={{ width: "100%" }}
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Exam Modal */}
+      {showExamModal && (
+        <div className="modal-overlay" onClick={() => setShowExamModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>📅 Add Exam</h3>
+            <input
+              value={newExam.title}
+              onChange={(e) => setNewExam((prev) => ({ ...prev, title: e.target.value }))}
+              placeholder="Exam title (e.g., 'MTH111 Mid-Semester')"
+              style={{ width: "100%", marginBottom: 12 }}
+            />
+            <input
+              type="datetime-local"
+              value={newExam.examDate}
+              onChange={(e) => setNewExam((prev) => ({ ...prev, examDate: e.target.value }))}
+              style={{ width: "100%", marginBottom: 12 }}
+            />
+            <input
+              type="number"
+              value={newExam.duration}
+              onChange={(e) => setNewExam((prev) => ({ ...prev, duration: parseInt(e.target.value) }))}
+              placeholder="Duration (minutes)"
+              style={{ width: "100%", marginBottom: 12 }}
+            />
+            <div className="row">
+              <button onClick={() => setShowExamModal(false)}>Cancel</button>
+              <button onClick={createExam}>Add Exam</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Teacher Tools */}
+      {teacherMode && <BulkImport onImportQuestions={onImportQuestions} />}
+      {teacherMode && <AIQuestionGen onImportQuestions={onImportQuestions} />}
+    </div>
   );
 }
 

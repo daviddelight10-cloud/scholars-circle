@@ -12,6 +12,7 @@ import userRoutes from "./routes/users.js";
 import aiRoutes from "./routes/ai.js";
 import userDataRoutes from "./routes/userData.js";
 import keyRoutes from "./routes/keys.js";
+import classroomRoutes from "./routes/classroom.js";
 import { prisma } from "./db.js";
 
 const app = express();
@@ -72,6 +73,10 @@ app.use("/users", userRoutes);
 app.use("/ai", aiRoutes);
 app.use("/user-data", userDataRoutes);
 app.use("/keys", keyRoutes);
+app.use("/classroom", classroomRoutes);
+
+// Serve uploaded files statically
+app.use("/uploads", express.static("uploads"));
 
 app.use((err, _req, res, _next) => {
   console.error("Unhandled error:", err.message);
