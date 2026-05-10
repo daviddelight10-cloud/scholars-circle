@@ -5503,7 +5503,7 @@ function App() {
 
               <img className="lesson-image" src={s.image} alt={`${s.label} visual`} loading="lazy" onError={(e) => (e.currentTarget.style.display = "none")} />
 
-              {s.lessons.map((l) => (
+              {(s.lessons || []).map((l) => (
 
                 <div key={l.title}>
 
@@ -5515,7 +5515,7 @@ function App() {
 
               ))}
 
-              {s.questions[0] && (
+              {s.questions && s.questions[0] && (
 
                 <button onClick={() => setShowCheckpoint({ ...s.questions[0], subjectId: s.id })}>
 
