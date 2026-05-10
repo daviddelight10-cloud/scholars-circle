@@ -4586,31 +4586,33 @@ function App() {
         </div>
       )}
 
-      <div className="hero-banner">
+      {(tab === "dashboard" || tab === "today") && (
+        <>
+          <div className="hero-banner">
 
-        <img
+            <img
 
-          src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1800&q=80"
+              src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1800&q=80"
 
-          alt="Students learning together"
+              alt="Students learning together"
 
-          loading="lazy"
+              loading="lazy"
 
-        />
+            />
 
-        <div className="hero-overlay">
+            <div className="hero-overlay">
 
-          <h2>Learn smarter, practice deeper</h2>
+              <h2>Learn smarter, practice deeper</h2>
 
-          <p>Interactive study, adaptive quizzes, spaced review, and class-ready learning.</p>
+              <p>Interactive study, adaptive quizzes, spaced review, and class-ready learning.</p>
 
-        </div>
+            </div>
 
-      </div>
+          </div>
 
-      <header className="topbar">
+          <header className="topbar">
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
 
           {/* Logo */}
           <div className="app-logo">
@@ -4728,6 +4730,8 @@ function App() {
         )}
 
       </header>
+        </>
+      )}
 
 
 
