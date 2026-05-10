@@ -1877,7 +1877,7 @@ function App() {
           if (data.progress.mastery) setMastery(data.progress.mastery);
           if (data.progress.srData) setSrData(data.progress.srData);
           if (data.progress.lastStudied) setLastStudied(data.progress.lastStudied);
-          if (data.progress.darkMode !== undefined) setDarkMode(data.progress.darkMode);
+          // darkMode is local device preference - don't sync from backend
           if (data.progress.themePack) setThemePack(data.progress.themePack);
           if (data.progress.density) setDensity(data.progress.density);
         }
@@ -2043,7 +2043,7 @@ function App() {
 
         customQuestions,
 
-        darkMode,
+        // darkMode is local preference - excluded from sync
 
         lastStudied,
 
@@ -2116,7 +2116,7 @@ function App() {
 
           lastStudied,
 
-          darkMode,
+          // darkMode is local preference - excluded from sync
 
           themePack,
 
@@ -2146,7 +2146,7 @@ function App() {
 
     customQuestions,
 
-    darkMode,
+    // darkMode is local preference - excluded from sync
 
     lastStudied,
 
@@ -7197,7 +7197,9 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
 
   const [selectedClassroom, setSelectedClassroom] = useState(null);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const [showCreateClass, setShowCreateClass] = useState(false);
 
@@ -7224,7 +7226,6 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
   // Fetch classrooms
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
     fetch(`${API_BASE}/classroom/my`, {
       headers: { Authorization: `Bearer ${token}` }
     })
@@ -7236,7 +7237,10 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setInitialLoadDone(true);
+      });
   }, [token]);
 
   // Fetch classroom details when selected
@@ -7433,7 +7437,27 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
         </div>
       )}
 
-      {loading && <p className="muted">Loading...</p>}
+      {loading && initialLoadDone === false && <p className="muted">Loading...</p>}
+
+      {/* Empty state - no classrooms yet */}
+      {initialLoadDone && classrooms.length === 0 && !teacherMode && (
+        <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🏫</div>
+          <p>No classrooms yet</p>
+          <p style={{ fontSize: 12 }}>Your teacher will add you to a classroom soon.</p>
+        </div>
+      )}
+
+      {/* Teacher: no classrooms message */}
+      {initialLoadDone && classrooms.length === 0 && teacherMode && (
+        <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🏫</div>
+          <p>No classrooms created yet</p>
+          <button onClick={() => setShowCreateClass(true)} style={{ marginTop: 12 }}>
+            + Create Your First Classroom
+          </button>
+        </div>
+      )}
 
       {/* Exam Countdown */}
       {selectedClassroom?.exams && selectedClassroom.exams.length > 0 && (
@@ -8541,7 +8565,9 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
   const [board, setBoard] = useState([]);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const [timePeriod, setTimePeriod] = useState("all"); // all, weekly, monthly
 
@@ -8561,8 +8587,6 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
     if (!token) return;
 
-    setLoading(true);
-
     const params = new URLSearchParams();
     if (timePeriod !== "all") params.append("period", timePeriod);
     if (subjectFilter !== "all") params.append("subjectId", subjectFilter);
@@ -8577,7 +8601,10 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
       .catch(() => {})
 
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setInitialLoadDone(true);
+      });
 
   }, [token, timePeriod, subjectFilter]);
 
@@ -8731,7 +8758,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
         </div>
       )}
 
-      {loading && <p className="muted">Loading...</p>}
+      {loading && !initialLoadDone && <p className="muted">Loading...</p>}
 
       <div className="history" style={{ gap: 10 }}>
 
