@@ -1330,6 +1330,8 @@ function App() {
 
   const [density, setDensity] = useState("cozy");
 
+  const [headerExpanded, setHeaderExpanded] = useState(true);
+
   const [showPalette, setShowPalette] = useState(false);
 
   const [paletteQuery, setPaletteQuery] = useState("");
@@ -4588,7 +4590,32 @@ function App() {
 
       {(tab === "dashboard" || tab === "today") && (
         <>
-          <div className="hero-banner">
+          {/* Header Toggle Button */}
+          <button
+            className="header-toggle-btn"
+            onClick={() => setHeaderExpanded(!headerExpanded)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              margin: '8px auto',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              color: '#a5b4fc',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.3s'
+            }}
+          >
+            <span>{headerExpanded ? "▲" : "▼"}</span>
+            <span>{headerExpanded ? "Hide Header" : "Show Header"}</span>
+          </button>
+
+          <div className="hero-banner" style={{ display: headerExpanded ? 'block' : 'none' }}>
 
             <img
 
@@ -4610,7 +4637,7 @@ function App() {
 
           </div>
 
-          <header className="topbar">
+          <header className="topbar" style={{ display: headerExpanded ? 'block' : 'none' }}>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
 
