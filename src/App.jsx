@@ -1895,6 +1895,25 @@ function App() {
 
   }, [booted, token, auth.user?.id]);
 
+  // Check streak validity on app load - reset if user missed a day
+  useEffect(() => {
+    if (!lastStudied) return;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (lastStudied === todayStr) return; // Already studied today, streak is valid
+
+    const lastDate = new Date(lastStudied + 'T00:00:00');
+    const today = new Date(todayStr + 'T00:00:00');
+    const diffTime = today.getTime() - lastDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    // If more than 1 day has passed, reset streak to 0
+    if (diffDays > 1) {
+      console.log('[STREAK] Resetting streak - missed', diffDays, 'days');
+      setStats(prev => ({ ...prev, streak: 0 }));
+    }
+  }, []); // Run once on mount
+
 
 
   useEffect(() => {
@@ -2370,27 +2389,36 @@ function App() {
 
   function updateStreak() {
     const now = new Date();
-    const nowKey = now.toDateString();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
 
-    if (lastStudied === nowKey) return stats.streak;
+    if (lastStudied === todayStr) return stats.streak;
 
     if (!lastStudied) {
-      setLastStudied(nowKey);
+      setLastStudied(todayStr);
       return 1;
     }
 
-    const lastDate = new Date(lastStudied);
-    const diffTime = now - lastDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // Parse the last studied date properly
+    const lastDate = new Date(lastStudied + 'T00:00:00');
+    const today = new Date(todayStr + 'T00:00:00');
+
+    // Calculate difference in days
+    const diffTime = today.getTime() - lastDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     let newStreak;
     if (diffDays === 1) {
+      // Consecutive day - increment streak
       newStreak = stats.streak + 1;
+    } else if (diffDays === 0) {
+      // Same day - keep current streak (shouldn't happen but handle it)
+      newStreak = stats.streak;
     } else {
+      // Missed day(s) - reset streak
       newStreak = 1;
     }
 
-    setLastStudied(nowKey);
+    setLastStudied(todayStr);
     return newStreak;
   }
 
@@ -2977,27 +3005,27 @@ function App() {
   // Schedule all notifications
   useEffect(() => {
     if (!booted || notificationPermission !== 'granted') return;
-    
+
     const timeouts = [];
     const now = new Date();
-    
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+
     // 1. DAILY STUDY REMINDER
     if (notificationSettings.dailyReminder) {
-      const today = now.toDateString();
-      const studiedToday = lastStudied === today;
-      
+      const studiedToday = lastStudied === todayStr;
+
       if (!studiedToday) {
         const [hours, minutes] = notificationSettings.dailyReminderTime.split(':').map(Number);
         const reminderTime = new Date();
         reminderTime.setHours(hours, minutes, 0, 0);
-        
+
         // If time has passed today, schedule for tomorrow
         if (now >= reminderTime) {
           reminderTime.setDate(reminderTime.getDate() + 1);
         }
-        
+
         const timeoutMs = reminderTime.getTime() - now.getTime();
-        
+
         if (timeoutMs > 0 && timeoutMs < 24 * 60 * 60 * 1000) { // Within 24 hours
           const timeout = setTimeout(() => {
             const messages = [
@@ -3007,7 +3035,7 @@ function App() {
               { title: "🧠 Knowledge Awaits!", body: "Your brain is ready for some exercise. Let's study!" }
             ];
             const msg = messages[Math.floor(Math.random() * messages.length)];
-            sendNotification(msg.title, msg.body, { 
+            sendNotification(msg.title, msg.body, {
               tag: 'daily-reminder',
               data: { tab: 'practice' }
             });
@@ -3016,12 +3044,13 @@ function App() {
         }
       }
     }
-    
+
     // 2. STREAK WARNING (if streak > 2 and about to lose it)
     if (notificationSettings.streakWarning && stats.streak >= 2 && lastStudied) {
-      const lastStudiedDate = new Date(lastStudied);
+      // Parse lastStudied as ISO date
+      const lastStudiedDate = new Date(lastStudied + 'T23:59:59');
       const hoursSinceStudied = (now - lastStudiedDate) / (1000 * 60 * 60);
-      
+
       // Warn if 20+ hours since last study (streak will break in ~4 hours)
       if (hoursSinceStudied >= 20 && hoursSinceStudied < 24) {
         const hoursLeft = Math.ceil(24 - hoursSinceStudied);
@@ -3034,12 +3063,13 @@ function App() {
         }, 0));
       }
     }
-    
+
     // 3. INACTIVITY REMINDER (if not studied for X days)
     if (notificationSettings.inactivityReminder && lastStudied) {
-      const lastStudiedDate = new Date(lastStudied);
+      // Parse lastStudied as ISO date
+      const lastStudiedDate = new Date(lastStudied + 'T00:00:00');
       const daysSinceStudied = Math.floor((now - lastStudiedDate) / (1000 * 60 * 60 * 24));
-      
+
       if (daysSinceStudied >= notificationSettings.inactivityDays) {
         timeouts.push(setTimeout(() => {
           const messages = [
@@ -7959,6 +7989,12 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
   const [subjectFilter, setSubjectFilter] = useState("all"); // all, or subject ID
 
+  const [selectedUser, setSelectedUser] = useState(null); // For profile modal
+
+  const [userProfileData, setUserProfileData] = useState(null);
+
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
   const API_BASE_LB = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 
@@ -7986,6 +8022,36 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
       .finally(() => setLoading(false));
 
   }, [token, timePeriod, subjectFilter]);
+
+  // Fetch user profile data when selected
+  useEffect(() => {
+    if (!selectedUser || !token) return;
+
+    setLoadingProfile(true);
+    fetch(`${API_BASE_LB}/users/${selectedUser.userId}/profile`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setUserProfileData(data);
+      })
+      .catch(() => {
+        // If endpoint doesn't exist, use leaderboard data
+        setUserProfileData({
+          username: selectedUser.username,
+          xp: selectedUser.totalXP || selectedUser.xp,
+          sessions: selectedUser.sessions,
+          streak: selectedUser.streak,
+          avgMastery: selectedUser.avgMastery,
+          correctRate: selectedUser.correctRate,
+          studyHours: selectedUser.studyHours,
+          personalBest: selectedUser.personalBest,
+          badges: calculateBadges(selectedUser),
+          recentSessions: [],
+        });
+      })
+      .finally(() => setLoadingProfile(false));
+  }, [selectedUser, token]);
 
 
 
@@ -8118,7 +8184,12 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
           const earnedBadges = calculateBadges(entry);
 
           return (
-            <div key={entry.username} className={`leaderboard-row ${entry.isMe ? 'is-me' : ''} ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}`}>
+            <div
+              key={entry.username}
+              className={`leaderboard-row ${entry.isMe ? 'is-me' : ''} ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}`}
+              onClick={() => !entry.isMe && setSelectedUser(entry)}
+              style={{ cursor: entry.isMe ? 'default' : 'pointer' }}
+            >
 
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
                 <div className={`leaderboard-rank ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}`}>
@@ -8126,7 +8197,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
                 </div>
                 <div className="leaderboard-user-info">
                   <div className="leaderboard-username">
-                    {entry.username} {entry.isMe ? <span style={{ color: '#22c55e', fontSize: 12 }}>(you)</span> : ""}
+                    {entry.username} {entry.isMe ? <span style={{ color: '#22c55e', fontSize: 12 }}>(you)</span> : <span style={{ color: '#6366f1', fontSize: 10 }}>→ View Profile</span>}
                     {tier && (
                       <span className="leaderboard-tier" style={{ background: tier.color, color: tier.color === '#facc15' || tier.color === '#94a3b8' ? '#000' : '#fff' }}>
                         {tier.icon} {tier.name}
@@ -8148,6 +8219,9 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
               <div className="leaderboard-stats">
                 <span className="leaderboard-stat">
                   <strong>{entry.xp} XP</strong>
+                  {entry.dailyXP !== undefined && entry.dailyXP > 0 && (
+                    <span style={{ color: '#22c55e', fontSize: 10, marginLeft: 4 }}>+{entry.dailyXP} today</span>
+                  )}
                 </span>
                 <span className="leaderboard-stat">
                   {entry.sessions} sessions
@@ -8167,6 +8241,68 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
         })}
 
       </div>
+
+      {/* User Profile Modal */}
+      {selectedUser && (
+        <div className="modal-overlay" onClick={() => setSelectedUser(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <button className="modal-close" onClick={() => setSelectedUser(null)}>×</button>
+
+            {loadingProfile ? (
+              <p className="muted">Loading profile...</p>
+            ) : userProfileData && (
+              <div>
+                <h3 style={{ marginBottom: 16 }}>{userProfileData.username}'s Profile</h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
+                  <div className="stat-card" style={{ padding: 12, background: 'rgba(99, 102, 241, 0.1)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Total XP</div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: '#a5b4fc' }}>{userProfileData.xp}</div>
+                  </div>
+                  <div className="stat-card" style={{ padding: 12, background: 'rgba(34, 197, 94, 0.1)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Sessions</div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: '#4ade80' }}>{userProfileData.sessions}</div>
+                  </div>
+                  <div className="stat-card" style={{ padding: 12, background: 'rgba(251, 146, 60, 0.1)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Streak</div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: '#fb923c' }}>{userProfileData.streak} days</div>
+                  </div>
+                  <div className="stat-card" style={{ padding: 12, background: 'rgba(168, 85, 247, 0.1)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Study Hours</div>
+                    <div style={{ fontSize: 20, fontWeight: 600, color: '#c084fc' }}>{userProfileData.studyHours}h</div>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>Average Mastery</div>
+                  <div style={{ height: 8, background: 'rgba(99, 102, 241, 0.2)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${userProfileData.avgMastery}%`, height: '100%', background: 'linear-gradient(90deg, #6366f1, #a855f7)', borderRadius: 4 }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: '#a5b4fc', marginTop: 4 }}>{userProfileData.avgMastery}%</div>
+                </div>
+
+                {userProfileData.badges && userProfileData.badges.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>Badges Earned</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {userProfileData.badges.map((badge, idx) => (
+                        <span key={idx} style={{ fontSize: 20 }} title={badge.label}>{badge.icon}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {userProfileData.personalBest > 0 && (
+                  <div style={{ padding: 12, background: 'rgba(250, 204, 21, 0.1)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>Personal Best (Exam)</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: '#facc15' }}>{userProfileData.personalBest}%</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {!token && <p className="muted" style={{ marginTop: 12 }}>Connect to the backend to see real rankings.</p>}
 
