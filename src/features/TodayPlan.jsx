@@ -814,19 +814,19 @@ export function TodayScreen({
       <p className="muted">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</p>
 
       <div className="today-grid">
-        <div className="today-tile">
+        <div className="today-tile streak-tile">
           <div className="today-tile-label">🔥 Streak</div>
-          <div className="today-tile-value">{stats?.streak ?? 0} days</div>
+          <div className="today-tile-value">{stats?.streak ?? 0}</div>
         </div>
-        <div className="today-tile">
+        <div className="today-tile xp-tile">
           <div className="today-tile-label">⚡ XP</div>
           <div className="today-tile-value">{stats?.xp ?? 0}</div>
         </div>
-        <div className="today-tile">
+        <div className="today-tile cards-tile">
           <div className="today-tile-label">🧠 Cards Due</div>
           <div className="today-tile-value">{dueCards?.length ?? 0}</div>
         </div>
-        <div className="today-tile">
+        <div className="today-tile sessions-tile">
           <div className="today-tile-label">📚 Sessions</div>
           <div className="today-tile-value">{stats?.sessions ?? 0}</div>
         </div>
@@ -835,19 +835,19 @@ export function TodayScreen({
       <h3 style={{ marginTop: 18 }}>What to do right now</h3>
       <div className="today-actions">
         {dueCards?.length > 0 && (
-          <button onClick={onStartSpaced} style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}>
+          <button className="btn-neon-green" onClick={onStartSpaced}>
             🧠 Review {dueCards.length} due cards
           </button>
         )}
         {weakest && weakest.s && (
-          <button onClick={() => onStartSubject(weakest.s.id)} style={{ borderColor: "#facc15", color: "#facc15" }}>
+          <button className="btn-neon-yellow" onClick={() => onStartSubject(weakest.s.id)}>
             🎯 Practice your weakest: {weakest.s.icon} {weakest.s.label} ({weakest.m}%)
           </button>
         )}
-        <button onClick={() => onOpenTab("bank")} style={{ borderColor: "#fb923c", color: "#fb923c" }}>
+        <button className="btn-neon-orange" onClick={() => onOpenTab("bank")}>
           📝 Take a past paper
         </button>
-        <button onClick={() => onOpenTab("lectures")} style={{ borderColor: "#818cf8", color: "#818cf8" }}>
+        <button className="btn-neon-purple" onClick={() => onOpenTab("lectures")}>
           🎧 Convert lecture to notes
         </button>
       </div>

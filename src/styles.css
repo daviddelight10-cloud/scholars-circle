@@ -51,10 +51,23 @@
   --success-bg: rgba(45, 212, 160, 0.1);
   --success-border: rgba(45, 212, 160, 0.3);
   --success-text: #059669;
+  
+  /* Futuristic neon colors */
+  --neon-blue: #00d4ff;
+  --neon-purple: #a855f7;
+  --neon-pink: #ec4899;
+  --neon-green: #22c55e;
+  --neon-yellow: #fbbf24;
+  --neon-orange: #fb923c;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
 
 }
 
-/* Achievement Animations */
+/* ═══════════════════════════════════════════════════════════
+   FUTURISTIC ANIMATIONS
+   ═══════════════════════════════════════════════════════════ */
+
 @keyframes badgePop {
   0% {
     transform: scale(0) rotate(-180deg);
@@ -98,6 +111,590 @@
     transform: scale(1.05);
     box-shadow: 0 0 20px 10px rgba(251, 191, 36, 0);
   }
+}
+
+/* New futuristic animations */
+@keyframes neonGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px var(--neon-blue)) drop-shadow(0 0 10px var(--neon-blue));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px var(--neon-blue)) drop-shadow(0 0 20px var(--neon-blue)) drop-shadow(0 0 30px var(--neon-blue));
+  }
+}
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes rotate3d {
+  0% {
+    transform: perspective(1000px) rotateY(0deg);
+  }
+  100% {
+    transform: perspective(1000px) rotateY(360deg);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes iconBounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-3px) scale(1.1);
+  }
+  50% {
+    transform: translateY(0) scale(1);
+  }
+  75% {
+    transform: translateY(-2px) scale(1.05);
+  }
+}
+
+@keyframes xpPop {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.3);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cardShine {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%) rotate(25deg);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateX(200%) rotate(25deg);
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DYNAMIC ICON STYLES
+   ═══════════════════════════════════════════════════════════ */
+
+.dynamic-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  font-size: 20px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dynamic-icon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.dynamic-icon:hover {
+  transform: scale(1.15) rotate(5deg);
+  animation: iconBounce 0.6s ease;
+}
+
+.dynamic-icon:hover::before {
+  opacity: 1;
+}
+
+/* Icon color variants */
+.icon-fire {
+  background: linear-gradient(135deg, #ff6b35, #f7931e, #ffcc02);
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+}
+
+.icon-xp {
+  background: linear-gradient(135deg, #667eea, #764ba2, #f093fb);
+  box-shadow: 0 4px 15px rgba(118, 75, 162, 0.4);
+  animation: neonGlow 2s ease-in-out infinite;
+}
+
+.icon-brain {
+  background: linear-gradient(135deg, #11998e, #38ef7d);
+  box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+}
+
+.icon-book {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+}
+
+.icon-trophy {
+  background: linear-gradient(135deg, #f7971e, #ffd200);
+  box-shadow: 0 4px 15px rgba(255, 210, 0, 0.4);
+}
+
+.icon-target {
+  background: linear-gradient(135deg, #ee0979, #ff6a00);
+  box-shadow: 0 4px 15px rgba(238, 9, 121, 0.4);
+}
+
+.icon-sparkle {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TODAY TILE - FUTURISTIC POPUP STYLE
+   ═══════════════════════════════════════════════════════════ */
+
+.today-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.today-tile {
+  position: relative;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  overflow: hidden;
+  cursor: default;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.today-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s;
+}
+
+.today-tile:hover::before {
+  left: 100%;
+}
+
+.today-tile:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2), 0 0 20px rgba(99, 102, 241, 0.1);
+}
+
+.today-tile-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.today-tile-value {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fff, #a5b4fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Special styling for XP tile */
+.today-tile.xp-tile {
+  background: linear-gradient(145deg, rgba(118, 75, 162, 0.3), rgba(168, 85, 247, 0.2));
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.today-tile.xp-tile .today-tile-value {
+  background: linear-gradient(135deg, #fbbf24, #f472b6, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease infinite;
+  background-size: 200% 200%;
+}
+
+.today-tile.xp-tile::after {
+  content: '⚡';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 14px;
+  animation: floatUp 2s ease-in-out infinite;
+}
+
+/* Streak tile special styling */
+.today-tile.streak-tile {
+  background: linear-gradient(145deg, rgba(255, 107, 53, 0.2), rgba(247, 147, 30, 0.15));
+  border-color: rgba(255, 107, 53, 0.4);
+}
+
+.today-tile.streak-tile .today-tile-value {
+  background: linear-gradient(135deg, #ff6b35, #f7931e, #ffcc02);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.today-tile.streak-tile::after {
+  content: '🔥';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 14px;
+  animation: floatUp 1.5s ease-in-out infinite;
+}
+
+/* Cards due tile */
+.today-tile.cards-tile {
+  background: linear-gradient(145deg, rgba(17, 153, 142, 0.2), rgba(56, 239, 125, 0.15));
+  border-color: rgba(56, 239, 125, 0.4);
+}
+
+.today-tile.cards-tile .today-tile-value {
+  background: linear-gradient(135deg, #38ef7d, #11998e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Sessions tile */
+.today-tile.sessions-tile {
+  background: linear-gradient(145deg, rgba(79, 172, 254, 0.2), rgba(0, 242, 254, 0.15));
+  border-color: rgba(79, 172, 254, 0.4);
+}
+
+.today-tile.sessions-tile .today-tile-value {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FUTURISTIC BUTTONS
+   ═══════════════════════════════════════════════════════════ */
+
+button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+button:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Action button variants */
+.btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 6px 25px rgba(99, 102, 241, 0.6);
+  transform: translateY(-2px);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+}
+
+.btn-success:hover {
+  box-shadow: 0 6px 25px rgba(34, 197, 94, 0.6);
+  transform: translateY(-2px);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+}
+
+.btn-warning:hover {
+  box-shadow: 0 6px 25px rgba(245, 158, 11, 0.6);
+  transform: translateY(-2px);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:hover {
+  box-shadow: 0 6px 25px rgba(239, 68, 68, 0.6);
+  transform: translateY(-2px);
+}
+
+/* Neon outline buttons */
+.btn-neon-blue {
+  background: transparent;
+  border: 2px solid var(--neon-blue);
+  color: var(--neon-blue);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.3), inset 0 0 10px rgba(0, 212, 255, 0.1);
+  transition: all 0.3s;
+}
+
+.btn-neon-blue:hover {
+  background: rgba(0, 212, 255, 0.15);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.5), inset 0 0 20px rgba(0, 212, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-neon-green {
+  background: transparent;
+  border: 2px solid var(--neon-green);
+  color: var(--neon-green);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.3), inset 0 0 10px rgba(34, 197, 94, 0.1);
+  transition: all 0.3s;
+}
+
+.btn-neon-green:hover {
+  background: rgba(34, 197, 94, 0.15);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.5), inset 0 0 20px rgba(34, 197, 94, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-neon-purple {
+  background: transparent;
+  border: 2px solid var(--neon-purple);
+  color: var(--neon-purple);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3), inset 0 0 10px rgba(168, 85, 247, 0.1);
+  transition: all 0.3s;
+}
+
+.btn-neon-purple:hover {
+  background: rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5), inset 0 0 20px rgba(168, 85, 247, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-neon-orange {
+  background: transparent;
+  border: 2px solid var(--neon-orange);
+  color: var(--neon-orange);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(251, 146, 60, 0.3), inset 0 0 10px rgba(251, 146, 60, 0.1);
+  transition: all 0.3s;
+}
+
+.btn-neon-orange:hover {
+  background: rgba(251, 146, 60, 0.15);
+  box-shadow: 0 0 20px rgba(251, 146, 60, 0.5), inset 0 0 20px rgba(251, 146, 60, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-neon-yellow {
+  background: transparent;
+  border: 2px solid var(--neon-yellow);
+  color: var(--neon-yellow);
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.3), inset 0 0 10px rgba(251, 191, 36, 0.1);
+  transition: all 0.3s;
+}
+
+.btn-neon-yellow:hover {
+  background: rgba(251, 191, 36, 0.15);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.5), inset 0 0 20px rgba(251, 191, 36, 0.2);
+  transform: translateY(-2px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GLASSMORPHISM CARDS
+   ═══════════════════════════════════════════════════════════ */
+
+.card {
+  position: relative;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 20px;
+  padding: 20px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), transparent);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 30px rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TODAY ACTIONS - FUTURISTIC STYLE
+   ═══════════════════════════════════════════════════════════ */
+
+.today-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.today-actions button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.today-actions button::after {
+  content: '→';
+  position: absolute;
+  right: 16px;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.3s;
+}
+
+.today-actions button:hover::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.today-actions button:hover {
+  padding-right: 40px;
 }
 
 @keyframes slideIn {
