@@ -1344,6 +1344,36 @@ function App() {
 
   const [notificationPermission, setNotificationPermission] = useState("default");
 
+  // Notification settings state - must be declared early
+  const [notificationSettings, setNotificationSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('scholars-circle-notification-settings');
+      return saved ? JSON.parse(saved) : {
+        dailyReminder: true,
+        dailyReminderTime: '18:00',
+        streakWarning: true,
+        inactivityReminder: true,
+        inactivityDays: 2,
+        spacedReviewReminder: true,
+        leaderboardAlerts: true,
+        weeklyProgress: true,
+        motivationalQuotes: false
+      };
+    } catch {
+      return {
+        dailyReminder: true,
+        dailyReminderTime: '18:00',
+        streakWarning: true,
+        inactivityReminder: true,
+        inactivityDays: 2,
+        spacedReviewReminder: true,
+        leaderboardAlerts: true,
+        weeklyProgress: true,
+        motivationalQuotes: false
+      };
+    }
+  });
+
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
 
@@ -2919,22 +2949,6 @@ function App() {
   }, [stats?.xp]);
   
   // ============ COMPREHENSIVE NOTIFICATION SYSTEM ============
-  
-  // Notification settings state
-  const [notificationSettings, setNotificationSettings] = useState(() => {
-    const saved = localStorage.getItem('scholars-circle-notification-settings');
-    return saved ? JSON.parse(saved) : {
-      dailyReminder: true,
-      dailyReminderTime: '18:00', // 6 PM default
-      streakWarning: true,
-      inactivityReminder: true,
-      inactivityDays: 2,
-      spacedReviewReminder: true,
-      leaderboardAlerts: true,
-      weeklyProgress: true,
-      motivationalQuotes: false
-    };
-  });
   
   // Save notification settings
   useEffect(() => {
