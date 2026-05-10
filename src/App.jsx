@@ -6710,12 +6710,28 @@ function SessionPlayer({ session, onExit, onComplete, aiConfig }) {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [streakBonus, setStreakBonus] = useState(0);
   const [totalStreakBonus, setTotalStreakBonus] = useState(0);
+  
+  // Flagged questions
+  const [flaggedQuestions, setFlaggedQuestions] = useState(new Set());
 
   const current = session.questions[idx];
   
   // Calculate XP in real-time
   const modeMultiplier = MODE_MULTIPLIERS[session.mode] || 1;
   const currentXP = Math.round((score * XP_PER_CORRECT + totalStreakBonus) * modeMultiplier);
+  
+  // Toggle flag
+  function toggleFlag() {
+    setFlaggedQuestions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(idx)) {
+        newSet.delete(idx);
+      } else {
+        newSet.add(idx);
+      }
+      return newSet;
+    });
+  }
 
   async function askAIForExplanation() {
     if (!current) return;
@@ -6817,87 +6833,187 @@ ${isCorrect
     const finalXP = Math.round((baseXP + totalStreakBonus) * modeMultiplier);
 
     return (
-
-      <div className="card" style={{ textAlign: "center" }}>
-
-        <h2>{emoji} Session Complete!</h2>
-
-        <p style={{ fontSize: "3rem", margin: "8px 0" }}>{pct}%</p>
-
-        <p className="muted">{finalResult.score} / {finalResult.total} correct &nbsp;·&nbsp; {finalResult.seconds}s &nbsp;·&nbsp; {session.source.label}</p>
+      <div className="card" style={{ 
+        textAlign: "center",
+        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
+        border: "1px solid rgba(99, 102, 241, 0.2)",
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+        borderRadius: 20,
+        overflow: "hidden"
+      }}>
+        {/* Hero Section */}
+        <div style={{ 
+          background: pct >= 80 
+            ? "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))"
+            : "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+          padding: "32px 24px",
+          borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
+        }}>
+          <div style={{ fontSize: 64, marginBottom: 16, animation: "bounce 1s" }}>{emoji}</div>
+          <h2 style={{ margin: 0, fontSize: 28, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Session Complete!</h2>
+          <div style={{ 
+            fontSize: "4rem", 
+            fontWeight: 800, 
+            margin: "16px 0",
+            background: pct >= 80 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #3b82f6)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent"
+          }}>
+            {pct}%
+          </div>
+          <p style={{ color: "#9ca3af", fontSize: 14 }}>{finalResult.score} / {finalResult.total} correct · {finalResult.seconds}s · {session.source.label}</p>
+        </div>
         
         {/* XP Breakdown */}
-        <div style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%)", borderRadius: 12, padding: 16, margin: "16px auto", maxWidth: 320, border: "1px solid rgba(251,191,36,0.3)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 24 }}>⚡</span>
-            <span style={{ fontSize: 28, fontWeight: 700, color: "#fbbf24" }}>+{finalXP} XP</span>
+        <div style={{ padding: 24 }}>
+          <div style={{ 
+            background: "linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.1))", 
+            borderRadius: 16, 
+            padding: 20, 
+            marginBottom: 16,
+            border: "1px solid rgba(251,191,36,0.3)",
+            boxShadow: "0 4px 20px rgba(251, 191, 36, 0.1)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 32 }}>⚡</span>
+              <span style={{ fontSize: 36, fontWeight: 800, color: "#fbbf24" }}>+{finalXP}</span>
+              <span style={{ fontSize: 18, color: "#fbbf24", opacity: 0.8 }}>XP</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
+                <span>Base XP</span>
+                <span style={{ color: "#e0e7ff" }}>{baseXP} ({finalResult.score} × {XP_PER_CORRECT})</span>
+              </div>
+              {totalStreakBonus > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#fbbf24" }}>
+                  <span>🔥 Streak Bonus</span>
+                  <span>+{totalStreakBonus} XP</span>
+                </div>
+              )}
+              {modeBonusXP > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#60a5fa" }}>
+                  <span>🎯 Mode Bonus</span>
+                  <span>+{modeBonusXP} XP</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-            <div>Base: {baseXP} XP ({finalResult.score} × {XP_PER_CORRECT})</div>
-            {totalStreakBonus > 0 && <div style={{ color: "#fbbf24" }}>🔥 Streak Bonus: +{totalStreakBonus} XP</div>}
-            {modeBonusXP > 0 && <div style={{ color: "#60a5fa" }}>🎯 Mode Bonus: +{modeBonusXP} XP ({Math.round((modeMultiplier - 1) * 100)}%)</div>}
+          
+          {/* Confidence Calibration */}
+          <div style={{ 
+            background: "rgba(30, 41, 59, 0.6)", 
+            borderRadius: 12, 
+            padding: 16, 
+            marginBottom: 16,
+            border: "1px solid rgba(99, 102, 241, 0.2)"
+          }}>
+            <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>
+              Avg confidence <span style={{ color: "#e0e7ff" }}>{avgConf}%</span> → {gapLabel}
+            </p>
+          </div>
+          
+          {/* Flagged Questions Summary */}
+          {flaggedQuestions.size > 0 && (
+            <div style={{ 
+              background: "rgba(239, 68, 68, 0.1)", 
+              borderRadius: 12, 
+              padding: 16, 
+              marginBottom: 16,
+              border: "1px solid rgba(239, 68, 68, 0.3)"
+            }}>
+              <p style={{ color: "#f87171", fontSize: 14, margin: 0 }}>
+                🚩 {flaggedQuestions.size} question{flaggedQuestions.size > 1 ? "s" : ""} flagged for review
+              </p>
+            </div>
+          )}
+          
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <button 
+              style={{ 
+                background: "linear-gradient(135deg, #22c55e, #16a34a)",
+                border: "none",
+                padding: "14px 28px",
+                borderRadius: 12,
+                color: "white",
+                fontWeight: 700,
+                fontSize: 15,
+                cursor: "pointer",
+                boxShadow: "0 4px 20px rgba(34, 197, 94, 0.4)"
+              }}
+              onClick={() => {
+                onComplete({ ...finalResult, streakBonus: totalStreakBonus, flaggedQuestions: Array.from(flaggedQuestions) });
+                onExit();
+              }}
+            >
+              ✓ Save & Exit
+            </button>
+            <button 
+              style={{ 
+                background: "rgba(99, 102, 241, 0.2)",
+                border: "1px solid rgba(99, 102, 241, 0.3)",
+                padding: "14px 28px",
+                borderRadius: 12,
+                color: "#a5b4fc",
+                fontWeight: 600,
+                fontSize: 15,
+                cursor: "pointer"
+              }}
+              onClick={() => {
+                const text = `I scored ${pct}% (${finalResult.score}/${finalResult.total}) on ${session.source.label} at The Scholar's Circle! 🎓`;
+                if (navigator.share) navigator.share({ title: "Scholar's Circle", text });
+                else navigator.clipboard?.writeText(text).then(() => alert("Score copied to clipboard!"));
+              }}
+            >
+              📤 Share
+            </button>
           </div>
         </div>
-
-        <p className="muted" style={{ marginTop: 4 }}>Avg confidence {avgConf}% → {gapLabel} ({calibrationGap >=0 ? "+" : ""}{calibrationGap} pts vs score)</p>
-
-        <div className="row" style={{ justifyContent: "center", marginTop: 16, flexWrap: "wrap", gap: 8 }}>
-
-          <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0", background: "rgba(45, 212, 160, 0.1)" }} onClick={() => {
-            onComplete({ ...finalResult, streakBonus: totalStreakBonus });
-            onExit();
-          }}>✓ Save & Exit</button>
-
-          <button onClick={() => {
-
-            const text = `I scored ${pct}% (${finalResult.score}/${finalResult.total}) on ${session.source.label} at The Scholar's Circle! 🎓`;
-
-            if (navigator.share) navigator.share({ title: "Scholar's Circle", text });
-
-            else navigator.clipboard?.writeText(text).then(() => alert("Score copied to clipboard!"));
-
-          }}>📤 Share Score</button>
-
-        </div>
-
-        {/* Always show all questions with corrections */}
-        <div style={{ textAlign: "left", marginTop: 24, maxHeight: 400, overflowY: "auto" }}>
-          <h3 style={{ textAlign: "center", marginBottom: 16 }}>📝 Review All Answers</h3>
+        
+        {/* Review all answers */}
+        <div style={{ textAlign: "left", padding: "0 24px 24px", maxHeight: 400, overflowY: "auto" }}>
+          <h3 style={{ textAlign: "center", marginBottom: 16, color: "#e0e7ff" }}>📝 Review All Answers</h3>
           {finalResult.results.map((r, i) => {
             const q = session.questions[i];
             if (!q) return null;
             const isCorrect = r.correct;
+            const isFlagged = flaggedQuestions.has(i);
             
             return (
-              <div key={i} className="lesson-block" style={{ 
-                borderLeft: `3px solid ${isCorrect ? "#2dd4a0" : "#ff6b6b"}`,
+              <div key={i} style={{ 
+                borderLeft: `3px solid ${isCorrect ? "#22c55e" : "#ef4444"}`,
                 marginBottom: 12,
-                background: isCorrect ? "rgba(45, 212, 160, 0.05)" : "rgba(255, 107, 107, 0.05)"
+                background: isCorrect ? "linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.05))" : "linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05))",
+                borderRadius: 12,
+                padding: 16,
+                position: "relative"
               }}>
+                {isFlagged && (
+                  <span style={{ position: "absolute", top: 12, right: 12, fontSize: 16 }}>🚩</span>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <p style={{ margin: 0, fontWeight: 600, flex: 1 }}>Q{i + 1}: {q.q}</p>
-                  <span style={{ fontSize: 18 }}>{isCorrect ? "✅" : "❌"}</span>
+                  <p style={{ margin: 0, fontWeight: 600, flex: 1, color: "#f1f5f9", paddingRight: 24 }}>Q{i + 1}: {q.q}</p>
+                  <span style={{ fontSize: 20 }}>{isCorrect ? "✅" : "❌"}</span>
                 </div>
                 
                 {!isCorrect && (
                   <>
-                    <p style={{ margin: "4px 0", color: "#ff6b6b", fontSize: 14 }}>
+                    <p style={{ margin: "4px 0", color: "#f87171", fontSize: 14 }}>
                       Your answer: <strong>{q.options[r.selected] ?? "—"}</strong>
                     </p>
-                    <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                    <p style={{ margin: "4px 0", color: "#4ade80", fontSize: 14 }}>
                       Correct: <strong>{q.options[q.answer]}</strong>
                     </p>
                   </>
                 )}
                 
                 {isCorrect && (
-                  <p style={{ margin: "4px 0", color: "#2dd4a0", fontSize: 14 }}>
+                  <p style={{ margin: "4px 0", color: "#4ade80", fontSize: 14 }}>
                     ✓ <strong>{q.options[q.answer]}</strong>
                   </p>
                 )}
                 
                 {q.explanation && (
-                  <p style={{ margin: "8px 0 0", fontSize: 13 }} className="muted">
+                  <p style={{ margin: "8px 0 0", fontSize: 13, color: "#94a3b8" }}>
                     💡 {q.explanation}
                   </p>
                 )}
@@ -6905,11 +7021,8 @@ ${isCorrect
             );
           })}
         </div>
-
       </div>
-
     );
-
   }
 
 
@@ -7038,226 +7151,418 @@ ${isCorrect
 
   return (
 
-    <div className="card">
-
-      <div className="row" style={{ flexWrap: "wrap", gap: 12 }}>
-
-        <h2>
-
-          {session.source.icon} {session.source.label}
-
-        </h2>
-
-        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-
-          {/* XP Counter */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
-            padding: "6px 14px",
-            borderRadius: 20,
-            fontWeight: 600,
-            fontSize: 14,
-            color: "#fff",
-            boxShadow: "0 2px 8px rgba(251, 191, 36, 0.3)"
-          }}>
-            <span>⚡</span>
-            <span>{currentXP} XP</span>
+    <div className="card" style={{ 
+      background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
+      border: "1px solid rgba(99, 102, 241, 0.2)",
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+      borderRadius: 20,
+      overflow: "hidden"
+    }}>
+      {/* Animated Header */}
+      <div style={{ 
+        background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+        padding: "20px 24px",
+        borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 24,
+              boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)"
+            }}>
+              {session.source.icon}
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{session.source.label}</h3>
+              <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{session.mode === "exam" ? "Exam Mode" : session.mode === "weak" ? "Weak Drill" : session.mode === "adaptive" ? "Adaptive" : "Practice"}</p>
+            </div>
           </div>
           
-          {/* Streak Counter */}
-          {currentStreak >= 2 && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            {/* Timer for Exam Mode */}
+            {timeLeft != null && (
+              <div style={{
+                background: timeLeft < 60 ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(30, 41, 59, 0.8)",
+                border: "1px solid " + (timeLeft < 60 ? "rgba(239, 68, 68, 0.5)" : "rgba(99, 102, 241, 0.3)"),
+                padding: "8px 16px",
+                borderRadius: 30,
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#fff",
+                animation: timeLeft < 60 ? "pulse 1s infinite" : "none"
+              }}>
+                ⏱ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+              </div>
+            )}
+            
+            {/* Question Counter */}
+            <div style={{
+              background: "rgba(30, 41, 59, 0.8)",
+              border: "1px solid rgba(99, 102, 241, 0.3)",
+              padding: "8px 16px",
+              borderRadius: 30,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#e0e7ff"
+            }}>
+              Q{idx + 1}<span style={{ color: "#6b7280" }}>/{session.questions.length}</span>
+            </div>
+            
+            {/* XP Counter */}
             <div style={{
               display: "flex",
               alignItems: "center",
-              gap: 4,
-              background: currentStreak >= 7 ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)" 
-                         : currentStreak >= 5 ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
-                         : "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-              padding: "6px 14px",
-              borderRadius: 20,
-              fontWeight: 600,
+              gap: 6,
+              background: "linear-gradient(135deg, #fbbf24, #f59e0b)",
+              padding: "8px 16px",
+              borderRadius: 30,
+              fontWeight: 700,
               fontSize: 14,
               color: "#fff",
-              boxShadow: "0 2px 8px rgba(34, 197, 94, 0.3)",
-              animation: "pulse 1s infinite"
+              boxShadow: "0 4px 15px rgba(251, 191, 36, 0.4)",
+              animation: "pulse 2s infinite"
             }}>
-              <span>🔥</span>
-              <span>{currentStreak} streak!</span>
-              {streakBonus > 0 && <span style={{ fontSize: 11 }}>+{streakBonus}XP</span>}
+              <span style={{ fontSize: 16 }}>⚡</span>
+              <span>{currentXP}</span>
+              <span style={{ fontSize: 11, opacity: 0.9 }}>XP</span>
             </div>
-          )}
-          
-          {timeLeft != null && <strong>⏱ {timeLeft}s</strong>}
-
-          <button onClick={onExit}>Exit</button>
-
-        </div>
-
-      </div>
-
-      {perQuestionTarget && (
-
-        <div className="bar" style={{ margin: "6px 0 10px" }}>
-
-          <div className="fill" style={{ width: `${Math.min(100, ((idx) / Math.max(1, session.questions.length)) * 100)}%`, background: "#818cf8" }} />
-
-        </div>
-
-      )}
-
-      <p className="muted">
-
-        Question {idx + 1}/{session.questions.length}
-
-      </p>
-
-      {isExamLike && (
-
-        <p className="muted">
-
-          Running score: {score}/{Math.max(1, idx + (showResult ? 1 : 0))} (
-
-          {Math.round((score / Math.max(1, idx + (showResult ? 1 : 0))) * 100)}%)
-
-          {perQuestionTarget ? ` • Pace: ~${perQuestionTarget}s/question` : ""}
-
-        </p>
-
-      )}
-
-      <p className="question">{current.q}</p>
-
-      <div className="row">
-
-        <label>Confidence</label>
-
-        <select value={confidence} onChange={(e) => setConfidence(e.target.value)}>
-
-          <option value="unsure">Unsure</option>
-
-          <option value="okay">Okay</option>
-
-          <option value="sure">Sure</option>
-
-        </select>
-
-        <button onClick={() => window.speechSynthesis?.speak(new SpeechSynthesisUtterance(current.q))}>🔊 Read</button>
-
-      </div>
-
-      <div className="options">
-
-        {current.options.map((opt, i) => {
-
-          const isSelected = selected === i;
-
-          const isCorrect = showResult && i === current.answer;
-
-          const isWrong = showResult && i === selected && i !== current.answer;
-
-          return (
-
-            <button
-
-              key={opt}
-
-              className={`option ${isCorrect ? "ok" : ""} ${isWrong ? "bad" : ""} ${isSelected ? "selected" : ""}`}
-
-              onClick={() => setSelected(i)}
-
-              disabled={showResult}
-
-            >
-
-              {String.fromCharCode(65 + i)}. {opt}
-
-              {isSelected && (
-
-                <span style={{ marginLeft: 8, fontWeight: 700, color: isCorrect ? "#065f46" : isWrong ? "#991b1b" : "#3b82f6" }}>
-
-                  ✓
-
-                </span>
-
-              )}
-
-            </button>
-
-          );
-
-        })}
-
-      </div>
-
-      {showResult && !isExamLike && (
-
-        <div>
-
-          <p className="muted">{current.explanation}</p>
-
-          <div style={{ marginTop: 12 }}>
-            <button 
-              onClick={askAIForExplanation} 
-              disabled={aiLoading}
-              style={{ fontSize: 14, padding: "6px 12px" }}
-            >
-              {aiLoading ? "🤖 Thinking..." : "🤖 Ask AI to explain"}
-            </button>
-            {aiExplanation && (
-              <div style={{ 
-                marginTop: 8, 
-                padding: 12, 
-                background: "#f0f9ff", 
-                border: "1px solid #bae6fd", 
-                borderRadius: 8,
+            
+            {/* Streak Counter */}
+            {currentStreak >= 2 && (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: currentStreak >= 7 ? "linear-gradient(135deg, #f97316, #ea580c)" 
+                           : currentStreak >= 5 ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                           : "linear-gradient(135deg, #22c55e, #16a34a)",
+                padding: "8px 16px",
+                borderRadius: 30,
+                fontWeight: 700,
                 fontSize: 14,
-                lineHeight: 1.5
+                color: "#fff",
+                boxShadow: `0 4px 15px ${currentStreak >= 7 ? "rgba(249, 115, 22, 0.4)" : currentStreak >= 5 ? "rgba(239, 68, 68, 0.4)" : "rgba(34, 197, 94, 0.4)"}`,
+                animation: "pulse 1s infinite"
               }}>
-                <strong style={{ color: "#0284c7" }}>AI Explanation:</strong>
-                <p style={{ margin: "4px 0 0" }}>{aiExplanation}</p>
+                <span style={{ fontSize: 16 }}>🔥</span>
+                <span>{currentStreak}</span>
+                {streakBonus > 0 && <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", padding: "2px 6px", borderRadius: 10 }}>+{streakBonus}</span>}
               </div>
             )}
+            
+            {/* Exit Button */}
+            <button
+              onClick={onExit}
+              style={{
+                background: "rgba(239, 68, 68, 0.2)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                padding: "8px 16px",
+                borderRadius: 10,
+                color: "#f87171",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer"
+              }}
+            >
+              ✕ Exit
+            </button>
           </div>
-
-          <ul>
-
-            {current.options.map((opt, i) => (
-
-              <li key={opt} className="muted">
-
-                {String.fromCharCode(65 + i)}: {i === current.answer ? "Correct option for this concept." : "Not the best match for this question."}
-
-              </li>
-
-            ))}
-
-          </ul>
-
         </div>
-
-      )}
-
-      <div className="row">
-
-        {!showResult || isExamLike ? (
-
-          <button onClick={submit} disabled={selected == null}>
-
-            {isExamLike && idx === session.questions.length - 1 ? "Submit Exam" : "Submit"}
-
-          </button>
-
-        ) : (
-
-          <button onClick={next}>{idx === session.questions.length - 1 ? "Finish" : "Next"}</button>
-
-        )}
-
       </div>
 
+      {/* Progress Bar */}
+      <div style={{ padding: "0 24px", marginTop: 20 }}>
+        <div style={{ 
+          height: 6, 
+          background: "rgba(30, 41, 59, 0.8)", 
+          borderRadius: 10, 
+          overflow: "hidden",
+          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)"
+        }}>
+          <div style={{
+            height: "100%",
+            width: `${((idx + 1) / session.questions.length) * 100}%`,
+            background: "linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)",
+            borderRadius: 10,
+            transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: "0 0 20px rgba(99, 102, 241, 0.5)"
+          }} />
+        </div>
+      </div>
+      
+      {/* Running Score for Exam */}
+      {isExamLike && (
+        <div style={{ padding: "12px 24px 0" }}>
+          <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>
+            Running score: <span style={{ color: "#e0e7ff" }}>{score}/{Math.max(1, idx + (showResult ? 1 : 0))}</span>
+            {perQuestionTarget && <span> · Pace: ~{perQuestionTarget}s/question</span>}
+          </p>
+        </div>
+      )}
+
+      {/* Question */}
+      <div style={{ padding: "24px" }}>
+        <div style={{
+          background: "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 20,
+          border: "1px solid rgba(99, 102, 241, 0.15)",
+          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
+          position: "relative"
+        }}>
+          {/* Flag Button */}
+          <button
+            onClick={toggleFlag}
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              background: flaggedQuestions.has(idx) ? "rgba(239, 68, 68, 0.2)" : "rgba(99, 102, 241, 0.1)",
+              border: flaggedQuestions.has(idx) ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(99, 102, 241, 0.2)",
+              padding: "8px 12px",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontSize: 14,
+              color: flaggedQuestions.has(idx) ? "#f87171" : "#a5b4fc"
+            }}
+            title="Flag for review"
+          >
+            {flaggedQuestions.has(idx) ? "🚩" : "🏳️"}
+          </button>
+          
+          <p style={{ 
+            fontSize: 17, 
+            lineHeight: 1.7, 
+            color: "#f1f5f9",
+            margin: 0,
+            paddingRight: 50
+          }}>
+            {current.q}
+          </p>
+        </div>
+
+        {/* Confidence & Read Aloud */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <label style={{ color: "#9ca3af", fontSize: 13 }}>Confidence:</label>
+            <select 
+              value={confidence} 
+              onChange={(e) => setConfidence(e.target.value)}
+              style={{
+                background: "rgba(30, 41, 59, 0.8)",
+                border: "1px solid rgba(99, 102, 241, 0.3)",
+                borderRadius: 8,
+                padding: "8px 12px",
+                color: "#e0e7ff",
+                fontSize: 14
+              }}
+            >
+              <option value="unsure">🤔 Unsure</option>
+              <option value="okay">😊 Okay</option>
+              <option value="sure">😎 Sure</option>
+            </select>
+          </div>
+          <button
+            onClick={() => window.speechSynthesis?.speak(new SpeechSynthesisUtterance(current.q))}
+            style={{
+              background: "rgba(99, 102, 241, 0.2)",
+              border: "1px solid rgba(99, 102, 241, 0.3)",
+              padding: "8px 16px",
+              borderRadius: 8,
+              color: "#a5b4fc",
+              fontSize: 14,
+              cursor: "pointer"
+            }}
+          >
+            🔊 Read
+          </button>
+        </div>
+
+        {/* Options */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {current.options.map((opt, i) => {
+            const isSelected = selected === i;
+            const isCorrectOption = showResult && i === current.answer;
+            const isWrong = showResult && i === selected && i !== current.answer;
+            
+            let bgGradient = "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))";
+            let borderColor = "rgba(99, 102, 241, 0.2)";
+            let glowColor = "transparent";
+            
+            if (showResult) {
+              if (isCorrectOption) {
+                bgGradient = "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))";
+                borderColor = "rgba(34, 197, 94, 0.5)";
+                glowColor = "rgba(34, 197, 94, 0.3)";
+              } else if (isWrong) {
+                bgGradient = "linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))";
+                borderColor = "rgba(239, 68, 68, 0.5)";
+                glowColor = "rgba(239, 68, 68, 0.3)";
+              }
+            } else if (isSelected) {
+              bgGradient = "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.1))";
+              borderColor = "rgba(99, 102, 241, 0.5)";
+              glowColor = "rgba(99, 102, 241, 0.3)";
+            }
+
+            return (
+              <button
+                key={opt}
+                onClick={() => !showResult && setSelected(i)}
+                disabled={showResult}
+                style={{
+                  padding: "16px 20px",
+                  background: bgGradient,
+                  border: `2px solid ${borderColor}`,
+                  borderRadius: 14,
+                  color: "#f1f5f9",
+                  textAlign: "left",
+                  cursor: showResult ? "default" : "pointer",
+                  fontSize: 15,
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  boxShadow: `0 4px 15px ${glowColor}, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                  transform: isSelected && !showResult ? "scale(1.02)" : "scale(1)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ 
+                      width: 32, 
+                      height: 32, 
+                      borderRadius: 10,
+                      background: isCorrectOption ? "linear-gradient(135deg, #22c55e, #16a34a)" 
+                                : isWrong ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                                : isSelected ? "linear-gradient(135deg, #6366f1, #8b5cf6)" 
+                                : "rgba(99, 102, 241, 0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      color: isSelected || isCorrectOption ? "#fff" : "#a5b4fc"
+                    }}>
+                      {isCorrectOption ? "✓" : isWrong ? "✗" : String.fromCharCode(65 + i)}
+                    </span>
+                    <span>{opt}</span>
+                  </div>
+                  {isCorrectOption && (
+                    <span style={{ 
+                      background: "linear-gradient(135deg, #22c55e, #16a34a)", 
+                      padding: "4px 12px", 
+                      borderRadius: 20, 
+                      fontSize: 12, 
+                      fontWeight: 600,
+                      color: "#fff"
+                    }}>Correct</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Explanation (shown after answer) */}
+      {showResult && !isExamLike && (
+        <div style={{ padding: "0 24px 24px" }}>
+          <div style={{ 
+            background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))",
+            borderRadius: 16, 
+            padding: 20,
+            border: "1px solid rgba(59, 130, 246, 0.2)"
+          }}>
+            <p style={{ color: "#93c5fd", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+              💡 {current.explanation || "No explanation available."}
+            </p>
+            
+            {/* AI Explanation Button */}
+            <div style={{ marginTop: 16 }}>
+              <button 
+                onClick={askAIForExplanation} 
+                disabled={aiLoading}
+                style={{ 
+                  background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                  border: "none",
+                  padding: "10px 20px",
+                  borderRadius: 10,
+                  color: "white",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: aiLoading ? "wait" : "pointer",
+                  boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)"
+                }}
+              >
+                {aiLoading ? "🤖 Thinking..." : "🤖 Ask AI to explain"}
+              </button>
+              {aiExplanation && (
+                <div style={{ 
+                  marginTop: 12, 
+                  padding: 16, 
+                  background: "rgba(30, 41, 59, 0.6)", 
+                  border: "1px solid rgba(59, 130, 246, 0.3)", 
+                  borderRadius: 12,
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  color: "#93c5fd"
+                }}>
+                  <strong style={{ color: "#60a5fa" }}>AI Explanation:</strong>
+                  <p style={{ margin: "8px 0 0" }}>{aiExplanation}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div style={{ padding: "0 24px 24px", display: "flex", gap: 12, justifyContent: "flex-end" }}>
+        {!showResult || isExamLike ? (
+          <button
+            onClick={submit}
+            disabled={selected == null}
+            style={{
+              background: selected == null ? "rgba(99, 102, 241, 0.3)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "white",
+              border: "none",
+              padding: "14px 28px",
+              borderRadius: 12,
+              cursor: selected == null ? "not-allowed" : "pointer",
+              fontSize: 15,
+              fontWeight: 600,
+              boxShadow: selected == null ? "none" : "0 4px 20px rgba(99, 102, 241, 0.4)",
+              transition: "all 0.2s"
+            }}
+          >
+            {isExamLike && idx === session.questions.length - 1 ? "Submit Exam 📝" : "Submit →"}
+          </button>
+        ) : (
+          <button
+            onClick={next}
+            style={{
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "white",
+              border: "none",
+              padding: "14px 28px",
+              borderRadius: 12,
+              cursor: "pointer",
+              fontSize: 15,
+              fontWeight: 600,
+              boxShadow: "0 4px 20px rgba(99, 102, 241, 0.4)",
+              transition: "all 0.2s"
+            }}
+          >
+            {idx === session.questions.length - 1 ? "Finish 🎉" : "Next Question →"}
+          </button>
+        )}
+      </div>
     </div>
 
   );

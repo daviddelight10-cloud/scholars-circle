@@ -19,6 +19,11 @@ function saveHints(hints) {
 export function PracticeWithHints({ questions, subject, onComplete }) {
   console.log("PracticeWithHints rendered with questions:", questions?.length, "subject:", subject);
   
+  // Setup state
+  const [isSetup, setIsSetup] = useState(true);
+  const [questionCount, setQuestionCount] = useState(10);
+  const [practiceQuestions, setPracticeQuestions] = useState([]);
+  
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showResult, setShowResult] = useState(false);
@@ -33,7 +38,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
   const [streakBonus, setStreakBonus] = useState(0);
   const [totalStreakBonus, setTotalStreakBonus] = useState(0);
 
-  const currentQuestion = questions && questions[currentIndex];
+  const currentQuestion = practiceQuestions[currentIndex];
   const isCorrect = selectedAnswer === currentQuestion?.answer;
   
   // Calculate XP in real-time
@@ -41,6 +46,16 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
   const currentXP = Math.round((score * XP_PER_CORRECT + totalStreakBonus) * modeMultiplier);
 
   console.log("Current question:", currentQuestion, "Hint level:", hintLevel);
+  
+  // Start practice with selected number of questions
+  function startPractice() {
+    if (!questions || questions.length === 0) return;
+    
+    const shuffled = [...questions].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(questionCount, questions.length));
+    setPracticeQuestions(selected);
+    setIsSetup(false);
+  }
 
   // Generate hints based on question type
   function generateHints(question, level) {
@@ -126,7 +141,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
   function handleNext() {
     setStreakBonus(0); // Reset streak bonus display
     
-    if (currentIndex < questions.length - 1) {
+    if (currentIndex < practiceQuestions.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setSelectedAnswer(null);
       setShowResult(false);
@@ -139,9 +154,9 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
   
   function handleSaveAndExit() {
     const finalScore = {
-      total: questions.length,
+      total: practiceQuestions.length,
       correct: score,
-      percentage: Math.round((score / questions.length) * 100),
+      percentage: Math.round((score / practiceQuestions.length) * 100),
       results: results,
       mode: "practicehints",
       streakBonus: totalStreakBonus
@@ -155,6 +170,11 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
     saveHints(newHintsUsed);
     
     onComplete(finalScore);
+  }
+  
+  // Exit without saving (for setup screen)
+  function handleExit() {
+    onComplete(null);
   }
 
   function requestHint() {
@@ -179,18 +199,168 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
     handleNext();
   }
 
+  // Setup Screen - select number of questions
+  if (isSetup) {
+    const maxQuestions = questions?.length || 0;
+    
+    return (
+      <div className="card" style={{ 
+        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
+        border: "1px solid rgba(99, 102, 241, 0.2)",
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+        borderRadius: 20,
+        overflow: "hidden",
+        maxWidth: 480,
+        margin: "0 auto"
+      }}>
+        {/* Header */}
+        <div style={{ 
+          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+          padding: "24px",
+          borderBottom: "1px solid rgba(99, 102, 241, 0.2)",
+          textAlign: "center"
+        }}>
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: 16,
+            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 32,
+            margin: "0 auto 16px",
+            boxShadow: "0 4px 20px rgba(99, 102, 241, 0.4)"
+          }}>
+            💡
+          </div>
+          <h2 style={{ margin: 0, fontSize: 24, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice with Hints</h2>
+          <p style={{ margin: "8px 0 0", color: "#9ca3af", fontSize: 14 }}>{subject?.label || "Subject"} · {maxQuestions} questions available</p>
+        </div>
+        
+        {/* Settings */}
+        <div style={{ padding: 24 }}>
+          {maxQuestions === 0 ? (
+            <div style={{ textAlign: "center", padding: 20 }}>
+              <p style={{ color: "#f87171", fontSize: 16 }}>⚠️ No questions available</p>
+              <p style={{ color: "#9ca3af", fontSize: 14 }}>Please select a subject with questions.</p>
+            </div>
+          ) : (
+            <>
+              {/* Question Count Selector */}
+              <div style={{ marginBottom: 24 }}>
+                <label style={{ display: "block", color: "#e0e7ff", fontSize: 14, marginBottom: 12, fontWeight: 600 }}>
+                  Number of Questions
+                </label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[5, 10, 15, 20, 30, 50].map(num => (
+                    <button
+                      key={num}
+                      onClick={() => setQuestionCount(Math.min(num, maxQuestions))}
+                      style={{
+                        flex: "1 0 calc(33.333% - 16px)",
+                        minWidth: 70,
+                        padding: "12px 16px",
+                        background: questionCount === Math.min(num, maxQuestions) 
+                          ? "linear-gradient(135deg, #6366f1, #8b5cf6)" 
+                          : "rgba(30, 41, 59, 0.8)",
+                        border: questionCount === Math.min(num, maxQuestions)
+                          ? "2px solid rgba(99, 102, 241, 0.5)"
+                          : "1px solid rgba(99, 102, 241, 0.2)",
+                        borderRadius: 12,
+                        color: questionCount === Math.min(num, maxQuestions) ? "#fff" : "#a5b4fc",
+                        fontSize: 16,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      {Math.min(num, maxQuestions)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Features Preview */}
+              <div style={{ 
+                background: "rgba(30, 41, 59, 0.6)", 
+                borderRadius: 12, 
+                padding: 16, 
+                marginBottom: 24,
+                border: "1px solid rgba(99, 102, 241, 0.15)"
+              }}>
+                <p style={{ color: "#9ca3af", fontSize: 13, margin: 0, lineHeight: 1.8 }}>
+                  ✨ Features available:
+                </p>
+                <ul style={{ color: "#93c5fd", fontSize: 13, margin: "8px 0 0", paddingLeft: 20 }}>
+                  <li>Progressive hints (up to 4 per question)</li>
+                  <li>Instant feedback with explanations</li>
+                  <li>XP & streak bonuses</li>
+                  <li>Flag questions for review</li>
+                </ul>
+              </div>
+              
+              {/* Action Buttons */}
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  onClick={handleExit}
+                  style={{
+                    flex: 1,
+                    background: "rgba(107, 114, 128, 0.2)",
+                    border: "1px solid rgba(107, 114, 128, 0.3)",
+                    padding: "14px 20px",
+                    borderRadius: 12,
+                    color: "#9ca3af",
+                    fontSize: 15,
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                >
+                  ✕ Cancel
+                </button>
+                <button
+                  onClick={startPractice}
+                  style={{
+                    flex: 2,
+                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    border: "none",
+                    padding: "14px 20px",
+                    borderRadius: 12,
+                    color: "white",
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 4px 20px rgba(99, 102, 241, 0.4)"
+                  }}
+                >
+                  🚀 Start Practice
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
   if (!currentQuestion) {
     return (
-      <div className="card">
-        <h3>Practice Mode with Hints</h3>
-        <p className="muted">No questions available. Please select a subject from the main menu.</p>
+      <div className="card" style={{ 
+        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
+        border: "1px solid rgba(99, 102, 241, 0.2)",
+        borderRadius: 20,
+        padding: 24,
+        textAlign: "center"
+      }}>
+        <h3 style={{ color: "#f1f5f9" }}>Practice Mode with Hints</h3>
+        <p style={{ color: "#9ca3af" }}>No questions available. Please select a subject from the main menu.</p>
       </div>
     );
   }
   
   // Completion screen with review
   if (completed) {
-    const pct = Math.round((score / questions.length) * 100);
+    const pct = Math.round((score / practiceQuestions.length) * 100);
     const emoji = pct === 100 ? "🏆" : pct >= 80 ? "🎉" : pct >= 50 ? "👍" : "📖";
     const baseXP = score * XP_PER_CORRECT;
     const finalXP = Math.round((baseXP + totalStreakBonus) * modeMultiplier);
@@ -224,7 +394,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
           }}>
             {pct}%
           </div>
-          <p style={{ color: "#9ca3af", fontSize: 14 }}>{score} / {questions.length} correct · {subject?.label || "Practice"}</p>
+          <p style={{ color: "#9ca3af", fontSize: 14 }}>{score} / {practiceQuestions.length} correct · {subject?.label || "Practice"}</p>
         </div>
         
         {/* XP Breakdown */}
@@ -283,7 +453,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         <div style={{ textAlign: "left", padding: "0 24px 24px", maxHeight: 400, overflowY: "auto" }}>
           <h3 style={{ textAlign: "center", marginBottom: 16, color: "#e0e7ff" }}>📝 Review All Answers</h3>
           {results.map((r, i) => {
-            const q = questions[i];
+            const q = practiceQuestions[i];
             if (!q) return null;
             const isCorrect = r.correct;
             
@@ -385,7 +555,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
               fontWeight: 600,
               color: "#e0e7ff"
             }}>
-              Q{currentIndex + 1}<span style={{ color: "#6b7280" }}>/{questions.length}</span>
+              Q{currentIndex + 1}<span style={{ color: "#6b7280" }}>/{practiceQuestions.length}</span>
             </div>
             
             {/* XP Counter */}
@@ -429,6 +599,23 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                 {streakBonus > 0 && <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", padding: "2px 6px", borderRadius: 10 }}>+{streakBonus}</span>}
               </div>
             )}
+            
+            {/* Exit Button */}
+            <button
+              onClick={handleExit}
+              style={{
+                background: "rgba(239, 68, 68, 0.2)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                padding: "8px 16px",
+                borderRadius: 10,
+                color: "#f87171",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer"
+              }}
+            >
+              ✕ Exit
+            </button>
           </div>
         </div>
       </div>
@@ -444,7 +631,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         }}>
           <div style={{
             height: "100%",
-            width: `${((currentIndex + 1) / questions.length) * 100}%`,
+            width: `${((currentIndex + 1) / practiceQuestions.length) * 100}%`,
             background: "linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)",
             borderRadius: 10,
             transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
