@@ -2085,7 +2085,7 @@ function App() {
 
         customQuestions,
 
-        // darkMode is local preference - excluded from sync
+        darkMode,
 
         lastStudied,
 
@@ -2158,7 +2158,7 @@ function App() {
 
           lastStudied,
 
-          // darkMode is local preference - excluded from sync
+          darkMode,
 
           themePack,
 
@@ -2188,7 +2188,7 @@ function App() {
 
     customQuestions,
 
-    // darkMode is local preference - excluded from sync
+    darkMode,
 
     lastStudied,
 
