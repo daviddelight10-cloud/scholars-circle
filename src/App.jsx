@@ -1544,6 +1544,23 @@ function App() {
     return result;
   }, [customQuestions, backendSubjects]);
 
+  // allQuestions must be defined before notification useEffect
+  const allQuestions = useMemo(
+    () => subjects.flatMap((s) =>
+      s.questions.map((q, i) => ({
+        ...q,
+        subjectId: s.id,
+        subjectLabel: s.label,
+        subjectIcon: s.icon,
+        key: `${s.id}-${i}`,
+      }))
+    ),
+    [subjects]
+  );
+
+  // dueCards must be defined before notification useEffect
+  const dueCards = allQuestions.filter((q) => (srData[q.key]?.due || 0) <= Date.now() && srData[q.key]);
+
 
 
   function buildPaletteActions() {
@@ -3099,36 +3116,6 @@ function App() {
     
     return () => timeouts.forEach(clearTimeout);
   }, [booted, notificationPermission, lastStudied, stats.streak, stats.sessions, dueCards.length, notificationSettings, studyHeatmap]);
-
-  const allQuestions = useMemo(
-
-    () =>
-
-      subjects.flatMap((s) =>
-
-        s.questions.map((q, i) => ({
-
-          ...q,
-
-          subjectId: s.id,
-
-          subjectLabel: s.label,
-
-          subjectIcon: s.icon,
-
-          key: `${s.id}-${i}`,
-
-        }))
-
-      ),
-
-    [subjects]
-
-  );
-
-
-
-  const dueCards = allQuestions.filter((q) => (srData[q.key]?.due || 0) <= Date.now() && srData[q.key]);
 
   async function startSubjectPractice(subjectId, mode = "practice", questionCount = null, customMinutes = null) {
 
