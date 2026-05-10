@@ -7259,6 +7259,7 @@ ${isCorrect
             
             {/* Exit Button */}
             <button
+              type="button"
               onClick={onExit}
               style={{
                 background: "rgba(239, 68, 68, 0.2)",
@@ -7268,7 +7269,9 @@ ${isCorrect
                 color: "#f87171",
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: "pointer"
+                cursor: "pointer",
+                zIndex: 10,
+                position: "relative"
               }}
             >
               ✕ Exit

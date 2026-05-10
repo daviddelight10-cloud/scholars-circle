@@ -210,8 +210,9 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
         borderRadius: 20,
         overflow: "hidden",
-        maxWidth: 480,
-        margin: "0 auto"
+        width: "100%",
+        maxWidth: "100%",
+        margin: 0
       }}>
         {/* Header */}
         <div style={{ 
@@ -253,31 +254,36 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                   Number of Questions
                 </label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {[5, 10, 15, 20, 30, 50].map(num => (
+                  {[5, 10, 15, 20, 30, 50, 'all'].map(num => {
+                    const isAll = num === 'all';
+                    const displayNum = isAll ? maxQuestions : Math.min(num, maxQuestions);
+                    const label = isAll ? 'All' : num;
+                    return (
                     <button
                       key={num}
-                      onClick={() => setQuestionCount(Math.min(num, maxQuestions))}
+                      onClick={() => setQuestionCount(displayNum)}
                       style={{
                         flex: "1 0 calc(33.333% - 16px)",
                         minWidth: 70,
                         padding: "12px 16px",
-                        background: questionCount === Math.min(num, maxQuestions) 
+                        background: questionCount === displayNum 
                           ? "linear-gradient(135deg, #6366f1, #8b5cf6)" 
                           : "rgba(30, 41, 59, 0.8)",
-                        border: questionCount === Math.min(num, maxQuestions)
+                        border: questionCount === displayNum
                           ? "2px solid rgba(99, 102, 241, 0.5)"
                           : "1px solid rgba(99, 102, 241, 0.2)",
                         borderRadius: 12,
-                        color: questionCount === Math.min(num, maxQuestions) ? "#fff" : "#a5b4fc",
+                        color: questionCount === displayNum ? "#fff" : "#a5b4fc",
                         fontSize: 16,
                         fontWeight: 700,
                         cursor: "pointer",
                         transition: "all 0.2s"
                       }}
                     >
-                      {Math.min(num, maxQuestions)}
+                      {label}
                     </button>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
               
@@ -600,6 +606,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
             
             {/* Exit Button */}
             <button
+              type="button"
               onClick={handleExit}
               style={{
                 background: "rgba(239, 68, 68, 0.2)",
@@ -609,7 +616,9 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                 color: "#f87171",
                 fontWeight: 600,
                 fontSize: 12,
-                cursor: "pointer"
+                cursor: "pointer",
+                zIndex: 10,
+                position: "relative"
               }}
             >
               ✕
