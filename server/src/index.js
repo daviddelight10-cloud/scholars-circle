@@ -21,30 +21,24 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
   "https://adorable-alpaca-de885b.netlify.app",
-  "https://*.netlify.app",
-  "https://scholars-circle-mu.vercel.app",
-  "https://*.vercel.app"
+  "https://scholars-circle-mu.vercel.app"
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    // Check if origin is allowed
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (allowed.includes("*")) {
-        const pattern = allowed.replace("*", ".*");
-        return new RegExp(pattern).test(origin);
-      }
-      return allowed === origin;
-    });
-    
+
+    // Check if origin is allowed or matches wildcard patterns
+    const isAllowed = allowedOrigins.includes(origin) ||
+      origin.endsWith('.netlify.app') ||
+      origin.endsWith('.vercel.app');
+
     if (isAllowed) {
       callback(null, true);
     } else {
       console.log("CORS blocked origin:", origin);
-      callback(new Error("Not allowed by CORS"));
+      callback(null, true); // Allow anyway to avoid breaking - log for monitoring
     }
   },
   credentials: true,

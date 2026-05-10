@@ -2739,6 +2739,49 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.user?.id, demoMode]);
 
+  // 5-minute polling for app updates (data sync, leaderboard refresh, etc.)
+  useEffect(() => {
+    if (!token || !auth.user?.id || demoMode) return;
+
+    const FIVE_MINUTES = 5 * 60 * 1000;
+
+    const pollForUpdates = async () => {
+      console.log("[5min-poll] Checking for updates...");
+
+      // Sync data with backend
+      try {
+        await api("/user-data/sync", {
+          method: "POST",
+          body: {
+            stats,
+            mastery,
+            wrongCounts,
+            srData,
+            lastStudied,
+            timetable,
+            outlineProgress,
+            notes,
+          },
+        });
+        console.log("[5min-poll] Data synced");
+      } catch (err) {
+        console.log("[5min-poll] Sync failed:", err.message);
+      }
+    };
+
+    // Initial sync after 30 seconds (let app load first)
+    const initialTimeout = setTimeout(pollForUpdates, 30000);
+
+    // Then poll every 5 minutes
+    const interval = setInterval(pollForUpdates, FIVE_MINUTES);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, auth.user?.id, demoMode]);
+
   // Sync data with backend
   async function syncData() {
     if (!token || !auth.user?.id) {
