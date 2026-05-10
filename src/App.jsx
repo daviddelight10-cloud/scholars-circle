@@ -7205,6 +7205,11 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
 
   const [newClassName, setNewClassName] = useState("");
 
+  // Join classroom state (for students)
+  const [showJoinClass, setShowJoinClass] = useState(false);
+  const [joinClassCode, setJoinClassCode] = useState("");
+  const [joinError, setJoinError] = useState("");
+
   // Link state
   const [newLinkTitle, setNewLinkTitle] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
@@ -7284,6 +7289,33 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
       setShowCreateClass(false);
     } catch (err) {
       console.error("Failed to create classroom:", err);
+    }
+  }
+
+  // Join classroom (student)
+  async function joinClassroom() {
+    if (!joinClassCode.trim()) return;
+    setJoinError("");
+    try {
+      const res = await fetch(`${API_BASE}/classroom/${joinClassCode}/join`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to join classroom");
+      // Refresh classrooms
+      const classroomsRes = await fetch(`${API_BASE}/classroom/my`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const classroomsData = await classroomsRes.json();
+      setClassrooms(classroomsData || []);
+      if (classroomsData && classroomsData.length > 0) {
+        setSelectedClassroom(classroomsData[classroomsData.length - 1]);
+      }
+      setJoinClassCode("");
+      setShowJoinClass(false);
+    } catch (err) {
+      setJoinError(err.message);
     }
   }
 
@@ -7410,9 +7442,13 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
     <div className="card">
       <div className="row" style={{ marginBottom: 16 }}>
         <h2>🏫 Classroom</h2>
-        {teacherMode && (
+        {teacherMode ? (
           <button onClick={() => setShowCreateClass(true)} style={{ marginLeft: "auto" }}>
             + New Class
+          </button>
+        ) : (
+          <button onClick={() => setShowJoinClass(true)} style={{ marginLeft: "auto" }}>
+            🔗 Join Class
           </button>
         )}
       </div>
@@ -7434,6 +7470,17 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
               </option>
             ))}
           </select>
+          {teacherMode && selectedClassroom && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#9ca3af" }}>
+              📋 Classroom ID: <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 6px", borderRadius: 4 }}>{selectedClassroom.id}</code>
+              <button
+                onClick={() => navigator.clipboard.writeText(selectedClassroom.id)}
+                style={{ marginLeft: 8, padding: "2px 8px", fontSize: 11 }}
+              >
+                Copy
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -7444,7 +7491,8 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
         <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🏫</div>
           <p>No classrooms yet</p>
-          <p style={{ fontSize: 12 }}>Your teacher will add you to a classroom soon.</p>
+          <p style={{ fontSize: 12, marginBottom: 16 }}>Ask your teacher for the Classroom ID to join.</p>
+          <button onClick={() => setShowJoinClass(true)}>🔗 Join a Classroom</button>
         </div>
       )}
 
@@ -7721,6 +7769,29 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
             <div className="row">
               <button onClick={() => setShowCreateClass(false)}>Cancel</button>
               <button onClick={createClassroom}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Join Class Modal */}
+      {showJoinClass && (
+        <div className="modal-overlay" onClick={() => setShowJoinClass(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>🔗 Join Classroom</h3>
+            <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 12 }}>
+              Enter the Classroom ID provided by your teacher.
+            </p>
+            <input
+              value={joinClassCode}
+              onChange={(e) => setJoinClassCode(e.target.value)}
+              placeholder="Classroom ID (e.g., 'abc123')"
+              style={{ width: "100%", marginBottom: 8 }}
+            />
+            {joinError && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 8 }}>{joinError}</p>}
+            <div className="row">
+              <button onClick={() => { setShowJoinClass(false); setJoinError(""); }}>Cancel</button>
+              <button onClick={joinClassroom}>Join</button>
             </div>
           </div>
         </div>
