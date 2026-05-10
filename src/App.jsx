@@ -4610,125 +4610,122 @@ function App() {
 
       <header className="topbar">
 
-        <div className="row" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
 
-          <h1 style={{ margin: 0, flex: "1 1 auto" }}>The Scholar&apos;s Circle</h1>
+          {/* Logo */}
+          <div className="app-logo">
+            <div className="logo-icon">🎓</div>
+            <div className="logo-text">
+              <div className="logo-title">Scholar's Circle</div>
+              <div className="logo-subtitle">Learn • Practice • Master</div>
+            </div>
+          </div>
 
-          <select value={themePack} onChange={(e) => setThemePack(e.target.value)} style={{ minWidth: 120 }}>
+          {/* Header Controls */}
+          <div className="header-controls">
 
-            <option value="aurora">Aurora</option>
-
-            <option value="paper">Paper</option>
-
-            <option value="neon">Neon</option>
-
-          </select>
-
-          <button onClick={() => setDensity((d) => d === "cozy" ? "compact" : "cozy")}>
-
-            Density: {density === "cozy" ? "Cozy" : "Compact"}
-
-          </button>
-
-          <button onClick={() => setShowPalette(true)} title="Ctrl/Cmd+K">⌘K Palette</button>
-
-          <button onClick={() => setDarkMode((v) => !v)} style={{ fontSize: 18, border: "none", background: "transparent", cursor: "pointer" }}>
-
-            {darkMode ? "🌙" : "☀️"}
-
-          </button>
-
-          {deferredPrompt && !isIOS && (
-            <button
-              onClick={handleInstallClick}
-              style={{
-                background: "#818cf8",
-                color: "white",
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 600
-              }}
-            >
-              📱 Install App
+            {/* Palette Button */}
+            <button className="header-btn palette-btn" onClick={() => setShowPalette(true)} title="Ctrl/Cmd+K">
+              <span className="btn-icon">🔍</span>
+              <span className="btn-label">Search</span>
+              <span className="shortcut">⌘K</span>
             </button>
-          )}
 
-          {isIOS && (
-            <button
-              onClick={() => {
-                alert("To install on iOS:\n\n1. Tap the Share button (box with arrow) at the bottom\n2. Scroll down and tap 'Add to Home Screen'\n3. Tap 'Add' in the top right");
-              }}
-              style={{
-                background: "#818cf8",
-                color: "white",
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 600
-              }}
-            >
-              📱 Install App
-            </button>
-          )}
+            {/* Theme Selector */}
+            <div className="theme-selector" onClick={() => {
+              const selector = document.querySelector('.theme-selector');
+              selector?.classList.toggle('open');
+            }}>
+              <div className="theme-selector-btn">
+                <div className={`theme-dot ${themePack}`}></div>
+                <span className="btn-label">{themePack.charAt(0).toUpperCase() + themePack.slice(1)}</span>
+                <span style={{ fontSize: 10 }}>▼</span>
+              </div>
+              <div className="theme-dropdown" onClick={(e) => e.stopPropagation()}>
+                <div className={`theme-option ${themePack === 'aurora' ? 'active' : ''}`} onClick={() => setThemePack('aurora')}>
+                  <div className="theme-preview aurora"></div>
+                  <span className="theme-name">🌌 Aurora</span>
+                </div>
+                <div className={`theme-option ${themePack === 'paper' ? 'active' : ''}`} onClick={() => setThemePack('paper')}>
+                  <div className="theme-preview paper"></div>
+                  <span className="theme-name">📄 Paper</span>
+                </div>
+                <div className={`theme-option ${themePack === 'neon' ? 'active' : ''}`} onClick={() => setThemePack('neon')}>
+                  <div className="theme-preview neon"></div>
+                  <span className="theme-name">💜 Neon</span>
+                </div>
+              </div>
+            </div>
 
-          {!deferredPrompt && !isIOS && (
-            <button
-              onClick={() => {
-                console.log("PWA not installable yet. Check console for details.");
-                alert("PWA install not available. Make sure you're on HTTPS or localhost, and the service worker is registered.");
-              }}
-              style={{
-                background: "#374151",
-                color: "#9ca3af",
-                border: "none",
-                padding: "6px 12px",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontSize: 12,
-                fontWeight: 600
-              }}
-            >
-              📱 Install (N/A)
+            {/* Dark Mode Toggle */}
+            <button className="header-btn theme-btn" onClick={() => setDarkMode((v) => !v)} title="Toggle theme">
+              {darkMode ? "🌙" : "☀️"}
             </button>
-          )}
+
+            {/* Install Button */}
+            {deferredPrompt && !isIOS && (
+              <button className="header-btn" onClick={handleInstallClick}>
+                <span className="btn-icon">📱</span>
+                <span className="btn-label">Install</span>
+              </button>
+            )}
+
+          </div>
 
         </div>
 
-        <p className="muted">
+        {/* User Profile Card */}
+        <div className="user-profile-card">
+          <div className="user-avatar">
+            {auth.user.username?.charAt(0)?.toUpperCase() || 'U'}
+          </div>
+          <div className="user-info">
+            <div className="user-name">
+              {auth.user.username}
+              {demoMode && <span className="demo-badge">Demo</span>}
+            </div>
+            <div className="user-role">{auth.user.role}</div>
+            <div className="user-stats">
+              <div className="user-stat xp-stat">
+                <span className="stat-icon">⚡</span>
+                <span className="stat-value">{stats.xp}</span>
+                <span className="stat-label">XP</span>
+              </div>
+              <div className="user-stat streak-stat">
+                <span className="stat-icon">🔥</span>
+                <span className="stat-value">{stats.streak || 0}</span>
+                <span className="stat-label">Streak</span>
+              </div>
+              <div className="user-stat session-stat">
+                <span className="stat-icon">📚</span>
+                <span className="stat-value">{stats.sessions}</span>
+                <span className="stat-label">Sessions</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* User Badges */}
+          <div className="user-badges">
+            {BADGES.filter(b => b.check(stats, history, subjects, mastery)).slice(0, 5).map((badge, i) => (
+              <div key={i} className="badge-icon" title={badge.name}>{badge.icon}</div>
+            ))}
+            {BADGES.filter(b => b.check(stats, history, subjects, mastery)).length > 5 && (
+              <div className="badge-icon badge-more">+{BADGES.filter(b => b.check(stats, history, subjects, mastery)).length - 5}</div>
+            )}
+          </div>
+        </div>
 
-          {auth.user.username} ({auth.user.role}) | XP <strong>{stats.xp}</strong> | Sessions <strong>{stats.sessions}</strong> | Streak{" "}
-
-          <strong>{stats.streak}</strong> | Coins <strong>{stats.coins}</strong>
-
-          {" | "}
-
-          Badges <strong>{BADGES.filter(b => b.check(stats, history, subjects, mastery)).length}</strong>/{BADGES.length}
-          {demoMode && (
-            <span style={{ color: "#facc15", marginLeft: 8, fontWeight: 600 }}>
-              <span style={{ background: "#facc15", color: "#000", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700 }}>DEMO</span>
-              {" | "}
-              AI: {demoUsage.aiMessages}/{DEMO_LIMITS.aiMessages}
-              {" | "}
-              Quiz: {demoUsage.practiceQuestions}/{DEMO_LIMITS.practiceQuestions}
-              {" | "}
-              Time: {demoUsage.sessionTimeMinutes}/{DEMO_LIMITS.dailyTimeLimit}min
-              {" | "}
-              Streak: {Math.min(stats.streak, DEMO_LIMITS.maxStreak)}{stats.streak >= DEMO_LIMITS.maxStreak ? "⭐" : ""}
-              {demoUsage.trialStartDate && (
-                <>
-                  {" | "}
-                  Days left: {Math.max(0, DEMO_LIMITS.trialDays - Math.ceil((Date.now() - demoUsage.trialStartDate) / (1000 * 60 * 60 * 24)))}
-                </>
-              )}
-            </span>
-          )}
-
-        </p>
+        {/* Demo Usage Info */}
+        {demoMode && (
+          <div style={{ marginTop: 12, fontSize: 11, color: "#64748b", display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <span>AI: {demoUsage.aiMessages}/{DEMO_LIMITS.aiMessages}</span>
+            <span>Quiz: {demoUsage.practiceQuestions}/{DEMO_LIMITS.practiceQuestions}</span>
+            <span>Time: {demoUsage.sessionTimeMinutes}/{DEMO_LIMITS.dailyTimeLimit}min</span>
+            {demoUsage.trialStartDate && (
+              <span>Days left: {Math.max(0, DEMO_LIMITS.trialDays - Math.ceil((Date.now() - demoUsage.trialStartDate) / (1000 * 60 * 60 * 24)))}</span>
+            )}
+          </div>
+        )}
 
       </header>
 
