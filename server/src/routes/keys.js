@@ -25,6 +25,8 @@ router.get("/students", requireAuth, requireRole("TEACHER"), async (req, res) =>
         activatedAt: true,
         activatedBy: true,
         createdAt: true,
+        activationExpiry: true,
+        planType: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -36,10 +38,26 @@ router.get("/students", requireAuth, requireRole("TEACHER"), async (req, res) =>
       : [];
     const teacherMap = Object.fromEntries(teachers.map(t => [t.id, t.username]));
 
-    const result = students.map(s => ({
-      ...s,
-      activatedByUsername: s.activatedBy ? teacherMap[s.activatedBy] || "Unknown" : null,
-    }));
+    const now = new Date();
+    const result = students.map(s => {
+      // Calculate days remaining
+      let daysRemaining = null;
+      let isExpired = false;
+      
+      if (s.activationExpiry) {
+        const expiryDate = new Date(s.activationExpiry);
+        const diffMs = expiryDate - now;
+        daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        isExpired = daysRemaining <= 0;
+      }
+      
+      return {
+        ...s,
+        activatedByUsername: s.activatedBy ? teacherMap[s.activatedBy] || "Unknown" : null,
+        daysRemaining,
+        isExpired,
+      };
+    });
 
     res.json(result);
   } catch (error) {
@@ -59,12 +77,27 @@ router.post("/activate/:userId", requireAuth, requireRole("TEACHER"), async (req
     if (student.role !== "STUDENT") return res.status(400).json({ error: "User is not a student" });
     if (student.isActivated) return res.status(400).json({ error: "Student is already activated" });
 
+    // Calculate expiry date based on duration
+    const duration = req.body.duration || "month1";
+    const now = new Date();
+    let expiryDate = new Date(now);
+    
+    if (duration === "week1") {
+      expiryDate.setDate(expiryDate.getDate() + 7);
+    } else if (duration === "week2") {
+      expiryDate.setDate(expiryDate.getDate() + 14);
+    } else {
+      expiryDate.setDate(expiryDate.getDate() + 30); // month1
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
         isActivated: true,
-        activatedAt: new Date(),
+        activatedAt: now,
         activatedBy: teacherId,
+        planType: duration,
+        activationExpiry: expiryDate,
       },
       select: {
         id: true,

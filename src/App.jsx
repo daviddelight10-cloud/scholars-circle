@@ -11104,6 +11104,7 @@ function KeyManagement({ token }) {
                 <th style={{ padding: "8px 6px" }}>Student</th>
                 <th style={{ padding: "8px 6px" }}>Key</th>
                 <th style={{ padding: "8px 6px" }}>Status</th>
+                <th style={{ padding: "8px 6px" }}>Days Left</th>
                 <th style={{ padding: "8px 6px" }}>Activated</th>
                 <th style={{ padding: "8px 6px" }}>Joined</th>
                 <th style={{ padding: "8px 6px" }}>Action</th>
@@ -11127,6 +11128,41 @@ function KeyManagement({ token }) {
                       <span style={{ color: "#34d399", fontWeight: 600 }}>● Active</span>
                     ) : (
                       <span style={{ color: "#f87171", fontWeight: 600 }}>○ Pending</span>
+                    )}
+                  </td>
+                  <td style={{ padding: "8px 6px" }}>
+                    {s.isExpired ? (
+                      <span style={{ 
+                        background: "linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))",
+                        border: "1px solid rgba(239, 68, 68, 0.4)",
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        color: "#f87171",
+                        fontWeight: 700,
+                        fontSize: 12
+                      }}>Expired</span>
+                    ) : s.daysRemaining !== null ? (
+                      <span style={{ 
+                        background: s.daysRemaining <= 3 
+                          ? "linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(234, 88, 12, 0.1))"
+                          : s.daysRemaining <= 7
+                          ? "linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.1))"
+                          : "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))",
+                        border: s.daysRemaining <= 3 
+                          ? "1px solid rgba(249, 115, 22, 0.4)"
+                          : s.daysRemaining <= 7
+                          ? "1px solid rgba(251, 191, 36, 0.4)"
+                          : "1px solid rgba(34, 197, 94, 0.4)",
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        color: s.daysRemaining <= 3 ? "#f97316" : s.daysRemaining <= 7 ? "#fbbf24" : "#4ade80",
+                        fontWeight: 700,
+                        fontSize: 12
+                      }}>
+                        {s.daysRemaining}d
+                      </span>
+                    ) : (
+                      <span style={{ color: "#6b7280", fontSize: 11 }}>—</span>
                     )}
                   </td>
                   <td style={{ padding: "8px 6px", fontSize: 11 }}>
