@@ -1513,8 +1513,8 @@ function App() {
   }, [auth.user, isTeacher, isActivated]);
 
   const subjects = useMemo(() => {
-    // Start with local subjects
-    let result = SUBJECTS.map(s => {
+    // Start with local subjects - ensure SUBJECTS is always an array
+    let result = (SUBJECTS || []).map(s => {
       // Find matching backend subject and merge questions
       const backend = backendSubjects.find(b => b.label === s.label);
       if (backend && backend.questions && backend.questions.length > 0) {
@@ -1548,8 +1548,8 @@ function App() {
 
   // allQuestions must be defined before notification useEffect
   const allQuestions = useMemo(
-    () => subjects.flatMap((s) =>
-      s.questions.map((q, i) => ({
+    () => (subjects || []).flatMap((s) =>
+      (s.questions || []).map((q, i) => ({
         ...q,
         subjectId: s.id,
         subjectLabel: s.label,
@@ -5489,7 +5489,7 @@ function App() {
 
           <h2>Read → Practice → Test</h2>
 
-          {subjects.map((s) => (
+          {(subjects || []).map((s) => (
 
             <div key={s.id} className="lesson-block">
 
