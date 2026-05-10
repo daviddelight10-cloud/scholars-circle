@@ -13,7 +13,9 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
   todayStart.setHours(0, 0, 0, 0);
   let startDate;
 
-  if (period === "weekly") {
+  if (period === "daily") {
+    startDate = todayStart;
+  } else if (period === "weekly") {
     startDate = new Date(now);
     startDate.setDate(startDate.getDate() - 7);
   } else if (period === "monthly") {
@@ -99,7 +101,20 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
     };
   }).sort((a, b) => b.xp - a.xp);
 
-  res.json(leaderboard);
+  // Calculate daily ranks (based on daily XP)
+  const sortedByDailyXP = [...leaderboard].sort((a, b) => b.dailyXP - a.dailyXP);
+  const dailyRanks = {};
+  sortedByDailyXP.forEach((entry, index) => {
+    dailyRanks[entry.userId] = index + 1;
+  });
+
+  // Add daily rank to each entry
+  const leaderboardWithDailyRank = leaderboard.map(entry => ({
+    ...entry,
+    dailyRank: dailyRanks[entry.userId] || 0,
+  }));
+
+  res.json(leaderboardWithDailyRank);
 });
 
 // User profile endpoint - get detailed stats for a specific user

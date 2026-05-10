@@ -8173,7 +8173,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
       {/* Time period filter */}
       <div className="filter-tabs">
-        {["all", "weekly", "monthly"].map((period) => (
+        {["all", "daily", "weekly", "monthly"].map((period) => (
           <button
             key={period}
             className={`filter-tab ${timePeriod === period ? 'active' : ''}`}
@@ -8238,6 +8238,22 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
                 <div className={`leaderboard-rank ${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}`}>
                   {medals[i] || `#${i + 1}`}
                 </div>
+                {/* Daily Rank Badge */}
+                {entry.dailyRank && entry.dailyRank <= 10 && (
+                  <div style={{
+                    background: entry.dailyRank <= 3 ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : 'rgba(99, 102, 241, 0.2)',
+                    color: entry.dailyRank <= 3 ? '#000' : '#a5b4fc',
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                  }}>
+                    📅 #{entry.dailyRank} today
+                  </div>
+                )}
                 <div className="leaderboard-user-info">
                   <div className="leaderboard-username">
                     {entry.username} {entry.isMe ? <span style={{ color: '#22c55e', fontSize: 12 }}>(you)</span> : <span style={{ color: '#6366f1', fontSize: 10 }}>→ View Profile</span>}
