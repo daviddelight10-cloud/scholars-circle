@@ -1917,6 +1917,25 @@ function App() {
     }
   }, []); // Run once on mount
 
+  // Sync timetable to backend immediately when it changes
+  useEffect(() => {
+    if (!token || !auth.user?.id || !booted) return;
+    if (Object.keys(timetable).length === 0) return; // Don't sync empty timetable
+
+    const syncTimetable = async () => {
+      try {
+        await api("/user-data/timetable", { token, method: "POST", body: { timetable } });
+        console.log("[Timetable] Synced to backend");
+      } catch (e) {
+        console.error("[Timetable] Failed to sync:", e);
+      }
+    };
+
+    // Debounce sync by 1 second to avoid rapid API calls
+    const timeout = setTimeout(syncTimetable, 1000);
+    return () => clearTimeout(timeout);
+  }, [timetable, token, auth.user?.id, booted]);
+
   // Check for important announcements on login (for students)
   useEffect(() => {
     if (!token || isTeacher) return;
