@@ -15,6 +15,7 @@ import keyRoutes from "./routes/keys.js";
 import classroomRoutes from "./routes/classroom.js";
 import lecturerRoutes from "./routes/lecturers.js";
 import teacherInviteRoutes from "./routes/teacherInvites.js";
+import liveSessionRoutes from "./routes/liveSessions.js";
 import { prisma } from "./db.js";
 
 const app = express();
@@ -78,6 +79,7 @@ app.use("/keys", keyRoutes);
 app.use("/classroom", classroomRoutes);
 app.use("/lecturers", lecturerRoutes);
 app.use("/teacher-invites", teacherInviteRoutes);
+app.use("/live-sessions", liveSessionRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

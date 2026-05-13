@@ -550,6 +550,8 @@ model Classroom {
 
   members     ClassroomMember[]
 
+  liveSessions LiveSession[]
+
 }
 
 
@@ -805,6 +807,41 @@ model DirectMessage {
   createdAt  DateTime @default(now())
   @@index([toId, read])
   @@index([fromId, toId])
+}
+
+// Live video sessions for distance learning
+model LiveSession {
+  id            String              @id @default(cuid())
+  classroomId   String
+  classroom     Classroom           @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  hostId        String              // user id of the lecturer hosting
+  title         String
+  description   String?
+  scheduledFor  DateTime            // planned start time
+  durationMins  Int                 @default(60)
+  status        String              @default("scheduled") // scheduled | live | ended | cancelled
+  roomName      String              @unique               // jitsi room name (e.g. sc-abc123)
+  startedAt     DateTime?
+  endedAt       DateTime?
+  recordingUrl  String?
+  createdAt     DateTime            @default(now())
+  attendances   SessionAttendance[]
+
+  @@index([classroomId, scheduledFor])
+  @@index([status])
+}
+
+model SessionAttendance {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String
+  joinedAt  DateTime    @default(now())
+  leftAt    DateTime?
+  durationS Int         @default(0)  // seconds present
+
+  @@unique([sessionId, userId])
+  @@index([userId])
 }
 
 model TeacherInvite {

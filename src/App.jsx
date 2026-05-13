@@ -357,6 +357,10 @@ import Lecturers from "./features/Lecturers/index.jsx";
 
 import { TeacherInvitesPanel } from "./features/TeacherInvites.jsx";
 
+import { LiveSessionsPanel } from "./features/LiveSessions/LiveSessionsPanel.jsx";
+
+import { LiveBanner } from "./features/LiveSessions/LiveBanner.jsx";
+
 
 
 const EMPTY_STATS = {
@@ -4210,6 +4214,8 @@ function App() {
 
     <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack} density-${density}`}>
 
+      <LiveBanner token={token} currentUser={auth.user} />
+
       {showOnboarding && (
 
         <OnboardingWizard
@@ -5827,9 +5833,10 @@ function App() {
 
           assignments={assignments}
 
-          teacherMode={isTeacher}
+          teacherMode={isFaculty}
 
           setTeacherMode={() => {}}
+          currentUser={auth.user}
           token={token}
 
           onCreate={async (a) => {
@@ -7629,7 +7636,7 @@ ${isCorrect
 
 
 
-function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreate, onComplete, onImportQuestions, token }) {
+function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreate, onComplete, onImportQuestions, token, currentUser }) {
 
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || "");
 
@@ -8004,6 +8011,19 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
         <button onClick={() => setShowExamModal(true)} style={{ marginBottom: 16 }}>
           📅 Add Exam
         </button>
+      )}
+
+      {/* Live Sessions */}
+      {selectedClassroom && (
+        <div className="lesson-block" style={{ marginBottom: 16 }}>
+          <LiveSessionsPanel
+            classroomId={selectedClassroom.id}
+            classroomName={selectedClassroom.name}
+            isHost={teacherMode && selectedClassroom.createdById === (currentUser?.id || currentUser?.sub)}
+            currentUser={currentUser}
+            token={token}
+          />
+        </div>
       )}
 
       {/* Links Section */}
