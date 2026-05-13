@@ -12,19 +12,56 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "loading.png"],
       manifest: {
+        id: "/?source=pwa",
         name: "Scholar's Circle",
         short_name: "Scholar's",
-        description: "Smart study companion for first-year university students.",
+        description: "Smart study companion for university students — live classes, AI tutor, assignments, and more.",
         theme_color: "#0f1117",
         background_color: "#0f1117",
         display: "standalone",
-        start_url: "/",
+        display_override: ["window-controls-overlay", "standalone", "minimal-ui"],
+        orientation: "any",
+        start_url: "/?source=pwa",
         scope: "/",
+        lang: "en",
+        dir: "ltr",
+        categories: ["education", "productivity", "social"],
+        prefer_related_applications: false,
         icons: [
-          { src: "/loading.png", sizes: "192x192", type: "image/png" },
-          { src: "/loading.png", sizes: "512x512", type: "image/png" },
-          { src: "/loading.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          { src: "/loading.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/loading.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/loading.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
+        shortcuts: [
+          {
+            name: "Today's Plan",
+            short_name: "Today",
+            description: "Jump to today's study tasks",
+            url: "/?tab=today",
+            icons: [{ src: "/loading.png", sizes: "192x192" }]
+          },
+          {
+            name: "AI Tutor",
+            short_name: "Tutor",
+            description: "Ask the AI tutor anything",
+            url: "/?tab=tutor",
+            icons: [{ src: "/loading.png", sizes: "192x192" }]
+          },
+          {
+            name: "Live Classes",
+            short_name: "Live",
+            description: "Join an ongoing live class",
+            url: "/?tab=classroom",
+            icons: [{ src: "/loading.png", sizes: "192x192" }]
+          },
+          {
+            name: "Messages",
+            short_name: "Inbox",
+            description: "Direct messages with lecturers",
+            url: "/?tab=lecturers",
+            icons: [{ src: "/loading.png", sizes: "192x192" }]
+          }
+        ]
       },
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],

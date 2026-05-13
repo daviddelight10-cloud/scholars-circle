@@ -212,6 +212,32 @@ router.post("/messages", requireAuth, async (req, res) => {
       }
     });
     res.json(dm);
+
+    // Fire-and-forget DM push
+    (async () => {
+      try {
+        const { sendPushToUser } = await import("../lib/pushSender.js");
+        const sender = await prisma.user.findUnique({
+          where: { id: req.user.sub },
+          select: { username: true, lecturerProfile: { select: { fullName: true, title: true } } }
+        });
+        const senderName = sender?.lecturerProfile
+          ? `${sender.lecturerProfile.title ? sender.lecturerProfile.title + " " : ""}${sender.lecturerProfile.fullName}`
+          : (sender?.username || "Someone");
+        await sendPushToUser(
+          targetUserId,
+          {
+            title: `💬 ${senderName}`,
+            body: content.trim().slice(0, 200),
+            tag: `dm-${req.user.sub}`,
+            data: { tab: "messages", fromUserId: req.user.sub }
+          },
+          { category: "directMessages" }
+        );
+      } catch (err) {
+        console.warn("Failed to send DM push:", err.message);
+      }
+    })();
   } catch (err) {
     console.error("Send DM error:", err);
     res.status(500).json({ error: "Failed to send message" });

@@ -365,6 +365,10 @@ import { ClassroomAssignmentsPanel } from "./features/ClassroomAssignments/Class
 
 import { AttendancePanel } from "./features/LiveSessions/AttendancePanel.jsx";
 
+import { PushPermissionBanner, NotificationSettings } from "./features/NotificationCenter.jsx";
+
+import { InstallPrompt } from "./features/InstallPrompt.jsx";
+
 
 
 const EMPTY_STATS = {
@@ -2997,6 +3001,15 @@ function App() {
     };
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
+    // Receive deep-link messages from notification clicks (SW posts { type: 'NAVIGATE', tab })
+    const handleSwMessage = (event) => {
+      const msg = event.data;
+      if (msg?.type === 'NAVIGATE' && msg.tab) {
+        try { setTab(msg.tab); } catch {}
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handleSwMessage);
+
     // Check for updates periodically and on visibility change
     navigator.serviceWorker.ready.then((registration) => {
       // Check every 2 minutes for updates (more frequent polling)
@@ -4219,6 +4232,10 @@ function App() {
     <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack} density-${density}`}>
 
       <LiveBanner token={token} currentUser={auth.user} />
+
+      <InstallPrompt />
+
+      <PushPermissionBanner token={token} />
 
       {showOnboarding && (
 
@@ -6154,6 +6171,10 @@ function App() {
 
       {tab === "settings" && (
 
+        <>
+
+        <NotificationSettings token={token} />
+
         <div className="card">
 
           <h2>Settings, AI & Sync</h2>
@@ -6526,6 +6547,8 @@ function App() {
           </div>
 
         </div>
+
+        </>
 
       )}
 

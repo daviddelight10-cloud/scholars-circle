@@ -197,6 +197,33 @@ router.post("/:id/start", requireAuth, requireRole("TEACHER", "LECTURER"), async
       data: { status: "live", startedAt: session.startedAt || new Date() }
     });
     res.json(updated);
+
+    // Notify all classroom members that the live session has started
+    (async () => {
+      try {
+        const { sendPushToUsers } = await import("../lib/pushSender.js");
+        const [classroom, members] = await Promise.all([
+          prisma.classroom.findUnique({ where: { id: session.classroomId }, select: { name: true } }),
+          prisma.classroomMember.findMany({ where: { classroomId: session.classroomId }, select: { userId: true } })
+        ]);
+        const ids = members.map((m) => m.userId).filter((u) => u !== session.hostId);
+        if (ids.length === 0) return;
+        await sendPushToUsers(
+          ids,
+          {
+            title: `🔴 LIVE NOW: ${session.title}`,
+            body: `${classroom?.name || "Your class"} just went live. Tap to join.`,
+            tag: `live-${session.id}`,
+            requireInteraction: true,
+            data: { tab: "classroom", classroomId: session.classroomId, sessionId: session.id },
+            actions: [{ action: "open", title: "Join now" }, { action: "dismiss", title: "Later" }]
+          },
+          { category: "liveSessions" }
+        );
+      } catch (err) {
+        console.warn("Failed to send live-session push:", err.message);
+      }
+    })();
   } catch (err) {
     console.error("Start session error:", err);
     res.status(500).json({ error: "Failed to start session" });

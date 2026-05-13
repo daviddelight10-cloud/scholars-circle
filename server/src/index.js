@@ -18,7 +18,12 @@ import teacherInviteRoutes from "./routes/teacherInvites.js";
 import liveSessionRoutes from "./routes/liveSessions.js";
 import classroomAssignmentRoutes from "./routes/classroomAssignments.js";
 import pollRoutes from "./routes/polls.js";
+import pushRoutes from "./routes/push.js";
+import { configurePush } from "./lib/pushSender.js";
 import { prisma } from "./db.js";
+
+// Initialize Web Push (VAPID). Safe to call even if keys are missing.
+configurePush();
 
 const app = express();
 
@@ -84,6 +89,7 @@ app.use("/teacher-invites", teacherInviteRoutes);
 app.use("/live-sessions", liveSessionRoutes);
 app.use("/classroom-assignments", classroomAssignmentRoutes);
 app.use("/polls", pollRoutes);
+app.use("/push", pushRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

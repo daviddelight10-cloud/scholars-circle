@@ -210,11 +210,37 @@ router.post("/:id/announcements", requireAuth, requireRole("TEACHER", "LECTURER"
         classroomId: id,
         title,
         content,
-        isImportant,
+        isImportant: isImportant || false,
       },
     });
 
     res.json(announcement);
+
+    // Fire-and-forget push notifications to all classroom members
+    (async () => {
+      try {
+        const { sendPushToUsers } = await import("../lib/pushSender.js");
+        const [classroom, members] = await Promise.all([
+          prisma.classroom.findUnique({ where: { id }, select: { name: true } }),
+          prisma.classroomMember.findMany({ where: { classroomId: id }, select: { userId: true } })
+        ]);
+        const ids = members.map((m) => m.userId).filter((u) => u !== req.user.sub);
+        if (ids.length === 0) return;
+        await sendPushToUsers(
+          ids,
+          {
+            title: `📢 ${isImportant ? "[Important] " : ""}${classroom?.name || "Classroom"}: ${title}`,
+            body: (content || "").slice(0, 200),
+            tag: `announcement-${announcement.id}`,
+            requireInteraction: !!isImportant,
+            data: { tab: "classroom", classroomId: id, announcementId: announcement.id }
+          },
+          { category: "announcements" }
+        );
+      } catch (err) {
+        console.warn("Failed to send announcement push:", err.message);
+      }
+    })();
   } catch (error) {
     console.error("Error creating announcement:", error);
     res.status(500).json({ error: "Failed to create announcement" });
