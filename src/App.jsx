@@ -349,6 +349,8 @@ import { StudyGroups } from "./features/StudyGroups";
 
 import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboarding";
 
+import AITutor from "./features/AITutor/index.jsx";
+
 
 
 const EMPTY_STATS = {
@@ -5117,10 +5119,7 @@ function App() {
                 <span>🃏</span> Flashcards
               </button>
               <button className={tab === "aitutor" ? "active" : ""} onClick={() => { setTab("aitutor"); setShowMobileMenu(false); }}>
-                <span>👨‍🏫</span> AI Tutor
-              </button>
-              <button className={tab === "aiassistant" ? "active" : ""} onClick={() => { setTab("aiassistant"); setShowMobileMenu(false); }}>
-                <span>🤖</span> AI Assistant
+                <span>🎓</span> AI Tutor
               </button>
               <button className={tab === "reminders" ? "active" : ""} onClick={() => { setTab("reminders"); setShowMobileMenu(false); }}>
                 <span>🔔</span> Reminders
@@ -5191,8 +5190,6 @@ function App() {
           ...(isTeacher ? [["keys", "🔑 Keys"], ["admin", "Admin"]] : []),
 
           ["flashcards", "Flashcards"],
-
-          ["aiassistant", "AI Study Assistant"],
 
           ["aitutor", "AI Tutor"],
 
@@ -5397,37 +5394,16 @@ function App() {
 
 
       {tab === "aiassistant" && (
-        demoMode && (() => {
-          const today = new Date().toDateString();
-          const usedToday = demoUsage.aiStudyAssistantDate === today ? demoUsage.aiStudyAssistantUsed : 0;
-          return usedToday >= DEMO_LIMITS.aiStudyAssistantDaily;
-        })() ? (
-          <DemoLockedOverlay
-            title="AI Study Assistant"
-            description={`You've used your daily AI Study Assistant limit (${DEMO_LIMITS.aiStudyAssistantDaily}/day). Upgrade for unlimited access!`}
-            icon="🤖"
-            features={["Unlimited document uploads", "AI-generated questions", "Smart flashcards", "Study summaries"]}
-            showPlans={true}
-          />
-        ) : (
-          <>
-            {demoMode && (
-              <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>🤖</span>
-                  <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.aiStudyAssistantDaily - (demoUsage.aiStudyAssistantDate === new Date().toDateString() ? demoUsage.aiStudyAssistantUsed : 0)} AI Study Assistant use(s) remaining today.</span>
-                </div>
-              </div>
-            )}
-            <AIStudyAssistant
-              subjects={subjects}
-              onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-              demoMode={demoMode}
-              demoUsage={demoUsage}
-              setDemoUsage={setDemoUsage}
-            />
-          </>
-        )
+        <AITutor
+          aiConfig={aiConfig}
+          subjects={subjects}
+          onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
+          onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
+          token={token}
+          demoMode={demoMode}
+          demoUsage={demoUsage}
+          setDemoUsage={setDemoUsage}
+        />
       )}
 
 
@@ -6518,7 +6494,16 @@ function App() {
 
       {tab === "aitutor" && (
 
-        <AITutorChat aiConfig={aiConfig} chatHistory={aiChatHistory} setChatHistory={setAiChatHistory} subjects={subjects} token={token} demoMode={demoMode} demoUsage={demoUsage} setDemoUsage={setDemoUsage} />
+        <AITutor
+          aiConfig={aiConfig}
+          subjects={subjects}
+          onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
+          onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
+          token={token}
+          demoMode={demoMode}
+          demoUsage={demoUsage}
+          setDemoUsage={setDemoUsage}
+        />
 
       )}
 
