@@ -355,6 +355,8 @@ import { StudentProfile, useStudentProfile } from "./features/StudentProfile.jsx
 
 import Lecturers from "./features/Lecturers/index.jsx";
 
+import { TeacherInvitesPanel } from "./features/TeacherInvites.jsx";
+
 
 
 const EMPTY_STATS = {
@@ -5068,7 +5070,7 @@ function App() {
           <span className="nav-label">Today</span>
         </button>
         <button
-          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", "profile", "lecturers", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", "profile", "lecturers", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
           onClick={() => setShowMobileMenu(!showMobileMenu)}
           title="More"
         >
@@ -5115,6 +5117,9 @@ function App() {
                 <>
                   <button className={tab === "keys" ? "active" : ""} onClick={() => { setTab("keys"); setShowMobileMenu(false); }}>
                     <span>🔑</span> Keys
+                  </button>
+                  <button className={tab === "invites" ? "active" : ""} onClick={() => { setTab("invites"); setShowMobileMenu(false); }}>
+                    <span>🎫</span> Teacher Invites
                   </button>
                   <button className={tab === "admin" ? "active" : ""} onClick={() => { setTab("admin"); setShowMobileMenu(false); }}>
                     <span>⚙️</span> Admin
@@ -5199,7 +5204,7 @@ function App() {
 
           ["outline", "Course Outline"],
 
-          ...(isTeacher ? [["keys", "🔑 Keys"], ["admin", "Admin"]] : []),
+          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "Admin"]] : []),
 
           ["flashcards", "Flashcards"],
 
@@ -5796,6 +5801,10 @@ function App() {
 
       {tab === "keys" && isTeacher && (
         <KeyManagement token={token} />
+      )}
+
+      {tab === "invites" && isTeacher && (
+        <TeacherInvitesPanel token={token} />
       )}
 
       {tab === "classroom" && (

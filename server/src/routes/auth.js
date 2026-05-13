@@ -42,14 +42,34 @@ router.post("/register", async (req, res) => {
 
     const desiredRole = data.role || "STUDENT";
 
+    let usedInvite = null; // tracked so we can mark it used after user creation
+
     if (desiredRole === "TEACHER") {
 
-      const expected = process.env.TEACHER_INVITE_CODE || "";
+      if (!data.inviteCode) {
+        return res.status(403).json({ error: "Teacher invite code is required" });
+      }
 
-      if (!expected || data.inviteCode !== expected) {
+      // Try DB-stored per-lecturer invite first
+      const invite = await prisma.teacherInvite.findUnique({ where: { code: data.inviteCode } });
 
-        return res.status(403).json({ error: "Invalid teacher invite code" });
-
+      if (invite) {
+        if (invite.usedById) {
+          return res.status(403).json({ error: "This invite code has already been used" });
+        }
+        if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
+          return res.status(403).json({ error: "This invite code has expired" });
+        }
+        if (invite.email && data.email.toLowerCase() !== invite.email.toLowerCase()) {
+          return res.status(403).json({ error: `This invite code is reserved for ${invite.email}` });
+        }
+        usedInvite = invite;
+      } else {
+        // Fallback: legacy global env var
+        const expected = process.env.TEACHER_INVITE_CODE || "";
+        if (!expected || data.inviteCode !== expected) {
+          return res.status(403).json({ error: "Invalid teacher invite code" });
+        }
       }
 
     }
@@ -87,6 +107,18 @@ router.post("/register", async (req, res) => {
       },
 
     });
+
+    // If a DB invite was used, mark it consumed
+    if (usedInvite) {
+      try {
+        await prisma.teacherInvite.update({
+          where: { id: usedInvite.id },
+          data: { usedById: user.id, usedAt: new Date() }
+        });
+      } catch (e) {
+        console.error("Failed to mark invite used:", e);
+      }
+    }
 
     return res.status(201).json({ id: user.id, username: user.username, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated });
 
