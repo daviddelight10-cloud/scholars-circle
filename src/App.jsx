@@ -1514,9 +1514,15 @@ function App() {
 
 
 
-  const isTeacher = String(auth.user?.role || "").toLowerCase() === "teacher";
+  const userRole = String(auth.user?.role || "").toLowerCase();
 
-  const isActivated = isTeacher || auth.user?.isActivated === true;
+  const isTeacher = userRole === "teacher"; // admin (full access)
+
+  const isLecturerRole = userRole === "lecturer"; // faculty without admin powers
+
+  const isFaculty = isTeacher || isLecturerRole; // any faculty (TEACHER or LECTURER)
+
+  const isActivated = isFaculty || auth.user?.isActivated === true;
   
   // Debug log for activation status
   useEffect(() => {
@@ -1948,7 +1954,7 @@ function App() {
 
   // Check for important announcements on login (for students)
   useEffect(() => {
-    if (!token || isTeacher) return;
+    if (!token || isFaculty) return;
     
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
     
@@ -1983,7 +1989,7 @@ function App() {
     }
     
     checkAnnouncements();
-  }, [token, isTeacher]);
+  }, [token, isFaculty]);
 
 
 
@@ -5119,7 +5125,7 @@ function App() {
                     <span>🔑</span> Keys
                   </button>
                   <button className={tab === "invites" ? "active" : ""} onClick={() => { setTab("invites"); setShowMobileMenu(false); }}>
-                    <span>🎫</span> Teacher Invites
+                    <span>🎫</span> Faculty Invites
                   </button>
                   <button className={tab === "admin" ? "active" : ""} onClick={() => { setTab("admin"); setShowMobileMenu(false); }}>
                     <span>⚙️</span> Admin
@@ -6546,7 +6552,7 @@ function App() {
         <Lecturers
           token={token}
           currentUser={auth.user}
-          isTeacher={isTeacher}
+          isTeacher={isFaculty}
         />
       )}
 
@@ -6644,7 +6650,7 @@ function App() {
 
       {tab === "discuss" && (
 
-        <DiscussionBoard subjects={subjects} discussion={discussion} setDiscussion={setDiscussion} username={auth.user.username} isTeacher={isTeacher} />
+        <DiscussionBoard subjects={subjects} discussion={discussion} setDiscussion={setDiscussion} username={auth.user.username} isTeacher={isFaculty} />
 
       )}
 

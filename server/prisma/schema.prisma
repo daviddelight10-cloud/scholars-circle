@@ -19,6 +19,8 @@ enum Role {
 
   TEACHER
 
+  LECTURER
+
 }
 
 enum PlanType {
@@ -806,15 +808,16 @@ model DirectMessage {
 }
 
 model TeacherInvite {
-  id         String    @id @default(cuid())
-  code       String    @unique
-  createdBy  String    // admin user id who generated it
-  email      String?   // optional: pre-assigned recipient
-  notes      String?   // free-text e.g. "Dr. Smith, CS Dept"
-  expiresAt  DateTime?
-  usedById   String?   @unique
-  usedAt     DateTime?
-  createdAt  DateTime  @default(now())
+  id           String    @id @default(cuid())
+  code         String    @unique
+  createdBy    String    // admin user id who generated it
+  assignedRole Role      @default(LECTURER) // role granted on signup (LECTURER faculty / TEACHER admin)
+  email        String?   // optional: pre-assigned recipient
+  notes        String?   // free-text e.g. "Dr. Smith, CS Dept"
+  expiresAt    DateTime?
+  usedById     String?   @unique
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
   @@index([code])
 }
 

@@ -26,7 +26,7 @@ const registerSchema = z.object({
 
   password: z.string().min(6),
 
-  role: z.enum(["STUDENT", "TEACHER"]).optional(),
+  role: z.enum(["STUDENT", "TEACHER", "LECTURER"]).optional(),
 
   inviteCode: z.string().optional(),
 
@@ -40,17 +40,18 @@ router.post("/register", async (req, res) => {
 
     const data = registerSchema.parse(req.body);
 
-    const desiredRole = data.role || "STUDENT";
+    let desiredRole = data.role || "STUDENT";
 
     let usedInvite = null; // tracked so we can mark it used after user creation
 
-    if (desiredRole === "TEACHER") {
+    // Faculty signup (anyone with a non-student role requires an invite)
+    if (desiredRole !== "STUDENT") {
 
       if (!data.inviteCode) {
-        return res.status(403).json({ error: "Teacher invite code is required" });
+        return res.status(403).json({ error: "Faculty invite code is required" });
       }
 
-      // Try DB-stored per-lecturer invite first
+      // Try DB-stored invite first
       const invite = await prisma.teacherInvite.findUnique({ where: { code: data.inviteCode } });
 
       if (invite) {
@@ -64,12 +65,15 @@ router.post("/register", async (req, res) => {
           return res.status(403).json({ error: `This invite code is reserved for ${invite.email}` });
         }
         usedInvite = invite;
+        // The invite code determines the role granted, not the form selection
+        desiredRole = invite.assignedRole || "LECTURER";
       } else {
-        // Fallback: legacy global env var
+        // Fallback: legacy global env var (always grants TEACHER)
         const expected = process.env.TEACHER_INVITE_CODE || "";
         if (!expected || data.inviteCode !== expected) {
-          return res.status(403).json({ error: "Invalid teacher invite code" });
+          return res.status(403).json({ error: "Invalid invite code" });
         }
+        desiredRole = "TEACHER";
       }
 
     }
@@ -102,7 +106,7 @@ router.post("/register", async (req, res) => {
 
         activationKey,
 
-        isActivated: desiredRole === "TEACHER",
+        isActivated: desiredRole !== "STUDENT",
 
       },
 

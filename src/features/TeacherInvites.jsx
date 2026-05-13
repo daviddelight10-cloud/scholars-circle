@@ -24,6 +24,7 @@ export function TeacherInvitesPanel({ token }) {
   const [newEmail, setNewEmail] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [newExpiry, setNewExpiry] = useState(30);
+  const [newRole, setNewRole] = useState("LECTURER");
   const [copiedId, setCopiedId] = useState(null);
   const [filter, setFilter] = useState("all"); // all | unused | used | expired
 
@@ -51,12 +52,14 @@ export function TeacherInvitesPanel({ token }) {
         body: {
           email: newEmail.trim() || null,
           notes: newNotes.trim() || null,
-          expiresInDays: newExpiry > 0 ? newExpiry : null
+          expiresInDays: newExpiry > 0 ? newExpiry : null,
+          assignedRole: newRole
         }
       });
       setNewEmail("");
       setNewNotes("");
       setNewExpiry(30);
+      setNewRole("LECTURER");
       await load();
     } catch (e) {
       alert("Failed: " + e.message);
@@ -99,9 +102,9 @@ export function TeacherInvitesPanel({ token }) {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}>🎫 Teacher Invite Codes</h2>
+        <h2 style={{ margin: 0 }}>🎫 Faculty Invite Codes</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Generate unique single-use invite codes for lecturers to sign up. Share each code privately with the intended recipient.
+          Generate single-use invite codes. Choose the role: <b>Lecturer</b> for faculty (no admin access) or <b>Teacher</b> for full admin (keys, invites, panel).
         </p>
       </div>
 
@@ -116,17 +119,34 @@ export function TeacherInvitesPanel({ token }) {
       {/* Generate panel */}
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>➕ Generate New Invite</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 1fr auto", gap: 8, alignItems: "end" }}>
+
+        {/* Row 1: role + recipient */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 8, marginBottom: 10 }}>
+          <div>
+            <label style={labelStyle}>Role *</label>
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="LECTURER">👨‍🏫 Lecturer (faculty, no admin)</option>
+              <option value="TEACHER">👑 Teacher (full admin: keys, invites, admin panel)</option>
+            </select>
+          </div>
           <div>
             <label style={labelStyle}>Recipient email <span style={{ color: "#9ca3af", fontSize: 11 }}>(optional, locks to this email)</span></label>
             <input
               type="email"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
-              placeholder="lecturer@uni.edu"
+              placeholder="faculty@uni.edu"
               style={inputStyle}
             />
           </div>
+        </div>
+
+        {/* Row 2: notes + expiry + button */}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "end" }}>
           <div>
             <label style={labelStyle}>Notes <span style={{ color: "#9ca3af", fontSize: 11 }}>(your own reference)</span></label>
             <input
@@ -184,6 +204,7 @@ export function TeacherInvitesPanel({ token }) {
               <thead>
                 <tr style={{ background: "rgba(99,102,241,0.1)", textAlign: "left", fontSize: 12, color: "#a5b4fc" }}>
                   <th style={thStyle}>Code</th>
+                  <th style={thStyle}>Role</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Recipient / Notes</th>
                   <th style={thStyle}>Used By</th>
@@ -197,6 +218,13 @@ export function TeacherInvitesPanel({ token }) {
                   <tr key={i.id} style={{ borderTop: "1px solid rgba(99,102,241,0.1)" }}>
                     <td style={tdStyle}>
                       <code style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc" }}>{i.code}</code>
+                    </td>
+                    <td style={tdStyle}>
+                      {i.assignedRole === "TEACHER" ? (
+                        <span style={badgeStyle("#f59e0b")} title="Full admin">👑 Teacher</span>
+                      ) : (
+                        <span style={badgeStyle("#8b5cf6")} title="Faculty (no admin)">👨‍🏫 Lecturer</span>
+                      )}
                     </td>
                     <td style={tdStyle}>
                       {i.isUsed ? (

@@ -91,8 +91,8 @@ router.get("/:id", async (req, res) => {
 // Create or update own lecturer profile
 router.post("/me", requireAuth, async (req, res) => {
   try {
-    if (req.user.role !== "TEACHER") {
-      return res.status(403).json({ error: "Only teachers can create lecturer profiles" });
+    if (req.user.role !== "TEACHER" && req.user.role !== "LECTURER") {
+      return res.status(403).json({ error: "Only faculty can create lecturer profiles" });
     }
     const data = sanitizeProfileInput(req.body);
     const profile = await prisma.lecturerProfile.upsert({

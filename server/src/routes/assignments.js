@@ -12,7 +12,7 @@ router.get("/", requireAuth, async (_req, res) => {
   res.json(rows);
 });
 
-router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   const { title, subjectId, dueAt } = req.body;
   const row = await prisma.assignment.create({
     data: {

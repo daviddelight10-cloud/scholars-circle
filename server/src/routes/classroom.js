@@ -40,7 +40,7 @@ const upload = multer({
 // ============ CLASSROOM MANAGEMENT ============
 
 // Create a new classroom (teacher only)
-router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { name, subjectId } = req.body;
     const classroom = await prisma.classroom.create({
@@ -165,7 +165,7 @@ router.post("/:id/join", requireAuth, async (req, res) => {
 // ============ LINKS ============
 
 // Add a link to classroom (teacher only)
-router.post("/:id/links", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/:id/links", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, url } = req.body;
@@ -186,7 +186,7 @@ router.post("/:id/links", requireAuth, requireRole("TEACHER"), async (req, res) 
 });
 
 // Delete a link (teacher only)
-router.delete("/:classroomId/links/:linkId", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.delete("/:classroomId/links/:linkId", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { linkId } = req.params;
     await prisma.classroomLink.delete({ where: { id: linkId } });
@@ -200,7 +200,7 @@ router.delete("/:classroomId/links/:linkId", requireAuth, requireRole("TEACHER")
 // ============ ANNOUNCEMENTS ============
 
 // Create announcement (teacher only)
-router.post("/:id/announcements", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/:id/announcements", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, content, isImportant } = req.body;
@@ -247,7 +247,7 @@ router.post("/announcements/:announcementId/read", requireAuth, async (req, res)
 // ============ DOCUMENTS ============
 
 // Upload document (teacher only)
-router.post("/:id/documents", requireAuth, requireRole("TEACHER"), upload.single("file"), async (req, res) => {
+router.post("/:id/documents", requireAuth, requireRole("TEACHER", "LECTURER"), upload.single("file"), async (req, res) => {
   try {
     const { id } = req.params;
     const { title } = req.body;
@@ -306,7 +306,7 @@ router.get("/documents/:documentId/download", requireAuth, async (req, res) => {
 });
 
 // Delete document (teacher only)
-router.delete("/:classroomId/documents/:documentId", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.delete("/:classroomId/documents/:documentId", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { documentId } = req.params;
 
@@ -334,7 +334,7 @@ router.delete("/:classroomId/documents/:documentId", requireAuth, requireRole("T
 // ============ EXAMS ============
 
 // Create exam (teacher only)
-router.post("/:id/exams", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/:id/exams", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { id } = req.params;
     const { title, examDate, duration, subjectId } = req.body;

@@ -100,13 +100,13 @@ router.get("/topics/analytics", requireAuth, async (req, res) => {
 });
 
 // Create question with topic (teacher only)
-router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   const q = await prisma.question.create({ data: req.body });
   res.status(201).json(q);
 });
 
 // Bulk create questions with topics (teacher only)
-router.post("/bulk", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/bulk", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   const { questions } = req.body;
 
   if (!Array.isArray(questions)) {

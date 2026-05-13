@@ -50,7 +50,10 @@ router.get("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
 // POST /teacher-invites — generate a new invite code
 router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
   try {
-    const { email, notes, expiresInDays } = req.body || {};
+    const { email, notes, expiresInDays, assignedRole } = req.body || {};
+
+    // Validate role: only LECTURER or TEACHER allowed (default LECTURER)
+    const role = assignedRole === "TEACHER" ? "TEACHER" : "LECTURER";
 
     // Ensure unique code
     let code, attempts = 0;
@@ -69,6 +72,7 @@ router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
       data: {
         code,
         createdBy: req.user.sub || req.user.id,
+        assignedRole: role,
         email: email?.trim() || null,
         notes: notes?.trim() || null,
         expiresAt
