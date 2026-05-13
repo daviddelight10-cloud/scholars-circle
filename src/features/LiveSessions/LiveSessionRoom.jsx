@@ -56,7 +56,10 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
             startWithVideoMuted: !isHost,
             startWithAudioMuted: !isHost,
             disableDeepLinking: true,
-            prejoinPageEnabled: false
+            // Show prejoin page only for the host so they can sign in to become moderator;
+            // students skip it for instant join.
+            prejoinPageEnabled: !!isHost,
+            prejoinConfig: { enabled: !!isHost }
           },
           interfaceConfigOverwrite: {
             DEFAULT_BACKGROUND: "#0f172a",
@@ -166,6 +169,43 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
           </button>
         </div>
       </div>
+
+      {/* Moderator-required notice */}
+      {isHost && (
+        <div style={{
+          padding: "10px 16px",
+          background: "rgba(245, 158, 11, 0.12)",
+          borderBottom: "1px solid rgba(245, 158, 11, 0.3)",
+          color: "#fbbf24",
+          fontSize: 12,
+          display: "flex",
+          gap: 8,
+          alignItems: "center"
+        }}>
+          <span style={{ fontSize: 16 }}>💡</span>
+          <span>
+            <b>First time?</b> Jitsi may ask you to sign in with Google/Facebook to become moderator.
+            This is a one-time step that lets students join your room without waiting.
+          </span>
+        </div>
+      )}
+      {!isHost && (
+        <div style={{
+          padding: "10px 16px",
+          background: "rgba(99, 102, 241, 0.1)",
+          borderBottom: "1px solid rgba(99, 102, 241, 0.3)",
+          color: "#a5b4fc",
+          fontSize: 12,
+          display: "flex",
+          gap: 8,
+          alignItems: "center"
+        }}>
+          <span style={{ fontSize: 16 }}>ℹ️</span>
+          <span>
+            If you see <i>"Waiting for moderator"</i>, your lecturer hasn't fully started the room yet — please wait a moment.
+          </span>
+        </div>
+      )}
 
       {loading && (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#a5b4fc" }}>

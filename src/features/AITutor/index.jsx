@@ -4,9 +4,11 @@ import { DISCIPLINES, getDiscipline } from "./disciplines.js";
 import { ChatMode } from "./ChatMode.jsx";
 import { GenerateMode } from "./GenerateMode.jsx";
 import { SimpleMode } from "./SimpleMode.jsx";
+import { MaterialMode } from "./MaterialMode.jsx";
 
 const MODES = [
   { id: "chat", label: "Chat", icon: "💬", desc: "Ask anything" },
+  { id: "material", label: "From Material", icon: "📎", desc: "Upload PDF/DOCX — summarize, learn, MCQs, flashcards" },
   { id: "generate", label: "Generate", icon: "📚", desc: "Notes, flashcards, quizzes" },
   { id: "explain", label: "Explain", icon: "🎯", desc: "Deep dive on a topic" },
   { id: "solve", label: "Solve", icon: "🧮", desc: "Step-by-step problems" },
@@ -193,6 +195,14 @@ export default function AITutor({
           <div style={{ padding: 16 }}>
             <ChatMode tutor={tutor} />
           </div>
+        )}
+        {mode === "material" && (
+          <MaterialMode
+            tutor={tutor}
+            subject={subject}
+            onImportFlashcards={onImportFlashcards}
+            onImportQuestions={onImportQuestions}
+          />
         )}
         {mode === "generate" && (
           <GenerateMode

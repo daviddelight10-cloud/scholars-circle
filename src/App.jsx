@@ -10477,9 +10477,9 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
   const scrollToBottom = () => {
 
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
-    }
+    // Only scroll within the chat container, never the page itself
+    const c = chatContainerRef.current;
+    if (c) c.scrollTop = c.scrollHeight;
 
   };
 

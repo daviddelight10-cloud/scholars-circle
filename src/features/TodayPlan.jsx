@@ -892,8 +892,6 @@ export function TodayScreen({
 
       <StudyPlanGenerator subjects={subjects} aiConfig={aiConfig} onPlanCreated={() => setRefresh((r) => r + 1)} userId={userId} />
 
-      <StudyMaterialsGenerator subjects={subjects} aiConfig={aiConfig} userId={userId} onImportToBank={onImportToBank} />
-
       {planSubjectIds.length > 0 && (
         <>
           <h3 style={{ marginTop: 18 }}>Active plans</h3>
