@@ -15,8 +15,21 @@ function disciplineLayer(disciplineId) {
   return `\n\n## Discipline: ${d.label}\n${d.style}`;
 }
 
-function contextLayer({ subject, classroomDocs, recentTopics }) {
+function contextLayer({ subject, classroomDocs, recentTopics, studentProfile }) {
   let ctx = "";
+  if (studentProfile) {
+    const bits = [];
+    if (studentProfile.fullName) bits.push(`Name: ${studentProfile.fullName}`);
+    if (studentProfile.level) bits.push(`Level: ${studentProfile.level}`);
+    if (studentProfile.programme) bits.push(`Programme: ${studentProfile.programme}`);
+    if (studentProfile.institution) bits.push(`Institution: ${studentProfile.institution}`);
+    if (studentProfile.learningStyle) bits.push(`Learning style: ${studentProfile.learningStyle}`);
+    if (studentProfile.targetGrade) bits.push(`Target grade: ${studentProfile.targetGrade}`);
+    if (bits.length) {
+      ctx += `\n\n## Student Profile\n${bits.join(" | ")}`;
+      ctx += `\nAdapt depth, pace, and examples to this profile. For 100-level, use foundational language; for postgrad, assume technical fluency.`;
+    }
+  }
   if (subject) {
     ctx += `\n\n## Current Subject\n${subject.label || subject}`;
   }
@@ -92,8 +105,8 @@ Preserve technical accuracy. Cut fluff aggressively.`,
 - Note any cultural/contextual nuances lost in translation.`
 };
 
-export function buildSystemPrompt({ mode, disciplineId, subject, classroomDocs, recentTopics }) {
-  return BASE + disciplineLayer(disciplineId) + contextLayer({ subject, classroomDocs, recentTopics }) + (MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.chat);
+export function buildSystemPrompt({ mode, disciplineId, subject, classroomDocs, recentTopics, studentProfile }) {
+  return BASE + disciplineLayer(disciplineId) + contextLayer({ subject, classroomDocs, recentTopics, studentProfile }) + (MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.chat);
 }
 
 // Convenience wrappers - format a user prompt for each mode

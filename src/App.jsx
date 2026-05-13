@@ -351,6 +351,10 @@ import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboard
 
 import AITutor from "./features/AITutor/index.jsx";
 
+import { StudentProfile, useStudentProfile } from "./features/StudentProfile.jsx";
+
+import Lecturers from "./features/Lecturers/index.jsx";
+
 
 
 const EMPTY_STATS = {
@@ -1342,6 +1346,8 @@ function App() {
   const [paletteQuery, setPaletteQuery] = useState("");
 
   const [booted, setBooted] = useState(false);
+
+  const { profile: studentProfile, update: updateStudentProfile } = useStudentProfile();
 
   const [customFlashcards, setCustomFlashcards] = useState([]);
 
@@ -5062,7 +5068,7 @@ function App() {
           <span className="nav-label">Today</span>
         </button>
         <button
-          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", "profile", "lecturers", ...(isTeacher ? ["keys", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
           onClick={() => setShowMobileMenu(!showMobileMenu)}
           title="More"
         >
@@ -5120,6 +5126,12 @@ function App() {
               </button>
               <button className={tab === "aitutor" ? "active" : ""} onClick={() => { setTab("aitutor"); setShowMobileMenu(false); }}>
                 <span>🎓</span> AI Tutor
+              </button>
+              <button className={tab === "profile" ? "active" : ""} onClick={() => { setTab("profile"); setShowMobileMenu(false); }}>
+                <span>👤</span> My Profile
+              </button>
+              <button className={tab === "lecturers" ? "active" : ""} onClick={() => { setTab("lecturers"); setShowMobileMenu(false); }}>
+                <span>👨‍🏫</span> Lecturers
               </button>
               <button className={tab === "reminders" ? "active" : ""} onClick={() => { setTab("reminders"); setShowMobileMenu(false); }}>
                 <span>🔔</span> Reminders
@@ -5192,6 +5204,10 @@ function App() {
           ["flashcards", "Flashcards"],
 
           ["aitutor", "AI Tutor"],
+
+          ["profile", "👤 My Profile"],
+
+          ["lecturers", "👨‍🏫 Lecturers"],
 
           ["reminders", "Reminders"],
 
@@ -5397,6 +5413,7 @@ function App() {
         <AITutor
           aiConfig={aiConfig}
           subjects={subjects}
+          studentProfile={studentProfile}
           onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
           onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
           token={token}
@@ -6497,6 +6514,7 @@ function App() {
         <AITutor
           aiConfig={aiConfig}
           subjects={subjects}
+          studentProfile={studentProfile}
           onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
           onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
           token={token}
@@ -6505,6 +6523,22 @@ function App() {
           setDemoUsage={setDemoUsage}
         />
 
+      )}
+
+      {tab === "profile" && (
+        <StudentProfile
+          profile={studentProfile}
+          authUser={auth.user}
+          onSave={(p) => updateStudentProfile(p)}
+        />
+      )}
+
+      {tab === "lecturers" && (
+        <Lecturers
+          token={token}
+          currentUser={auth.user}
+          isTeacher={isTeacher}
+        />
       )}
 
       {tab === "reminders" && (

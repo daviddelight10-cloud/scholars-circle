@@ -109,6 +109,14 @@ model User {
 
   documentDownloads DocumentDownload[]
 
+  lecturerProfile  LecturerProfile?
+
+  ratingsGiven     LecturerRating[]   @relation("RatingStudent")
+
+  messagesSent     DirectMessage[]    @relation("DMFrom")
+
+  messagesReceived DirectMessage[]    @relation("DMTo")
+
 }
 
 
@@ -722,5 +730,78 @@ model TopicAnalytics {
 
   @@unique([subjectId, topic])
 
+}
+
+
+
+// =============== LECTURER ECOSYSTEM ===============
+
+model LecturerProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String?   // Dr., Prof., Mr., Mrs.
+  fullName       String
+  department     String?
+  institution    String?
+  bio            String?
+  qualifications String[]  @default([])
+  researchAreas  String[]  @default([])
+  officeHours    Json?     // { monday: '10:00-12:00', ... }
+  officeLocation String?
+  contactEmail   String?
+  phone          String?
+  avatarUrl      String?
+  websiteUrl     String?
+  linkedinUrl    String?
+  yearsExperience Int?
+  isVerified     Boolean   @default(false)
+  rating         Float     @default(0)
+  totalRatings   Int       @default(0)
+  isPublic       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  ratings        LecturerRating[]
+  posts          LecturerPost[]
+  @@index([department])
+  @@index([institution])
+}
+
+model LecturerRating {
+  id          String   @id @default(cuid())
+  lecturerId  String
+  lecturer    LecturerProfile @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     User     @relation("RatingStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  score       Int      // 1-5
+  comment     String?
+  createdAt   DateTime @default(now())
+  @@unique([lecturerId, studentId])
+  @@index([lecturerId])
+}
+
+model LecturerPost {
+  id          String   @id @default(cuid())
+  lecturerId  String
+  lecturer    LecturerProfile @relation(fields: [lecturerId], references: [id], onDelete: Cascade)
+  title       String
+  content     String
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([lecturerId])
+}
+
+model DirectMessage {
+  id         String   @id @default(cuid())
+  fromId     String
+  from       User     @relation("DMFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId       String
+  to         User     @relation("DMTo", fields: [toId], references: [id], onDelete: Cascade)
+  content    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  @@index([toId, read])
+  @@index([fromId, toId])
 }
 

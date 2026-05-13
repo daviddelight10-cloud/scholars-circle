@@ -13,6 +13,7 @@ import aiRoutes from "./routes/ai.js";
 import userDataRoutes from "./routes/userData.js";
 import keyRoutes from "./routes/keys.js";
 import classroomRoutes from "./routes/classroom.js";
+import lecturerRoutes from "./routes/lecturers.js";
 import { prisma } from "./db.js";
 
 const app = express();
@@ -74,6 +75,7 @@ app.use("/ai", aiRoutes);
 app.use("/user-data", userDataRoutes);
 app.use("/keys", keyRoutes);
 app.use("/classroom", classroomRoutes);
+app.use("/lecturers", lecturerRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

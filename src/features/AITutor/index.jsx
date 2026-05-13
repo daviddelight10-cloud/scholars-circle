@@ -57,6 +57,7 @@ export default function AITutor({
   aiConfig,
   subjects = [],
   initialSubjectId,
+  studentProfile,
   onImportFlashcards,
   onImportQuestions,
   classroomDocs,
@@ -67,7 +68,8 @@ export default function AITutor({
 }) {
   const [mode, setMode] = useState("chat");
   const [subjectId, setSubjectId] = useState(initialSubjectId || subjects[0]?.id || "");
-  const [disciplineId, setDisciplineId] = useState(null); // null = auto-detect
+  // Default to student profile's discipline; null means auto-detect from subject.
+  const [disciplineId, setDisciplineId] = useState(studentProfile?.discipline || null);
   const [showSettings, setShowSettings] = useState(false);
 
   const subject = useMemo(() => subjects.find(s => s.id === subjectId), [subjects, subjectId]);
@@ -76,7 +78,8 @@ export default function AITutor({
     aiConfig,
     subject,
     disciplineId,
-    classroomDocs
+    classroomDocs,
+    studentProfile
   });
 
   const activeDiscipline = getDiscipline(tutor.discipline);

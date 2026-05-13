@@ -31,7 +31,7 @@ function saveHistory(history) {
  * @param {string} opts.disciplineId - manually selected discipline (optional)
  * @param {Array}  opts.classroomDocs - documents for RAG context (optional)
  */
-export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs } = {}) {
+export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs, studentProfile } = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [history, setHistoryState] = useState(() => loadHistory());
@@ -61,7 +61,8 @@ export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs } = 
         disciplineId: effectiveDiscipline,
         subject,
         classroomDocs,
-        recentTopics
+        recentTopics,
+        studentProfile
       });
       const formatter = userPrompt[mode] || userPrompt.chat;
       const user = formatter(input, ...(extra.args || []));
@@ -83,7 +84,7 @@ export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs } = 
     } finally {
       setLoading(false);
     }
-  }, [aiConfig, effectiveDiscipline, subject, classroomDocs, recentTopics]);
+  }, [aiConfig, effectiveDiscipline, subject, classroomDocs, recentTopics, studentProfile]);
 
   /**
    * Conversational ask() that maintains chat history per subject.
@@ -107,7 +108,8 @@ export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs } = 
         disciplineId: effectiveDiscipline,
         subject,
         classroomDocs,
-        recentTopics
+        recentTopics,
+        studentProfile
       });
       // Include last 10 turns for context
       const convo = updated.slice(-10).map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n");
@@ -125,7 +127,7 @@ export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs } = 
     } finally {
       setLoading(false);
     }
-  }, [aiConfig, effectiveDiscipline, subject, classroomDocs, recentTopics, history, messages, subjectKey]);
+  }, [aiConfig, effectiveDiscipline, subject, classroomDocs, recentTopics, studentProfile, history, messages, subjectKey]);
 
   const clearHistory = useCallback(() => {
     const next = { ...history, [subjectKey]: [] };
