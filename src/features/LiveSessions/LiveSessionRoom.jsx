@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { liveSessionsApi } from "./api.js";
+import { PollsOverlay } from "./PollsOverlay.jsx";
 
 /**
  * Embeds Jitsi Meet via the external API.
@@ -182,6 +183,8 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
       <div ref={containerRef} style={{
         flex: 1, width: "100%", display: error ? "none" : "block"
       }} />
+
+      <PollsOverlay sessionId={session.id} isHost={isHost} token={token} />
 
       <style>{`
         @keyframes pulse {

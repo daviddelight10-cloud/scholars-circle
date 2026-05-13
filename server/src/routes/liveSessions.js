@@ -308,4 +308,76 @@ router.post("/:id/leave", requireAuth, async (req, res) => {
   }
 });
 
+// ============ ATTENDANCE ANALYTICS ============
+
+// Per-classroom attendance overview (faculty only, classroom owner)
+router.get("/classrooms/:classroomId/attendance-report", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+  try {
+    const c = await prisma.classroom.findUnique({
+      where: { id: req.params.classroomId },
+      include: { members: { include: { user: { select: { id: true, username: true, email: true } } } } }
+    });
+    if (!c) return res.status(404).json({ error: "Classroom not found" });
+    if (c.createdById !== userId(req)) return res.status(403).json({ error: "Not the owner" });
+
+    const sessions = await prisma.liveSession.findMany({
+      where: { classroomId: c.id, status: { in: ["ended", "live"] } },
+      orderBy: { scheduledFor: "asc" },
+      include: { attendances: true }
+    });
+
+    const rows = c.members.map(({ user }) => {
+      const cells = sessions.map((s) => {
+        const att = s.attendances.find((a) => a.userId === user.id);
+        return att
+          ? { attended: true, durationS: att.durationS || 0, joinedAt: att.joinedAt }
+          : { attended: false, durationS: 0 };
+      });
+      const attendedCount = cells.filter((x) => x.attended).length;
+      const attendanceRate = sessions.length > 0 ? Math.round((attendedCount / sessions.length) * 100) : 0;
+      const totalMinutes = Math.round(cells.reduce((s, x) => s + x.durationS, 0) / 60);
+      return { student: user, cells, attendedCount, attendanceRate, totalMinutes };
+    });
+
+    res.json({
+      sessions: sessions.map((s) => ({ id: s.id, title: s.title, scheduledFor: s.scheduledFor, durationMins: s.durationMins })),
+      rows,
+      totalSessions: sessions.length
+    });
+  } catch (err) {
+    console.error("Attendance report:", err);
+    res.status(500).json({ error: "Failed to load attendance report" });
+  }
+});
+
+// My attendance for a classroom (student-facing)
+router.get("/classrooms/:classroomId/my-attendance", requireAuth, async (req, res) => {
+  try {
+    const access = await ensureClassroomAccess(req.params.classroomId, userId(req));
+    if (!access.ok) return res.status(access.code).json({ error: access.error });
+
+    const sessions = await prisma.liveSession.findMany({
+      where: { classroomId: req.params.classroomId, status: { in: ["ended", "live"] } },
+      orderBy: { scheduledFor: "asc" },
+      include: {
+        attendances: { where: { userId: userId(req) } }
+      }
+    });
+    const records = sessions.map((s) => ({
+      id: s.id,
+      title: s.title,
+      scheduledFor: s.scheduledFor,
+      durationMins: s.durationMins,
+      attended: s.attendances.length > 0,
+      durationS: s.attendances[0]?.durationS || 0
+    }));
+    const attendedCount = records.filter((r) => r.attended).length;
+    const rate = records.length > 0 ? Math.round((attendedCount / records.length) * 100) : 0;
+    res.json({ records, attendedCount, totalSessions: records.length, attendanceRate: rate });
+  } catch (err) {
+    console.error("My attendance:", err);
+    res.status(500).json({ error: "Failed to load attendance" });
+  }
+});
+
 export default router;

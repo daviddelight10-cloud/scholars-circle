@@ -552,6 +552,8 @@ model Classroom {
 
   liveSessions LiveSession[]
 
+  classroomAssignments ClassroomAssignment[]
+
 }
 
 
@@ -826,6 +828,7 @@ model LiveSession {
   recordingUrl  String?
   createdAt     DateTime            @default(now())
   attendances   SessionAttendance[]
+  polls         LivePoll[]
 
   @@index([classroomId, scheduledFor])
   @@index([status])
@@ -856,5 +859,68 @@ model TeacherInvite {
   usedAt       DateTime?
   createdAt    DateTime  @default(now())
   @@index([code])
+}
+
+// ============ PHASE 3: Assignments + Grading ============
+model ClassroomAssignment {
+  id           String                  @id @default(cuid())
+  classroomId  String
+  classroom    Classroom               @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  createdById  String
+  title        String
+  description  String?
+  dueAt        DateTime?
+  points       Int                     @default(100)
+  type         String                  @default("text") // text | file | both
+  createdAt    DateTime                @default(now())
+  submissions  AssignmentSubmission[]
+
+  @@index([classroomId, createdAt])
+}
+
+model AssignmentSubmission {
+  id            String              @id @default(cuid())
+  assignmentId  String
+  assignment    ClassroomAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId     String
+  content       String?             // text submission
+  fileUrl       String?             // uploaded file
+  fileName      String?
+  submittedAt   DateTime            @default(now())
+  grade         Int?                // 0..points (or null = ungraded)
+  feedback      String?
+  gradedAt      DateTime?
+  gradedById    String?
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+}
+
+// ============ PHASE 3: Live Polls ============
+model LivePoll {
+  id           String      @id @default(cuid())
+  sessionId    String
+  session      LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdById  String
+  question     String
+  options      Json        // array of strings
+  status       String      @default("active") // active | ended
+  createdAt    DateTime    @default(now())
+  endedAt      DateTime?
+  votes        PollVote[]
+
+  @@index([sessionId])
+}
+
+model PollVote {
+  id          String   @id @default(cuid())
+  pollId      String
+  poll        LivePoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId      String
+  optionIndex Int
+  createdAt   DateTime @default(now())
+
+  @@unique([pollId, userId])
+  @@index([pollId])
 }
 

@@ -361,6 +361,10 @@ import { LiveSessionsPanel } from "./features/LiveSessions/LiveSessionsPanel.jsx
 
 import { LiveBanner } from "./features/LiveSessions/LiveBanner.jsx";
 
+import { ClassroomAssignmentsPanel } from "./features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
+
+import { AttendancePanel } from "./features/LiveSessions/AttendancePanel.jsx";
+
 
 
 const EMPTY_STATS = {
@@ -8021,6 +8025,30 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
             classroomName={selectedClassroom.name}
             isHost={teacherMode && selectedClassroom.createdById === (currentUser?.id || currentUser?.sub)}
             currentUser={currentUser}
+            token={token}
+          />
+        </div>
+      )}
+
+      {/* Assignments + Grading */}
+      {selectedClassroom && (
+        <div className="lesson-block" style={{ marginBottom: 16 }}>
+          <ClassroomAssignmentsPanel
+            classroomId={selectedClassroom.id}
+            isHost={teacherMode && selectedClassroom.createdById === (currentUser?.id || currentUser?.sub)}
+            currentUser={currentUser}
+            token={token}
+          />
+        </div>
+      )}
+
+      {/* Attendance Analytics */}
+      {selectedClassroom && (
+        <div className="lesson-block" style={{ marginBottom: 16 }}>
+          <h3 style={{ marginTop: 0 }}>📋 Attendance</h3>
+          <AttendancePanel
+            classroomId={selectedClassroom.id}
+            isHost={teacherMode && selectedClassroom.createdById === (currentUser?.id || currentUser?.sub)}
             token={token}
           />
         </div>

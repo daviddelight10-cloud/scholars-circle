@@ -15,7 +15,6 @@ const EMPTY = {
   officeLocation: "",
   contactEmail: "",
   phone: "",
-  avatarUrl: "",
   websiteUrl: "",
   linkedinUrl: "",
   yearsExperience: "",
@@ -72,45 +71,79 @@ export function LecturerProfileEditor({ token, onSaved }) {
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading your profile...</div>;
 
+  // Live preview initials
+  const initials = (draft.fullName || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("");
+  const displayTitle = [draft.title, draft.fullName].filter(Boolean).join(" ") || "Your name";
+
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}>👨‍🏫 My Lecturer Profile</h2>
-        <p className="muted" style={{ margin: 0 }}>Build a profile so students can find and reach you.</p>
+    <div style={{ maxWidth: 900, margin: "0 auto", paddingBottom: 100 }}>
+      {/* Header preview card */}
+      <div style={{
+        background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
+        border: "1px solid rgba(99,102,241,0.3)",
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
+        display: "flex",
+        gap: 16,
+        alignItems: "center",
+        flexWrap: "wrap"
+      }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: "50%",
+          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 28, fontWeight: 700, color: "#fff",
+          flexShrink: 0
+        }}>
+          {initials || "👨\u200d🏫"}
+        </div>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <h2 style={{ margin: 0, fontSize: 22 }}>{displayTitle}</h2>
+          <div style={{ color: "#a5b4fc", fontSize: 13, marginTop: 4 }}>
+            {[draft.department, draft.institution].filter(Boolean).join(" • ") || "Build your profile so students can find you"}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 12, color: draft.isPublic ? "#10b981" : "#f59e0b" }}>
+            {draft.isPublic ? "● Public — visible to all students" : "○ Private — hidden from directory"}
+          </div>
+        </div>
       </div>
 
-      <div className="card">
-        <Field label="Title">
-          <select value={draft.title || ""} onChange={(e) => set("title", e.target.value)} style={inputStyle}>
-            <option value="">— None —</option>
-            <option>Prof.</option>
-            <option>Dr.</option>
-            <option>Mr.</option>
-            <option>Mrs.</option>
-            <option>Ms.</option>
-          </select>
+      {/* SECTION 1: Identity */}
+      <Section icon="🪪" title="Identity" subtitle="How students will see you in the directory">
+        <Row>
+          <Field label="Title" cols={1}>
+            <select value={draft.title || ""} onChange={(e) => set("title", e.target.value)} style={inputStyle}>
+              <option value="">— None —</option>
+              <option>Prof.</option>
+              <option>Dr.</option>
+              <option>Mr.</option>
+              <option>Mrs.</option>
+              <option>Ms.</option>
+            </select>
+          </Field>
+          <Field label="Full Name *" cols={2}>
+            <input value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} style={inputStyle} placeholder="e.g., Adebayo Williams" />
+          </Field>
+        </Row>
+        <Row>
+          <Field label="Department">
+            <input value={draft.department} onChange={(e) => set("department", e.target.value)} style={inputStyle} placeholder="e.g., Computer Science" />
+          </Field>
+          <Field label="Institution">
+            <input value={draft.institution} onChange={(e) => set("institution", e.target.value)} style={inputStyle} placeholder="e.g., University of Lagos" />
+          </Field>
+        </Row>
+        <Field label="Years of Experience">
+          <input type="number" min="0" max="60" value={draft.yearsExperience || ""} onChange={(e) => set("yearsExperience", e.target.value)} style={{ ...inputStyle, maxWidth: 160 }} placeholder="e.g., 8" />
         </Field>
+      </Section>
 
-        <Field label="Full Name *">
-          <input value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} style={inputStyle} placeholder="e.g., Adebayo Williams" />
-        </Field>
-
-        <Field label="Department">
-          <input value={draft.department} onChange={(e) => set("department", e.target.value)} style={inputStyle} placeholder="e.g., Computer Science" />
-        </Field>
-
-        <Field label="Institution">
-          <input value={draft.institution} onChange={(e) => set("institution", e.target.value)} style={inputStyle} placeholder="e.g., University of Lagos" />
-        </Field>
-
+      {/* SECTION 2: About */}
+      <Section icon="📝" title="About You" subtitle="Help students understand your expertise">
         <Field label="Bio" hint="A short description of who you are and what you teach">
           <textarea value={draft.bio} onChange={(e) => set("bio", e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical" }} placeholder="e.g., Senior Lecturer specializing in machine learning and data structures..." />
         </Field>
-
-        <Field label="Years of Experience">
-          <input type="number" min="0" max="60" value={draft.yearsExperience || ""} onChange={(e) => set("yearsExperience", e.target.value)} style={{ ...inputStyle, width: 120 }} />
-        </Field>
-
         <Field label="Qualifications" hint="Press Enter to add each one (e.g., PhD, MSc, BSc)">
           <input
             value={qualInput}
@@ -130,7 +163,6 @@ export function LecturerProfileEditor({ token, onSaved }) {
             onRemove={(i) => set("qualifications", draft.qualifications.filter((_, j) => j !== i))}
           />
         </Field>
-
         <Field label="Research Areas" hint="Press Enter to add each one">
           <input
             value={researchInput}
@@ -150,71 +182,118 @@ export function LecturerProfileEditor({ token, onSaved }) {
             onRemove={(i) => set("researchAreas", draft.researchAreas.filter((_, j) => j !== i))}
           />
         </Field>
+      </Section>
 
-        <Field label="Office Hours">
-          <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: 6 }}>
-            {DAYS.map((day) => (
-              <React.Fragment key={day}>
-                <div style={{ alignSelf: "center", textTransform: "capitalize", color: "#a5b4fc", fontSize: 13 }}>{day}</div>
-                <input
-                  value={(draft.officeHours || {})[day] || ""}
-                  onChange={(e) => setOfficeHour(day, e.target.value)}
-                  placeholder="e.g., 10:00-12:00"
-                  style={{ ...inputStyle, padding: 8 }}
-                />
-              </React.Fragment>
-            ))}
-          </div>
-        </Field>
-
+      {/* SECTION 3: Office & Availability */}
+      <Section icon="🏢" title="Office & Availability" subtitle="When and where students can meet you">
         <Field label="Office Location">
           <input value={draft.officeLocation} onChange={(e) => set("officeLocation", e.target.value)} placeholder="e.g., Block C, Room 204" style={inputStyle} />
         </Field>
-
-        <Field label="Contact Email">
-          <input type="email" value={draft.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="lecturer@uni.edu" style={inputStyle} />
+        <Field label="Office Hours" hint="Leave a day blank if you're not available">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
+            {DAYS.map((day) => (
+              <div key={day} style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, background: "rgba(15,23,42,0.5)", borderRadius: 8 }}>
+                <div style={{ width: 70, textTransform: "capitalize", color: "#a5b4fc", fontSize: 12, fontWeight: 600 }}>{day.slice(0, 3)}</div>
+                <input
+                  value={(draft.officeHours || {})[day] || ""}
+                  onChange={(e) => setOfficeHour(day, e.target.value)}
+                  placeholder="10:00-12:00"
+                  style={{ ...inputStyle, padding: 6, fontSize: 13, flex: 1 }}
+                />
+              </div>
+            ))}
+          </div>
         </Field>
+      </Section>
 
-        <Field label="Phone">
-          <input value={draft.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+234..." style={inputStyle} />
-        </Field>
+      {/* SECTION 4: Contact */}
+      <Section icon="📞" title="Contact Information" subtitle="How students can reach you outside the platform">
+        <Row>
+          <Field label="Contact Email">
+            <input type="email" value={draft.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="lecturer@uni.edu" style={inputStyle} />
+          </Field>
+          <Field label="Phone">
+            <input value={draft.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+234..." style={inputStyle} />
+          </Field>
+        </Row>
+        <Row>
+          <Field label="Website">
+            <input value={draft.websiteUrl} onChange={(e) => set("websiteUrl", e.target.value)} placeholder="https://..." style={inputStyle} />
+          </Field>
+          <Field label="LinkedIn">
+            <input value={draft.linkedinUrl} onChange={(e) => set("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/in/..." style={inputStyle} />
+          </Field>
+        </Row>
+      </Section>
 
-        <Field label="Website">
-          <input value={draft.websiteUrl} onChange={(e) => set("websiteUrl", e.target.value)} placeholder="https://..." style={inputStyle} />
-        </Field>
-
-        <Field label="LinkedIn">
-          <input value={draft.linkedinUrl} onChange={(e) => set("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/in/..." style={inputStyle} />
-        </Field>
-
-        <Field label="Avatar URL" hint="Link to your photo">
-          <input value={draft.avatarUrl} onChange={(e) => set("avatarUrl", e.target.value)} placeholder="https://..." style={inputStyle} />
-        </Field>
-
-        <Field label="Visibility">
-          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input type="checkbox" checked={draft.isPublic} onChange={(e) => set("isPublic", e.target.checked)} />
-            <span>Show my profile publicly to students</span>
-          </label>
-        </Field>
-      </div>
+      {/* SECTION 5: Visibility */}
+      <Section icon="👁️" title="Visibility" subtitle="Control who can see your profile">
+        <label style={{
+          display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer",
+          padding: 12, background: "rgba(15,23,42,0.5)", borderRadius: 8
+        }}>
+          <input type="checkbox" checked={draft.isPublic} onChange={(e) => set("isPublic", e.target.checked)} style={{ marginTop: 4 }} />
+          <div>
+            <div style={{ fontWeight: 600, color: "#e0e7ff" }}>Show my profile publicly to students</div>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+              When enabled, students can find you in the directory and message you directly.
+            </div>
+          </div>
+        </label>
+      </Section>
 
       {error && <div style={{ padding: 12, marginTop: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8 }}>{error}</div>}
 
-      <div style={{ position: "sticky", bottom: 0, padding: 16, marginTop: 16, borderRadius: 12, background: "rgba(15,23,42,0.95)", backdropFilter: "blur(8px)", border: "1px solid rgba(99,102,241,0.3)", display: "flex", justifyContent: "flex-end", gap: 12, alignItems: "center" }}>
-        {saved && <span style={{ color: "#10b981" }}>✓ Saved</span>}
-        <button onClick={save} disabled={saving || !draft.fullName?.trim()} style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: draft.fullName?.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)", color: "#fff", fontWeight: 700, cursor: saving ? "wait" : "pointer", fontSize: 14 }}>
-          {saving ? "Saving..." : "💾 Save Profile"}
-        </button>
+      <div style={{
+        position: "sticky", bottom: 12, padding: 14, marginTop: 16,
+        borderRadius: 12, background: "rgba(15,23,42,0.96)",
+        backdropFilter: "blur(8px)",
+        border: "1px solid rgba(99,102,241,0.4)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        gap: 12, flexWrap: "wrap"
+      }}>
+        <div style={{ fontSize: 12, color: "#9ca3af" }}>
+          {!draft.fullName?.trim() ? <span style={{ color: "#f87171" }}>⚠ Full name is required</span> : "All changes are saved to your account"}
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {saved && <span style={{ color: "#10b981", fontWeight: 600 }}>✓ Saved!</span>}
+          <button onClick={save} disabled={saving || !draft.fullName?.trim()} style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: draft.fullName?.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)", color: "#fff", fontWeight: 700, cursor: saving ? "wait" : "pointer", fontSize: 14 }}>
+            {saving ? "Saving..." : "💾 Save Profile"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function Field({ label, hint, children }) {
+function Section({ icon, title, subtitle, children }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#e0e7ff", marginBottom: 4 }}>{label}</label>
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid rgba(99,102,241,0.15)" }}>
+        <h3 style={{ margin: 0, fontSize: 16, color: "#e0e7ff" }}>
+          <span style={{ marginRight: 8 }}>{icon}</span>{title}
+        </h3>
+        {subtitle && <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#9ca3af" }}>{subtitle}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Row({ children }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, hint, cols, children }) {
+  const span = cols === 2 ? { gridColumn: "span 2" } : cols === 1 ? {} : {};
+  return (
+    <div style={{ marginBottom: 14, ...span }}>
+      <label style={{ display: "block", fontWeight: 600, fontSize: 12, color: "#cbd5e1", marginBottom: 4, letterSpacing: 0.2 }}>{label}</label>
       {hint && <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6 }}>{hint}</div>}
       {children}
     </div>

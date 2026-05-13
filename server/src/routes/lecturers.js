@@ -48,7 +48,7 @@ router.get("/", async (req, res) => {
 router.get("/me", requireAuth, async (req, res) => {
   try {
     const profile = await prisma.lecturerProfile.findUnique({
-      where: { userId: req.user.id }
+      where: { userId: req.user.sub }
     });
     res.json(profile);
   } catch (err) {
@@ -77,7 +77,7 @@ router.get("/:id", async (req, res) => {
     if (!lecturer) return res.status(404).json({ error: "Lecturer not found" });
     if (!lecturer.isPublic) {
       // Hide if not public
-      if (!req.user || req.user.id !== lecturer.userId) {
+      if (!req.user || req.user.sub !== lecturer.userId) {
         return res.status(403).json({ error: "This profile is private" });
       }
     }
@@ -96,9 +96,9 @@ router.post("/me", requireAuth, async (req, res) => {
     }
     const data = sanitizeProfileInput(req.body);
     const profile = await prisma.lecturerProfile.upsert({
-      where: { userId: req.user.id },
+      where: { userId: req.user.sub },
       update: data,
-      create: { ...data, userId: req.user.id, fullName: data.fullName || req.user.username }
+      create: { ...data, userId: req.user.sub, fullName: data.fullName || req.user.username }
     });
     res.json(profile);
   } catch (err) {
@@ -117,9 +117,9 @@ router.post("/:id/rate", requireAuth, async (req, res) => {
     }
     // Upsert rating
     await prisma.lecturerRating.upsert({
-      where: { lecturerId_studentId: { lecturerId: req.params.id, studentId: req.user.id } },
+      where: { lecturerId_studentId: { lecturerId: req.params.id, studentId: req.user.sub } },
       update: { score, comment: comment || null },
-      create: { lecturerId: req.params.id, studentId: req.user.id, score, comment: comment || null }
+      create: { lecturerId: req.params.id, studentId: req.user.sub, score, comment: comment || null }
     });
     // Recompute aggregate
     const stats = await prisma.lecturerRating.aggregate({
@@ -147,7 +147,7 @@ router.post("/:id/posts", requireAuth, async (req, res) => {
   try {
     const lecturer = await prisma.lecturerProfile.findUnique({ where: { id: req.params.id } });
     if (!lecturer) return res.status(404).json({ error: "Lecturer not found" });
-    if (lecturer.userId !== req.user.id) {
+    if (lecturer.userId !== req.user.sub) {
       return res.status(403).json({ error: "You can only post on your own profile" });
     }
     const { title, content, tags } = req.body;
@@ -176,7 +176,7 @@ router.delete("/posts/:postId", requireAuth, async (req, res) => {
       include: { lecturer: true }
     });
     if (!post) return res.status(404).json({ error: "Post not found" });
-    if (post.lecturer.userId !== req.user.id) {
+    if (post.lecturer.userId !== req.user.sub) {
       return res.status(403).json({ error: "Not your post" });
     }
     await prisma.lecturerPost.delete({ where: { id: req.params.postId } });
@@ -202,11 +202,11 @@ router.post("/messages", requireAuth, async (req, res) => {
       targetUserId = lec.userId;
     }
     if (!targetUserId) return res.status(400).json({ error: "Recipient required" });
-    if (targetUserId === req.user.id) return res.status(400).json({ error: "Cannot message yourself" });
+    if (targetUserId === req.user.sub) return res.status(400).json({ error: "Cannot message yourself" });
 
     const dm = await prisma.directMessage.create({
       data: {
-        fromId: req.user.id,
+        fromId: req.user.sub,
         toId: targetUserId,
         content: content.trim()
       }
@@ -224,15 +224,15 @@ router.get("/messages/thread/:otherUserId", requireAuth, async (req, res) => {
     const messages = await prisma.directMessage.findMany({
       where: {
         OR: [
-          { fromId: req.user.id, toId: req.params.otherUserId },
-          { fromId: req.params.otherUserId, toId: req.user.id }
+          { fromId: req.user.sub, toId: req.params.otherUserId },
+          { fromId: req.params.otherUserId, toId: req.user.sub }
         ]
       },
       orderBy: { createdAt: "asc" }
     });
     // Mark received as read
     await prisma.directMessage.updateMany({
-      where: { toId: req.user.id, fromId: req.params.otherUserId, read: false },
+      where: { toId: req.user.sub, fromId: req.params.otherUserId, read: false },
       data: { read: true }
     });
     res.json(messages);
@@ -247,7 +247,7 @@ router.get("/messages/inbox", requireAuth, async (req, res) => {
   try {
     const messages = await prisma.directMessage.findMany({
       where: {
-        OR: [{ fromId: req.user.id }, { toId: req.user.id }]
+        OR: [{ fromId: req.user.sub }, { toId: req.user.sub }]
       },
       orderBy: { createdAt: "desc" },
       take: 200
@@ -255,11 +255,11 @@ router.get("/messages/inbox", requireAuth, async (req, res) => {
     // Group by partner
     const partnerMap = new Map();
     for (const m of messages) {
-      const partnerId = m.fromId === req.user.id ? m.toId : m.fromId;
+      const partnerId = m.fromId === req.user.sub ? m.toId : m.fromId;
       if (!partnerMap.has(partnerId)) {
         partnerMap.set(partnerId, { partnerId, lastMessage: m, unreadCount: 0 });
       }
-      if (m.toId === req.user.id && !m.read) {
+      if (m.toId === req.user.sub && !m.read) {
         partnerMap.get(partnerId).unreadCount++;
       }
     }
@@ -284,7 +284,7 @@ router.get("/messages/inbox", requireAuth, async (req, res) => {
 router.get("/messages/unread-count", requireAuth, async (req, res) => {
   try {
     const count = await prisma.directMessage.count({
-      where: { toId: req.user.id, read: false }
+      where: { toId: req.user.sub, read: false }
     });
     res.json({ count });
   } catch (err) {
