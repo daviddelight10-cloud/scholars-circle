@@ -4,20 +4,30 @@ import { lecturersApi } from "./api.js";
 export function LecturerDirectory({ token, onSelect, onMessage }) {
   const [lecturers, setLecturers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("");
   const [institution, setInstitution] = useState("");
 
+  // Debounce filter inputs to prevent reload-flicker on every keystroke
+  const [debounced, setDebounced] = useState({ search: "", department: "", institution: "" });
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced({ search, department, institution }), 350);
+    return () => clearTimeout(t);
+  }, [search, department, institution]);
+
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    lecturersApi.list({ token, search, department, institution })
+    // First load shows skeleton; subsequent reloads show inline refresh badge (preserves scroll)
+    if (hasLoadedOnce) setRefreshing(true); else setLoading(true);
+    lecturersApi.list({ token, ...debounced })
       .then((data) => { if (alive) { setLecturers(data); setError(null); } })
       .catch((e) => { if (alive) setError(e.message); })
-      .finally(() => { if (alive) setLoading(false); });
+      .finally(() => { if (alive) { setLoading(false); setRefreshing(false); setHasLoadedOnce(true); } });
     return () => { alive = false; };
-  }, [token, search, department, institution]);
+  }, [token, debounced]);
 
   return (
     <div>
@@ -27,7 +37,7 @@ export function LecturerDirectory({ token, onSelect, onMessage }) {
       </div>
 
       {/* Filters */}
-      <div className="card" style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8 }}>
+      <div className="card" style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
         <input
           type="text"
           placeholder="🔍 Search by name, department, research..."
@@ -51,20 +61,47 @@ export function LecturerDirectory({ token, onSelect, onMessage }) {
         />
       </div>
 
-      {loading && <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading lecturers...</div>}
-      {error && <div style={{ padding: 16, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8 }}>{error}</div>}
-      {!loading && !error && lecturers.length === 0 && (
-        <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🎓</div>
-          <p>No lecturer profiles found.</p>
-          <p style={{ fontSize: 12 }}>Lecturers can create their profile from the Lecturers tab.</p>
-        </div>
-      )}
+      {/* Stable-height results container: no scroll jumps when refreshing */}
+      <div style={{ position: "relative", minHeight: 320 }}>
+        {refreshing && (
+          <div style={{
+            position: "absolute",
+            top: -32,
+            right: 0,
+            padding: "4px 10px",
+            background: "rgba(99,102,241,0.2)",
+            border: "1px solid rgba(99,102,241,0.4)",
+            color: "#a5b4fc",
+            borderRadius: 99,
+            fontSize: 11,
+            display: "flex",
+            alignItems: "center",
+            gap: 6
+          }}>
+            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#6366f1", animation: "pulse 1s infinite" }} />
+            Refreshing…
+          </div>
+        )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-        {lecturers.map((l) => (
-          <LecturerCard key={l.id} lecturer={l} onSelect={onSelect} onMessage={onMessage} />
-        ))}
+        {loading && (
+          <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading lecturers...</div>
+        )}
+        {error && (
+          <div style={{ padding: 16, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8 }}>{error}</div>
+        )}
+        {!loading && !error && lecturers.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🎓</div>
+            <p>No lecturer profiles found.</p>
+            <p style={{ fontSize: 12 }}>Lecturers can create their profile from the Lecturers tab.</p>
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, opacity: refreshing ? 0.6 : 1, transition: "opacity 0.2s" }}>
+          {lecturers.map((l) => (
+            <LecturerCard key={l.id} lecturer={l} onSelect={onSelect} onMessage={onMessage} />
+          ))}
+        </div>
       </div>
     </div>
   );

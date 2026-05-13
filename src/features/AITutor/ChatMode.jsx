@@ -24,20 +24,26 @@ export function ChatMode({ tutor }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 500 }}>
+    <div style={{
+      display: "flex",
+      flexDirection: "column",
+      height: "min(70vh, 700px)",
+      minHeight: 360
+    }}>
       <div
         ref={scrollRef}
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: 16,
+          WebkitOverflowScrolling: "touch",
+          padding: 12,
           display: "flex",
           flexDirection: "column",
-          gap: 12,
+          gap: 10,
           background: "rgba(15, 23, 42, 0.5)",
           borderRadius: 12,
-          marginBottom: 12,
-          minHeight: 400
+          marginBottom: 10,
+          minHeight: 0
         }}
       >
         {messages.length === 0 && (
@@ -52,12 +58,14 @@ export function ChatMode({ tutor }) {
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: "85%",
+              maxWidth: m.role === "user" ? "92%" : "100%",
               padding: "10px 14px",
               borderRadius: 12,
               background: m.role === "user" ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(30, 41, 59, 0.9)",
               color: m.role === "user" ? "#fff" : "#e5e7eb",
               whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
               fontSize: 14,
               lineHeight: 1.6,
               border: m.role === "assistant" ? "1px solid rgba(99, 102, 241, 0.2)" : "none"

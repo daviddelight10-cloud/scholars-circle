@@ -24,12 +24,15 @@ export function AttendancePanel({ classroomId, isHost, token }) {
       .finally(() => setLoading(false));
   }, [classroomId, isHost, token]);
 
-  if (loading) return <div style={{ padding: 12, color: "#9ca3af" }}>Loading attendance…</div>;
-  if (error) return <div style={{ padding: 12, color: "#f87171" }}>Failed: {error}</div>;
-  if (!data) return null;
-
-  if (isHost) return <FacultyView data={data} />;
-  return <StudentView data={data} />;
+  // Wrap output in a stable-height container so that loading/loaded transitions
+  // don't shift surrounding content (which causes the page to scroll up/down).
+  return (
+    <div style={{ minHeight: 240 }}>
+      {loading && <div style={{ padding: 12, color: "#9ca3af" }}>Loading attendance…</div>}
+      {error && <div style={{ padding: 12, color: "#f87171" }}>Failed: {error}</div>}
+      {!loading && !error && data && (isHost ? <FacultyView data={data} /> : <StudentView data={data} />)}
+    </div>
+  );
 }
 
 function FacultyView({ data }) {

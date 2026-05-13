@@ -41,13 +41,26 @@ export function resetProxyStatusCache() {
 }
 
 async function callViaProxy(prompt, provider, model) {
-  const res = await fetch(`${API_BASE}/ai/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, provider, model }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || `Proxy error ${res.status}`);
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/ai/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, provider, model }),
+      signal: AbortSignal.timeout(60000) // 60s for long generations
+    });
+  } catch (netErr) {
+    if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
+      throw new Error("AI request timed out. Please try again with a shorter prompt.");
+    }
+    throw new Error("Network error reaching AI service. Please check your connection.");
+  }
+  let data = {};
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    // Server now returns user-friendly messages; surface as-is.
+    throw new Error(data?.error || `AI service error (${res.status})`);
+  }
   return data.text || "";
 }
 

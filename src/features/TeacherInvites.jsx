@@ -19,6 +19,8 @@ async function req(path, { method = "GET", token, body } = {}) {
 export function TeacherInvitesPanel({ token }) {
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -29,7 +31,7 @@ export function TeacherInvitesPanel({ token }) {
   const [filter, setFilter] = useState("all"); // all | unused | used | expired
 
   async function load() {
-    setLoading(true);
+    if (hasLoadedOnce) setRefreshing(true); else setLoading(true);
     try {
       const data = await req("/teacher-invites", { token });
       setInvites(data);
@@ -38,6 +40,8 @@ export function TeacherInvitesPanel({ token }) {
       setError(e.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      setHasLoadedOnce(true);
     }
   }
 
@@ -190,8 +194,19 @@ export function TeacherInvitesPanel({ token }) {
 
       {error && <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
 
-      {/* Invite list */}
-      <div className="card" style={{ padding: 0 }}>
+      {/* Invite list — stable container prevents scroll jumps on refresh */}
+      <div className="card" style={{ padding: 0, position: "relative", minHeight: 200 }}>
+        {refreshing && (
+          <div style={{
+            position: "absolute", top: 8, right: 8, zIndex: 2,
+            padding: "3px 10px", background: "rgba(99,102,241,0.2)",
+            border: "1px solid rgba(99,102,241,0.4)", color: "#a5b4fc",
+            borderRadius: 99, fontSize: 11, display: "flex", alignItems: "center", gap: 6
+          }}>
+            <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#6366f1", animation: "pulse 1s infinite" }} />
+            Refreshing…
+          </div>
+        )}
         {loading ? (
           <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading invites...</div>
         ) : filtered.length === 0 ? (

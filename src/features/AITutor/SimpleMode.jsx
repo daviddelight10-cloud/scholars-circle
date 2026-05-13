@@ -95,13 +95,33 @@ export function SimpleMode({ tutor, mode, config }) {
           background: "rgba(30,41,59,0.8)",
           borderRadius: 10,
           whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          overflowWrap: "anywhere",
           color: "#e5e7eb",
           fontSize: 14,
           lineHeight: 1.7,
-          maxHeight: 600,
+          maxHeight: "70vh",
+          minHeight: 200,
           overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
           border: "1px solid rgba(99,102,241,0.2)"
         }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+            <button
+              onClick={() => navigator.clipboard.writeText(result)}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 6,
+                border: "1px solid rgba(99,102,241,0.4)",
+                background: "rgba(15,23,42,0.6)",
+                color: "#a5b4fc",
+                cursor: "pointer",
+                fontSize: 11
+              }}
+            >
+              📋 Copy
+            </button>
+          </div>
           {result}
         </div>
       )}
