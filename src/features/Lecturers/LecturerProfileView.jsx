@@ -8,16 +8,44 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
   const [showRate, setShowRate] = useState(false);
   const [score, setScore] = useState(5);
   const [comment, setComment] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    if (!lecturerId) {
+      setError("No lecturer selected");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setError(null);
+    // Hard 15s timeout so the page never sticks on "Loading" forever
+    const timeoutId = setTimeout(() => {
+      if (alive) {
+        setError("Request timed out. Please try again.");
+        setLoading(false);
+      }
+    }, 15000);
+
     lecturersApi.get(lecturerId, token)
-      .then((d) => { if (alive) { setLecturer(d); setError(null); } })
-      .catch((e) => { if (alive) setError(e.message); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [lecturerId, token]);
+      .then((d) => {
+        if (!alive) return;
+        if (!d || typeof d !== "object") {
+          setError("Profile not found.");
+        } else {
+          setLecturer(d);
+          setError(null);
+        }
+      })
+      .catch((e) => {
+        if (alive) setError(e?.message || "Failed to load profile");
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+        if (alive) setLoading(false);
+      });
+    return () => { alive = false; clearTimeout(timeoutId); };
+  }, [lecturerId, token, retryCount]);
 
   async function submitRating() {
     try {
@@ -32,9 +60,38 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
     }
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading profile...</div>;
-  if (error) return <div style={{ padding: 16, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8 }}>{error}</div>;
-  if (!lecturer) return null;
+  if (loading) {
+    return (
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(30,41,59,0.6)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)", cursor: "pointer" }}>
+          ← Back to Directory
+        </button>
+        <div className="card" style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>⏳</div>
+          Loading profile…
+        </div>
+      </div>
+    );
+  }
+  if (error || !lecturer) {
+    return (
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(30,41,59,0.6)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)", cursor: "pointer" }}>
+          ← Back to Directory
+        </button>
+        <div className="card" style={{ padding: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>😕</div>
+          <div style={{ color: "#f87171", marginBottom: 12 }}>{error || "Profile not available."}</div>
+          <button
+            onClick={() => setRetryCount((n) => n + 1)}
+            style={primaryBtn}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const isOwn = currentUser?.id === lecturer.userId;
 
@@ -148,14 +205,14 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
           </Section>
         )}
 
-        {lecturer.officeHours && Object.keys(lecturer.officeHours).length > 0 && (
+        {lecturer.officeHours && typeof lecturer.officeHours === "object" && Object.keys(lecturer.officeHours).length > 0 && (
           <Section title="🕐 Office Hours">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
                 {Object.entries(lecturer.officeHours).map(([day, time]) => (
                   <tr key={day}>
                     <td style={{ padding: 6, color: "#a5b4fc", textTransform: "capitalize" }}>{day}</td>
-                    <td style={{ padding: 6 }}>{time || "—"}</td>
+                    <td style={{ padding: 6 }}>{typeof time === "string" || typeof time === "number" ? time : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -195,7 +252,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
               {lecturer.ratings.map((r) => (
                 <div key={r.id} style={{ padding: 10, background: "rgba(15,23,42,0.6)", borderRadius: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ color: "#fbbf24" }}>{"★".repeat(r.score)}{"☆".repeat(5 - r.score)}</span>
+                    <span style={{ color: "#fbbf24" }}>{"★".repeat(Math.max(0, Math.min(5, Number(r.score) || 0)))}{"☆".repeat(Math.max(0, 5 - Math.min(5, Number(r.score) || 0)))}</span>
                     <span style={{ fontSize: 11, color: "#9ca3af" }}>by {r.student?.username || "Anonymous"}</span>
                   </div>
                   {r.comment && <div style={{ fontSize: 13, color: "#cbd5e1" }}>{r.comment}</div>}

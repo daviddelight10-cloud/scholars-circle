@@ -27,29 +27,56 @@ registerRoute(
 
 // ============ PUSH NOTIFICATION SUPPORT ============
 
-// Handle push events (notifications from server)
+// Handle push events (notifications from server).
+// CRITICAL: this handler MUST always call showNotification, otherwise browsers
+// will eventually unsubscribe the device (Chrome enforces "user-visible push only").
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() || {};
-  
+  console.log('[sw] push event received');
+
+  // Robust payload parsing — the body may be JSON, text, or empty.
+  let data = {};
+  try {
+    if (event.data) {
+      try { data = event.data.json(); }
+      catch { data = { title: "Scholar's Circle", body: event.data.text() }; }
+    }
+  } catch (err) {
+    console.warn('[sw] push payload parse failed:', err);
+    data = {};
+  }
+
+  const title = data.title || "Scholar's Circle";
+  const body = data.body || 'You have a new notification';
+
   const notificationOptions = {
+    body,
     icon: '/icon-192.png',
     badge: '/icon-96.png',
     vibrate: [200, 100, 200],
-    requireInteraction: data.requireInteraction || false,
+    requireInteraction: !!data.requireInteraction,
     tag: data.tag || 'default',
+    renotify: !!data.tag, // re-alert when same tag updates
     data: data.data || {},
-    actions: data.actions || [
-      { action: 'open', title: 'Open App' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
   };
 
+  // Actions are optional and unsupported on some platforms (e.g. iOS Safari).
+  if (Array.isArray(data.actions) && data.actions.length) {
+    notificationOptions.actions = data.actions;
+  }
+
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Scholar\'s Circle', {
-      body: data.body || 'You have a new notification',
-      ...notificationOptions
+    self.registration.showNotification(title, notificationOptions).catch((err) => {
+      console.error('[sw] showNotification failed, retrying with minimal payload:', err);
+      // Fall back to absolute minimum so the user still sees SOMETHING and the
+      // browser doesn't auto-unsubscribe due to a missing user-visible push.
+      return self.registration.showNotification(title, { body });
     })
   );
+});
+
+// Also surface push subscription changes (some browsers rotate endpoints).
+self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('[sw] pushsubscriptionchange — clients should re-subscribe on next visit');
 });
 
 // Handle notification click
