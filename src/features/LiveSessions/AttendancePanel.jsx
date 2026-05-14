@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
@@ -12,24 +12,41 @@ export function AttendancePanel({ classroomId, isHost, token }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     setLoading(true);
+    setError(null);
     const path = isHost
       ? `/live-sessions/classrooms/${classroomId}/attendance-report`
       : `/live-sessions/classrooms/${classroomId}/my-attendance`;
-    authFetch(path, token)
+    authFetch(path, tokenRef.current)
       .then(setData)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [classroomId, isHost, token]);
+  }, [classroomId, isHost]);
 
-  // Wrap output in a stable-height container so that loading/loaded transitions
-  // don't shift surrounding content (which causes the page to scroll up/down).
+  useEffect(() => { fetchData(); }, [fetchData]);
+
   return (
     <div style={{ minHeight: 240 }}>
+      {/* Refresh button */}
+      {!loading && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button
+            onClick={fetchData}
+            style={{ background: "none", border: "1px solid var(--border-color, #334155)", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "var(--text-secondary, #9ca3af)", cursor: "pointer" }}
+          >🔄 Refresh</button>
+        </div>
+      )}
       {loading && <div style={{ padding: 12, color: "#9ca3af" }}>Loading attendance…</div>}
-      {error && <div style={{ padding: 12, color: "#f87171" }}>Failed: {error}</div>}
+      {error && (
+        <div style={{ padding: 12, color: "#f87171" }}>
+          Failed: {error}
+          <button onClick={fetchData} style={{ marginLeft: 8, background: "none", border: "1px solid #f87171", borderRadius: 4, padding: "2px 8px", fontSize: 11, color: "#f87171", cursor: "pointer" }}>Retry</button>
+        </div>
+      )}
       {!loading && !error && data && (isHost ? <FacultyView data={data} /> : <StudentView data={data} />)}
     </div>
   );

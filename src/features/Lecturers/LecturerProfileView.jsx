@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { lecturersApi } from "./api.js";
 
 export function LecturerProfileView({ lecturerId, token, onBack, onMessage, currentUser }) {
@@ -9,6 +9,8 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
   const [score, setScore] = useState(5);
   const [comment, setComment] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
   useEffect(() => {
     let alive = true;
@@ -27,7 +29,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
       }
     }, 15000);
 
-    lecturersApi.get(lecturerId, token)
+    lecturersApi.get(lecturerId, tokenRef.current)
       .then((d) => {
         if (!alive) return;
         if (!d || typeof d !== "object") {
@@ -45,7 +47,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
         if (alive) setLoading(false);
       });
     return () => { alive = false; clearTimeout(timeoutId); };
-  }, [lecturerId, token, retryCount]);
+  }, [lecturerId, retryCount]);
 
   async function submitRating() {
     try {
