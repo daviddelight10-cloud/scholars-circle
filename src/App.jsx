@@ -2757,14 +2757,24 @@ function App() {
         const prevIsActivated = prevActivationRef.current;
         const newIsActivated = res.user.isActivated === true;
         const userIsTeacher = String(res.user.role || "").toLowerCase() === "teacher";
-        
-        console.log("[refreshAuth] prevIsActivated:", prevIsActivated, "newIsActivated:", newIsActivated);
-        console.log("[refreshAuth] res.user.isActivated:", res.user.isActivated, "res.user:", res.user);
-        
-        // Update token and user in state and localStorage
-        setToken(res.token);
-        setAuth((a) => ({ ...a, user: res.user }));
-        console.log("[refreshAuth] Updated auth.user to:", res.user);
+
+        // CRITICAL: only update token/user state when something actually changed.
+        // The /auth/refresh endpoint re-signs a fresh JWT on every call, so the
+        // string differs every poll even though the user is identical. If we
+        // setToken() unconditionally, every downstream useEffect with `token`
+        // in its deps refetches every 2 seconds (causing the "reloading every
+        // second" bug on the lecturer profile, etc.).
+        setToken((prev) => (prev === res.token ? prev : res.token));
+        setAuth((a) => {
+          const same =
+            a.user &&
+            a.user.id === res.user.id &&
+            a.user.username === res.user.username &&
+            a.user.role === res.user.role &&
+            a.user.isActivated === res.user.isActivated &&
+            a.user.activationKey === res.user.activationKey;
+          return same ? a : { ...a, user: res.user };
+        });
         
         // Update localStorage
         const authRaw = localStorage.getItem("scholars-circle-auth");
