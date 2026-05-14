@@ -19,8 +19,11 @@ import liveSessionRoutes from "./routes/liveSessions.js";
 import classroomAssignmentRoutes from "./routes/classroomAssignments.js";
 import pollRoutes from "./routes/polls.js";
 import pushRoutes from "./routes/push.js";
+import gamificationRoutes from "./routes/gamification.js";
+import wallRoutes from "./routes/wall.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
+import { seedBadges } from "./lib/badges.js";
 import { prisma } from "./db.js";
 
 // Initialize Web Push (VAPID). Safe to call even if keys are missing.
@@ -93,6 +96,8 @@ app.use("/live-sessions", liveSessionRoutes);
 app.use("/classroom-assignments", classroomAssignmentRoutes);
 app.use("/polls", pollRoutes);
 app.use("/push", pushRoutes);
+app.use("/gamification", gamificationRoutes);
+app.use("/wall", wallRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));
@@ -125,6 +130,8 @@ app.listen(port, "0.0.0.0", async () => {
   try {
     await prisma.$connect();
     console.log("Database connected successfully");
+    // Seed badge catalogue
+    await seedBadges().catch(e => console.error("Badge seed error:", e.message));
   } catch (err) {
     console.error("Database connection failed:", err.message);
     // Don't exit - let the container stay up for debugging

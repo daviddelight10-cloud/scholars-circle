@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { addLeagueXP, awardBadge } from "../lib/badges.js";
 
 const router = express.Router();
 
@@ -40,6 +41,16 @@ router.post("/", requireAuth, async (req, res) => {
       },
       include: { answers: true },
     });
+    // Award league XP: 10 XP per correct answer
+    const xpGained = score * 10;
+    if (xpGained > 0) {
+      addLeagueXP(req.user.sub, xpGained).catch(e => console.error("League XP error:", e.message));
+    }
+    // Perfect score badge
+    if (percentage === 100 && total >= 5 && mode === "exam") {
+      awardBadge(req.user.sub, "perfect_score").catch(() => {});
+    }
+
     res.status(201).json(session);
   } catch (error) {
     console.error("Error creating session:", error);

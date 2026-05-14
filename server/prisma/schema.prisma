@@ -123,6 +123,15 @@ model User {
 
   notificationPrefs NotificationPreference?
 
+  league           UserLeague?
+  userBadges       UserBadge[]
+  duelsStarted     ChallengeDuel[] @relation("DuelChallenger")
+  duelsReceived    ChallengeDuel[] @relation("DuelChallenged")
+  duelAnswers      DuelAnswer[]
+  challengeEntries WeeklyChallengeEntry[]
+  wallPosts        WallPost[]
+  wallReactions    WallReaction[]
+
 }
 
 // ============ WEB PUSH NOTIFICATIONS ============
@@ -585,6 +594,10 @@ model Classroom {
 
   classroomAssignments ClassroomAssignment[]
 
+  weeklyChallenges WeeklyChallenge[]
+
+  wallPosts        WallPost[]
+
 }
 
 
@@ -953,5 +966,138 @@ model PollVote {
 
   @@unique([pollId, userId])
   @@index([pollId])
+}
+
+// ============ GAMIFICATION ============
+
+// XP League tiers — one row per user, updated weekly
+model UserLeague {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier      String   @default("bronze")   // bronze | silver | gold | platinum | diamond
+  weeklyXP  Int      @default(0)          // XP earned in current week window
+  weekStart DateTime @default(now())      // Monday of current week
+  promoted  Boolean  @default(false)      // promoted this week?
+  updatedAt DateTime @updatedAt
+}
+
+// Weekly classroom challenge
+model WeeklyChallenge {
+  id          String                    @id @default(cuid())
+  classroomId String
+  classroom   Classroom                 @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  questionIds String[]                  // IDs from Question table
+  startAt     DateTime
+  endAt       DateTime
+  xpReward    Int                       @default(50)
+  createdAt   DateTime                  @default(now())
+  entries     WeeklyChallengeEntry[]
+
+  @@index([classroomId, endAt])
+}
+
+model WeeklyChallengeEntry {
+  id          String          @id @default(cuid())
+  challengeId String
+  challenge   WeeklyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score       Int             @default(0)
+  total       Int             @default(0)
+  completedAt DateTime        @default(now())
+
+  @@unique([challengeId, userId])
+  @@index([challengeId, score])
+}
+
+// 1-vs-1 challenge duel between two students
+model ChallengeDuel {
+  id            String        @id @default(cuid())
+  challengerId  String
+  challenger    User          @relation("DuelChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  challengedId  String
+  challenged    User          @relation("DuelChallenged", fields: [challengedId], references: [id], onDelete: Cascade)
+  questionIds   String[]      // 10 random Qs
+  status        String        @default("pending")  // pending | active | completed | declined
+  challengerScore Int?
+  challengedScore Int?
+  winnerId      String?
+  xpStake       Int           @default(20)          // XP both players put in
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
+  answers       DuelAnswer[]
+
+  @@index([challengerId])
+  @@index([challengedId])
+}
+
+model DuelAnswer {
+  id        String        @id @default(cuid())
+  duelId    String
+  duel      ChallengeDuel @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String
+  selected  Int
+  correct   Boolean
+  answeredAt DateTime     @default(now())
+
+  @@unique([duelId, userId, questionId])
+  @@index([duelId, userId])
+}
+
+// Badge catalogue (seeded server-side)
+model Badge {
+  id          String      @id @default(cuid())
+  key         String      @unique  // e.g. "streak_7", "first_duel_win", "gold_league"
+  name        String
+  description String
+  icon        String      // emoji or URL
+  category    String      // streak | league | duel | study | social
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  awardedAt DateTime @default(now())
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+// Class social wall
+model WallPost {
+  id          String         @id @default(cuid())
+  classroomId String
+  classroom   Classroom      @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content     String
+  kind        String         @default("post")   // post | achievement | system
+  metadata    Json?          // e.g. { badge: "streak_7", score: 100 }
+  createdAt   DateTime       @default(now())
+  reactions   WallReaction[]
+
+  @@index([classroomId, createdAt])
+}
+
+model WallReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  post      WallPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String   @default("👍")
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId, emoji])
+  @@index([postId])
 }
 

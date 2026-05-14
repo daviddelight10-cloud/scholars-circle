@@ -347,6 +347,8 @@ import { PersonalizedStudyPaths } from "./features/PersonalizedStudyPaths";
 
 import { StudyGroups } from "./features/StudyGroups";
 
+import GamificationHub from "./features/Gamification";
+
 import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboarding";
 
 import AITutor from "./features/AITutor/index.jsx";
@@ -2642,6 +2644,13 @@ function App() {
       },
 
     }).catch(() => {});
+
+    // Trigger badge checks and league XP update after session
+    if (token) {
+      import("./lib/gamificationApi").then(({ checkBadges }) => {
+        checkBadges(token).catch(() => {});
+      });
+    }
 
     setActiveSession(null);
 
@@ -5187,6 +5196,9 @@ function App() {
               <button className={tab === "leaderboard" ? "active" : ""} onClick={() => { setTab("leaderboard"); setShowMobileMenu(false); }}>
                 <span>🏆</span> Leaderboard
               </button>
+              <button className={tab === "gamification" ? "active" : ""} onClick={() => { setTab("gamification"); setShowMobileMenu(false); }}>
+                <span>⚔️</span> Arena
+              </button>
               <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
                 <span>👥</span> Groups
               </button>
@@ -5260,6 +5272,8 @@ function App() {
           ["reminders", "Reminders"],
 
           ["leaderboard", "Leaderboard"],
+
+          ["gamification", "⚔️ Arena"],
 
           ["studygroups", "Study Groups"],
 
@@ -6608,6 +6622,16 @@ function App() {
 
       {tab === "leaderboard" && (
         <Leaderboard username={auth.user.username} xp={stats.xp} sessions={stats.sessions} streak={stats.streak} mastery={mastery} subjects={subjects} token={token} />
+      )}
+
+      {tab === "gamification" && (
+        <GamificationHub
+          token={token}
+          userId={auth.user?.id}
+          username={auth.user?.username}
+          classroomId={null}
+          leaderboard={[]}
+        />
       )}
 
       {tab === "pomodoro" && (
