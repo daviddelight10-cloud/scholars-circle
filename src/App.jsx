@@ -349,6 +349,8 @@ import { StudyGroups } from "./features/StudyGroups";
 
 import GamificationHub from "./features/Gamification";
 
+import { ExamSimulator, selectAdaptiveQuestions, calculateSessionAnalytics, PostSessionInsights } from "./features/EnhancedSession";
+
 import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboarding";
 
 import AITutor from "./features/AITutor/index.jsx";
@@ -3410,6 +3412,17 @@ function App() {
       }, 300);
     }
 
+    // Smart Practice Engine: adaptive question selection for practice mode
+    if (mode === "practice" && finalPool.length > 10 && !questionCount) {
+      finalPool = selectAdaptiveQuestions(finalPool, {
+        count: Math.min(15, finalPool.length),
+        wrongCounts: wrongCounts || {},
+        mastery: mastery || {},
+        srData: srData || {},
+        recentResults: (history || []).slice(-20).flatMap(h => h.results || []),
+      });
+    }
+
     const autoMinutes = Math.max(10, Math.round((finalPool.length * 90) / 60));
     const totalSeconds = mode === "exam" ? (customMinutes ? customMinutes * 60 : autoMinutes * 60) : null;
 
@@ -4219,23 +4232,33 @@ function App() {
           </div>
         )}
 
-        <SessionPlayer
-
-          session={activeSession}
-
-          aiConfig={aiConfig}
-
-          onExit={() => setActiveSession(null)}
-
-          onComplete={(result) => {
-
-            updateLearningModels(result.results);
-
-            completeSession(result, activeSession.source);
-
-          }}
-
-        />
+        {activeSession.mode === "exam" ? (
+          <ExamSimulator
+            session={activeSession}
+            aiConfig={aiConfig}
+            history={history}
+            onExit={(action) => {
+              setActiveSession(null);
+              if (action === "drill-weak") {
+                setTimeout(() => startWeakDrill(), 300);
+              }
+            }}
+            onComplete={(result) => {
+              updateLearningModels(result.results);
+              completeSession(result, activeSession.source);
+            }}
+          />
+        ) : (
+          <SessionPlayer
+            session={activeSession}
+            aiConfig={aiConfig}
+            onExit={() => setActiveSession(null)}
+            onComplete={(result) => {
+              updateLearningModels(result.results);
+              completeSession(result, activeSession.source);
+            }}
+          />
+        )}
 
       </main>
 
@@ -6934,214 +6957,24 @@ ${isCorrect
 
 
   if (finalResult) {
-
-    const pct = Math.round((finalResult.score / Math.max(1, finalResult.total)) * 100);
-
-    const emoji = pct === 100 ? "🏆" : pct >= 80 ? "🎉" : pct >= 50 ? "👍" : "📖";
-
-    const confMap = { unsure: 0.4, okay: 0.6, sure: 0.8 };
-
-    const avgConf = finalResult.results.length ? Math.round((finalResult.results.reduce((a,r)=>a+(confMap[r.confidence]||0.6),0)/finalResult.results.length)*100) : 0;
-
-    const calibrationGap = avgConf - pct;
-
-    const gapLabel = calibrationGap > 5 ? "Overconfident" : calibrationGap < -5 ? "Underconfident" : "Well calibrated";
-    
-    // Calculate final XP with breakdown
-    const baseXP = finalResult.score * XP_PER_CORRECT;
-    const modeBonusXP = Math.round(baseXP * (modeMultiplier - 1));
-    const finalXP = Math.round((baseXP + totalStreakBonus) * modeMultiplier);
+    const analytics = calculateSessionAnalytics(finalResult.results, session.questions, finalResult.seconds);
 
     return (
-      <div className="card" style={{ 
-        textAlign: "center",
-        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
-        border: "1px solid rgba(99, 102, 241, 0.2)",
-        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-        borderRadius: 20,
-        overflow: "hidden"
-      }}>
-        {/* Hero Section */}
-        <div style={{ 
-          background: pct >= 80 
-            ? "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))"
-            : "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
-          padding: "32px 24px",
-          borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
-        }}>
-          <div style={{ fontSize: 64, marginBottom: 16, animation: "bounce 1s" }}>{emoji}</div>
-          <h2 style={{ margin: 0, fontSize: 28, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Session Complete!</h2>
-          <div style={{ 
-            fontSize: "4rem", 
-            fontWeight: 800, 
-            margin: "16px 0",
-            background: pct >= 80 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #3b82f6)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent"
-          }}>
-            {pct}%
-          </div>
-          <p style={{ color: "#9ca3af", fontSize: 14 }}>{finalResult.score} / {finalResult.total} correct · {finalResult.seconds}s · {session.source.label}</p>
-        </div>
-        
-        {/* XP Breakdown */}
-        <div style={{ padding: 24 }}>
-          <div style={{ 
-            background: "linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.1))", 
-            borderRadius: 16, 
-            padding: 20, 
-            marginBottom: 16,
-            border: "1px solid rgba(251,191,36,0.3)",
-            boxShadow: "0 4px 20px rgba(251, 191, 36, 0.1)"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 32 }}>⚡</span>
-              <span style={{ fontSize: 36, fontWeight: 800, color: "#fbbf24" }}>+{finalXP}</span>
-              <span style={{ fontSize: 18, color: "#fbbf24", opacity: 0.8 }}>XP</span>
-            </div>
-            <div style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                <span>Base XP</span>
-                <span style={{ color: "#e0e7ff" }}>{baseXP} ({finalResult.score} × {XP_PER_CORRECT})</span>
-              </div>
-              {totalStreakBonus > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#fbbf24" }}>
-                  <span>🔥 Streak Bonus</span>
-                  <span>+{totalStreakBonus} XP</span>
-                </div>
-              )}
-              {modeBonusXP > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#60a5fa" }}>
-                  <span>🎯 Mode Bonus</span>
-                  <span>+{modeBonusXP} XP</span>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Confidence Calibration */}
-          <div style={{ 
-            background: "rgba(30, 41, 59, 0.6)", 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            border: "1px solid rgba(99, 102, 241, 0.2)"
-          }}>
-            <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>
-              Avg confidence <span style={{ color: "#e0e7ff" }}>{avgConf}%</span> → {gapLabel}
-            </p>
-          </div>
-          
-          {/* Flagged Questions Summary */}
-          {flaggedQuestions.size > 0 && (
-            <div style={{ 
-              background: "rgba(239, 68, 68, 0.1)", 
-              borderRadius: 12, 
-              padding: 16, 
-              marginBottom: 16,
-              border: "1px solid rgba(239, 68, 68, 0.3)"
-            }}>
-              <p style={{ color: "#f87171", fontSize: 14, margin: 0 }}>
-                🚩 {flaggedQuestions.size} question{flaggedQuestions.size > 1 ? "s" : ""} flagged for review
-              </p>
-            </div>
-          )}
-          
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <button 
-              style={{ 
-                background: "linear-gradient(135deg, #22c55e, #16a34a)",
-                border: "none",
-                padding: "14px 28px",
-                borderRadius: 12,
-                color: "white",
-                fontWeight: 700,
-                fontSize: 15,
-                cursor: "pointer",
-                boxShadow: "0 4px 20px rgba(34, 197, 94, 0.4)"
-              }}
-              onClick={() => {
-                onComplete({ ...finalResult, streakBonus: totalStreakBonus, flaggedQuestions: Array.from(flaggedQuestions) });
-                onExit();
-              }}
-            >
-              ✓ Save & Exit
-            </button>
-            <button 
-              style={{ 
-                background: "rgba(99, 102, 241, 0.2)",
-                border: "1px solid rgba(99, 102, 241, 0.3)",
-                padding: "14px 28px",
-                borderRadius: 12,
-                color: "#a5b4fc",
-                fontWeight: 600,
-                fontSize: 15,
-                cursor: "pointer"
-              }}
-              onClick={() => {
-                const text = `I scored ${pct}% (${finalResult.score}/${finalResult.total}) on ${session.source.label} at The Scholar's Circle! 🎓`;
-                if (navigator.share) navigator.share({ title: "Scholar's Circle", text });
-                else navigator.clipboard?.writeText(text).then(() => alert("Score copied to clipboard!"));
-              }}
-            >
-              📤 Share
-            </button>
-          </div>
-        </div>
-        
-        {/* Review all answers */}
-        <div style={{ textAlign: "left", padding: "0 24px 24px", maxHeight: 400, overflowY: "auto" }}>
-          <h3 style={{ textAlign: "center", marginBottom: 16, color: "#e0e7ff" }}>📝 Review All Answers</h3>
-          {finalResult.results.map((r, i) => {
-            const q = session.questions[i];
-            if (!q) return null;
-            const isCorrect = r.correct;
-            const isFlagged = flaggedQuestions.has(i);
-            
-            return (
-              <div key={i} style={{ 
-                borderLeft: `3px solid ${isCorrect ? "#22c55e" : "#ef4444"}`,
-                marginBottom: 12,
-                background: isCorrect ? "linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.05))" : "linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05))",
-                borderRadius: 12,
-                padding: 16,
-                position: "relative"
-              }}>
-                {isFlagged && (
-                  <span style={{ position: "absolute", top: 12, right: 12, fontSize: 16 }}>🚩</span>
-                )}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <p style={{ margin: 0, fontWeight: 600, flex: 1, color: "#f1f5f9", paddingRight: 24 }}>Q{i + 1}: {q.q}</p>
-                  <span style={{ fontSize: 20 }}>{isCorrect ? "✅" : "❌"}</span>
-                </div>
-                
-                {!isCorrect && (
-                  <>
-                    <p style={{ margin: "4px 0", color: "#f87171", fontSize: 14 }}>
-                      Your answer: <strong>{q.options[r.selected] ?? "—"}</strong>
-                    </p>
-                    <p style={{ margin: "4px 0", color: "#4ade80", fontSize: 14 }}>
-                      Correct: <strong>{q.options[q.answer]}</strong>
-                    </p>
-                  </>
-                )}
-                
-                {isCorrect && (
-                  <p style={{ margin: "4px 0", color: "#4ade80", fontSize: 14 }}>
-                    ✓ <strong>{q.options[q.answer]}</strong>
-                  </p>
-                )}
-                
-                {q.explanation && (
-                  <p style={{ margin: "8px 0 0", fontSize: 13, color: "#94a3b8" }}>
-                    💡 {q.explanation}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <PostSessionInsights
+        analytics={analytics}
+        session={session}
+        results={finalResult.results}
+        questions={session.questions}
+        history={[]}
+        aiConfig={aiConfig}
+        onExit={() => {
+          onComplete({ ...finalResult, streakBonus: totalStreakBonus, flaggedQuestions: Array.from(flaggedQuestions) });
+          onExit();
+        }}
+        onSave={() => {
+          onComplete({ ...finalResult, streakBonus: totalStreakBonus, flaggedQuestions: Array.from(flaggedQuestions) });
+        }}
+      />
     );
   }
 
