@@ -8,6 +8,7 @@ import {
   unsubscribeFromPush,
   hasActiveSubscription,
   sendTestPush,
+  sendMotivationNow,
   getNotificationPreferences,
   saveNotificationPreferences,
   listDevices,
@@ -228,6 +229,24 @@ export function NotificationSettings({ token }) {
     }
   }
 
+  async function motivate() {
+    setBusy("motivate");
+    setError(null);
+    try {
+      const result = await sendMotivationNow(token);
+      if (result.sent === 0) {
+        setError(`No motivation delivered (${result.skipped || "no devices"}).`);
+      } else {
+        setSuccess("✨ Motivation sent! Check your notifications.");
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function togglePref(key) {
     if (!prefs) return;
     const next = { ...prefs, [key]: !prefs[key] };
@@ -297,7 +316,10 @@ export function NotificationSettings({ token }) {
         ) : (
           <>
             <button onClick={test} disabled={busy === "test"} style={primaryBtn}>
-              {busy === "test" ? "Sending…" : "🧪 Send test notification"}
+              {busy === "test" ? "Sending…" : "🧪 Send test"}
+            </button>
+            <button onClick={motivate} disabled={busy === "motivate"} style={primaryBtn}>
+              {busy === "motivate" ? "Sending…" : "✨ Motivate me now"}
             </button>
             <button onClick={disable} disabled={busy === "disable"} style={dangerBtn}>
               {busy === "disable" ? "Disabling…" : "Disable on this device"}
@@ -305,6 +327,12 @@ export function NotificationSettings({ token }) {
           </>
         )}
       </div>
+
+      {subscribed && (
+        <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", fontSize: 12, color: "#a5b4fc" }}>
+          🌅 You'll receive a <b>daily morning motivation</b> and an <b>evening study reminder</b> automatically. Toggle "Study Reminders" below to opt out.
+        </div>
+      )}
 
       {/* Per-category preferences */}
       {prefs && subscribed && (

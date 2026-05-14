@@ -145,6 +145,19 @@ export async function unsubscribeFromPush(token) {
   }
 }
 
+/** Trigger a daily-motivation-style push immediately to the calling user. */
+export async function sendMotivationNow(token) {
+  const r = await fetch(`${API_BASE}/push/motivate`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to send motivation");
+  }
+  return await r.json();
+}
+
 /** Send a test notification to the calling user. */
 export async function sendTestPush(token) {
   const r = await fetch(`${API_BASE}/push/test`, {

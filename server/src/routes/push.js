@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db.js";
 import { sendPushToUser, isPushConfigured } from "../lib/pushSender.js";
+import { runMotivationNow } from "../lib/studyReminderJob.js";
 
 const router = Router();
 
@@ -94,6 +95,16 @@ router.post("/test", requireAuth, async (req, res) => {
       requireInteraction: false,
       data: { tab: "home" }
     });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Send a motivational push to the calling user immediately.
+router.post("/motivate", requireAuth, async (req, res) => {
+  try {
+    const result = await runMotivationNow(req.user.sub);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

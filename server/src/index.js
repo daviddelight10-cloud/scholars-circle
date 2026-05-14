@@ -20,10 +20,13 @@ import classroomAssignmentRoutes from "./routes/classroomAssignments.js";
 import pollRoutes from "./routes/polls.js";
 import pushRoutes from "./routes/push.js";
 import { configurePush } from "./lib/pushSender.js";
+import { startStudyReminderJob } from "./lib/studyReminderJob.js";
 import { prisma } from "./db.js";
 
 // Initialize Web Push (VAPID). Safe to call even if keys are missing.
 configurePush();
+// Start daily motivation + reminder cron (no-op if no subscribers yet).
+startStudyReminderJob();
 
 const app = express();
 

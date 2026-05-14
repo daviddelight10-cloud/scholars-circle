@@ -8224,21 +8224,41 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                     {doc.fileType.toUpperCase()} • {(doc.fileSize / 1024).toFixed(1)} KB
                   </div>
                 </div>
-                <a
-                  href={`${API_BASE}/classroom/documents/${doc.id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`${API_BASE}/classroom/documents/${doc.id}/download`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                      });
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.error || `Download failed (${res.status})`);
+                      }
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      link.download = doc.filename || doc.title || "document";
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    } catch (err) {
+                      alert("Download failed: " + err.message);
+                    }
+                  }}
                   style={{
                     background: "rgba(34, 197, 94, 0.2)",
                     color: "#4ade80",
                     padding: "6px 12px",
                     borderRadius: 6,
-                    textDecoration: "none",
+                    border: "1px solid rgba(34, 197, 94, 0.4)",
+                    cursor: "pointer",
                     fontSize: 13
                   }}
                 >
                   ⬇️ Download
-                </a>
+                </button>
               </div>
             ))}
             {(!selectedClassroom.documents || selectedClassroom.documents.length === 0) && (
