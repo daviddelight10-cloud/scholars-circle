@@ -89,15 +89,24 @@ export default function AITutor({
   const activeDiscipline = getDiscipline(tutor.discipline);
 
   return (
-    <div className="card" style={{
+    <div className="ai-tutor-card" style={{
       padding: 0,
       overflow: "hidden",
       background: "linear-gradient(145deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9))",
       border: "1px solid rgba(99,102,241,0.2)",
       borderRadius: 16
     }}>
+      <style>{`
+        @media (max-width: 600px) {
+          .ai-tutor-card .ai-tutor-header { padding: 10px !important; }
+          .ai-tutor-card .ai-tutor-tabs { gap: 4px !important; }
+          .ai-tutor-card .ai-tutor-tabs button { padding: 6px 10px !important; font-size: 11px !important; }
+          .ai-tutor-card .ai-tutor-body-pad { padding: 10px !important; }
+          .ai-tutor-card h2 { font-size: 17px !important; }
+        }
+      `}</style>
       {/* Header */}
-      <div style={{
+      <div className="ai-tutor-header" style={{
         padding: 16,
         background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
         borderBottom: "1px solid rgba(99,102,241,0.2)"
@@ -166,7 +175,7 @@ export default function AITutor({
         )}
 
         {/* Mode Tabs */}
-        <div style={{ display: "flex", gap: 6, marginTop: 14, overflowX: "auto", paddingBottom: 4 }}>
+        <div className="ai-tutor-tabs" style={{ display: "flex", gap: 6, marginTop: 14, overflowX: "auto", paddingBottom: 4 }}>
           {MODES.map(m => (
             <button
               key={m.id}
@@ -194,7 +203,7 @@ export default function AITutor({
       {/* Body */}
       <div style={{ padding: 0 }}>
         {mode === "chat" && (
-          <div style={{ padding: 16 }}>
+          <div className="ai-tutor-body-pad" style={{ padding: 16 }}>
             <ChatMode tutor={tutor} />
           </div>
         )}

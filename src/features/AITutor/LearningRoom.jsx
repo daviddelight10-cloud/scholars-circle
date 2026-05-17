@@ -18,12 +18,13 @@ function loadYouTubeAPI() {
 
 const QUICK_ACTIONS = [
   { id: "explain", icon: "💡", label: "Explain this part", prompt: "Explain in simple language what is being said in this part of the video." },
-  { id: "hint", icon: "🎯", label: "Give me a hint", prompt: "I'm stuck. Give me a small hint to help me understand this concept, but don't give the full answer." },
+  { id: "hint", icon: "🎯", label: "Hint", prompt: "I'm stuck. Give me a small hint to help me understand this concept, but don't give the full answer." },
   { id: "quiz", icon: "✅", label: "Quiz me", prompt: "Ask me 3 quick questions to check my understanding of what was just covered." },
-  { id: "simplify", icon: "👶", label: "Explain like I'm 5", prompt: "Explain this concept like I am a 5-year-old, using a simple everyday analogy." },
-  { id: "pidgin", icon: "🇳🇬", label: "Explain in Pidgin", prompt: "Break down what was just said in Nigerian Pidgin English so a Nigerian student can easily understand. Keep it educational and friendly." },
-  { id: "example", icon: "🌍", label: "Real-world example", prompt: "Give me a real-world example of this concept, preferably one a Nigerian university student can relate to." },
-  { id: "jamb", icon: "📝", label: "JAMB-style questions", prompt: "Generate 3 JAMB / Post-UTME style multiple-choice questions on the topic just covered, with answers and brief explanations." },
+  { id: "simplify", icon: "👶", label: "Explain simply", prompt: "Explain this concept like I am a 5-year-old, using a simple everyday analogy." },
+  { id: "pidgin", icon: "🇳🇬", label: "Pidgin", prompt: "Break down what was just said in Nigerian Pidgin English so a Nigerian student can easily understand. Keep it educational and friendly." },
+  { id: "example", icon: "🌍", label: "Example", prompt: "Give me a real-world example of this concept, preferably one a Nigerian university student can relate to." },
+  { id: "jamb", icon: "📝", label: "JAMB-style", prompt: "Generate 3 JAMB / Post-UTME style multiple-choice questions on the topic just covered, with answers and brief explanations." },
+  { id: "university", icon: "🎓", label: "University-style", prompt: "Generate 3 university exam style questions on the topic just covered (Nigerian university level, e.g. UI/UNILAG/OAU/ABU). Include a mix of: one short-answer, one essay/discussion question (with marking guide), and one application/calculation problem if applicable. Provide model answers and grading criteria." },
 ];
 
 export default function LearningRoom({ tutor, subject, aiConfig }) {
@@ -118,8 +119,10 @@ export default function LearningRoom({ tutor, subject, aiConfig }) {
         playerRef.current = null;
       }
       // Build a fresh div for the player
-      containerRef.current.innerHTML = '<div id="sc-yt-player"></div>';
+      containerRef.current.innerHTML = '<div id="sc-yt-player" style="width:100%;height:100%;"></div>';
       player = new YT.Player("sc-yt-player", {
+        width: "100%",
+        height: "100%",
         videoId: video.videoId,
         playerVars: {
           modestbranding: 1,
@@ -372,7 +375,7 @@ Transcript: "${fullText}"`;
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="learning-room" style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
       {/* Search Bar */}
       {!video && (
         <SearchPanel
@@ -413,18 +416,27 @@ Transcript: "${fullText}"`;
           </div>
 
           {/* Two-column: Video + AI panel */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)",
-            gap: 16,
-            alignItems: "start",
-          }}
-          className="learning-room-grid"
+          <div
+            className="learning-room-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 3fr) minmax(280px, 2fr)",
+              gap: 12,
+              alignItems: "start",
+            }}
           >
             {/* LEFT: Video + lesson companion */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: 12, overflow: "hidden", background: "#000", border: "1px solid rgba(99,102,241,0.2)" }}>
-                <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
+              <div className="yt-frame" style={{
+                position: "relative",
+                width: "100%",
+                aspectRatio: "16 / 9",
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#000",
+                border: "1px solid rgba(99,102,241,0.2)",
+              }}>
+                <div ref={containerRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
               </div>
 
               {/* Player controls helper */}
@@ -460,7 +472,7 @@ Transcript: "${fullText}"`;
             </div>
 
             {/* RIGHT: AI Tutor Panel */}
-            <div style={{
+            <div className="tutor-panel" style={{
               display: "flex",
               flexDirection: "column",
               background: "rgba(15,23,42,0.7)",
@@ -468,7 +480,7 @@ Transcript: "${fullText}"`;
               borderRadius: 12,
               padding: 12,
               gap: 10,
-              minHeight: 480,
+              minHeight: 420,
               maxHeight: 700,
             }}>
               {/* Tutor avatar + status */}
@@ -495,7 +507,7 @@ Transcript: "${fullText}"`;
               </div>
 
               {/* Quick action chips */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <div className="quick-actions-row" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {QUICK_ACTIONS.map((a) => (
                   <button
                     key={a.id}
@@ -527,6 +539,7 @@ Transcript: "${fullText}"`;
                 {messages.map((m, i) => (
                   <div
                     key={i}
+                    className="lr-msg"
                     style={{
                       alignSelf: m.role === "user" ? "flex-end" : "flex-start",
                       maxWidth: "92%",
@@ -589,18 +602,20 @@ Transcript: "${fullText}"`;
                 </button>
                 <input
                   type="text"
+                  className="lr-input"
                   value={askInput}
                   onChange={(e) => setAskInput(e.target.value)}
                   placeholder={listening ? "Listening..." : "Ask about this video..."}
                   disabled={asking}
                   style={{
                     flex: 1,
-                    padding: "8px 12px",
+                    minWidth: 0,
+                    padding: "10px 12px",
                     borderRadius: 8,
                     border: "1px solid rgba(99,102,241,0.3)",
                     background: "rgba(30,41,59,0.7)",
                     color: "#fff",
-                    fontSize: 13,
+                    fontSize: 14,
                   }}
                 />
                 <button
@@ -616,8 +631,24 @@ Transcript: "${fullText}"`;
         </div>
       )}
       <style>{`
+        /* Force YT iframe to fill its container at every size */
+        .yt-frame iframe {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          border: 0 !important;
+        }
         @media (max-width: 900px) {
           .learning-room-grid { grid-template-columns: 1fr !important; }
+          .tutor-panel { max-height: 520px !important; min-height: 360px !important; }
+        }
+        @media (max-width: 600px) {
+          .learning-room { padding: 8px !important; }
+          .tutor-panel { padding: 8px !important; min-height: 320px !important; }
+          .quick-actions-row button { font-size: 10px !important; padding: 5px 8px !important; }
+          .lr-msg { font-size: 12px !important; }
+          .lr-input { font-size: 14px !important; } /* >= 16px prevents iOS zoom; using 14 with viewport meta */
         }
       `}</style>
     </div>
