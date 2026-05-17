@@ -1,6 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import { lecturersApi } from "./api.js";
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export function Messages({ token, currentUser, initialPartner, onBack }) {
   const [inbox, setInbox] = useState([]);
   const [activePartner, setActivePartner] = useState(initialPartner || null);
@@ -10,6 +22,8 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+  const isMobile = useIsMobile(768);
 
   // Load inbox
   useEffect(() => {
@@ -57,16 +71,33 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
     }
   }
 
+  // On mobile, show ONE pane at a time (inbox or thread)
+  const showInboxPane = !isMobile || !activePartner;
+  const showThreadPane = !isMobile || !!activePartner;
+
+  // Pane height: full viewport on mobile (minus topbar+bottom nav), fixed on desktop
+  const paneMaxHeight = isMobile ? "calc(100dvh - 180px)" : 600;
+  const paneMinHeight = isMobile ? "calc(100dvh - 180px)" : 500;
+
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>💬 Messages</h2>
-        {onBack && <button onClick={onBack} style={ghostBtn}>← Back</button>}
+      {/* Header: hide outer back button when inside a thread on mobile (we use in-thread back instead) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
+        <h2 style={{ margin: 0, fontSize: isMobile ? 18 : undefined }}>💬 Messages</h2>
+        {onBack && (!isMobile || !activePartner) && <button onClick={onBack} style={ghostBtn}>← Back</button>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 12, minHeight: 500 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "320px 1fr",
+          gap: isMobile ? 0 : 12,
+          minHeight: paneMinHeight,
+        }}
+      >
         {/* Inbox sidebar */}
-        <div className="card" style={{ padding: 0, overflow: "hidden", maxHeight: 600 }}>
+        {showInboxPane && (
+        <div className="card" style={{ padding: 0, overflow: "hidden", maxHeight: paneMaxHeight, minHeight: isMobile ? paneMinHeight : undefined }}>
           <div style={{ padding: 12, borderBottom: "1px solid rgba(99,102,241,0.2)", fontWeight: 600 }}>Conversations</div>
           {loadingInbox && <div style={{ padding: 16, color: "#9ca3af" }}>Loading...</div>}
           {!loadingInbox && inbox.length === 0 && (
@@ -74,7 +105,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
               No messages yet.<br />Find a lecturer in the directory and click Message.
             </div>
           )}
-          <div style={{ overflowY: "auto", maxHeight: 540 }}>
+          <div style={{ overflowY: "auto", maxHeight: isMobile ? "calc(100dvh - 240px)" : 540 }}>
             {inbox.map((entry) => {
               const isActive = activePartner && (activePartner.partnerId === entry.partnerId || activePartner.userId === entry.partnerId);
               const partner = entry.partner;
@@ -116,19 +147,44 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
             })}
           </div>
         </div>
+        )}
 
         {/* Thread view */}
-        <div className="card" style={{ padding: 0, display: "flex", flexDirection: "column", maxHeight: 600 }}>
+        {showThreadPane && (
+        <div className="card" style={{ padding: 0, display: "flex", flexDirection: "column", maxHeight: paneMaxHeight, minHeight: isMobile ? paneMinHeight : 500 }}>
           {!activePartner ? (
-            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af" }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", padding: 20, textAlign: "center" }}>
               Select a conversation to start messaging
             </div>
           ) : (
             <>
-              <div style={{ padding: 12, borderBottom: "1px solid rgba(99,102,241,0.2)", fontWeight: 600 }}>
-                {activePartner.displayName || activePartner.fullName || "Conversation"}
+              <div style={{ padding: 10, borderBottom: "1px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", gap: 10 }}>
+                {isMobile && (
+                  <button
+                    onClick={() => setActivePartner(null)}
+                    aria-label="Back to conversations"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid rgba(99,102,241,0.3)",
+                      background: "rgba(30,41,59,0.7)",
+                      color: "#a5b4fc",
+                      cursor: "pointer",
+                      fontSize: 16,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ←
+                  </button>
+                )}
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 14, flexShrink: 0 }}>
+                  {(activePartner.displayName || activePartner.fullName || "?").charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {activePartner.displayName || activePartner.fullName || "Conversation"}
+                </div>
               </div>
-              <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8, WebkitOverflowScrolling: "touch" }}>
                 {loadingThread && <div style={{ color: "#9ca3af" }}>Loading...</div>}
                 {!loadingThread && thread.length === 0 && (
                   <div style={{ color: "#9ca3af", textAlign: "center", padding: 20 }}>No messages yet. Say hi!</div>
@@ -140,13 +196,15 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                       key={m.id}
                       style={{
                         alignSelf: mine ? "flex-end" : "flex-start",
-                        maxWidth: "75%",
+                        maxWidth: isMobile ? "85%" : "75%",
                         padding: "8px 12px",
-                        borderRadius: 12,
+                        borderRadius: 14,
                         background: mine ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(30,41,59,0.9)",
                         color: "#fff",
                         whiteSpace: "pre-wrap",
-                        fontSize: 14
+                        wordBreak: "break-word",
+                        fontSize: 14,
+                        lineHeight: 1.4,
                       }}
                     >
                       {m.content}
@@ -157,22 +215,52 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                   );
                 })}
               </div>
-              <div style={{ padding: 12, borderTop: "1px solid rgba(99,102,241,0.2)", display: "flex", gap: 6 }}>
-                <input
+              <div style={{ padding: 10, borderTop: "1px solid rgba(99,102,241,0.2)", display: "flex", gap: 6, alignItems: "flex-end" }}>
+                <textarea
+                  ref={inputRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !isMobile) { e.preventDefault(); send(); } }}
                   placeholder="Type a message..."
                   disabled={sending}
-                  style={{ flex: 1, padding: 10, borderRadius: 8, background: "rgba(15,23,42,0.8)", color: "#fff", border: "1px solid rgba(99,102,241,0.3)" }}
+                  rows={1}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    padding: "10px 12px",
+                    borderRadius: 18,
+                    background: "rgba(15,23,42,0.8)",
+                    color: "#fff",
+                    border: "1px solid rgba(99,102,241,0.3)",
+                    fontSize: 16,
+                    fontFamily: "inherit",
+                    resize: "none",
+                    maxHeight: 120,
+                    outline: "none",
+                  }}
                 />
-                <button onClick={send} disabled={sending || !draft.trim()} style={{ padding: "10px 18px", borderRadius: 8, border: "none", background: draft.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)", color: "#fff", cursor: sending ? "wait" : "pointer", fontWeight: 600 }}>
-                  {sending ? "..." : "Send"}
+                <button
+                  onClick={send}
+                  disabled={sending || !draft.trim()}
+                  style={{
+                    padding: isMobile ? "10px 14px" : "10px 18px",
+                    borderRadius: 18,
+                    border: "none",
+                    background: draft.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)",
+                    color: "#fff",
+                    cursor: sending ? "wait" : "pointer",
+                    fontWeight: 600,
+                    minWidth: isMobile ? 56 : 72,
+                    flexShrink: 0,
+                  }}
+                >
+                  {sending ? "…" : isMobile ? "➤" : "Send"}
                 </button>
               </div>
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );
