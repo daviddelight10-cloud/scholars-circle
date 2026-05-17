@@ -5,9 +5,11 @@ import { ChatMode } from "./ChatMode.jsx";
 import { GenerateMode } from "./GenerateMode.jsx";
 import { SimpleMode } from "./SimpleMode.jsx";
 import { MaterialMode } from "./MaterialMode.jsx";
+import LearningRoom from "./LearningRoom.jsx";
 
 const MODES = [
   { id: "chat", label: "Chat", icon: "💬", desc: "Ask anything" },
+  { id: "learn", label: "Learn", icon: "🎬", desc: "Watch YouTube lessons + ask AI as you go" },
   { id: "material", label: "From Material", icon: "📎", desc: "Upload PDF/DOCX — summarize, learn, MCQs, flashcards" },
   { id: "generate", label: "Generate", icon: "📚", desc: "Notes, flashcards, quizzes" },
   { id: "explain", label: "Explain", icon: "🎯", desc: "Deep dive on a topic" },
@@ -195,6 +197,9 @@ export default function AITutor({
           <div style={{ padding: 16 }}>
             <ChatMode tutor={tutor} />
           </div>
+        )}
+        {mode === "learn" && (
+          <LearningRoom tutor={tutor} subject={subject} aiConfig={aiConfig} />
         )}
         {mode === "material" && (
           <MaterialMode
