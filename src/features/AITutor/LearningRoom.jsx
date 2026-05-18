@@ -671,23 +671,22 @@ function extractVideoId(url) {
 }
 
 function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchError, results, onSearch, onSelect, subject }) {
-  const [urlInput, setUrlInput] = useState("");
-  const [urlError, setUrlError] = useState(null);
+  const isUrl = /(?:youtube\.com|youtu\.be)/.test(query);
 
-  function handlePasteUrl(e) {
+  function handleSubmit(e) {
     e?.preventDefault();
-    setUrlError(null);
-    const videoId = extractVideoId(urlInput);
-    if (!videoId) {
-      setUrlError("Invalid YouTube URL. Please paste a valid link (e.g. https://youtube.com/watch?v=...)");
-      return;
+    if (!query.trim()) return;
+    const videoId = extractVideoId(query);
+    if (videoId) {
+      onSelect({
+        videoId,
+        title: "Custom Video",
+        channelTitle: "YouTube",
+        thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+      });
+    } else {
+      onSearch(e);
     }
-    onSelect({
-      videoId,
-      title: "Custom Video",
-      channelTitle: "YouTube",
-      thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-    });
   }
 
   const suggestions = [
@@ -706,62 +705,33 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
         <div style={{ fontSize: 32, marginBottom: 4 }}>🎬</div>
         <h3 style={{ margin: 0, color: "#e0e7ff" }}>Learn from any topic</h3>
         <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>
-          Search a topic → watch a YouTube lesson → pause anytime to ask the AI tutor
+          Search a topic or paste a YouTube URL → watch the lesson → pause anytime to ask the AI tutor
         </p>
       </div>
 
-      {/* Paste URL section */}
-      <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 10, padding: 12 }}>
-        <div style={{ fontSize: 12, color: "#a5b4fc", marginBottom: 8, fontWeight: 600 }}>🔗 Have a video link? Paste it here:</div>
-        <form onSubmit={handlePasteUrl} style={{ display: "flex", gap: 8 }}>
-          <input
-            type="text"
-            value={urlInput}
-            onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
-            placeholder="https://youtube.com/watch?v=... or youtu.be/..."
-            style={{
-              flex: 1,
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid rgba(99,102,241,0.3)",
-              background: "rgba(30,41,59,0.8)",
-              color: "#fff",
-              fontSize: 13,
-            }}
-          />
-          <button type="submit" disabled={!urlInput.trim()} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 13 }}>
-            ▶️ Load
-          </button>
-        </form>
-        {urlError && <div style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>{urlError}</div>}
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ flex: 1, height: 1, background: "rgba(99,102,241,0.2)" }} />
-        <span style={{ fontSize: 11, color: "#9ca3af" }}>or search by topic</span>
-        <div style={{ flex: 1, height: 1, background: "rgba(99,102,241,0.2)" }} />
-      </div>
-
-      <form onSubmit={onSearch} style={{ display: "flex", gap: 8 }}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={subject ? `Topic in ${subject.label}...` : "What do you want to learn?"}
+          placeholder={subject ? `Topic or YouTube URL (${subject.label})...` : "Search topic or paste YouTube URL..."}
           style={{
             flex: 1,
             padding: "12px 14px",
             borderRadius: 10,
-            border: "1px solid rgba(99,102,241,0.3)",
+            border: `1px solid ${isUrl ? "rgba(34,197,94,0.5)" : "rgba(99,102,241,0.3)"}`,
             background: "rgba(30,41,59,0.8)",
             color: "#fff",
             fontSize: 14,
           }}
         />
         <button type="submit" disabled={searching || !query.trim()} style={btnPrimary}>
-          {searching ? "Searching..." : "🔍 Search"}
+          {searching ? "Searching..." : isUrl ? "▶️ Load" : "🔍 Search"}
         </button>
       </form>
+      {isUrl && (
+        <div style={{ fontSize: 11, color: "#34d399", marginTop: -8 }}>🔗 YouTube URL detected — click Load to play</div>
+      )}
 
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#a5b4fc", cursor: "pointer" }}>
         <input type="checkbox" checked={ngBoost} onChange={(e) => setNgBoost(e.target.checked)} />
