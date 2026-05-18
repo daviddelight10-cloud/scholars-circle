@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useToast } from "./components/Toast";
 
 import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPLIERS } from "./data";
 
@@ -129,11 +130,11 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
         <button
           onClick={() => {
             if (showPlans && !selectedPlan) {
-              alert("Please select a plan first");
+              toast.warning("Please select a plan first");
               return;
             }
             if (!selectedPlan) {
-              alert(`🚀 Upgrade to access ${title}!\n\n✅ Unlimited AI Tutoring\n✅ Study Groups & Leaderboard\n✅ Full Analytics Dashboard\n✅ Unlimited Past Papers\n✅ Unlimited Notes & Flashcards`);
+              toast.info(`🚀 Upgrade to access ${title}!`);
             }
           }}
           style={{
@@ -150,7 +151,7 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
           {selectedPlan ? `Pay ${plans.find(p => p.id === selectedPlan)?.price}` : "Upgrade Now"}
         </button>
         <button
-          onClick={() => alert("🎁 Start your 14-day free trial today! No credit card required.\n\nExperience all Pro features risk-free.")}
+          onClick={() => toast.info("🎁 Start your 14-day free trial today! No credit card required.")}
           style={{
             background: "transparent",
             border: "1px solid var(--border-color, #334155)",
@@ -662,7 +663,7 @@ function CourseOutline({ subjects, outlineSubjectId, setOutlineSubjectId, startS
 
     if (!text) return;
 
-    navigator.clipboard?.writeText(text).catch(() => alert("Copy failed"));
+    navigator.clipboard?.writeText(text).then(() => toast.success("Copied!")).catch(() => toast.error("Copy failed"));
 
   }
 
@@ -672,7 +673,7 @@ function CourseOutline({ subjects, outlineSubjectId, setOutlineSubjectId, startS
 
     const win = window.open("", "_blank", "noopener,noreferrer");
 
-    if (!win) return alert("Please allow pop-ups to print the note.");
+    if (!win) return toast.error("Please allow pop-ups to print the note.");
 
     win.document.write(`<!doctype html><html><head><title>${title || "Study Note"}</title><style>body{font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;padding:24px;line-height:1.6;} h2{margin-top:0;}</style></head><body><h2>${title || "Study Note"}</h2><pre style="white-space:pre-wrap">${text}</pre></body></html>`);
 
@@ -1219,8 +1220,18 @@ function CelebrationNotification({ stats, history, yesterdayTime }) {
 }
 
 function App() {
+  const toast = useToast();
 
   const [tab, setTab] = useState("today");
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    function onOffline() { setIsOffline(true); toast.warning("You're offline. Changes will sync when you're back."); }
+    function onOnline() { setIsOffline(false); toast.success("You're back online!"); }
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    return () => { window.removeEventListener("offline", onOffline); window.removeEventListener("online", onOnline); };
+  }, []);
 
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
 
@@ -2583,7 +2594,7 @@ function App() {
     // Demo streak cap warning
     if (demoMode && newStreak >= DEMO_LIMITS.maxStreak) {
       setTimeout(() => {
-        alert(`🎉 Amazing! You've reached the demo streak limit of ${DEMO_LIMITS.maxStreak} days. Upgrade to track unlimited streaks!`);
+        toast.info(`🎉 Amazing! Demo streak limit of ${DEMO_LIMITS.maxStreak} days reached. Upgrade for unlimited!`);
       }, 500);
     }
 
@@ -2826,11 +2837,11 @@ function App() {
         if (prevIsActivated === false && newIsActivated === true) {
           // User was just activated
           console.log("[refreshAuth] Account activated!");
-          alert("🎉 Your account has been activated! Welcome aboard!");
+          toast.success("🎉 Your account has been activated! Welcome aboard!");
         } else if (prevIsActivated === true && newIsActivated === false && !userIsTeacher) {
           // User was deactivated
           console.log("[refreshAuth] Account deactivated!");
-          alert("Your account has been deactivated. Please contact your teacher.");
+          toast.error("Your account has been deactivated. Please contact your teacher.");
           // Exit demo mode if active
           setDemoMode(false);
         }
@@ -3432,7 +3443,7 @@ function App() {
     if (demoMode && pool.length > 10) {
       finalPool = pool.slice(0, 10);
       setTimeout(() => {
-        alert(`Demo: Limited to 10 questions per quiz. Upgrade for unlimited questions!`);
+        toast.info("Demo: Limited to 10 questions. Upgrade for unlimited!");
       }, 300);
     }
 
@@ -3495,7 +3506,7 @@ function App() {
     const finalQuestions = demoMode && questions.length > 10 ? questions.slice(0, 10) : questions;
     if (demoMode && questions.length > 10) {
       setTimeout(() => {
-        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+        toast.info("Demo: Limited to 10 questions. Upgrade for unlimited!");
       }, 300);
     }
 
@@ -3539,7 +3550,7 @@ function App() {
 
     if (demoMode) {
       setTimeout(() => {
-        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+        toast.info("Demo: Limited to 10 questions. Upgrade for unlimited!");
       }, 300);
     }
 
@@ -3555,7 +3566,7 @@ function App() {
     if (demoMode && dueCards.length > DEMO_LIMITS.maxSpacedReviewCards) {
       cardsToReview = dueCards.slice(0, DEMO_LIMITS.maxSpacedReviewCards);
       setTimeout(() => {
-        alert(`Demo: Limited to ${DEMO_LIMITS.maxSpacedReviewCards} spaced review cards. Upgrade for unlimited reviews!`);
+        toast.info(`Demo: Limited to ${DEMO_LIMITS.maxSpacedReviewCards} spaced review cards. Upgrade for unlimited!`);
       }, 300);
     }
 
@@ -3581,7 +3592,7 @@ function App() {
     const finalWeak = demoMode && weak.length > 10 ? weak.slice(0, 10) : weak;
     if (demoMode && weak.length > 10) {
       setTimeout(() => {
-        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+        toast.info("Demo: Limited to 10 questions. Upgrade for unlimited!");
       }, 300);
     }
 
@@ -3595,13 +3606,13 @@ function App() {
 
     const wrongs = allQuestions.filter((q) => (wrongCounts[q.key] || 0) > 0).slice(0, 12);
 
-    if (!wrongs.length) return alert("No wrong answers yet. Practice first!");
+    if (!wrongs.length) { toast.info("No wrong answers yet. Practice first!"); return; }
     
     // Limit to 10 questions for demo users
     const finalWrongs = demoMode && wrongs.length > 10 ? wrongs.slice(0, 10) : wrongs;
     if (demoMode && wrongs.length > 10) {
       setTimeout(() => {
-        alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+        toast.info("Demo: Limited to 10 questions. Upgrade for unlimited!");
       }, 300);
     }
 
@@ -4291,17 +4302,69 @@ function App() {
   }
 
 
-
   return (
-
-    <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack} density-${density}`}>
-
-      <LiveBanner token={token} currentUser={auth.user} />
-
-      <InstallPrompt />
-
-      <PushPermissionBanner token={token} />
-
+    <main className={darkMode ? "app dark" : "app light"}>
+      {/* PWA Update Toast */}
+      {showUpdateToast && (
+        <div style={{
+          position: "fixed",
+          bottom: 20,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#1e293b",
+          color: "white",
+          padding: "12px 20px",
+          borderRadius: 12,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          fontSize: 14,
+          maxWidth: 400,
+          border: "1px solid rgba(59,130,246,0.3)"
+        }}>
+          <span>🔄</span>
+          <span style={{ flex: 1 }}>
+            {updatePending ? "A new version is available!" : "App updated. Refresh to see changes."}
+          </span>
+          <button
+            onClick={() => {
+              if (updatePending) {
+                applyUpdate();
+              } else {
+                window.location.reload();
+              }
+            }}
+            style={{
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              padding: "6px 14px",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: "nowrap"
+            }}
+          >
+            {updatePending ? "Update Now" : "Reload"}
+          </button>
+          <button
+            onClick={() => setShowUpdateToast(false)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#94a3b8",
+              cursor: "pointer",
+              fontSize: 18,
+              padding: 0
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {showOnboarding && (
 
         <OnboardingWizard
@@ -4678,7 +4741,7 @@ function App() {
                   tomorrow.setDate(tomorrow.getDate() + 1);
                   tomorrow.setHours(0, 0, 0, 0);
                   const hoursLeft = Math.ceil((tomorrow.getTime() - Date.now()) / (1000 * 60 * 60));
-                  alert(`Come back tomorrow! Your limits will reset at midnight.\n\n⏰ About ${hoursLeft} hours remaining.`);
+                  toast.info(`Come back tomorrow! Limits reset in ~${hoursLeft} hours.`);
                 }}
                 style={{ background: "transparent", border: "1px solid var(--border-color, #334155)", color: "var(--text-primary, #f1f5f9)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
               >
@@ -5336,8 +5399,6 @@ function App() {
 
       </nav>
 
-
-
       {tab === "today" && (
 
         <TodayScreen
@@ -5378,7 +5439,7 @@ function App() {
               difficulty: "medium",
             }));
             localStorage.setItem(key, JSON.stringify([...existing, ...newQuestions]));
-            alert(`✓ Imported ${newQuestions.length} questions to your custom question bank! You can practice them in the Question Bank tab.`);
+            toast.success(`✓ Imported ${newQuestions.length} questions to your Question Bank!`);
           }}
 
         />
@@ -5531,13 +5592,13 @@ function App() {
             setDemoUsage={setDemoUsage}
             onStartPastPaper={(qs, yr, mins) => {
               if (demoMode && (demoUsage.pastPapersUsed || 0) >= DEMO_LIMITS.pastPapersLimit) {
-                alert(`Demo limit: Only ${DEMO_LIMITS.pastPapersLimit} past paper allowed. Upgrade to access all past papers!`);
+                toast.warning(`Demo limit: Only ${DEMO_LIMITS.pastPapersLimit} past paper allowed. Upgrade for more!`);
                 return;
               }
               // Limit to 10 questions for demo users
               const finalQs = demoMode && qs.length > 10 ? qs.slice(0, 10) : qs;
               if (demoMode && qs.length > 10) {
-                alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+                toast.info("Demo: Limited to 10 questions. Upgrade for unlimited!");
               }
               setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
               if (demoMode) {
@@ -5688,7 +5749,7 @@ function App() {
 
                 navigator.clipboard?.writeText(url);
 
-                alert("Peer challenge link copied.");
+                toast.success("Peer challenge link copied!");
 
               }}
 
@@ -5981,7 +6042,7 @@ function App() {
             // Limit to 10 questions for demo users
             const finalQs = demoMode && qs.length > 10 ? qs.slice(0, 10) : qs;
             if (demoMode && qs.length > 10) {
-              alert(`Demo: Limited to 10 questions. Upgrade for unlimited questions!`);
+              toast.info("Demo: Limited to 10 questions. Upgrade for unlimited!");
             }
             setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
           }} />
@@ -6718,7 +6779,7 @@ function App() {
                 <button
                   onClick={async () => {
                     if (!deletePassword.trim()) {
-                      alert("Please enter your password");
+                      toast.warning("Please enter your password");
                       return;
                     }
                     setDeleteLoading(true);
@@ -6735,13 +6796,13 @@ function App() {
                       if (!response.ok) {
                         throw new Error(data.error || "Failed to delete account");
                       }
-                      alert("Account deleted successfully");
+                      toast.success("Account deleted successfully");
                       localStorage.clear();
                       setToken("");
                       setAuth({ username: "", password: "", user: null, error: "" });
                       window.location.href = "/";
                     } catch (e) {
-                      alert(e.message || "Failed to delete account");
+                      toast.error(e.message || "Failed to delete account");
                     } finally {
                       setDeleteLoading(false);
                     }
@@ -6897,7 +6958,7 @@ function App() {
               if (demoMode) {
                 const noteCount = Object.values(newNotes).flat().length;
                 if (noteCount > DEMO_LIMITS.notesLimit) {
-                  alert(`Demo limit: Maximum ${DEMO_LIMITS.notesLimit} notes allowed. Upgrade to Pro for unlimited notes!`);
+                  toast.warning(`Demo limit: Max ${DEMO_LIMITS.notesLimit} notes. Upgrade for unlimited!`);
                   return;
                 }
               }
@@ -8298,7 +8359,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                       document.body.removeChild(link);
                       URL.revokeObjectURL(url);
                     } catch (err) {
-                      alert("Download failed: " + err.message);
+                      toast.error("Download failed: " + err.message);
                     }
                   }}
                   style={{
@@ -9571,7 +9632,7 @@ function PomodoroTimer({ onSessionDone }) {
 
       if (window.Notification?.permission === "granted") new Notification("Scholar's Circle", { body: msg });
 
-      else alert(msg);
+      else toast.info(msg);
 
       return;
 
@@ -10923,7 +10984,7 @@ function StudyReminders({ reminders, setReminders, timetable, notificationPermis
 
     if (!newReminderTime || !newReminderLabel) {
 
-      alert("Please enter both time and label");
+      toast.warning("Please enter both time and label");
 
       return;
 
@@ -11168,7 +11229,7 @@ function KeyManagement({ token }) {
       setSelectedStudent(null);
       setSelectedDuration("month1");
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   }
 
@@ -11177,7 +11238,7 @@ function KeyManagement({ token }) {
       await api(`/keys/deactivate/${userId}`, { token, method: "POST" });
       loadStudents();
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   }
 
