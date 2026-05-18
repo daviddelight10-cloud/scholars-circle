@@ -191,25 +191,37 @@ export default function LearningRoom({ tutor, subject, aiConfig }) {
 
   // ─── Build context-aware prompt ────────────────────────────────────────────
   function buildLessonPrompt(userQuestion) {
-    const window = transcript ? getTranscriptWindow(transcript, currentTime, 60) : [];
-    const transcriptChunk = window.map((s) => s.text).join(" ").slice(0, 1200);
+    // Get a wider transcript window (120 seconds) for better context
+    const window = transcript ? getTranscriptWindow(transcript, currentTime, 120) : [];
+    const transcriptChunk = window.map((s) => `[${formatTime(s.start)}] ${s.text}`).join(" ").slice(0, 2500);
 
-    let context = `You are a Khan Academy-style university tutor for a Nigerian student.\n`;
+    // Also get the full transcript up to current point for broader context
+    const pastTranscript = transcript
+      ? transcript.filter((s) => s.start <= currentTime).map((s) => s.text).join(" ").slice(-1500)
+      : "";
+
+    let context = `You are a Khan Academy-style university tutor helping a Nigerian student understand a YouTube video lesson.\n`;
     if (subject?.label) context += `Subject context: ${subject.label}\n`;
-    context += `\nThe student is watching this YouTube lesson:\n`;
-    context += `Title: ${video.title}\n`;
+    context += `\nVideo being watched:\n`;
+    context += `Title: "${video.title}"\n`;
     if (video.channelTitle) context += `Channel: ${video.channelTitle}\n`;
     context += `Current timestamp: ${formatTime(currentTime)}\n`;
     if (transcriptChunk) {
-      context += `\nWhat was said around this moment (transcript window):\n"${transcriptChunk}"\n`;
+      context += `\nWhat is being said around this moment (transcript with timestamps):\n"${transcriptChunk}"\n`;
+      if (pastTranscript && pastTranscript.length > transcriptChunk.length) {
+        context += `\nEarlier in the video, the lecturer covered:\n"${pastTranscript}"\n`;
+      }
+      context += `\nIMPORTANT: Base your answer DIRECTLY on what the video is saying. Reference specific points from the transcript. Do not give generic textbook answers — explain what THIS video is teaching.\n`;
     } else {
-      context += `\n(Transcript not available — answer based on the video title and your knowledge.)\n`;
+      context += `\n(Transcript not available for this video.)\n`;
+      context += `Based on the video title "${video.title}", explain the topic as if you are teaching the content that would typically be covered in such a lesson. Be specific to the topic in the title.\n`;
     }
     context += `\nTutor behavior:\n`;
     context += `- Use plain text only. NO markdown symbols (*, #, backticks, **).\n`;
     context += `- Use Nigerian university examples where helpful.\n`;
     context += `- Be Socratic when possible: ask one short check-understanding question after explaining.\n`;
     context += `- Keep responses focused (under 200 words unless asked for more).\n`;
+    context += `- Always relate your answer back to what the video is discussing.\n`;
     context += `\nStudent question:\n${userQuestion}`;
     return context;
   }
@@ -409,8 +421,8 @@ Transcript: "${fullText}"`;
               </div>
               <div style={{ fontSize: 11, color: "#94a3b8" }}>
                 {video.channelTitle} · {formatTime(currentTime)}
-                {transcript && <> · 📜 transcript ready</>}
-                {transcriptError && <> · ⚠️ no transcript</>}
+                {transcript && <> · <span style={{ color: "#34d399" }}>📜 transcript ready</span></>}
+                {transcriptError && <> · <span style={{ color: "#fbbf24" }}>⚠️ no transcript (AI will use video title)</span></>}
               </div>
             </div>
           </div>

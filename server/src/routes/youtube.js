@@ -139,22 +139,51 @@ async function fetchTranscript(videoId, lang = "en") {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const r = await fetch(videoUrl, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       "Accept-Language": "en-US,en;q=0.9",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     },
   });
   if (!r.ok) throw new Error(`Cannot load video page: ${r.status}`);
   const html = await r.text();
 
-  // Find captionTracks JSON
-  const m = html.match(/"captionTracks":\s*(\[[^\]]+\])/);
-  if (!m) throw new Error("No captions available for this video");
-  let tracks;
-  try {
-    tracks = JSON.parse(m[1]);
-  } catch {
-    throw new Error("Could not parse caption tracks");
+  // Try multiple patterns to find captionTracks JSON
+  let tracks = null;
+
+  // Pattern 1: standard captionTracks in playerCaptionsTracklistRenderer
+  const m1 = html.match(/"captionTracks"\s*:\s*(\[[\s\S]*?\])\s*,\s*"audioTracks"/);
+  if (m1) {
+    try { tracks = JSON.parse(m1[1]); } catch {}
   }
+
+  // Pattern 2: simpler match
+  if (!tracks) {
+    const m2 = html.match(/"captionTracks"\s*:\s*(\[[^\]]*\])/);
+    if (m2) {
+      try { tracks = JSON.parse(m2[1]); } catch {}
+    }
+  }
+
+  // Pattern 3: look in ytInitialPlayerResponse
+  if (!tracks) {
+    const m3 = html.match(/ytInitialPlayerResponse\s*=\s*(\{[\s\S]*?\});\s*(?:var|<\/script>)/);
+    if (m3) {
+      try {
+        const playerResp = JSON.parse(m3[1]);
+        tracks = playerResp?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+      } catch {}
+    }
+  }
+
+  // Pattern 4: look in embedded player response JSON
+  if (!tracks) {
+    const m4 = html.match(/\"captions\"\s*:\s*\{[^}]*\"playerCaptionsTracklistRenderer\"\s*:\s*\{[^}]*\"captionTracks\"\s*:\s*(\[[^\]]*\])/);
+    if (m4) {
+      try { tracks = JSON.parse(m4[1]); } catch {}
+    }
+  }
+
+  if (!tracks || !tracks.length) throw new Error("No captions available for this video");
 
   // Pick best track: requested lang > auto-generated en > first
   let track =
@@ -182,6 +211,7 @@ async function fetchTranscript(videoId, lang = "en") {
     }))
     .filter((s) => s.text);
 
+  if (!segments.length) throw new Error("Captions found but no text segments");
   return segments;
 }
 
