@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { searchYouTube, fetchTranscript, getTranscriptWindow, formatTime } from "./youtubeApi.js";
+import { searchYouTube, fetchTranscript, fetchVideoDetails, getTranscriptWindow, formatTime } from "./youtubeApi.js";
 import { speak, stopSpeaking, SpeechRecognitionAPI } from "./voice.js";
 
 // ─── YouTube IFrame Player loader (singleton) ────────────────────────────────
@@ -93,6 +93,27 @@ export default function LearningRoom({ tutor, subject, aiConfig }) {
     setKeyConcepts([]);
     setEndQuiz(null);
     setSpeakingMsgIdx(null);
+
+    // If loaded from URL (title is "Custom Video"), fetch real details
+    if (v.title === "Custom Video") {
+      // Use YouTube oEmbed (free, no API key needed) to get real title
+      fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${v.videoId}&format=json`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.title) {
+            const updated = { ...v, title: data.title, channelTitle: data.author_name || v.channelTitle };
+            setVideo(updated);
+          }
+        })
+        .catch(() => {
+          // Fallback: try our details endpoint
+          fetchVideoDetails(v.videoId)
+            .then((d) => {
+              if (d?.title) setVideo((prev) => ({ ...prev, title: d.title, channelTitle: d.channelTitle || prev.channelTitle }));
+            })
+            .catch(() => {});
+        });
+    }
 
     // Try to fetch transcript (Phase 2)
     fetchTranscript(v.videoId).then(
