@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { extractTextFromFile } from "./fileExtract.js";
 
+const STORAGE_KEY = "scholars-circle-saved-materials";
+
 /**
  * AI Tutor "Material" mode:
  *   1. Student uploads PDF / DOCX / TXT / Markdown.
@@ -19,6 +21,8 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
   const [busy, setBusy] = useState(null); // current action label
   const [mcqCount, setMcqCount] = useState(10);
   const [flashCount, setFlashCount] = useState(10);
+  const [showSaved, setShowSaved] = useState(false);
+  const [savedMaterials, setSavedMaterials] = useState(getSavedMaterials());
 
   async function handleFile(e) {
     const f = e.target.files?.[0];
@@ -167,6 +171,99 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
         </div>
       </div>
 
+      {/* Saved Materials Section */}
+      <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 8, padding: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h3 style={{ margin: 0, fontSize: 14 }}>💾 Saved Materials</h3>
+          <button
+            onClick={() => {
+              setSavedMaterials(getSavedMaterials());
+              setShowSaved(!showSaved);
+            }}
+            style={{ ...smallBtn, marginTop: 0, padding: "4px 10px", fontSize: 11 }}
+          >
+            {showSaved ? "Hide" : `Show (${savedMaterials.length})`}
+          </button>
+        </div>
+        {showSaved && (
+          <div>
+            {savedMaterials.length === 0 ? (
+              <p className="muted" style={{ fontSize: 12, margin: 0 }}>No saved materials yet. Generate MCQs or flashcards and save them locally.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {savedMaterials.map((item) => (
+                  <div key={item.id} style={{ background: "rgba(30,41,59,0.6)", borderRadius: 6, padding: 10, border: "1px solid rgba(99,102,241,0.2)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <div>
+                        <span style={{ fontSize: 18, marginRight: 6 }}>{item.kind === "mcq" ? "❓" : "🃏"}</span>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{item.kind === "mcq" ? `${item.data.length} Questions` : `${item.data.length} Flashcards`}</span>
+                        {item.subject && <span style={{ fontSize: 11, color: "#a5b4fc", marginLeft: 8 }}>· {item.subject.label}</span>}
+                      </div>
+                      <button
+                        onClick={() => {
+                          deleteMaterial(item.id);
+                          setSavedMaterials(getSavedMaterials());
+                        }}
+                        style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(239,68,68,0.4)", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 10 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p className="muted" style={{ fontSize: 11, margin: "0 0 8px 0" }}>
+                      Saved {new Date(item.savedAt).toLocaleDateString()} at {new Date(item.savedAt).toLocaleTimeString()}
+                    </p>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {item.kind === "mcq" && onImportQuestions && subject && (
+                        <button
+                          onClick={() => {
+                            const questions = item.data.map((q, i) => ({
+                              id: `saved-${item.id}-${i}`,
+                              q: q.q,
+                              options: q.options,
+                              answer: q.answer,
+                              explanation: q.explanation || ""
+                            }));
+                            onImportQuestions(subject.id, questions);
+                            alert(`✓ ${questions.length} questions added to ${subject.label}`);
+                          }}
+                          style={{ ...smallBtn, marginTop: 0, padding: "4px 10px", fontSize: 11 }}
+                        >
+                          📥 Import to {subject.label}
+                        </button>
+                      )}
+                      {item.kind === "flash" && onImportFlashcards && subject && (
+                        <button
+                          onClick={() => {
+                            onImportFlashcards(subject.id, item.data.map((c, idx) => ({
+                              id: `saved-${item.id}-${idx}`,
+                              front: c.front,
+                              back: c.back
+                            })));
+                            alert(`✓ ${item.data.length} flashcards added to ${subject.label}`);
+                          }}
+                          style={{ ...smallBtn, marginTop: 0, padding: "4px 10px", fontSize: 11 }}
+                        >
+                          📥 Import to {subject.label}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setOutput({ kind: item.kind, parsed: item.data });
+                          setShowSaved(false);
+                        }}
+                        style={{ ...smallBtn, marginTop: 0, padding: "4px 10px", fontSize: 11 }}
+                      >
+                        👁️ View
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Output */}
       {output && (
         <Output
@@ -174,6 +271,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
           subject={subject}
           onImportFlashcards={onImportFlashcards}
           onImportQuestions={onImportQuestions}
+          onSave={() => setSavedMaterials(getSavedMaterials())}
         />
       )}
     </div>
@@ -205,7 +303,7 @@ function ActionBtn({ icon, label, desc, onClick, loading, disabled }) {
   );
 }
 
-function Output({ output, subject, onImportFlashcards, onImportQuestions }) {
+function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave }) {
   if (output.kind === "summary" || output.kind === "teach") {
     return (
       <div className="card" style={{ padding: 14, background: "rgba(15,23,42,0.7)", border: "1px solid rgba(99,102,241,0.3)" }}>
@@ -238,24 +336,36 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions }) {
       <div className="card" style={{ padding: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <h3 style={{ margin: 0, fontSize: 15 }}>❓ {output.parsed.length} Questions</h3>
-          {onImportQuestions && subject && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button
               onClick={() => {
-                const questions = output.parsed.map((q, i) => ({
-                  id: `mat-${Date.now()}-${i}`,
-                  q: q.q,
-                  options: q.options,
-                  answer: q.answer,
-                  explanation: q.explanation || ""
-                }));
-                onImportQuestions(subject.id, questions);
-                alert(`✓ ${questions.length} questions added to ${subject.label}`);
+                saveMaterial("mcq", output.parsed, subject);
+                onSave?.();
+                alert("✓ Saved to local storage");
               }}
-              style={smallBtn}
+              style={{ ...smallBtn, background: "rgba(34,197,94,0.2)", borderColor: "rgba(34,197,94,0.4)" }}
             >
-              📥 Add to {subject.label}
+              💾 Save locally
             </button>
-          )}
+            {onImportQuestions && subject && (
+              <button
+                onClick={() => {
+                  const questions = output.parsed.map((q, i) => ({
+                    id: `mat-${Date.now()}-${i}`,
+                    q: q.q,
+                    options: q.options,
+                    answer: q.answer,
+                    explanation: q.explanation || ""
+                  }));
+                  onImportQuestions(subject.id, questions);
+                  alert(`✓ ${questions.length} questions added to ${subject.label}`);
+                }}
+                style={smallBtn}
+              >
+                📥 Add to {subject.label}
+              </button>
+            )}
+          </div>
         </div>
         {output.parsed.map((q, i) => (
           <details key={i} style={{ marginTop: 10, padding: 10, background: "rgba(15,23,42,0.6)", borderRadius: 8 }}>
@@ -304,20 +414,34 @@ function FlashcardViewer({ cards, subject, onImport }) {
     <div className="card" style={{ padding: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
         <h3 style={{ margin: 0, fontSize: 15 }}>🃏 Flashcard {i + 1} / {cards.length}</h3>
-        {onImport && subject && (
-          <button
-            onClick={() => {
-              onImport(subject.id, cards.map((c, idx) => ({
-                id: `mat-card-${Date.now()}-${idx}`,
-                front: c.front,
-                back: c.back
-              })));
-              alert(`✓ ${cards.length} flashcards added to ${subject.label}`);
-            }}
-            style={smallBtn}
-          >
-            📥 Save all to {subject.label}
-          </button>
+        {i === 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button
+              onClick={() => {
+                saveMaterial("flash", cards, subject);
+                onSave?.();
+                alert("✓ Saved to local storage");
+              }}
+              style={{ ...smallBtn, background: "rgba(34,197,94,0.2)", borderColor: "rgba(34,197,94,0.4)" }}
+            >
+              💾 Save locally
+            </button>
+            {onImport && subject && (
+              <button
+                onClick={() => {
+                  onImport(subject.id, cards.map((c, idx) => ({
+                    id: `mat-card-${Date.now()}-${idx}`,
+                    front: c.front,
+                    back: c.back
+                  })));
+                  alert(`✓ ${cards.length} flashcards added to ${subject.label}`);
+                }}
+                style={smallBtn}
+              >
+                📥 Save all to {subject.label}
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div
@@ -354,6 +478,33 @@ function trimForAI(t) {
   const MAX = 14000;
   if (t.length <= MAX) return t;
   return t.slice(0, MAX) + "\n\n[...content truncated for AI processing...]";
+}
+
+function getSavedMaterials() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveMaterial(kind, data, subject) {
+  const saved = getSavedMaterials();
+  const newItem = {
+    id: Date.now(),
+    kind,
+    data,
+    subject: subject ? { id: subject.id, label: subject.label } : null,
+    savedAt: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([newItem, ...saved]));
+  return newItem;
+}
+
+function deleteMaterial(id) {
+  const saved = getSavedMaterials().filter(m => m.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  return saved;
 }
 
 const smallBtn = {

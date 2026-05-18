@@ -1240,6 +1240,10 @@ function App() {
 
   const [darkMode, setDarkMode] = useState(true);
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const [lastStudied, setLastStudied] = useState(() => {
     try {
       const authRaw = localStorage.getItem("scholars-circle-auth");
@@ -4899,7 +4903,7 @@ function App() {
 
           </div>
 
-          <header className="topbar" style={{ display: headerExpanded ? 'block' : 'none' }}>
+          <header className="topbar topbar-cosmic" style={{ display: headerExpanded ? 'block' : 'none' }}>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
 
@@ -4951,6 +4955,12 @@ function App() {
             {/* Dark Mode Toggle */}
             <button className="header-btn theme-btn" onClick={() => setDarkMode((v) => !v)} title="Toggle theme">
               {darkMode ? "🌙" : "☀️"}
+            </button>
+
+            {/* Profile Button */}
+            <button className="header-btn profile-btn" onClick={() => setTab("profile")} title="My Profile">
+              <span className="btn-icon">👤</span>
+              <span className="btn-label">Profile</span>
             </button>
 
             {/* Install Button */}
@@ -5164,22 +5174,13 @@ function App() {
               <button className={tab === "learn" ? "active" : ""} onClick={() => { setTab("learn"); setShowMobileMenu(false); }}>
                 <span>📚</span> Learn
               </button>
-              <button className={tab === "practicehints" ? "active" : ""} onClick={() => { setTab("practicehints"); setShowMobileMenu(false); }}>
-                <span>💡</span> Hints
-              </button>
-              <button className={tab === "lectures" ? "active" : ""} onClick={() => { setTab("lectures"); setShowMobileMenu(false); }}>
-                <span>🎓</span> Lectures
-              </button>
-              <button className={tab === "pastpapers" ? "active" : ""} onClick={() => { setTab("pastpapers"); setShowMobileMenu(false); }}>
-                <span>📄</span> Past Papers
-              </button>
               {!demoMode && (
                 <button className={tab === "classroom" ? "active" : ""} onClick={() => { setTab("classroom"); setShowMobileMenu(false); }}>
                   <span>🏫</span> Classroom
                 </button>
               )}
               <button className={tab === "bank" ? "active" : ""} onClick={() => { setTab("bank"); setShowMobileMenu(false); }}>
-                <span>🏦</span> Question Bank
+                <span>🏦</span> Questions
               </button>
               <button className={tab === "analytics" ? "active" : ""} onClick={() => { setTab("analytics"); setShowMobileMenu(false); }}>
                 <span>📊</span> Stats
@@ -5206,9 +5207,6 @@ function App() {
               <button className={tab === "aitutor" ? "active" : ""} onClick={() => { setTab("aitutor"); setShowMobileMenu(false); }}>
                 <span>🎓</span> AI Tutor
               </button>
-              <button className={tab === "profile" ? "active" : ""} onClick={() => { setTab("profile"); setShowMobileMenu(false); }}>
-                <span>👤</span> My Profile
-              </button>
               <button className={tab === "lecturers" ? "active" : ""} onClick={() => { setTab("lecturers"); setShowMobileMenu(false); }}>
                 <span>👨‍🏫</span> Lecturers
               </button>
@@ -5223,9 +5221,6 @@ function App() {
               </button>
               <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
                 <span>👥</span> Groups
-              </button>
-              <button className={tab === "pomodoro" ? "active" : ""} onClick={() => { setTab("pomodoro"); setShowMobileMenu(false); }}>
-                <span>⏱️</span> Timer
               </button>
               <button className={tab === "notes" ? "active" : ""} onClick={() => { setTab("notes"); setShowMobileMenu(false); }}>
                 <span>📝</span> Notes
@@ -5265,15 +5260,9 @@ function App() {
 
           ["practice", "Practice"],
 
-          ["practicehints", "Practice with Hints"],
-
-          ["lectures", "Lecture Notes"],
-
-          ["pastpapers", "Past Papers"],
-
           ["classroom", "Classroom"],
 
-          ["bank", "Question Bank"],
+          ["bank", "Questions"],
 
           ["planner", "Planner"],
 
@@ -5287,8 +5276,6 @@ function App() {
 
           ["aitutor", "AI Tutor"],
 
-          ["profile", "👤 My Profile"],
-
           ["lecturers", "👨‍🏫 Lecturers"],
 
           ["reminders", "Reminders"],
@@ -5298,8 +5285,6 @@ function App() {
           ["gamification", "⚔️ Arena"],
 
           ["studygroups", "Study Groups"],
-
-          ["pomodoro", "Timer"],
 
           ["notes", "Notes"],
 
@@ -5839,6 +5824,12 @@ function App() {
               <span className="mode-desc">Learn from mistakes</span>
             </button>
 
+            <button className="practice-mode-btn mode-hints" onClick={() => setTab("practicehints")} style={{ borderColor: "rgba(251, 191, 36, 0.4)" }}>
+              <span className="mode-icon">💡</span>
+              <span className="mode-label">With Hints</span>
+              <span className="mode-desc">Guided step-by-step</span>
+            </button>
+
           </div>
 
           <div className="row" style={{ marginTop: 12, gap: 8, flexWrap: "wrap" }}>
@@ -5948,6 +5939,24 @@ function App() {
             showPlans={true}
           />
         ) : (
+          <>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              <button
+                onClick={() => setTab("pastpapers")}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(99,102,241,0.4)",
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
+                  color: "#a5b4fc",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                📄 Browse Past Papers →
+              </button>
+            </div>
           <QuestionBank subjects={subjects} onStartPastPaper={(qs, yr, mins) => {
             // Limit to 10 questions for demo users
             const finalQs = demoMode && qs.length > 10 ? qs.slice(0, 10) : qs;
@@ -5956,6 +5965,7 @@ function App() {
             }
             setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
           }} />
+          </>
         )
       )}
 
@@ -6592,7 +6602,148 @@ function App() {
             </button>
           </div>
 
+          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: 16 }}>
+            <h4 style={{ margin: "0 0 8px 0", fontSize: 14, color: "#ef4444" }}>⚠️ Danger Zone</h4>
+            <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+              Once you delete your account, all your data will be permanently lost. This action cannot be undone.
+            </p>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              style={{
+                background: "#ef4444",
+                color: "white",
+                border: "none",
+                padding: "10px 16px",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontWeight: 600,
+                width: "100%"
+              }}
+            >
+              🗑️ Delete Account
+            </button>
+          </div>
+
         </div>
+
+        {showDeleteModal && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16
+          }}>
+            <div className="card" style={{
+              maxWidth: 400,
+              width: "100%",
+              padding: 24,
+              background: "#0f1830",
+              border: "1px solid rgba(239,68,68,0.3)"
+            }}>
+              <h3 style={{ margin: "0 0 12px 0", color: "#ef4444" }}>Delete Account</h3>
+              <p className="muted" style={{ marginBottom: 16 }}>
+                Are you sure you want to delete your account? This will permanently delete all your data including:
+              </p>
+              <ul style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16, paddingLeft: 20 }}>
+                <li>Practice history and stats</li>
+                <li>Flashcards and notes</li>
+                <li>Custom questions</li>
+                <li>Classroom assignments</li>
+              </ul>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 13, marginBottom: 8, color: "#a5b4fc" }}>
+                  Enter your password to confirm:
+                </label>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Your password"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(99,102,241,0.3)",
+                    background: "rgba(15,23,42,0.8)",
+                    color: "#fff",
+                    fontSize: 16,
+                    outline: "none"
+                  }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeletePassword("");
+                  }}
+                  disabled={deleteLoading}
+                  style={{
+                    flex: 1,
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    border: "1px solid rgba(99,102,241,0.3)",
+                    background: "rgba(30,41,59,0.7)",
+                    color: "#a5b4fc",
+                    cursor: deleteLoading ? "not-allowed" : "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!deletePassword.trim()) {
+                      alert("Please enter your password");
+                      return;
+                    }
+                    setDeleteLoading(true);
+                    try {
+                      const response = await fetch(`${API_BASE}/auth/delete-account`, {
+                        method: "DELETE",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ password: deletePassword })
+                      });
+                      const data = await response.json();
+                      if (!response.ok) {
+                        throw new Error(data.error || "Failed to delete account");
+                      }
+                      alert("Account deleted successfully");
+                      localStorage.clear();
+                      setToken("");
+                      setAuth({ username: "", password: "", user: null, error: "" });
+                      window.location.href = "/";
+                    } catch (e) {
+                      alert(e.message || "Failed to delete account");
+                    } finally {
+                      setDeleteLoading(false);
+                    }
+                  }}
+                  disabled={deleteLoading}
+                  style={{
+                    flex: 1,
+                    padding: "10px 16px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "#ef4444",
+                    color: "white",
+                    cursor: deleteLoading ? "not-allowed" : "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  {deleteLoading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         </>
 
@@ -6605,19 +6756,36 @@ function App() {
       )}
 
       {tab === "aitutor" && (
-
-        <AITutor
-          aiConfig={aiConfig}
-          subjects={subjects}
-          studentProfile={studentProfile}
-          onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
-          onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-          token={token}
-          demoMode={demoMode}
-          demoUsage={demoUsage}
-          setDemoUsage={setDemoUsage}
-        />
-
+        <div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setTab("lectures")}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: "1px solid rgba(99,102,241,0.4)",
+                background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
+                color: "#a5b4fc",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              🎓 Lecture → Notes →
+            </button>
+          </div>
+          <AITutor
+            aiConfig={aiConfig}
+            subjects={subjects}
+            studentProfile={studentProfile}
+            onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
+            onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
+            token={token}
+            demoMode={demoMode}
+            demoUsage={demoUsage}
+            setDemoUsage={setDemoUsage}
+          />
+        </div>
       )}
 
       {tab === "profile" && (

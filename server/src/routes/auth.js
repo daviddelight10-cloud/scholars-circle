@@ -241,5 +241,40 @@ router.get("/refresh", requireAuth, async (req, res) => {
 });
 
 
-export default router;
 
+
+// DELETE /auth/delete-account — Delete user account (requires password confirmation)
+router.delete("/delete-account", requireAuth, async (req, res) => {
+  try {
+    const schema = z.object({ password: z.string() });
+    const { password } = schema.parse(req.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ error: "Invalid password" });
+    }
+
+    // Delete user's data cascade
+    await prisma.user.delete({
+      where: { id: user.id },
+    });
+
+    return res.json({ message: "Account deleted successfully" });
+  } catch (e) {
+    console.error("Delete account error:", e);
+    return res.status(400).json({ error: "Failed to delete account", details: e.message });
+  }
+});
+
+
+
+
+export default router;
