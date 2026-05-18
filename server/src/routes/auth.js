@@ -210,6 +210,7 @@ router.get("/refresh", requireAuth, async (req, res) => {
         role: true,
         activationKey: true,
         isActivated: true,
+        activationExpiry: true,
       },
     });
 
@@ -217,9 +218,25 @@ router.get("/refresh", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Check if activation has expired and deactivate if so
+    let isActivated = user.isActivated;
+    if (user.isActivated && user.activationExpiry) {
+      const now = new Date();
+      const expiry = new Date(user.activationExpiry);
+      if (now > expiry) {
+        // Key has expired — deactivate the user
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { isActivated: false },
+        });
+        isActivated = false;
+        console.log(`[auth/refresh] User ${user.username} deactivated — key expired at ${user.activationExpiry}`);
+      }
+    }
+
     // Generate new token with updated isActivated status
     const token = jwt.sign(
-      { sub: user.id, role: user.role, username: user.username, isActivated: user.isActivated },
+      { sub: user.id, role: user.role, username: user.username, isActivated },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -231,7 +248,7 @@ router.get("/refresh", requireAuth, async (req, res) => {
         username: user.username,
         role: user.role,
         activationKey: user.activationKey,
-        isActivated: user.isActivated,
+        isActivated,
       },
     });
   } catch (e) {

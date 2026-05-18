@@ -1902,12 +1902,27 @@ function App() {
       loadUserDataFromBackend(token).then((data) => {
         if (!data) return;
         if (data.progress) {
+          // Validate streak from backend: if lastStudied is stale, streak should reset
+          let validatedStreak = data.progress.streak ?? 0;
+          const backendLastStudied = data.progress.lastStudied;
+          if (backendLastStudied && validatedStreak > 0) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (backendLastStudied !== todayStr) {
+              const lastDate = new Date(backendLastStudied + 'T00:00:00');
+              const today = new Date(todayStr + 'T00:00:00');
+              const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays > 1) {
+                validatedStreak = 0; // User missed a day — reset streak
+              }
+            }
+          }
+
           setStats((prev) => ({
             ...prev,
             // Take max of backend and local to prevent reset when local is higher
             xp: Math.max(data.progress.xp ?? 0, prev.xp),
             sessions: Math.max(data.progress.sessions ?? 0, prev.sessions),
-            streak: Math.max(data.progress.streak ?? 0, prev.streak),
+            streak: Math.max(validatedStreak, prev.streak),
             coins: Math.max(data.progress.coins ?? 0, prev.coins),
             totalCorrect: Math.max(data.progress.totalCorrect ?? 0, prev.totalCorrect ?? 0),
             weeklyGoal: data.progress.weeklyGoal ?? prev.weeklyGoal,
@@ -1934,9 +1949,14 @@ function App() {
 
   }, [booted, token, auth.user?.id]);
 
-  // Check streak validity on app load - reset if user missed a day
+  // Check streak validity on app load and whenever lastStudied changes
+  // This ensures streak resets properly even after backend data overwrites local state
+  const streakCheckedRef = useRef(false);
   useEffect(() => {
-    if (!lastStudied) return;
+    if (!booted || !lastStudied) return;
+    // Only run this check once per session after data is fully loaded
+    if (streakCheckedRef.current) return;
+    streakCheckedRef.current = true;
 
     const todayStr = new Date().toISOString().split('T')[0];
     if (lastStudied === todayStr) return; // Already studied today, streak is valid
@@ -1948,10 +1968,10 @@ function App() {
 
     // If more than 1 day has passed, reset streak to 0
     if (diffDays > 1) {
-      console.log('[STREAK] Resetting streak - missed', diffDays, 'days');
+      console.log('[STREAK] Resetting streak - missed', diffDays, 'days since last study');
       setStats(prev => ({ ...prev, streak: 0 }));
     }
-  }, []); // Run once on mount
+  }, [booted, lastStudied]); // Run after data loads
 
   // Sync timetable to backend immediately when it changes
   useEffect(() => {
