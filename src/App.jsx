@@ -15,7 +15,9 @@ const LECTURE_NOTES_KEY = "sc_lecture_notes_v1";
 function loadFromStorage(key) {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -171,6 +173,7 @@ function DemoLockedOverlay({ title, description, icon = "🔒", features = [], s
 }
 
 function GlobalSearchDropdown({ query, filter, subjects }) {
+  const safeSubjects = subjects || [];
   const allContent = useMemo(() => {
     const userNotes = loadFromStorage(NOTES_KEY);
     const customQuestions = loadFromStorage(CUSTOM_QUESTIONS_KEY);
@@ -178,46 +181,46 @@ function GlobalSearchDropdown({ query, filter, subjects }) {
     const lectureNotes = loadFromStorage(LECTURE_NOTES_KEY);
 
     return {
-      notes: userNotes.map((n) => ({
+      notes: userNotes.filter(Boolean).map((n) => ({
         type: "note",
-        id: n.id,
-        subjectId: n.subjectId,
-        subject: subjects.find((s) => s.id === n.subjectId)?.label || "Unknown",
+        id: n?.id || "",
+        subjectId: n?.subjectId,
+        subject: safeSubjects.find((s) => s.id === n?.subjectId)?.label || "Unknown",
         title: "Student Note",
-        content: n.content,
-        timestamp: n.updatedAt
+        content: n?.content || "",
+        timestamp: n?.updatedAt
       })),
-      questions: customQuestions.map((q, i) => ({
+      questions: customQuestions.filter(Boolean).map((q, i) => ({
         type: "question",
         id: `q_${i}`,
-        subjectId: q.subjectId,
-        subject: subjects.find((s) => s.id === q.subjectId)?.label || "Unknown",
+        subjectId: q?.subjectId,
+        subject: safeSubjects.find((s) => s.id === q?.subjectId)?.label || "Unknown",
         title: "Custom Question",
-        content: `${q.q} ${q.options?.join(" ")} ${q.explanation || ""}`,
+        content: `${q?.q || ""} ${q?.options?.join(" ") || ""} ${q?.explanation || ""}`,
         timestamp: Date.now()
       })),
-      flashcards: aiDocs.flatMap((doc) =>
-        (doc.flashcards || []).map((f, i) => ({
+      flashcards: aiDocs.filter(Boolean).flatMap((doc) =>
+        (doc?.flashcards || []).filter(Boolean).map((f, i) => ({
           type: "flashcard",
-          id: `${doc.id}_f_${i}`,
-          subjectId: doc.subjectId,
-          subject: doc.subjectLabel,
+          id: `${doc?.id || ""}_f_${i}`,
+          subjectId: doc?.subjectId,
+          subject: doc?.subjectLabel || "Unknown",
           title: "Flashcard",
-          content: `${f.front} ${f.back}`,
-          timestamp: doc.createdAt
+          content: `${f?.front || ""} ${f?.back || ""}`,
+          timestamp: doc?.createdAt
         }))
       ),
-      lectures: lectureNotes.map((n) => ({
+      lectures: lectureNotes.filter(Boolean).map((n) => ({
         type: "lecture",
-        id: n.id,
-        subjectId: n.subjectId,
-        subject: subjects.find((s) => s.id === n.subjectId)?.label || "Unknown",
-        title: n.title,
-        content: `${(n.summary || []).join(" ")} ${(n.key_terms || []).map(t => `${t.term} ${t.definition}`).join(" ")}`,
-        timestamp: n.createdAt
+        id: n?.id || "",
+        subjectId: n?.subjectId,
+        subject: safeSubjects.find((s) => s.id === n?.subjectId)?.label || "Unknown",
+        title: n?.title || "",
+        content: `${(n?.summary || []).join(" ")} ${(n?.key_terms || []).filter(Boolean).map(t => `${t?.term || ""} ${t?.definition || ""}`).join(" ")}`,
+        timestamp: n?.createdAt
       }))
     };
-  }, [subjects]);
+  }, [safeSubjects]);
 
   const searchResults = useMemo(() => {
     if (!query.trim()) return [];
@@ -9840,11 +9843,11 @@ function SearchResults({ query, subjects, onStart }) {
 
   const q = query.toLowerCase();
 
-  const subjectHits = subjects.filter((s) => s.label.toLowerCase().includes(q) || s.icon.includes(q));
+  const subjectHits = (subjects || []).filter((s) => s.label.toLowerCase().includes(q) || s.icon.includes(q));
 
-  const lessonHits = subjects.flatMap((s) =>
+  const lessonHits = (subjects || []).flatMap((s) =>
 
-    s.lessons
+    (s.lessons || [])
 
       .filter((l) => l.title.toLowerCase().includes(q) || l.content.toLowerCase().includes(q))
 
@@ -9852,9 +9855,9 @@ function SearchResults({ query, subjects, onStart }) {
 
   );
 
-  const questionHits = subjects.flatMap((s) =>
+  const questionHits = (subjects || []).flatMap((s) =>
 
-    s.questions
+    (s.questions || [])
 
       .filter((qn) => qn.q.toLowerCase().includes(q) || qn.options.some((o) => o.toLowerCase().includes(q)))
 
