@@ -921,17 +921,23 @@ async function syncUserDataToBackend(token, data) {
 
   if (!token) return;
 
+  // Sync all user data to backend via the bulk sync endpoint
   try {
-
-    await api("/user-data/progress", { token, method: "POST", body: data.progress });
-
-  } catch (e) { console.error("Failed to sync progress:", e); }
-
-  try {
-
-    await api("/user-data/timetable", { token, method: "POST", body: { timetable: data.timetable } });
-
-  } catch (e) { console.error("Failed to sync timetable:", e); }
+    await api("/user-data/sync", {
+      token,
+      method: "POST",
+      body: {
+        stats: data.progress,
+        mastery: data.progress?.mastery,
+        wrongCounts: data.progress?.wrongCounts,
+        srData: data.progress?.srData,
+        lastStudied: data.progress?.lastStudied,
+        timetable: data.timetable,
+        notes: data.notes,
+        outlineProgress: data.outlineProgress,
+      },
+    });
+  } catch (e) { console.error("Failed to sync to backend:", e); }
 
 }
 
@@ -1900,9 +1906,77 @@ function App() {
   useEffect(() => {
     if (!booted) return;
 
-    // Load from localStorage first (per-user key)
-    const raw = localStorage.getItem(storageKey("scholars-circle-state"));
-    if (raw) {
+    if (token && auth.user?.id) {
+      // Logged-in user: backend is source of truth — load from server
+      loadUserDataFromBackend(token).then((data) => {
+        if (!data) return;
+        if (data.progress) {
+          // Validate streak: if lastStudied is stale, streak should reset
+          let validatedStreak = data.progress.streak ?? 0;
+          const backendLastStudied = data.progress.lastStudied;
+          if (backendLastStudied && validatedStreak > 0) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (backendLastStudied !== todayStr) {
+              const lastDate = new Date(backendLastStudied + 'T00:00:00');
+              const today = new Date(todayStr + 'T00:00:00');
+              const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays > 1) validatedStreak = 0;
+            }
+          }
+          setStats({
+            xp: data.progress.xp ?? 0,
+            sessions: data.progress.sessions ?? 0,
+            streak: validatedStreak,
+            coins: data.progress.coins ?? 0,
+            weeklyGoal: data.progress.weeklyGoal ?? 5,
+            questsDone: {},
+            totalCorrect: data.progress.totalCorrect ?? 0,
+          });
+          setMastery(data.progress.mastery || {});
+          setWrongCounts(data.progress.wrongCounts || {});
+          setSrData(data.progress.srData || {});
+          setLastStudied(data.progress.lastStudied || null);
+          if (data.progress.themePack) setThemePack(data.progress.themePack);
+          if (data.progress.density) setDensity(data.progress.density);
+        }
+        if (data.timetable && Object.keys(data.timetable).length) setTimetable(data.timetable);
+        if (data.flashcards?.length) setCustomFlashcards(data.flashcards.map(f => ({ id: f.id, front: f.front, back: f.back, subject: f.subject })));
+        if (data.reminders?.length) setReminders(data.reminders.map(r => ({ id: r.id, time: r.time, label: r.label, subject: r.subject, sent: r.sent })));
+        if (data.chatHistory?.length) setAiChatHistory(data.chatHistory.map(m => ({ role: m.role, content: m.content, timestamp: new Date(m.timestamp).getTime() })));
+        if (data.notes?.length) {
+          const notesObj = {};
+          data.notes.forEach(n => notesObj[n.subjectId] = n.content);
+          setNotes(notesObj);
+        }
+        if (data.outlineProgress?.length) {
+          const opObj = {};
+          data.outlineProgress.forEach(op => {
+            if (!opObj[op.subjectId]) opObj[op.subjectId] = {};
+            opObj[op.subjectId][op.semester] = op.progress;
+          });
+          setOutlineProgress(opObj);
+        }
+        if (data.discussions?.length) {
+          const discObj = {};
+          data.discussions.forEach(d => {
+            if (!discObj[d.subjectId]) discObj[d.subjectId] = [];
+            discObj[d.subjectId].push({ id: d.id, text: d.text, role: d.role, ts: new Date(d.createdAt).getTime(), replies: d.replies || [] });
+          });
+          setDiscussion(discObj);
+        }
+      }).catch((err) => {
+        console.error("Boot backend load failed, trying localStorage:", err);
+        // Fallback: load from localStorage for this user
+        loadLocalState();
+      });
+    } else {
+      // Demo/offline user: load from localStorage only
+      loadLocalState();
+    }
+
+    function loadLocalState() {
+      const raw = localStorage.getItem(storageKey("scholars-circle-state"));
+      if (!raw) return;
       try {
         const parsed = JSON.parse(raw);
         setStats(parsed.stats ?? EMPTY_STATS);
@@ -1926,56 +2000,6 @@ function App() {
       } catch (e) {
         console.error("Failed to parse local state", e);
       }
-    }
-
-    // Then overlay with backend data for logged-in users (backend is per-user by JWT)
-    if (token) {
-      loadUserDataFromBackend(token).then((data) => {
-        if (!data) return;
-        if (data.progress) {
-          // Validate streak from backend: if lastStudied is stale, streak should reset
-          let validatedStreak = data.progress.streak ?? 0;
-          const backendLastStudied = data.progress.lastStudied;
-          if (backendLastStudied && validatedStreak > 0) {
-            const todayStr = new Date().toISOString().split('T')[0];
-            if (backendLastStudied !== todayStr) {
-              const lastDate = new Date(backendLastStudied + 'T00:00:00');
-              const today = new Date(todayStr + 'T00:00:00');
-              const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-              if (diffDays > 1) {
-                validatedStreak = 0; // User missed a day — reset streak
-              }
-            }
-          }
-
-          setStats((prev) => ({
-            ...prev,
-            // Take max of backend and local to prevent reset when local is higher
-            xp: Math.max(data.progress.xp ?? 0, prev.xp),
-            sessions: Math.max(data.progress.sessions ?? 0, prev.sessions),
-            streak: Math.max(validatedStreak, prev.streak),
-            coins: Math.max(data.progress.coins ?? 0, prev.coins),
-            totalCorrect: Math.max(data.progress.totalCorrect ?? 0, prev.totalCorrect ?? 0),
-            weeklyGoal: data.progress.weeklyGoal ?? prev.weeklyGoal,
-          }));
-          if (data.progress.wrongCounts) setWrongCounts(data.progress.wrongCounts);
-          if (data.progress.mastery) setMastery(data.progress.mastery);
-          if (data.progress.srData) setSrData(data.progress.srData);
-          if (data.progress.lastStudied) setLastStudied(data.progress.lastStudied);
-          // darkMode is local device preference - don't sync from backend
-          if (data.progress.themePack) setThemePack(data.progress.themePack);
-          if (data.progress.density) setDensity(data.progress.density);
-        }
-        if (data.timetable && Object.keys(data.timetable).length) setTimetable(data.timetable);
-        if (data.flashcards?.length) setCustomFlashcards(data.flashcards.map(f => ({ front: f.front, back: f.back, subject: f.subject })));
-        if (data.reminders?.length) setReminders(data.reminders.map(r => ({ id: r.id, time: r.time, label: r.label, subject: r.subject, sent: r.sent })));
-        if (data.chatHistory?.length) setAiChatHistory(data.chatHistory.map(m => ({ role: m.role, content: m.content, timestamp: new Date(m.timestamp).getTime() })));
-        if (data.notes?.length) {
-          const notesObj = {};
-          data.notes.forEach(n => notesObj[n.subjectId] = n.content);
-          setNotes(notesObj);
-        }
-      }).catch(() => { /* fallback to localStorage data */ });
     }
 
   }, [booted, token, auth.user?.id]);
@@ -2274,6 +2298,10 @@ function App() {
 
         timetable,
 
+        notes,
+
+        outlineProgress,
+
       });
 
     }
@@ -2364,6 +2392,9 @@ function App() {
 
       // Reset demo mode on successful backend login
       setDemoMode(false);
+
+      // Clear previous user's data from state and localStorage before loading new user
+      clearUserState();
 
       // Load data from backend
       loadFromBackend();
@@ -2475,18 +2506,7 @@ function App() {
       localStorage.setItem("scholars-circle-current-user", data.user.id || data.user.username);
 
       // Reset all state to empty for new user
-      setStats(EMPTY_STATS);
-      setHistory([]);
-      setWrongCounts({});
-      setMastery({});
-      setSrData({});
-      setAssignments([]);
-      setLastStudied(null);
-      setNotes({});
-      setTimetable({});
-      setDiscussion({});
-      setCustomQuestions([]);
-      setOutlineProgress({});
+      clearUserState();
       setDemoMode(false);
       setDemoUsage({
         aiMessages: 0,
@@ -2721,79 +2741,87 @@ function App() {
 
     if (!ok) return;
 
-    setStats(EMPTY_STATS);
+    const uid = auth.user?.id || auth.user?.username || localStorage.getItem("scholars-circle-current-user") || "guest";
 
-    setHistory([]);
-
-    setWrongCounts({});
-
-    setMastery({});
-
-    setSrData({});
-
-    setAssignments([]);
-
-    setLastStudied(null);
-
-    setNotes({});
-
-    setTimetable({});
-
-    setDiscussion([]);
-
-    setCustomQuestions([]);
-
-    setOutlineProgress({});
-
+    // Reset all React state
+    clearUserState();
     setToken("");
-
     setAuth((a) => ({ ...a, user: null }));
 
-    // Clear all localStorage data
-    localStorage.removeItem("scholars-circle-auth");
-    localStorage.removeItem("scholars-circle-current-user");
+    // Clear all localStorage data for this user
+    const keysToRemove = [
+      "scholars-circle-auth",
+      "scholars-circle-current-user",
+      `scholars-circle-state::${uid}`,
+      `scholars-circle-discussion::${uid}`,
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
 
-    // Clear user-specific state
-    const uid = storageKey("scholars-circle-state");
-    localStorage.removeItem(uid);
-
-    // Clear discussion storage
-    localStorage.removeItem(storageKey("scholars-circle-discussion"));
-
-    // Clear AI assistant storage
-    localStorage.removeItem("sc_ai_study_assistant_v1");
-
-    // Clear lecture notes storage
-    localStorage.removeItem("sc_lecture_notes_v1");
-
-    // Clear notes storage
-    localStorage.removeItem("sc_user_notes_v1");
-
-    // Clear custom questions storage
-    localStorage.removeItem("sc_custom_questions_v1");
-
-    // Clear flashcards storage
-    localStorage.removeItem("sc_flashcards_v1");
+    // Clear any remaining per-user or app-specific keys
+    Object.keys(localStorage).forEach(k => {
+      if (k.includes(`::${uid}`) || k.startsWith("sc_") || k.startsWith("challenge-")) {
+        localStorage.removeItem(k);
+      }
+    });
 
   }
 
+  // Reset all user-specific React state to defaults (used on login and logout)
+  function clearUserState() {
+    setStats(EMPTY_STATS);
+    setHistory([]);
+    setWrongCounts({});
+    setMastery({});
+    setSrData({});
+    setAssignments([]);
+    setCustomQuestions([]);
+    setNotes({});
+    setTimetable({});
+    setDiscussion({});
+    setCustomFlashcards([]);
+    setAiChatHistory([]);
+    setReminders([]);
+    setOutlineProgress({});
+    setLastStudied(null);
+  }
+
   function logout() {
+    // 1. Get current user ID before clearing auth
+    const uid = auth.user?.id || auth.user?.username || localStorage.getItem("scholars-circle-current-user") || "guest";
+
+    // 2. Reset ALL React state to defaults
     setToken("");
     setAuth((a) => ({ ...a, mode: "login", email: "", username: "", password: "", user: null, error: "", info: "" }));
+    clearUserState();
     setDemoMode(false);
     setDemoLocked(false);
-    localStorage.removeItem("scholars-circle-auth");
-    localStorage.removeItem("scholars-circle-current-user");
-    localStorage.removeItem("sc_demo_locked");
-    // Clear demo mode from localStorage on logout
-    const uid = storageKey("scholars-circle-state");
-    const raw = localStorage.getItem(uid);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        parsed.demoMode = false;
-        localStorage.setItem(uid, JSON.stringify(parsed));
-      } catch {}
+
+    // 3. Clear ALL user-specific localStorage keys
+    const keysToRemove = [
+      "scholars-circle-auth",
+      "scholars-circle-current-user",
+      "sc_demo_locked",
+      "scholars-circle-heatmap",
+      "scholars-circle-notifications",
+      "scholars-circle-notification-settings",
+      `scholars-circle-state::${uid}`,
+      `scholars-circle-discussion::${uid}`,
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
+    // 4. Clear any remaining per-user keys (iterate all localStorage)
+    const allKeys = Object.keys(localStorage);
+    allKeys.forEach(k => {
+      if (k.includes(`::${uid}`) || k.startsWith("sc_") || k.startsWith("challenge-")) {
+        localStorage.removeItem(k);
+      }
+    });
+
+    // 5. Clear service worker caches
+    if ('caches' in window) {
+      caches.keys().then(names => names.forEach(name => {
+        if (name.includes('runtime') || name.includes('api')) caches.delete(name);
+      }));
     }
   }
 
@@ -2976,7 +3004,7 @@ function App() {
     }
   }
 
-  // Load data from backend on login
+  // Load data from backend on login — backend is the source of truth
   async function loadFromBackend() {
     if (!token || !auth.user?.id) {
       console.log("Skipping loadFromBackend - not logged in");
@@ -2984,33 +3012,57 @@ function App() {
     }
 
     try {
-      const data = await api("/user-data");
+      const data = await api("/user-data", { token });
       if (data.progress) {
-        setStats((prev) => ({
-          // Take max of backend and local to prevent reset when local is higher
-          xp: Math.max(data.progress.xp ?? 0, prev.xp),
-          sessions: Math.max(data.progress.sessions ?? 0, prev.sessions),
-          streak: Math.max(data.progress.streak ?? 0, prev.streak),
-          coins: Math.max(data.progress.coins ?? 0, prev.coins),
-          weeklyGoal: data.progress.weeklyGoal ?? prev.weeklyGoal,
+        setStats({
+          xp: data.progress.xp ?? 0,
+          sessions: data.progress.sessions ?? 0,
+          streak: data.progress.streak ?? 0,
+          coins: data.progress.coins ?? 0,
+          weeklyGoal: data.progress.weeklyGoal ?? 5,
           questsDone: {},
-          totalCorrect: Math.max(data.progress.totalCorrect ?? 0, prev.totalCorrect ?? 0),
-        }));
+          totalCorrect: data.progress.totalCorrect ?? 0,
+        });
         setMastery(data.progress.mastery || {});
         setWrongCounts(data.progress.wrongCounts || {});
         setSrData(data.progress.srData || {});
-        setLastStudied(data.progress.lastStudied);
+        setLastStudied(data.progress.lastStudied || null);
+        if (data.progress.themePack) setThemePack(data.progress.themePack);
+        if (data.progress.density) setDensity(data.progress.density);
       }
-      if (data.timetable) setTimetable(data.timetable);
-      if (data.outlineProgress) setOutlineProgress(data.outlineProgress);
-      if (data.notes) {
+      if (data.timetable && Object.keys(data.timetable).length) setTimetable(data.timetable);
+      if (data.outlineProgress?.length) {
+        const opObj = {};
+        data.outlineProgress.forEach(op => {
+          if (!opObj[op.subjectId]) opObj[op.subjectId] = {};
+          opObj[op.subjectId][op.semester] = op.progress;
+        });
+        setOutlineProgress(opObj);
+      }
+      if (data.notes?.length) {
         const notesObj = {};
         data.notes.forEach(n => notesObj[n.subjectId] = n.content);
         setNotes(notesObj);
       }
+      if (data.flashcards?.length) {
+        setCustomFlashcards(data.flashcards.map(f => ({ id: f.id, front: f.front, back: f.back, subject: f.subject })));
+      }
+      if (data.reminders?.length) {
+        setReminders(data.reminders.map(r => ({ id: r.id, time: r.time, label: r.label, subject: r.subject, sent: r.sent })));
+      }
+      if (data.chatHistory?.length) {
+        setAiChatHistory(data.chatHistory.map(m => ({ role: m.role, content: m.content, timestamp: new Date(m.timestamp).getTime() })));
+      }
+      if (data.discussions?.length) {
+        const discObj = {};
+        data.discussions.forEach(d => {
+          if (!discObj[d.subjectId]) discObj[d.subjectId] = [];
+          discObj[d.subjectId].push({ id: d.id, text: d.text, role: d.role, ts: new Date(d.createdAt).getTime(), replies: d.replies || [] });
+        });
+        setDiscussion(discObj);
+      }
     } catch (err) {
       console.error("Failed to load from backend:", err);
-      // Don't crash the app, just log the error
     }
   }
 
