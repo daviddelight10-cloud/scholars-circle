@@ -1224,10 +1224,31 @@ function CelebrationNotification({ stats, history, yesterdayTime }) {
   );
 }
 
+const PRIMARY_TABS = ["today", "dashboard", "practice", "aitutor"];
+const TAB_LABELS = {
+  today: "📆 Today", dashboard: "🏠 Home", practice: "📝 Practice", aitutor: "🎓 AI Tutor",
+  studypaths: "🛤️ Study Paths", learn: "📚 Learn", classroom: "🏫 Classroom",
+  bank: "🏦 Questions", planner: "📅 Planner", analytics: "📊 Stats",
+  outline: "📋 Course Outline", keys: "🔑 Keys", invites: "🎫 Invites", admin: "⚙️ Admin",
+  flashcards: "🃏 Flashcards", lecturers: "👨‍🏫 Lecturers", reminders: "🔔 Reminders",
+  leaderboard: "🏆 Leaderboard", gamification: "⚔️ Arena", studygroups: "👥 Study Groups",
+  notes: "📝 Notes", achievements: "🏅 Achievements", timetable: "🗓️ Timetable",
+  cheatsheet: "📄 Cheat Sheet", discuss: "💬 Discuss", settings: "⚙️ Settings",
+  profile: "👤 Profile", pomodoro: "⏱️ Focus Timer", lectures: "🎓 Lectures"
+};
+
 function App() {
   const toast = useToast();
 
-  const [tab, setTab] = useState("today");
+  const [tab, setTabRaw] = useState("today");
+  const prevTabRef = useRef("today");
+  const setTab = useCallback((newTab) => {
+    setTabRaw((curr) => { prevTabRef.current = curr; return newTab; });
+  }, []);
+  const goBack = useCallback(() => {
+    const prev = prevTabRef.current;
+    setTabRaw(PRIMARY_TABS.includes(prev) ? prev : "today");
+  }, []);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
@@ -1336,12 +1357,6 @@ function App() {
   const [showCheckpoint, setShowCheckpoint] = useState(null);
 
   const [notes, setNotes] = useState({});
-
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
-
-  const [globalSearchFilter, setGlobalSearchFilter] = useState("all");
 
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -5122,90 +5137,6 @@ function App() {
 
 
 
-      <div className="search-bar-wrap">
-
-        <div className="row" style={{ gap: 8 }}>
-          <button
-            onClick={() => setGlobalSearchOpen(false)}
-            style={{
-              padding: "8px 12px",
-              background: !globalSearchOpen ? "#818cf8" : "#374151",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 12
-            }}
-          >
-            Subjects
-          </button>
-          <button
-            onClick={() => setGlobalSearchOpen(true)}
-            style={{
-              padding: "8px 12px",
-              background: globalSearchOpen ? "#818cf8" : "#374151",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-              fontSize: 12
-            }}
-          >
-            Global
-          </button>
-          <input
-
-            className="search-bar"
-
-            placeholder={globalSearchOpen ? "🔍 Search notes, questions, flashcards, lectures…" : "🔍 Search subjects, lessons or questions…"}
-
-            value={searchQuery}
-
-            onChange={(e) => setSearchQuery(e.target.value)}
-
-            style={{ flex: 1 }}
-
-          />
-
-          {searchQuery.trim() && (
-
-            <button style={{ marginLeft: 6 }} onClick={() => setSearchQuery("")}>✕</button>
-
-          )}
-        </div>
-
-      </div>
-
-      {searchQuery.trim() && !globalSearchOpen && (
-
-        <SearchResults query={searchQuery} subjects={subjects} onStart={(id) => { startSubjectPractice(id); setSearchQuery(""); }} />
-
-      )}
-
-      {searchQuery.trim() && globalSearchOpen && (
-        <div className="card" style={{ marginTop: 8, maxHeight: 400, overflowY: "auto" }}>
-          <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            {["all", "notes", "questions", "flashcards", "lectures"].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setGlobalSearchFilter(filter)}
-                style={{
-                  background: globalSearchFilter === filter ? "#818cf8" : "#374151",
-                  color: "white",
-                  padding: "4px 10px",
-                  fontSize: 11,
-                  borderRadius: 4,
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                {filter === "all" ? "All" : filter.charAt(0).toUpperCase() + filter.slice(1)}
-              </button>
-            ))}
-          </div>
-          <GlobalSearchDropdown query={searchQuery} filter={globalSearchFilter} subjects={subjects} />
-        </div>
-      )}
 
       {/* Mobile Bottom Navigation */}
       <nav className="mobile-nav">
@@ -5403,6 +5334,16 @@ function App() {
         ))}
 
       </nav>
+
+      {/* Back Navigation Header for secondary tabs */}
+      {!PRIMARY_TABS.includes(tab) && (
+        <div className="tab-back-header">
+          <button className="tab-back-btn" onClick={goBack}>
+            ← Back
+          </button>
+          <span className="tab-back-title">{TAB_LABELS[tab] || tab}</span>
+        </div>
+      )}
 
       {tab === "today" && (
 
