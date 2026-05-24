@@ -5246,7 +5246,7 @@ function App() {
           onClick={() => setTab("aitutor")}
           title="AI Tutor"
         >
-          <span className="nav-icon">👨‍🏫</span>
+          <span className="nav-icon"><span className="nav-icon-wrapper">👨‍🏫<span className="nav-icon-badge" /></span></span>
           <span className="nav-label">Tutor</span>
         </button>
         <button
@@ -5601,6 +5601,7 @@ function App() {
           demoMode={demoMode}
           demoUsage={demoUsage}
           setDemoUsage={setDemoUsage}
+          onNavigate={(target) => setTab(target)}
         />
       )}
 
@@ -6868,36 +6869,18 @@ function App() {
       )}
 
       {tab === "aitutor" && (
-        <div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            <button
-              onClick={() => setTab("lectures")}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 10,
-                border: "1px solid rgba(99,102,241,0.4)",
-                background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
-                color: "#a5b4fc",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              🎓 Lecture → Notes →
-            </button>
-          </div>
-          <AITutor
-            aiConfig={aiConfig}
-            subjects={subjects}
-            studentProfile={studentProfile}
-            onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
-            onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-            token={token}
-            demoMode={demoMode}
-            demoUsage={demoUsage}
-            setDemoUsage={setDemoUsage}
-          />
-        </div>
+        <AITutor
+          aiConfig={aiConfig}
+          subjects={subjects}
+          studentProfile={studentProfile}
+          onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
+          onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
+          token={token}
+          demoMode={demoMode}
+          demoUsage={demoUsage}
+          setDemoUsage={setDemoUsage}
+          onNavigate={(target) => setTab(target)}
+        />
       )}
 
       {tab === "profile" && (

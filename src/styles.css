@@ -4848,3 +4848,224 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* ─── AI Tutor Nav Badge (pulsing dot) ─────────────────────────────────────── */
+.nav-icon-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-icon-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  animation: navBadgePulse 2s ease-in-out infinite;
+  box-shadow: 0 0 4px rgba(99, 102, 241, 0.6);
+}
+
+@keyframes navBadgePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.7; }
+}
+
+/* ─── AI Tutor: Primary Tabs (Chat / Learn) ────────────────────────────────── */
+.ai-tutor-primary-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 14px 16px 8px;
+}
+
+.ai-tutor-primary-tabs button {
+  flex: 1;
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 2px solid rgba(99, 102, 241, 0.25);
+  background: rgba(30, 41, 59, 0.6);
+  color: #a5b4fc;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ai-tutor-primary-tabs button.active {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-color: #818cf8;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.ai-tutor-primary-tabs button:not(.active):active {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+/* ─── AI Tutor: FAB (Floating Action Button) ───────────────────────────────── */
+.ai-tutor-fab {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4), 0 0 0 0 rgba(99, 102, 241, 0.3);
+  z-index: 90;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  animation: fabGlow 3s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ai-tutor-fab:active {
+  transform: scale(0.9);
+}
+
+.ai-tutor-fab.open {
+  transform: rotate(45deg);
+  animation: none;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+}
+
+@keyframes fabGlow {
+  0%, 100% { box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4), 0 0 0 0 rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4), 0 0 0 8px rgba(99, 102, 241, 0); }
+}
+
+/* ─── AI Tutor: FAB Popup Overlay ──────────────────────────────────────────── */
+.ai-tutor-fab-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ai-tutor-fab-popup {
+  width: 100%;
+  max-width: 360px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.95));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 20px;
+  padding: 20px;
+  animation: popupSlideUp 0.25s ease;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+@keyframes popupSlideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.ai-tutor-fab-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.ai-tutor-fab-popup-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #e0e7ff;
+  font-weight: 700;
+}
+
+.ai-tutor-fab-popup-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(30, 41, 59, 0.8);
+  color: #a5b4fc;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-tutor-fab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ai-tutor-fab-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: rgba(30, 41, 59, 0.7);
+  color: #e0e7ff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ai-tutor-fab-grid button:active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: #818cf8;
+  transform: scale(0.96);
+}
+
+.ai-tutor-fab-grid button .fab-tool-icon {
+  font-size: 26px;
+}
+
+.ai-tutor-fab-grid button .fab-tool-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.ai-tutor-fab-grid button .fab-tool-desc {
+  font-size: 10px;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Desktop: hide FAB, show normal tabs */
+@media (min-width: 769px) {
+  .ai-tutor-fab { display: none; }
+  .ai-tutor-mobile-only { display: none; }
+  .ai-tutor-desktop-tabs { display: flex; }
+}
+
+@media (max-width: 768px) {
+  .ai-tutor-desktop-tabs { display: none !important; }
+  .ai-tutor-mobile-only { display: block; }
+  button.ai-tutor-mobile-only { display: flex; }
+  .ai-tutor-primary-tabs.ai-tutor-mobile-only { display: flex; }
+}

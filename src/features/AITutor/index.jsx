@@ -18,6 +18,16 @@ const MODES = [
   { id: "translate", label: "Translate", icon: "🌍", desc: "Multi-language" }
 ];
 
+const FAB_TOOLS = [
+  { id: "material", icon: "📎", label: "From Materials", desc: "Upload & analyze documents" },
+  { id: "generate", icon: "📚", label: "Generator", desc: "Notes, flashcards, quizzes" },
+  { id: "explain", icon: "🎯", label: "Explain", desc: "Deep dive on a topic" },
+  { id: "solve", icon: "🧮", label: "Solve", desc: "Step-by-step solutions" },
+  { id: "summarize", icon: "📑", label: "Summarize", desc: "Compress long text" },
+  { id: "translate", icon: "🌍", label: "Translate", desc: "Multi-language" },
+  { id: "lectures", icon: "🎓", label: "Lecture → Notes", desc: "Convert lectures to notes" },
+];
+
 const SIMPLE_MODE_CONFIG = {
   explain: {
     title: "Deep Topic Explainer",
@@ -68,13 +78,14 @@ export default function AITutor({
   token,
   demoMode,
   demoUsage,
-  setDemoUsage
+  setDemoUsage,
+  onNavigate
 }) {
   const [mode, setMode] = useState("chat");
   const [subjectId, setSubjectId] = useState(initialSubjectId || subjects[0]?.id || "");
-  // Default to student profile's discipline; null means auto-detect from subject.
   const [disciplineId, setDisciplineId] = useState(studentProfile?.discipline || null);
   const [showSettings, setShowSettings] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   const subject = useMemo(() => subjects.find(s => s.id === subjectId), [subjects, subjectId]);
 
@@ -88,6 +99,15 @@ export default function AITutor({
 
   const activeDiscipline = getDiscipline(tutor.discipline);
 
+  function handleFabSelect(toolId) {
+    setFabOpen(false);
+    if (toolId === "lectures") {
+      if (onNavigate) onNavigate("lectures");
+      return;
+    }
+    setMode(toolId);
+  }
+
   return (
     <div className="ai-tutor-card" style={{
       padding: 0,
@@ -96,15 +116,6 @@ export default function AITutor({
       border: "1px solid rgba(99,102,241,0.2)",
       borderRadius: 16
     }}>
-      <style>{`
-        @media (max-width: 600px) {
-          .ai-tutor-card .ai-tutor-header { padding: 10px !important; }
-          .ai-tutor-card .ai-tutor-tabs { gap: 4px !important; }
-          .ai-tutor-card .ai-tutor-tabs button { padding: 6px 10px !important; font-size: 11px !important; }
-          .ai-tutor-card .ai-tutor-body-pad { padding: 10px !important; }
-          .ai-tutor-card h2 { font-size: 17px !important; }
-        }
-      `}</style>
       {/* Header */}
       <div className="ai-tutor-header" style={{
         padding: 16,
@@ -174,8 +185,8 @@ export default function AITutor({
           </div>
         )}
 
-        {/* Mode Tabs */}
-        <div className="ai-tutor-tabs" style={{ display: "flex", gap: 6, marginTop: 14, overflowX: "auto", paddingBottom: 4 }}>
+        {/* Desktop Mode Tabs (hidden on mobile) */}
+        <div className="ai-tutor-desktop-tabs ai-tutor-tabs" style={{ gap: 6, marginTop: 14, overflowX: "auto", paddingBottom: 4 }}>
           {MODES.map(m => (
             <button
               key={m.id}
@@ -199,6 +210,55 @@ export default function AITutor({
           ))}
         </div>
       </div>
+
+      {/* Mobile Primary Tabs (Chat / Learn) — visible on mobile only */}
+      <div className="ai-tutor-primary-tabs ai-tutor-mobile-only">
+        <button
+          className={mode === "chat" ? "active" : ""}
+          onClick={() => setMode("chat")}
+        >
+          💬 Chat
+        </button>
+        <button
+          className={mode === "learn" ? "active" : ""}
+          onClick={() => setMode("learn")}
+        >
+          🎬 Learn
+        </button>
+      </div>
+
+      {/* Active mode indicator on mobile (when not chat/learn) */}
+      {mode !== "chat" && mode !== "learn" && (
+        <div className="ai-tutor-mobile-only" style={{ padding: "8px 16px 0" }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "rgba(99,102,241,0.1)",
+            border: "1px solid rgba(99,102,241,0.25)"
+          }}>
+            <span style={{ fontSize: 13, color: "#a5b4fc", fontWeight: 600 }}>
+              {MODES.find(m => m.id === mode)?.icon} {MODES.find(m => m.id === mode)?.label}
+            </span>
+            <button
+              onClick={() => setMode("chat")}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 6,
+                border: "1px solid rgba(99,102,241,0.3)",
+                background: "rgba(30,41,59,0.8)",
+                color: "#a5b4fc",
+                cursor: "pointer",
+                fontSize: 11
+              }}
+            >
+              ← Back to Chat
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       <div style={{ padding: 0 }}>
@@ -237,6 +297,36 @@ export default function AITutor({
           </div>
         )}
       </div>
+
+      {/* Mobile FAB (Floating Action Button) */}
+      <button
+        className={`ai-tutor-fab ai-tutor-mobile-only${fabOpen ? " open" : ""}`}
+        onClick={() => setFabOpen(o => !o)}
+        aria-label="More AI tools"
+      >
+        +
+      </button>
+
+      {/* FAB Popup Overlay */}
+      {fabOpen && (
+        <div className="ai-tutor-fab-overlay" onClick={() => setFabOpen(false)}>
+          <div className="ai-tutor-fab-popup" onClick={e => e.stopPropagation()}>
+            <div className="ai-tutor-fab-popup-header">
+              <h3>✨ AI Tools</h3>
+              <button className="ai-tutor-fab-popup-close" onClick={() => setFabOpen(false)}>✕</button>
+            </div>
+            <div className="ai-tutor-fab-grid">
+              {FAB_TOOLS.map(tool => (
+                <button key={tool.id} onClick={() => handleFabSelect(tool.id)}>
+                  <span className="fab-tool-icon">{tool.icon}</span>
+                  <span className="fab-tool-label">{tool.label}</span>
+                  <span className="fab-tool-desc">{tool.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
