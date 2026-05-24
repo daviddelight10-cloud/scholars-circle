@@ -1267,6 +1267,9 @@ function App() {
 
   const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
 
+  // Guard: pause backend sync during login/logout transitions to prevent wiping data
+  const syncPausedRef = useRef(false);
+
   const [stats, setStats] = useState(EMPTY_STATS);
 
   const [history, setHistory] = useState([]);
@@ -2186,6 +2189,9 @@ function App() {
     // Don't save user data when no user is logged in AND not in demo mode
     if (!auth.user && !demoMode) return;
 
+    // Don't save during login/logout transitions to prevent overwriting good data with empty state
+    if (syncPausedRef.current) return;
+
     // Save auth info to shared key (only if logged in)
     if (auth.user) {
       localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: auth.user, authToken: token }));
@@ -2262,7 +2268,8 @@ function App() {
     );
 
     // Also sync to backend if logged in (but not in demo mode)
-    if (token && !demoMode) {
+    // Skip sync when login/logout transition is in progress to prevent wiping data
+    if (token && !demoMode && !syncPausedRef.current) {
 
       syncUserDataToBackend(token, {
 
@@ -2386,6 +2393,9 @@ function App() {
 
       });
 
+      // Pause sync to prevent the save effect from pushing empty/stale state to backend
+      syncPausedRef.current = true;
+
       setToken(data.token);
 
       setAuth((a) => ({ ...a, email: "", username: "", password: "", user: data.user, error: "", info: "" }));
@@ -2393,11 +2403,24 @@ function App() {
       // Reset demo mode on successful backend login
       setDemoMode(false);
 
-      // Clear previous user's data from state and localStorage before loading new user
-      clearUserState();
+      // Clear previous user's localStorage keys (state reset happens when backend data loads)
+      const prevUid = localStorage.getItem("scholars-circle-current-user") || "guest";
+      Object.keys(localStorage).forEach(k => {
+        if (k.includes(`::${prevUid}`) || k.startsWith("sc_")) {
+          localStorage.removeItem(k);
+        }
+      });
 
-      // Load data from backend
-      loadFromBackend();
+      // Store new user identity
+      localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: data.user, authToken: data.token }));
+      localStorage.setItem("scholars-circle-current-user", data.user.id || data.user.username);
+
+      // Load data from backend (source of truth) then resume sync
+      try {
+        await loadFromBackend(data.token);
+      } finally {
+        syncPausedRef.current = false;
+      }
 
       setLoadingOverlay(false);
 
@@ -2759,7 +2782,7 @@ function App() {
 
     // Clear any remaining per-user or app-specific keys
     Object.keys(localStorage).forEach(k => {
-      if (k.includes(`::${uid}`) || k.startsWith("sc_") || k.startsWith("challenge-")) {
+      if (k.includes(`::${uid}`) || k.startsWith("sc_") || k.startsWith("scholars-circle-") || k.startsWith("challenge-")) {
         localStorage.removeItem(k);
       }
     });
@@ -2786,10 +2809,13 @@ function App() {
   }
 
   function logout() {
-    // 1. Get current user ID before clearing auth
+    // 1. Pause sync so clearing state doesn't push empty data anywhere
+    syncPausedRef.current = true;
+
+    // 2. Get current user ID before clearing auth
     const uid = auth.user?.id || auth.user?.username || localStorage.getItem("scholars-circle-current-user") || "guest";
 
-    // 2. Reset ALL React state to defaults
+    // 3. Reset ALL React state to defaults
     setToken("");
     setAuth((a) => ({ ...a, mode: "login", email: "", username: "", password: "", user: null, error: "", info: "" }));
     clearUserState();
@@ -2809,10 +2835,15 @@ function App() {
     ];
     keysToRemove.forEach(k => localStorage.removeItem(k));
 
-    // 4. Clear any remaining per-user keys (iterate all localStorage)
+    // 4. Clear any remaining per-user or app-specific keys (iterate all localStorage)
     const allKeys = Object.keys(localStorage);
     allKeys.forEach(k => {
-      if (k.includes(`::${uid}`) || k.startsWith("sc_") || k.startsWith("challenge-")) {
+      if (
+        k.includes(`::${uid}`) ||
+        k.startsWith("sc_") ||
+        k.startsWith("scholars-circle-") ||
+        k.startsWith("challenge-")
+      ) {
         localStorage.removeItem(k);
       }
     });
@@ -3005,14 +3036,16 @@ function App() {
   }
 
   // Load data from backend on login — backend is the source of truth
-  async function loadFromBackend() {
-    if (!token || !auth.user?.id) {
-      console.log("Skipping loadFromBackend - not logged in");
+  // Accepts optional authToken param for use during login (before state updates propagate)
+  async function loadFromBackend(authToken) {
+    const tok = authToken || token;
+    if (!tok) {
+      console.log("Skipping loadFromBackend - no token");
       return;
     }
 
     try {
-      const data = await api("/user-data", { token });
+      const data = await api("/user-data", { token: tok });
       if (data.progress) {
         setStats({
           xp: data.progress.xp ?? 0,
