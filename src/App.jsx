@@ -5376,7 +5376,9 @@ function App() {
 
           ["outline", "Course Outline"],
 
-          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "Admin"], ["teacher-questions", "📝 Questions"]] : []),
+          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "Admin"]] : []),
+
+          ...(isFaculty ? [["teacher-questions", "📝 Questions"]] : []),
 
           ["flashcards", "Flashcards"],
 
