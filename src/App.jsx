@@ -7,6 +7,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { callAI } from "./lib/aiClient";
 
+import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
+
 const NOTES_KEY = "sc_user_notes_v1";
 const CUSTOM_QUESTIONS_KEY = "sc_custom_questions_v1";
 const AI_DOCS_KEY = "sc_ai_study_assistant_v1";
@@ -5258,7 +5260,7 @@ function App() {
           <span className="nav-label">Today</span>
         </button>
         <button
-          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", "profile", "lecturers", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", "profile", "lecturers", "teacher-questions", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
           onClick={() => setShowMobileMenu(!showMobileMenu)}
           title="More"
         >
@@ -5374,7 +5376,7 @@ function App() {
 
           ["outline", "Course Outline"],
 
-          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "Admin"]] : []),
+          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "Admin"], ["teacher-questions", "📝 Questions"]] : []),
 
           ["flashcards", "Flashcards"],
 
@@ -6336,6 +6338,14 @@ function App() {
 
         </div>
 
+      )}
+
+      {tab === "teacher-questions" && isFaculty && (
+        <TeacherQuestionManager
+          token={token}
+          subjects={subjects}
+          onSubjectsRefresh={fetchBackendSubjects}
+        />
       )}
 
       {tab === "settings" && (
