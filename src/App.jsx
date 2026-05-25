@@ -6351,7 +6351,7 @@ function App() {
         <TeacherQuestionManager
           token={token}
           subjects={subjects}
-          onSubjectsRefresh={fetchBackendSubjects}
+          onSubjectsRefresh={() => token && loadUserDataFromBackend(token)}
         />
       )}
 
