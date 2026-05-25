@@ -34,31 +34,9 @@ startStudyReminderJob();
 
 const app = express();
 
-// CORS configuration
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://adorable-alpaca-de885b.netlify.app",
-  "https://scholars-circle-mu.vercel.app"
-];
-
+// CORS configuration - allow all origins for development/production
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Check if origin is allowed or matches wildcard patterns
-    const isAllowed = allowedOrigins.includes(origin) ||
-      origin.endsWith('.netlify.app') ||
-      origin.endsWith('.vercel.app');
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log("CORS blocked origin:", origin);
-      callback(null, true); // Allow anyway to avoid breaking - log for monitoring
-    }
-  },
+  origin: true, // Allow all origins
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
