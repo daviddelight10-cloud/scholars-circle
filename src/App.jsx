@@ -5307,6 +5307,11 @@ function App() {
                   </button>
                 </>
               )}
+              {isFaculty && (
+                <button className={tab === "teacher-questions" ? "active" : ""} onClick={() => { setTab("teacher-questions"); setShowMobileMenu(false); }}>
+                  <span>📝</span> Questions
+                </button>
+              )}
               <button className={tab === "flashcards" ? "active" : ""} onClick={() => { setTab("flashcards"); setShowMobileMenu(false); }}>
                 <span>🃏</span> Flashcards
               </button>
