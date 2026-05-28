@@ -1598,8 +1598,9 @@ function App() {
     let result = (SUBJECTS || []).map(s => {
       // Find matching backend subject and merge questions
       const backend = backendSubjects.find(b => b.label === s.label);
-      if (backend && backend.questions && backend.questions.length > 0) {
-        return { ...s, questions: [...(s.questions || []), ...backend.questions] };
+      if (backend) {
+        // Use backend ID so API calls (publish, etc.) reference the correct DB record
+        return { ...s, id: backend.id, questions: [...(s.questions || []), ...(backend.questions || [])] };
       }
       return s;
     });
