@@ -116,23 +116,32 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
         text = extracted;
       }
 
-      const response = await fetch(`${API_BASE}/ai/generate-quiz`, {
+      const prompt = `You are a quiz generator. Based on the following content, generate 10 multiple-choice questions (MCQs) in valid JSON format. Return ONLY a JSON array of objects, each with: "question" (string), "options" (array of 4 strings), "answer" (number 0-3, index of correct option), "difficulty" ("easy"/"medium"/"hard"), "explanation" (string), "topic" (string).
+
+Content:
+${text}`;
+
+      const response = await fetch(`${API_BASE}/ai/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          text,
-          subjectId: selectedSubjectId,
-          count: 10,
-        }),
+        body: JSON.stringify({ prompt }),
       });
 
       if (!response.ok) throw new Error("Failed to generate questions");
 
       const data = await response.json();
-      const generated = (data.questions || []).map((q, i) => ({
+      let parsed;
+      try {
+        const raw = data.text || "";
+        const jsonMatch = raw.match(/\[[\s\S]*\]/);
+        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(raw);
+      } catch {
+        throw new Error("AI response was not valid JSON. Try again.");
+      }
+      const generated = (Array.isArray(parsed) ? parsed : []).map((q, i) => ({
         id: `ai-${Date.now()}-${i}`,
         subjectId: selectedSubjectId,
         question: q.question || q.q,

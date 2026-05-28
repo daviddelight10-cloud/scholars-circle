@@ -36,16 +36,18 @@ const app = express();
 
 // CORS configuration - allow all origins for development/production
 app.use(cors({
-  origin: "*", // Allow all origins explicitly
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    // Allow all origins
+    callback(null, true);
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
-
-// Explicit OPTIONS handler for preflight
-app.options("*", cors());
 
 app.use(express.json());
 
