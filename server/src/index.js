@@ -117,6 +117,22 @@ process.on("unhandledRejection", (err) => {
   process.exit(1);
 });
 
+// Graceful shutdown - close Prisma connections
+const gracefulShutdown = async (signal) => {
+  console.log(`\n${signal} received. Closing database connections...`);
+  try {
+    await prisma.$disconnect();
+    console.log("Database connections closed successfully");
+    process.exit(0);
+  } catch (err) {
+    console.error("Error closing database connections:", err);
+    process.exit(1);
+  }
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 // Start server first, then sync database
 app.listen(port, "0.0.0.0", async () => {
   console.log(`API running on port ${port}`);
