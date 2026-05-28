@@ -43,6 +43,18 @@ enum PaymentStatus {
 
 }
 
+enum AnnouncementCategory {
+
+  IMPORTANT
+
+  LECTURES
+
+  GENERAL
+
+  UPDATE
+
+}
+
 
 
 model User {
@@ -131,7 +143,38 @@ model User {
   challengeEntries WeeklyChallengeEntry[]
   wallPosts        WallPost[]
   wallReactions    WallReaction[]
+  sentCampusAnnouncements CampusAnnouncement[] @relation("CampusAnnouncementSender")
+  readCampusAnnouncements CampusAnnouncementRead[] @relation("CampusAnnouncementReader")
 
+}
+
+// ============ CAMPUS ANNOUNCEMENTS ============
+model CampusAnnouncement {
+  id          String   @id @default(cuid())
+  senderId    String
+  sender      User     @relation("CampusAnnouncementSender", fields: [senderId], references: [id], onDelete: Cascade)
+  category    AnnouncementCategory @default(GENERAL)
+  title       String
+  content     String
+  attachments String?  // JSON array of file URLs
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  reads       CampusAnnouncementRead[]
+
+  @@index([category, createdAt])
+  @@index([senderId])
+}
+
+model CampusAnnouncementRead {
+  id              String             @id @default(cuid())
+  announcementId  String
+  announcement    CampusAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User               @relation("CampusAnnouncementReader", fields: [userId], references: [id], onDelete: Cascade)
+  readAt          DateTime           @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([userId])
 }
 
 // ============ WEB PUSH NOTIFICATIONS ============

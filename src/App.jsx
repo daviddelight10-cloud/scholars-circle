@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js";
 import { callAI } from "./lib/aiClient";
 
 import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
+import CampusComm from "./features/CampusComm.jsx";
+import NotificationBell from "./features/NotificationBell.jsx";
 
 const NOTES_KEY = "sc_user_notes_v1";
 const CUSTOM_QUESTIONS_KEY = "sc_custom_questions_v1";
@@ -5148,6 +5150,9 @@ function App() {
               {darkMode ? "🌙" : "☀️"}
             </button>
 
+            {/* Notification Bell */}
+            <NotificationBell token={token} currentUser={auth.user} />
+
             {/* Profile Button */}
             <button className="header-btn profile-btn" onClick={() => setTab("profile")} title="My Profile">
               <span className="btn-icon">👤</span>
@@ -5261,7 +5266,7 @@ function App() {
           <span className="nav-label">Today</span>
         </button>
         <button
-          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", "profile", "lecturers", "teacher-questions", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "analytics", "flashcards", "notes", "timetable", "achievements", "reminders", "pomodoro", "leaderboard", "studygroups", "discuss", "cheatsheet", "outline", "bank", "classroom", "pastpapers", "lectures", "learn", "studypaths", "aitutor", "aiassistant", "profile", "lecturers", "teacher-questions", "campus-comm", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
           onClick={() => setShowMobileMenu(!showMobileMenu)}
           title="More"
         >
@@ -5311,6 +5316,11 @@ function App() {
               {isFaculty && (
                 <button className={tab === "teacher-questions" ? "active" : ""} onClick={() => { setTab("teacher-questions"); setShowMobileMenu(false); }}>
                   <span>📝</span> Questions
+                </button>
+              )}
+              {isFaculty && (
+                <button className={tab === "campus-comm" ? "active" : ""} onClick={() => { setTab("campus-comm"); setShowMobileMenu(false); }}>
+                  <span>📢</span> Campus Comm
                 </button>
               )}
               <button className={tab === "flashcards" ? "active" : ""} onClick={() => { setTab("flashcards"); setShowMobileMenu(false); }}>
@@ -5384,7 +5394,7 @@ function App() {
 
           ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "Admin"]] : []),
 
-          ...(isFaculty ? [["teacher-questions", "📝 Questions"]] : []),
+          ...(isFaculty ? [["teacher-questions", "📝 Questions"], ["campus-comm", "📢 Campus Comm"]] : []),
 
           ["flashcards", "Flashcards"],
 
@@ -6353,6 +6363,12 @@ function App() {
           token={token}
           subjects={subjects}
           onSubjectsRefresh={() => token && loadUserDataFromBackend(token)}
+        />
+      )}
+      {tab === "campus-comm" && isFaculty && (
+        <CampusComm
+          token={token}
+          currentUser={auth.user}
         />
       )}
 
