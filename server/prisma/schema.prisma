@@ -55,6 +55,18 @@ enum AnnouncementCategory {
 
 }
 
+enum AnnouncementPriority {
+
+  LOW
+
+  NORMAL
+
+  HIGH
+
+  CRITICAL
+
+}
+
 
 
 model User {
@@ -145,6 +157,7 @@ model User {
   wallReactions    WallReaction[]
   sentCampusAnnouncements CampusAnnouncement[] @relation("CampusAnnouncementSender")
   readCampusAnnouncements CampusAnnouncementRead[] @relation("CampusAnnouncementReader")
+  announcementComments    AnnouncementComment[]
 
 }
 
@@ -154,14 +167,18 @@ model CampusAnnouncement {
   senderId    String
   sender      User     @relation("CampusAnnouncementSender", fields: [senderId], references: [id], onDelete: Cascade)
   category    AnnouncementCategory @default(GENERAL)
+  priority    AnnouncementPriority @default(NORMAL)
+  targetRoles Role[]  // Empty = all roles
   title       String
   content     String
   attachments String?  // JSON array of file URLs
   expiresAt   DateTime?
   createdAt   DateTime @default(now())
   reads       CampusAnnouncementRead[]
+  comments    AnnouncementComment[]
 
   @@index([category, createdAt])
+  @@index([priority, createdAt])
   @@index([senderId])
 }
 
@@ -174,6 +191,19 @@ model CampusAnnouncementRead {
   readAt          DateTime           @default(now())
 
   @@unique([announcementId, userId])
+  @@index([userId])
+}
+
+model AnnouncementComment {
+  id             String             @id @default(cuid())
+  announcementId String
+  announcement   CampusAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content        String
+  createdAt      DateTime           @default(now())
+
+  @@index([announcementId])
   @@index([userId])
 }
 
