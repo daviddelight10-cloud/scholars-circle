@@ -101,23 +101,45 @@ router.get("/topics/analytics", requireAuth, async (req, res) => {
 
 // Create question with topic (teacher only)
 router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
-  const q = await prisma.question.create({ data: req.body });
-  res.status(201).json(q);
+  try {
+    const q = await prisma.question.create({ data: req.body });
+    res.status(201).json(q);
+  } catch (err) {
+    console.error("Create question error:", err);
+    res.status(500).json({ error: err.message || "Failed to create question" });
+  }
 });
 
 // Bulk create questions with topics (teacher only)
 router.post("/bulk", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
-  const { questions } = req.body;
+  try {
+    const { questions } = req.body;
 
-  if (!Array.isArray(questions)) {
-    return res.status(400).json({ error: "questions must be an array" });
+    if (!Array.isArray(questions)) {
+      return res.status(400).json({ error: "questions must be an array" });
+    }
+
+    if (questions.length === 0) {
+      return res.status(400).json({ error: "questions array is empty" });
+    }
+
+    // Validate required fields
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.subjectId || !q.question || !q.optionA || !q.optionB || !q.optionC || !q.optionD || q.answerIndex === undefined) {
+        return res.status(400).json({ error: `Question ${i + 1} is missing required fields (subjectId, question, optionA-D, answerIndex)` });
+      }
+    }
+
+    const created = await prisma.question.createMany({
+      data: questions,
+    });
+
+    res.status(201).json({ count: created.count });
+  } catch (err) {
+    console.error("Bulk create error:", err);
+    res.status(500).json({ error: err.message || "Failed to create questions" });
   }
-
-  const created = await prisma.question.createMany({
-    data: questions,
-  });
-
-  res.status(201).json({ count: created.count });
 });
 
 export default router;
