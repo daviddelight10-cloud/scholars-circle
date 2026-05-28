@@ -34,6 +34,16 @@ startStudyReminderJob();
 
 const app = express();
 
+// Failsafe CORS headers - applied before anything else
+app.use((_req, res, next) => {
+  res.header("Access-Control-Allow-Origin", _req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Origin, X-Requested-With");
+  if (_req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 // CORS configuration - allow all origins for development/production
 app.use(cors({
   origin: function (origin, callback) {
