@@ -138,15 +138,8 @@ app.listen(port, "0.0.0.0", async () => {
   console.log(`API running on port ${port}`);
   console.log("Environment:", process.env.NODE_ENV || "development");
   console.log("Database URL exists:", !!process.env.DATABASE_URL);
-  
-  // Try to connect to database in background
-  try {
-    await prisma.$connect();
-    console.log("Database connected successfully");
-    // Seed badge catalogue
-    await seedBadges().catch(e => console.error("Badge seed error:", e.message));
-  } catch (err) {
-    console.error("Database connection failed:", err.message);
-    // Don't exit - let the container stay up for debugging
-  }
+
+  // Don't connect to database on startup - use lazy connection
+  // This prevents connection pool exhaustion during container restarts
+  console.log("Server started. Database will connect on first request.");
 });
