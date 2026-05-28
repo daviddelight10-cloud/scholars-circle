@@ -212,16 +212,16 @@ ${text}`;
     try {
       const toPublish = draftQueue.map(q => ({
         subjectId: selectedSubjectId,
-        question: q.question,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        answerIndex: q.answerIndex,
-        difficulty: q.difficulty,
-        year: q.year,
-        explanation: q.explanation,
-        topic: q.topic,
+        question: String(q.question || ""),
+        optionA: String(q.optionA || ""),
+        optionB: String(q.optionB || ""),
+        optionC: String(q.optionC || ""),
+        optionD: String(q.optionD || ""),
+        answerIndex: parseInt(q.answerIndex, 10) || 0,
+        difficulty: String(q.difficulty || "medium"),
+        year: parseInt(q.year, 10) || new Date().getFullYear(),
+        explanation: String(q.explanation || ""),
+        topic: String(q.topic || ""),
       }));
 
       const response = await fetch(`${API_BASE}/questions/bulk`, {
@@ -233,7 +233,10 @@ ${text}`;
         body: JSON.stringify({ questions: toPublish }),
       });
 
-      if (!response.ok) throw new Error("Failed to publish questions");
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error (${response.status})`);
+      }
 
       const data = await response.json();
       setSuccess(`Published ${data.count} questions successfully!`);
