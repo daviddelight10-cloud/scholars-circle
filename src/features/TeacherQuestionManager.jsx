@@ -205,6 +205,11 @@ ${text}`;
       setError("Please select a subject");
       return;
     }
+    // Validate that the subjectId is a valid database ID (cuid format)
+    if (selectedSubjectId === "custom" || !selectedSubjectId.startsWith("c")) {
+      setError("Invalid subject selected. Please select a database subject (not Custom Bank)");
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -326,7 +331,7 @@ ${text}`;
           }}
         >
           <option value="">Select a subject...</option>
-          {subjects.map(s => (
+          {subjects.filter(s => s.id && s.id !== "custom").map(s => (
             <option key={s.id} value={s.id}>{s.icon} {s.label}</option>
           ))}
         </select>
