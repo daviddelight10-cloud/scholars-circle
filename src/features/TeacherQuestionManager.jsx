@@ -295,10 +295,53 @@ ${text}`;
       setNewSubjectForm({ label: "", description: "", icon: "📖", accent: "#3b82f6" });
       setSelectedSubjectId(newSubject.id);
 
+      // Refresh subjects so the new subject appears in the dropdown
       if (onSubjectsRefresh) onSubjectsRefresh();
       setTimeout(() => setSuccess(null), 3000);
     } catch (e) {
       setError(e.message || "Failed to create subject");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ─── Delete Subject ───
+  async function handleDeleteSubject() {
+    if (!selectedSubjectId) {
+      setError("Please select a subject to delete");
+      return;
+    }
+    // Don't allow deleting local subjects (non-database IDs)
+    if (!selectedSubjectId.startsWith("c")) {
+      setError("Can only delete database subjects (not local subjects)");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this subject? This will also delete all questions in this subject.")) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/subjects/${selectedSubjectId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to delete subject");
+
+      setSuccess("Subject deleted successfully");
+      setSelectedSubjectId("");
+
+      // Refresh subjects
+      if (onSubjectsRefresh) onSubjectsRefresh();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e) {
+      setError(e.message || "Failed to delete subject");
     } finally {
       setLoading(false);
     }
@@ -355,6 +398,23 @@ ${text}`;
         >
           + New Subject
         </button>
+        {selectedSubjectId && selectedSubjectId.startsWith("c") && (
+          <button
+            onClick={handleDeleteSubject}
+            disabled={loading}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 8,
+              border: "1px solid rgba(239,68,68,0.3)",
+              background: loading ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.2)",
+              color: loading ? "#64748b" : "#f87171",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontSize: 13,
+            }}
+          >
+            Delete Subject
+          </button>
+        )}
       </div>
 
       {/* Mode tabs */}

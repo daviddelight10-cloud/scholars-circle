@@ -49,4 +49,17 @@ router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
   res.status(201).json(row);
 });
 
+router.delete("/:id", requireAuth, requireRole("TEACHER"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.subject.delete({
+      where: { id },
+    });
+    res.status(200).json({ message: "Subject deleted successfully" });
+  } catch (err) {
+    console.error("Delete subject error:", err);
+    res.status(500).json({ error: err.message || "Failed to delete subject" });
+  }
+});
+
 export default router;
