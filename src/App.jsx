@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useToast } from "./components/Toast";
+import DOMPurify from "dompurify";
 
 import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPLIERS } from "./data";
 
@@ -278,10 +279,12 @@ function GlobalSearchDropdown({ query, filter, subjects }) {
 
   function highlightText(text, query) {
     if (!query) return text;
+    // Sanitize text to prevent XSS
+    const sanitizedText = DOMPurify.sanitize(text);
     // Escape special regex characters to prevent errors
     const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(${escapedQuery})`, 'gi');
-    return text.replace(regex, '<mark style="background: #fef08a; padding: 0 2px; border-radius: 2px;">$1</mark>');
+    return sanitizedText.replace(regex, '<mark style="background: #fef08a; padding: 0 2px; border-radius: 2px;">$1</mark>');
   }
 
   if (!query.trim()) {

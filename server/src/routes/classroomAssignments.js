@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { fileTypeFromBuffer } from "file-type";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
@@ -16,7 +17,35 @@ const upload = multer({
     destination: (_req, _file, cb) => cb(null, uploadDir),
     filename: (_req, file, cb) => cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname)}`)
   }),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10 MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: async (req, file, cb) => {
+    const allowedMimeTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "text/plain",
+      "application/zip"
+    ];
+    const allowedExtensions = [".pdf", ".docx", ".doc", ".txt", ".zip"];
+    
+    // Check extension first
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowedExtensions.includes(ext)) {
+      return cb(new Error("Only PDF, DOCX, DOC, TXT, and ZIP files are allowed"));
+    }
+    
+    // Validate actual file type using magic bytes
+    try {
+      const fileType = await fileTypeFromBuffer(file.buffer);
+      if (!fileType || !allowedMimeTypes.includes(fileType.mime)) {
+        return cb(new Error("Invalid file type detected"));
+      }
+      cb(null, true);
+    } catch (err) {
+      // If we can't detect the file type, reject it for safety
+      return cb(new Error("Unable to validate file type"));
+    }
+  },
 });
 
 async function classroomAccess(classroomId, userId) {

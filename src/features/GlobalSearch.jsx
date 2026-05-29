@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import DOMPurify from "dompurify";
 
 const NOTES_KEY = "sc_user_notes_v1";
 const CUSTOM_QUESTIONS_KEY = "sc_custom_questions_v1";
@@ -123,8 +124,12 @@ export function GlobalSearch({ subjects }) {
 
   function highlightText(text, query) {
     if (!query) return text;
-    const regex = new RegExp(`(${query})`, 'gi');
-    return text.replace(regex, '<mark style="background: #fef08a; padding: 0 2px; border-radius: 2px;">$1</mark>');
+    // Sanitize text to prevent XSS
+    const sanitizedText = DOMPurify.sanitize(text);
+    // Escape special regex characters to prevent errors
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return sanitizedText.replace(regex, '<mark style="background: #fef08a; padding: 0 2px; border-radius: 2px;">$1</mark>');
   }
 
   return (

@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { fileTypeFromBuffer } from "file-type";
 
 const router = express.Router();
 
@@ -26,13 +27,31 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [".pdf", ".docx", ".doc", ".txt"];
+  fileFilter: async (req, file, cb) => {
+    const allowedMimeTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "text/plain"
+    ];
+    const allowedExtensions = [".pdf", ".docx", ".doc", ".txt"];
+    
+    // Check extension first
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext)) {
+    if (!allowedExtensions.includes(ext)) {
+      return cb(new Error("Only PDF, DOCX, and TXT files are allowed"));
+    }
+    
+    // Validate actual file type using magic bytes
+    try {
+      const fileType = await fileTypeFromBuffer(file.buffer);
+      if (!fileType || !allowedMimeTypes.includes(fileType.mime)) {
+        return cb(new Error("Invalid file type detected"));
+      }
       cb(null, true);
-    } else {
-      cb(new Error("Only PDF, DOCX, and TXT files are allowed"));
+    } catch (err) {
+      // If we can't detect the file type, reject it for safety
+      return cb(new Error("Unable to validate file type"));
     }
   },
 });

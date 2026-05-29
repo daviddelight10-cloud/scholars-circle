@@ -6,6 +6,8 @@ import jwt from "jsonwebtoken";
 
 import { z } from "zod";
 
+import rateLimit from "express-rate-limit";
+
 import { prisma } from "../db.js";
 
 import { generateActivationKey } from "./keys.js";
@@ -16,7 +18,22 @@ import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// Rate limiter for auth endpoints - prevent brute force attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 requests per windowMs
+  message: { error: "Too many requests, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // limit each IP to 3 registration attempts per hour
+  message: { error: "Too many registration attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const registerSchema = z.object({
 
@@ -32,9 +49,7 @@ const registerSchema = z.object({
 
 });
 
-
-
-router.post("/register", async (req, res) => {
+router.post("/register", registerLimiter, async (req, res) => {
 
   try {
 
@@ -143,7 +158,7 @@ router.post("/register", async (req, res) => {
 
 
 
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, async (req, res) => {
 
   const schema = z.object({ login: z.string(), password: z.string() });
 
