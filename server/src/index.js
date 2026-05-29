@@ -45,23 +45,13 @@ app.use((_req, res, next) => {
   next();
 });
 
-// CORS configuration - whitelist specific origins
-const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost:5174",
-];
-
+// CORS configuration - allow all origins (temporary fix, will configure properly later)
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    // Check if origin is in whitelist
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
+    // Allow all origins temporarily
+    callback(null, true);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
