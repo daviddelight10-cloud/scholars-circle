@@ -205,6 +205,12 @@ ${text}`;
       setError("Please select a subject");
       return;
     }
+    // Check if there are any valid database subjects available
+    const validSubjects = subjects.filter(s => s.id && s.id !== "custom" && s.id.startsWith("c"));
+    if (validSubjects.length === 0) {
+      setError("No database subjects available. Please create a subject first using '+ New Subject'");
+      return;
+    }
     // Validate that the subjectId is a valid database ID (cuid format)
     if (selectedSubjectId === "custom" || !selectedSubjectId.startsWith("c")) {
       setError("Invalid subject selected. Please select a database subject (not Custom Bank)");
