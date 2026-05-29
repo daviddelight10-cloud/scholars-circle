@@ -8733,9 +8733,19 @@ function QuestionBank({ subjects, onStartPastPaper }) {
     } catch {}
   }, []);
 
+  // Guard against undefined subjects
+  if (!subjects || !Array.isArray(subjects)) {
+    return (
+      <div className="card">
+        <h2>Past Questions Bank</h2>
+        <p className="muted">Loading subjects...</p>
+      </div>
+    );
+  }
+
   const allRows = [
     ...subjects.flatMap((s) =>
-      s.questions.map((qu, i) => ({ ...qu, subjectId: s.id, subjectLabel: s.label, subjectIcon: s.icon, subject: s.label, year: qu.year || 2020 + (i % 6) }))
+      (s.questions || []).map((qu, i) => ({ ...qu, subjectId: s.id, subjectLabel: s.label, subjectIcon: s.icon, subject: s.label, year: qu.year || 2020 + (i % 6) }))
     ),
     ...customQuestions.map((qu) => ({
       ...qu,
