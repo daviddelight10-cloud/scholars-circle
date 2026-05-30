@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { useToast } from "./components/Toast";
 import DOMPurify from "dompurify";
 
@@ -1324,9 +1325,11 @@ function App() {
   // Global announcement popup (shows on login for students)
   const [globalAnnouncement, setGlobalAnnouncement] = useState(null);
 
+  const location = useLocation();
+
   const [auth, setAuth] = useState({
 
-    mode: "login",
+    mode: location.pathname === "/signup" ? "signup" : "login",
 
     email: "",
 
@@ -1345,6 +1348,15 @@ function App() {
     info: "",
 
   });
+
+  // Update auth mode when route changes
+  useEffect(() => {
+    if (location.pathname === "/signup") {
+      setAuth((a) => ({ ...a, mode: "signup", error: "", info: "" }));
+    } else if (location.pathname === "/login") {
+      setAuth((a) => ({ ...a, mode: "login", error: "", info: "" }));
+    }
+  }, [location.pathname]);
 
   // Refs for signup form to avoid stale closure issues
   const signupEmailRef = useRef("");

@@ -1,0 +1,40 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import HomePage from './features/HomePage';
+import App from './App';
+
+// Auth check component
+function LandingPageWrapper() {
+  const authData = localStorage.getItem('scholars-circle-auth');
+  if (authData) {
+    try {
+      const parsed = JSON.parse(authData);
+      if (parsed.authUser) {
+        return <Navigate to="/app" replace />;
+      }
+    } catch (e) {
+      // Invalid auth data, continue to landing page
+    }
+  }
+  return <HomePage />;
+}
+
+export default function AppRouter() {
+  return (
+    <Routes>
+      {/* Landing page routes - redirect to /app if logged in */}
+      <Route path="/" element={<LandingPageWrapper />} />
+      <Route path="/features" element={<LandingPageWrapper />} />
+      <Route path="/pricing" element={<LandingPageWrapper />} />
+
+      {/* Auth routes - show App component with auth forms */}
+      <Route path="/login" element={<App />} />
+      <Route path="/signup" element={<App />} />
+
+      {/* Main app route */}
+      <Route path="/app" element={<App />} />
+
+      {/* Catch all - redirect to landing page */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
