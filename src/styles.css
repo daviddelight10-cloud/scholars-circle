@@ -1457,6 +1457,8 @@ button:active {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 100;
 }
 
 .header-btn {
@@ -1582,7 +1584,7 @@ button:active {
   padding: 8px;
   backdrop-filter: blur(20px);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-  z-index: 200;
+  z-index: 1000;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-10px);
@@ -1653,6 +1655,7 @@ button:active {
   margin-top: 12px;
   position: relative;
   overflow: hidden;
+  z-index: 0;
 }
 
 .user-profile-card::before {
