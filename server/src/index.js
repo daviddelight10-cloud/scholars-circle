@@ -1,6 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import mongoSanitize from "express-mongo-sanitize";
+import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
 import subjectRoutes from "./routes/subjects.js";
 import questionRoutes from "./routes/questions.js";
@@ -35,32 +38,63 @@ startStudyReminderJob();
 
 const app = express();
 
-// Failsafe CORS headers - applied before anything else
-app.use((_req, res, next) => {
-  res.header("Access-Control-Allow-Origin", _req.headers.origin || "*");
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Origin, X-Requested-With");
-  if (_req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
+// Security Headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'", process.env.FRONTEND_URL || "http://localhost:5173"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
 
-// CORS configuration - allow all origins (temporary fix, will configure properly later)
+// Sanitize data to prevent NoSQL injection
+app.use(mongoSanitize());
+
+// Cookie parser
+app.use(cookieParser());
+
+// Body parsing with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// HTTPS enforcement in production
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      return res.redirect(`https://${req.header('host')}${req.url}`);
+    }
+    next();
+  });
+}
+
+// CORS configuration - whitelist specific origins
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',');
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
+    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    // Allow all origins temporarily
-    callback(null, true);
+    
+    // Check if origin is in whitelist
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`Blocked CORS request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
-
-app.use(express.json());
 
 // Health endpoint - always returns ok even if DB is not ready
 app.get("/health", async (_req, res) => {
@@ -99,9 +133,20 @@ app.use("/announcements", announcementRoutes);
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));
 
-app.use((err, _req, res, _next) => {
-  console.error("Unhandled error:", err.message);
-  res.status(500).json({ error: "Internal server error" });
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  
+  // Don't leak error details in production
+  if (process.env.NODE_ENV === 'production') {
+    res.status(err.status || 500).json({ 
+      error: 'Internal server error' 
+    });
+  } else {
+    res.status(err.status || 500).json({ 
+      error: err.message,
+      stack: err.stack 
+    });
+  }
 });
 
 const port = Number(process.env.PORT || 4000);
