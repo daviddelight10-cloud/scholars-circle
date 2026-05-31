@@ -2,7 +2,7 @@
 // never leaves the server. Falls back to a direct browser-side call only if
 // the user explicitly stored their own API key client-side.
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
 let _proxyStatus = null; // { enabled, providers, defaultProvider }
 let _proxyStatusPromise = null;
@@ -16,18 +16,24 @@ export async function getProxyStatus() {
   
   _proxyStatusPromise = (async () => {
     try {
-      const res = await fetch(`${API_BASE}/ai/status`, { 
-        // Add timeout to prevent hanging
+      // Check if backend is reachable
+      const res = await fetch(`${API_BASE}/health`, { 
         signal: AbortSignal.timeout(5000)
       });
       if (res.ok) {
-        _proxyStatus = await res.json();
+        // Proxy is enabled by default - API keys are server-side
+        _proxyStatus = { 
+          enabled: true, 
+          providers: ["gemini", "openrouter", "openai"],
+          defaultProvider: "openrouter"
+        };
       } else {
         _proxyStatus = { enabled: false };
       }
     } catch (e) {
       console.log("AI proxy status check failed:", e.message);
-      _proxyStatus = { enabled: false };
+      // Default to enabled - will fail gracefully if backend is down
+      _proxyStatus = { enabled: true, defaultProvider: "openrouter" };
     }
     _proxyStatusPromise = null;
     return _proxyStatus;
@@ -43,9 +49,19 @@ export function resetProxyStatusCache() {
 async function callViaProxy(prompt, provider, model) {
   let res;
   try {
-    res = await fetch(`${API_BASE}/ai/generate`, {
+    // Get auth token for secure proxy
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    
+    const headers = { "Content-Type": "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    
+    res = await fetch(`${API_BASE}/ai-proxy/generate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
+      credentials: "include", // Support httpOnly cookies
       body: JSON.stringify({ prompt, provider, model }),
       signal: AbortSignal.timeout(60000) // 60s for long generations
     });
@@ -70,7 +86,7 @@ async function callDirect(prompt, aiConfig) {
                                      provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
                                      "gpt-4o-mini");
   if (!aiConfig?.apiKey) {
-    throw new Error("No API key configured. Go to Settings > AI Assistant to add your API key (OpenRouter, Gemini, or OpenAI).");
+    throw new Error("AI service unavailable. Please contact support or try again later.");
   }
   if (provider === "gemini") {
     console.log("Calling Gemini API with model:", model);

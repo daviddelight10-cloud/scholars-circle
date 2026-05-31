@@ -2247,7 +2247,7 @@ function App() {
 
         syncConfig,
 
-        aiConfig: { provider: aiConfig.provider, model: aiConfig.model, apiKey: aiConfig.apiKey },
+        aiConfig: { provider: aiConfig.provider, model: aiConfig.model },
 
         notes,
 
@@ -6733,7 +6733,7 @@ function App() {
               <details style={{ cursor: "pointer" }}>
                 <summary style={{ fontWeight: 500, padding: 4 }}>AI not working?</summary>
                 <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
-                  Add your API key in the AI Assistant section above. We support OpenAI and Gemini.
+                  AI features are powered by our backend. If you're experiencing issues, please try again later or contact support.
                 </p>
               </details>
             </div>
@@ -7212,7 +7212,7 @@ ${isCorrect
       const explanation = await callAI(prompt, aiConfig);
       setAiExplanation(explanation);
     } catch (err) {
-      setAiExplanation("Sorry, couldn't get AI explanation. Please check your API key in Settings.");
+      setAiExplanation("Sorry, couldn't get AI explanation. Please try again later.");
       console.error(err);
     } finally {
       setAiLoading(false);
@@ -8637,7 +8637,7 @@ function AIHelper({ aiConfig, onUsed }) {
 
     } catch (err) {
 
-      setA(err.message || "AI request failed. Please check your API key in Settings.");
+      setA(err.message || "AI request failed. Please try again later.");
 
     } finally {
 
