@@ -216,10 +216,24 @@ export default function NotificationBellImproved({ token, currentUser }) {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-        @keyframes scFadeUp   { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes scSlideDown { 
+          from { 
+            opacity: 0; 
+            transform: translateY(-20px) scale(0.95); 
+          } 
+          to { 
+            opacity: 1; 
+            transform: translateY(0) scale(1); 
+          } 
+        }
         @keyframes scSlideIn  { from{opacity:0;transform:scale(0.95) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes scPulse    { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
         @keyframes scSpin     { to{transform:rotate(360deg)} }
+        @keyframes scBounceIn { 
+          0% { transform: scale(0.9); opacity: 0; }
+          50% { transform: scale(1.05); }
+          100% { transform: scale(1); opacity: 1; }
+        }
         .sc-nb-scroll::-webkit-scrollbar { width:3px; }
         .sc-nb-scroll::-webkit-scrollbar-thumb { background:rgba(61,126,255,0.2); border-radius:99px; }
         .sc-nb-input::placeholder { color:#1E293B; }
@@ -227,16 +241,43 @@ export default function NotificationBellImproved({ token, currentUser }) {
         .sc-nb-modal  { background:#0D0E18;border:1px solid rgba(255,255,255,0.07);border-radius:22px;width:100%;max-width:520px;animation:scSlideIn 0.3s cubic-bezier(0.34,1.2,0.64,1) both; }
         .sc-nb-row-unread { background:rgba(61,126,255,0.04) !important; border-color:rgba(61,126,255,0.1) !important; }
         .sc-nb-row:hover { background:#111220 !important; }
-        .sc-nb-tab { transition: all 0.2s; cursor: pointer; }
-        .sc-nb-tab:hover { background: rgba(255,255,255,0.05) !important; }
-        .sc-nb-tab-active { background: rgba(61,126,255,0.12) !important; border-color: rgba(61,126,255,0.3) !important; color: #3D7EFF !important; }
-        .sc-nb-dropdown { max-width: calc(100vw - 40px); }
+        .sc-nb-tab { 
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+          cursor: pointer; 
+          position: relative;
+          overflow: hidden;
+        }
+        .sc-nb-tab::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(61,126,255,0.1), transparent);
+          transition: left 0.5s;
+        }
+        .sc-nb-tab:hover::before {
+          left: 100%;
+        }
+        .sc-nb-tab:hover { 
+          background: rgba(255,255,255,0.05) !important; 
+          transform: translateY(-1px);
+        }
+        .sc-nb-tab-active { 
+          background: rgba(61,126,255,0.12) !important; 
+          border-color: rgba(61,126,255,0.3) !important; 
+          color: #3D7EFF !important; 
+          transform: scale(1.02);
+        }
+        .sc-nb-dropdown { 
+          animation: scSlideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
         @media (max-width: 768px) {
           .sc-nb-dropdown { 
             right: 10px !important; 
             left: 10px !important; 
             width: auto !important; 
-            max-width: none !important;
           }
         }
       `}</style>
@@ -409,21 +450,7 @@ export default function NotificationBellImproved({ token, currentUser }) {
 
         {/* ── Dropdown panel ── */}
         {isOpen && (
-          <>
-            {/* Backdrop */}
-            <div 
-              onClick={() => setIsOpen(false)}
-              style={{ 
-                position:"fixed", 
-                inset:0, 
-                background:"rgba(0,0,0,0.3)", 
-                backdropFilter:"blur(2px)", 
-                zIndex:999998,
-                animation:"scFadeUp 0.2s ease both"
-              }} 
-            />
-            {/* Dropdown */}
-            <div className="sc-nb-dropdown" style={{ position:"fixed", right:20, top:80, width:420, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 24px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03)", zIndex:999999, display:"flex", flexDirection:"column", maxHeight:"calc(100vh - 100px)", animation:"scFadeUp 0.25s ease both", overflow:"hidden" }}>
+            <div className="sc-nb-dropdown" style={{ position:"absolute", right:0, top:"calc(100% + 12px)", width:440, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(61,126,255,0.1)", zIndex:9999, display:"flex", flexDirection:"column", maxHeight:"min(580px, calc(100vh - 120px))", overflow:"hidden" }}>
 
             {/* Panel header */}
             <div style={{ padding:"16px 20px", borderBottom:`1px solid ${T.borderB}`, flexShrink:0 }}>
@@ -570,7 +597,6 @@ export default function NotificationBellImproved({ token, currentUser }) {
               ))}
             </div>
           </div>
-          </>
         )}
       </div>
     </>
