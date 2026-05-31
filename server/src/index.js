@@ -73,6 +73,18 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Health endpoint - MUST be before CORS for Railway health checks
+app.get("/health", async (_req, res) => {
+  try {
+    // Try to ping the database
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true, database: "connected" });
+  } catch (err) {
+    // Still return ok for healthcheck, but note DB status
+    res.json({ ok: true, database: "connecting" });
+  }
+});
+
 // CORS configuration - whitelist specific origins
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',');
 
@@ -95,18 +107,6 @@ app.use(cors({
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
-
-// Health endpoint - always returns ok even if DB is not ready
-app.get("/health", async (_req, res) => {
-  try {
-    // Try to ping the database
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true, database: "connected" });
-  } catch (err) {
-    // Still return ok for healthcheck, but note DB status
-    res.json({ ok: true, database: "connecting" });
-  }
-});
 app.use("/auth", authRoutes);
 app.use("/subjects", subjectRoutes);
 app.use("/questions", questionRoutes);
