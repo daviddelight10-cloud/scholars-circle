@@ -26,6 +26,7 @@ import gamificationRoutes from "./routes/gamification.js";
 import wallRoutes from "./routes/wall.js";
 import youtubeRoutes from "./routes/youtube.js";
 import announcementRoutes from "./routes/announcements.js";
+import aiProxyRoutes from "./routes/aiProxy.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
 import { seedBadges } from "./lib/badges.js";
@@ -119,6 +120,7 @@ app.use("/gamification", gamificationRoutes);
 app.use("/wall", wallRoutes);
 app.use("/youtube", youtubeRoutes);
 app.use("/announcements", announcementRoutes);
+app.use("/ai-proxy", aiProxyRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));
