@@ -77,6 +77,18 @@ export default function NotificationBellImproved({ token, currentUser }) {
   useEffect(() => { if (isOpen) fetchAnnouncements(); }, [isOpen, token]);
   useEffect(() => { checkForNewAnnouncements(); }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.sc-nb-dropdown') && !e.target.closest('.sc-nb-bell-btn')) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
   const fetchUnreadCount = async () => {
     try {
       const r = await fetch(`${API_BASE}/announcements/unread-count`, { headers:{ Authorization:`Bearer ${token}` } });
@@ -218,6 +230,15 @@ export default function NotificationBellImproved({ token, currentUser }) {
         .sc-nb-tab { transition: all 0.2s; cursor: pointer; }
         .sc-nb-tab:hover { background: rgba(255,255,255,0.05) !important; }
         .sc-nb-tab-active { background: rgba(61,126,255,0.12) !important; border-color: rgba(61,126,255,0.3) !important; color: #3D7EFF !important; }
+        .sc-nb-dropdown { max-width: calc(100vw - 40px); }
+        @media (max-width: 768px) {
+          .sc-nb-dropdown { 
+            right: 10px !important; 
+            left: 10px !important; 
+            width: auto !important; 
+            max-width: none !important;
+          }
+        }
       `}</style>
 
       {/* ── New Announcement Popup ── */}
@@ -368,7 +389,7 @@ export default function NotificationBellImproved({ token, currentUser }) {
       <div style={{ position:"relative" }}>
 
         {/* Bell */}
-        <button onClick={()=>setIsOpen(o=>!o)}
+        <button onClick={()=>setIsOpen(o=>!o)} className="sc-nb-bell-btn"
           style={{ position:"relative", width:40, height:40, borderRadius:13, background:isOpen?"rgba(61,126,255,0.12)":"rgba(255,255,255,0.04)", border:`1px solid ${isOpen?T.borderB:T.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s", outline:"none" }}
           onMouseEnter={e=>{ if(!isOpen){ e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"; }}}
           onMouseLeave={e=>{ if(!isOpen){ e.currentTarget.style.background="rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor=T.border; }}}>
@@ -388,7 +409,7 @@ export default function NotificationBellImproved({ token, currentUser }) {
 
         {/* ── Dropdown panel ── */}
         {isOpen && (
-          <div style={{ position:"absolute", right:0, top:"calc(100% + 10px)", width:420, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 24px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03)", zIndex:9997, display:"flex", flexDirection:"column", maxHeight:540, animation:"scFadeUp 0.25s ease both", overflow:"hidden" }}>
+          <div className="sc-nb-dropdown" style={{ position:"fixed", right:20, top:70, width:420, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 24px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03)", zIndex:99999, display:"flex", flexDirection:"column", maxHeight:540, animation:"scFadeUp 0.25s ease both", overflow:"hidden" }}>
 
             {/* Panel header */}
             <div style={{ padding:"16px 20px", borderBottom:`1px solid ${T.borderB}`, flexShrink:0 }}>
