@@ -11,7 +11,7 @@ import { callAI } from "./lib/aiClient";
 
 import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
 import CampusComm from "./features/CampusComm.jsx";
-import NotificationBell from "./features/NotificationBell.jsx";
+import NotificationBell from "./features/NotificationBellImproved.jsx";
 
 const NOTES_KEY = "sc_user_notes_v1";
 const CUSTOM_QUESTIONS_KEY = "sc_custom_questions_v1";
