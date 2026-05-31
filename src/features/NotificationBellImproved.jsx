@@ -409,7 +409,21 @@ export default function NotificationBellImproved({ token, currentUser }) {
 
         {/* ── Dropdown panel ── */}
         {isOpen && (
-          <div className="sc-nb-dropdown" style={{ position:"fixed", right:20, top:70, width:420, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 24px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03)", zIndex:99999, display:"flex", flexDirection:"column", maxHeight:540, animation:"scFadeUp 0.25s ease both", overflow:"hidden" }}>
+          <>
+            {/* Backdrop */}
+            <div 
+              onClick={() => setIsOpen(false)}
+              style={{ 
+                position:"fixed", 
+                inset:0, 
+                background:"rgba(0,0,0,0.3)", 
+                backdropFilter:"blur(2px)", 
+                zIndex:999998,
+                animation:"scFadeUp 0.2s ease both"
+              }} 
+            />
+            {/* Dropdown */}
+            <div className="sc-nb-dropdown" style={{ position:"fixed", right:20, top:80, width:420, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 24px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03)", zIndex:999999, display:"flex", flexDirection:"column", maxHeight:"calc(100vh - 100px)", animation:"scFadeUp 0.25s ease both", overflow:"hidden" }}>
 
             {/* Panel header */}
             <div style={{ padding:"16px 20px", borderBottom:`1px solid ${T.borderB}`, flexShrink:0 }}>
@@ -556,6 +570,7 @@ export default function NotificationBellImproved({ token, currentUser }) {
               ))}
             </div>
           </div>
+          </>
         )}
       </div>
     </>
