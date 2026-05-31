@@ -377,8 +377,17 @@ export default function HomePage() {
 
   useEffect(() => { const t = setTimeout(() => setNotification(true), 4000); return () => clearTimeout(t); }, []);
   useEffect(() => {
-    const fn = () => setIsScrolled(window.scrollY > 30);
-    window.addEventListener('scroll', fn);
+    let ticking = false;
+    const fn = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setIsScrolled(window.scrollY > 30);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', fn, { passive: true });
     return () => window.removeEventListener('scroll', fn);
   }, []);
   useEffect(() => { const t = setTimeout(() => setBarsAnimated(true), 700); return () => clearTimeout(t); }, []);
