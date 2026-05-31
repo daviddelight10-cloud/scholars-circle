@@ -14,6 +14,8 @@ import { generateActivationKey } from "./keys.js";
 
 import { requireAuth } from "../middleware/auth.js";
 
+import { logSecurityEvent } from "../lib/logger.js";
+
 
 
 const router = express.Router();
@@ -39,9 +41,14 @@ const registerSchema = z.object({
 
   email: z.string().email(),
 
-  username: z.string().min(3),
+  username: z.string().min(3).max(30),
 
-  password: z.string().min(6),
+  password: z.string()
+    .min(12, 'Password must be at least 12 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character'),
 
   role: z.enum(["STUDENT", "TEACHER", "LECTURER"]).optional(),
 
@@ -202,6 +209,17 @@ router.post("/login", authLimiter, async (req, res) => {
 
     });
 
+    // Set httpOnly cookie for enhanced security
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Log successful login
+    logSecurityEvent(user.id, 'login_success', { username: user.username }, req);
+
     return res.json({ token, user: { id: user.id, username: user.username, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated } });
 
   } catch (e) {
@@ -256,6 +274,14 @@ router.get("/refresh", requireAuth, async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // Set httpOnly cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return res.json({
       token,
       user: {
@@ -272,8 +298,24 @@ router.get("/refresh", requireAuth, async (req, res) => {
   }
 });
 
+// POST /auth/logout — Logout user and clear cookie
+router.post("/logout", requireAuth, async (req, res) => {
+  try {
+    // Clear the httpOnly cookie
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
 
+    // Log logout event
+    logSecurityEvent(req.user.sub, 'logout', {}, req);
 
+    return res.json({ message: "Logged out successfully" });
+  } catch (e) {
+    return res.status(400).json({ error: "Logout failed" });
+  }
+});
 
 // DELETE /auth/delete-account — Delete user account (requires password confirmation)
 router.delete("/delete-account", requireAuth, async (req, res) => {
