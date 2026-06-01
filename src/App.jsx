@@ -2592,7 +2592,7 @@ function App() {
       
       // Add helpful hints for common errors
       if (errorMessage.includes("Password must")) {
-        errorMessage += "\n\nPassword requirements:\n• At least 12 characters\n• One uppercase letter\n• One lowercase letter\n• One number\n• One special character (!@#$%^&*...)";
+        errorMessage += "\n\nPassword requirements:\n• At least 8 characters\n• One uppercase letter\n• One lowercase letter\n• One number\n• One special character (!@#$%^&*...)";
       } else if (errorMessage.includes("invite code")) {
         errorMessage += "\n\nPlease check your invite code or contact an administrator.";
       } else if (errorMessage.includes("already exists")) {
