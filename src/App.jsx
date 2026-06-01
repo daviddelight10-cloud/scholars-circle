@@ -2505,7 +2505,7 @@ function App() {
           username,
           password,
           role,
-          inviteCode: role === "TEACHER" ? inviteCode : undefined,
+          inviteCode: (role === "TEACHER" || role === "LECTURER") ? inviteCode : undefined,
         },
       });
 
@@ -2581,8 +2581,25 @@ function App() {
       });
 
     } catch (e) {
+      console.error("Registration error:", e);
+      
+      // Extract detailed error message
+      let errorMessage = "Sign up failed. Please try again.";
+      
+      if (e.message) {
+        errorMessage = e.message;
+      }
+      
+      // Add helpful hints for common errors
+      if (errorMessage.includes("Password must")) {
+        errorMessage += "\n\nPassword requirements:\n• At least 12 characters\n• One uppercase letter\n• One lowercase letter\n• One number\n• One special character (!@#$%^&*...)";
+      } else if (errorMessage.includes("invite code")) {
+        errorMessage += "\n\nPlease check your invite code or contact an administrator.";
+      } else if (errorMessage.includes("already exists")) {
+        errorMessage += "\n\nTry logging in instead or use a different email/username.";
+      }
 
-      setAuth((a) => ({ ...a, error: e.message || "Sign up failed", info: "" }));
+      setAuth((a) => ({ ...a, error: errorMessage, info: "" }));
 
     }
 

@@ -151,13 +151,28 @@ router.post("/register", registerLimiter, async (req, res) => {
   } catch (e) {
     console.error("Registration error:", e);
 
+    // Zod validation errors
+    if (e instanceof z.ZodError) {
+      const firstError = e.errors[0];
+      return res.status(400).json({ 
+        error: firstError.message,
+        field: firstError.path.join('.'),
+        details: e.errors.map(err => ({ field: err.path.join('.'), message: err.message }))
+      });
+    }
+
+    // Prisma unique constraint violation
     if (e.code === "P2002") {
       const target = e.meta?.target || [];
       const field = Array.isArray(target) && target.includes("email") ? "email" : "username";
       return res.status(400).json({ error: `An account with that ${field} already exists. Please use a different ${field} or log in.` });
     }
 
-    return res.status(400).json({ error: "Registration failed", details: e.message });
+    // Generic error with details
+    return res.status(400).json({ 
+      error: e.message || "Registration failed. Please check your information and try again.",
+      details: e.message 
+    });
 
   }
 
