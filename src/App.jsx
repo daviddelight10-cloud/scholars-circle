@@ -11595,7 +11595,7 @@ function KeyManagement({ token }) {
 }
 
 function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, onRefresh, isChecking, onGetPremium }) {
-  const [showActivationKey, setShowActivationKey] = React.useState(false);
+  const [showActivationKey, setShowActivationKey] = useState(false);
   
   // Teachers and lecturers get auto-activated, so show simple confirmation
   const isFaculty = userRole === "TEACHER" || userRole === "LECTURER";
