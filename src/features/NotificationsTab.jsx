@@ -55,6 +55,8 @@ export default function NotificationsTab({ token, currentUser }) {
   const [newComment,           setNewComment]           = useState("");
   const [isSubmittingComment,  setIsSubmittingComment]  = useState(false);
   const [activeTab,            setActiveTab]            = useState("all");
+  const [replyingTo,           setReplyingTo]           = useState(null); // Track which comment is being replied to
+  const [replyText,            setReplyText]            = useState(""); // Reply text
 
   useEffect(() => {
     fetchUnreadCount();
@@ -119,6 +121,35 @@ export default function NotificationsTab({ token, currentUser }) {
         setAnnouncements(p => p.map(a => a.id === selectedAnnouncement.id ? update(a) : a));
         setSelectedAnnouncement(p => update(p));
         setNewComment("");
+      }
+    } catch(e) { console.error(e); }
+    finally { setIsSubmittingComment(false); }
+  };
+
+  const handleSubmitReply = async (e, commentId) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    setIsSubmittingComment(true);
+    try {
+      const r = await fetch(`${API_BASE}/announcements/${selectedAnnouncement.id}/comments`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+        body: JSON.stringify({ content: replyText, parentId: commentId }),
+      });
+      if (r.ok) {
+        const reply = await r.json();
+        const update = a => {
+          const updatedComments = (a.comments || []).map(c => 
+            c.id === commentId 
+              ? { ...c, replies: [...(c.replies || []), reply] }
+              : c
+          );
+          return { ...a, comments: updatedComments, commentCount: (a.commentCount || 0) + 1 };
+        };
+        setAnnouncements(p => p.map(a => a.id === selectedAnnouncement.id ? update(a) : a));
+        setSelectedAnnouncement(p => update(p));
+        setReplyText("");
+        setReplyingTo(null);
       }
     } catch(e) { console.error(e); }
     finally { setIsSubmittingComment(false); }
@@ -260,17 +291,116 @@ export default function NotificationsTab({ token, currentUser }) {
               {/* Comments list */}
               <div className="sc-notif-scroll" style={{ padding:"16px 22px", overflowY:"auto", flex:1, display:"flex", flexDirection:"column", gap:10 }}>
                 {(a.comments && a.comments.length > 0) ? a.comments.map((c) => (
-                  <div key={c.id} style={{ background:"rgba(255,255,255,0.025)", border:`1px solid ${T.borderB}`, borderRadius:13, padding:"12px 14px" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-                      <div style={{ width:28, height:28, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:11, color:"#fff", flexShrink:0 }}>
-                        {(c.user?.username||"?")[0].toUpperCase()}
+                  <div key={c.id}>
+                    <div style={{ background:"rgba(255,255,255,0.025)", border:`1px solid ${T.borderB}`, borderRadius:13, padding:"12px 14px" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+                        <div style={{ width:28, height:28, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:11, color:"#fff", flexShrink:0 }}>
+                          {(c.user?.username||"?")[0].toUpperCase()}
+                        </div>
+                        <span style={{ fontFamily:T.syne, fontWeight:700, fontSize:13, color:T.text }}>{c.user?.username}</span>
+                        <span style={{ fontFamily:T.mono, fontSize:10, color:T.dim, marginLeft:"auto" }}>
+                          {new Date(c.createdAt).toLocaleDateString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+                        </span>
                       </div>
-                      <span style={{ fontFamily:T.syne, fontWeight:700, fontSize:13, color:T.text }}>{c.user?.username}</span>
-                      <span style={{ fontFamily:T.mono, fontSize:10, color:T.dim, marginLeft:"auto" }}>
-                        {new Date(c.createdAt).toLocaleDateString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}
-                      </span>
+                      <p style={{ color:T.muted, fontSize:13, lineHeight:1.65, marginBottom:8 }}>{c.content}</p>
+                      
+                      {/* Reply button */}
+                      <button 
+                        onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)}
+                        style={{ 
+                          background:"rgba(61,126,255,0.1)", 
+                          border:`1px solid rgba(61,126,255,0.2)`, 
+                          color:T.blue, 
+                          padding:"4px 10px", 
+                          borderRadius:8, 
+                          fontSize:11, 
+                          fontFamily:T.mono, 
+                          fontWeight:600, 
+                          cursor:"pointer",
+                          transition:"all 0.2s",
+                          display:"flex",
+                          alignItems:"center",
+                          gap:4
+                        }}
+                        onMouseEnter={e=>e.currentTarget.style.background="rgba(61,126,255,0.15)"}
+                        onMouseLeave={e=>e.currentTarget.style.background="rgba(61,126,255,0.1)"}>
+                        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                        </svg>
+                        {replyingTo === c.id ? "Cancel" : "Reply"}
+                      </button>
                     </div>
-                    <p style={{ color:T.muted, fontSize:13, lineHeight:1.65 }}>{c.content}</p>
+
+                    {/* Reply form */}
+                    {replyingTo === c.id && (
+                      <div style={{ marginLeft:40, marginTop:8 }}>
+                        <form onSubmit={(e) => handleSubmitReply(e, c.id)} style={{ display:"flex", gap:8 }}>
+                          <input
+                            className="sc-notif-input"
+                            type="text" 
+                            value={replyText} 
+                            onChange={e=>setReplyText(e.target.value)}
+                            placeholder={`Reply to ${c.user?.username}...`}
+                            disabled={isSubmittingComment}
+                            autoFocus
+                            style={{ 
+                              flex:1, 
+                              background:"rgba(255,255,255,0.03)", 
+                              border:`1px solid ${T.border}`, 
+                              borderRadius:10, 
+                              padding:"8px 12px", 
+                              fontSize:13, 
+                              fontFamily:T.body, 
+                              color:T.text, 
+                              outline:"none", 
+                              transition:"border-color 0.2s" 
+                            }}
+                            onFocus={e=>e.target.style.borderColor=T.blue}
+                            onBlur={e=>e.target.style.borderColor=T.border}
+                          />
+                          <button type="submit" disabled={isSubmittingComment || !replyText.trim()}
+                            style={{ 
+                              padding:"8px 14px", 
+                              borderRadius:10, 
+                              background: (isSubmittingComment||!replyText.trim()) ? "rgba(61,126,255,0.3)" : T.blueG, 
+                              border:"none", 
+                              color:"#fff", 
+                              fontFamily:T.syne, 
+                              fontWeight:700, 
+                              fontSize:12, 
+                              cursor:(isSubmittingComment||!replyText.trim())?"not-allowed":"pointer", 
+                              transition:"all 0.2s",
+                              display:"flex",
+                              alignItems:"center",
+                              gap:4
+                            }}>
+                            {isSubmittingComment
+                              ? <div style={{ width:11, height:11, border:"2px solid rgba(255,255,255,0.4)", borderTopColor:"#fff", borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
+                              : <><svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Send</>}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+
+                    {/* Nested replies */}
+                    {c.replies && c.replies.length > 0 && (
+                      <div style={{ marginLeft:40, marginTop:8, display:"flex", flexDirection:"column", gap:8 }}>
+                        {c.replies.map((reply) => (
+                          <div key={reply.id} style={{ background:"rgba(61,126,255,0.05)", border:`1px solid rgba(61,126,255,0.15)`, borderRadius:10, padding:"10px 12px" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                              <div style={{ width:24, height:24, borderRadius:"50%", background:T.blueG, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:T.syne, fontWeight:700, fontSize:10, color:"#fff", flexShrink:0 }}>
+                                {(reply.user?.username||"?")[0].toUpperCase()}
+                              </div>
+                              <span style={{ fontFamily:T.syne, fontWeight:700, fontSize:12, color:T.text }}>{reply.user?.username}</span>
+                              <span style={{ fontFamily:T.mono, fontSize:9, color:T.dim, marginLeft:"auto" }}>
+                                {new Date(reply.createdAt).toLocaleDateString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+                              </span>
+                            </div>
+                            <p style={{ color:T.muted, fontSize:12, lineHeight:1.6 }}>{reply.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )) : (
                   <div style={{ textAlign:"center", padding:"32px 20px", color:T.dim }}>
