@@ -53,7 +53,7 @@ function CategoryDot({ cat }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function NotificationBellImproved({ token, currentUser }) {
+export default function NotificationBellImproved({ token, currentUser, onOpenTab }) {
   const [isOpen,               setIsOpen]               = useState(false);
   const [unreadCount,          setUnreadCount]          = useState(0);
   const [announcements,        setAnnouncements]        = useState([]);
@@ -430,10 +430,10 @@ export default function NotificationBellImproved({ token, currentUser }) {
       <div style={{ position:"relative" }}>
 
         {/* Bell */}
-        <button onClick={()=>setIsOpen(o=>!o)} className="sc-nb-bell-btn"
-          style={{ position:"relative", width:40, height:40, borderRadius:13, background:isOpen?"rgba(61,126,255,0.12)":"rgba(255,255,255,0.04)", border:`1px solid ${isOpen?T.borderB:T.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s", outline:"none" }}
-          onMouseEnter={e=>{ if(!isOpen){ e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"; }}}
-          onMouseLeave={e=>{ if(!isOpen){ e.currentTarget.style.background="rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor=T.border; }}}>
+        <button onClick={()=>onOpenTab?.('notifications')} className="sc-nb-bell-btn"
+          style={{ position:"relative", width:40, height:40, borderRadius:13, background:"rgba(255,255,255,0.04)", border:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s", outline:"none" }}
+          onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor=T.border; }}>
 
           {/* Bell icon */}
           <svg width="17" height="17" fill="none" stroke={isOpen?T.blue:T.muted} strokeWidth={1.8} viewBox="0 0 24 24" style={{ transition:"stroke 0.2s" }}>
@@ -448,8 +448,8 @@ export default function NotificationBellImproved({ token, currentUser }) {
           )}
         </button>
 
-        {/* ── Dropdown panel ── */}
-        {isOpen && (
+        {/* Dropdown removed - notifications now open in dedicated tab */}
+        {false && (
             <div className="sc-nb-dropdown" style={{ position:"absolute", right:0, top:"calc(100% + 12px)", width:440, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(61,126,255,0.1)", zIndex:9999, display:"flex", flexDirection:"column", maxHeight:"min(580px, calc(100vh - 120px))", overflow:"hidden" }}>
 
             {/* Panel header */}

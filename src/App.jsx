@@ -12,6 +12,7 @@ import { callAI } from "./lib/aiClient";
 import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
 import CampusComm from "./features/CampusComm.jsx";
 import NotificationBell from "./features/NotificationBellImproved.jsx";
+import NotificationsTab from "./features/NotificationsTab.jsx";
 
 const NOTES_KEY = "sc_user_notes_v1";
 const CUSTOM_QUESTIONS_KEY = "sc_custom_questions_v1";
@@ -5166,7 +5167,7 @@ function App() {
             </button>
 
             {/* Notification Bell */}
-            <NotificationBell token={token} currentUser={auth.user} />
+            <NotificationBell token={token} currentUser={auth.user} onOpenTab={setTab} />
 
             {/* Profile Button */}
             <button className="header-btn profile-btn" onClick={() => setTab("profile")} title="My Profile">
@@ -6937,6 +6938,13 @@ function App() {
           profile={studentProfile}
           authUser={auth.user}
           onSave={(p) => updateStudentProfile(p)}
+        />
+      )}
+
+      {tab === "notifications" && (
+        <NotificationsTab
+          token={token}
+          currentUser={auth.user}
         />
       )}
 
