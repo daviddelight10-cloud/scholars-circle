@@ -202,9 +202,15 @@ model AnnouncementComment {
   user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   content        String
   createdAt      DateTime           @default(now())
+  
+  // Self-relation for threaded replies
+  parentId       String?
+  parent         AnnouncementComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies        AnnouncementComment[] @relation("CommentReplies")
 
   @@index([announcementId])
   @@index([userId])
+  @@index([parentId])
 }
 
 // ============ WEB PUSH NOTIFICATIONS ============

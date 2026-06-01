@@ -35,9 +35,20 @@ router.get("/", requireAuth, async (req, res) => {
           select: { id: true }
         },
         comments: {
+          where: {
+            parentId: null  // Only fetch top-level comments
+          },
           include: {
             user: {
               select: { id: true, username: true, role: true }
+            },
+            replies: {  // Include nested replies
+              include: {
+                user: {
+                  select: { id: true, username: true, role: true }
+                }
+              },
+              orderBy: { createdAt: "asc" }
             }
           },
           orderBy: { createdAt: "asc" }
@@ -237,7 +248,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
 router.post("/:id/comments", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { content } = req.body;
+    const { content, parentId } = req.body;
 
     if (!content || !content.trim()) {
       return res.status(400).json({ error: "Comment content is required" });
@@ -251,20 +262,78 @@ router.post("/:id/comments", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Announcement not found" });
     }
 
-    const comment = await prisma.announcementComment.create({
-      data: {
-        announcementId: id,
-        userId: req.user.sub,
-        content: content.trim()
-      },
-      include: {
-        user: {
-          select: { id: true, username: true, role: true }
+    // If parentId is provided, verify parent comment exists
+    if (parentId) {
+      const parentComment = await prisma.announcementComment.findUnique({
+        where: { id: parentId },
+        include: {
+          user: {
+            select: { id: true, username: true }
+          }
+        }
+      });
+
+      if (!parentComment) {
+        return res.status(404).json({ error: "Parent comment not found" });
+      }
+
+      // Create the reply
+      const comment = await prisma.announcementComment.create({
+        data: {
+          announcementId: id,
+          userId: req.user.sub,
+          content: content.trim(),
+          parentId: parentId
+        },
+        include: {
+          user: {
+            select: { id: true, username: true, role: true }
+          }
+        }
+      });
+
+      // Send push notification to parent comment author (if not replying to self)
+      if (isPushConfigured() && parentComment.userId !== req.user.sub) {
+        try {
+          const currentUser = await prisma.user.findUnique({
+            where: { id: req.user.sub },
+            select: { username: true }
+          });
+
+          await sendPushToUsers([parentComment.userId], {
+            title: `💬 ${currentUser.username} replied to your comment`,
+            body: content.trim().substring(0, 150),
+            tag: `reply-${comment.id}`,
+            data: { 
+              announcementId: id, 
+              commentId: comment.id,
+              type: "comment-reply" 
+            }
+          });
+          console.log(`[push] Sent reply notification to ${parentComment.user.username}`);
+        } catch (pushErr) {
+          console.error("[push] Failed to send reply notification:", pushErr);
         }
       }
-    });
 
-    res.status(201).json(comment);
+      res.status(201).json(comment);
+    } else {
+      // Regular comment (not a reply)
+      const comment = await prisma.announcementComment.create({
+        data: {
+          announcementId: id,
+          userId: req.user.sub,
+          content: content.trim()
+        },
+        include: {
+          user: {
+            select: { id: true, username: true, role: true }
+          }
+        }
+      });
+
+      res.status(201).json(comment);
+    }
   } catch (err) {
     console.error("Add comment error:", err);
     res.status(500).json({ error: "Failed to add comment" });
