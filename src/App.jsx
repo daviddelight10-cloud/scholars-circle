@@ -11607,9 +11607,9 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
           <div style={{ fontSize: 64, marginBottom: 12 }}>✅</div>
           <h2>Account Created Successfully!</h2>
           <p className="muted" style={{ marginBottom: 24 }}>
-            Welcome, <strong>{username}</strong>! Your {userRole.toLowerCase()} account is ready to use.
+            Welcome, <strong>{username}</strong>! Your {userRole?.toLowerCase()} account is ready to use.
           </p>
-          <button onClick={onLogout} style={{ padding: "12px 32px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
+          <button onClick={onRefresh} style={{ padding: "12px 32px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
             Continue to Dashboard
           </button>
         </div>
@@ -11637,8 +11637,7 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
             textAlign: "center", 
             background: "linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))",
             border: "2px solid rgba(59,130,246,0.3)",
-            position: "relative",
-            overflow: "hidden"
+            position: "relative"
           }}>
             <div style={{ position: "absolute", top: 12, right: 12, background: "#3b82f6", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
               MOST POPULAR
@@ -11650,11 +11649,11 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
             {/* Pricing */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 36, fontWeight: 800, color: "#3b82f6" }}>₦500</span>
+                <span style={{ fontSize: 36, fontWeight: 800, color: "#3b82f6" }}>₦700</span>
                 <span className="muted" style={{ fontSize: 14 }}>/week</span>
               </div>
               <div className="muted" style={{ fontSize: 12 }}>
-                or ₦800/2 weeks • ₦2,400/month
+                or ₦1,300/2 weeks • ₦2,400/month
               </div>
             </div>
 
@@ -11700,7 +11699,8 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
             padding: 24, 
             textAlign: "center",
             background: "linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.1))",
-            border: "2px solid rgba(16,185,129,0.3)"
+            border: "2px solid rgba(16,185,129,0.3)",
+            position: "relative"
           }}>
             <div style={{ position: "absolute", top: 12, right: 12, background: "#10b981", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
               FREE
