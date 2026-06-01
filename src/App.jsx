@@ -4327,6 +4327,9 @@ function App() {
           onRefresh={refreshAuth}
           isChecking={isCheckingActivation}
           onGetPremium={() => setTab("premium")}
+          deferredPrompt={deferredPrompt}
+          onInstall={handleInstallClick}
+          isIOS={isIOS}
         />
       </main>
     );
@@ -11594,7 +11597,7 @@ function KeyManagement({ token }) {
   );
 }
 
-function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, onRefresh, isChecking, onGetPremium }) {
+function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, onRefresh, isChecking, onGetPremium, deferredPrompt, onInstall, isIOS }) {
   const [showActivationKey, setShowActivationKey] = useState(false);
   
   // Teachers and lecturers get auto-activated, so show simple confirmation
@@ -11621,6 +11624,50 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(139,92,246,0.05))" }}>
       <div style={{ maxWidth: 900, width: "100%" }}>
+        {/* Install App Button - Top Right */}
+        {deferredPrompt && !isIOS && (
+          <div style={{ position: "absolute", top: 16, right: 16 }}>
+            <button 
+              onClick={onInstall}
+              style={{
+                padding: "10px 20px",
+                background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                boxShadow: "0 4px 12px rgba(139,92,246,0.3)"
+              }}
+            >
+              <span>📱</span>
+              <span>Install App</span>
+            </button>
+          </div>
+        )}
+        
+        {/* iOS Install Instructions */}
+        {isIOS && (
+          <div style={{ position: "absolute", top: 16, right: 16 }}>
+            <div style={{
+              padding: "10px 16px",
+              background: "rgba(139,92,246,0.1)",
+              border: "1px solid rgba(139,92,246,0.3)",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "#8b5cf6",
+              maxWidth: 200,
+              textAlign: "center"
+            }}>
+              Tap <strong>Share</strong> → <strong>Add to Home Screen</strong> to install
+            </div>
+          </div>
+        )}
+        
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: 72, marginBottom: 16 }}>🎓</div>
