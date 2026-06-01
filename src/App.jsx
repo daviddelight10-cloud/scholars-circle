@@ -4054,7 +4054,7 @@ function App() {
                     ref={signupPasswordRef}
                     type={showSignupPassword ? "text" : "password"}
                     onChange={(e) => { signupPasswordRef.current = e.target.value; }}
-                    placeholder="Password (min 6 characters)"
+                    placeholder="Password (min 8 characters, uppercase, lowercase, number, special char)"
                     autoComplete="new-password"
                     style={{ width: "100%", paddingRight: 40 }}
                   />
