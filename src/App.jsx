@@ -4321,10 +4321,12 @@ function App() {
         <LockedScreen
           activationKey={auth.user.activationKey}
           username={auth.user.username}
+          userRole={auth.user.role}
           onLogout={logout}
           onTryDemo={() => setDemoMode(true)}
           onRefresh={refreshAuth}
           isChecking={isCheckingActivation}
+          onGetPremium={() => setTab("premium")}
         />
       </main>
     );
@@ -11592,68 +11594,246 @@ function KeyManagement({ token }) {
   );
 }
 
-function LockedScreen({ activationKey, username, onLogout, onTryDemo, onRefresh, isChecking }) {
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div className="card" style={{ maxWidth: 480, textAlign: "center" }}>
-        <div style={{ fontSize: 64, marginBottom: 12 }}>🔒</div>
-        <h2>Account Pending Activation</h2>
-        <p className="muted" style={{ marginBottom: 16 }}>
-          Welcome, <strong>{username}</strong>! Your account has been created but is not yet activated.
-          A teacher must activate your key before you can access the full app.
-        </p>
-        
-        {/* Auto-checking status indicator */}
-        <div style={{ 
-          background: "rgba(59,130,246,0.1)", 
-          border: "1px solid rgba(59,130,246,0.3)", 
-          borderRadius: 10, 
-          padding: 12, 
-          marginBottom: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8
-        }}>
-          <span style={{ 
-            display: "inline-block",
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background: isChecking ? "#3b82f6" : "#22c55e",
-            animation: isChecking ? "pulse 1s infinite" : "none"
-          }}></span>
-          <span style={{ fontSize: 12, color: isChecking ? "#3b82f6" : "#22c55e" }}>
-            {isChecking ? "Checking for activation..." : "Waiting for activation (auto-checking every 10s)"}
-          </span>
-        </div>
-        
-        <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-          <p className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Your Activation Key</p>
-          <div style={{ fontFamily: "monospace", fontSize: 28, fontWeight: 700, color: "#facc15", letterSpacing: 3 }}>
-            {activationKey || "—"}
-          </div>
-          <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Share this key with your teacher to get activated</p>
-        </div>
-        <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-          <p style={{ fontSize: 13, margin: 0 }}>
-            While you wait, here's what you'll get access to:
+function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, onRefresh, isChecking, onGetPremium }) {
+  const [showActivationKey, setShowActivationKey] = React.useState(false);
+  
+  // Teachers and lecturers get auto-activated, so show simple confirmation
+  const isFaculty = userRole === "TEACHER" || userRole === "LECTURER";
+  
+  if (isFaculty) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div className="card" style={{ maxWidth: 480, textAlign: "center" }}>
+          <div style={{ fontSize: 64, marginBottom: 12 }}>✅</div>
+          <h2>Account Created Successfully!</h2>
+          <p className="muted" style={{ marginBottom: 24 }}>
+            Welcome, <strong>{username}</strong>! Your {userRole.toLowerCase()} account is ready to use.
           </p>
-          <ul style={{ textAlign: "left", fontSize: 12, margin: "8px 0 0 16px", lineHeight: 1.8 }}>
-            <li>All subject exams & practice modes</li>
-            <li>AI Tutor & flashcards</li>
-            <li>Timetable builder & study planner</li>
-            <li>Discussion board & much more</li>
-          </ul>
+          <button onClick={onLogout} style={{ padding: "12px 32px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
+            Continue to Dashboard
+          </button>
         </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-          <button onClick={onRefresh} disabled={isChecking} style={{ padding: "8px 24px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 6, cursor: isChecking ? "wait" : "pointer", opacity: isChecking ? 0.7 : 1 }}>
-            {isChecking ? "Checking..." : "Check Now"}
+      </div>
+    );
+  }
+  
+  // Students see premium/demo options
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(139,92,246,0.05))" }}>
+      <div style={{ maxWidth: 900, width: "100%" }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ fontSize: 72, marginBottom: 16 }}>🎓</div>
+          <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Welcome to Scholar's Circle!</h1>
+          <p className="muted" style={{ fontSize: 16 }}>Hi <strong>{username}</strong>, choose how you want to get started</p>
+        </div>
+
+        {/* Two equal option cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, marginBottom: 24 }}>
+          
+          {/* Premium Card */}
+          <div className="card" style={{ 
+            padding: 24, 
+            textAlign: "center", 
+            background: "linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))",
+            border: "2px solid rgba(59,130,246,0.3)",
+            position: "relative",
+            overflow: "hidden"
+          }}>
+            <div style={{ position: "absolute", top: 12, right: 12, background: "#3b82f6", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+              MOST POPULAR
+            </div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⭐</div>
+            <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Premium Access</h3>
+            <p className="muted" style={{ fontSize: 14, marginBottom: 20 }}>Unlimited access to all features</p>
+            
+            {/* Pricing */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 36, fontWeight: 800, color: "#3b82f6" }}>₦500</span>
+                <span className="muted" style={{ fontSize: 14 }}>/week</span>
+              </div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                or ₦800/2 weeks • ₦2,400/month
+              </div>
+            </div>
+
+            {/* Features */}
+            <ul style={{ textAlign: "left", fontSize: 13, marginBottom: 24, lineHeight: 2, listStyle: "none", padding: 0 }}>
+              <li>✓ Unlimited practice questions</li>
+              <li>✓ Unlimited AI Tutor access</li>
+              <li>✓ All subjects & past papers</li>
+              <li>✓ Advanced analytics</li>
+              <li>✓ Priority support</li>
+            </ul>
+
+            <button 
+              onClick={onGetPremium}
+              style={{ 
+                width: "100%",
+                padding: "14px 24px", 
+                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", 
+                color: "#fff", 
+                border: "none", 
+                borderRadius: 10, 
+                cursor: "pointer", 
+                fontSize: 16, 
+                fontWeight: 700,
+                boxShadow: "0 4px 14px rgba(59,130,246,0.4)",
+                transition: "transform 0.2s, box-shadow 0.2s"
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(59,130,246,0.5)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 14px rgba(59,130,246,0.4)";
+              }}
+            >
+              Get Premium Access
+            </button>
+          </div>
+
+          {/* Demo Card */}
+          <div className="card" style={{ 
+            padding: 24, 
+            textAlign: "center",
+            background: "linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.1))",
+            border: "2px solid rgba(16,185,129,0.3)"
+          }}>
+            <div style={{ position: "absolute", top: 12, right: 12, background: "#10b981", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+              FREE
+            </div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
+            <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Demo Mode</h3>
+            <p className="muted" style={{ fontSize: 14, marginBottom: 20 }}>Try limited features for free</p>
+            
+            {/* Daily limits */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 36, fontWeight: 800, color: "#10b981", marginBottom: 8 }}>Free</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                Limited daily usage
+              </div>
+            </div>
+
+            {/* Features */}
+            <ul style={{ textAlign: "left", fontSize: 13, marginBottom: 24, lineHeight: 2, listStyle: "none", padding: 0 }}>
+              <li>✓ 5 practice questions/day</li>
+              <li>✓ 3 AI Tutor messages/day</li>
+              <li>✓ Basic timetable</li>
+              <li>✓ Limited flashcards</li>
+              <li>✓ Community access</li>
+            </ul>
+
+            <button 
+              onClick={onTryDemo}
+              style={{ 
+                width: "100%",
+                padding: "14px 24px", 
+                background: "linear-gradient(135deg, #10b981, #059669)", 
+                color: "#fff", 
+                border: "none", 
+                borderRadius: 10, 
+                cursor: "pointer", 
+                fontSize: 16, 
+                fontWeight: 700,
+                boxShadow: "0 4px 14px rgba(16,185,129,0.4)",
+                transition: "transform 0.2s, box-shadow 0.2s"
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(16,185,129,0.5)";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 4px 14px rgba(16,185,129,0.4)";
+              }}
+            >
+              Try Demo Mode
+            </button>
+          </div>
+        </div>
+
+        {/* Alternative: Activation Key (Collapsible) */}
+        <div className="card" style={{ padding: 16, textAlign: "center" }}>
+          <button 
+            onClick={() => setShowActivationKey(!showActivationKey)}
+            style={{ 
+              background: "none", 
+              border: "none", 
+              color: "#94a3b8", 
+              cursor: "pointer", 
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              margin: "0 auto"
+            }}
+          >
+            <span>{showActivationKey ? "▼" : "▶"}</span>
+            <span>Have an activation key from your teacher?</span>
           </button>
-          <button onClick={onTryDemo} style={{ padding: "8px 24px", background: "#2dd4a0", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>
-            Try Demo Mode
+          
+          {showActivationKey && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+                <p className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Your Activation Key</p>
+                <div style={{ fontFamily: "monospace", fontSize: 24, fontWeight: 700, color: "#facc15", letterSpacing: 2 }}>
+                  {activationKey || "—"}
+                </div>
+                <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Share this key with your teacher to get activated</p>
+              </div>
+              
+              <div style={{ 
+                background: "rgba(59,130,246,0.1)", 
+                border: "1px solid rgba(59,130,246,0.3)", 
+                borderRadius: 8, 
+                padding: 10, 
+                marginBottom: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8
+              }}>
+                <span style={{ 
+                  display: "inline-block",
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: isChecking ? "#3b82f6" : "#22c55e",
+                  animation: isChecking ? "pulse 1s infinite" : "none"
+                }}></span>
+                <span style={{ fontSize: 11, color: isChecking ? "#3b82f6" : "#22c55e" }}>
+                  {isChecking ? "Checking..." : "Auto-checking every 10s"}
+                </span>
+              </div>
+              
+              <button 
+                onClick={onRefresh} 
+                disabled={isChecking} 
+                style={{ 
+                  padding: "8px 20px", 
+                  background: "#3b82f6", 
+                  color: "#fff", 
+                  border: "none", 
+                  borderRadius: 6, 
+                  cursor: isChecking ? "wait" : "pointer", 
+                  opacity: isChecking ? 0.7 : 1,
+                  fontSize: 13
+                }}
+              >
+                {isChecking ? "Checking..." : "Check Activation Now"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Logout */}
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <button onClick={onLogout} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>
+            Log Out
           </button>
-          <button onClick={onLogout} style={{ padding: "8px 24px" }}>Log Out</button>
         </div>
       </div>
     </div>
