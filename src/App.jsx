@@ -2592,7 +2592,7 @@ function App() {
       
       // Add helpful hints for common errors
       if (errorMessage.includes("Password must")) {
-        errorMessage += "\n\nPassword requirements:\n• At least 8 characters\n• One uppercase letter\n• One lowercase letter\n• One number\n• One special character (!@#$%^&*...)";
+        errorMessage += "\n\nPassword requirement:\n• At least 8 characters";
       } else if (errorMessage.includes("invite code")) {
         errorMessage += "\n\nPlease check your invite code or contact an administrator.";
       } else if (errorMessage.includes("already exists")) {
@@ -4054,7 +4054,7 @@ function App() {
                     ref={signupPasswordRef}
                     type={showSignupPassword ? "text" : "password"}
                     onChange={(e) => { signupPasswordRef.current = e.target.value; }}
-                    placeholder="Password (min 8 characters, uppercase, lowercase, number, special char)"
+                    placeholder="Password (min 8 characters)"
                     autoComplete="new-password"
                     style={{ width: "100%", paddingRight: 40 }}
                   />
