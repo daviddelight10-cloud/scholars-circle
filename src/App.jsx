@@ -2593,6 +2593,8 @@ function App() {
       // Add helpful hints for common errors
       if (errorMessage.includes("Password must")) {
         errorMessage += "\n\nPassword requirement:\n• At least 8 characters";
+      } else if (errorMessage.includes("Username")) {
+        errorMessage += "\n\nUsername requirements:\n• 3-30 characters\n• Letters, numbers, and underscores only\n• No spaces allowed";
       } else if (errorMessage.includes("invite code")) {
         errorMessage += "\n\nPlease check your invite code or contact an administrator.";
       } else if (errorMessage.includes("already exists")) {
@@ -4044,8 +4046,13 @@ function App() {
 
                 <input
                   ref={signupUsernameRef}
-                  onChange={(e) => { signupUsernameRef.current = e.target.value.replace(/\s/g, ""); }}
-                  placeholder="Username"
+                  onChange={(e) => { 
+                    // Only allow letters, numbers, and underscores
+                    const sanitized = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
+                    e.target.value = sanitized;
+                    signupUsernameRef.current = sanitized;
+                  }}
+                  placeholder="Username (letters, numbers, _ only)"
                   autoComplete="username"
                 />
 
