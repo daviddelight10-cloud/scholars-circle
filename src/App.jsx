@@ -30,6 +30,25 @@ import NotificationsTab from "./features/NotificationsTab.jsx";
 
 
 
+// Context providers
+import { AuthProvider } from "./contexts/AuthContext";
+import { UserDataProvider } from "./contexts/UserDataContext";
+import { UIProvider } from "./contexts/UIContext";
+
+// Page components
+import Home from "./pages/Home";
+import Learn from "./pages/Learn";
+import AITutorPage from "./pages/AITutor";
+import Progress from "./pages/Progress";
+import Resources from "./pages/Resources";
+import ClassroomPage from "./pages/Classroom";
+import Profile from "./pages/Profile";
+
+// Components
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
+
+
 const NOTES_KEY = "sc_user_notes_v1";
 
 const CUSTOM_QUESTIONS_KEY = "sc_custom_questions_v1";
@@ -23241,8 +23260,21 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
 }
 
+// Wrap App with Context providers
+function AppWithProviders() {
+  return (
+    <ErrorBoundary>
+      <AuthProvider>
+        <UserDataProvider>
+          <UIProvider>
+            <App />
+          </UIProvider>
+        </UserDataProvider>
+      </AuthProvider>
+    </ErrorBoundary>
+  );
+}
 
-
-export default App;
+export default AppWithProviders;
 
 
