@@ -757,6 +757,7 @@ import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboard
 
 
 import AITutor from "./features/AITutor/index.jsx";
+import AISectionOverlay from "./features/AISectionOverlay.jsx";
 
 
 
@@ -3319,13 +3320,14 @@ function App() {
 
     // Show warning when 3 days or less remaining
 
-    if (daysRemaining <= 3 && daysRemaining > 0 && !showExpirationWarning) {
+    if (daysRemaining <= 3 && daysRemaining > 0) {
 
       setShowExpirationWarning(true);
 
     }
 
-  }, [demoMode, demoUsage.trialStartDate, showExpirationWarning]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoMode, demoUsage.trialStartDate]);
 
 
 
@@ -13067,6 +13069,14 @@ function App() {
 
 
       {tab === "aitutor" && (
+        <AISectionOverlay
+          aiConfig={aiConfig}
+          subjects={subjects}
+          onExit={() => setTab("today")}
+        />
+      )}
+
+      {tab === "aitutor_legacy" && (
 
         <div>
 
