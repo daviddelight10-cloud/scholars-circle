@@ -11241,6 +11241,8 @@ function App() {
           toast={toast}
           dueCards={dueCards}
           aiConfig={aiConfig}
+          setMastery={setMastery}
+          setWrongCounts={setWrongCounts}
         />
       )}
 

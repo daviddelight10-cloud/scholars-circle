@@ -52,7 +52,7 @@ function ProgressRing({ pct = 0, size = 56, stroke = 4, color = "#10b981" }) {
 // Subject Card
 // ─────────────────────────────────────────────────────────────────────────────
 function SubjectCard({ s, mastery, srData, history, onSelect, isSelected }) {
-  const pct = Math.round(mastery?.[s.id]?.percent || 0);
+  const pct = Math.round(mastery?.[s.id] || 0);
   const { label: lvlLabel, color: lvlColor, icon: lvlIcon } = masteryLevel(pct);
   const due = getDueCount(srData, s.id);
   const sessions = getSubjectHistory(history, s.id).length;
@@ -104,7 +104,7 @@ function SubjectCard({ s, mastery, srData, history, onSelect, isSelected }) {
 // Tab: Overview
 // ─────────────────────────────────────────────────────────────────────────────
 function HubOverview({ s, mastery, history, srData, wrongCounts, onTab }) {
-  const pct = Math.round(mastery?.[s.id]?.percent || 0);
+  const pct = Math.round(mastery?.[s.id] || 0);
   const { label: lvlLabel, color: lvlColor, icon: lvlIcon } = masteryLevel(pct);
   const due = getDueCount(srData, s.id);
   const sessions = getSubjectHistory(history, s.id);
@@ -243,7 +243,7 @@ function HubLessons({ s }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Practice  (inline session with instant feedback + AI explain)
 // ─────────────────────────────────────────────────────────────────────────────
-function HubPractice({ s, startSubjectPractice, demoMode, aiConfig }) {
+function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, setWrongCounts }) {
   const [phase, setPhase]           = useState("setup");   // setup | practicing | complete
   const [qCount, setQCount]         = useState(10);
   const [questions, setQuestions]   = useState([]);
@@ -276,6 +276,19 @@ function HubPractice({ s, startSubjectPractice, demoMode, aiConfig }) {
     if (correct) setScore(p => p + 1);
     setResults(p => [...p, { correct, q, chosen: idx }]);
     setAiExpl("");
+    // Update mastery + wrong counts live
+    if (setMastery) {
+      setMastery(prev => {
+        const cur = prev[s.id] ?? 50;
+        return { ...prev, [s.id]: Math.max(0, Math.min(100, cur + (correct ? 8 : -6))) };
+      });
+    }
+    if (setWrongCounts && q.key) {
+      setWrongCounts(prev => ({
+        ...prev,
+        [q.key]: correct ? Math.max((prev[q.key] || 0) - 1, 0) : (prev[q.key] || 0) + 1,
+      }));
+    }
   }
 
   function next() {
@@ -920,6 +933,8 @@ export default function LearnHub({
   toast,
   dueCards,
   aiConfig,
+  setMastery,
+  setWrongCounts,
 }) {
   const [selectedId, setSelectedId] = useState(null);
   const selectedSubject = useMemo(() => (subjects || []).find(s => s.id === selectedId), [subjects, selectedId]);
@@ -932,6 +947,7 @@ export default function LearnHub({
     startSubjectPractice, startAdaptive,
     startSpacedReview, startWeakDrill, startErrorDrill,
     setActiveSession, toast, dueCards, aiConfig,
+    setMastery, setWrongCounts,
   };
 
   return (
