@@ -51,24 +51,23 @@ function searchQuestionBank(query, subjects) {
 }
 
 async function fetchYouTubeVideo(ytQuery) {
-  const key = import.meta.env.VITE_YOUTUBE_API_KEY;
-  const cacheKey = `sc_yt2_${ytQuery}`;
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+  const cacheKey = `sc_yt3_${ytQuery}`;
   try {
     const hit = localStorage.getItem(cacheKey);
     if (hit) return JSON.parse(hit);
   } catch {}
-  if (!key) return null;
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(ytQuery)}&type=video&maxResults=1&key=${key}`;
-    const res  = await fetch(url);
+    const res  = await fetch(`${API_BASE}/youtube/search?q=${encodeURIComponent(ytQuery)}`);
+    if (!res.ok) return null;
     const data = await res.json();
-    if (data.items?.[0]) {
-      const item   = data.items[0];
+    const item = (data.items || [])[0];
+    if (item) {
       const result = {
-        videoId:  item.id.videoId,
-        title:    item.snippet.title,
-        channel:  item.snippet.channelTitle,
-        url:      `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        videoId: item.videoId,
+        title:   item.title,
+        channel: item.channelTitle,
+        url:     `https://www.youtube.com/watch?v=${item.videoId}`,
       };
       try { localStorage.setItem(cacheKey, JSON.stringify(result)); } catch {}
       return result;
@@ -141,6 +140,61 @@ function CollapseSection({ icon, iconBg, iconBdr, label, defaultOpen = false, ch
   );
 }
 
+function VideoLesson({ video }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ borderRadius: 10, overflow: "hidden", border: "0.5px solid #2a1515" }}>
+      {/* Thumbnail / embed toggle row */}
+      <div
+        onClick={() => setExpanded(o => !o)}
+        style={{
+          display: "flex", alignItems: "center", gap: 9, padding: "8px 10px",
+          background: "#100808", cursor: "pointer",
+        }}
+      >
+        <div style={{
+          width: 42, height: 30, background: "#1a0808", border: "0.5px solid #3a1010",
+          borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 16, flexShrink: 0, color: "#ef5350",
+        }}>▶</div>
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#e57373", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {video.title}
+          </div>
+          <div style={{ fontSize: 10, color: "#5a3030", marginTop: 2 }}>{video.channel}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <span style={{ fontSize: 10, color: "#5a3030", fontFamily: "Manrope,sans-serif" }}>
+            {expanded ? "▲ hide" : "▼ watch"}
+          </span>
+          <a
+            href={video.url} target="_blank" rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ fontSize: 13, color: "#5a3030", textDecoration: "none" }}
+            title="Open on YouTube"
+          >↗</a>
+        </div>
+      </div>
+
+      {/* Embedded player */}
+      {expanded && (
+        <div style={{ position: "relative", paddingBottom: "56.25%", background: "#000" }}>
+          <iframe
+            src={`https://www.youtube.com/embed/${video.videoId}?autoplay=1&modestbranding=1&rel=0&playsinline=1`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{
+              position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+              border: "none",
+            }}
+            title={video.title}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ResponseCard({ data, onStartPractice }) {
   const bankBadge = { color: "#4caf50", background: "#0f2a1a", border: "0.5px solid #1a4a2a" };
   const aiBadge   = { color: "#ffb74d", background: "#2a1a00", border: "0.5px solid #4a3000" };
@@ -183,35 +237,14 @@ function ResponseCard({ data, onStartPractice }) {
 
       {/* Video */}
       <CollapseSection icon="▶️" iconBg="#2a0a0a" iconBdr="#4a1010" label="Video Lesson">
-        <p style={{ margin: "0 0 7px", fontSize: 10, color: D.faint }}>
-          YouTube search: <span style={{ color: D.border }}>"{data.ytQuery}"</span>
+        <p style={{ margin: "0 0 8px", fontSize: 10, color: D.faint }}>
+          YouTube search: <span style={{ color: D.border }}>"{ data.ytQuery}"</span>
         </p>
         {data.video ? (
-          <a
-            href={data.video.url} target="_blank" rel="noopener noreferrer"
-            style={{
-              display: "flex", alignItems: "center", gap: 9, textDecoration: "none",
-              background: "#100808", border: "0.5px solid #2a1515",
-              borderRadius: 9, padding: "8px 10px",
-            }}
-          >
-            <div style={{
-              width: 38, height: 28, background: "#1a0808", border: "0.5px solid #3a1010",
-              borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0,
-            }}>▶</div>
-            <div style={{ flex: 1, overflow: "hidden" }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#c5a0a0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {data.video.title}
-              </div>
-              <div style={{ fontSize: 10, color: "#5a3030" }}>{data.video.channel}</div>
-            </div>
-            <span style={{ fontSize: 13, color: "#5a3030", flexShrink: 0 }}>↗</span>
-          </a>
+          <VideoLesson video={data.video} />
         ) : (
           <p style={{ margin: 0, fontSize: 11, color: D.hint }}>
-            {import.meta.env.VITE_YOUTUBE_API_KEY
-              ? "No video found for this topic."
-              : "Add VITE_YOUTUBE_API_KEY to .env to enable video search."}
+            Video search unavailable — make sure the backend server is running.
           </p>
         )}
       </CollapseSection>
