@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { callAI } from "../lib/aiClient";
+import LearningRoom from "./AITutor/LearningRoom";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -774,8 +775,8 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
 }
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
-export default function AISectionOverlay({ aiConfig, subjects, onExit }) {
-  const [view, setView]             = useState("chat");
+export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat" }) {
+  const [view, setView]             = useState(defaultView || "chat");
   const [messages, setMsgs]         = useState([]);
   const [input, setInput]           = useState("");
   const [loading, setLoading]       = useState(false);
@@ -808,8 +809,16 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, view]);
 
+  const fakeTutor = useMemo(() => ({
+    generate: async ({ input }) => {
+      const text = await callAI(input, aiConfig);
+      return { text };
+    },
+  }), [aiConfig]);
+
   function handleBack() {
     if (showHistory) { setShowHistory(false); return; }
+    if (view === "learn")    { setView("chat"); return; }
     if (view === "practice") { setView("response"); return; }
     if (view === "response") { setView("chat"); return; }
     onExit?.();
@@ -895,12 +904,13 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit }) {
     }
   }
 
-  const topTitle = { chat: "AI Tutor", response: "AI Response", practice: "Practice Mode" }[view];
+  const topTitle = { chat: "AI Tutor", response: "AI Response", practice: "Practice Mode", learn: "Video Lessons" }[view] || "AI Tutor";
   const topSub   = {
     chat:     "Scholar's Circle · Ask anything",
     response: data ? `${data.topic}` : "Scholar's Circle",
     practice: data ? `${data.subjectLabel || "AI"} · ${data.bankCount || 0} questions` : "",
-  }[view];
+    learn:    "Watch a video · Ask AI questions as you go",
+  }[view] || "";
 
   return (
     <>
@@ -1097,6 +1107,13 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit }) {
         {/* ══ VIEW: PRACTICE ══ */}
         {view === "practice" && data && (
           <PracticeView data={data} onBack={() => setView("response")} />
+        )}
+
+        {/* ══ VIEW: LEARN (Video Lessons) ══ */}
+        {view === "learn" && (
+          <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
+            <LearningRoom tutor={fakeTutor} aiConfig={aiConfig} />
+          </div>
         )}
 
       </div>

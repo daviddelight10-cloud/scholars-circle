@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { callAI, extractJSON as extractJSONShared } from "../lib/aiClient";
+import AITutorWidget from "../components/home/AITutorWidget";
 
 // Maximum days for day-by-day plan before switching to weekly
 const MAX_DAILY_DAYS = 21;
@@ -714,6 +715,9 @@ export function TodayScreen({
   onOpenTab,
   userId,
   onImportToBank,
+  userName,
+  onOpenAI,
+  onOpenLearn,
 }) {
   const [planState, setPlanState] = useState(loadPlan(userId));
   const [refresh, setRefresh] = useState(0);
@@ -812,6 +816,12 @@ export function TodayScreen({
         {greeting} 👋 — Today
       </h2>
       <p className="muted">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</p>
+
+      <AITutorWidget
+        userName={userName || "Scholar"}
+        onOpen={(ctx) => onOpenAI?.(ctx)}
+        onOpenLearn={() => onOpenLearn?.()}
+      />
 
       <div className="today-grid">
         <div className="today-tile streak-tile">

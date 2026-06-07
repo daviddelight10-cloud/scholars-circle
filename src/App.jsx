@@ -2637,6 +2637,10 @@ function App() {
 
   const [showExpirationWarning, setShowExpirationWarning] = useState(false);
 
+  const [aiDefaultView, setAiDefaultView] = useState("chat");
+
+  const [aiKey, setAiKey] = useState(0);
+
   const [showDemoTour, setShowDemoTour] = useState(false);
 
   const [tourStep, setTourStep] = useState(0);
@@ -10445,7 +10449,11 @@ function App() {
 
         <TodayScreen
 
+          userName={auth.user?.username || auth.user?.name || "Scholar"}
 
+          onOpenAI={(ctx) => { setAiDefaultView("chat"); setAiKey(k => k + 1); setTab("aitutor"); }}
+
+          onOpenLearn={() => { setAiDefaultView("learn"); setAiKey(k => k + 1); setTab("aitutor"); }}
 
           subjects={subjects}
 
@@ -13070,6 +13078,8 @@ function App() {
 
       {tab === "aitutor" && (
         <AISectionOverlay
+          key={aiKey}
+          defaultView={aiDefaultView}
           aiConfig={aiConfig}
           subjects={subjects}
           onExit={() => setTab("today")}
