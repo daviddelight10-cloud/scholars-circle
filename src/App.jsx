@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
 
 import { useLocation } from "react-router-dom";
 
@@ -21,6 +21,8 @@ import { callAI } from "./lib/aiClient";
 
 
 import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
+
+import LearnHub from "./features/LearnHub.jsx";
 
 import CampusComm from "./features/CampusComm.jsx";
 
@@ -742,7 +744,7 @@ import { StudyGroups } from "./features/StudyGroups";
 
 
 
-import GamificationHub from "./features/Gamification";
+const GamificationHub = lazy(() => import("./features/Gamification"));
 
 
 
@@ -11217,312 +11219,29 @@ function App() {
 
 
       {tab === "practice" && (
-
-
-
-        <div className="card">
-
-
-
-          <h2>📚 Learn Hub</h2>
-
-          {/* Sub-tabs */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            {[
-              { id: "practice", label: "📝 Practice" },
-              { id: "lessons", label: "📖 Lessons" },
-              { id: "bank", label: "🏦 Question Bank" },
-            ].map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setLearnSubTab(id)}
-                style={{
-                  padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                  border: learnSubTab === id ? "2px solid #34d399" : "1px solid rgba(52,211,153,0.25)",
-                  background: learnSubTab === id ? "linear-gradient(135deg,#059669,#10b981)" : "rgba(30,41,59,0.6)",
-                  color: learnSubTab === id ? "#fff" : "#6ee7b7",
-                }}
-              >{label}</button>
-            ))}
-          </div>
-
-          {learnSubTab === "practice" && (<>
-
-          <p className="muted">Choose a mode.</p>
-
-          {demoMode && (
-
-            <div className="demo-banner warning">
-
-              <span className="banner-icon">⚡</span>
-
-              <span className="banner-text">Free Trial: {DEMO_LIMITS.practiceQuestions - demoUsage.practiceQuestions} practice questions remaining today.</span>
-
-              <button className="banner-action" onClick={() => setShowPaymentModal(true)}>Upgrade</button>
-
-            </div>
-
-          )}
-
-
-
-          <div className="practice-modes">
-
-
-
-            <button className="practice-mode-btn mode-adaptive" onClick={startAdaptive}>
-
-              <span className="mode-icon">🎯</span>
-
-              <span className="mode-label">Adaptive</span>
-
-              <span className="mode-desc">AI-powered practice</span>
-
-            </button>
-
-
-
-            <button className="practice-mode-btn mode-spaced" onClick={startSpacedReview}>
-
-              <span className="mode-icon">🧠</span>
-
-              <span className="mode-label">Spaced</span>
-
-              <span className="mode-desc">Memory retention</span>
-
-            </button>
-
-
-
-            {demoMode ? (
-
-              <button
-
-                disabled
-
-                title="Upgrade to unlock Weak Drill"
-
-                style={{ opacity: 0.5, cursor: "not-allowed" }}
-
-              >
-
-                Weak Drill 🔒
-
-              </button>
-
-            ) : (
-
-              <button className="practice-mode-btn mode-weak" onClick={startWeakDrill}>
-
-                <span className="mode-icon">💪</span>
-
-                <span className="mode-label">Weak Drill</span>
-
-                <span className="mode-desc">Focus on weak areas</span>
-
-              </button>
-
-            )}
-
-
-
-            <button className="practice-mode-btn mode-error" onClick={startErrorDrill}>
-
-              <span className="mode-icon">❌</span>
-
-              <span className="mode-label">Error Drill</span>
-
-              <span className="mode-desc">Learn from mistakes</span>
-
-            </button>
-
-
-
-            <button className="practice-mode-btn mode-hints" onClick={() => setTab("practicehints")} style={{ borderColor: "rgba(251, 191, 36, 0.4)" }}>
-
-              <span className="mode-icon">💡</span>
-
-              <span className="mode-label">With Hints</span>
-
-              <span className="mode-desc">Guided step-by-step</span>
-
-            </button>
-
-
-
-          </div>
-
-
-
-          <div className="row" style={{ marginTop: 12, gap: 8, flexWrap: "wrap" }}>
-
-            <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
-
-              Questions:
-
-              <select value={examQuestionCount} onChange={(e) => setExamQuestionCount(e.target.value)}>
-
-                <option value="all">All</option>
-
-                {[10, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
-
-              </select>
-
-            </label>
-
-            <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 4 }}>
-
-              Time:
-
-              <select value={examCustomMinutes} onChange={(e) => setExamCustomMinutes(e.target.value)}>
-
-                <option value="">Auto (~1.5min/Q)</option>
-
-                {[10, 15, 20, 30, 45, 60, 90, 120].map(n => <option key={n} value={n}>{n}min</option>)}
-
-              </select>
-
-            </label>
-
-          </div>
-
-
-
-          <h3 style={{ marginTop: 20 }}>Subject Exams</h3>
-
-
-
-          <div className="subjects">
-
-
-
-            {subjects.map((s) => (
-
-
-
-              <button key={s.id} className="subject-btn" onClick={() => startSubjectPractice(s.id, "exam", examQuestionCount, examCustomMinutes)}>
-
-
-
-                {s.icon} {s.label} Exam
-
-
-
-              </button>
-
-
-
-            ))}
-
-
-
-          </div>
-
-
-
-          {/* Quick Access to related features */}
-
-          <h3 style={{ marginTop: 24 }}>More Study Tools</h3>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-
-            <button onClick={() => setTab("pastpapers")} style={{ padding: "14px 10px", borderRadius: 12, border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", cursor: "pointer", textAlign: "center" }}>
-
-              <div style={{ fontSize: 24, marginBottom: 4 }}>📄</div>
-
-              <div style={{ fontWeight: 600, fontSize: 13 }}>Past Papers</div>
-
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Past exam papers</div>
-
-            </button>
-
-            <button onClick={() => setTab("studypaths")} style={{ padding: "14px 10px", borderRadius: 12, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.1)", cursor: "pointer", textAlign: "center" }}>
-
-              <div style={{ fontSize: 24, marginBottom: 4 }}>🛤️</div>
-
-              <div style={{ fontWeight: 600, fontSize: 13 }}>Study Paths</div>
-
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Guided learning</div>
-
-            </button>
-
-            <button onClick={() => setTab("studygroups")} style={{ padding: "14px 10px", borderRadius: 12, border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.1)", cursor: "pointer", textAlign: "center" }}>
-
-              <div style={{ fontSize: 24, marginBottom: 4 }}>👥</div>
-
-              <div style={{ fontWeight: 600, fontSize: 13 }}>Study Groups</div>
-
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Learn with others</div>
-
-            </button>
-
-          </div>
-
-          </>)}
-
-          {/* Lessons sub-tab */}
-          {learnSubTab === "lessons" && (
-            <div>
-              <h3 style={{ margin: "0 0 16px 0" }}>Read → Practice → Test</h3>
-              {(subjects || []).map((s) => (
-                <div key={s.id} className="lesson-block">
-                  <div className="row">
-                    <h3>{s.icon} {s.label}</h3>
-                    <button onClick={() => startSubjectPractice(s.id, "exam", examQuestionCount, examCustomMinutes)}>Take Exam</button>
-                  </div>
-                  <img className="lesson-image" src={s.image} alt={`${s.label} visual`} loading="lazy" onError={(e) => (e.currentTarget.style.display = "none")} />
-                  {(s.lessons || []).map((l) => (
-                    <div key={l.title}>
-                      <strong>{l.title}</strong>
-                      <p className="muted">{l.content}</p>
-                    </div>
-                  ))}
-                  {s.questions && s.questions[0] && (
-                    <button onClick={() => setShowCheckpoint({ ...s.questions[0], subjectId: s.id })}>
-                      Quick Lesson Checkpoint
-                    </button>
-                  )}
-                </div>
-              ))}
-              {showCheckpoint && <SimpleCheckpoint question={showCheckpoint} onDone={() => setShowCheckpoint(null)} />}
-            </div>
-          )}
-
-          {/* Question Bank sub-tab */}
-          {learnSubTab === "bank" && (
-            demoMode && DEMO_LIMITS.questionBankLocked ? (
-              <DemoLockedOverlay
-                title="Question Bank"
-                description="The Question Bank is a premium feature. Upgrade to access unlimited custom questions and past papers!"
-                icon="🏦"
-                features={["Unlimited custom questions", "Import from past papers", "AI-generated questions", "Subject-specific banks"]}
-                showPlans={true}
-              />
-            ) : (
-              <>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() => setTab("pastpapers")}
-                    style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(99,102,241,0.4)", background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))", color: "#a5b4fc", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
-                  >
-                    📄 Browse Past Papers →
-                  </button>
-                </div>
-                <QuestionBank subjects={subjects} onStartPastPaper={(qs, yr, mins) => {
-                  const finalQs = demoMode && qs.length > 10 ? qs.slice(0, 10) : qs;
-                  if (demoMode && qs.length > 10) {
-                    toast.info("Free Trial: Limited to 10 questions. Upgrade for unlimited!");
-                  }
-                  setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
-                }} />
-              </>
-            )
-          )}
-
-        </div>
-
-
-
+        <LearnHub
+          subjects={subjects}
+          mastery={mastery}
+          srData={srData}
+          wrongCounts={wrongCounts}
+          history={history}
+          customFlashcards={customFlashcards}
+          setCustomFlashcards={setCustomFlashcards}
+          outlineProgress={outlineProgress}
+          setOutlineProgress={setOutlineProgress}
+          demoMode={demoMode}
+          DEMO_LIMITS={DEMO_LIMITS}
+          token={token}
+          startSubjectPractice={startSubjectPractice}
+          startAdaptive={startAdaptive}
+          startSpacedReview={startSpacedReview}
+          startWeakDrill={startWeakDrill}
+          startErrorDrill={startErrorDrill}
+          setActiveSession={setActiveSession}
+          toast={toast}
+          dueCards={dueCards}
+          aiConfig={aiConfig}
+        />
       )}
 
 
@@ -11795,9 +11514,9 @@ function App() {
 
 
         {progressSubTab === "arena" && (
-
-          <GamificationHub token={token} userId={auth.user?.id} username={auth.user?.username} classroomId={null} leaderboard={[]} />
-
+          <Suspense fallback={<div className="card"><p className="muted">Loading arena...</p></div>}>
+            <GamificationHub token={token} userId={auth.user?.id} username={auth.user?.username} classroomId={null} leaderboard={[]} />
+          </Suspense>
         )}
 
 
