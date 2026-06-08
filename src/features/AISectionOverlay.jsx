@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { callAI } from "../lib/aiClient";
 import LearningRoom from "./AITutor/LearningRoom";
+import GuidedStudy from "./GuidedStudy";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -819,6 +820,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   function handleBack() {
     if (showHistory) { setShowHistory(false); return; }
     if (view === "learn")    { setView("chat"); return; }
+    if (view === "study")    { setView("chat"); return; }
     if (view === "practice") { setView("response"); return; }
     if (view === "response") { setView("chat"); return; }
     onExit?.();
@@ -904,12 +906,13 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     }
   }
 
-  const topTitle = { chat: "AI Tutor", response: "AI Response", practice: "Practice Mode", learn: "Video Lessons" }[view] || "AI Tutor";
+  const topTitle = { chat: "AI Tutor", response: "AI Response", practice: "Practice Mode", learn: "Video Lessons", study: "Guided Study" }[view] || "AI Tutor";
   const topSub   = {
     chat:     "Scholar's Circle · Ask anything",
     response: data ? `${data.topic}` : "Scholar's Circle",
     practice: data ? `${data.subjectLabel || "AI"} · ${data.bankCount || 0} questions` : "",
     learn:    "Watch a video · Ask AI questions as you go",
+    study:    "Roadmap → Explain → Questions → Flashcards",
   }[view] || "";
 
   return (
@@ -950,6 +953,20 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               {topSub}
             </div>
           </div>
+
+          {/* 📚 Guided Study button */}
+          <button
+            onClick={() => setView(view === "study" ? "chat" : "study")}
+            title="Guided Study"
+            style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: view === "study" ? D.accent : "#12142a",
+              border: view === "study" ? `0.5px solid ${D.border}` : "0.5px solid #2a2d4a",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", flexShrink: 0,
+              fontSize: 14, transition: "all 0.2s",
+            }}
+          >📚</button>
 
           {/* ⋯ History button */}
           <button
@@ -1114,6 +1131,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
             <LearningRoom tutor={fakeTutor} aiConfig={aiConfig} />
           </div>
+        )}
+
+        {/* ══ VIEW: STUDY (Guided Study) ══ */}
+        {view === "study" && (
+          <GuidedStudy aiConfig={aiConfig} />
         )}
 
       </div>
