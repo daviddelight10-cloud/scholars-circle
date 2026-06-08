@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { callAI, extractJSON as extractJSONShared } from "../lib/aiClient";
-import AITutorWidget from "../components/home/AITutorWidget";
+import SmartStudyInput from "../components/home/SmartStudyInput";
 
 // Maximum days for day-by-day plan before switching to weekly
 const MAX_DAILY_DAYS = 21;
@@ -811,57 +811,109 @@ export function TodayScreen({
     return "Good evening";
   })();
 
+  const statCards = [
+    { icon:"🔥", label:"Streak",   value:`${stats?.streak ?? 0}d`,   color:"#ff7043", bg:"#1a0a00", border:"#4a1800" },
+    { icon:"⚡", label:"XP",       value:stats?.xp ?? 0,             color:"#ffd54f", bg:"#1a1500", border:"#4a3a00" },
+    { icon:"🧠", label:"Due",      value:dueCards?.length ?? 0,      color:"#80cbc4", bg:"#001a18", border:"#004a44" },
+    { icon:"📚", label:"Sessions", value:stats?.sessions ?? 0,       color:"#9fa8da", bg:"#080d2a", border:"#1a2a6a" },
+  ];
+
   return (
-    <div className="card">
-      <h2>
-        {greeting} 👋 — Today
-      </h2>
-      <p className="muted">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</p>
-
-      <AITutorWidget
-        userName={userName || "Scholar"}
-        onOpen={(ctx) => onOpenAI?.(ctx)}
-        onOpenLearn={() => onOpenLearn?.()}
-        onOpenStudy={(topic) => onOpenStudy?.(topic)}
-      />
-
-      <div className="today-grid">
-        <div className="today-tile streak-tile">
-          <div className="today-tile-label">🔥 Streak</div>
-          <div className="today-tile-value">{stats?.streak ?? 0}</div>
+    <div style={{ fontFamily:"Manrope, sans-serif" }}>
+      {/* ── Header ── */}
+      <div style={{
+        background:"linear-gradient(135deg,#0d0f22 0%,#090b1a 100%)",
+        border:"0.5px solid #1e2140", borderRadius:16,
+        padding:"16px 18px 14px", marginBottom:14, position:"relative", overflow:"hidden",
+      }}>
+        <div style={{ position:"absolute",top:-30,right:-20,width:140,height:140,borderRadius:"50%",background:"#1a237e",opacity:0.12,pointerEvents:"none" }} />
+        <div style={{ fontSize:11,fontWeight:600,color:"#3949ab",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4,fontFamily:"Syne,sans-serif" }}>
+          {new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}
         </div>
-        <div className="today-tile xp-tile">
-          <div className="today-tile-label">⚡ XP</div>
-          <div className="today-tile-value">{stats?.xp ?? 0}</div>
+        <div style={{ fontSize:20,fontWeight:800,color:"#e8eaf6",fontFamily:"Syne,sans-serif",lineHeight:1.2 }}>
+          {greeting}, {userName || "Scholar"} 👋
         </div>
-        <div className="today-tile cards-tile">
-          <div className="today-tile-label">🧠 Cards Due</div>
-          <div className="today-tile-value">{dueCards?.length ?? 0}</div>
-        </div>
-        <div className="today-tile sessions-tile">
-          <div className="today-tile-label">📚 Sessions</div>
-          <div className="today-tile-value">{stats?.sessions ?? 0}</div>
-        </div>
+        <div style={{ fontSize:12,color:"#7b82b8",marginTop:4 }}>Ready to study? Let's go.</div>
       </div>
 
-      <h3 style={{ marginTop: 18 }}>What to do right now</h3>
-      <div className="today-actions">
-        {dueCards?.length > 0 && (
-          <button className="btn-neon-green" onClick={onStartSpaced}>
-            🧠 Review {dueCards.length} due cards
-          </button>
-        )}
-        {weakest && weakest.s && (
-          <button className="btn-neon-yellow" onClick={() => onStartSubject(weakest.s.id)}>
-            🎯 Practice your weakest: {weakest.s.icon} {weakest.s.label} ({weakest.m}%)
-          </button>
-        )}
-        <button className="btn-neon-orange" onClick={() => onOpenTab("bank")}>
-          📝 Take a past paper
-        </button>
-        <button className="btn-neon-purple" onClick={() => onOpenTab("lectures")}>
-          🎧 Convert lecture to notes
-        </button>
+      {/* ── Stat pills ── */}
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14 }}>
+        {statCards.map(sc => (
+          <div key={sc.label} style={{
+            background:sc.bg, border:`0.5px solid ${sc.border}`,
+            borderRadius:12, padding:"10px 10px 8px", textAlign:"center",
+          }}>
+            <div style={{ fontSize:16,marginBottom:3 }}>{sc.icon}</div>
+            <div style={{ fontSize:15,fontWeight:800,color:sc.color,lineHeight:1 }}>{sc.value}</div>
+            <div style={{ fontSize:9,color:"#4a5080",marginTop:3,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase" }}>{sc.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── What to do right now ── */}
+      {(() => {
+        const firstIncomplete = todaysTasks.find((t, i) => !isDone(t.sid, t.taskIndex));
+        let action = null;
+        if (dueCards?.length > 0) {
+          action = { icon:"🧠", color:"#80cbc4", bg:"#001a18", border:"#004a44", label:"Review overdue cards", desc:`${dueCards.length} flashcard${dueCards.length > 1 ? "s" : ""} due for spaced repetition`, onClick: onStartSpaced };
+        } else if (weakest?.m !== undefined && weakest.m < 50 && weakest.s) {
+          action = { icon:"🎯", color:"#ffd54f", bg:"#1a1500", border:"#4a3a00", label:`Boost ${weakest.s.label}`, desc:`Only ${weakest.m}% mastery — needs your attention`, onClick: () => onStartSubject?.(weakest.s.id) };
+        } else if (firstIncomplete) {
+          action = { icon:"📅", color:"#9fa8da", bg:"#080d2a", border:"#1a2a6a", label:firstIncomplete.title, desc:`${firstIncomplete.type} · ${firstIncomplete.minutes} min · ${firstIncomplete.subjectLabel}`, onClick: () => onOpenTab?.("plan") };
+        } else {
+          action = { icon:"✨", color:"#ce93d8", bg:"#120a1a", border:"#3a1a4a", label:"Start a study session", desc:"Pick a subject or use Guided Study", onClick: () => onOpenStudy?.("") };
+        }
+        return (
+          <div onClick={action.onClick} style={{
+            background: action.bg, border:`0.5px solid ${action.border}`, borderRadius:14,
+            padding:"12px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:12, cursor:"pointer",
+            transition:"opacity 0.15s",
+          }}>
+            <div style={{ fontSize:24, flexShrink:0 }}>{action.icon}</div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:action.color, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:2 }}>What to do right now</div>
+              <div style={{ fontSize:13, fontWeight:700, color:"#e8eaf6", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{action.label}</div>
+              <div style={{ fontSize:11, color:"#7b82b8", marginTop:2 }}>{action.desc}</div>
+            </div>
+            <div style={{ fontSize:16, color:action.color, flexShrink:0 }}>›</div>
+          </div>
+        );
+      })()}
+
+      <SmartStudyInput
+        onOpenStudy={(topic, mode, attachment) => onOpenStudy?.(topic, mode, attachment)}
+        onOpenLearn={() => onOpenLearn?.()}
+      />
+
+      {/* ── Quick actions ── */}
+      <div style={{ marginTop:14,marginBottom:4 }}>
+        <div style={{ fontSize:11,fontWeight:700,color:"#3949ab",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:9,fontFamily:"Syne,sans-serif" }}>Quick Actions</div>
+        <div style={{ display:"flex",gap:7,flexWrap:"wrap" }}>
+          {dueCards?.length > 0 && (
+            <button onClick={onStartSpaced} style={{
+              display:"inline-flex",alignItems:"center",gap:6,padding:"7px 13px",borderRadius:20,
+              background:"#001a10",border:"0.5px solid #1a4a30",color:"#81c784",
+              fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"Manrope,sans-serif",
+            }}>🧠 Review {dueCards.length} cards</button>
+          )}
+          {weakest?.s && (
+            <button onClick={() => onStartSubject(weakest.s.id)} style={{
+              display:"inline-flex",alignItems:"center",gap:6,padding:"7px 13px",borderRadius:20,
+              background:"#1a1500",border:"0.5px solid #4a3a00",color:"#ffd54f",
+              fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"Manrope,sans-serif",
+            }}>🎯 Boost {weakest.s.label} ({weakest.m}%)</button>
+          )}
+          <button onClick={() => onOpenTab("bank")} style={{
+            display:"inline-flex",alignItems:"center",gap:6,padding:"7px 13px",borderRadius:20,
+            background:"#0a0c1e",border:"0.5px solid #2a2d4a",color:"#9fa8da",
+            fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"Manrope,sans-serif",
+          }}>📝 Past papers</button>
+          <button onClick={() => onOpenTab("lectures")} style={{
+            display:"inline-flex",alignItems:"center",gap:6,padding:"7px 13px",borderRadius:20,
+            background:"#0a0c1e",border:"0.5px solid #2a2d4a",color:"#9fa8da",
+            fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"Manrope,sans-serif",
+          }}>🎧 Lecture notes</button>
+        </div>
       </div>
 
       <h3 style={{ marginTop: 18 }}>📅 Today's plan</h3>

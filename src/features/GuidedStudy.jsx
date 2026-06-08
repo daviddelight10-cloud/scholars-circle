@@ -1,5 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { callAI } from "../lib/aiClient";
+
+// ─── Session history helpers ────────────────────────────────────────────────────
+const SESSIONS_KEY = "sc_guided_sessions";
+function loadSessions() { try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || "[]"); } catch { return []; } }
+function saveSession(entry) {
+  try {
+    const sessions = loadSessions().filter(s => s.topic !== entry.topic).slice(0, 19);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify([entry, ...sessions]));
+  } catch {}
+}
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
@@ -18,6 +28,8 @@ const D = {
 
 const STYLES = `
   @keyframes gs-spin { to { transform: rotate(360deg); } }
+  @keyframes gs-slide-in { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
+  .gs-history-panel { animation: gs-slide-in 0.25s ease; }
   @keyframes gs-in   { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
   @keyframes gs-pop  { 0%{transform:scale(0.95);opacity:0} 100%{transform:scale(1);opacity:1} }
   .gs-animate { animation: gs-in 0.3s ease forwards; }
@@ -207,7 +219,15 @@ function ProgressBar({ current, total }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function GuidedStudy({ aiConfig, initialTopic = "" }) {
+const LAUNCH_MSGS = {
+  "auto-roadmap": "Building your learning roadmap\u2026",
+  "flashcards":   "Generating flashcards\u2026",
+  "explain":      "Building roadmap and explanation\u2026",
+  "quiz":         "Building roadmap and preparing quiz\u2026",
+};
+
+export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null }) {
+  const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");
   const [topic, setTopic]               = useState(initialTopic);
   const [pastedContent, setPasted]      = useState("");
@@ -222,13 +242,103 @@ export default function GuidedStudy({ aiConfig, initialTopic = "" }) {
   const [flashcards, setFlashcards]     = useState([]);
   const [cardIdx, setCardIdx]           = useState(0);
   const [cardFlipped, setFlipped]       = useState(false);
-  const [loading, setLoading]           = useState(false);
-  const [loadingMsg, setLoadingMsg]     = useState("");
+  const [loading, setLoading]           = useState(isAutoLaunch);
+  const [loadingMsg, setLoadingMsg]     = useState(isAutoLaunch ? (LAUNCH_MSGS[startMode] || "Working\u2026") : "");
+  const [autoError, setAutoError]       = useState("");
   const [sectionStep, setSectionStep]   = useState("explain"); // explain | question | feedback
+  const [attachment, setAttachment]     = useState(initialAttachment);
+  const [isOnline, setIsOnline]         = useState(navigator.onLine);
+  const [showHistory, setShowHistory]   = useState(false);
+  const [sessions, setSessions]         = useState(() => loadSessions());
+  const mountedRef                      = useRef(true);
+
+  // ── Online/offline listener ──
+  useEffect(() => {
+    const goOnline  = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online",  goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => { mountedRef.current = false; window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
+  }, []);
+
+  // ── Auto-launch when startMode is provided with a topic ──
+  useEffect(() => {
+    if (!initialTopic.trim() || startMode === "input") return;
+    const topicStr = attachment?.content
+      ? `${initialTopic}\n\nContext provided by student:\n${attachment.content.slice(0, 2000)}`
+      : initialTopic;
+    if (startMode === "auto-roadmap") {
+      autoRoadmap(topicStr);
+    } else if (startMode === "flashcards") {
+      autoFlashcards(topicStr);
+    } else if (startMode === "explain" || startMode === "quiz") {
+      autoExplain(topicStr, startMode);
+    }
+  // eslint-disable-next-line
+  }, []);
+
+  function offlineCheck() {
+    if (!navigator.onLine) { setAutoError("You're offline \u2014 please reconnect to use AI features."); return true; }
+    return false;
+  }
+
+  async function autoRoadmap(topicStr) {
+    if (offlineCheck()) return;
+    setAutoError(""); setLoading(true); setLoadingMsg("Building your learning roadmap\u2026");
+    try {
+      const result = await aiRoadmap(topicStr, aiConfig);
+      if (result?.sections?.length) {
+        setRoadmap(result); setStudied(new Set()); setPhase("roadmap");
+        const entry = { topic: initialTopic || topicStr, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
+        saveSession(entry); setSessions(loadSessions());
+      } else setAutoError("Couldn't parse the roadmap \u2014 please try again.");
+    } catch (e) {
+      setAutoError("AI request failed: " + (e?.message || "check your connection"));
+    } finally { setLoading(false); }
+  }
+
+  async function autoFlashcards(topicStr) {
+    if (offlineCheck()) return;
+    setAutoError(""); setFlashcards([]); setCardIdx(0); setFlipped(false);
+    setPhase("flashcards"); setLoading(true); setLoadingMsg("Generating flashcards\u2026");
+    try {
+      const fakeSection = [{ id: 1, title: initialTopic }];
+      const cards = await aiFlashcards(initialTopic, fakeSection, aiConfig);
+      if (cards?.length) setFlashcards(cards);
+      else setAutoError("Couldn't generate flashcards \u2014 please try again.");
+    } catch (e) {
+      setAutoError("AI request failed: " + (e?.message || "check your connection"));
+    } finally { setLoading(false); }
+  }
+
+  async function autoExplain(topicStr, mode) {
+    if (offlineCheck()) return;
+    setAutoError(""); setLoading(true); setLoadingMsg("Building roadmap\u2026");
+    try {
+      const result = await aiRoadmap(topicStr, aiConfig);
+      if (!result?.sections?.length) { setAutoError("Couldn't build a roadmap \u2014 please try again."); return; }
+      setRoadmap(result); setStudied(new Set());
+      const firstSection = result.sections[0];
+      setActive(firstSection); setSectionStep("explain"); setPhase("section");
+      setLoadingMsg("Generating explanation\u2026");
+      const text = await aiExplain(initialTopic, firstSection, aiConfig);
+      setExplanation(text);
+      setStudied(new Set([firstSection.id]));
+      if (mode === "quiz") {
+        setSectionStep("question");
+        setLoadingMsg("Generating a comprehension question\u2026");
+        const q = await aiQuestion(initialTopic, firstSection, text, aiConfig);
+        setQData(q);
+      }
+    } catch (e) {
+      setAutoError("AI request failed: " + (e?.message || "check your connection"));
+    } finally { setLoading(false); }
+  }
 
   // ── Handlers ──
   async function handleRoadmap() {
     if (!topic.trim()) return;
+    if (offlineCheck()) return;
     setLoading(true); setLoadingMsg("Building your learning roadmap…");
     try {
       const fullTopic = pastedContent.trim()
@@ -239,6 +349,8 @@ export default function GuidedStudy({ aiConfig, initialTopic = "" }) {
         setRoadmap(result);
         setStudied(new Set());
         setPhase("roadmap");
+        const entry = { topic: topic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
+        saveSession(entry); setSessions(loadSessions());
       }
     } finally { setLoading(false); }
   }
@@ -308,10 +420,38 @@ export default function GuidedStudy({ aiConfig, initialTopic = "" }) {
     }}>{children}</div>
   );
 
-  // ── INPUT PHASE ──
+  // ── INPUT PHASE (or auto-loading) ──
+  if (phase === "input" && loading) return wrap(<><style>{STYLES}</style><Spinner message={loadingMsg} /></>);
+
   if (phase === "input") return wrap(
     <>
       <style>{STYLES}</style>
+
+      {/* Offline banner */}
+      {!isOnline && (
+        <div style={{
+          background:"#1a1000", border:"0.5px solid #f57c00", borderRadius:12,
+          padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8,
+        }}>
+          <span style={{ fontSize:16 }}>📶</span>
+          <span style={{ fontSize:12, color:"#ffb74d", fontFamily:"Manrope,sans-serif" }}>You're offline — please reconnect to use AI features.</span>
+        </div>
+      )}
+
+      {/* Auto-error banner */}
+      {autoError && (
+        <div style={{
+          background:"#1a0a0a", border:"0.5px solid #e53935", borderRadius:12,
+          padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8,
+        }}>
+          <span style={{ fontSize:16 }}>⚠️</span>
+          <span style={{ fontSize:12, color:"#ef9a9a", fontFamily:"Manrope,sans-serif", flex:1 }}>{autoError}</span>
+          <button
+            onClick={() => { setAutoError(""); isAutoLaunch && (topic.trim() ? handleRoadmap() : null); }}
+            style={{ background:"#e53935", border:"none", borderRadius:8, padding:"4px 10px", fontSize:11, color:"#fff", cursor:"pointer", fontFamily:"Manrope,sans-serif", fontWeight:600 }}
+          >Retry</button>
+        </div>
+      )}
 
       {/* Hero */}
       <div style={{ textAlign:"center", padding:"24px 0 20px" }}>
@@ -366,9 +506,47 @@ export default function GuidedStudy({ aiConfig, initialTopic = "" }) {
         />
       )}
 
-      <Btn onClick={handleRoadmap} disabled={!topic.trim() || loading} style={{ width:"100%", justifyContent:"center", padding:"11px 16px" }}>
+      <Btn onClick={handleRoadmap} disabled={!topic.trim() || loading || !isOnline} style={{ width:"100%", justifyContent:"center", padding:"11px 16px" }}>
         {loading ? <Spinner message="" /> : "Generate Learning Roadmap →"}
       </Btn>
+
+      {/* Recent sessions */}
+      {sessions.length > 0 && (
+        <div style={{ marginTop:16 }}>
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            style={{ background:"none", border:`0.5px solid ${D.line}`, borderRadius:10, padding:"7px 14px", cursor:"pointer", fontSize:11, color:D.muted, fontFamily:"Manrope,sans-serif", display:"flex", alignItems:"center", gap:6 }}
+          >
+            📂 Recent Sessions ({sessions.length})
+            <span style={{ fontSize:9 }}>{showHistory ? "▲" : "▼"}</span>
+          </button>
+          {showHistory && (
+            <div className="gs-history-panel" style={{
+              marginTop:8, background:D.card, border:`0.5px solid ${D.line}`,
+              borderRadius:14, overflow:"hidden",
+            }}>
+              {sessions.map((s, i) => (
+                <div
+                  key={i}
+                  onClick={() => { setTopic(s.topic); setShowHistory(false); }}
+                  style={{
+                    padding:"10px 14px", borderBottom: i < sessions.length-1 ? `0.5px solid ${D.line}` : "none",
+                    cursor:"pointer", display:"flex", flexDirection:"column", gap:3,
+                    transition:"background 0.15s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = D.faint}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                >
+                  <div style={{ fontSize:12, fontWeight:600, color:D.text, fontFamily:"Manrope,sans-serif" }}>{s.topic}</div>
+                  <div style={{ fontSize:10, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
+                    {new Date(s.date).toLocaleDateString(undefined,{month:"short",day:"numeric"})} · {s.sections?.length || 0} sections
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading && <Spinner message={loadingMsg} />}
 

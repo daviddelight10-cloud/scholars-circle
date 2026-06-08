@@ -776,7 +776,7 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
 }
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
-export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat", studyTopic = "" }) {
+export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat", studyTopic = "", studyMode = "input", studyAttachment = null }) {
   const [view, setView]             = useState(defaultView || "chat");
   const [messages, setMsgs]         = useState([]);
   const [input, setInput]           = useState("");
@@ -1135,7 +1135,12 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
         {/* ══ VIEW: STUDY (Guided Study) ══ */}
         {view === "study" && (
-          <GuidedStudy aiConfig={aiConfig} initialTopic={studyTopic} />
+          <GuidedStudy
+            aiConfig={aiConfig}
+            initialTopic={studyTopic}
+            startMode={studyMode}
+            initialAttachment={studyAttachment}
+          />
         )}
 
       </div>

@@ -749,6 +749,8 @@ const GamificationHub = lazy(() => import("./features/Gamification"));
 
 
 import { ExamSimulator, selectAdaptiveQuestions, calculateSessionAnalytics, PostSessionInsights } from "./features/EnhancedSession";
+import StatsPanel from "./features/StatsPanel";
+import AdminDashboard from "./features/AdminDashboard";
 
 
 
@@ -2643,6 +2645,10 @@ function App() {
 
   const [aiStudyTopic, setAiStudyTopic] = useState("");
 
+  const [aiStudyMode, setAiStudyMode] = useState("input");
+
+  const [aiStudyAttachment, setAiStudyAttachment] = useState(null);
+
   const [showDemoTour, setShowDemoTour] = useState(false);
 
   const [tourStep, setTourStep] = useState(0);
@@ -3409,7 +3415,9 @@ function App() {
 
           let validatedStreak = data.progress.streak ?? 0;
 
-          const backendLastStudied = data.progress.lastStudied;
+          const backendLastStudied = data.progress.lastStudied
+            ? new Date(data.progress.lastStudied).toISOString().split('T')[0]
+            : null;
 
           if (backendLastStudied && validatedStreak > 0) {
 
@@ -3453,7 +3461,7 @@ function App() {
 
           setSrData(data.progress.srData || {});
 
-          setLastStudied(data.progress.lastStudied || null);
+          setLastStudied(data.progress.lastStudied ? new Date(data.progress.lastStudied).toISOString().split('T')[0] : null);
 
           if (data.progress.themePack) setThemePack(data.progress.themePack);
 
@@ -10457,7 +10465,7 @@ function App() {
 
           onOpenLearn={() => { setAiDefaultView("learn"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
-          onOpenStudy={(topic) => { setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiKey(k => k + 1); setTab("aitutor"); }}
+          onOpenStudy={(topic, mode, attachment) => { setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiKey(k => k + 1); setTab("aitutor"); }}
 
           subjects={subjects}
 
@@ -11539,317 +11547,23 @@ function App() {
 
         {progressSubTab === "stats" && (
 
-        <div className="card">
+        <div>
 
 
 
-          <h2>📊 Deep Analytics</h2>
+          <h2>📊 Analytics</h2>
 
-
-
-          <p className="muted">
-
-
-
-            Avg Score:{" "}
-
-
-
-            {history.length ? Math.round(history.reduce((a, h) => a + percent(h.score, h.total), 0) / history.length) : 0}
-
-
-
-            % | Weekly Progress: {stats.sessions}/{stats.weeklyGoal}
-
-
-
-          </p>
-
-
-
-          <h3>Recent Exam Percentages</h3>
-
-
-
-          <div className="history">
-
-
-
-            {history
-
-
-
-              .filter((h) => h.mode === "exam")
-
-
-
-              .slice(-8)
-
-
-
-              .reverse()
-
-
-
-              .map((h, i) => (
-
-
-
-                <div key={`${h.ts}-${i}`} className="history-row">
-
-
-
-                  <span>{h.subjectLabel}</span>
-
-
-
-                  <strong>{percent(h.score, h.total)}%</strong>
-
-
-
-                </div>
-
-
-
-              ))}
-
-
-
-          </div>
-
-
-
-          <h3>Mastery Chart</h3>
-
-
-
-          {subjects.map((s) => (
-
-
-
-            <div key={s.id} className="chart-row">
-
-
-
-              <span>{s.label}</span>
-
-
-
-              <div className="bar">
-
-
-
-                <div className="fill" style={{ width: `${mastery[s.id] || 0}%` }} />
-
-
-
-              </div>
-
-
-
-              <strong>{mastery[s.id] || 0}%</strong>
-
-
-
-            </div>
-
-
-
-          ))}
-
-
-
-          <h3>Performance Timeline</h3>
-
-
-
-          <div className="sparkline">
-
-
-
-            {history.slice(-20).map((h, i) => (
-
-
-
-              <div key={`${h.ts}-${i}`} className="spark" style={{ height: `${Math.max(8, percent(h.score, h.total))}%` }} title={`${h.subjectLabel} ${percent(h.score, h.total)}%`} />
-
-
-
-            ))}
-
-
-
-          </div>
-
-
-
-          <h3>Confidence Heatmap</h3>
-
-
-
-          <p className="muted" style={{ fontSize: 13 }}>Each square = one answered question. Green = correct + sure, Red = wrong, Yellow = unsure.</p>
-
-
-
-          <ConfidenceHeatmap history={history} />
-
-
-
-          <button
-
-
-
-            onClick={() => {
-
-
-
-              const canvas = document.createElement("canvas");
-
-
-
-              canvas.width = 900; canvas.height = 540;
-
-
-
-              const ctx = canvas.getContext("2d");
-
-
-
-              const grad = ctx.createLinearGradient(0, 0, 900, 540);
-
-
-
-              grad.addColorStop(0, "#0b0f14"); grad.addColorStop(1, "#131b26");
-
-
-
-              ctx.fillStyle = grad; ctx.fillRect(0, 0, 900, 540);
-
-
-
-              ctx.strokeStyle = "#2dd4a0"; ctx.lineWidth = 6;
-
-
-
-              ctx.strokeRect(18, 18, 864, 504);
-
-
-
-              ctx.strokeStyle = "#818cf8"; ctx.lineWidth = 2;
-
-
-
-              ctx.strokeRect(28, 28, 844, 484);
-
-
-
-              ctx.fillStyle = "#2dd4a0"; ctx.font = "bold 38px Inter, sans-serif";
-
-
-
-              ctx.textAlign = "center"; ctx.fillText("The Scholar's Circle", 450, 100);
-
-
-
-              ctx.fillStyle = "#eaf0f8"; ctx.font = "22px Inter, sans-serif";
-
-
-
-              ctx.fillText("Certificate of Achievement", 450, 145);
-
-
-
-              ctx.fillStyle = "#aab4c4"; ctx.font = "16px Inter, sans-serif";
-
-
-
-              ctx.fillText("This certifies that", 450, 210);
-
-
-
-              ctx.fillStyle = "#facc15"; ctx.font = "bold 32px Inter, sans-serif";
-
-
-
-              ctx.fillText(auth.user.username, 450, 255);
-
-
-
-              ctx.fillStyle = "#eaf0f8"; ctx.font = "16px Inter, sans-serif";
-
-
-
-              ctx.fillText("has demonstrated academic dedication and learning excellence.", 450, 295);
-
-
-
-              ctx.fillStyle = "#2dd4a0"; ctx.font = "bold 18px Inter, sans-serif";
-
-
-
-              ctx.fillText(`XP Earned: ${stats.xp}  |  Sessions: ${stats.sessions}  |  Streak: ${stats.streak} days`, 450, 350);
-
-
-
-              const topS = subjects.map((s) => ({ label: s.label, m: mastery[s.id] || 0 })).sort((a,b) => b.m - a.m).slice(0,3);
-
-
-
-              ctx.fillStyle = "#818cf8"; ctx.font = "14px Inter, sans-serif";
-
-
-
-              ctx.fillText("Top Subjects: " + topS.map(s => `${s.label} ${s.m}%`).join("  |  "), 450, 385);
-
-
-
-              ctx.fillStyle = "#aab4c4"; ctx.font = "14px Inter, sans-serif";
-
-
-
-              ctx.fillText(`Issued: ${new Date().toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric" })}`, 450, 460);
-
-
-
-              canvas.toBlob((blob) => {
-
-
-
-                const a = document.createElement("a");
-
-
-
-                a.href = URL.createObjectURL(blob);
-
-
-
-                a.download = `scholars_circle_cert_${auth.user.username}.png`;
-
-
-
-                a.click();
-
-
-
-              });
-
-
-
+          <StatsPanel
+            history={history}
+            stats={stats}
+            subjects={subjects}
+            mastery={mastery}
+            aiConfig={aiConfig}
+            onRePractice={(missed) => {
+              setCustomQuestions(prev => [...missed, ...prev]);
+              setTab("practice");
             }}
-
-
-
-          >
-
-
-
-            Download Certificate (PNG)
-
-
-
-          </button>
-
-
+          />
 
         </div>
 
@@ -11862,141 +11576,13 @@ function App() {
 
 
       {tab === "admin" && isTeacher && (
-
-
-
-        <div className="card">
-
-
-
-          <div className="row">
-
-
-
-            <h2>Admin</h2>
-
-
-
-            <button onClick={refreshAdmin} disabled={adminLoading || !token}>
-
-
-
-              {adminLoading ? "Loading..." : "Refresh"}
-
-
-
-            </button>
-
-
-
-          </div>
-
-
-
-          {!token && <p className="muted">Backend token missing. Log in via backend to use admin view.</p>}
-
-
-
-          <h3>Registered Users</h3>
-
-
-
-          <div className="history">
-
-
-
-            {adminUsers.length === 0 && <p className="muted">No users loaded yet.</p>}
-
-
-
-            {adminUsers.map((u) => (
-
-
-
-              <div key={u.id} className="history-row">
-
-
-
-                <span>
-
-
-
-                  {u.username} ({u.role}) — {u.email}
-
-
-
-                </span>
-
-
-
-                <strong>{new Date(u.createdAt).toLocaleDateString()}</strong>
-
-
-
-              </div>
-
-
-
-            ))}
-
-
-
-          </div>
-
-
-
-          <h3>Recent Logins</h3>
-
-
-
-          <div className="history">
-
-
-
-            {adminLogins.length === 0 && <p className="muted">No login events loaded yet.</p>}
-
-
-
-            {adminLogins.slice(0, 30).map((e) => (
-
-
-
-              <div key={e.id} className="history-row">
-
-
-
-                <span>
-
-
-
-                  {e.user?.username} — {new Date(e.createdAt).toLocaleString()}
-
-
-
-                </span>
-
-
-
-                <strong>{(e.ip || "").toString().slice(0, 20)}</strong>
-
-
-
-              </div>
-
-
-
-            ))}
-
-
-
-          </div>
-
-
-
-        </div>
-
-
-
+        <AdminDashboard
+          adminUsers={adminUsers}
+          adminLogins={adminLogins}
+          adminLoading={adminLoading}
+          onRefresh={refreshAdmin}
+          token={token}
+        />
       )}
 
 
@@ -13085,6 +12671,8 @@ function App() {
           key={aiKey}
           defaultView={aiDefaultView}
           studyTopic={aiStudyTopic}
+          studyMode={aiStudyMode}
+          studyAttachment={aiStudyAttachment}
           aiConfig={aiConfig}
           subjects={subjects}
           onExit={() => setTab("today")}
@@ -15482,731 +15070,244 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
 
 
 
+  const [classTab, setClassTab] = useState("announcements");
+  const isHost = teacherMode && selectedClassroom?.createdById === (currentUser?.id || currentUser?.sub);
+
+  const CL = {
+    card: "#0d0f1f", line: "#1e2140", border: "#3949ab",
+    text: "#e8eaf6", muted: "#7b82b8", hint: "#4a5080", faint: "#12142a",
+  };
+
   return (
+    <div style={{ fontFamily: "Manrope, sans-serif" }}>
 
-    <div className="card">
-
-      <div className="row" style={{ marginBottom: 16 }}>
-
-        <h2>🏫 Classroom</h2>
-
-        {teacherMode ? (
-
-          <button onClick={() => setShowCreateClass(true)} style={{ marginLeft: "auto" }}>
-
-            + New Class
-
-          </button>
-
-        ) : (
-
-          <button onClick={() => setShowJoinClass(true)} style={{ marginLeft: "auto" }}>
-
-            🔗 Join Class
-
-          </button>
-
-        )}
-
+      {/* ── Top bar ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: CL.text, fontFamily: "Syne,sans-serif", flex: 1 }}>🏫 Classroom</div>
+        {teacherMode
+          ? <button onClick={() => setShowCreateClass(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 10, padding: "7px 14px", fontSize: 12, color: CL.border, cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>+ New Class</button>
+          : <button onClick={() => setShowJoinClass(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 10, padding: "7px 14px", fontSize: 12, color: CL.border, cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>🔗 Join Class</button>
+        }
       </div>
 
+      {loading && !initialLoadDone && <p style={{ color: CL.muted, fontSize: 13 }}>Loading…</p>}
 
+      {/* ── Empty states ── */}
+      {initialLoadDone && classrooms.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 20px", background: CL.card, border: `0.5px solid ${CL.line}`, borderRadius: 16 }}>
+          <div style={{ fontSize: 44, marginBottom: 12 }}>🏫</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: CL.text, marginBottom: 6, fontFamily: "Syne,sans-serif" }}>
+            {teacherMode ? "No classrooms yet" : "You haven't joined a classroom"}
+          </div>
+          <div style={{ fontSize: 12, color: CL.muted, marginBottom: 16 }}>
+            {teacherMode ? "Create your first classroom to get started." : "Ask your teacher for the Classroom ID to join."}
+          </div>
+          {teacherMode
+            ? <button onClick={() => setShowCreateClass(true)} style={{ background: "#1a237e", border: `0.5px solid ${CL.border}`, borderRadius: 10, padding: "8px 18px", fontSize: 12, color: "#c5cae9", cursor: "pointer" }}>+ Create Classroom</button>
+            : <button onClick={() => setShowJoinClass(true)} style={{ background: "#1a237e", border: `0.5px solid ${CL.border}`, borderRadius: 10, padding: "8px 18px", fontSize: 12, color: "#c5cae9", cursor: "pointer" }}>🔗 Join a Classroom</button>
+          }
+        </div>
+      )}
 
-      {/* Classroom selector */}
-
+      {/* ── Two-panel layout ── */}
       {classrooms.length > 0 && (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
 
-        <div style={{ marginBottom: 16 }}>
-
-          <select
-
-            value={selectedClassroom?.id || ""}
-
-            onChange={(e) => {
-
-              const classroom = classrooms.find((c) => c.id === e.target.value);
-
-              setSelectedClassroom(classroom);
-
-            }}
-
-            style={{ padding: "8px 14px", minWidth: 200 }}
-
-          >
-
-            {classrooms.map((c) => (
-
-              <option key={c.id} value={c.id}>
-
-                {c.name} {c._count ? `(${c._count.members} students)` : ""}
-
-              </option>
-
-            ))}
-
-          </select>
-
-          {teacherMode && selectedClassroom && (
-
-            <div style={{ marginTop: 8, fontSize: 12, color: "#9ca3af" }}>
-
-              📋 Classroom ID: <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 6px", borderRadius: 4 }}>{selectedClassroom.id}</code>
-
-              <button
-
-                onClick={() => navigator.clipboard.writeText(selectedClassroom.id)}
-
-                style={{ marginLeft: 8, padding: "2px 8px", fontSize: 11 }}
-
+          {/* Left sidebar — classroom list */}
+          <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+            {classrooms.map(c => (
+              <div
+                key={c.id}
+                onClick={() => setSelectedClassroom(c)}
+                style={{
+                  background: selectedClassroom?.id === c.id ? "#1a237e" : CL.card,
+                  border: `0.5px solid ${selectedClassroom?.id === c.id ? CL.border : CL.line}`,
+                  borderRadius: 12, padding: "10px 12px", cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
               >
-
-                Copy
-
-              </button>
-
-            </div>
-
-          )}
-
-        </div>
-
-      )}
-
-
-
-      {loading && initialLoadDone === false && <p className="muted">Loading...</p>}
-
-
-
-      {/* Empty state - no classrooms yet */}
-
-      {initialLoadDone && classrooms.length === 0 && !teacherMode && (
-
-        <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>
-
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🏫</div>
-
-          <p>No classrooms yet</p>
-
-          <p style={{ fontSize: 12, marginBottom: 16 }}>Ask your teacher for the Classroom ID to join.</p>
-
-          <button onClick={() => setShowJoinClass(true)}>🔗 Join a Classroom</button>
-
-        </div>
-
-      )}
-
-
-
-      {/* Teacher: no classrooms message */}
-
-      {initialLoadDone && classrooms.length === 0 && teacherMode && (
-
-        <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>
-
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🏫</div>
-
-          <p>No classrooms created yet</p>
-
-          <button onClick={() => setShowCreateClass(true)} style={{ marginTop: 12 }}>
-
-            + Create Your First Classroom
-
-          </button>
-
-        </div>
-
-      )}
-
-
-
-      {/* Exam Countdown */}
-
-      {selectedClassroom?.exams && selectedClassroom.exams.length > 0 && (
-
-        <div style={{
-
-          background: "linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(245, 158, 11, 0.1))",
-
-          padding: 16,
-
-          borderRadius: 12,
-
-          marginBottom: 16,
-
-          border: "1px solid rgba(239, 68, 68, 0.3)"
-
-        }}>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-
-            <span style={{ fontSize: 24 }}>📅</span>
-
-            <div>
-
-              <div style={{ fontWeight: 600, color: "#fbbf24" }}>
-
-                Next Exam: {selectedClassroom.exams[0]?.title}
-
+                <div style={{ fontSize: 12, fontWeight: 700, color: CL.text, fontFamily: "Manrope,sans-serif", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+                <div style={{ fontSize: 10, color: CL.hint }}>{c._count?.members ?? 0} members</div>
               </div>
+            ))}
+          </div>
 
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>
+          {/* Right panel — classroom content */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {selectedClassroom && (
+              <>
+                {/* Classroom header */}
+                <div style={{ background: CL.card, border: `0.5px solid ${CL.line}`, borderRadius: 14, padding: "12px 16px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: CL.text, fontFamily: "Syne,sans-serif" }}>{selectedClassroom.name}</div>
+                      {teacherMode && (
+                        <div style={{ fontSize: 10, color: CL.hint, marginTop: 3, display: "flex", alignItems: "center", gap: 6 }}>
+                          ID: <code style={{ background: "#0a0c1e", padding: "1px 6px", borderRadius: 5, color: CL.muted }}>{selectedClassroom.id}</code>
+                          <button onClick={() => navigator.clipboard.writeText(selectedClassroom.id)} style={{ background: "none", border: "none", color: CL.border, cursor: "pointer", fontSize: 10, padding: 0 }}>Copy</button>
+                        </div>
+                      )}
+                    </div>
+                    {/* Exam countdown badge */}
+                    {selectedClassroom.exams?.length > 0 && (
+                      <div style={{ background: "#1a0800", border: "0.5px solid #4a2000", borderRadius: 10, padding: "5px 10px", fontSize: 11, color: "#ffb74d" }}>
+                        📅 {getDaysUntilExam(selectedClassroom.exams[0].examDate)}d until {selectedClassroom.exams[0].title}
+                        <button onClick={() => { if (window.confirm("Start Exam Mode?")) window.dispatchEvent(new CustomEvent("startExamMode", { detail: selectedClassroom.exams[0] })); }}
+                          style={{ marginLeft: 8, background: "#ef4444", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 10, color: "#fff", cursor: "pointer" }}>Prep</button>
+                      </div>
+                    )}
+                    {teacherMode && (
+                      <button onClick={() => setShowExamModal(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 9, padding: "5px 11px", fontSize: 11, color: CL.muted, cursor: "pointer" }}>📅 Add Exam</button>
+                    )}
+                  </div>
+                </div>
 
-                {selectedClassroom.exams[0]?.examDate && (
+                {/* Pill tabs */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                  {[
+                    { id: "announcements", label: "📢 Announcements" },
+                    { id: "sessions",      label: "🎥 Live Sessions" },
+                    { id: "assignments",   label: "📝 Assignments" },
+                    { id: "docs",          label: "📄 Docs & Links" },
+                    { id: "attendance",    label: "📋 Attendance" },
+                  ].map(t => (
+                    <button key={t.id} onClick={() => setClassTab(t.id)} style={{
+                      background: classTab === t.id ? "#1a237e" : CL.faint,
+                      border: `0.5px solid ${classTab === t.id ? CL.border : CL.line}`,
+                      borderRadius: 20, padding: "6px 13px", fontSize: 11,
+                      color: classTab === t.id ? "#c5cae9" : CL.hint,
+                      cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600,
+                    }}>{t.label}</button>
+                  ))}
+                </div>
 
-                  <>
-
-                    {getDaysUntilExam(selectedClassroom.exams[0].examDate)} days left
-
-                    {" "} ({new Date(selectedClassroom.exams[0].examDate).toLocaleDateString()})
-
-                  </>
-
+                {/* ── Announcements tab ── */}
+                {classTab === "announcements" && (
+                  <div>
+                    {teacherMode && (
+                      <div style={{ background: CL.card, border: `0.5px solid ${CL.line}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10 }}>
+                        <input value={newAnnouncement.title} onChange={e => setNewAnnouncement(p => ({ ...p, title: e.target.value }))} placeholder="Announcement title" style={{ width: "100%", boxSizing: "border-box", background: "#0a0c1e", border: `0.5px solid ${CL.line}`, borderRadius: 9, padding: "8px 12px", fontSize: 12, color: CL.text, outline: "none", marginBottom: 7 }} />
+                        <textarea value={newAnnouncement.content} onChange={e => setNewAnnouncement(p => ({ ...p, content: e.target.value }))} placeholder="Announcement content…" rows={3} style={{ width: "100%", boxSizing: "border-box", background: "#0a0c1e", border: `0.5px solid ${CL.line}`, borderRadius: 9, padding: "8px 12px", fontSize: 12, color: CL.muted, outline: "none", resize: "vertical", marginBottom: 7 }} />
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: CL.muted, cursor: "pointer" }}>
+                            <input type="checkbox" checked={newAnnouncement.isImportant} onChange={e => setNewAnnouncement(p => ({ ...p, isImportant: e.target.checked }))} />⚠️ Important
+                          </label>
+                          <button onClick={createAnnouncement} style={{ marginLeft: "auto", background: "#1a237e", border: `0.5px solid ${CL.border}`, borderRadius: 9, padding: "6px 14px", fontSize: 11, color: "#c5cae9", cursor: "pointer", fontWeight: 600 }}>Post</button>
+                        </div>
+                      </div>
+                    )}
+                    {(selectedClassroom.announcements || []).length === 0
+                      ? <p style={{ fontSize: 12, color: CL.hint, padding: "16px 4px" }}>No announcements yet.</p>
+                      : (selectedClassroom.announcements || []).map(a => (
+                        <div key={a.id} style={{ background: a.isImportant ? "#140800" : CL.card, border: `0.5px solid ${a.isImportant ? "#4a2000" : CL.line}`, borderRadius: 12, padding: "11px 14px", marginBottom: 8 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: a.isImportant ? "#ffb74d" : CL.text, marginBottom: 4 }}>{a.isImportant ? "⚠️ " : ""}{a.title}</div>
+                          <div style={{ fontSize: 12, color: CL.muted, lineHeight: 1.6 }}>{a.content}</div>
+                          <div style={{ fontSize: 10, color: CL.hint, marginTop: 5 }}>{new Date(a.createdAt).toLocaleString()}</div>
+                        </div>
+                      ))
+                    }
+                  </div>
                 )}
 
-              </div>
-
-            </div>
-
-            <button
-
-              onClick={() => {
-
-                // Exam mode - filter weak topics
-
-                if (window.confirm("Start Exam Mode? This will prioritize your weak topics for practice.")) {
-
-                  // Navigate to practice with weak topics
-
-                  window.dispatchEvent(new CustomEvent("startExamMode", { detail: selectedClassroom.exams[0] }));
-
-                }
-
-              }}
-
-              style={{
-
-                marginLeft: "auto",
-
-                background: "linear-gradient(135deg, #ef4444, #f97316)",
-
-                color: "white",
-
-                border: "none",
-
-                padding: "8px 16px",
-
-                borderRadius: 8,
-
-                cursor: "pointer"
-
-              }}
-
-            >
-
-              🎯 Exam Mode
-
-            </button>
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {/* Teacher: Create Exam */}
-
-      {teacherMode && selectedClassroom && (
-
-        <button onClick={() => setShowExamModal(true)} style={{ marginBottom: 16 }}>
-
-          📅 Add Exam
-
-        </button>
-
-      )}
-
-
-
-      {/* Live Sessions */}
-
-      {selectedClassroom && (
-
-        <div className="lesson-block" style={{ marginBottom: 16 }}>
-
-          <LiveSessionsPanel
-
-            classroomId={selectedClassroom.id}
-
-            classroomName={selectedClassroom.name}
-
-            isHost={teacherMode && selectedClassroom.createdById === (currentUser?.id || currentUser?.sub)}
-
-            currentUser={currentUser}
-
-            token={token}
-
-          />
-
-        </div>
-
-      )}
-
-
-
-      {/* Assignments + Grading */}
-
-      {selectedClassroom && (
-
-        <div className="lesson-block" style={{ marginBottom: 16 }}>
-
-          <ClassroomAssignmentsPanel
-
-            classroomId={selectedClassroom.id}
-
-            isHost={teacherMode && selectedClassroom.createdById === (currentUser?.id || currentUser?.sub)}
-
-            currentUser={currentUser}
-
-            token={token}
-
-          />
-
-        </div>
-
-      )}
-
-
-
-      {/* Attendance Analytics */}
-
-      {selectedClassroom && (
-
-        <div className="lesson-block" style={{ marginBottom: 16 }}>
-
-          <h3 style={{ marginTop: 0 }}>📋 Attendance</h3>
-
-          <AttendancePanel
-
-            classroomId={selectedClassroom.id}
-
-            isHost={teacherMode && selectedClassroom.createdById === (currentUser?.id || currentUser?.sub)}
-
-            token={token}
-
-          />
-
-        </div>
-
-      )}
-
-
-
-      {/* Links Section */}
-
-      {selectedClassroom && (
-
-        <div className="lesson-block" style={{ marginBottom: 16 }}>
-
-          <h3>📎 Quick Links</h3>
-
-
-
-          {teacherMode && (
-
-            <div className="row" style={{ marginBottom: 12 }}>
-
-              <input
-
-                value={newLinkTitle}
-
-                onChange={(e) => setNewLinkTitle(e.target.value)}
-
-                placeholder="Link name (e.g., 'Lecture Notes')"
-
-                style={{ flex: 1 }}
-
-              />
-
-              <input
-
-                value={newLinkUrl}
-
-                onChange={(e) => setNewLinkUrl(e.target.value)}
-
-                placeholder="https://..."
-
-                style={{ flex: 2 }}
-
-              />
-
-              <button onClick={addLink}>Add Link</button>
-
-            </div>
-
-          )}
-
-
-
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-
-            {(selectedClassroom.links || []).map((link) => (
-
-              <button
-
-                key={link.id}
-
-                onClick={() => setPopupLink(link)}
-
-                style={{
-
-                  background: "rgba(99, 102, 241, 0.1)",
-
-                  border: "1px solid rgba(99, 102, 241, 0.3)",
-
-                  padding: "8px 16px",
-
-                  borderRadius: 8,
-
-                  cursor: "pointer",
-
-                  display: "flex",
-
-                  alignItems: "center",
-
-                  gap: 8
-
-                }}
-
-              >
-
-                🔗 {link.title}
-
-              </button>
-
-            ))}
-
-            {(!selectedClassroom.links || selectedClassroom.links.length === 0) && (
-
-              <span className="muted">No links yet</span>
-
-            )}
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {/* Announcements Section */}
-
-      {selectedClassroom && (
-
-        <div className="lesson-block" style={{ marginBottom: 16 }}>
-
-          <h3>📢 Announcements</h3>
-
-
-
-          {teacherMode && (
-
-            <div style={{ marginBottom: 12 }}>
-
-              <input
-
-                value={newAnnouncement.title}
-
-                onChange={(e) => setNewAnnouncement((prev) => ({ ...prev, title: e.target.value }))}
-
-                placeholder="Announcement title"
-
-                style={{ width: "100%", marginBottom: 8 }}
-
-              />
-
-              <textarea
-
-                value={newAnnouncement.content}
-
-                onChange={(e) => setNewAnnouncement((prev) => ({ ...prev, content: e.target.value }))}
-
-                placeholder="Announcement content..."
-
-                style={{ width: "100%", minHeight: 60, marginBottom: 8 }}
-
-              />
-
-              <div className="row">
-
-                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
-                  <input
-
-                    type="checkbox"
-
-                    checked={newAnnouncement.isImportant}
-
-                    onChange={(e) => setNewAnnouncement((prev) => ({ ...prev, isImportant: e.target.checked }))}
-
-                  />
-
-                  ⚠️ Important (show as popup)
-
-                </label>
-
-                <button onClick={createAnnouncement}>Post Announcement</button>
-
-              </div>
-
-            </div>
-
-          )}
-
-
-
-          <div style={{ maxHeight: 200, overflowY: "auto" }}>
-
-            {(selectedClassroom.announcements || []).map((a) => (
-
-              <div
-
-                key={a.id}
-
-                style={{
-
-                  padding: 12,
-
-                  background: a.isImportant ? "rgba(239, 68, 68, 0.1)" : "rgba(30, 41, 59, 0.5)",
-
-                  borderRadius: 8,
-
-                  marginBottom: 8,
-
-                  border: a.isImportant ? "1px solid rgba(239, 68, 68, 0.3)" : "none"
-
-                }}
-
-              >
-
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>
-
-                  {a.isImportant && "⚠️ "}{a.title}
-
-                </div>
-
-                <div style={{ fontSize: 13, color: "#9ca3af" }}>{a.content}</div>
-
-                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-
-                  {new Date(a.createdAt).toLocaleString()}
-
-                </div>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {/* Documents Section */}
-
-      {selectedClassroom && (
-
-        <div className="lesson-block" style={{ marginBottom: 16 }}>
-
-          <h3>📄 Documents</h3>
-
-
-
-          {teacherMode && (
-
-            <div style={{ marginBottom: 12 }}>
-
-              <input
-
-                type="file"
-
-                accept=".pdf,.docx,.doc,.txt"
-
-                onChange={uploadDocument}
-
-                disabled={uploadingDoc}
-
-                style={{ marginBottom: 8 }}
-
-              />
-
-              {uploadingDoc && <span className="muted">Uploading...</span>}
-
-            </div>
-
-          )}
-
-
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-
-            {(selectedClassroom.documents || []).map((doc) => (
-
-              <div
-
-                key={doc.id}
-
-                style={{
-
-                  display: "flex",
-
-                  alignItems: "center",
-
-                  gap: 12,
-
-                  padding: 12,
-
-                  background: "rgba(30, 41, 59, 0.5)",
-
-                  borderRadius: 8
-
-                }}
-
-              >
-
-                <span style={{ fontSize: 20 }}>
-
-                  {doc.fileType === "pdf" ? "📕" : doc.fileType === "docx" ? "📘" : "📄"}
-
-                </span>
-
-                <div style={{ flex: 1 }}>
-
-                  <div style={{ fontWeight: 500 }}>{doc.title}</div>
-
-                  <div style={{ fontSize: 11, color: "#9ca3af" }}>
-
-                    {doc.fileType.toUpperCase()} • {(doc.fileSize / 1024).toFixed(1)} KB
-
+                {/* ── Live Sessions tab ── */}
+                {classTab === "sessions" && (
+                  <LiveSessionsPanel classroomId={selectedClassroom.id} classroomName={selectedClassroom.name} isHost={isHost} currentUser={currentUser} token={token} />
+                )}
+
+                {/* ── Assignments tab ── */}
+                {classTab === "assignments" && (
+                  <div>
+                    <ClassroomAssignmentsPanel classroomId={selectedClassroom.id} isHost={isHost} currentUser={currentUser} token={token} />
+                    {assignments.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: CL.border, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 8, fontFamily: "Syne,sans-serif" }}>LEGACY ASSIGNMENTS</div>
+                        {assignments.map(a => {
+                          const subj = subjects.find(s => s.id === a.subjectId);
+                          return (
+                            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, background: CL.card, border: `0.5px solid ${CL.line}`, borderRadius: 12, padding: "10px 14px", marginBottom: 7 }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: CL.text }}>{a.title}</div>
+                                <div style={{ fontSize: 10, color: CL.hint }}>{subj?.label || ""}{a.due ? ` · Due ${a.due}` : ""}</div>
+                              </div>
+                              <button onClick={() => onComplete(a.id)} style={{ background: a.done ? "#071410" : "#1a237e", border: `0.5px solid ${a.done ? "#0a3020" : CL.border}`, borderRadius: 9, padding: "5px 12px", fontSize: 11, color: a.done ? "#81c784" : "#c5cae9", cursor: "pointer" }}>{a.done ? "✓ Done" : "Mark Done"}</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
+                )}
 
-                </div>
+                {/* ── Docs & Links tab ── */}
+                {classTab === "docs" && (
+                  <div>
+                    {/* Links */}
+                    <div style={{ background: CL.card, border: `0.5px solid ${CL.line}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: CL.border, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10, fontFamily: "Syne,sans-serif" }}>QUICK LINKS</div>
+                      {teacherMode && (
+                        <div style={{ display: "flex", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
+                          <input value={newLinkTitle} onChange={e => setNewLinkTitle(e.target.value)} placeholder="Link name" style={{ flex: 1, minWidth: 100, background: "#0a0c1e", border: `0.5px solid ${CL.line}`, borderRadius: 9, padding: "7px 11px", fontSize: 11, color: CL.text, outline: "none" }} />
+                          <input value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} placeholder="https://…" style={{ flex: 2, minWidth: 140, background: "#0a0c1e", border: `0.5px solid ${CL.line}`, borderRadius: 9, padding: "7px 11px", fontSize: 11, color: CL.text, outline: "none" }} />
+                          <button onClick={addLink} style={{ background: "#1a237e", border: `0.5px solid ${CL.border}`, borderRadius: 9, padding: "7px 13px", fontSize: 11, color: "#c5cae9", cursor: "pointer" }}>Add</button>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                        {(selectedClassroom.links || []).map(link => (
+                          <button key={link.id} onClick={() => setPopupLink(link)} style={{ background: "#0a0c1e", border: `0.5px solid #2a2d6a`, borderRadius: 20, padding: "6px 13px", fontSize: 11, color: "#9fa8da", cursor: "pointer" }}>🔗 {link.title}</button>
+                        ))}
+                        {!(selectedClassroom.links?.length) && <span style={{ fontSize: 12, color: CL.hint }}>No links yet.</span>}
+                      </div>
+                    </div>
 
-                <button
+                    {/* Documents */}
+                    <div style={{ background: CL.card, border: `0.5px solid ${CL.line}`, borderRadius: 14, padding: "12px 14px" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: CL.border, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10, fontFamily: "Syne,sans-serif" }}>DOCUMENTS</div>
+                      {teacherMode && (
+                        <div style={{ marginBottom: 10 }}>
+                          <input type="file" accept=".pdf,.docx,.doc,.txt" onChange={uploadDocument} disabled={uploadingDoc} style={{ fontSize: 11 }} />
+                          {uploadingDoc && <span style={{ fontSize: 11, color: CL.muted, marginLeft: 8 }}>Uploading…</span>}
+                        </div>
+                      )}
+                      {(selectedClassroom.documents || []).map(doc => (
+                        <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0c1e", border: `0.5px solid ${CL.line}`, borderRadius: 11, padding: "9px 12px", marginBottom: 7 }}>
+                          <span style={{ fontSize: 18 }}>{doc.fileType === "pdf" ? "📕" : doc.fileType === "docx" ? "📘" : "📄"}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: CL.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
+                            <div style={{ fontSize: 10, color: CL.hint }}>{doc.fileType?.toUpperCase()} · {(doc.fileSize / 1024).toFixed(1)} KB</div>
+                          </div>
+                          <button onClick={async () => {
+                            try {
+                              const res = await fetch(`${API_BASE}/classroom/documents/${doc.id}/download`, { headers: { Authorization: `Bearer ${token}` } });
+                              if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `Download failed`); }
+                              const blob = await res.blob(); const url = URL.createObjectURL(blob);
+                              const link = document.createElement("a"); link.href = url; link.download = doc.filename || doc.title || "document";
+                              document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+                            } catch (err) { toast.error("Download failed: " + err.message); }
+                          }} style={{ background: "#071410", border: "0.5px solid #0a3020", borderRadius: 8, padding: "5px 10px", fontSize: 10, color: "#81c784", cursor: "pointer" }}>⬇️ Download</button>
+                        </div>
+                      ))}
+                      {!(selectedClassroom.documents?.length) && <span style={{ fontSize: 12, color: CL.hint }}>No documents yet.</span>}
+                    </div>
+                  </div>
+                )}
 
-                  onClick={async () => {
+                {/* ── Attendance tab ── */}
+                {classTab === "attendance" && (
+                  <AttendancePanel classroomId={selectedClassroom.id} isHost={isHost} token={token} />
+                )}
 
-                    try {
-
-                      const res = await fetch(`${API_BASE}/classroom/documents/${doc.id}/download`, {
-
-                        headers: { Authorization: `Bearer ${token}` }
-
-                      });
-
-                      if (!res.ok) {
-
-                        const err = await res.json().catch(() => ({}));
-
-                        throw new Error(err.error || `Download failed (${res.status})`);
-
-                      }
-
-                      const blob = await res.blob();
-
-                      const url = URL.createObjectURL(blob);
-
-                      const link = document.createElement("a");
-
-                      link.href = url;
-
-                      link.download = doc.filename || doc.title || "document";
-
-                      document.body.appendChild(link);
-
-                      link.click();
-
-                      document.body.removeChild(link);
-
-                      URL.revokeObjectURL(url);
-
-                    } catch (err) {
-
-                      toast.error("Download failed: " + err.message);
-
-                    }
-
-                  }}
-
-                  style={{
-
-                    background: "rgba(34, 197, 94, 0.2)",
-
-                    color: "#4ade80",
-
-                    padding: "6px 12px",
-
-                    borderRadius: 6,
-
-                    border: "1px solid rgba(34, 197, 94, 0.4)",
-
-                    cursor: "pointer",
-
-                    fontSize: 13
-
-                  }}
-
-                >
-
-                  ⬇️ Download
-
-                </button>
-
-              </div>
-
-            ))}
-
-            {(!selectedClassroom.documents || selectedClassroom.documents.length === 0) && (
-
-              <span className="muted">No documents yet</span>
-
+                {/* Teacher tools */}
+                {teacherMode && (
+                  <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <BulkImport onImportQuestions={onImportQuestions} />
+                    <AIQuestionGen onImportQuestions={onImportQuestions} />
+                  </div>
+                )}
+              </>
             )}
-
           </div>
-
         </div>
-
       )}
-
-
-
-      {/* Legacy Assignments */}
-
-      <h3>📝 Assignments</h3>
-
-      {assignments.length === 0 && <p className="muted">No assignments yet.</p>}
-
-      {assignments.map((a) => (
-
-        <div key={a.id} className="history-row">
-
-          <span>
-
-            {a.title} ({subjects.find((s) => s.id === a.subjectId)?.label}) {a.due ? `- Due ${a.due}` : ""}
-
-          </span>
-
-          <button onClick={() => onComplete(a.id)}>{a.done ? "Done" : "Mark Done"}</button>
-
-        </div>
-
-      ))}
 
 
 
