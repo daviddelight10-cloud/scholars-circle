@@ -3,10 +3,10 @@ import { Microscope, Zap, FlaskConical, Calculator } from "lucide-react";
 
 // ─── Static data ─────────────────────────────────────────────────────────────
 const MESSAGES = [
-  "What topic don't you understand? Let's go through it together →",
-  "Struggling with a concept? I'll explain it simply →",
-  "Got an exam coming up? Let's practise together →",
-  "Upload your notes, I'll turn them into MCQs →",
+  "Pick a topic — I'll build your full learning roadmap →",
+  "I'll explain every section, quiz you, then make flashcards →",
+  "Got an exam? Enter the topic for a structured study plan →",
+  "Paste your notes and I'll organise them into a roadmap →",
 ];
 
 const SUBJECTS = [
@@ -95,9 +95,9 @@ function AIAvatar() {
 
 // ─── Widget ───────────────────────────────────────────────────────────────
 /**
- * @param {{ userName: string, onOpen: (context?: string) => void, onOpenLearn: () => void }} props
+ * @param {{ userName: string, onOpen: (context?: string) => void, onOpenLearn: () => void, onOpenStudy: (topic?: string) => void }} props
  */
-export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn }) {
+export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn, onOpenStudy }) {
   const [msgIdx, setMsgIdx]       = useState(0);
   const [animClass, setAnimClass] = useState("ait-msg-in");
   const [displayMsg, setDisplayMsg] = useState(MESSAGES[0]);
@@ -120,14 +120,13 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn 
   }, []);
 
   function handleSubject(subject) {
-    // Interrupt rotation, show custom message, then open overlay
     clearInterval(timerRef.current);
     setAnimClass("ait-msg-out");
     setTimeout(() => {
-      setDisplayMsg(`What about ${subject} is unclear?`);
+      setDisplayMsg(`Building ${subject} roadmap…`);
       setAnimClass("ait-msg-in");
     }, 300);
-    onOpen?.(subject);
+    onOpenStudy?.(subject);
   }
 
   return (
@@ -170,7 +169,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn 
               fontFamily: "Syne, sans-serif",
               marginBottom: 5,
             }}>
-              AI Tutor · Online
+              Guided Study · AI Powered
             </div>
 
             {/* Rotating message */}
@@ -194,7 +193,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn 
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
               <button
                 className="ait-btn"
-                onClick={() => onOpen?.()}
+                onClick={() => onOpenStudy?.()}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "6px 14px", borderRadius: 20,
@@ -206,7 +205,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn 
                   transition: "filter 0.15s, transform 0.15s",
                 }}
               >
-                Ask now ✦
+                📋 Start Guided Study
               </button>
 
               <button

@@ -2641,6 +2641,8 @@ function App() {
 
   const [aiKey, setAiKey] = useState(0);
 
+  const [aiStudyTopic, setAiStudyTopic] = useState("");
+
   const [showDemoTour, setShowDemoTour] = useState(false);
 
   const [tourStep, setTourStep] = useState(0);
@@ -10451,9 +10453,11 @@ function App() {
 
           userName={auth.user?.username || auth.user?.name || "Scholar"}
 
-          onOpenAI={(ctx) => { setAiDefaultView("chat"); setAiKey(k => k + 1); setTab("aitutor"); }}
+          onOpenAI={(ctx) => { setAiDefaultView("chat"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
-          onOpenLearn={() => { setAiDefaultView("learn"); setAiKey(k => k + 1); setTab("aitutor"); }}
+          onOpenLearn={() => { setAiDefaultView("learn"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
+
+          onOpenStudy={(topic) => { setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
           subjects={subjects}
 
@@ -13080,6 +13084,7 @@ function App() {
         <AISectionOverlay
           key={aiKey}
           defaultView={aiDefaultView}
+          studyTopic={aiStudyTopic}
           aiConfig={aiConfig}
           subjects={subjects}
           onExit={() => setTab("today")}

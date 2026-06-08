@@ -718,6 +718,7 @@ export function TodayScreen({
   userName,
   onOpenAI,
   onOpenLearn,
+  onOpenStudy,
 }) {
   const [planState, setPlanState] = useState(loadPlan(userId));
   const [refresh, setRefresh] = useState(0);
@@ -821,6 +822,7 @@ export function TodayScreen({
         userName={userName || "Scholar"}
         onOpen={(ctx) => onOpenAI?.(ctx)}
         onOpenLearn={() => onOpenLearn?.()}
+        onOpenStudy={(topic) => onOpenStudy?.(topic)}
       />
 
       <div className="today-grid">

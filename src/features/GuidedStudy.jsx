@@ -207,9 +207,9 @@ function ProgressBar({ current, total }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function GuidedStudy({ aiConfig }) {
+export default function GuidedStudy({ aiConfig, initialTopic = "" }) {
   const [phase, setPhase]               = useState("input");
-  const [topic, setTopic]               = useState("");
+  const [topic, setTopic]               = useState(initialTopic);
   const [pastedContent, setPasted]      = useState("");
   const [showPaste, setShowPaste]       = useState(false);
   const [roadmap, setRoadmap]           = useState(null);
