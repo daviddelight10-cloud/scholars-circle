@@ -22,6 +22,8 @@ import { callAI } from "./lib/aiClient";
 
 import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
 
+import TeacherHub from "./features/TeacherHub.jsx";
+
 import LearnHub from "./features/LearnHub.jsx";
 
 import CampusComm from "./features/CampusComm.jsx";
@@ -2005,7 +2007,7 @@ const TAB_LABELS = {
 
   pastpapers: "📄 Past Papers", notifications: "🔔 Notifications",
 
-  "teacher-questions": "📝 My Questions", "campus-comm": "📢 Announcements",
+  "teacher-questions": "📝 My Questions", "teacher-hub": "📚 Teacher Hub", "campus-comm": "📢 Announcements",
 
   premium: "💎 Premium"
 
@@ -10177,7 +10179,7 @@ function App() {
 
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "reminders", "pomodoro", "studygroups", "discuss", "cheatsheet", "outline", "classroom", "profile", "lecturers", "notifications", "premium", "teacher-questions", "campus-comm", "planner", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "reminders", "pomodoro", "studygroups", "discuss", "cheatsheet", "outline", "classroom", "profile", "lecturers", "notifications", "premium", "teacher-questions", "teacher-hub", "campus-comm", "planner", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
           onClick={() => setShowMobileMenu(!showMobileMenu)}
 
@@ -10343,6 +10345,12 @@ function App() {
 
                   </button>
 
+                  <button className={tab === "teacher-hub" ? "active" : ""} onClick={() => { setTab("teacher-hub"); setShowMobileMenu(false); }}>
+
+                    <span>📚</span> Teacher Hub
+
+                  </button>
+
                   <button className={tab === "campus-comm" ? "active" : ""} onClick={() => { setTab("campus-comm"); setShowMobileMenu(false); }}>
 
                     <span>📢</span> Announcements
@@ -10419,7 +10427,7 @@ function App() {
 
           ["settings", "⚙️ Settings"],
 
-          ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["campus-comm", "📢 Announcements"]] : []),
+          ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["teacher-hub", "📚 Teacher Hub"], ["campus-comm", "📢 Announcements"]] : []),
 
           ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "🛡️ Admin"]] : []),
 
@@ -11608,6 +11616,18 @@ function App() {
           subjects={subjects}
 
           onSubjectsRefresh={() => token && loadUserDataFromBackend(token)}
+
+        />
+
+      )}
+
+      {tab === "teacher-hub" && (
+
+        <TeacherHub
+
+          token={token}
+
+          auth={auth}
 
         />
 
