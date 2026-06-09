@@ -3404,6 +3404,10 @@ function App() {
     if (token && auth.user?.id) {
 
       // Logged-in user: backend is source of truth — load from server
+      // But if offline, skip the network call and use localStorage immediately
+      if (!navigator.onLine) {
+        loadLocalState();
+      } else {
 
       loadUserDataFromBackend(token).then((data) => {
 
@@ -3529,6 +3533,8 @@ function App() {
 
       });
 
+      } // end else (online)
+
     } else {
 
       // Demo/offline user: load from localStorage only
@@ -3540,6 +3546,12 @@ function App() {
 
 
     function loadLocalState() {
+
+      // Restore cached backend subjects (with questions) for offline use
+      try {
+        const cachedSubjects = localStorage.getItem("sc_subjects_cache");
+        if (cachedSubjects) setBackendSubjects(JSON.parse(cachedSubjects));
+      } catch {}
 
       const raw = localStorage.getItem(storageKey("scholars-circle-state"));
 
@@ -3829,27 +3841,27 @@ function App() {
 
       setLoadingOverlay(true);
 
-
+      // Pre-populate from localStorage cache immediately (shows subjects before network responds)
+      if (active) {
+        try {
+          const cached = localStorage.getItem("sc_subjects_cache");
+          if (cached) setBackendSubjects(JSON.parse(cached));
+        } catch {}
+      }
 
       try {
 
-
-
         const rows = await api("/subjects");
 
-
-
-        if (active) setBackendSubjects(rows);
-
-
+        if (active) {
+          setBackendSubjects(rows);
+          // Persist for offline use
+          try { localStorage.setItem("sc_subjects_cache", JSON.stringify(rows)); } catch {}
+        }
 
       } catch {
 
-
-
-        if (active) setBackendSubjects([]);
-
-
+        // Keep whatever was pre-populated from localStorage — don't clear it
 
       }
 

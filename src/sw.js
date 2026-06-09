@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { CacheFirst, NetworkFirst } from "workbox-strategies";
+import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 
 self.skipWaiting();
@@ -19,10 +19,23 @@ registerRoute(
   })
 );
 
-// Network-first for API calls (port 4000 in dev, /api in prod)
+// Subjects (include questions) — StaleWhileRevalidate: instant from cache, refresh in background
+// Must be registered BEFORE the generic API route below
+registerRoute(
+  ({ url, request }) =>
+    request.method === "GET" &&
+    (url.port === "4000" || url.pathname.startsWith("/api/")) &&
+    url.pathname.includes("/subjects"),
+  new StaleWhileRevalidate({
+    cacheName: "subjects-cache",
+    plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 })],
+  })
+);
+
+// Network-first for all other API calls (port 4000 in dev, /api in prod)
 registerRoute(
   ({ url }) => url.port === "4000" || url.pathname.startsWith("/api/"),
-  new NetworkFirst({ cacheName: "api-cache", networkTimeoutSeconds: 4 })
+  new NetworkFirst({ cacheName: "api-cache", networkTimeoutSeconds: 6 })
 );
 
 // ============ PUSH NOTIFICATION SUPPORT ============
