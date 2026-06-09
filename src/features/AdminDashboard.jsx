@@ -81,8 +81,9 @@ export default function AdminDashboard({ adminUsers, adminLogins, adminLoading, 
     [adminLogins, todayStr]
   );
 
-  const students = adminUsers.filter(u => u.role === "student");
-  const teachers = adminUsers.filter(u => u.role !== "student");
+  const students  = adminUsers.filter(u => u.role?.toUpperCase() === "STUDENT");
+  const teachers   = adminUsers.filter(u => u.role?.toUpperCase() === "TEACHER");
+  const lecturers  = adminUsers.filter(u => u.role?.toUpperCase() === "LECTURER");
 
   const loginCountByUser = useMemo(() => {
     const map = {};
@@ -129,11 +130,12 @@ export default function AdminDashboard({ adminUsers, adminLogins, adminLoading, 
   }
 
   const kpis = [
-    { icon: "👥", label: "Total Users",    value: adminUsers.length,   color: "#9fa8da" },
-    { icon: "🎓", label: "Students",       value: students.length,     color: "#80cbc4" },
-    { icon: "🧑‍🏫", label: "Teachers",     value: teachers.length,     color: "#ffb74d" },
-    { icon: "🟢", label: "Active Today",   value: activeToday,         color: "#81c784" },
-    { icon: "🔑", label: "Total Logins",   value: adminLogins.length,  color: "#ce93d8" },
+    { icon: "👥", label: "Total Users",    value: adminUsers.length,               color: "#9fa8da" },
+    { icon: "🎓", label: "Students",       value: students.length,                 color: "#80cbc4" },
+    { icon: "🧑‍🏫", label: "Teachers",    value: teachers.length,                 color: "#ffb74d" },
+    { icon: "🏫", label: "Lecturers",      value: lecturers.length,                color: "#f48fb1" },
+    { icon: "🟢", label: "Active Today",   value: activeToday,                     color: "#81c784" },
+    { icon: "🔑", label: "Logins (30d)",   value: adminLogins.length,              color: "#ce93d8" },
   ];
 
   return (
@@ -169,9 +171,22 @@ export default function AdminDashboard({ adminUsers, adminLogins, adminLoading, 
         </div>
       )}
 
-      {/* KPI row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 14 }}>
-        {kpis.map(k => (
+      {/* KPI rows — 3 + 3 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 8 }}>
+        {kpis.slice(0,3).map(k => (
+          <div key={k.label} style={{
+            background: D.faint, border: `0.5px solid ${D.line}`,
+            borderRadius: 14, padding: "12px 10px 10px", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 18, marginBottom: 4 }}>{k.icon}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: k.color, lineHeight: 1, fontFamily: "Syne,sans-serif" }}>{k.value}</div>
+            <div style={{ fontSize: 9, color: D.hint, marginTop: 4, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 14 }}>
+        {kpis.slice(3).map(k => (
           <div key={k.label} style={{
             background: D.faint, border: `0.5px solid ${D.line}`,
             borderRadius: 14, padding: "12px 10px 10px", textAlign: "center",
@@ -185,7 +200,10 @@ export default function AdminDashboard({ adminUsers, adminLogins, adminLoading, 
 
       {/* Activity chart */}
       <div style={{ background: D.faint, border: `0.5px solid ${D.line}`, borderRadius: 16, padding: "14px 16px", marginBottom: 14 }}>
-        <ActivityChart logins={adminLogins} />
+        {adminLoading
+          ? <div style={{ textAlign: "center", padding: "20px 0", fontSize: 12, color: D.hint }}>⏳ Loading activity…</div>
+          : <ActivityChart logins={adminLogins} />
+        }
       </div>
 
       {/* User table */}
@@ -240,8 +258,8 @@ export default function AdminDashboard({ adminUsers, adminLogins, adminLoading, 
             filtered.map((u, i) => {
               const logins    = loginCountByUser[u.id] || 0;
               const lastLogin = lastLoginByUser[u.id];
-              const isTeacher = u.role !== "student";
-              const roleColor = isTeacher ? "#ffb74d" : "#80cbc4";
+              const isTeacher = u.role?.toUpperCase() !== "STUDENT";
+              const roleColor = u.role?.toUpperCase() === "LECTURER" ? "#f48fb1" : isTeacher ? "#ffb74d" : "#80cbc4";
               return (
                 <div
                   key={u.id}

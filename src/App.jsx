@@ -3933,11 +3933,11 @@ function App() {
 
 
 
+    } finally {
+
+      setAdminLoading(false);
+
     }
-
-
-
-    setAdminLoading(false);
 
 
 

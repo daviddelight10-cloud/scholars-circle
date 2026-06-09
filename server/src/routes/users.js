@@ -202,19 +202,20 @@ router.get("/", requireAuth, requireRole("TEACHER"), async (_req, res) => {
       updatedAt: true,
     },
     orderBy: { createdAt: "desc" },
-    take: 100,
   });
   res.json(users);
 });
 
-// Teacher-only: recent login events
+// Teacher-only: recent login events (last 30 days)
 router.get("/logins", requireAuth, requireRole("TEACHER"), async (_req, res) => {
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
   const events = await prisma.loginEvent.findMany({
+    where: { createdAt: { gte: since } },
     include: {
       user: { select: { id: true, username: true, email: true, role: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
   });
   res.json(events);
 });
