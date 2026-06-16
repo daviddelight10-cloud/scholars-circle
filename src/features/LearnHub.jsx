@@ -1233,7 +1233,10 @@ function SubjectHubPanel({ s, onClose, ...props }) {
           <div className="hub-panel-content">
             {activeTab === "overview"   && <HubOverview   s={s} onTab={setActiveTab} {...props} />}
             {activeTab === "lessons"    && <HubLessons    s={s} />}
-            {activeTab === "practice"   && <HubPractice   s={s} mastery={props.mastery} {...props} />}
+            {/* Keep HubPractice always mounted so grid/filters/session survive tab switches */}
+            <div style={{ display: activeTab === "practice" ? "block" : "none" }}>
+              <HubPractice s={s} mastery={props.mastery} {...props} />
+            </div>
             {activeTab === "exam"       && <HubExam       s={s} {...props} />}
             {activeTab === "flashcards" && <HubFlashcards s={s} {...props} />}
             {activeTab === "outline"    && <HubOutline    s={s} {...props} />}
@@ -1306,6 +1309,7 @@ export default function LearnHub({
     customFlashcards, setCustomFlashcards,
     outlineProgress, setOutlineProgress,
     demoMode, DEMO_LIMITS, token,
+    completeSession,
     startSubjectPractice, startAdaptive,
     startSpacedReview, startWeakDrill, startErrorDrill,
     setActiveSession, toast, dueCards, aiConfig,
