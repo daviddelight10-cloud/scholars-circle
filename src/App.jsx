@@ -1224,7 +1224,7 @@ const DEMO_ACHIEVEMENTS = [
 
 
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
 
 
@@ -2776,8 +2776,16 @@ function App() {
       if (backend) {
 
         // Use backend ID so API calls (publish, etc.) reference the correct DB record
+        // Include departmentId, subjectDepts, yearLevel for filtering
 
-        return { ...s, id: backend.id, questions: [...(s.questions || []), ...(backend.questions || [])] };
+        return {
+          ...s,
+          id: backend.id,
+          departmentId: backend.departmentId,
+          subjectDepts: backend.subjectDepts,
+          yearLevel: backend.yearLevel,
+          questions: [...(s.questions || []), ...(backend.questions || [])],
+        };
 
       }
 
@@ -2799,7 +2807,7 @@ function App() {
 
           label: backend.label,
 
-          icon: backend.label.includes("MTH") ? "∫" : backend.label.includes("BIO") ? "🐟" : backend.label.includes("CHM") ? "🧪" : backend.label.includes("PHY") ? "⚡" : backend.label.includes("GST") ? "📚" : "📖",
+          icon: backend.icon || (backend.label.includes("MTH") ? "∫" : backend.label.includes("BIO") ? "🐟" : backend.label.includes("CHM") ? "🧪" : backend.label.includes("PHY") ? "⚡" : backend.label.includes("GST") ? "📚" : "📖"),
 
           accent: "#fb923c",
 
@@ -2807,7 +2815,13 @@ function App() {
 
           lessons: [],
 
-          questions: backend.questions || []
+          questions: backend.questions || [],
+
+          departmentId: backend.departmentId,
+
+          subjectDepts: backend.subjectDepts,
+
+          yearLevel: backend.yearLevel,
 
         });
 
@@ -3727,7 +3741,7 @@ function App() {
 
     
 
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
     
 
@@ -9598,7 +9612,7 @@ function App() {
 
               onClick={async () => {
 
-                const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+                const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
                 await fetch(`${API_BASE}/classroom/announcements/${globalAnnouncement.id}/read`, {
 
@@ -14813,7 +14827,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
 
 
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
 
 
