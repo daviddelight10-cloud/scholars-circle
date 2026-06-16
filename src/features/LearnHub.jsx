@@ -253,6 +253,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
   const [qCount, setQCount]         = useState(10);
   const [customCount, setCustomCount] = useState(""); // user-typed custom number
   const [selectedTopic, setSelectedTopic] = useState(null);
+  const [showTopicDrop, setShowTopicDrop] = useState(false);
   const [quickFilter, setQuickFilter] = useState("all"); // all | wrong | unseen | remaining
   const [questions, setQuestions]   = useState([]);
   const [current, setCurrent]       = useState(0);
@@ -507,26 +508,55 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
           </div>
         </div>
 
-        {/* Topic picker — always visible */}
+        {/* Topic picker — dropdown */}
         {showTopicPicker && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>� Topic</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button onClick={() => setSelectedTopic(null)} style={{
-                padding: "7px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
-                background: !selectedTopic ? "#3949ab" : "rgba(57,73,171,0.12)",
-                border: !selectedTopic ? "1px solid #3949ab" : "1px solid rgba(57,73,171,0.25)",
-                color: !selectedTopic ? "#fff" : "#7986cb",
-              }}>All topics</button>
-              {topicGroups.map(t => (
-                <button key={t.name} onClick={() => setSelectedTopic(selectedTopic === t.name ? null : t.name)} style={{
-                  padding: "7px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
-                  background: selectedTopic === t.name ? "#3949ab" : "rgba(57,73,171,0.12)",
-                  border: selectedTopic === t.name ? "1px solid #3949ab" : "1px solid rgba(57,73,171,0.25)",
-                  color: selectedTopic === t.name ? "#fff" : "#7986cb",
-                }}>📖 {t.name} <span style={{ opacity:0.55, fontSize:10 }}>({t.count})</span></button>
-              ))}
-            </div>
+          <div style={{ position: "relative" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>📖 Topic</div>
+            <button
+              onClick={() => setShowTopicDrop(v => !v)}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                background: selectedTopic ? "rgba(57,73,171,0.18)" : "rgba(255,255,255,0.04)",
+                border: selectedTopic ? "1px solid rgba(57,73,171,0.5)" : "1px solid rgba(255,255,255,0.08)",
+                color: selectedTopic ? "#a5b4fc" : "#94a3b8",
+              }}
+            >
+              <span>📖 {selectedTopic || "All topics"}</span>
+              <span style={{ fontSize: 10, opacity: 0.6 }}>{showTopicDrop ? "▲" : "▼"}</span>
+            </button>
+
+            {showTopicDrop && (
+              <div style={{
+                position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 50,
+                background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12, overflow: "hidden",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                maxHeight: 260, overflowY: "auto",
+              }}>
+                {[{ name: null, count: s.questions?.length || 0 }, ...topicGroups].map(t => {
+                  const active = t.name === selectedTopic;
+                  return (
+                    <button
+                      key={t.name ?? "__all__"}
+                      onClick={() => { setSelectedTopic(t.name); setShowTopicDrop(false); }}
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "11px 16px", background: active ? "rgba(57,73,171,0.22)" : "transparent",
+                        border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        cursor: "pointer", fontSize: 13, fontWeight: active ? 700 : 500,
+                        color: active ? "#a5b4fc" : "#94a3b8", textAlign: "left",
+                      }}
+                    >
+                      <span>{t.name ? `📖 ${t.name}` : "📚 All topics"}</span>
+                      <span style={{ fontSize: 11, opacity: 0.55 }}>
+                        {active ? "✓ " : ""}{t.count}q
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
