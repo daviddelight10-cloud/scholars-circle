@@ -41,10 +41,31 @@ router.post("/", requireAuth, async (req, res) => {
       },
       include: { answers: true },
     });
-    // Award league XP: 10 XP per correct answer
-    const xpGained = score * 10;
+    // Award league XP: 10 XP per correct answer (5 XP for practice mode)
+    const xpPerCorrect = (mode === "practice" || mode === "practicehints") ? 5 : 10;
+    const xpGained = score * xpPerCorrect;
     if (xpGained > 0) {
       addLeagueXP(req.user.sub, xpGained).catch(e => console.error("League XP error:", e.message));
+    }
+    // Increment general XP + sessions + streak in UserProgress
+    if (score > 0) {
+      const today = new Date().toISOString().split("T")[0];
+      const up = await prisma.userProgress.findUnique({ where: { userId: req.user.sub } });
+      if (up) {
+        const lastDay = up.lastStudied ? new Date(up.lastStudied).toISOString().split("T")[0] : null;
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+        const newStreak = lastDay === today ? up.streak : (lastDay === yesterday ? up.streak + 1 : 1);
+        await prisma.userProgress.update({
+          where: { userId: req.user.sub },
+          data: {
+            xp: { increment: xpGained },
+            sessions: { increment: 1 },
+            totalCorrect: { increment: score },
+            streak: newStreak,
+            lastStudied: new Date(),
+          },
+        });
+      }
     }
     // Perfect score badge
     if (percentage === 100 && total >= 5 && mode === "exam") {

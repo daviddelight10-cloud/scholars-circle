@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { callAI } from "../lib/aiClient";
+import PeerComparison from "../components/analytics/PeerComparison.jsx";
+import MasteryGrid from "../components/analytics/MasteryGrid.jsx";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
@@ -223,6 +225,7 @@ Give a clear, concise explanation (3-5 sentences) of why the correct answer is r
  */
 export default function StatsPanel({ history, stats, subjects, mastery, aiConfig, onRePractice }) {
   const [reviewExam, setReviewExam] = useState(null);
+  const [expandedSubjectId, setExpandedSubjectId] = useState(null);
 
   const exams    = [...history].filter(h => h.mode === "exam" || h.mode === "practice").reverse().slice(0, 20);
   const avgScore = history.length ? Math.round(history.reduce((a, h) => a + percent(h.score, h.total), 0) / history.length) : 0;
@@ -260,7 +263,7 @@ export default function StatsPanel({ history, stats, subjects, mastery, aiConfig
         <WeeklyChart history={history} />
       </div>
 
-      {/* ── Mastery chart ── */}
+      {/* ── Mastery chart (expandable) ── */}
       <div style={{ background: D.faint, border: `0.5px solid ${D.line}`, borderRadius: 16, padding: "14px 16px", marginBottom: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: D.border, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12, fontFamily: "Syne,sans-serif" }}>
           SUBJECT MASTERY
@@ -268,19 +271,38 @@ export default function StatsPanel({ history, stats, subjects, mastery, aiConfig
         {subjects.map(s => {
           const m = mastery[s.id] || 0;
           const col = m >= 75 ? "#81c784" : m >= 50 ? "#ffd54f" : m >= 25 ? "#ff8a65" : "#ef9a9a";
+          const isExpanded = expandedSubjectId === s.id;
           return (
             <div key={s.id} style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <div
+                onClick={() => setExpandedSubjectId(isExpanded ? null : s.id)}
+                style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, cursor: "pointer", padding: "2px 0" }}
+              >
                 <span style={{ fontSize: 12, color: D.muted, fontFamily: "Manrope,sans-serif" }}>{s.icon} {s.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: col }}>{m}%</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: col }}>{m}%</span>
+                  <span style={{ fontSize: 10, color: D.hint }}>{isExpanded ? "▲" : "▼"}</span>
+                </div>
               </div>
-              <div style={{ height: 7, background: D.line, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: 7, background: D.line, borderRadius: 4, overflow: "hidden", marginBottom: isExpanded ? 12 : 0 }}>
                 <div style={{
                   height: "100%", width: `${m}%`,
                   background: `linear-gradient(90deg, ${col}80, ${col})`,
                   borderRadius: 4, transition: "width 0.5s ease",
                 }} />
               </div>
+              {/* Expandable analytics panel */}
+              {isExpanded && (
+                <div style={{
+                  background: "#07080f", border: `0.5px solid ${D.line}`,
+                  borderRadius: 12, padding: "14px 14px 10px", marginBottom: 4,
+                  animation: "sp-in 0.2s ease forwards",
+                }}>
+                  <PeerComparison subjectId={s.id} />
+                  <div style={{ height: "0.5px", background: D.line, margin: "12px 0" }} />
+                  <MasteryGrid subjectId={s.id} />
+                </div>
+              )}
             </div>
           );
         })}

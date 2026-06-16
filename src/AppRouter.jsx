@@ -1,6 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import HomePage from './features/HomePage';
 import App from './App';
+import ResearchHub from './features/ResearchHub';
+import ResourceViewer from './features/ResourceViewer';
+import TeacherResourcesHub from './features/TeacherResourcesHub';
+import ResourceUploadForm from './components/teacher/ResourceUploadForm';
 
 // Auth check component
 function LandingPageWrapper() {
@@ -32,6 +36,12 @@ export default function AppRouter() {
 
       {/* Main app route */}
       <Route path="/app" element={<App />} />
+
+      {/* Research Hub routes */}
+      <Route path="/resources" element={<ResearchHub />} />
+      <Route path="/resources/:token" element={<ResourceViewer />} />
+      <Route path="/teacher/resources" element={<TeacherResourcesHub />} />
+      <Route path="/teacher/resources/upload" element={<ResourceUploadForm />} />
 
       {/* Catch all - redirect to landing page */}
       <Route path="*" element={<Navigate to="/" replace />} />

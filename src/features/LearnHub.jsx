@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { callAI } from "../lib/aiClient";
+import DepartmentSwitcher from "../components/learn/DepartmentSwitcher.jsx";
+import CourseCustomizer, { loadUserCourses } from "../components/learn/CourseCustomizer.jsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -243,27 +245,112 @@ function HubLessons({ s }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Practice  (inline session with instant feedback + AI explain)
 // ─────────────────────────────────────────────────────────────────────────────
-function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, setWrongCounts }) {
-  const [phase, setPhase]           = useState("setup");   // setup | practicing | complete
+const BASE2 = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const XP_PER_CORRECT_PRACTICE = 5; // reduced vs exam (10)
+
+function HubPractice({ s, mastery, token, completeSession, startSubjectPractice, demoMode, aiConfig, setMastery, setWrongCounts }) {
+  const [phase, setPhase]           = useState("setup");
   const [qCount, setQCount]         = useState(10);
+  const [customCount, setCustomCount] = useState(""); // user-typed custom number
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [quickFilter, setQuickFilter] = useState("all"); // all | wrong | unseen | remaining
   const [questions, setQuestions]   = useState([]);
   const [current, setCurrent]       = useState(0);
   const [selected, setSelected]     = useState(null);
   const [answered, setAnswered]     = useState(false);
   const [score, setScore]           = useState(0);
+  const [xp, setXp]                 = useState(0);
+  const [xpFlash, setXpFlash]       = useState(null);
+  const [practiceStreak, setPracticeStreak] = useState(0);
   const [results, setResults]       = useState([]);
+  const [sessionStart]              = useState(Date.now);
+  const [startMastery, setStartMastery] = useState(0);
   const [aiExpl, setAiExpl]         = useState("");
   const [aiLoading, setAiLoading]   = useState(false);
+  // Grid data: map of questionId -> { status: 'correct'|'wrong'|'unseen', attemptCount }
+  const [gridMap, setGridMap]       = useState({});
+  const [gridLoading, setGridLoading] = useState(false);
 
   const maxQ = s.questions?.length || 0;
+  const curMastery = Math.round(mastery?.[s.id] || 0);
+  const { label: masteryLabel, color: masteryColor } = masteryLevel(curMastery);
+
+  // Fetch per-question mastery grid from backend
+  useEffect(() => {
+    if (!s.id || !token) return;
+    setGridLoading(true);
+    const token_ = typeof token === "string" ? token : localStorage.getItem("sc_token") || "";
+    fetch(`${BASE2}/api/mastery/grid/${s.id}`, {
+      headers: { Authorization: `Bearer ${token_}` },
+    })
+      .then(r => r.ok ? r.json() : { grid: [] })
+      .then(data => {
+        const map = {};
+        (data.grid || []).forEach(g => { map[g.id] = g; });
+        setGridMap(map);
+      })
+      .catch(() => {})
+      .finally(() => setGridLoading(false));
+  }, [s.id, token]);
+
+  // Coverage stats derived from grid
+  const masteredCount = useMemo(() => Object.values(gridMap).filter(g => g.status === "correct").length, [gridMap]);
+  const wrongCount    = useMemo(() => Object.values(gridMap).filter(g => g.status === "wrong").length, [gridMap]);
+  const unseenCount   = useMemo(() => maxQ - Object.keys(gridMap).length, [gridMap, maxQ]);
+
+  // Build topic list from q.topic strings
+  const topicGroups = useMemo(() => {
+    const map = {};
+    (s.questions || []).forEach(q => {
+      const t = q.topic || "General";
+      if (!map[t]) map[t] = 0;
+      map[t]++;
+    });
+    return Object.entries(map).map(([name, count]) => ({ name, count }));
+  }, [s.questions]);
+  const showTopicPicker = topicGroups.length >= 1;
+
+  function buildPool() {
+    let pool = [...(s.questions || [])];
+    // Topic filter
+    if (selectedTopic) {
+      const filtered = pool.filter(q => (q.topic || "General") === selectedTopic);
+      if (filtered.length > 0) pool = filtered;
+    }
+    // Quick-filter modes
+    if (quickFilter === "wrong") {
+      const f = pool.filter(q => gridMap[q.id]?.status === "wrong");
+      if (f.length > 0) pool = f;
+    } else if (quickFilter === "unseen") {
+      const f = pool.filter(q => !gridMap[q.id]);
+      if (f.length > 0) pool = f;
+    } else if (quickFilter === "remaining") {
+      const f = pool.filter(q => gridMap[q.id]?.status !== "correct");
+      if (f.length > 0) pool = f;
+    }
+    // Smart ordering: unseen first, then wrong, then mastered
+    pool.sort((a, b) => {
+      const order = { unseen: 0, wrong: 1, correct: 2 };
+      const aStatus = gridMap[a.id]?.status || "unseen";
+      const bStatus = gridMap[b.id]?.status || "unseen";
+      const diff = (order[aStatus] ?? 0) - (order[bStatus] ?? 0);
+      if (diff !== 0) return diff;
+      return Math.random() - 0.5; // shuffle within tier
+    });
+    return pool;
+  }
 
   function startPractice() {
     if (!maxQ) return;
-    let pool = [...s.questions].sort(() => Math.random() - 0.5);
-    if (qCount !== "all") pool = pool.slice(0, Math.min(parseInt(qCount), pool.length));
+    let pool = buildPool();
+    const count = customCount !== "" ? Math.min(Math.max(1, parseInt(customCount) || 1), pool.length)
+                : qCount === "all" ? pool.length
+                : Math.min(parseInt(qCount), pool.length);
+    pool = pool.slice(0, count);
+    setStartMastery(Math.round(mastery?.[s.id] || 0));
     setQuestions(pool);
     setCurrent(0); setSelected(null); setAnswered(false);
-    setScore(0); setResults([]); setAiExpl("");
+    setScore(0); setXp(0); setPracticeStreak(0); setResults([]); setAiExpl("");
     setPhase("practicing");
   }
 
@@ -273,15 +360,22 @@ function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, 
     setAnswered(true);
     const q = questions[current];
     const correct = idx === q.answer;
+    const newStreak = correct ? practiceStreak + 1 : 0;
+    const bonus = correct && newStreak > 0 && newStreak % 3 === 0 ? 5 : 0;
+    const gained = correct ? XP_PER_CORRECT_PRACTICE + bonus : 0;
     if (correct) setScore(p => p + 1);
-    setResults(p => [...p, { correct, q, chosen: idx }]);
+    setPracticeStreak(newStreak);
+    setXp(p => p + gained);
+    setXpFlash(correct ? (bonus > 0 ? `+${gained} XP 🔥 Streak!` : `+${gained} XP`) : "No XP");
+    setTimeout(() => setXpFlash(null), 1800);
+    setResults(p => [...p, { correct, q, chosen: idx, xpGained: gained, questionId: q.id }]);
     setAiExpl("");
-    // Update mastery + wrong counts live
-    if (setMastery) {
-      setMastery(prev => {
-        const cur = prev[s.id] ?? 50;
-        return { ...prev, [s.id]: Math.max(0, Math.min(100, cur + (correct ? 8 : -6))) };
-      });
+    // Optimistically update local grid so dots refresh
+    if (q.id) {
+      setGridMap(prev => ({
+        ...prev,
+        [q.id]: { ...(prev[q.id] || {}), id: q.id, status: correct ? "correct" : "wrong", attemptCount: (prev[q.id]?.attemptCount || 0) + 1 },
+      }));
     }
     if (setWrongCounts && q.key) {
       setWrongCounts(prev => ({
@@ -292,9 +386,50 @@ function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, 
   }
 
   function next() {
-    if (current + 1 >= questions.length) { setPhase("complete"); return; }
+    if (current + 1 >= questions.length) {
+      finishSession();
+      return;
+    }
     setCurrent(c => c + 1);
     setSelected(null); setAnswered(false); setAiExpl("");
+  }
+
+  function finishSession() {
+    setPhase("complete");
+    const finalResults = results;
+    const finalScore   = score;
+    const seconds      = Math.round((Date.now() - sessionStart) / 1000);
+    // Submit mastery to backend (updates per-question + subject mastery %)
+    const masteryPayload = finalResults
+      .filter(r => r.questionId)
+      .map(r => ({ questionId: r.questionId, correct: r.correct }));
+    if (masteryPayload.length > 0) {
+      import("../lib/mastery.js").then(({ submitMasterySession }) => {
+        submitMasterySession(s.id, masteryPayload, null).then(res => {
+          if (res?.masteryPct !== undefined && setMastery) {
+            setMastery(prev => ({ ...prev, [s.id]: res.masteryPct }));
+          }
+        });
+      });
+    }
+    // Wire into completeSession for general XP, streak, leaderboard, history
+    if (completeSession) {
+      completeSession(
+        {
+          mode: "practice",
+          score: finalScore,
+          total: questions.length,
+          seconds,
+          streakBonus: 0,
+          results: finalResults.map(r => ({
+            questionId: r.questionId || r.q?.key,
+            selected: r.chosen ?? 0,
+            correct: r.correct,
+          })),
+        },
+        s
+      );
+    }
   }
 
   async function getAIExplain() {
@@ -324,48 +459,174 @@ function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, 
 
   // ── Setup ────────────────────────────────────────────────
   if (phase === "setup") {
-    const counts = [5, 10, 15, 20, 30].filter(n => n <= maxQ);
+    const pool = buildPool();
+    const poolSize = pool.length;
+    const presetCounts = [5, 10, 15, 20, 30].filter(n => n <= poolSize);
+    const effectiveCount = customCount !== ""
+      ? Math.min(Math.max(1, parseInt(customCount) || 1), poolSize)
+      : qCount === "all" ? poolSize : Math.min(parseInt(qCount), poolSize);
+    const DOT_COLORS = { correct: "#10b981", wrong: "#ef4444", unseen: "rgba(255,255,255,0.1)" };
+    const allQIds = (s.questions || []).map(q => q.id).filter(Boolean);
+
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
-          {maxQ} questions available — pick how many to practice
-        </p>
 
-        {/* Question count chips */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Number of questions</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {counts.map(n => (
-              <button key={n} onClick={() => setQCount(n)} style={{
-                padding: "8px 18px", borderRadius: 20, cursor: "pointer",
-                fontSize: 13, fontWeight: 700,
-                background: qCount === n ? "#10b981" : "rgba(16,185,129,0.08)",
-                border: qCount === n ? "1px solid #10b981" : "1px solid rgba(16,185,129,0.2)",
-                color: qCount === n ? "#fff" : "#6ee7b7",
-              }}>{n}</button>
-            ))}
-            <button onClick={() => setQCount("all")} style={{
-              padding: "8px 18px", borderRadius: 20, cursor: "pointer",
-              fontSize: 13, fontWeight: 700,
-              background: qCount === "all" ? "#10b981" : "rgba(16,185,129,0.08)",
-              border: qCount === "all" ? "1px solid #10b981" : "1px solid rgba(16,185,129,0.2)",
-              color: qCount === "all" ? "#fff" : "#6ee7b7",
-            }}>All ({maxQ})</button>
+        {/* Mastery hero + coverage bar */}
+        <div style={{
+          background: `linear-gradient(135deg, ${masteryColor}18, ${masteryColor}06)`,
+          border: `1px solid ${masteryColor}30`,
+          borderRadius: 14, padding: "14px 18px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <svg width="54" height="54" viewBox="0 0 54 54">
+                <circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="5"/>
+                <circle cx="27" cy="27" r="22" fill="none" stroke={masteryColor} strokeWidth="5"
+                  strokeDasharray={`${(curMastery / 100) * 138.2} 138.2`}
+                  strokeLinecap="round" transform="rotate(-90 27 27)"/>
+              </svg>
+              <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:13, fontWeight:800, color:masteryColor }}>{curMastery}%</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#f1f5f9" }}>{masteryLabel}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                {masteredCount}/{maxQ} mastered · {wrongCount} wrong · {unseenCount} unseen
+              </div>
+              <div style={{ fontSize: 11, color: masteryColor, marginTop: 3, fontWeight: 600 }}>
+                🔥 3-correct streak = +5 bonus XP · {XP_PER_CORRECT_PRACTICE} XP/correct
+              </div>
+            </div>
+          </div>
+          <div style={{ height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: `linear-gradient(90deg, ${masteryColor}, ${masteryColor}aa)`,
+              width: `${maxQ > 0 ? (masteredCount / maxQ) * 100 : 0}%`, transition: "width 0.4s" }} />
+          </div>
+          <div style={{ fontSize: 10, color: "#475569", marginTop: 4, textAlign: "right" }}>
+            {maxQ > 0 ? Math.round((masteredCount / maxQ) * 100) : 0}% coverage — 100% mastery requires every question correct
           </div>
         </div>
 
-        {/* Instant feedback note */}
-        <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: 10, padding: "12px 14px" }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#6ee7b7", marginBottom: 4 }}>✅ Instant Feedback Mode</div>
-          <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>Each answer is revealed right away with an explanation. Tap <strong style={{ color: "#c4b5fd" }}>🤖 AI Explain</strong> for a deeper breakdown.</div>
+        {/* Topic picker — always visible */}
+        {showTopicPicker && (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>� Topic</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button onClick={() => setSelectedTopic(null)} style={{
+                padding: "7px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                background: !selectedTopic ? "#3949ab" : "rgba(57,73,171,0.12)",
+                border: !selectedTopic ? "1px solid #3949ab" : "1px solid rgba(57,73,171,0.25)",
+                color: !selectedTopic ? "#fff" : "#7986cb",
+              }}>All topics</button>
+              {topicGroups.map(t => (
+                <button key={t.name} onClick={() => setSelectedTopic(selectedTopic === t.name ? null : t.name)} style={{
+                  padding: "7px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                  background: selectedTopic === t.name ? "#3949ab" : "rgba(57,73,171,0.12)",
+                  border: selectedTopic === t.name ? "1px solid #3949ab" : "1px solid rgba(57,73,171,0.25)",
+                  color: selectedTopic === t.name ? "#fff" : "#7986cb",
+                }}>📖 {t.name} <span style={{ opacity:0.55, fontSize:10 }}>({t.count})</span></button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick-filter chips */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Focus on</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[
+              { id: "all",       label: `All (${maxQ})`,                             color: "#10b981" },
+              { id: "unseen",    label: `⚫ Unseen (${unseenCount})`,                 color: "#6b7280" },
+              { id: "wrong",     label: `🔴 Review wrong (${wrongCount})`,            color: "#ef4444" },
+              { id: "remaining", label: `⏳ Master remaining (${unseenCount + wrongCount})`, color: "#f59e0b" },
+            ].map(f => (
+              <button key={f.id} onClick={() => setQuickFilter(f.id)} style={{
+                padding: "7px 12px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                background: quickFilter === f.id ? `${f.color}22` : "rgba(255,255,255,0.03)",
+                border: quickFilter === f.id ? `1px solid ${f.color}` : "1px solid rgba(255,255,255,0.08)",
+                color: quickFilter === f.id ? f.color : "#475569",
+              }}>{f.label}</button>
+            ))}
+          </div>
         </div>
 
-        <button onClick={startPractice} style={{
-          background: "linear-gradient(135deg,#047857,#10b981)",
-          color: "#fff", border: "none", borderRadius: 12,
-          padding: "15px", fontSize: 15, fontWeight: 700, cursor: "pointer",
+        {/* Per-question dot grid — collapsible */}
+        {!gridLoading && allQIds.length > 0 && (
+          <details style={{ cursor: "pointer" }}>
+            <summary style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", userSelect: "none", listStyle: "none", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>▶ Question Map</span>
+              <span style={{ fontWeight: 400, color: "#334155" }}>🟢 mastered · 🔴 wrong · ⚫ unseen</span>
+            </summary>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 10 }}>
+              {allQIds.slice(0, 200).map(id => {
+                const status = gridMap[id]?.status || "unseen";
+                return (
+                  <div key={id} title={status} style={{
+                    width: 10, height: 10, borderRadius: 2,
+                    background: DOT_COLORS[status] || DOT_COLORS.unseen,
+                    transition: "background 0.3s",
+                  }} />
+                );
+              })}
+              {allQIds.length > 200 && (
+                <span style={{ fontSize: 10, color: "#475569", alignSelf: "center" }}>+{allQIds.length - 200} more</span>
+              )}
+            </div>
+          </details>
+        )}
+
+        {/* Question count chips + custom input */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Number of questions</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {presetCounts.map(n => (
+              <button key={n} onClick={() => { setQCount(n); setCustomCount(""); }} style={{
+                padding: "8px 18px", borderRadius: 20, cursor: "pointer", fontSize: 13, fontWeight: 700,
+                background: qCount === n && customCount === "" ? "#10b981" : "rgba(16,185,129,0.08)",
+                border: qCount === n && customCount === "" ? "1px solid #10b981" : "1px solid rgba(16,185,129,0.2)",
+                color: qCount === n && customCount === "" ? "#fff" : "#6ee7b7",
+              }}>{n}</button>
+            ))}
+            <button onClick={() => { setQCount("all"); setCustomCount(""); }} style={{
+              padding: "8px 18px", borderRadius: 20, cursor: "pointer", fontSize: 13, fontWeight: 700,
+              background: qCount === "all" && customCount === "" ? "#10b981" : "rgba(16,185,129,0.08)",
+              border: qCount === "all" && customCount === "" ? "1px solid #10b981" : "1px solid rgba(16,185,129,0.2)",
+              color: qCount === "all" && customCount === "" ? "#fff" : "#6ee7b7",
+            }}>All ({poolSize})</button>
+            <input
+              type="number" min="1" max={poolSize} placeholder="Custom #"
+              value={customCount}
+              onChange={e => setCustomCount(e.target.value)}
+              style={{
+                width: 80, padding: "8px 10px", borderRadius: 20,
+                background: customCount !== "" ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.04)",
+                border: customCount !== "" ? "1px solid #10b981" : "1px solid rgba(255,255,255,0.12)",
+                color: "#e2e8f0", fontSize: 13, fontWeight: 700, outline: "none",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* XP preview + start */}
+        <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)",
+          borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#6ee7b7" }}>✅ Instant Feedback · Smart Ordering</div>
+            <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>Unseen → Wrong → Mastered · AI Explain after each answer</div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24" }}>+{effectiveCount * XP_PER_CORRECT_PRACTICE} XP max</div>
+            <div style={{ fontSize: 10, color: "#64748b" }}>if all correct</div>
+          </div>
+        </div>
+
+        <button onClick={startPractice} disabled={poolSize === 0} style={{
+          background: poolSize === 0 ? "#1e293b" : "linear-gradient(135deg,#047857,#10b981)",
+          color: poolSize === 0 ? "#475569" : "#fff", border: "none", borderRadius: 12,
+          padding: "15px", fontSize: 15, fontWeight: 700,
+          cursor: poolSize === 0 ? "not-allowed" : "pointer",
         }}>
-          📝 Start Practice ({qCount === "all" ? maxQ : Math.min(parseInt(qCount), maxQ)} questions)
+          {poolSize === 0 ? "No questions match this filter" : `📝 Start Practice · ${effectiveCount} questions`}
         </button>
 
         {/* Full session modes */}
@@ -396,14 +657,25 @@ function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, 
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* Progress bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {/* Progress bar + live XP + streak */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
             <div style={{ height: "100%", background: "linear-gradient(90deg,#047857,#10b981)", width: `${progressPct}%`, transition: "width 0.3s ease", borderRadius: 3 }} />
           </div>
-          <span style={{ fontSize: 12, color: "#475569", whiteSpace: "nowrap" }}>{current + 1}/{questions.length}</span>
-          <span style={{ fontSize: 12, color: "#10b981", whiteSpace: "nowrap", fontWeight: 700 }}>✓ {score}</span>
+          <span style={{ fontSize: 11, color: "#475569", whiteSpace: "nowrap" }}>{current + 1}/{questions.length}</span>
+          <span style={{ fontSize: 12, color: "#fbbf24", whiteSpace: "nowrap", fontWeight: 800 }}>⚡{xp} XP</span>
+          {practiceStreak >= 2 && <span style={{ fontSize: 11, color: "#f97316", fontWeight: 700, whiteSpace: "nowrap" }}>🔥{practiceStreak}x</span>}
         </div>
+
+        {/* XP flash */}
+        {xpFlash && (
+          <div style={{
+            textAlign: "center", fontSize: 15, fontWeight: 800,
+            color: xpFlash.startsWith("+") ? "#34d399" : "#64748b",
+            animation: "xpPop 1.8s ease forwards",
+          }}>{xpFlash}</div>
+        )}
+        <style>{`@keyframes xpPop { 0%{opacity:1;transform:translateY(0) scale(1)} 50%{transform:translateY(-6px) scale(1.1)} 100%{opacity:0;transform:translateY(-14px)} }`}</style>
 
         {/* Difficulty + question */}
         <div style={{ background: "rgba(15,23,42,0.7)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -507,9 +779,11 @@ function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, 
   }
 
   // ── Complete ─────────────────────────────────────────────
-  const pct   = Math.round((score / questions.length) * 100);
-  const emoji = pct >= 80 ? "🏆" : pct >= 60 ? "💪" : pct >= 40 ? "📖" : "🌱";
-  const grade = pct >= 80 ? "Excellent!" : pct >= 60 ? "Good work!" : pct >= 40 ? "Keep practising" : "Needs work";
+  const pct         = Math.round((score / questions.length) * 100);
+  const emoji       = pct >= 80 ? "🏆" : pct >= 60 ? "💪" : pct >= 40 ? "📖" : "🌱";
+  const grade       = pct >= 80 ? "Excellent!" : pct >= 60 ? "Good work!" : pct >= 40 ? "Keep practising" : "Needs work";
+  const finalMastery = Math.round(mastery?.[s.id] || 0);
+  const masteryDelta = finalMastery - startMastery;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -518,6 +792,25 @@ function HubPractice({ s, startSubjectPractice, demoMode, aiConfig, setMastery, 
         <div style={{ fontSize: 38, fontWeight: 800, color: "#f1f5f9" }}>{pct}%</div>
         <div style={{ fontSize: 16, color: "#94a3b8", marginTop: 4 }}>{grade}</div>
         <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>{score}/{questions.length} correct</div>
+      </div>
+
+      {/* XP + mastery delta summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)",
+          borderRadius: 12, padding: "12px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: "#fbbf24" }}>+{xp} XP</div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>earned this session</div>
+        </div>
+        <div style={{
+          background: masteryDelta >= 0 ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
+          border: masteryDelta >= 0 ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(239,68,68,0.2)",
+          borderRadius: 12, padding: "12px 14px", textAlign: "center"
+        }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: masteryDelta >= 0 ? "#10b981" : "#ef4444" }}>
+            {masteryDelta >= 0 ? "+" : ""}{masteryDelta}%
+          </div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>mastery change</div>
+        </div>
       </div>
 
       {/* Per-question breakdown */}
@@ -836,31 +1129,49 @@ function SubjectHubPanel({ s, onClose, ...props }) {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 900, backdropFilter: "blur(2px)" }} />
-      <div style={{
+      <style>{`
+        @media (min-width: 768px) {
+          .hub-panel-overlay { display: none !important; }
+          .hub-panel-container {
+            left: 0 !important;
+            width: 100vw !important;
+            border-left: none !important;
+            box-shadow: none !important;
+          }
+          .hub-panel-content { max-width: 900px; margin: 0 auto; }
+        }
+      `}</style>
+      <div className="hub-panel-overlay" onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 8500, backdropFilter: "blur(2px)" }} />
+      <div className="hub-panel-container" style={{
         position: "fixed", top: 0, right: 0, bottom: 0,
         width: "min(540px, 100vw)",
         background: "#080f1a",
         borderLeft: "1px solid rgba(255,255,255,0.07)",
-        zIndex: 901, display: "flex", flexDirection: "column",
+        zIndex: 8501, display: "flex", flexDirection: "column",
         animation: "learnHubSlideIn 0.28s cubic-bezier(0.32,0.72,0,1)",
         boxShadow: "-20px 0 60px rgba(0,0,0,0.5)",
       }}>
         {/* Header */}
         <div style={{
-          padding: "16px 20px",
+          padding: "12px 20px",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
           display: "flex", alignItems: "center", gap: 12,
           background: `linear-gradient(135deg, ${accent}12, transparent)`,
         }}>
-          <span style={{ fontSize: 30 }}>{s.icon}</span>
+          {/* Small Back button */}
+          <button onClick={onClose} style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "#94a3b8", cursor: "pointer", borderRadius: 8,
+            padding: "5px 10px", fontSize: 12, fontWeight: 600, flexShrink: 0,
+          }}>← Back</button>
+          <span style={{ fontSize: 26 }}>{s.icon}</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 17, color: "#f1f5f9" }}>{s.label}</div>
-            <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "#475569", marginTop: 1 }}>
               {s.questions?.length || 0} questions · {s.lessons?.length || 0} lessons
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#475569", cursor: "pointer", fontSize: 22, padding: 4, lineHeight: 1 }}>✕</button>
         </div>
 
         {/* Tab bar */}
@@ -889,12 +1200,14 @@ function SubjectHubPanel({ s, onClose, ...props }) {
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-          {activeTab === "overview"   && <HubOverview   s={s} onTab={setActiveTab} {...props} />}
-          {activeTab === "lessons"    && <HubLessons    s={s} />}
-          {activeTab === "practice"   && <HubPractice   s={s} {...props} />}
-          {activeTab === "exam"       && <HubExam       s={s} {...props} />}
-          {activeTab === "flashcards" && <HubFlashcards s={s} {...props} />}
-          {activeTab === "outline"    && <HubOutline    s={s} {...props} />}
+          <div className="hub-panel-content">
+            {activeTab === "overview"   && <HubOverview   s={s} onTab={setActiveTab} {...props} />}
+            {activeTab === "lessons"    && <HubLessons    s={s} />}
+            {activeTab === "practice"   && <HubPractice   s={s} mastery={props.mastery} {...props} />}
+            {activeTab === "exam"       && <HubExam       s={s} {...props} />}
+            {activeTab === "flashcards" && <HubFlashcards s={s} {...props} />}
+            {activeTab === "outline"    && <HubOutline    s={s} {...props} />}
+          </div>
         </div>
       </div>
 
@@ -924,6 +1237,7 @@ export default function LearnHub({
   demoMode,
   DEMO_LIMITS,
   token,
+  completeSession,
   startSubjectPractice,
   startAdaptive,
   startSpacedReview,
@@ -935,9 +1249,27 @@ export default function LearnHub({
   aiConfig,
   setMastery,
   setWrongCounts,
+  activeDept,
+  activeYearLevel,
+  onOpenDeptSwitcher,
 }) {
   const [selectedId, setSelectedId] = useState(null);
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [enabledIds, setEnabledIds] = useState(() => {
+    const saved = loadUserCourses();
+    return saved ? new Set(saved) : null;
+  });
+
   const selectedSubject = useMemo(() => (subjects || []).find(s => s.id === selectedId), [subjects, selectedId]);
+
+  // Filter subjects by active dept + year level, then by user enabled list
+  const filteredSubjects = useMemo(() => {
+    let list = subjects || [];
+    if (activeDept) list = list.filter(s => s.departmentId === activeDept.id);
+    if (activeYearLevel) list = list.filter(s => !s.yearLevel || s.yearLevel === activeYearLevel);
+    if (enabledIds) list = list.filter(s => enabledIds.has(s.id));
+    return list;
+  }, [subjects, activeDept, activeYearLevel, enabledIds]);
 
   const hubProps = {
     mastery, srData, wrongCounts, history,
@@ -950,16 +1282,63 @@ export default function LearnHub({
     setMastery, setWrongCounts,
   };
 
+  function handleTopicPractice(subjectId, topicId, count) {
+    startSubjectPractice(subjectId, "practice", count, null, topicId);
+  }
+
   return (
     <div>
       {/* Page header */}
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 700, color: "#f1f5f9" }}>
-          📚 Learn Hub
-        </h2>
-        <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
-          Pick a subject to study — practice, exam, flashcards, lessons & more inside.
-        </p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: 20 }}>
+        <div>
+          <h2 style={{ margin: "0 0 6px", fontSize: 22, fontWeight: 700, color: "#f1f5f9" }}>
+            📚 Learn Hub
+          </h2>
+          <p style={{ margin: 0, color: "#475569", fontSize: 14 }}>
+            Pick a subject to study — practice, exam, flashcards, lessons & more inside.
+          </p>
+        </div>
+
+        {/* Department + Year pills */}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={() => onOpenDeptSwitcher?.()}
+            style={{
+              display: "flex", alignItems: "center", gap: "6px",
+              padding: "8px 14px", borderRadius: "20px", cursor: "pointer",
+              border: activeDept ? "1.5px solid #3949ab" : "0.5px solid #1e2245",
+              background: activeDept ? "#0f1535" : "#0a0b18",
+              color: activeDept ? "#7986cb" : "#7b82b8", fontSize: "13px", fontWeight: 600,
+            }}
+          >
+            {activeDept ? `${activeDept.icon || "🏛️"} ${activeDept.name}` : "🏛️ All Departments"} ▾
+          </button>
+
+          {activeDept && (
+            <button
+              onClick={() => onOpenDeptSwitcher?.()}
+              style={{
+                padding: "8px 14px", borderRadius: "20px", cursor: "pointer",
+                border: "1.5px solid #f59e0b", background: "#1a1000",
+                color: "#ffb74d", fontSize: "13px", fontWeight: 700,
+              }}
+            >
+              Year {activeYearLevel} ▾
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowCustomizer(true)}
+            title="Customize my courses"
+            style={{
+              padding: "8px 12px", borderRadius: "20px", cursor: "pointer",
+              border: "0.5px solid #1e2245", background: "#0a0b18",
+              color: "#7b82b8", fontSize: "13px",
+            }}
+          >
+            ⚙️
+          </button>
+        </div>
       </div>
 
       {/* Cross-subject quick actions */}
@@ -986,27 +1365,57 @@ export default function LearnHub({
         )}
       </div>
 
+      {/* Empty state when dept filter yields nothing */}
+      {filteredSubjects.length === 0 && (subjects || []).length > 0 && (
+        <div style={{
+          textAlign: "center", padding: "48px 24px",
+          background: "#0a0b18", borderRadius: "16px", border: "0.5px solid #1e2245",
+        }}>
+          <div style={{ fontSize: "36px", marginBottom: "12px" }}>🔍</div>
+          <div style={{ color: "#e8eaf6", fontWeight: 600, marginBottom: "8px" }}>No courses found</div>
+          <div style={{ color: "#7b82b8", fontSize: "13px", marginBottom: "16px" }}>
+            No courses match {activeDept ? activeDept.name : "your filter"}{activeYearLevel ? ` Year ${activeYearLevel}` : ""}.
+          </div>
+          <button
+            onClick={() => onOpenDeptSwitcher?.()}
+            style={{ padding: "10px 20px", background: "#1a237e", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}
+          >
+            Change Department
+          </button>
+        </div>
+      )}
+
       {/* Subject grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
-        {(subjects || []).map(s => (
+        {filteredSubjects.map(s => (
           <SubjectCard
             key={s.id}
             s={s}
             mastery={mastery}
             srData={srData}
             history={history}
-            onSelect={id => setSelectedId(id === selectedId ? null : id)}
+            onSelect={(id) => setSelectedId(id)}
             isSelected={selectedId === s.id}
           />
         ))}
       </div>
 
-      {/* Slide-in hub panel */}
       {selectedSubject && (
         <SubjectHubPanel
           s={selectedSubject}
           onClose={() => setSelectedId(null)}
           {...hubProps}
+        />
+      )}
+
+      {/* Course customizer */}
+      {showCustomizer && (
+        <CourseCustomizer
+          allSubjects={subjects || []}
+          activeDept={activeDept}
+          activeYearLevel={activeYearLevel}
+          onClose={() => setShowCustomizer(false)}
+          onCoursesChange={(ids) => setEnabledIds(new Set(ids))}
         />
       )}
     </div>

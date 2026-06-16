@@ -2197,6 +2197,6 @@ export const MODE_MULTIPLIERS = {
   spaced: 1.3,    // 30% bonus for spaced review
   weak: 1.25,     // 25% bonus for weak drill
   exam: 1.0,      // normal for exam
-  practice: 1.0,  // normal for practice
+  practice: 0.5,  // 50% for practice (5 XP/correct vs 10 for exam)
   practicehints: 1.1, // 10% bonus for practice with hints
 };

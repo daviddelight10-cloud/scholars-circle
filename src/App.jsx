@@ -21,10 +21,11 @@ import { callAI } from "./lib/aiClient";
 
 
 import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
-
-import TeacherHub from "./features/TeacherHub.jsx";
+import DepartmentManager from "./components/teacher/DepartmentManager.jsx";
 
 import LearnHub from "./features/LearnHub.jsx";
+import DepartmentSwitcher from "./components/learn/DepartmentSwitcher.jsx";
+import { getDepartments, getUserDepartment } from "./lib/departments.js";
 
 import CampusComm from "./features/CampusComm.jsx";
 
@@ -2007,7 +2008,7 @@ const TAB_LABELS = {
 
   pastpapers: "📄 Past Papers", notifications: "🔔 Notifications",
 
-  "teacher-questions": "📝 My Questions", "teacher-hub": "📚 Teacher Hub", "campus-comm": "📢 Announcements",
+  "teacher-questions": "📝 My Questions", "campus-comm": "📢 Announcements",
 
   premium: "💎 Premium"
 
@@ -2086,6 +2087,14 @@ function App() {
 
 
   const [srData, setSrData] = useState({});
+
+  const [activeDept, setActiveDept] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sc_active_dept") || "null"); } catch { return null; }
+  });
+  const [activeYearLevel, setActiveYearLevel] = useState(() => {
+    return parseInt(localStorage.getItem("sc_active_level") || "1");
+  });
+  const [showDeptSwitcher, setShowDeptSwitcher] = useState(false);
 
 
 
@@ -2314,6 +2323,9 @@ function App() {
   // Ref to track previous activation status for comparison
 
   const prevActivationRef = useRef(null);
+
+  // Ref to prevent repeated expiry warnings within the same session
+  const expiryWarnedRef = useRef(false);
 
 
 
@@ -3523,6 +3535,12 @@ function App() {
 
           setDiscussion(discObj);
 
+        }
+
+        // Show dept onboarding for students who haven't picked a department yet
+        const storedDept = localStorage.getItem("sc_active_dept");
+        if (!storedDept || storedDept === "null") {
+          setTimeout(() => setShowDeptSwitcher(true), 1200);
         }
 
       }).catch((err) => {
@@ -5125,7 +5143,22 @@ function App() {
 
     }).catch(() => {});
 
+    // Submit per-question mastery to backend
+    if (token && sourceSubject?.id && (result.results || []).length > 0) {
+      const masteryResults = (result.results || [])
+        .filter((r) => r.questionId || r.key)
+        .map((r) => ({ questionId: r.questionId || r.key, correct: !!r.correct }));
 
+      if (masteryResults.length > 0) {
+        import("./lib/mastery.js").then(({ submitMasterySession }) => {
+          submitMasterySession(sourceSubject.id, masteryResults).then((res) => {
+            if (res?.justMastered && res?.xpBonus > 0) {
+              setTimeout(() => toast.success(`🏆 100% Mastery! +${res.xpBonus} XP bonus earned!`), 800);
+            }
+          });
+        });
+      }
+    }
 
     // Trigger badge checks and league XP update after session
 
@@ -5431,7 +5464,7 @@ function App() {
 
             a.user.activationKey === res.user.activationKey;
 
-          return same ? a : { ...a, user: res.user };
+          return same ? a : { ...a, user: { ...(a.user || {}), ...res.user } };
 
         });
 
@@ -5447,7 +5480,7 @@ function App() {
 
           authParsed.authToken = res.token;
 
-          authParsed.authUser = res.user;
+          authParsed.authUser = { ...(authParsed.authUser || {}), ...res.user };
 
           localStorage.setItem("scholars-circle-auth", JSON.stringify(authParsed));
 
@@ -5485,6 +5518,24 @@ function App() {
 
         }
 
+        // Expiry warning — once per session
+        if (newIsActivated && res.user.activationExpiry && !expiryWarnedRef.current) {
+          const daysLeft = Math.ceil((new Date(res.user.activationExpiry) - Date.now()) / 86400000);
+          if (daysLeft <= 0) {
+            toast.error("⚠️ Your subscription has expired! Contact your teacher to renew.");
+            expiryWarnedRef.current = true;
+          } else if (daysLeft <= 1) {
+            toast.error("⚠️ Your subscription expires TODAY! Contact your teacher to renew.");
+            expiryWarnedRef.current = true;
+          } else if (daysLeft <= 3) {
+            toast.error(`⚠️ Subscription expires in ${daysLeft} days. Please renew soon!`);
+            expiryWarnedRef.current = true;
+          } else if (daysLeft <= 7) {
+            toast(`📅 Your subscription expires in ${daysLeft} days.`, { duration: 6000 });
+            expiryWarnedRef.current = true;
+          }
+        }
+
       }
 
     } catch (err) {
@@ -5505,9 +5556,13 @@ function App() {
 
   useEffect(() => {
 
-    if (!token || !auth.user || demoMode) {
+    // Only require auth.user — refreshAuth reads token from localStorage directly
+    // so we don't gate on the `token` state (which may be empty on first render
+    // even when localStorage already has a valid token, causing the interval to
+    // never start on page reload).
+    if (!auth.user || demoMode) {
 
-      console.log("[polling] Skipping - no token/user or demo mode");
+      console.log("[polling] Skipping - no user or demo mode");
 
       return;
 
@@ -5535,15 +5590,15 @@ function App() {
 
     refreshAuth();
 
+    // Use a faster interval (10s) while the user is NOT yet activated so
+    // activation feels near-instant; slow down to 30s once activated.
+    const intervalMs = auth.user?.isActivated ? 30000 : 10000;
+
+    const interval = setInterval(refreshAuth, intervalMs);
+
     
 
-    // Check every 30 seconds (2s was causing constant refetches across all pages)
-
-    const interval = setInterval(refreshAuth, 30000);
-
-    
-
-    console.log("[polling] Interval set up, will check every 30 seconds");
+    console.log(`[polling] Interval set up, checking every ${intervalMs / 1000}s`);
 
     
 
@@ -5557,7 +5612,7 @@ function App() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
-  }, [auth.user?.id, demoMode]);
+  }, [auth.user?.id, auth.user?.isActivated, demoMode]);
 
 
 
@@ -10179,7 +10234,7 @@ function App() {
 
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "reminders", "pomodoro", "studygroups", "discuss", "cheatsheet", "outline", "classroom", "profile", "lecturers", "notifications", "premium", "teacher-questions", "teacher-hub", "campus-comm", "planner", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "reminders", "pomodoro", "studygroups", "discuss", "cheatsheet", "outline", "classroom", "profile", "lecturers", "notifications", "premium", "teacher-questions", "campus-comm", "planner", ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
           onClick={() => setShowMobileMenu(!showMobileMenu)}
 
@@ -10287,6 +10342,12 @@ function App() {
 
               </button>
 
+              <button onClick={() => { window.location.href = "/resources"; setShowMobileMenu(false); }}>
+
+                <span>📚</span> Research Hub
+
+              </button>
+
             </div>
 
 
@@ -10345,9 +10406,9 @@ function App() {
 
                   </button>
 
-                  <button className={tab === "teacher-hub" ? "active" : ""} onClick={() => { setTab("teacher-hub"); setShowMobileMenu(false); }}>
+                  <button onClick={() => { window.location.href = "/teacher/resources"; setShowMobileMenu(false); }}>
 
-                    <span>📚</span> Teacher Hub
+                    <span>📤</span> Teacher Resources
 
                   </button>
 
@@ -10427,7 +10488,9 @@ function App() {
 
           ["settings", "⚙️ Settings"],
 
-          ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["teacher-hub", "📚 Teacher Hub"], ["campus-comm", "📢 Announcements"]] : []),
+          ["research-hub", "📚 Research Hub"],
+
+          ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["teacher-resources", "📤 Teacher Resources"], ["campus-comm", "📢 Announcements"], ["departments", "🏛️ Departments"]] : []),
 
           ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "🛡️ Admin"]] : []),
 
@@ -10437,15 +10500,24 @@ function App() {
 
           return !["classroom"].includes(id);
 
-        }).map(([id, label]) => (
-
-          <button key={id} className={["today", "dashboard"].includes(tab) && id === "today" ? "active" : tab === id ? "active" : ""} onClick={() => setTab(id)}>
-
-            {label}
-
-          </button>
-
-        ))}
+        }).map(([id, label]) => {
+          const isExternalRoute = id === "research-hub" || id === "teacher-resources";
+          return (
+            <button
+              key={id}
+              className={["today", "dashboard"].includes(tab) && id === "today" ? "active" : tab === id ? "active" : ""}
+              onClick={() => {
+                if (isExternalRoute) {
+                  window.location.href = id === "research-hub" ? "/resources" : "/teacher/resources";
+                } else {
+                  setTab(id);
+                }
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
 
 
 
@@ -11274,6 +11346,8 @@ function App() {
           demoMode={demoMode}
           DEMO_LIMITS={DEMO_LIMITS}
           token={token}
+          completeSession={completeSession}
+          mastery={mastery}
           startSubjectPractice={startSubjectPractice}
           startAdaptive={startAdaptive}
           startSpacedReview={startSpacedReview}
@@ -11285,6 +11359,27 @@ function App() {
           aiConfig={aiConfig}
           setMastery={setMastery}
           setWrongCounts={setWrongCounts}
+          activeDept={activeDept}
+          activeYearLevel={activeYearLevel}
+          onOpenDeptSwitcher={() => setShowDeptSwitcher(true)}
+        />
+      )}
+
+      {showDeptSwitcher && (
+        <DepartmentSwitcher
+          activeDept={activeDept}
+          activeYearLevel={activeYearLevel}
+          isOnboarding={!activeDept}
+          onClose={() => setShowDeptSwitcher(false)}
+          onConfirm={(dept, year) => {
+            setActiveDept(dept);
+            setActiveYearLevel(year);
+            try {
+              localStorage.setItem("sc_active_dept", JSON.stringify(dept));
+              localStorage.setItem("sc_active_level", String(year));
+            } catch {}
+            setShowDeptSwitcher(false);
+          }}
         />
       )}
 
@@ -11621,16 +11716,8 @@ function App() {
 
       )}
 
-      {tab === "teacher-hub" && (
-
-        <TeacherHub
-
-          token={token}
-
-          auth={auth}
-
-        />
-
+      {tab === "departments" && isTeacher && (
+        <DepartmentManager />
       )}
 
       {tab === "campus-comm" && isFaculty && (
@@ -11832,6 +11919,48 @@ function App() {
             </div>
 
           )}
+
+          {/* Subscription Plan Card — visible to students */}
+          {!isTeacher && auth.user && (() => {
+            const planType = auth.user.planType;
+            const expiry = auth.user.activationExpiry ? new Date(auth.user.activationExpiry) : null;
+            const daysLeft = expiry ? Math.ceil((expiry - Date.now()) / 86400000) : null;
+            const planLabel = planType === "week1" ? "1-Week Plan" : planType === "week2" ? "2-Week Plan" : planType === "month1" ? "1-Month Plan" : null;
+            const statusColor = !isActivated ? "#94a3b8" : daysLeft !== null && daysLeft <= 3 ? "#ef4444" : daysLeft !== null && daysLeft <= 7 ? "#f59e0b" : "#10b981";
+            const statusText = !isActivated ? "Not Activated" : daysLeft !== null && daysLeft <= 0 ? "Expired" : daysLeft !== null && daysLeft <= 1 ? "Expires Today!" : daysLeft !== null ? `${daysLeft} days left` : "Active";
+            const statusBg = !isActivated ? "rgba(148,163,184,0.1)" : daysLeft !== null && daysLeft <= 3 ? "rgba(239,68,68,0.1)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)";
+            const statusBorder = !isActivated ? "rgba(148,163,184,0.3)" : daysLeft !== null && daysLeft <= 3 ? "rgba(239,68,68,0.3)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,158,11,0.3)" : "rgba(16,185,129,0.3)";
+            return (
+              <div style={{ background: statusBg, border: `1px solid ${statusBorder}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <p className="muted" style={{ fontSize: 12, margin: 0 }}>📋 Subscription Plan</p>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}40`, borderRadius: 20, padding: "3px 10px" }}>
+                    ● {statusText}
+                  </span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>
+                  {planLabel || (isActivated ? "Active Plan" : "No Active Plan")}
+                </div>
+                {expiry && (
+                  <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                    {daysLeft !== null && daysLeft > 0
+                      ? `Expires ${expiry.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}`
+                      : `Expired on ${expiry.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`}
+                  </div>
+                )}
+                {!isActivated && (
+                  <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>
+                    Share your activation key above with your teacher to get started.
+                  </p>
+                )}
+                {isActivated && daysLeft !== null && daysLeft <= 7 && daysLeft > 0 && (
+                  <p style={{ fontSize: 11, color: statusColor, marginTop: 8, marginBottom: 0, fontWeight: 600 }}>
+                    ⚠️ Contact your teacher to renew your subscription before it expires.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {!auth.user?.activationKey && !isTeacher && (
 

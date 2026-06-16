@@ -159,6 +159,20 @@ model User {
   readCampusAnnouncements CampusAnnouncementRead[] @relation("CampusAnnouncementReader")
   announcementComments    AnnouncementComment[]
 
+  resources         Resource[] @relation("ResourceUploader")
+
+  resourceViews     ResourceView[] @relation("ResourceViewer")
+
+  freeTrialViews    Int      @default(0)
+
+  freeTrialLimit    Int      @default(3)
+
+  userDepartment    UserDepartment?
+
+  subjectMastery    SubjectMastery[]
+
+  questionAttempts  QuestionAttempt[]
+
 }
 
 // ============ CAMPUS ANNOUNCEMENTS ============
@@ -244,17 +258,31 @@ model NotificationPreference {
 
 model Subject {
 
-  id         String     @id @default(cuid())
+  id           String     @id @default(cuid())
 
-  label      String     @unique
+  label        String     @unique
 
-  description String?
+  description  String?
 
-  createdAt  DateTime   @default(now())
+  icon         String?
 
-  questions  Question[]
+  departmentId String?
 
-  assignments Assignment[]
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  yearLevel    Int?
+
+  createdAt    DateTime   @default(now())
+
+  questions    Question[]
+
+  assignments  Assignment[]
+
+  topics       Topic[]
+
+  masteryRows  SubjectMastery[]
+
+  @@index([departmentId, yearLevel])
 
 }
 
@@ -286,11 +314,19 @@ model Question {
 
   explanation String?
 
+  topicId     String?
+
+  topicRel    Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
   subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   answers     AttemptAnswer[]
 
+  attempts    QuestionAttempt[]
+
   @@index([subjectId, topic])
+
+  @@index([topicId])
 
 }
 
@@ -1178,5 +1214,107 @@ model WallReaction {
 
   @@unique([postId, userId, emoji])
   @@index([postId])
+}
+
+// ============ DEPARTMENTS ============
+model Department {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  icon      String?
+  createdAt DateTime         @default(now())
+  subjects  Subject[]
+  userDepts UserDepartment[]
+}
+
+model UserDepartment {
+  id           String     @id @default(cuid())
+  userId       String     @unique
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  yearLevel    Int        @default(1)
+  setAt        DateTime   @default(now())
+
+  @@index([departmentId])
+}
+
+model SubjectMastery {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId        String
+  subject          Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  totalQuestions   Int      @default(0)
+  questionsCorrect Int      @default(0)
+  masteryPct       Float    @default(0)
+  lastUpdated      DateTime @default(now())
+
+  @@unique([userId, subjectId])
+  @@index([subjectId])
+}
+
+model QuestionAttempt {
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  everCorrect  Boolean  @default(false)
+  attemptCount Int      @default(0)
+  lastAttempted DateTime @default(now())
+
+  @@id([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
+}
+
+model Topic {
+  id           String     @id @default(cuid())
+  subjectId    String
+  subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  name         String
+  icon         String?
+  displayOrder Int        @default(0)
+  createdAt    DateTime   @default(now())
+  questions    Question[]
+
+  @@unique([subjectId, name])
+  @@index([subjectId])
+}
+
+// ============ RESEARCH HUB ============
+model Resource {
+  id          String   @id @default(cuid())
+  title       String
+  subject     String
+  contentType String   // note, pdf, mcq, tutorial_question
+  fileUrl     String
+  description String?
+  uploadedBy  String
+  uploader    User     @relation("ResourceUploader", fields: [uploadedBy], references: [id], onDelete: Cascade)
+  isPremium   Boolean  @default(false)
+  viewCount   Int      @default(0)
+  shareToken  String   @unique
+  mcqData     Json?    // For MCQ type: stores questions array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  views       ResourceView[]
+
+  @@index([contentType])
+  @@index([subject])
+  @@index([shareToken])
+  @@index([uploadedBy])
+}
+
+model ResourceView {
+  id         String   @id @default(cuid())
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation("ResourceViewer", fields: [userId], references: [id], onDelete: SetNull)
+  guestToken String?
+  viewedAt   DateTime @default(now())
+
+  @@index([resourceId])
+  @@index([userId])
 }
 

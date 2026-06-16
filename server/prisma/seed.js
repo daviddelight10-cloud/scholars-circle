@@ -5,36 +5,71 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  const teacherPass = await bcrypt.hash("teacher123", 10);
-  const studentPass = await bcrypt.hash("student123", 10);
+  // Seed demo users — skip if username/email already taken
+  try {
+    const teacherPass = await bcrypt.hash("teacher123", 10);
+    await prisma.user.upsert({
+      where: { email: "teacher@example.com" },
+      update: {},
+      create: {
+        email: "teacher@example.com",
+        username: "teacher",
+        passwordHash: teacherPass,
+        role: "TEACHER",
+        isActivated: true,
+      },
+    });
+  } catch (e) {
+    if (e.code !== "P2002") throw e;
+    console.log("Skipping demo teacher — username/email already exists.");
+  }
 
-  await prisma.user.upsert({
-    where: { email: "teacher@example.com" },
-    update: {},
-    create: {
-      email: "teacher@example.com",
-      username: "teacher",
-      passwordHash: teacherPass,
-      role: "TEACHER",
-      isActivated: true,
-    },
-  });
+  try {
+    const studentPass = await bcrypt.hash("student123", 10);
+    await prisma.user.upsert({
+      where: { email: "student@example.com" },
+      update: {},
+      create: {
+        email: "student@example.com",
+        username: "student",
+        passwordHash: studentPass,
+        role: "STUDENT",
+      },
+    });
+  } catch (e) {
+    if (e.code !== "P2002") throw e;
+    console.log("Skipping demo student — username/email already exists.");
+  }
 
-  await prisma.user.upsert({
-    where: { email: "student@example.com" },
-    update: {},
-    create: {
-      email: "student@example.com",
-      username: "student",
-      passwordHash: studentPass,
-      role: "STUDENT",
-    },
-  });
+  // Seed departments
+  const deptData = [
+    { name: "Medicine", icon: "🩺" },
+    { name: "Nursing", icon: "💉" },
+    { name: "Medical Laboratory Science", icon: "🔬" },
+    { name: "Pharmacy", icon: "💊" },
+    { name: "Dentistry", icon: "🦷" },
+  ];
 
+  const depts = {};
+  for (const d of deptData) {
+    const dept = await prisma.department.upsert({
+      where: { name: d.name },
+      update: { icon: d.icon },
+      create: d,
+    });
+    depts[d.name] = dept;
+  }
+
+  // Assign BIO 111 to Medicine Year 1
   const bio = await prisma.subject.upsert({
     where: { label: "BIO 111" },
-    update: {},
-    create: { label: "BIO 111", description: "Phylum Chordata & Class Pisces" },
+    update: { departmentId: depts["Medicine"].id, yearLevel: 1 },
+    create: {
+      label: "BIO 111",
+      description: "Phylum Chordata & Class Pisces",
+      departmentId: depts["Medicine"].id,
+      yearLevel: 1,
+    },
   });
 
   await prisma.question.createMany({

@@ -217,7 +217,15 @@ router.post("/login", authLimiter, async (req, res) => {
 
       .catch(() => {});
 
-    const token = jwt.sign({ sub: user.id, role: user.role, username: user.username, isActivated: user.isActivated }, process.env.JWT_SECRET, {
+    // Check if activation has expired — deactivate at login time too
+    let loginIsActivated = user.isActivated;
+    if (user.isActivated && user.activationExpiry && new Date() > new Date(user.activationExpiry)) {
+      await prisma.user.update({ where: { id: user.id }, data: { isActivated: false } });
+      loginIsActivated = false;
+      console.log(`[auth/login] User ${user.username} deactivated — plan expired at ${user.activationExpiry}`);
+    }
+
+    const token = jwt.sign({ sub: user.id, role: user.role, username: user.username, isActivated: loginIsActivated }, process.env.JWT_SECRET, {
 
       expiresIn: "7d",
 
@@ -234,7 +242,19 @@ router.post("/login", authLimiter, async (req, res) => {
     // Log successful login
     logSecurityEvent(user.id, 'login_success', { username: user.username }, req);
 
-    return res.json({ token, user: { id: user.id, username: user.username, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated } });
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        activationKey: user.activationKey,
+        isActivated: loginIsActivated,
+        planType: user.planType || null,
+        activationExpiry: user.activationExpiry || null,
+        activatedAt: user.activatedAt || null,
+      },
+    });
 
   } catch (e) {
 
@@ -258,6 +278,8 @@ router.get("/refresh", requireAuth, async (req, res) => {
         activationKey: true,
         isActivated: true,
         activationExpiry: true,
+        planType: true,
+        activatedAt: true,
       },
     });
 
@@ -304,6 +326,9 @@ router.get("/refresh", requireAuth, async (req, res) => {
         role: user.role,
         activationKey: user.activationKey,
         isActivated,
+        planType: user.planType || null,
+        activationExpiry: user.activationExpiry || null,
+        activatedAt: user.activatedAt || null,
       },
     });
   } catch (e) {

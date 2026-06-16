@@ -39,6 +39,24 @@ router.get("/students", requireAuth, requireRole("TEACHER"), async (req, res) =>
     const teacherMap = Object.fromEntries(teachers.map(t => [t.id, t.username]));
 
     const now = new Date();
+
+    // Auto-deactivate any students whose plan has expired (keeps DB in sync)
+    const expiredIds = students
+      .filter(s => s.isActivated && s.activationExpiry && new Date(s.activationExpiry) < now)
+      .map(s => s.id);
+    if (expiredIds.length > 0) {
+      await prisma.user.updateMany({
+        where: { id: { in: expiredIds } },
+        data: { isActivated: false },
+      });
+      console.log(`[keys/students] Auto-deactivated ${expiredIds.length} expired student(s)`);
+      // Reflect the change in the in-memory list
+      expiredIds.forEach(id => {
+        const s = students.find(x => x.id === id);
+        if (s) s.isActivated = false;
+      });
+    }
+
     const result = students.map(s => {
       // Calculate days remaining
       let daysRemaining = null;
