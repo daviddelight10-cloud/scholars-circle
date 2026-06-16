@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from "../../lib/departments.js";
 
-const BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 const EMOJI_OPTIONS = ["🩺", "💉", "🔬", "💊", "🦷", "🧬", "🏥", "⚕️", "🧪", "📋", "🫀", "🧠", "👁️", "🦴", "🩻"];
 

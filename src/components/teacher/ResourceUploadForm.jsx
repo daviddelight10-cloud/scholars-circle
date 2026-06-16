@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { callAI, extractJSON } from "../../lib/aiClient";
 import { getSubjectBadgeColor } from "../../lib/researchUtils";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 export default function ResourceUploadForm() {
   const navigate = useNavigate();
@@ -192,8 +192,13 @@ export default function ResourceUploadForm() {
         navigate("/teacher/resources");
       }, 500);
     } catch (err) {
-      setError(err.message || "Upload failed");
+      // "Failed to fetch" usually means network/CORS error
+      const msg = err.message === "Failed to fetch" 
+        ? "Network error — check your connection or server may be down"
+        : (err.message || "Upload failed");
+      setError(msg);
       setUploadProgress(0);
+      console.error("Upload error:", err, "API_BASE:", API_BASE);
     } finally {
       setUploading(false);
     }
