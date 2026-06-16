@@ -1334,20 +1334,24 @@ export default function LearnHub({
 
   // Filter subjects by active dept + year level, then by user enabled list
   const filteredSubjects = useMemo(() => {
-    let list = subjects || [];
-    if (enabledIds) {
-      // User has a custom course selection — show exactly what they picked (any dept)
-      return list.filter(s => enabledIds.has(s.id));
-    }
-    // Default: filter by active dept (check both primary departmentId and join table)
+    const all = subjects || [];
+
+    // Dept courses always visible regardless of custom list
+    let deptList = all;
     if (activeDept) {
-      list = list.filter(s =>
+      deptList = all.filter(s =>
         s.departmentId === activeDept.id ||
         s.subjectDepts?.some(d => d.departmentId === activeDept.id)
       );
+      if (activeYearLevel)
+        deptList = deptList.filter(s => !s.yearLevel || s.yearLevel === activeYearLevel);
     }
-    if (activeYearLevel) list = list.filter(s => !s.yearLevel || s.yearLevel === activeYearLevel);
-    return list;
+
+    if (!enabledIds) return deptList;
+
+    // User has a custom list — also show any extra courses they added from other depts
+    const deptIds = new Set(deptList.map(s => s.id));
+    return all.filter(s => deptIds.has(s.id) || enabledIds.has(s.id));
   }, [subjects, activeDept, activeYearLevel, enabledIds]);
 
   const hubProps = {
