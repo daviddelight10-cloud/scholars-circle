@@ -2766,12 +2766,13 @@ function App() {
   const subjects = useMemo(() => {
 
     // Start with local subjects - ensure SUBJECTS is always an array
+    const safeBackend = Array.isArray(backendSubjects) ? backendSubjects : [];
 
     let result = (SUBJECTS || []).map(s => {
 
       // Find matching backend subject and merge questions
 
-      const backend = backendSubjects.find(b => b.label === s.label);
+      const backend = safeBackend.find(b => b.label === s.label);
 
       if (backend) {
 
@@ -2797,7 +2798,7 @@ function App() {
 
     // Add backend subjects that don't exist in local SUBJECTS (like MTH-111)
 
-    for (const backend of backendSubjects) {
+    for (const backend of safeBackend) {
 
       if (!result.find(s => s.label === backend.label)) {
 
@@ -3586,7 +3587,10 @@ function App() {
       // Restore cached backend subjects (with questions) for offline use
       try {
         const cachedSubjects = localStorage.getItem("sc_subjects_cache");
-        if (cachedSubjects) setBackendSubjects(JSON.parse(cachedSubjects));
+        if (cachedSubjects) {
+          const parsed = JSON.parse(cachedSubjects);
+          if (Array.isArray(parsed)) setBackendSubjects(parsed);
+        }
       } catch {}
 
       const raw = localStorage.getItem(storageKey("scholars-circle-state"));
@@ -3881,7 +3885,10 @@ function App() {
       if (active) {
         try {
           const cached = localStorage.getItem("sc_subjects_cache");
-          if (cached) setBackendSubjects(JSON.parse(cached));
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) setBackendSubjects(parsed);
+          }
         } catch {}
       }
 
@@ -3890,9 +3897,11 @@ function App() {
         const rows = await api("/subjects");
 
         if (active) {
-          setBackendSubjects(rows);
-          // Persist for offline use
-          try { localStorage.setItem("sc_subjects_cache", JSON.stringify(rows)); } catch {}
+          if (Array.isArray(rows)) {
+            setBackendSubjects(rows);
+            // Persist for offline use
+            try { localStorage.setItem("sc_subjects_cache", JSON.stringify(rows)); } catch {}
+          }
         }
 
       } catch {
