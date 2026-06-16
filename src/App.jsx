@@ -3540,8 +3540,10 @@ function App() {
         // Show dept onboarding for students who haven't picked a department yet
         const storedDept = localStorage.getItem("sc_active_dept");
         if (!storedDept || storedDept === "null") {
+          // Only show if not previously skipped
           setTimeout(() => setShowDeptSwitcher(true), 1200);
         }
+        // "skipped" → user dismissed onboarding, don't show again
 
       }).catch((err) => {
 
@@ -11371,6 +11373,10 @@ function App() {
           activeYearLevel={activeYearLevel}
           isOnboarding={!activeDept}
           onClose={() => setShowDeptSwitcher(false)}
+          onSkip={() => {
+            try { localStorage.setItem("sc_active_dept", "skipped"); } catch {}
+            setShowDeptSwitcher(false);
+          }}
           onConfirm={(dept, year) => {
             setActiveDept(dept);
             setActiveYearLevel(year);

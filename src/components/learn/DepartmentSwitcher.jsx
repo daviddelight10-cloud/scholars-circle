@@ -3,20 +3,25 @@ import { getDepartments, setUserDepartment } from "../../lib/departments.js";
 
 const YEAR_LEVELS = [1, 2, 3, 4, 5, 6];
 
-export default function DepartmentSwitcher({ activeDept, activeYearLevel, onConfirm, onClose, isOnboarding = false }) {
+export default function DepartmentSwitcher({ activeDept, activeYearLevel, onConfirm, onClose, onSkip, isOnboarding = false }) {
   const [departments, setDepartments] = useState([]);
   const [step, setStep] = useState("dept"); // "dept" | "year"
   const [selectedDept, setSelectedDept] = useState(activeDept || null);
   const [selectedYear, setSelectedYear] = useState(activeYearLevel || 1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     getDepartments()
       .then((d) => setDepartments(d))
-      .catch(() => {})
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, []);
+
+  function handleSkip() {
+    (onSkip || onClose)?.();
+  }
 
   async function handleConfirm() {
     if (!selectedDept) return;
@@ -86,29 +91,56 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, onConf
           <>
             {loading ? (
               <div style={{ color: "#7b82b8", textAlign: "center", padding: "24px" }}>Loading departments…</div>
-            ) : (
-              departments.map((d) => (
-                <div key={d.id} style={pill(selectedDept?.id === d.id)} onClick={() => setSelectedDept(d)}>
-                  <span style={{ fontSize: "24px" }}>{d.icon || "🏛️"}</span>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: "15px" }}>{d.name}</div>
-                    <div style={{ fontSize: "12px", color: "#4a5080" }}>{d._count?.subjects || 0} courses</div>
-                  </div>
-                  {selectedDept?.id === d.id && <span style={{ marginLeft: "auto", color: "#3949ab", fontSize: "18px" }}>✓</span>}
+            ) : fetchError ? (
+              <div style={{ textAlign: "center", padding: "24px" }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>⚠️</div>
+                <div style={{ fontWeight: 600, color: "#e8eaf6", marginBottom: 6 }}>Couldn't load departments</div>
+                <div style={{ fontSize: 12, color: "#7b82b8", marginBottom: 16 }}>Check your connection or ask your teacher to set up departments.</div>
+                <button onClick={handleSkip} style={{ width: "100%", padding: "13px", background: "#1a237e", color: "#e8eaf6", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" }}>
+                  Skip for now
+                </button>
+              </div>
+            ) : departments.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "24px" }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>🏛️</div>
+                <div style={{ fontWeight: 600, color: "#e8eaf6", marginBottom: 6 }}>No departments yet</div>
+                <div style={{ fontSize: 12, color: "#7b82b8", marginBottom: 20 }}>
+                  Your teacher hasn't created any departments yet. You can skip this and set it up later from the Learn tab.
                 </div>
-              ))
+                <button onClick={handleSkip} style={{ width: "100%", padding: "13px", background: "#1a237e", color: "#e8eaf6", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" }}>
+                  Skip for now
+                </button>
+              </div>
+            ) : (
+              <>
+                {departments.map((d) => (
+                  <div key={d.id} style={pill(selectedDept?.id === d.id)} onClick={() => setSelectedDept(d)}>
+                    <span style={{ fontSize: "24px" }}>{d.icon || "🏛️"}</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: "15px" }}>{d.name}</div>
+                      <div style={{ fontSize: "12px", color: "#4a5080" }}>{d._count?.subjects || 0} courses</div>
+                    </div>
+                    {selectedDept?.id === d.id && <span style={{ marginLeft: "auto", color: "#3949ab", fontSize: "18px" }}>✓</span>}
+                  </div>
+                ))}
+                <button
+                  onClick={() => selectedDept && setStep("year")}
+                  disabled={!selectedDept}
+                  style={{
+                    width: "100%", marginTop: "16px", padding: "14px",
+                    background: selectedDept ? "#1a237e" : "#1e2245", color: selectedDept ? "#e8eaf6" : "#4a5080",
+                    border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedDept ? "pointer" : "default",
+                  }}
+                >
+                  Next →
+                </button>
+                {isOnboarding && (
+                  <button onClick={handleSkip} style={{ width: "100%", marginTop: 8, padding: "10px", background: "none", border: "none", color: "#4a5080", fontSize: 13, cursor: "pointer" }}>
+                    Skip for now
+                  </button>
+                )}
+              </>
             )}
-            <button
-              onClick={() => selectedDept && setStep("year")}
-              disabled={!selectedDept}
-              style={{
-                width: "100%", marginTop: "16px", padding: "14px",
-                background: selectedDept ? "#1a237e" : "#1e2245", color: selectedDept ? "#e8eaf6" : "#4a5080",
-                border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedDept ? "pointer" : "default",
-              }}
-            >
-              Next →
-            </button>
           </>
         )}
 
