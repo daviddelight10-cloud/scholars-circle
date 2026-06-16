@@ -255,6 +255,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [showTopicDrop, setShowTopicDrop] = useState(false);
   const [quickFilter, setQuickFilter] = useState("all"); // all | wrong | unseen | remaining
+  const [showQMap, setShowQMap]       = useState(false);
   const [questions, setQuestions]   = useState([]);
   const [current, setCurrent]       = useState(0);
   const [selected, setSelected]     = useState(null);
@@ -355,16 +356,13 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
       const filtered = pool.filter(q => (q.topic || "General") === selectedTopic);
       if (filtered.length > 0) pool = filtered;
     }
-    // Quick-filter modes
+    // Quick-filter modes — always apply filter, even if it results in 0 (so user sees "No questions match")
     if (quickFilter === "wrong") {
-      const f = pool.filter(q => gridMap[q.id]?.status === "wrong");
-      if (f.length > 0) pool = f;
+      pool = pool.filter(q => gridMap[q.id]?.status === "wrong");
     } else if (quickFilter === "unseen") {
-      const f = pool.filter(q => !gridMap[q.id]);
-      if (f.length > 0) pool = f;
+      pool = pool.filter(q => !gridMap[q.id]);
     } else if (quickFilter === "remaining") {
-      const f = pool.filter(q => gridMap[q.id]?.status !== "correct");
-      if (f.length > 0) pool = f;
+      pool = pool.filter(q => gridMap[q.id]?.status !== "correct");
     }
     // Smart ordering: unseen first, then wrong, then mastered
     pool.sort((a, b) => {
@@ -617,29 +615,39 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
           </div>
         </div>
 
-        {/* Per-question dot grid — collapsible */}
+        {/* Per-question dot grid — React-controlled (replaces <details> which breaks on mobile) */}
         {!gridLoading && allQIds.length > 0 && (
-          <details style={{ cursor: "pointer" }}>
-            <summary style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", userSelect: "none", listStyle: "none", display: "flex", alignItems: "center", gap: 6 }}>
-              <span>▶ Question Map</span>
-              <span style={{ fontWeight: 400, color: "#334155" }}>🟢 mastered · 🔴 wrong · ⚫ unseen</span>
-            </summary>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 10 }}>
-              {allQIds.slice(0, 200).map(id => {
-                const status = gridMap[id]?.status || "unseen";
-                return (
-                  <div key={id} title={status} style={{
-                    width: 10, height: 10, borderRadius: 2,
-                    background: DOT_COLORS[status] || DOT_COLORS.unseen,
-                    transition: "background 0.3s",
-                  }} />
-                );
-              })}
-              {allQIds.length > 200 && (
-                <span style={{ fontSize: 10, color: "#475569", alignSelf: "center" }}>+{allQIds.length - 200} more</span>
-              )}
-            </div>
-          </details>
+          <div>
+            <button
+              onClick={() => setShowQMap(v => !v)}
+              style={{
+                background: "none", border: "none", padding: "4px 0",
+                display: "flex", alignItems: "center", gap: 6, cursor: "pointer", width: "100%",
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {showQMap ? "▼" : "▶"} Question Map
+              </span>
+              <span style={{ fontWeight: 400, color: "#334155", fontSize: 11 }}>🟢 mastered · 🔴 wrong · ⚫ unseen</span>
+            </button>
+            {showQMap && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 10 }}>
+                {allQIds.slice(0, 200).map(id => {
+                  const status = gridMap[id]?.status || "unseen";
+                  return (
+                    <div key={id} title={status} style={{
+                      width: 10, height: 10, borderRadius: 2,
+                      background: DOT_COLORS[status] || DOT_COLORS.unseen,
+                      transition: "background 0.3s",
+                    }} />
+                  );
+                })}
+                {allQIds.length > 200 && (
+                  <span style={{ fontSize: 10, color: "#475569", alignSelf: "center" }}>+{allQIds.length - 200} more</span>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Question count chips + custom input */}
