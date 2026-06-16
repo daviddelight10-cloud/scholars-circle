@@ -6,7 +6,8 @@ const BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 const EMOJI_OPTIONS = ["🩺", "💉", "🔬", "💊", "🦷", "🧬", "🏥", "⚕️", "🧪", "📋", "🫀", "🧠", "👁️", "🦴", "🩻"];
 
 async function authFetch(url, opts = {}) {
-  const token = localStorage.getItem("sc_token");
+  let token = null;
+  try { token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken; } catch {}
   return fetch(url, {
     ...opts,
     headers: {

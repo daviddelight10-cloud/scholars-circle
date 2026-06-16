@@ -307,7 +307,8 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
   useEffect(() => {
     if (!s.id || !token) return;
     setGridLoading(true);
-    const token_ = typeof token === "string" ? token : localStorage.getItem("sc_token") || "";
+    let token_ = typeof token === "string" ? token : "";
+    if (!token_) try { token_ = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || ""; } catch {}
     fetch(`${BASE2}/api/mastery/grid/${s.id}`, {
       headers: { Authorization: `Bearer ${token_}` },
     })
