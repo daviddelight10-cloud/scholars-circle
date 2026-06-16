@@ -82,12 +82,12 @@ router.patch("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req
           data: departmentIds.map(did => ({ subjectId: req.params.id, departmentId: did })),
           skipDuplicates: true,
         });
-        // keep primary departmentId in sync with first selection
-        await prisma.subject.update({
-          where: { id: req.params.id },
-          data: { departmentId: departmentIds[0] },
-        });
       }
+      // Sync primary departmentId with first selection (or null if none)
+      await prisma.subject.update({
+        where: { id: req.params.id },
+        data: { departmentId: departmentIds[0] ?? null },
+      });
     }
     const result = await prisma.subject.findUnique({
       where: { id: req.params.id },
