@@ -276,7 +276,34 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
   const curMastery = Math.round(mastery?.[s.id] || 0);
   const { label: masteryLabel, color: masteryColor } = masteryLevel(curMastery);
 
-  // Fetch per-question mastery grid from backend
+  // Restore persisted filter prefs + cached grid whenever subject changes
+  useEffect(() => {
+    if (!s.id) return;
+    try {
+      const prefsRaw = localStorage.getItem(`sc_practice_prefs_${s.id}`);
+      if (prefsRaw) {
+        const p = JSON.parse(prefsRaw);
+        if (p.quickFilter) setQuickFilter(p.quickFilter);
+        if ("selectedTopic" in p) setSelectedTopic(p.selectedTopic);
+        if (p.qCount !== undefined) setQCount(p.qCount);
+      } else {
+        setQuickFilter("all"); setSelectedTopic(null);
+      }
+      const gridRaw = localStorage.getItem(`sc_practice_grid_${s.id}`);
+      if (gridRaw) setGridMap(JSON.parse(gridRaw));
+      else setGridMap({});
+    } catch {}
+  }, [s.id]);
+
+  // Save filter prefs whenever they change
+  useEffect(() => {
+    if (!s.id) return;
+    try {
+      localStorage.setItem(`sc_practice_prefs_${s.id}`, JSON.stringify({ quickFilter, selectedTopic, qCount }));
+    } catch {}
+  }, [s.id, quickFilter, selectedTopic, qCount]);
+
+  // Fetch per-question mastery grid from backend and update cache
   useEffect(() => {
     if (!s.id || !token) return;
     setGridLoading(true);
@@ -288,11 +315,20 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
       .then(data => {
         const map = {};
         (data.grid || []).forEach(g => { map[g.id] = g; });
-        setGridMap(map);
+        if (Object.keys(map).length > 0) {
+          setGridMap(map);
+          try { localStorage.setItem(`sc_practice_grid_${s.id}`, JSON.stringify(map)); } catch {}
+        }
       })
       .catch(() => {})
       .finally(() => setGridLoading(false));
   }, [s.id, token]);
+
+  // Cache grid on every local (optimistic) update
+  useEffect(() => {
+    if (!s.id || Object.keys(gridMap).length === 0) return;
+    try { localStorage.setItem(`sc_practice_grid_${s.id}`, JSON.stringify(gridMap)); } catch {}
+  }, [s.id, gridMap]);
 
   // Coverage stats derived from grid
   const masteredCount = useMemo(() => Object.values(gridMap).filter(g => g.status === "correct").length, [gridMap]);
