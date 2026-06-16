@@ -20,7 +20,7 @@ router.get("/", async (_req, res) => {
 });
 
 // POST /api/departments — TEACHER/LECTURER only
-router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { name, icon } = req.body;
     if (!name) return res.status(400).json({ error: "name is required" });
@@ -33,7 +33,7 @@ router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
 });
 
 // PATCH /api/departments/:id
-router.patch("/:id", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.patch("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const { name, icon } = req.body;
     const dept = await prisma.department.update({
@@ -47,7 +47,7 @@ router.patch("/:id", requireAuth, requireRole("TEACHER"), async (req, res) => {
 });
 
 // DELETE /api/departments/:id — only if no subjects assigned
-router.delete("/:id", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.delete("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
     const count = await prisma.subject.count({ where: { departmentId: req.params.id } });
     if (count > 0) {

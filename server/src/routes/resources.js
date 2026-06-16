@@ -89,6 +89,25 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /api/resources/teacher/my - Get teacher's own resources (MUST be before /:token)
+router.get("/teacher/my", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+  try {
+    const resources = await prisma.resource.findMany({
+      where: { uploadedBy: req.user.sub },
+      include: {
+        uploader: {
+          select: { id: true, username: true, role: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(resources);
+  } catch (error) {
+    console.error("Error fetching teacher resources:", error);
+    res.status(500).json({ error: "Failed to fetch resources" });
+  }
+});
+
 // GET /api/resources/:token - Get resource by share token
 router.get("/:token", async (req, res) => {
   try {
@@ -291,26 +310,6 @@ router.delete("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (re
   } catch (error) {
     console.error("Error deleting resource:", error);
     res.status(500).json({ error: "Failed to delete resource" });
-  }
-});
-
-// GET /api/resources/teacher/my - Get teacher's own resources
-router.get("/teacher/my", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
-  try {
-    const resources = await prisma.resource.findMany({
-      where: { uploadedBy: req.user.sub },
-      include: {
-        uploader: {
-          select: { id: true, username: true, role: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    res.json(resources);
-  } catch (error) {
-    console.error("Error fetching teacher resources:", error);
-    res.status(500).json({ error: "Failed to fetch resources" });
   }
 });
 
