@@ -11385,6 +11385,7 @@ function App() {
         <DepartmentSwitcher
           activeDept={activeDept}
           activeYearLevel={activeYearLevel}
+          subjects={subjects}
           isOnboarding={!activeDept}
           onClose={() => setShowDeptSwitcher(false)}
           onSkip={() => {

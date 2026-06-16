@@ -3,7 +3,15 @@ import { getDepartments, setUserDepartment } from "../../lib/departments.js";
 
 const YEAR_LEVELS = [1, 2, 3, 4, 5, 6];
 
-export default function DepartmentSwitcher({ activeDept, activeYearLevel, onConfirm, onClose, onSkip, isOnboarding = false }) {
+function liveCount(subjects, deptId) {
+  if (!subjects?.length) return null; // null = fall back to _count
+  return subjects.filter(s =>
+    s.departmentId === deptId ||
+    (s.subjectDepts || []).some(d => d.departmentId === deptId)
+  ).length;
+}
+
+export default function DepartmentSwitcher({ activeDept, activeYearLevel, subjects, onConfirm, onClose, onSkip, isOnboarding = false }) {
   const [departments, setDepartments] = useState([]);
   const [step, setStep] = useState("dept"); // "dept" | "year"
   const [selectedDept, setSelectedDept] = useState(activeDept || null);
@@ -118,7 +126,9 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, onConf
                     <span style={{ fontSize: "24px" }}>{d.icon || "🏛️"}</span>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: "15px" }}>{d.name}</div>
-                      <div style={{ fontSize: "12px", color: "#4a5080" }}>{d._count?.subjects || 0} courses</div>
+                      <div style={{ fontSize: "12px", color: "#4a5080" }}>
+                        {(() => { const c = liveCount(subjects, d.id); return c !== null ? c : (d._count?.subjects || 0); })()}{" "}courses
+                      </div>
                     </div>
                     {selectedDept?.id === d.id && <span style={{ marginLeft: "auto", color: "#3949ab", fontSize: "18px" }}>✓</span>}
                   </div>
