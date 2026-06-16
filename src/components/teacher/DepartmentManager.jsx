@@ -32,6 +32,15 @@ async function patchSubject(id, data) {
   return res.json();
 }
 
+async function getSubjectDepts(subjectId) {
+  try {
+    const res = await fetch(`${BASE}/subjects`);
+    const subs = res.ok ? await res.json() : [];
+    const s = subs.find(x => x.id === subjectId);
+    return (s?.subjectDepts || []).map(d => d.departmentId);
+  } catch { return []; }
+}
+
 export default function DepartmentManager() {
   const [departments, setDepartments] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -97,8 +106,15 @@ export default function DepartmentManager() {
     }
   }
 
-  const deptCourses = activeDeptId ? subjects.filter((s) => s.departmentId === activeDeptId) : [];
-  const unassigned = subjects.filter((s) => !s.departmentId);
+  const deptCourses = activeDeptId
+    ? subjects.filter((s) =>
+        s.departmentId === activeDeptId ||
+        s.subjectDepts?.some(d => d.departmentId === activeDeptId)
+      )
+    : [];
+  const unassigned = subjects.filter((s) =>
+    !s.departmentId && (!s.subjectDepts || s.subjectDepts.length === 0)
+  );
 
   const card = {
     background: "#0a0b18", border: "0.5px solid #1e2245", borderRadius: "12px",
@@ -264,9 +280,17 @@ function DeptForm({ existing, onSave, onClose }) {
 }
 
 function CourseForm({ course, departments, onSave, onClose }) {
-  const [deptId, setDeptId] = useState(course.departmentId || "");
+  const [selectedDeptIds, setSelectedDeptIds] = useState(
+    () => (course.subjectDepts?.map(d => d.departmentId) || (course.departmentId ? [course.departmentId] : []))
+  );
   const [yearLevel, setYearLevel] = useState(course.yearLevel || 1);
   const [icon, setIcon] = useState(course.icon || "📚");
+
+  function toggleDept(id) {
+    setSelectedDeptIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
 
   const overlay = {
     position: "fixed", inset: 0, background: "rgba(7,8,15,0.85)", zIndex: 1000,
@@ -288,11 +312,25 @@ function CourseForm({ course, departments, onSave, onClose }) {
         <h3 style={{ color: "#e8eaf6", fontWeight: 700, margin: "0 0 4px" }}>Assign Course</h3>
         <p style={{ color: "#7b82b8", fontSize: "13px", margin: "0 0 16px" }}>{course.label}</p>
 
-        <label style={{ color: "#7b82b8", fontSize: "12px" }}>Department</label>
-        <select value={deptId} onChange={(e) => setDeptId(e.target.value)} style={sel}>
-          <option value="">-- Unassigned --</option>
-          {departments.map((d) => <option key={d.id} value={d.id}>{d.icon} {d.name}</option>)}
-        </select>
+        <label style={{ color: "#7b82b8", fontSize: "12px", display: "block", marginBottom: "6px" }}>Departments (pick one or more)</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px", maxHeight: "160px", overflowY: "auto" }}>
+          {departments.map((d) => {
+            const checked = selectedDeptIds.includes(d.id);
+            return (
+              <label key={d.id} style={{
+                display: "flex", alignItems: "center", gap: "10px",
+                padding: "8px 12px", borderRadius: "8px", cursor: "pointer",
+                background: checked ? "#0f1535" : "#0a0b18",
+                border: `0.5px solid ${checked ? "#3949ab" : "#1e2245"}`,
+              }}>
+                <input type="checkbox" checked={checked} onChange={() => toggleDept(d.id)}
+                  style={{ accentColor: "#3949ab", width: "15px", height: "15px" }} />
+                <span style={{ fontSize: "18px" }}>{d.icon || "🏛️"}</span>
+                <span style={{ color: "#e8eaf6", fontSize: "14px", fontWeight: checked ? 600 : 400 }}>{d.name}</span>
+              </label>
+            );
+          })}
+        </div>
 
         <label style={{ color: "#7b82b8", fontSize: "12px" }}>Year Level</label>
         <select value={yearLevel} onChange={(e) => setYearLevel(Number(e.target.value))} style={sel}>
@@ -304,7 +342,7 @@ function CourseForm({ course, departments, onSave, onClose }) {
 
         <div style={{ display: "flex", gap: "8px" }}>
           <button onClick={onClose} style={{ flex: 1, padding: "11px", background: "#0a0b18", border: "0.5px solid #1e2245", borderRadius: "10px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
-          <button onClick={() => onSave({ departmentId: deptId || null, yearLevel, icon })} style={{ flex: 2, padding: "11px", background: "#1a237e", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={() => onSave({ departmentIds: selectedDeptIds, departmentId: selectedDeptIds[0] || null, yearLevel, icon })} style={{ flex: 2, padding: "11px", background: "#1a237e", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}>
             Save
           </button>
         </div>

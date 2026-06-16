@@ -15,6 +15,7 @@ router.get("/", async (req, res) => {
     where,
     orderBy: { label: "asc" },
     include: {
+      subjectDepts: { select: { departmentId: true } },
       questions: {
         select: {
           id: true,
@@ -60,9 +61,9 @@ router.post("/", requireAuth, requireRole("TEACHER"), async (req, res) => {
   res.status(201).json(row);
 });
 
-router.patch("/:id", requireAuth, requireRole("TEACHER"), async (req, res) => {
+router.patch("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
-    const { label, description, departmentId, yearLevel, icon } = req.body;
+    const { label, description, departmentId, yearLevel, icon, departmentIds } = req.body;
     const updated = await prisma.subject.update({
       where: { id: req.params.id },
       data: {
@@ -73,7 +74,26 @@ router.patch("/:id", requireAuth, requireRole("TEACHER"), async (req, res) => {
         ...(icon !== undefined && { icon }),
       },
     });
-    res.json(updated);
+    // Handle multi-department assignment
+    if (Array.isArray(departmentIds)) {
+      await prisma.subjectDepartment.deleteMany({ where: { subjectId: req.params.id } });
+      if (departmentIds.length > 0) {
+        await prisma.subjectDepartment.createMany({
+          data: departmentIds.map(did => ({ subjectId: req.params.id, departmentId: did })),
+          skipDuplicates: true,
+        });
+        // keep primary departmentId in sync with first selection
+        await prisma.subject.update({
+          where: { id: req.params.id },
+          data: { departmentId: departmentIds[0] },
+        });
+      }
+    }
+    const result = await prisma.subject.findUnique({
+      where: { id: req.params.id },
+      include: { subjectDepts: { select: { departmentId: true } } },
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

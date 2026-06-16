@@ -31,13 +31,21 @@ export default function CourseCustomizer({ allSubjects, activeDept, activeYearLe
     getDepartments().then(setDepartments).catch(() => {});
   }, []);
 
-  const myCourses = allSubjects.filter(
-    (s) => s.departmentId === activeDept?.id && (activeYearLevel ? s.yearLevel === activeYearLevel : true)
+  // "My Courses": show currently enabled courses; on first visit default to dept+year courses
+  const deptDefaultCourses = allSubjects.filter(
+    (s) => (s.departmentId === activeDept?.id || s.subjectDepts?.some(d => d.departmentId === activeDept?.id))
+      && (activeYearLevel ? !s.yearLevel || s.yearLevel === activeYearLevel : true)
   );
+  const myCourses = enabledIds
+    ? allSubjects.filter(s => enabledIds.has(s.id))
+    : deptDefaultCourses;
 
   const browseDept = departments.find((d) => d.id === browseDeptId);
   const otherCourses = browseDeptId
-    ? allSubjects.filter((s) => s.departmentId === browseDeptId)
+    ? allSubjects.filter((s) =>
+        s.departmentId === browseDeptId ||
+        s.subjectDepts?.some(d => d.departmentId === browseDeptId)
+      )
     : [];
 
   function toggleCourse(id) {
