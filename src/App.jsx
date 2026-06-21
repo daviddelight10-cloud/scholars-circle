@@ -799,6 +799,9 @@ import { PushPermissionBanner, NotificationSettings } from "./features/Notificat
 
 
 import { InstallPrompt } from "./features/InstallPrompt.jsx";
+import PremiumPage from "./features/PremiumPage.jsx";
+import PaystackPop from "@paystack/inline-js";
+const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_2c321f6a4471b672ee716506912ede6f6f99d8cd";
 
 
 
@@ -1984,7 +1987,7 @@ function CelebrationNotification({ stats, history, yesterdayTime }) {
 
 
 
-const PRIMARY_TABS = ["today", "practice", "aitutor", "analytics"];
+const PRIMARY_TABS = ["today", "practice", "aitutor", "analytics", "premium"];
 
 const TAB_LABELS = {
 
@@ -9224,25 +9227,62 @@ function App() {
 
 
             {selectedPlan && (
+              <div style={{ marginBottom: 20 }}>
+                {/* Paystack instant pay */}
+                <button
+                  onClick={() => {
+                    const plan = { week1: { label: "1 Week", price: 700 }, week2: { label: "2 Weeks", price: 1300 }, month1: { label: "1 Month", price: 2400 } }[selectedPlan];
+                    const rawEmail = auth.user?.email || auth.user?.username || "";
+                    const payEmail = rawEmail.includes("@") ? rawEmail : `${rawEmail || "user"}@scholars-circle.app`;
+                    try {
+                      const popup = new PaystackPop();
+                      popup.newTransaction({
+                        key: PAYSTACK_PUBLIC_KEY,
+                        email: payEmail,
+                        amount: plan.price * 100,
+                        currency: "NGN",
+                        reference: `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        metadata: { plan: selectedPlan, activationKey: auth.user?.activationKey || "", userId: auth.user?.id || "" },
+                        onSuccess: (transaction) => {
+                          fetch(`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app"}/payment/verify`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                            body: JSON.stringify({ reference: transaction.reference, plan: selectedPlan, activationKey: auth.user?.activationKey || "" }),
+                          })
+                            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                            .then(({ ok, data }) => {
+                              if (ok && data.activated) {
+                                refreshAuth();
+                                setShowPaymentModal(false);
+                              }
+                            })
+                            .catch(() => {});
+                        },
+                        onCancel: () => {},
+                      });
+                    } catch (err) {
+                      alert(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
+                    }
+                  }}
+                  style={{
+                    width: "100%", padding: "14px", borderRadius: 12, border: "none",
+                    fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 12,
+                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff",
+                  }}
+                >💳 Pay {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"} with Paystack · Instant Activation</button>
 
-              <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                <div style={{ textAlign: "center", color: "#4a5080", fontSize: 11, marginBottom: 12 }}>— or pay manually —</div>
 
-                <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>🏦 Payment Details</h4>
-
-                <div style={{ fontSize: 13, lineHeight: 1.8 }}>
-
-                  <div><strong>Bank:</strong> Opay</div>
-
-                  <div><strong>Account Number:</strong> 9069372522</div>
-
-                  <div><strong>Account Name:</strong> Zibiri-David Delight Aluaye</div>
-
-                  <div><strong>Amount:</strong> {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"}</div>
-
+                <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 12, padding: 16 }}>
+                  <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>🏦 Transfer to Opay</h4>
+                  <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+                    <div><strong>Bank:</strong> Opay</div>
+                    <div><strong>Account Number:</strong> 9069372522</div>
+                    <div><strong>Account Name:</strong> Zibiri-David Delight Aluaye</div>
+                    <div><strong>Amount:</strong> {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"}</div>
+                  </div>
                 </div>
-
               </div>
-
             )}
 
 
@@ -9254,9 +9294,8 @@ function App() {
                 <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>📱 After Payment</h4>
 
                 <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-
-                  Send a screenshot of your payment receipt along with your activation key to our WhatsApp:
-
+                  Send a screenshot of your payment receipt along with your activation key to our WhatsApp.
+                  <br /><strong style={{ color: "#ef9a9a" }}>⚠️ Manual activation may take up to 2 hours.</strong>
                 </p>
 
                 <div style={{ fontSize: 13, marginBottom: 8 }}>
@@ -10515,6 +10554,8 @@ function App() {
 
           ["research-hub", "📚 Research Hub"],
 
+          ...(!isFaculty ? [["premium", "💎 Premium"]] : []),
+
           ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["teacher-resources", "📤 Teacher Resources"], ["campus-comm", "📢 Announcements"], ["departments", "🏛️ Departments"]] : []),
 
           ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "🛡️ Admin"]] : []),
@@ -11763,6 +11804,15 @@ function App() {
       )}
 
 
+
+      {tab === "premium" && !isFaculty && (
+        <PremiumPage
+          user={auth.user}
+          token={token}
+          isActivated={isActivated}
+          onActivated={() => refreshAuth()}
+        />
+      )}
 
       {tab === "settings" && (
 

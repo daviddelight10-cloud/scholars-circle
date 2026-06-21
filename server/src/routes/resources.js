@@ -3,29 +3,14 @@ import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
+import { uploadFile, deleteFile } from "../lib/supabaseStorage.js";
 
 const router = express.Router();
 
-// Configure multer for file uploads
-const uploadDir = path.join(process.cwd(), "uploads", "resources");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Memory storage — file buffer sent directly to Supabase, never written to disk
 const upload = multer({
-  storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: (req, file, cb) => {
     const allowedExtensions = [".pdf", ".docx", ".doc", ".txt", ".json"];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -75,9 +60,7 @@ router.get("/", async (req, res) => {
     const resources = await prisma.resource.findMany({
       where,
       include: {
-        uploader: {
-          select: { id: true, username: true, role: true },
-        },
+        uploader: { select: { id: true, username: true, role: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -94,11 +77,7 @@ router.get("/teacher/my", requireAuth, requireRole("TEACHER", "LECTURER"), async
   try {
     const resources = await prisma.resource.findMany({
       where: { uploadedBy: req.user.sub },
-      include: {
-        uploader: {
-          select: { id: true, username: true, role: true },
-        },
-      },
+      include: { uploader: { select: { id: true, username: true, role: true } } },
       orderBy: { createdAt: "desc" },
     });
     res.json(resources);
@@ -115,11 +94,7 @@ router.get("/:token", async (req, res) => {
 
     const resource = await prisma.resource.findUnique({
       where: { shareToken: token },
-      include: {
-        uploader: {
-          select: { id: true, username: true, role: true },
-        },
-      },
+      include: { uploader: { select: { id: true, username: true, role: true } } },
     });
 
     if (!resource) {
@@ -159,7 +134,20 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), upload.single(
     }
 
     const shareToken = await generateShareToken();
-    const fileUrl = req.file ? `/uploads/resources/${req.file.filename}` : null;
+
+    // Upload file to Supabase Storage (for non-MCQ types)
+    let fileUrl = null;
+    let storagePath = null;
+    let fileName = null;
+    let mimeType = null;
+
+    if (req.file) {
+      const result = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+      fileUrl = result.publicUrl;
+      storagePath = result.storagePath;
+      fileName = req.file.originalname;
+      mimeType = req.file.mimetype;
+    }
 
     const resource = await prisma.resource.create({
       data: {
@@ -167,17 +155,16 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), upload.single(
         subject,
         contentType,
         fileUrl,
+        storagePath,
+        fileName,
+        mimeType,
         description: description || null,
         uploadedBy: req.user.sub,
         isPremium: isPremium === "true",
         shareToken,
         mcqData: contentType === "mcq" ? JSON.parse(mcqData) : null,
       },
-      include: {
-        uploader: {
-          select: { id: true, username: true, role: true },
-        },
-      },
+      include: { uploader: { select: { id: true, username: true, role: true } } },
     });
 
     res.status(201).json(resource);
@@ -294,17 +281,12 @@ router.delete("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (re
       return res.status(403).json({ error: "You can only delete your own resources" });
     }
 
-    // Delete file from disk if exists
-    if (resource.fileUrl) {
-      const filePath = path.join(process.cwd(), resource.fileUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+    // Delete file from Supabase Storage
+    if (resource.storagePath) {
+      await deleteFile(resource.storagePath);
     }
 
-    await prisma.resource.delete({
-      where: { id },
-    });
+    await prisma.resource.delete({ where: { id } });
 
     res.json({ success: true });
   } catch (error) {

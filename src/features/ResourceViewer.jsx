@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 export default function ResourceViewer() {
   const { token } = useParams();
@@ -181,7 +181,8 @@ export default function ResourceViewer() {
             <div style={{ fontSize: "14px", color: "#4a5080" }}>{resource.title}.pdf</div>
             <div style={{ fontSize: "12px", color: "#2e3260" }}>PDF Viewer</div>
             <a
-              href={resource.fileUrl}
+              href={resource.fileUrl || "#"}
+              download={resource.fileName || resource.title}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -215,9 +216,20 @@ export default function ResourceViewer() {
             }}
           >
             <strong style={{ color: "#c5c9e8", fontSize: "16px" }}>{resource.title}</strong>
-            <br />
-            <br />
-            {resource.description || "Note content will be displayed here."}
+            {resource.description && <p style={{ marginTop: 8, marginBottom: 8 }}>{resource.description}</p>}
+            {resource.fileUrl ? (
+              <a
+                href={resource.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                download={resource.fileName || resource.title}
+                style={{ display: "inline-block", marginTop: 12, padding: "6px 16px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: 8, fontSize: 12, color: "#9fa8da", textDecoration: "none" }}
+              >
+                Download Note
+              </a>
+            ) : (
+              <p style={{ marginTop: 12, color: "#3a3d60" }}>Content not available.</p>
+            )}
           </div>
         );
 

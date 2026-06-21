@@ -31,6 +31,7 @@ import resourcesRoutes from "./routes/resources.js";
 import departmentsRoutes from "./routes/departments.js";
 import topicsRoutes from "./routes/topics.js";
 import masteryRoutes from "./routes/mastery.js";
+import paymentRoutes from "./routes/payment.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
 import { seedBadges } from "./lib/badges.js";
@@ -129,6 +130,7 @@ app.use("/api/resources", resourcesRoutes);
 app.use("/api/departments", departmentsRoutes);
 app.use("/api/topics", topicsRoutes);
 app.use("/api/mastery", masteryRoutes);
+app.use("/payment", paymentRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

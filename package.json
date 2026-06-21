@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@paystack/inline-js": "^2.23.1",
     "@supabase/supabase-js": "^2.57.4",
     "autoprefixer": "^10.5.0",
     "dompurify": "^3.1.6",

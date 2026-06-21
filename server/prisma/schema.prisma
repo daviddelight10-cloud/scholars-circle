@@ -1297,7 +1297,10 @@ model Resource {
   title       String
   subject     String
   contentType String   // note, pdf, mcq, tutorial_question
-  fileUrl     String
+  fileUrl     String?  // Supabase Storage public URL
+  storagePath String?  // Supabase Storage object path (for deletion)
+  fileName    String?  // original filename
+  mimeType    String?  // e.g. application/pdf
   description String?
   uploadedBy  String
   uploader    User     @relation("ResourceUploader", fields: [uploadedBy], references: [id], onDelete: Cascade)

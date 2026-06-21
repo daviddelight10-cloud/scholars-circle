@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
+import PaystackPop from "@paystack/inline-js";
 
-const PAYSTACK_PUBLIC_KEY = "pk_live_xxxxxxxxxxxxxxxxxxxx"; // Replace with your Paystack public key
+const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_2c321f6a4471b672ee716506912ede6f6f99d8cd";
 const OPAY_ACCOUNT = "9069372522";
 const OPAY_NAME = "Zibiri-David Delight Aluaye";
 const WHATSAPP_LINK = "https://wa.link/yj2em4";
@@ -17,7 +18,6 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onC
   const [paymentMethod, setPaymentMethod] = useState(null); // "paystack" | "transfer"
   const [paying, setPaying] = useState(false);
   const [toast, setToast] = useState(null);
-  const paystackRef = useRef(null);
 
   const activationKey = user?.activationKey || "";
   const email = user?.email || user?.username || "";
@@ -27,70 +27,64 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onC
     setTimeout(() => setToast(null), 4000);
   }
 
-  // Load Paystack script
-  useEffect(() => {
-    if (paymentMethod !== "paystack") return;
-    if (document.getElementById("paystack-script")) return;
-    const script = document.createElement("script");
-    script.id = "paystack-script";
-    script.src = "https://js.paystack.co/v1/inline.js";
-    script.async = true;
-    document.head.appendChild(script);
-  }, [paymentMethod]);
+  function verifyPayment(reference) {
+    setPaying(true);
+    const BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
+    fetch(`${BASE}/payment/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ reference, plan: selectedPlan, activationKey }),
+    })
+      .then(res => res.json().then(data => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok && data.activated) {
+          showToast("✅ Payment successful! Your account is now activated.");
+          onActivated?.();
+        } else {
+          showToast(data.error || "Verification failed. Contact support.", "error");
+        }
+      })
+      .catch(() => {
+        showToast("Payment went through but verification failed. Contact support.", "error");
+      })
+      .finally(() => setPaying(false));
+  }
 
   function handlePaystackPay() {
     if (!selectedPlan) return;
     const plan = PLANS.find(p => p.id === selectedPlan);
     if (!plan) return;
 
-    // @ts-ignore
-    const handler = window.PaystackPop?.setup({
-      key: PAYSTACK_PUBLIC_KEY,
-      email: email,
-      amount: plan.price * 100, // Paystack uses kobo
-      currency: "NGN",
-      ref: `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      metadata: {
-        plan: selectedPlan,
-        activationKey: activationKey,
-        userId: user?.id || "",
-      },
-      onClose: () => {
-        setPaying(false);
-      },
-      callback: async (response) => {
-        // Payment successful — verify on backend
-        setPaying(true);
-        try {
-          const res = await fetch(
-            `${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app"}/payment/verify`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              body: JSON.stringify({
-                reference: response.reference,
-                plan: selectedPlan,
-                activationKey: activationKey,
-              }),
-            }
-          );
-          const data = await res.json();
-          if (res.ok && data.activated) {
-            showToast("✅ Payment successful! Your account is now activated.");
-            onActivated?.();
-          } else {
-            showToast(data.error || "Verification failed. Contact support.", "error");
-          }
-        } catch {
-          showToast("Payment went through but verification failed. Contact support with your reference.", "error");
-        }
-        setPaying(false);
-      },
-    });
-    handler.openIframe();
+    // Paystack requires a valid email — use a fallback if user only has a username
+    const payEmail = email.includes("@") ? email : `${email || "user"}@scholars-circle.app`;
+
+    try {
+      const popup = new PaystackPop();
+      popup.newTransaction({
+        key: PAYSTACK_PUBLIC_KEY,
+        email: payEmail,
+        amount: plan.price * 100, // Paystack uses kobo
+        currency: "NGN",
+        reference: `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        metadata: {
+          plan: selectedPlan,
+          activationKey: activationKey,
+          userId: user?.id || "",
+        },
+        onSuccess: (transaction) => {
+          verifyPayment(transaction.reference);
+        },
+        onCancel: () => {
+          setPaying(false);
+        },
+      });
+    } catch (err) {
+      console.error("Paystack error:", err);
+      alert(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
+    }
   }
 
   function handleTransferConfirm() {
