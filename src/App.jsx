@@ -49,6 +49,11 @@ import Resources from "./pages/Resources";
 import ClassroomPage from "./pages/Classroom";
 import Profile from "./pages/Profile";
 
+// Research Hub components
+import ResearchHub from "./features/ResearchHub";
+import TeacherResourcesHub from "./features/TeacherResourcesHub";
+import ResourceUploadForm from "./components/teacher/ResourceUploadForm";
+
 // Components
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -10406,7 +10411,7 @@ function App() {
 
               </button>
 
-              <button onClick={() => { window.location.href = "/resources"; setShowMobileMenu(false); }}>
+              <button className={tab === "research-hub" ? "active" : ""} onClick={() => { setTab("research-hub"); setShowMobileMenu(false); }}>
 
                 <span>📚</span> Research Hub
 
@@ -10470,7 +10475,7 @@ function App() {
 
                   </button>
 
-                  <button onClick={() => { window.location.href = "/teacher/resources"; setShowMobileMenu(false); }}>
+                  <button className={tab === "teacher-resources" ? "active" : ""} onClick={() => { setTab("teacher-resources"); setShowMobileMenu(false); }}>
 
                     <span>📤</span> Teacher Resources
 
@@ -10567,18 +10572,11 @@ function App() {
           return !["classroom"].includes(id);
 
         }).map(([id, label]) => {
-          const isExternalRoute = id === "research-hub" || id === "teacher-resources";
           return (
             <button
               key={id}
               className={["today", "dashboard"].includes(tab) && id === "today" ? "active" : tab === id ? "active" : ""}
-              onClick={() => {
-                if (isExternalRoute) {
-                  window.location.href = id === "research-hub" ? "/resources" : "/teacher/resources";
-                } else {
-                  setTab(id);
-                }
-              }}
+              onClick={() => setTab(id)}
             >
               {label}
             </button>
@@ -11812,6 +11810,14 @@ function App() {
           isActivated={isActivated}
           onActivated={() => refreshAuth()}
         />
+      )}
+
+      {tab === "research-hub" && (
+        <ResearchHub onBack={() => setTab("today")} />
+      )}
+
+      {tab === "teacher-resources" && (
+        <TeacherResourcesHub onBack={() => setTab("today")} />
       )}
 
       {tab === "settings" && (

@@ -3,16 +3,22 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-export default function ResourceViewer() {
-  const { token } = useParams();
+// token prop: used when rendered in-app (overrides useParams)
+// onBack prop: called by Back button (overrides navigate) — used for in-app rendering
+export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
+  const params = useParams();
   const navigate = useNavigate();
+  const token = tokenProp || params.token;
+
   const [resource, setResource] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [authCase, setAuthCase] = useState("loggedin"); // loggedin | guest | new
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState(null);
+  const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
 
   // Auth form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -20,87 +26,113 @@ export default function ResourceViewer() {
   const [signupName, setSignupName] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
 
   // MCQ state
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
-    fetchResource();
     checkAuth();
+  }, []);
+
+  useEffect(() => {
+    if (token) fetchResource();
   }, [token]);
 
   const checkAuth = () => {
-    const authData = localStorage.getItem("scholars-circle-auth");
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData);
-        if (parsed.authUser) {
-          setUser(parsed.authUser);
-          setAuthCase("loggedin");
-          return;
-        }
-      } catch (e) {}
-    }
+    try {
+      const parsed = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      if (parsed.authUser) {
+        setUser(parsed.authUser);
+        setAuthCase("loggedin");
+        return;
+      }
+    } catch (e) {}
     setAuthCase("guest");
+  };
+
+  const getCached = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { data, ts } = JSON.parse(raw);
+      if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(key); return null; }
+      return data;
+    } catch { return null; }
+  };
+
+  const setCache = (key, data) => {
+    try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
   };
 
   const fetchResource = async () => {
     setLoading(true);
+    const cacheKey = `sc_resource_${token}`;
+    const cached = getCached(cacheKey);
+    if (cached) { setResource(cached); setLoading(false); triggerLogView(cached); return; }
     try {
-      const response = await fetch(`${API_BASE}/api/resources/${token}`);
-      if (response.ok) {
-        const data = await response.json();
+      const res = await fetch(`${API_BASE}/api/resources/${token}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCache(cacheKey, data);
         setResource(data);
-      } else if (response.status === 404) {
+        triggerLogView(data);
+      } else if (res.status === 404) {
         setError("Resource not found");
+      } else {
+        setError("Failed to load resource");
       }
-    } catch (err) {
-      setError("Failed to load resource");
+    } catch {
+      setError("Failed to load resource. Check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
-  const logView = async () => {
+  const triggerLogView = async (res) => {
     try {
-      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      await fetch(`${API_BASE}/api/resources/${token}/view`, {
+      const parsed = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      const userId = parsed.authUser?.id || null;
+      if (!userId) return; // guests handled via auth overlay
+      const r = await fetch(`${API_BASE}/api/resources/${res.shareToken || token}/view`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: authData.authUser?.id || null,
-          guestToken: null,
-        }),
+        body: JSON.stringify({ userId }),
       });
-    } catch (err) {
-      console.error("Failed to log view:", err);
-    }
+      const info = await r.json();
+      setTrialInfo(info);
+    } catch {}
+  };
+
+  const handleBack = () => {
+    if (onBack) { onBack(); return; }
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/resources");
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthLoading(true);
-    setError("");
-
+    setAuthError("");
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        body: JSON.stringify({ login: loginEmail, password: loginPassword }),
       });
-
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("scholars-circle-auth", JSON.stringify(data));
-        setUser(data.authUser);
+      const data = await res.json();
+      if (res.ok) {
+        const authPayload = { authUser: data.user, authToken: data.token };
+        localStorage.setItem("scholars-circle-auth", JSON.stringify(authPayload));
+        setUser(data.user);
         setAuthCase("loggedin");
-        logView();
+        triggerLogView(resource || { shareToken: token });
       } else {
-        setError(data.error || "Login failed");
+        setAuthError(data.error || "Login failed");
       }
-    } catch (err) {
-      setError("Login failed. Please try again.");
+    } catch {
+      setAuthError("Login failed. Please check your connection.");
     } finally {
       setAuthLoading(false);
     }
@@ -109,30 +141,36 @@ export default function ResourceViewer() {
   const handleQuickSignup = async (e) => {
     e.preventDefault();
     setAuthLoading(true);
-    setError("");
-
+    setAuthError("");
+    // Sanitize username: strip spaces, use underscore, lowercase
+    const username = signupName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+    if (username.length < 3) { setAuthError("Name must be at least 3 characters (letters/numbers)"); setAuthLoading(false); return; }
+    if (signupPassword.length < 8) { setAuthError("Password must be at least 8 characters"); setAuthLoading(false); return; }
+    const email = `${username}${Date.now()}@scholars.app`;
     try {
-      const response = await fetch(`${API_BASE}/auth/signup`, {
+      // Step 1: Register
+      const regRes = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: signupName,
-          email: `${signupName.toLowerCase().replace(/\s/g, "")}@temp.local`,
-          password: signupPassword,
-        }),
+        body: JSON.stringify({ username, email, password: signupPassword }),
       });
-
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("scholars-circle-auth", JSON.stringify(data));
-        setUser(data.authUser);
-        setAuthCase("loggedin");
-        logView();
-      } else {
-        setError(data.error || "Signup failed");
-      }
-    } catch (err) {
-      setError("Signup failed. Please try again.");
+      const regData = await regRes.json();
+      if (!regRes.ok) { setAuthError(regData.error || "Sign up failed"); setAuthLoading(false); return; }
+      // Step 2: Auto-login to get token
+      const loginRes = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ login: username, password: signupPassword }),
+      });
+      const loginData = await loginRes.json();
+      if (!loginRes.ok) { setAuthError("Account created! Please log in."); setAuthCase("guest"); setAuthLoading(false); return; }
+      const authPayload = { authUser: loginData.user, authToken: loginData.token };
+      localStorage.setItem("scholars-circle-auth", JSON.stringify(authPayload));
+      setUser(loginData.user);
+      setAuthCase("loggedin");
+      triggerLogView(resource || { shareToken: token });
+    } catch {
+      setAuthError("Sign up failed. Please try again.");
     } finally {
       setAuthLoading(false);
     }
@@ -163,42 +201,18 @@ export default function ResourceViewer() {
 
     switch (resource.contentType) {
       case "pdf":
-        return (
-          <div
-            style={{
-              background: "#0a0c1e",
-              border: "0.5px solid #1e2245",
-              borderRadius: "10px",
-              height: "500px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "12px",
-            }}
-          >
-            <span style={{ fontSize: "48px" }}>📄</span>
-            <div style={{ fontSize: "14px", color: "#4a5080" }}>{resource.title}.pdf</div>
-            <div style={{ fontSize: "12px", color: "#2e3260" }}>PDF Viewer</div>
-            <a
-              href={resource.fileUrl || "#"}
-              download={resource.fileName || resource.title}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                padding: "8px 20px",
-                background: "#1a237e",
-                border: "0.5px solid #3949ab",
-                borderRadius: "20px",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "#9fa8da",
-                textDecoration: "none",
-                cursor: "pointer",
-              }}
-            >
-              Open PDF
-            </a>
+        return resource.fileUrl ? (
+          <div style={{ borderRadius: "10px", overflow: "hidden", border: "0.5px solid #1e2245", background: "#0a0c1e" }}>
+            <iframe
+              src={resource.fileUrl}
+              title={resource.title}
+              style={{ width: "100%", height: "600px", border: "none", display: "block" }}
+              allow="fullscreen"
+            />
+          </div>
+        ) : (
+          <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center", color: "#4a5080" }}>
+            PDF not available
           </div>
         );
 
@@ -218,15 +232,15 @@ export default function ResourceViewer() {
             <strong style={{ color: "#c5c9e8", fontSize: "16px" }}>{resource.title}</strong>
             {resource.description && <p style={{ marginTop: 8, marginBottom: 8 }}>{resource.description}</p>}
             {resource.fileUrl ? (
-              <a
-                href={resource.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={resource.fileName || resource.title}
-                style={{ display: "inline-block", marginTop: 12, padding: "6px 16px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: 8, fontSize: 12, color: "#9fa8da", textDecoration: "none" }}
-              >
-                Download Note
-              </a>
+              <iframe
+                src={resource.fileUrl}
+                title={resource.title}
+                style={{ width: "100%", height: "400px", border: "none", borderRadius: "8px", marginTop: 12, background: "#0a0c1e" }}
+              />
+            ) : resource.description ? (
+              <pre style={{ marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#c5c9e8", fontSize: 13, lineHeight: 1.7 }}>
+                {resource.description}
+              </pre>
             ) : (
               <p style={{ marginTop: 12, color: "#3a3d60" }}>Content not available.</p>
             )}
@@ -406,12 +420,13 @@ export default function ResourceViewer() {
               <div style={{ fontSize: "12px", color: "#4a5080", marginBottom: "16px", lineHeight: 1.4 }}>
                 You need an account to view this resource.
               </div>
+              {authError && <div style={{ fontSize: "12px", color: "#ef9a9a", background: "#1a0808", border: "0.5px solid #4a1010", borderRadius: "6px", padding: "8px 10px", marginBottom: "8px" }}>{authError}</div>}
               <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <input
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="Email"
+                  placeholder="Email or username"
                   required
                   style={{
                     width: "100%",
@@ -469,16 +484,17 @@ export default function ResourceViewer() {
             </>
           ) : (
             <>
-              <div style={{ fontSize: "16px", fontWeight: 700, color: "#e8eaf6", marginBottom: "4px" }}>Quick access</div>
+              <div style={{ fontSize: "16px", fontWeight: 700, color: "#e8eaf6", marginBottom: "4px" }}>Quick access — free</div>
               <div style={{ fontSize: "12px", color: "#4a5080", marginBottom: "16px", lineHeight: 1.4 }}>
-                Create a free account. No email needed to get started.
+                Create a free account. Get 3 free resource opens, no email needed.
               </div>
+              {authError && <div style={{ fontSize: "12px", color: "#ef9a9a", background: "#1a0808", border: "0.5px solid #4a1010", borderRadius: "6px", padding: "8px 10px", marginBottom: "8px" }}>{authError}</div>}
               <form onSubmit={handleQuickSignup} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <input
                   type="text"
                   value={signupName}
                   onChange={(e) => setSignupName(e.target.value)}
-                  placeholder="Your name"
+                  placeholder="Your name (no spaces, e.g. john_doe)"
                   required
                   style={{
                     width: "100%",
@@ -495,7 +511,7 @@ export default function ResourceViewer() {
                   type="password"
                   value={signupPassword}
                   onChange={(e) => setSignupPassword(e.target.value)}
-                  placeholder="Choose a password"
+                  placeholder="Password (min 8 characters)"
                   required
                   style={{
                     width: "100%",
@@ -553,7 +569,7 @@ export default function ResourceViewer() {
       <div style={{ padding: "40px", textAlign: "center" }}>
         <div style={{ fontSize: "16px", color: "#ef9a9a", marginBottom: "12px" }}>{error}</div>
         <button
-          onClick={() => navigate("/resources")}
+          onClick={handleBack}
           style={{
             padding: "10px 20px",
             background: "#1a237e",
@@ -576,13 +592,18 @@ export default function ResourceViewer() {
   const badgeColor = getSubjectBadgeColor(resource.subject);
   const icon = getContentTypeIcon(resource.contentType);
   const iconClass = getContentTypeIconClass(resource.contentType);
-  const remainingViews = user ? user.freeTrialLimit - user.freeTrialViews : 0;
+  // Use live trial info from logView response; fall back to user object from auth
+  const allowed = trialInfo ? trialInfo.allowed : (user?.isActivated ?? true);
+  const unlimited = trialInfo?.unlimited || user?.isActivated || false;
+  const freeViews = trialInfo?.freeTrialViews ?? 0;
+  const freeLimit = trialInfo?.freeTrialLimit ?? 3;
+  const remaining = Math.max(0, freeLimit - freeViews);
 
   return (
     <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
       {/* Back button */}
       <button
-        onClick={() => navigate("/resources")}
+        onClick={handleBack}
         style={{
           display: "flex",
           alignItems: "center",
@@ -653,73 +674,43 @@ export default function ResourceViewer() {
         </div>
       </div>
 
-      {/* Free trial banner */}
-      {authCase === "loggedin" && user && user.freeTrialViews < user.freeTrialLimit && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            background: "#1a1000",
-            border: "0.5px solid #3a2800",
-            borderRadius: "8px",
-            padding: "10px 12px",
-            marginBottom: "16px",
-            fontSize: "12px",
-            color: "#ffb74d",
-          }}
-        >
+      {/* Free trial banner — shows remaining opens for non-activated users */}
+      {authCase === "loggedin" && trialInfo && !unlimited && allowed && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "8px", padding: "10px 12px", marginBottom: "16px", fontSize: "12px", color: "#ffb74d" }}>
           <span>✨</span>
-          Free preview: {remainingViews} resource{remainingViews !== 1 ? "s" : ""} remaining
+          Free preview: {remaining} resource{remaining !== 1 ? "s" : ""} remaining — <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => onBack ? onBack() : navigate("/app")}>Upgrade for unlimited →</span>
         </div>
       )}
 
-      {/* Upgrade prompt */}
-      {authCase === "loggedin" && user && user.freeTrialViews >= user.freeTrialLimit && (
-        <div
-          style={{
-            background: "#1a0808",
-            border: "0.5px solid #4a1010",
-            borderRadius: "10px",
-            padding: "20px",
-            marginBottom: "16px",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: "16px", fontWeight: 700, color: "#ef9a9a", marginBottom: "8px" }}>
-            Free trial limit reached
+      {/* Paywall — free trial exhausted */}
+      {authCase === "loggedin" && trialInfo && !allowed && (
+        <div style={{ background: "linear-gradient(135deg,#0d0820,#1a0828)", border: "0.5px solid #5c35a0", borderRadius: "14px", padding: "28px 24px", marginBottom: "16px", textAlign: "center" }}>
+          <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔒</div>
+          <div style={{ fontSize: "18px", fontWeight: 700, color: "#e8eaf6", marginBottom: "8px" }}>Free trial complete</div>
+          <div style={{ fontSize: "13px", color: "#9fa8da", marginBottom: "8px", lineHeight: 1.6 }}>
+            You've used all {freeLimit} free resource opens.<br/>Upgrade to get <strong>unlimited access</strong> to all notes, PDFs & MCQs.
           </div>
-          <div style={{ fontSize: "13px", color: "#ef9a9a", marginBottom: "16px" }}>
-            You've viewed {user.freeTrialLimit} free resources. Upgrade to continue accessing premium content.
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", marginTop: "20px" }}>
+            <button
+              onClick={() => onBack ? onBack() : navigate("/app")}
+              style={{ padding: "12px 32px", background: "linear-gradient(135deg,#5c35a0,#1a237e)", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", maxWidth: "280px" }}
+            >
+              💎 Upgrade to Premium
+            </button>
+            <div style={{ fontSize: "11px", color: "#4a5080" }}>Starting from ₦500/week · Cancel anytime</div>
           </div>
-          <button
-            style={{
-              padding: "10px 24px",
-              background: "#1a237e",
-              border: "0.5px solid #3949ab",
-              borderRadius: "8px",
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "#c5cae9",
-              cursor: "pointer",
-            }}
-          >
-            Upgrade Now
-          </button>
         </div>
       )}
 
       {/* Content or Auth Overlay */}
-      {authCase === "loggedin" && (user.freeTrialViews < user.freeTrialLimit || !user.freeTrialLimit) ? (
+      {authCase === "loggedin" && (allowed || !trialInfo) ? (
         <div style={{ marginBottom: "16px" }}>{renderContent()}</div>
-      ) : authCase === "loggedin" && user.freeTrialViews >= user.freeTrialLimit ? (
+      ) : authCase !== "loggedin" ? (
         <div style={{ marginBottom: "16px" }}>{renderAuthOverlay()}</div>
-      ) : (
-        <div style={{ marginBottom: "16px" }}>{renderAuthOverlay()}</div>
-      )}
+      ) : null}
 
       {/* Share button */}
-      {authCase === "loggedin" && (user.freeTrialViews < user.freeTrialLimit || !user.freeTrialLimit) && (
+      {authCase === "loggedin" && (allowed || !trialInfo) && (
         <button
           onClick={handleShare}
           style={{

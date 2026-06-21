@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount } from "../lib/researchUtils";
+import ResourceViewer from "./ResourceViewer";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
-export default function TeacherResourcesHub() {
+export default function TeacherResourcesHub({ onBack } = {}) {
   const navigate = useNavigate();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [toast, setToast] = useState(null);
+  const [viewerToken, setViewerToken] = useState(null);
 
   useEffect(() => {
     fetchMyResources();
@@ -66,6 +68,10 @@ export default function TeacherResourcesHub() {
     setToast(message);
     setTimeout(() => setToast(null), 2200);
   };
+
+  if (viewerToken) {
+    return <ResourceViewer token={viewerToken} onBack={() => setViewerToken(null)} />;
+  }
 
   return (
     <div style={{ padding: "20px", maxWidth: "1000px", margin: "0 auto" }}>
@@ -223,7 +229,7 @@ export default function TeacherResourcesHub() {
                 {/* Actions */}
                 <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
                   <button
-                    onClick={() => navigate(`/resources/${resource.shareToken}`)}
+                    onClick={() => setViewerToken(resource.shareToken)}
                     style={{
                       width: "32px",
                       height: "32px",
@@ -242,7 +248,7 @@ export default function TeacherResourcesHub() {
                     👁️
                   </button>
                   <button
-                    onClick={() => navigate(`/resources/${resource.shareToken}`)}
+                    onClick={() => setViewerToken(resource.shareToken)}
                     style={{
                       width: "32px",
                       height: "32px",

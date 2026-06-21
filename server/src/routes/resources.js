@@ -174,50 +174,52 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), upload.single(
   }
 });
 
-// POST /api/resources/:token/view - Log view (increment view count)
+// POST /api/resources/:token/view - Log view, enforce free trial, return allowed status
 router.post("/:token/view", async (req, res) => {
   try {
     const { token } = req.params;
-    const { userId, guestToken } = req.body;
+    const { userId } = req.body;
 
-    const resource = await prisma.resource.findUnique({
-      where: { shareToken: token },
-    });
+    const resource = await prisma.resource.findUnique({ where: { shareToken: token } });
+    if (!resource) return res.status(404).json({ error: "Resource not found" });
 
-    if (!resource) {
-      return res.status(404).json({ error: "Resource not found" });
-    }
-
-    // Log the view
-    await prisma.resourceView.create({
-      data: {
-        resourceId: resource.id,
-        userId: userId || null,
-        guestToken: guestToken || null,
-      },
-    });
-
-    // Increment view count
+    // Increment resource view count (always)
     await prisma.resource.update({
       where: { id: resource.id },
       data: { viewCount: { increment: 1 } },
     });
 
-    // If user is authenticated, increment free trial views
+    // Log view record (ignore duplicates)
+    prisma.resourceView.create({ data: { resourceId: resource.id, userId: userId || null } }).catch(() => {});
+
+    // Authenticated user — check and enforce free trial
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
+        select: { isActivated: true, freeTrialViews: true, freeTrialLimit: true },
       });
 
-      if (user && user.freeTrialViews < user.freeTrialLimit) {
-        await prisma.user.update({
+      if (user) {
+        // Activated/paid users: unlimited access
+        if (user.isActivated) {
+          return res.json({ allowed: true, unlimited: true, freeTrialViews: user.freeTrialViews, freeTrialLimit: user.freeTrialLimit });
+        }
+        // Over free trial limit
+        if (user.freeTrialViews >= user.freeTrialLimit) {
+          return res.json({ allowed: false, freeTrialViews: user.freeTrialViews, freeTrialLimit: user.freeTrialLimit });
+        }
+        // Within limit — increment
+        const updated = await prisma.user.update({
           where: { id: userId },
           data: { freeTrialViews: { increment: 1 } },
+          select: { freeTrialViews: true, freeTrialLimit: true },
         });
+        return res.json({ allowed: true, freeTrialViews: updated.freeTrialViews, freeTrialLimit: updated.freeTrialLimit });
       }
     }
 
-    res.json({ success: true });
+    // Guest user — no access
+    return res.json({ allowed: false, freeTrialViews: 0, freeTrialLimit: 3 });
   } catch (error) {
     console.error("Error logging view:", error);
     res.status(500).json({ error: "Failed to log view" });

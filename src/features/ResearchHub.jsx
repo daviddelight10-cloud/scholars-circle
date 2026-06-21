@@ -1,16 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount, copyShareToken } from "../lib/researchUtils";
+import ResourceViewer from "./ResourceViewer";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
+const CACHE_TTL = 5 * 60 * 1000;
 
-export default function ResearchHub() {
+export default function ResearchHub({ onBack } = {}) {
   const navigate = useNavigate();
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [toast, setToast] = useState(null);
+  const [viewerToken, setViewerToken] = useState(null);
+  const [trialInfo, setTrialInfo] = useState(null);
 
   const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
   const filterLabels = {
@@ -23,21 +27,46 @@ export default function ResearchHub() {
 
   useEffect(() => {
     fetchResources();
+    fetchTrialInfo();
   }, []);
 
   const fetchResources = async () => {
     setLoading(true);
+    const cacheKey = "sc_resources_list";
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts < CACHE_TTL) { setResources(data); setLoading(false); return; }
+      }
+    } catch {}
     try {
       const response = await fetch(`${API_BASE}/api/resources`);
       if (response.ok) {
         const data = await response.json();
         setResources(data);
+        try { localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() })); } catch {}
       }
     } catch (err) {
       console.error("Failed to fetch resources:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchTrialInfo = async () => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      const userId = parsed.authUser?.id;
+      if (!userId) return;
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        headers: { Authorization: `Bearer ${parsed.authToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTrialInfo({ freeTrialViews: data.user?.freeTrialViews ?? 0, freeTrialLimit: data.user?.freeTrialLimit ?? 3, isActivated: data.user?.isActivated ?? false });
+      }
+    } catch {}
   };
 
   const filteredResources = resources.filter((r) => {
@@ -61,11 +90,15 @@ export default function ResearchHub() {
     setTimeout(() => setToast(null), 2200);
   };
 
+  if (viewerToken) {
+    return <ResourceViewer token={viewerToken} onBack={() => setViewerToken(null)} />;
+  }
+
   return (
     <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
       {/* Back button */}
       <button
-        onClick={() => window.location.href = "/app"}
+        onClick={() => onBack ? onBack() : navigate("/app")}
         style={{
           display: "flex",
           alignItems: "center",
@@ -89,6 +122,11 @@ export default function ResearchHub() {
           Research Hub
         </h1>
         <p style={{ fontSize: "14px", color: "#7b82b8" }}>Find & share study materials</p>
+        {trialInfo && !trialInfo.isActivated && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "10px", padding: "6px 14px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "20px", fontSize: "12px", color: "#ffb74d" }}>
+            ✨ {Math.max(0, trialInfo.freeTrialLimit - trialInfo.freeTrialViews)} of {trialInfo.freeTrialLimit} free opens left
+          </div>
+        )}
       </div>
 
       {/* Search */}
@@ -251,7 +289,7 @@ export default function ResearchHub() {
                 {/* Actions */}
                 <div style={{ display: "flex", gap: "6px" }}>
                   <button
-                    onClick={() => navigate(`/resources/${resource.shareToken}`)}
+                    onClick={() => setViewerToken(resource.shareToken)}
                     style={{
                       flex: 1,
                       padding: "6px",
