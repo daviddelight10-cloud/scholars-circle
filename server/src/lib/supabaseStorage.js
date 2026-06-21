@@ -1,13 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
+import path from "path";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+const supabaseServiceKey = (process.env.SUPABASE_SERVICE_KEY || "").trim();
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.warn("[supabaseStorage] SUPABASE_URL or SUPABASE_SERVICE_KEY not set — file uploads will fail");
 }
 
-export const supabase = createClient(supabaseUrl || "", supabaseServiceKey || "");
+export const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export const BUCKET = "resources";
 
@@ -16,26 +17,27 @@ export const BUCKET = "resources";
  * Returns the public URL on success, throws on error.
  */
 export async function uploadFile(buffer, fileName, mimeType) {
-  // Sanitize: replace spaces and special chars with dashes, keep extension
-  const safeName = fileName
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")   // remove accents
-    .replace(/[^a-zA-Z0-9._-]/g, "-")  // replace invalid chars with dash
-    .replace(/-+/g, "-")               // collapse multiple dashes
-    .toLowerCase();
-  const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+  // Use only timestamp + random + extension — avoids ALL filename path issues
+  const ext = path.extname(fileName || "").toLowerCase() || ".bin";
+  const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
+
+  console.log("[supabaseStorage] uploading to bucket:", BUCKET, "path:", storagePath);
 
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(uniqueName, buffer, {
+    .upload(storagePath, buffer, {
       contentType: mimeType || "application/octet-stream",
       upsert: false,
     });
 
-  if (error) throw new Error(`Supabase upload failed: ${error.message}`);
+  if (error) {
+    console.error("[supabaseStorage] upload error:", error);
+    throw new Error(`Supabase upload failed: ${error.message}`);
+  }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(uniqueName);
-  return { publicUrl: data.publicUrl, storagePath: uniqueName };
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+  console.log("[supabaseStorage] public URL:", data.publicUrl);
+  return { publicUrl: data.publicUrl, storagePath };
 }
 
 /**
