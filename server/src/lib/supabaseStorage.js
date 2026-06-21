@@ -16,7 +16,14 @@ export const BUCKET = "resources";
  * Returns the public URL on success, throws on error.
  */
 export async function uploadFile(buffer, fileName, mimeType) {
-  const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${fileName}`;
+  // Sanitize: replace spaces and special chars with dashes, keep extension
+  const safeName = fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")   // remove accents
+    .replace(/[^a-zA-Z0-9._-]/g, "-")  // replace invalid chars with dash
+    .replace(/-+/g, "-")               // collapse multiple dashes
+    .toLowerCase();
+  const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
 
   const { error } = await supabase.storage
     .from(BUCKET)
