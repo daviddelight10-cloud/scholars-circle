@@ -12,11 +12,24 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export const BUCKET = "resources";
 
+/** Ensure the bucket exists (creates it as public if missing) */
+async function ensureBucket() {
+  const { data: buckets } = await supabase.storage.listBuckets();
+  const exists = buckets?.some((b) => b.name === BUCKET);
+  if (!exists) {
+    console.log("[supabaseStorage] bucket not found — creating it now");
+    const { error } = await supabase.storage.createBucket(BUCKET, { public: true });
+    if (error) console.error("[supabaseStorage] failed to create bucket:", error.message);
+    else console.log("[supabaseStorage] bucket created:", BUCKET);
+  }
+}
+
 /**
  * Upload a file buffer to Supabase Storage.
  * Returns the public URL on success, throws on error.
  */
 export async function uploadFile(buffer, fileName, mimeType) {
+  await ensureBucket();
   // Use only timestamp + random + extension — avoids ALL filename path issues
   const ext = path.extname(fileName || "").toLowerCase() || ".bin";
   const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
