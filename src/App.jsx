@@ -2166,7 +2166,7 @@ function App() {
 
     provider: "openrouter",
 
-    model: "qwen/qwen-2.5-7b-instruct",
+    model: "google/gemini-2.5-flash",
 
     apiKey: "",
 
@@ -12068,7 +12068,7 @@ function App() {
 
           <div style={{ background: "rgba(45,212,160,0.1)", border: "1px solid rgba(45,212,160,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
 
-            <p style={{ margin: 0, color: "#2dd4a0", fontWeight: 600 }}>✅ AI Powered by OpenRouter (Qwen 2.5 7B)</p>
+            <p style={{ margin: 0, color: "#2dd4a0", fontWeight: 600 }}>✅ AI Powered by OpenRouter (Gemini 2.5 Flash)</p>
 
             <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>AI features are enabled automatically. No configuration needed!</p>
 
@@ -12076,7 +12076,7 @@ function App() {
 
 
 
-          <AIHelper aiConfig={{ provider: "openrouter", model: "qwen/qwen-2.5-7b-instruct", apiKey: "" }} onUsed={() => {
+          <AIHelper aiConfig={{ provider: "openrouter", model: "google/gemini-2.5-flash", apiKey: "" }} onUsed={() => {
 
 
 
@@ -19748,7 +19748,7 @@ function AIQuestionGen({ onImportQuestions }) {
 
     try {
 
-      const raw = await callAI(prompt, { provider: "openrouter", model: "qwen/qwen-2.5-7b-instruct" });
+      const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
 
       const jsonStr = raw.startsWith("[") ? raw : raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1);
 

@@ -178,7 +178,7 @@ Return this exact JSON structure:
 
 Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`;
 
-        const raw = await callAI(prompt, { provider: aiConfig?.provider || "openrouter", model: aiConfig?.model || "qwen/qwen-2.5-7b-instruct", apiKey: aiConfig?.apiKey });
+        const raw = await callAI(prompt, { provider: aiConfig?.provider || "openrouter", model: aiConfig?.model || "google/gemini-2.5-flash", apiKey: aiConfig?.apiKey });
         const parsed = extractJSON(raw);
         
         // Combine results

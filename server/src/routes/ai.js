@@ -6,7 +6,7 @@ const router = Router();
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
-const DEFAULT_OPENROUTER_MODEL = "qwen/qwen-2.5-7b-instruct";
+const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash";
 
 router.get("/status", (_req, res) => {
   res.json({

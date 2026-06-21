@@ -83,7 +83,7 @@ async function callViaProxy(prompt, provider, model) {
 async function callDirect(prompt, aiConfig) {
   const provider = aiConfig?.provider || "openrouter";
   const model = aiConfig?.model || (provider === "gemini" ? "gemini-2.5-flash" : 
-                                     provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
+                                     provider === "openrouter" ? "google/gemini-2.5-flash" : 
                                      "gpt-4o-mini");
   if (!aiConfig?.apiKey) {
     throw new Error("AI service unavailable. Please contact support or try again later.");
@@ -150,7 +150,7 @@ export async function callAI(prompt, aiConfig = {}) {
   if (status?.enabled) {
     const provider = aiConfig.provider || status.defaultProvider || "openrouter";
     const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : 
-                                     provider === "openrouter" ? "qwen/qwen-2.5-7b-instruct" : 
+                                     provider === "openrouter" ? "google/gemini-2.5-flash" : 
                                      "gpt-4o-mini");
     console.log(`Calling proxy with provider=${provider}, model=${model}`);
     try {

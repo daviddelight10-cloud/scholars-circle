@@ -36,7 +36,7 @@ router.post("/generate", requireAuth, async (req, res) => {
 
       case "openrouter":
         apiKey = process.env.OPENROUTER_API_KEY;
-        const openrouterModel = model || "qwen/qwen-2.5-7b-instruct";
+        const openrouterModel = model || "google/gemini-2.5-flash";
         apiUrl = "https://openrouter.ai/api/v1/chat/completions";
         headers = {
           "Content-Type": "application/json",

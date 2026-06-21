@@ -235,7 +235,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
       setIsProcessing(true);
       console.log("Starting AI processing...");
       
-      const raw = await callAI(prompt, { provider: "openrouter", model: "qwen/qwen-2.5-7b-instruct" });
+      const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
       console.log("AI response received:", raw?.substring(0, 200));
       
       if (!raw || raw.trim().length < 10) {
