@@ -24,6 +24,7 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -146,7 +147,8 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
     const username = signupName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
     if (username.length < 3) { setAuthError("Name must be at least 3 characters (letters/numbers)"); setAuthLoading(false); return; }
     if (signupPassword.length < 8) { setAuthError("Password must be at least 8 characters"); setAuthLoading(false); return; }
-    const email = `${username}${Date.now()}@scholars.app`;
+    const email = signupEmail.trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setAuthError("Please enter a valid email address"); setAuthLoading(false); return; }
     try {
       // Step 1: Register
       const regRes = await fetch(`${API_BASE}/auth/register`, {
@@ -486,7 +488,7 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
             <>
               <div style={{ fontSize: "16px", fontWeight: 700, color: "#e8eaf6", marginBottom: "4px" }}>Quick access — free</div>
               <div style={{ fontSize: "12px", color: "#4a5080", marginBottom: "16px", lineHeight: 1.4 }}>
-                Create a free account. Get 3 free resource opens, no email needed.
+                Create a free account. Get 3 free resource opens.
               </div>
               {authError && <div style={{ fontSize: "12px", color: "#ef9a9a", background: "#1a0808", border: "0.5px solid #4a1010", borderRadius: "6px", padding: "8px 10px", marginBottom: "8px" }}>{authError}</div>}
               <form onSubmit={handleQuickSignup} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -494,7 +496,24 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
                   type="text"
                   value={signupName}
                   onChange={(e) => setSignupName(e.target.value)}
-                  placeholder="Your name (no spaces, e.g. john_doe)"
+                  placeholder="Username (no spaces, e.g. john_doe)"
+                  required
+                  style={{
+                    width: "100%",
+                    background: "#0a0c1e",
+                    border: "0.5px solid #1e2245",
+                    borderRadius: "8px",
+                    padding: "10px 14px",
+                    fontSize: "13px",
+                    color: "#9fa8da",
+                    outline: "none",
+                  }}
+                />
+                <input
+                  type="email"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  placeholder="Email address"
                   required
                   style={{
                     width: "100%",
