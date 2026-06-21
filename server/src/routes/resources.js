@@ -170,7 +170,7 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), upload.single(
     res.status(201).json(resource);
   } catch (error) {
     console.error("Error creating resource:", error);
-    res.status(500).json({ error: "Failed to create resource" });
+    res.status(500).json({ error: error.message || "Failed to create resource" });
   }
 });
 
