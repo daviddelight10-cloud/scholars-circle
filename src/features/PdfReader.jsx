@@ -295,8 +295,18 @@ export default function PdfReader({ fileUrl, title }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const xs = poly.map((p) => p.x);
-    const ys = poly.map((p) => p.y);
+    // Scale lasso points from CSS pixels to canvas internal pixels
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const scaledPoly = poly.map((p) => ({
+      x: p.x * scaleX,
+      y: p.y * scaleY,
+    }));
+
+    const xs = scaledPoly.map((p) => p.x);
+    const ys = scaledPoly.map((p) => p.y);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
@@ -309,7 +319,7 @@ export default function PdfReader({ fileUrl, title }) {
     crop.height = bh;
     const cctx = crop.getContext("2d");
     const clip = new Path2D();
-    poly.forEach((p, i) => {
+    scaledPoly.forEach((p, i) => {
       const lx = p.x - minX;
       const ly = p.y - minY;
       if (i === 0) clip.moveTo(lx, ly);
@@ -322,10 +332,13 @@ export default function PdfReader({ fileUrl, title }) {
     cctx.restore();
     const thumb = crop.toDataURL("image/png");
 
-    // Position popup near the lasso
+    // Position popup near the lasso (use original CSS coordinates, not internal)
+    const cssMinX = Math.min(...poly.map((p) => p.x));
+    const cssMaxX = Math.max(...poly.map((p) => p.x));
+    const cssMaxY = Math.max(...poly.map((p) => p.y));
     const popupW = 280;
-    const left = Math.max(8, Math.min((minX + maxX) / 2 - popupW / 2, canvas.width - popupW - 8));
-    const top = Math.min(maxY + 14, canvas.height - 40);
+    const left = Math.max(8, Math.min((cssMinX + cssMaxX) / 2 - popupW / 2, rect.width - popupW - 8));
+    const top = Math.min(cssMaxY + 14, rect.height - 40);
     setChatPosition({ left, top });
 
     // Get page text for context
