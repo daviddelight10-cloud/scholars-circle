@@ -5537,6 +5537,10 @@ function App() {
 
           toast.success("🎉 Your account has been activated! Welcome aboard!");
 
+          // Exit demo mode so restrictions are lifted immediately
+
+          setDemoMode(false);
+
         } else if (prevIsActivated === true && newIsActivated === false && !userIsTeacher) {
 
           // User was deactivated
@@ -5593,9 +5597,9 @@ function App() {
     // so we don't gate on the `token` state (which may be empty on first render
     // even when localStorage already has a valid token, causing the interval to
     // never start on page reload).
-    if (!auth.user || demoMode) {
+    if (!auth.user) {
 
-      console.log("[polling] Skipping - no user or demo mode");
+      console.log("[polling] Skipping - no user");
 
       return;
 
@@ -5645,7 +5649,7 @@ function App() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
 
-  }, [auth.user?.id, auth.user?.isActivated, demoMode]);
+  }, [auth.user?.id, auth.user?.isActivated]);
 
 
 
