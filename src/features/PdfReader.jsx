@@ -482,7 +482,7 @@ export default function PdfReader({ fileUrl, title }) {
       overflow: "hidden",
       background: "#EFEEE8",
       borderRadius: "10px",
-      overflow: "hidden",
+      position: "relative",
     },
     toolbar: {
       background: "#fff",
@@ -705,11 +705,11 @@ export default function PdfReader({ fileUrl, title }) {
     },
     // Circle bubble
     circleBubble: {
-      position: "fixed",
-      bottom: "22px",
-      right: "22px",
-      width: "52px",
-      height: "52px",
+      position: "absolute",
+      bottom: "16px",
+      right: "16px",
+      width: "48px",
+      height: "48px",
       borderRadius: "50%",
       background: circleMode ? "#3F3A33" : "#C23B3B",
       display: "flex",

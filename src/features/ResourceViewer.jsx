@@ -205,7 +205,7 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
     switch (resource.contentType) {
       case "pdf":
         return resource.fileUrl ? (
-          <div style={{ borderRadius: "10px", overflow: "hidden", border: "0.5px solid #1e2245", height: "600px" }}>
+          <div style={{ borderRadius: "10px", overflow: "hidden", border: "0.5px solid #1e2245", height: "640px", position: "relative" }}>
             <PdfReader fileUrl={resource.fileUrl} title={resource.title} />
           </div>
         ) : (
