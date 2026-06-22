@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
+import PdfReader from "./PdfReader.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -204,13 +205,8 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
     switch (resource.contentType) {
       case "pdf":
         return resource.fileUrl ? (
-          <div style={{ borderRadius: "10px", overflow: "hidden", border: "0.5px solid #1e2245", background: "#0a0c1e" }}>
-            <iframe
-              src={resource.fileUrl}
-              title={resource.title}
-              style={{ width: "100%", height: "600px", border: "none", display: "block" }}
-              allow="fullscreen"
-            />
+          <div style={{ borderRadius: "10px", overflow: "hidden", border: "0.5px solid #1e2245", height: "600px" }}>
+            <PdfReader fileUrl={resource.fileUrl} title={resource.title} />
           </div>
         ) : (
           <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center", color: "#4a5080" }}>

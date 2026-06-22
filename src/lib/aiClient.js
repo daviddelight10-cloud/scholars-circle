@@ -167,6 +167,42 @@ export async function callAI(prompt, aiConfig = {}) {
   return callDirect(prompt, aiConfig);
 }
 
+// Multimodal AI call with image + text + conversation history.
+// Uses the backend multimodal proxy endpoint. Returns plain text string.
+export async function callAIMultimodal(prompt, image, history = [], aiConfig = {}) {
+  const provider = aiConfig.provider || "openrouter";
+  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "google/gemini-2.5-flash");
+
+  const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+  const token = authData.authToken;
+
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/ai-proxy/generate-multimodal`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: JSON.stringify({ prompt, image, history, provider, model }),
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (netErr) {
+    if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
+      throw new Error("AI request timed out. Please try again.");
+    }
+    throw new Error("Network error reaching AI service. Please check your connection.");
+  }
+
+  let data = {};
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    throw new Error(data?.error || `AI service error (${res.status})`);
+  }
+  return data.text || "";
+}
+
 // Helper for the common pattern of asking AI for a JSON array/object response.
 export function extractJSON(raw, kind = "object") {
   if (!raw || typeof raw !== "string") throw new Error("AI returned empty response.");
