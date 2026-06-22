@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { callAI } from "../lib/aiClient";
+import MarkdownText from "../components/MarkdownText.jsx";
 import DepartmentSwitcher from "../components/learn/DepartmentSwitcher.jsx";
 import CourseCustomizer, { loadUserCourses } from "../components/learn/CourseCustomizer.jsx";
 
@@ -836,7 +837,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
                 fontSize: 13, color: "#ddd6fe", lineHeight: 1.7,
               }}>
                 <div style={{ fontWeight: 700, color: "#c4b5fd", marginBottom: 6, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>🤖 AI Explanation</div>
-                {aiExpl}
+                <MarkdownText>{aiExpl}</MarkdownText>
               </div>
             )}
 

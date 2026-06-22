@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { callAI } from "../lib/aiClient";
+import MarkdownText from "../components/MarkdownText.jsx";
 import PeerComparison from "../components/analytics/PeerComparison.jsx";
 import MasteryGrid from "../components/analytics/MasteryGrid.jsx";
 
@@ -204,7 +205,7 @@ Give a clear, concise explanation (3-5 sentences) of why the correct answer is r
                           borderRadius: 10, padding: "10px 13px", marginTop: 8,
                           fontSize: 11, color: "#b0b8e8", fontFamily: "Manrope,sans-serif", lineHeight: 1.7,
                         }}>
-                          🤖 {explanations[idx]}
+                          🤖 <MarkdownText>{explanations[idx]}</MarkdownText>
                         </div>
                       )}
                     </div>

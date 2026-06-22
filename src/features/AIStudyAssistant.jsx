@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { callAI, callAIMultimodal, extractJSON as extractJSONShared } from "../lib/aiClient";
 import { jsPDF } from "jspdf";
+import MarkdownText from "../components/MarkdownText.jsx";
 
 const STORE_KEY = "sc_ai_study_assistant_v1";
 const SUBJECTS_KEY = "sc_custom_subjects_v1";
@@ -665,7 +666,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                       {mcqSelected === q.answer ? "✅ Correct!" : "❌ Incorrect"}
                     </p>
                     {q.explanation && (
-                      <p style={{ fontSize: 13, color: "white" }}>{q.explanation}</p>
+                      <div style={{ fontSize: 13, color: "white" }}><MarkdownText>{q.explanation}</MarkdownText></div>
                     )}
                   </div>
                 )}
@@ -1057,7 +1058,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                   marginBottom: 8
                 }}>
                   <strong>{concept.concept}</strong>
-                  <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>{concept.explanation}</p>
+                  <p className="muted" style={{ fontSize: 12, marginTop: 4 }}><MarkdownText>{concept.explanation}</MarkdownText></p>
                   <span style={{ fontSize: 11, color: "#6b7280" }}>
                     Importance: {concept.importance}
                   </span>
@@ -1085,7 +1086,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                     ))}
                   </div>
                   {q.explanation && (
-                    <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>💡 {q.explanation}</p>
+                    <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>💡 <MarkdownText>{q.explanation}</MarkdownText></p>
                   )}
                 </div>
               ))}
