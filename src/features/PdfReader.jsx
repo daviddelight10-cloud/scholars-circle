@@ -1,10 +1,57 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
+import MarkdownText from "../components/MarkdownText.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+// ── Theme palettes ────────────────────────────────────────────────────────────
+const THEMES = {
+  light: {
+    bg: "#EFEEE8", toolbar: "#fff", border: "#E2DFD3", text: "#3F3A33",
+    muted: "#80796E", accent: "#C23B3B", hover: "rgba(194,59,59,0.10)",
+    inputBg: "#FBFAF6", chatBot: "#F5F4EF", thumbBg: "#FBFAF6",
+    shadow: "rgba(0,0,0,0.10)", chipBg: "#F0EEE8",
+  },
+  dark: {
+    bg: "#1a1a2e", toolbar: "#16213e", border: "#0f3460", text: "#e0e0e0",
+    muted: "#8892b0", accent: "#e94560", hover: "rgba(233,69,96,0.15)",
+    inputBg: "#0f1626", chatBot: "#16213e", thumbBg: "#16213e",
+    shadow: "rgba(0,0,0,0.40)", chipBg: "#1a1a2e",
+  },
+};
+
+// ── Highlighter pen colors ────────────────────────────────────────────────────
+const PEN_COLORS = [
+  { name: "yellow", value: "rgba(255,235,59,0.35)" },
+  { name: "green",  value: "rgba(76,175,80,0.35)" },
+  { name: "pink",   value: "rgba(233,30,99,0.35)" },
+  { name: "blue",   value: "rgba(33,150,243,0.35)" },
+  { name: "orange", value: "rgba(255,152,0,0.35)" },
+];
+
+// ── Storage helpers ───────────────────────────────────────────────────────────
+function docKeyFromUrl(url) {
+  let hash = 0;
+  for (let i = 0; i < url.length; i++) {
+    hash = ((hash << 5) - hash) + url.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function loadStored(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+}
+
+function saveStored(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
 
 // Route through backend proxy to avoid CORS issues with R2
 function getProxiedUrl(fileUrl) {
@@ -42,6 +89,8 @@ const SUGGESTED_CHIPS = [
 ];
 
 export default function PdfReader({ fileUrl, title }) {
+  const docKey = docKeyFromUrl(fileUrl || "unknown");
+
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
@@ -55,8 +104,35 @@ export default function PdfReader({ fileUrl, title }) {
   const [searching, setSearching] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
-  // Circle-to-Ask state
-  const [circleMode, setCircleMode] = useState(false);
+  // Theme
+  const [theme, setTheme] = useState(() => loadStored("sc_pdf_theme", "light"));
+  const T = THEMES[theme];
+
+  // Tool mode: "none" | "highlight" | "erase" | "circle"
+  const [tool, setTool] = useState("none");
+  const [penColor, setPenColor] = useState(PEN_COLORS[0].value);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
+  // Annotations: { [pageNum]: [{ color, width, points: [{x,y}] }] }  (points in PDF coords)
+  const [annotations, setAnnotations] = useState(() => loadStored(`sc_pdf_annots_${docKey}`, {}));
+  const currentStrokes = useRef([]); // strokes being drawn in screen coords
+  const [renderStrokes, setRenderStrokes] = useState(""); // SVG path string for current stroke
+
+  // Bookmarks
+  const [bookmarks, setBookmarks] = useState(() => loadStored(`sc_pdf_bookmarks_${docKey}`, []));
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [resumePage, setResumePage] = useState(null);
+
+  // TTS
+  const [speaking, setSpeaking] = useState(false);
+  const ttsUtterRef = useRef(null);
+
+  // Mobile / overflow menu
+  const [isMobile, setIsMobile] = useState(false);
+  const [showOverflow, setShowOverflow] = useState(false);
+
+  // Circle-to-Ask state (now part of tool modes)
+  const circleMode = tool === "circle";
   const [isDrawing, setIsDrawing] = useState(false);
   const lassoPoints = useRef([]);
   const [lassoPath, setLassoPath] = useState("");
@@ -76,10 +152,12 @@ export default function PdfReader({ fileUrl, title }) {
   const viewerRef = useRef(null);
   const lassoSvgRef = useRef(null);
   const textCacheRef = useRef({});
-  const pageTextRef = useRef(""); // captured page text for current chat session
+  const pageTextRef = useRef("");
   const chatScrollRef = useRef(null);
   const inputRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
+  const pinchRef = useRef(null);
+  const lastTapRef = useRef(0);
 
   // Load PDF document
   useEffect(() => {
@@ -261,56 +339,13 @@ export default function PdfReader({ fileUrl, title }) {
     setSearching(false);
   }, [getPageText]);
 
-  // ---- Circle to Ask ----
-  const toggleCircleMode = () => {
-    setCircleMode((prev) => {
-      const next = !prev;
-      if (!next) {
-        setLassoPath("");
-        lassoPoints.current = [];
-        closeChat();
-      }
-      return next;
-    });
-  };
-
+  // ---- Circle to Ask (lasso helpers) ----
   const getRelPoint = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     return {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
-  };
-
-  const onLassoDown = (e) => {
-    if (!circleMode) return;
-    e.preventDefault();
-    e.target.setPointerCapture(e.pointerId);
-    setIsDrawing(true);
-    const p = getRelPoint(e);
-    lassoPoints.current = [p];
-    setLassoPath(`M ${p.x},${p.y}`);
-    closeChat();
-  };
-
-  const onLassoMove = (e) => {
-    if (!isDrawing) return;
-    const p = getRelPoint(e);
-    const last = lassoPoints.current[lassoPoints.current.length - 1];
-    if (last && Math.hypot(p.x - last.x, p.y - last.y) < 3) return;
-    lassoPoints.current.push(p);
-    const d = "M " + lassoPoints.current.map((p) => `${p.x},${p.y}`).join(" L ");
-    setLassoPath(d);
-  };
-
-  const onLassoUp = async () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    const poly = lassoPoints.current;
-    lassoPoints.current = [];
-    setLassoPath("");
-    if (poly.length < 4) return;
-    await analyzeLasso(poly);
   };
 
   const analyzeLasso = async (poly) => {
@@ -508,23 +543,268 @@ export default function PdfReader({ fileUrl, title }) {
     return () => { cancelled = true; };
   }, [showThumbs, thumbs.length]);
 
-  // ---- Swipe navigation ----
-  const onTouchStart = (e) => {
-    if (circleMode) return;
-    const t = e.touches[0];
-    touchStartRef.current = { x: t.clientX, y: t.clientY };
-  };
+  // ---- Highlighter / Eraser ----
+  const screenToPdf = (p) => ({ x: p.x / scale, y: p.y / scale });
+  const pdfToScreen = (p) => ({ x: p.x * scale, y: p.y * scale });
 
-  const onTouchEnd = (e) => {
-    if (circleMode) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStartRef.current.x;
-    const dy = t.clientY - touchStartRef.current.y;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
-      if (dx > 0) goToPage(currentPage - 1);
-      else goToPage(currentPage + 1);
+  const onOverlayDown = (e) => {
+    if (tool === "none") return;
+    e.preventDefault();
+    e.target.setPointerCapture(e.pointerId);
+    const p = getRelPoint(e);
+
+    if (tool === "circle") {
+      setIsDrawing(true);
+      lassoPoints.current = [p];
+      setLassoPath(`M ${p.x},${p.y}`);
+      closeChat();
+      return;
+    }
+
+    if (tool === "erase") {
+      // Hit-test: find nearest stroke within threshold
+      const pageAnnots = annotations[currentPage] || [];
+      const threshold = 12 / scale;
+      for (let si = pageAnnots.length - 1; si >= 0; si--) {
+        const stroke = pageAnnots[si];
+        const pdfP = screenToPdf(p);
+        const hit = stroke.points.some((sp) => Math.hypot(sp.x - pdfP.x, sp.y - pdfP.y) < threshold);
+        if (hit) {
+          setAnnotations((prev) => {
+            const arr = [...(prev[currentPage] || [])];
+            arr.splice(si, 1);
+            return { ...prev, [currentPage]: arr };
+          });
+          break;
+        }
+      }
+      return;
+    }
+
+    if (tool === "highlight") {
+      setIsDrawing(true);
+      currentStrokes.current = [p];
+      const d = `M ${p.x},${p.y}`;
+      setRenderStrokes(d);
     }
   };
+
+  const onOverlayMove = (e) => {
+    if (!isDrawing) return;
+    const p = getRelPoint(e);
+
+    if (tool === "circle") {
+      const last = lassoPoints.current[lassoPoints.current.length - 1];
+      if (last && Math.hypot(p.x - last.x, p.y - last.y) < 3) return;
+      lassoPoints.current.push(p);
+      const d = "M " + lassoPoints.current.map((p) => `${p.x},${p.y}`).join(" L ");
+      setLassoPath(d);
+      return;
+    }
+
+    if (tool === "highlight") {
+      const last = currentStrokes.current[currentStrokes.current.length - 1];
+      if (last && Math.hypot(p.x - last.x, p.y - last.y) < 2) return;
+      currentStrokes.current.push(p);
+      const d = "M " + currentStrokes.current.map((p) => `${p.x},${p.y}`).join(" L ");
+      setRenderStrokes(d);
+    }
+  };
+
+  const onOverlayUp = async () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+
+    if (tool === "circle") {
+      const poly = lassoPoints.current;
+      lassoPoints.current = [];
+      setLassoPath("");
+      if (poly.length < 4) return;
+      await analyzeLasso(poly);
+      return;
+    }
+
+    if (tool === "highlight") {
+      const pts = currentStrokes.current;
+      currentStrokes.current = [];
+      setRenderStrokes("");
+      if (pts.length < 2) return;
+      // Convert to PDF coords and save
+      const pdfPts = pts.map(screenToPdf);
+      setAnnotations((prev) => ({
+        ...prev,
+        [currentPage]: [...(prev[currentPage] || []), { color: penColor, width: 12 / scale, points: pdfPts }],
+      }));
+    }
+  };
+
+  const clearPageAnnotations = () => {
+    if (!annotations[currentPage]?.length) return;
+    if (!confirm(`Clear all highlights on page ${currentPage}?`)) return;
+    setAnnotations((prev) => {
+      const next = { ...prev };
+      delete next[currentPage];
+      return next;
+    });
+  };
+
+  // Build SVG paths for saved annotations on current page
+  const savedAnnotationPaths = (annotations[currentPage] || []).map((stroke, si) => {
+    const d = "M " + stroke.points.map((p) => {
+      const s = pdfToScreen(p);
+      return `${s.x},${s.y}`;
+    }).join(" L ");
+    return { si, d, color: stroke.color, width: stroke.width * scale };
+  });
+
+  // ---- TTS ----
+  const toggleTTS = async () => {
+    if (!window.speechSynthesis) return;
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    const text = await getPageText(currentPage);
+    if (!text) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 1;
+    utter.onend = () => setSpeaking(false);
+    utter.onerror = () => setSpeaking(false);
+    ttsUtterRef.current = utter;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+    setSpeaking(true);
+  };
+
+  // ---- Bookmarks ----
+  const toggleBookmark = () => {
+    setBookmarks((prev) =>
+      prev.includes(currentPage)
+        ? prev.filter((p) => p !== currentPage)
+        : [...prev, currentPage].sort((a, b) => a - b)
+    );
+  };
+
+  // ---- Pinch-to-zoom ----
+  const onTouchStartViewer = (e) => {
+    if (tool !== "none") return;
+    if (e.touches.length === 2) {
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      pinchRef.current = {
+        dist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+        scale: scale,
+      };
+    } else if (e.touches.length === 1) {
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      // Double-tap detection
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        // Double tap: toggle zoom
+        setUserZoomed(true);
+        setScale((s) => s > 1.5 ? Math.max(0.5, s / 1.8) : Math.min(2.6, s * 1.8));
+      }
+      lastTapRef.current = now;
+    }
+  };
+
+  const onTouchMoveViewer = (e) => {
+    if (tool !== "none") return;
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault();
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const ratio = dist / pinchRef.current.dist;
+      const newScale = Math.max(0.5, Math.min(3, pinchRef.current.scale * ratio));
+      setScale(newScale);
+      setUserZoomed(true);
+    }
+  };
+
+  const onTouchEndViewer = (e) => {
+    if (tool !== "none") return;
+    if (e.touches.length < 2) pinchRef.current = null;
+    // Swipe nav (only if not pinching)
+    if (e.changedTouches.length === 1 && !pinchRef.current) {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStartRef.current.x;
+      const dy = t.clientY - touchStartRef.current.y;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) goToPage(currentPage - 1);
+        else goToPage(currentPage + 1);
+      }
+    }
+  };
+
+  // ---- Tool toggle helper ----
+  const toggleTool = (t) => {
+    setTool((prev) => {
+      const next = prev === t ? "none" : t;
+      if (next === "none") {
+        setLassoPath("");
+        setRenderStrokes("");
+        lassoPoints.current = [];
+        currentStrokes.current = [];
+        if (prev === "circle") closeChat();
+      }
+      if (next !== "highlight") setShowColorPicker(false);
+      return next;
+    });
+  };
+
+  // ---- Resume ----
+  const doResume = () => {
+    if (resumePage) {
+      goToPage(resumePage);
+      setResumePage(null);
+    }
+  };
+
+  // ---- Theme persistence ----
+  useEffect(() => { saveStored("sc_pdf_theme", theme); }, [theme]);
+
+  // ---- Annotation persistence (debounced) ----
+  useEffect(() => {
+    const t = setTimeout(() => saveStored(`sc_pdf_annots_${docKey}`, annotations), 500);
+    return () => clearTimeout(t);
+  }, [annotations, docKey]);
+
+  // ---- Bookmark persistence ----
+  useEffect(() => { saveStored(`sc_pdf_bookmarks_${docKey}`, bookmarks); }, [bookmarks, docKey]);
+
+  // ---- Mobile detection ----
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // ---- Resume reading ----
+  useEffect(() => {
+    const saved = loadStored(`sc_pdf_lastpage_${docKey}`, null);
+    if (saved && saved > 1) setResumePage(saved);
+  }, [docKey]);
+
+  useEffect(() => {
+    if (currentPage > 1) saveStored(`sc_pdf_lastpage_${docKey}`, currentPage);
+  }, [currentPage, docKey]);
+
+  // ---- TTS: stop on page change ----
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      setSpeaking(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (speaking && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
   // ---- Styles ----
   const s = {
@@ -533,7 +813,7 @@ export default function PdfReader({ fileUrl, title }) {
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",
-      background: "#EFEEE8",
+      background: T.bg,
       borderRadius: "10px",
       position: "relative",
       ...(fullscreen && {
@@ -545,25 +825,25 @@ export default function PdfReader({ fileUrl, title }) {
       }),
     },
     toolbar: {
-      background: "#fff",
-      borderBottom: "1px solid #E2DFD3",
+      background: T.toolbar,
+      borderBottom: `1px solid ${T.border}`,
       display: "flex",
       alignItems: "center",
-      gap: "10px",
-      padding: "10px 14px",
+      gap: "6px",
+      padding: isMobile ? "8px 8px" : "10px 14px",
       flexWrap: "wrap",
       flexShrink: 0,
     },
     docTitle: {
       fontFamily: "Georgia, serif",
-      fontSize: "15px",
+      fontSize: isMobile ? 12 : 15,
       fontWeight: 600,
-      color: "#3F3A33",
+      color: T.text,
       marginRight: "4px",
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis",
-      maxWidth: "38vw",
+      maxWidth: isMobile ? "24vw" : "38vw",
     },
     iconBtn: {
       width: "40px",
@@ -572,44 +852,44 @@ export default function PdfReader({ fileUrl, title }) {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      color: "#80796E",
+      color: T.muted,
       border: "none",
       background: "none",
       cursor: "pointer",
       flexShrink: 0,
     },
-    sep: { width: "1px", height: "24px", background: "#E2DFD3", margin: "0 4px" },
+    sep: { width: "1px", height: "24px", background: T.border, margin: "0 2px" },
     pageIndicator: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: "14px",
-      color: "#80796E",
+      fontSize: isMobile ? 12 : 14,
+      color: T.muted,
       whiteSpace: "nowrap",
     },
     pageInput: {
       width: "40px",
       textAlign: "center",
-      border: "1px solid #E2DFD3",
+      border: `1px solid ${T.border}`,
       borderRadius: "5px",
       padding: "4px 2px",
       fontFamily: "ui-monospace, monospace",
-      fontSize: "14px",
-      background: "#FBFAF6",
-      color: "#3F3A33",
+      fontSize: 14,
+      background: T.inputBg,
+      color: T.text,
     },
     zoomLabel: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: "13px",
-      color: "#80796E",
+      fontSize: 13,
+      color: T.muted,
       minWidth: "44px",
       textAlign: "center",
     },
     spacer: { flex: 1 },
     workspace: { flex: 1, display: "flex", overflow: "hidden", minHeight: 0 },
     thumbsAside: {
-      width: showThumbs ? "132px" : "0",
+      width: showThumbs ? (isMobile ? "0" : "132px") : "0",
       overflow: "hidden",
-      background: "#FBFAF6",
-      borderRight: "1px solid #E2DFD3",
+      background: T.thumbBg,
+      borderRight: `1px solid ${T.border}`,
       transition: "width 0.18s ease",
       flexShrink: 0,
     },
@@ -635,8 +915,8 @@ export default function PdfReader({ fileUrl, title }) {
     },
     thumbLabel: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: "10px",
-      color: "#80796E",
+      fontSize: 10,
+      color: T.muted,
     },
     viewer: {
       flex: 1,
@@ -644,13 +924,13 @@ export default function PdfReader({ fileUrl, title }) {
       display: "flex",
       justifyContent: "center",
       alignItems: "flex-start",
-      padding: "24px 16px 40px",
+      padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
       position: "relative",
     },
     pageShadow: {
       position: "relative",
-      background: "white",
-      boxShadow: "0 2px 10px rgba(0,0,0,0.10), 0 14px 34px rgba(0,0,0,0.10)",
+      background: theme === "dark" ? "#2a2a3e" : "white",
+      boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
     },
     loadingOverlay: {
@@ -659,16 +939,16 @@ export default function PdfReader({ fileUrl, title }) {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "#EFEEE8",
-      fontSize: "13px",
-      color: "#80796E",
-      gap: "8px",
+      background: T.bg,
+      fontSize: 13,
+      color: T.muted,
+      gap: 8,
     },
     spinner: {
-      width: "14px",
-      height: "14px",
-      border: "2px solid #E2DFD3",
-      borderTopColor: "#C23B3B",
+      width: 14,
+      height: 14,
+      border: `2px solid ${T.border}`,
+      borderTopColor: T.accent,
       borderRadius: "50%",
       animation: "spin 0.7s linear infinite",
     },
@@ -678,12 +958,12 @@ export default function PdfReader({ fileUrl, title }) {
       position: "absolute",
       top: "38px",
       right: 0,
-      width: "280px",
+      width: isMobile ? "240px" : "280px",
       maxHeight: "320px",
-      background: "#fff",
-      border: "1px solid #E2DFD3",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
       borderRadius: "10px",
-      boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+      boxShadow: `0 10px 30px ${T.shadow}`,
       display: showSearch ? "flex" : "none",
       flexDirection: "column",
       overflow: "hidden",
@@ -692,22 +972,22 @@ export default function PdfReader({ fileUrl, title }) {
     searchRow: {
       display: "flex",
       alignItems: "center",
-      gap: "6px",
+      gap: 6,
       padding: "8px 10px",
-      borderBottom: "1px solid #E4E2D8",
+      borderBottom: `1px solid ${T.border}`,
     },
     searchInput: {
       flex: 1,
       border: "none",
       outline: "none",
-      fontSize: "13px",
+      fontSize: 13,
       background: "transparent",
-      color: "#3F3A33",
+      color: T.text,
     },
     searchCount: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: "10.5px",
-      color: "#80796E",
+      fontSize: 10.5,
+      color: T.muted,
       whiteSpace: "nowrap",
     },
     searchResults: { overflowY: "auto", maxHeight: "270px" },
@@ -716,7 +996,7 @@ export default function PdfReader({ fileUrl, title }) {
       width: "100%",
       textAlign: "left",
       padding: "8px 12px",
-      borderBottom: "1px solid #E4E2D8",
+      borderBottom: `1px solid ${T.border}`,
       background: "none",
       border: "none",
       cursor: "pointer",
@@ -724,41 +1004,41 @@ export default function PdfReader({ fileUrl, title }) {
     searchPage: {
       display: "inline-block",
       fontFamily: "ui-monospace, monospace",
-      fontSize: "10px",
-      color: "#C23B3B",
-      marginBottom: "2px",
+      fontSize: 10,
+      color: T.accent,
+      marginBottom: 2,
     },
     searchSnip: {
       display: "block",
-      fontSize: "12.5px",
+      fontSize: 12.5,
       lineHeight: 1.4,
-      color: "#80796E",
+      color: T.muted,
     },
     askBtn: {
       display: "inline-block",
-      marginTop: "4px",
-      fontSize: "10.5px",
+      marginTop: 4,
+      fontSize: 10.5,
       fontWeight: 600,
-      color: "#C23B3B",
-      background: "rgba(194,59,59,0.08)",
+      color: T.accent,
+      background: T.hover,
       border: "none",
       borderRadius: "4px",
       padding: "2px 8px",
       cursor: "pointer",
     },
-    // Lasso overlay
+    // Lasso / highlight overlay
     lassoOverlay: {
       position: "absolute",
       inset: 0,
       width: "100%",
       height: "100%",
-      pointerEvents: circleMode ? "auto" : "none",
+      pointerEvents: tool !== "none" ? "auto" : "none",
       touchAction: "none",
-      cursor: circleMode ? "crosshair" : "default",
+      cursor: tool === "highlight" ? "crosshair" : tool === "erase" ? "pointer" : tool === "circle" ? "crosshair" : "default",
     },
     lassoPath: {
       fill: "rgba(194,59,59,0.12)",
-      stroke: "#C23B3B",
+      stroke: T.accent,
       strokeWidth: 3,
       strokeLinecap: "round",
       strokeLinejoin: "round",
@@ -766,16 +1046,16 @@ export default function PdfReader({ fileUrl, title }) {
     // Circle bubble
     circleBubble: {
       position: "absolute",
-      bottom: "16px",
-      right: "16px",
-      width: "54px",
-      height: "54px",
+      bottom: 16,
+      right: 16,
+      width: 54,
+      height: 54,
       borderRadius: "50%",
-      background: circleMode ? "#3F3A33" : "#C23B3B",
+      background: circleMode ? T.text : T.accent,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      boxShadow: "0 6px 18px rgba(0,0,0,0.24)",
+      boxShadow: `0 6px 18px ${T.shadow}`,
       zIndex: 30,
       border: "none",
       cursor: "pointer",
@@ -786,11 +1066,12 @@ export default function PdfReader({ fileUrl, title }) {
       position: "absolute",
       left: chatPosition.left,
       top: chatPosition.top,
-      width: "280px",
-      background: "#fff",
-      border: "1px solid #E2DFD3",
+      width: isMobile ? "calc(100vw - 16px)" : "280px",
+      maxWidth: "320px",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
       borderRadius: "10px",
-      boxShadow: "0 10px 28px rgba(0,0,0,0.18)",
+      boxShadow: `0 10px 28px ${T.shadow}`,
       zIndex: 20,
       display: "flex",
       flexDirection: "column",
@@ -801,109 +1082,107 @@ export default function PdfReader({ fileUrl, title }) {
       justifyContent: "space-between",
       alignItems: "center",
       padding: "8px 10px",
-      borderBottom: "1px solid #E4E2D8",
+      borderBottom: `1px solid ${T.border}`,
       flexShrink: 0,
     },
     chatTag: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: "10px",
+      fontSize: 10,
       textTransform: "uppercase",
       letterSpacing: "0.04em",
-      color: "#C23B3B",
+      color: T.accent,
       fontWeight: 600,
     },
     chatClose: {
-      color: "#80796E",
-      fontSize: "13px",
+      color: T.muted,
+      fontSize: 13,
       background: "none",
       border: "none",
       cursor: "pointer",
     },
     chatThread: {
       overflowY: "auto",
-      padding: "10px",
+      padding: 10,
       display: "flex",
       flexDirection: "column",
-      gap: "8px",
+      gap: 8,
       flex: 1,
-      minHeight: "60px",
+      minHeight: 60,
     },
     msgUser: {
       alignSelf: "flex-end",
       maxWidth: "85%",
-      background: "#C23B3B",
+      background: T.accent,
       color: "white",
       borderRadius: "10px 10px 2px 10px",
       padding: "7px 11px",
-      fontSize: "12.5px",
+      fontSize: 12.5,
       lineHeight: 1.45,
-      whiteSpace: "pre-wrap",
     },
     msgAssistant: {
       alignSelf: "flex-start",
       maxWidth: "85%",
-      background: "#F5F4EF",
-      color: "#3F3A33",
+      background: T.chatBot,
+      color: T.text,
       borderRadius: "10px 10px 10px 2px",
       padding: "7px 11px",
-      fontSize: "12.5px",
+      fontSize: 12.5,
       lineHeight: 1.45,
-      whiteSpace: "pre-wrap",
     },
     msgImage: {
       maxWidth: "100%",
-      maxHeight: "80px",
-      borderRadius: "6px",
-      border: "1px solid #E4E2D8",
-      marginBottom: "4px",
+      maxHeight: 80,
+      borderRadius: 6,
+      border: `1px solid ${T.border}`,
+      marginBottom: 4,
       display: "block",
     },
     msgLoading: {
       alignSelf: "flex-start",
       display: "flex",
       alignItems: "center",
-      gap: "7px",
-      fontSize: "12.5px",
-      color: "#80796E",
-      background: "#F5F4EF",
+      gap: 7,
+      fontSize: 12.5,
+      color: T.muted,
+      background: T.chatBot,
       borderRadius: "10px 10px 10px 2px",
       padding: "7px 11px",
     },
     msgError: {
       alignSelf: "flex-start",
-      background: "#FFF0F0",
-      color: "#C23B3B",
+      background: theme === "dark" ? "rgba(233,69,96,0.15)" : "#FFF0F0",
+      color: T.accent,
       borderRadius: "10px 10px 10px 2px",
       padding: "7px 11px",
-      fontSize: "12.5px",
+      fontSize: 12.5,
       display: "flex",
       flexDirection: "column",
-      gap: "4px",
+      gap: 4,
     },
     retryBtn: {
-      fontSize: "11px",
+      fontSize: 11,
       fontWeight: 600,
-      color: "#C23B3B",
+      color: T.accent,
       background: "none",
-      border: "1px solid #C23B3B",
-      borderRadius: "4px",
+      border: `1px solid ${T.accent}`,
+      borderRadius: 4,
       padding: "2px 8px",
       cursor: "pointer",
       alignSelf: "flex-start",
     },
     chipsRow: {
       display: "flex",
-      gap: "5px",
+      gap: 5,
       padding: "6px 10px",
       flexWrap: "wrap",
       flexShrink: 0,
     },
     chip: {
-      fontSize: "11px",
+      fontSize: 11,
       fontWeight: 500,
-      color: "#3F3A33",
-      background: "#F0EEE8",
-      border: "1px solid #E2DFD3",
+      color: T.text,
+      background: T.chipBg,
+      border: `1px solid ${T.border}`,
       borderRadius: "999px",
       padding: "3px 10px",
       cursor: "pointer",
@@ -911,36 +1190,158 @@ export default function PdfReader({ fileUrl, title }) {
     },
     chatInputRow: {
       display: "flex",
-      gap: "6px",
+      gap: 6,
       padding: "8px 10px",
-      borderTop: "1px solid #E4E2D8",
+      borderTop: `1px solid ${T.border}`,
       flexShrink: 0,
     },
     chatTextarea: {
       flex: 1,
-      border: "1px solid #E2DFD3",
-      borderRadius: "8px",
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
       padding: "6px 8px",
-      fontSize: "12.5px",
-      color: "#3F3A33",
-      background: "#FBFAF6",
+      fontSize: 12.5,
+      color: T.text,
+      background: T.inputBg,
       outline: "none",
       resize: "none",
-      minHeight: "32px",
-      maxHeight: "60px",
+      minHeight: 32,
+      maxHeight: 60,
       fontFamily: "inherit",
     },
     chatSendBtn: {
-      background: "#C23B3B",
+      background: T.accent,
       color: "white",
       border: "none",
-      borderRadius: "8px",
+      borderRadius: 8,
       padding: "6px 12px",
-      fontSize: "12.5px",
+      fontSize: 12.5,
       fontWeight: 600,
       cursor: chatInput.trim() && !chatLoading ? "pointer" : "default",
       opacity: chatInput.trim() && !chatLoading ? 1 : 0.35,
       flexShrink: 0,
+    },
+    // Color picker popup
+    colorPicker: {
+      position: "absolute",
+      top: 42,
+      left: 0,
+      display: "flex",
+      gap: 6,
+      padding: "8px 10px",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
+      borderRadius: 10,
+      boxShadow: `0 6px 18px ${T.shadow}`,
+      zIndex: 15,
+    },
+    colorDot: {
+      width: 24,
+      height: 24,
+      borderRadius: "50%",
+      border: "2px solid transparent",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+    // Bookmark panel
+    bookmarkPanel: {
+      position: "absolute",
+      top: 42,
+      right: 0,
+      width: isMobile ? "200px" : "220px",
+      maxHeight: "300px",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
+      borderRadius: 10,
+      boxShadow: `0 6px 18px ${T.shadow}`,
+      zIndex: 15,
+      overflowY: "auto",
+      padding: "8px",
+    },
+    bookmarkItem: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "6px 8px",
+      borderRadius: 6,
+      border: "none",
+      background: "none",
+      cursor: "pointer",
+      color: T.text,
+      fontSize: 13,
+      width: "100%",
+      textAlign: "left",
+    },
+    // Overflow menu (mobile)
+    overflowMenu: {
+      position: "absolute",
+      top: 42,
+      right: 0,
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
+      borderRadius: 10,
+      boxShadow: `0 6px 18px ${T.shadow}`,
+      zIndex: 15,
+      padding: "4px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 2,
+      minWidth: 160,
+    },
+    overflowItem: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "8px 10px",
+      borderRadius: 6,
+      border: "none",
+      background: "none",
+      cursor: "pointer",
+      color: T.text,
+      fontSize: 13,
+      width: "100%",
+      textAlign: "left",
+    },
+    // Progress bar
+    progressBar: {
+      height: 3,
+      background: T.border,
+      flexShrink: 0,
+      position: "relative",
+    },
+    progressFill: {
+      height: "100%",
+      background: T.accent,
+      transition: "width 0.2s ease",
+      borderRadius: "0 2px 2px 0",
+    },
+    // Resume toast
+    resumeToast: {
+      position: "absolute",
+      top: 8,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
+      borderRadius: 20,
+      padding: "4px 14px",
+      fontSize: 12,
+      color: T.text,
+      boxShadow: `0 4px 14px ${T.shadow}`,
+      zIndex: 25,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+    },
+    resumeBtn: {
+      background: T.accent,
+      color: "white",
+      border: "none",
+      borderRadius: 12,
+      padding: "2px 10px",
+      fontSize: 11,
+      fontWeight: 600,
+      cursor: "pointer",
     },
   };
 
@@ -955,16 +1356,58 @@ export default function PdfReader({ fileUrl, title }) {
       <div style={s.toolbar}>
         <span style={s.docTitle}>{title || "PDF"}</span>
 
+        {/* Highlighter tool */}
+        <div style={{ position: "relative" }}>
+          <button
+            style={{ ...s.iconBtn, color: tool === "highlight" ? T.accent : T.muted, background: tool === "highlight" ? T.hover : "none" }}
+            onClick={() => { toggleTool("highlight"); setShowColorPicker((v) => !v); }}
+            title="Highlight"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4M9 11l3 3"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/><path d="M3 18h6l-3 3z" fill="currentColor"/></svg>
+          </button>
+          {showColorPicker && tool === "highlight" && (
+            <div style={s.colorPicker}>
+              {PEN_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  style={{ ...s.colorDot, background: c.value.replace("0.35", "0.7"), borderColor: penColor === c.value ? T.accent : "transparent" }}
+                  onClick={() => setPenColor(c.value)}
+                  title={c.name}
+                />
+              ))}
+              <div style={{ width: 1, height: 20, background: T.border }} />
+              <button
+                style={{ ...s.iconBtn, width: 28, height: 28, color: T.muted }}
+                onClick={clearPageAnnotations}
+                title="Clear page highlights"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Eraser tool */}
         <button
-          style={{ ...s.iconBtn, color: showThumbs ? "#C23B3B" : "#80796E", background: showThumbs ? "rgba(194,59,59,0.10)" : "none" }}
-          onClick={() => setShowThumbs((v) => !v)}
-          title="Pages"
+          style={{ ...s.iconBtn, color: tool === "erase" ? T.accent : T.muted, background: tool === "erase" ? T.hover : "none" }}
+          onClick={() => toggleTool("erase")}
+          title="Eraser"
         >
-          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/><path d="M18 13L8 3"/></svg>
+        </button>
+
+        {/* Circle-to-Ask tool */}
+        <button
+          style={{ ...s.iconBtn, color: tool === "circle" ? T.accent : T.muted, background: tool === "circle" ? T.hover : "none" }}
+          onClick={() => toggleTool("circle")}
+          title="Circle to Ask AI"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
         </button>
 
         <div style={s.sep} />
 
+        {/* Page nav */}
         <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} title="Previous page">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
@@ -986,6 +1429,7 @@ export default function PdfReader({ fileUrl, title }) {
 
         <div style={s.sep} />
 
+        {/* Zoom */}
         <button style={s.iconBtn} onClick={handleZoomOut} title="Zoom out">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M8 11h6"/></svg>
         </button>
@@ -996,93 +1440,328 @@ export default function PdfReader({ fileUrl, title }) {
 
         <div style={s.spacer} />
 
-        <div style={s.searchWrap}>
-          <button
-            style={{ ...s.iconBtn, color: showSearch ? "#C23B3B" : "#80796E", background: showSearch ? "rgba(194,59,59,0.10)" : "none" }}
-            onClick={() => setShowSearch((v) => !v)}
-            title="Search in document"
-          >
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          </button>
-          <div style={s.searchPanel}>
-            <div style={s.searchRow}>
-              <input
-                style={s.searchInput}
-                type="text"
-                placeholder="Search this document…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") runSearch(searchQuery); }}
-              />
-              <span style={s.searchCount}>{searchResults.length ? `${searchResults.length} ${searchResults.length > 1 ? "matches" : "match"}` : ""}</span>
-            </div>
-            <div style={s.searchResults}>
-              {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: "#80796E" }}>Searching…</div>}
-              {!searching && searchResults.length === 0 && searchQuery.trim() && (
-                <div style={{ padding: "14px 12px", fontSize: "12.5px", color: "#80796E" }}>No matches found.</div>
-              )}
-              {searchResults.map((r, i) => (
-                <div key={i} style={s.searchItem} onClick={() => { goToPage(r.page); setShowSearch(false); }}>
-                  <span style={s.searchPage}>p.{r.page}</span>
-                  <span style={s.searchSnip}>
-                    {r.before}<mark style={{ background: "rgba(194,59,59,0.10)", color: "#C23B3B", fontWeight: 600, borderRadius: "2px" }}>{r.match}</mark>{r.after}
-                  </span>
-                  <button style={s.askBtn} onClick={(e) => { e.stopPropagation(); askAboutSearchResult(r); }}>
-                    Ask about this →
-                  </button>
+        {/* Desktop: show all secondary actions. Mobile: overflow menu */}
+        {!isMobile ? (
+          <>
+            {/* Bookmark */}
+            <div style={{ position: "relative" }}>
+              <button
+                style={{ ...s.iconBtn, color: bookmarks.includes(currentPage) ? T.accent : T.muted }}
+                onClick={() => { toggleBookmark(); setShowBookmarks((v) => !v); }}
+                title="Bookmark page"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={bookmarks.includes(currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              </button>
+              {showBookmarks && bookmarks.length > 0 && (
+                <div style={s.bookmarkPanel}>
+                  <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4 }}>Bookmarks</div>
+                  {bookmarks.map((pg) => (
+                    <button key={pg} style={s.bookmarkItem} onClick={() => { goToPage(pg); setShowBookmarks(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                      Page {pg}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
+
+            {/* TTS */}
+            <button
+              style={{ ...s.iconBtn, color: speaking ? T.accent : T.muted }}
+              onClick={toggleTTS}
+              title={speaking ? "Stop reading" : "Read aloud"}
+            >
+              {speaking ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              )}
+            </button>
+
+            {/* Theme toggle */}
+            <button
+              style={s.iconBtn}
+              onClick={() => setTheme((t) => t === "light" ? "dark" : "light")}
+              title={theme === "light" ? "Dark mode" : "Light mode"}
+            >
+              {theme === "light" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+              )}
+            </button>
+
+            {/* Thumbnails */}
+            <button
+              style={{ ...s.iconBtn, color: showThumbs ? T.accent : T.muted, background: showThumbs ? T.hover : "none" }}
+              onClick={() => setShowThumbs((v) => !v)}
+              title="Pages"
+            >
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
+            </button>
+
+            {/* Search */}
+            <div style={s.searchWrap}>
+              <button
+                style={{ ...s.iconBtn, color: showSearch ? T.accent : T.muted, background: showSearch ? T.hover : "none" }}
+                onClick={() => setShowSearch((v) => !v)}
+                title="Search in document"
+              >
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              </button>
+              <div style={s.searchPanel}>
+                <div style={s.searchRow}>
+                  <input
+                    style={s.searchInput}
+                    type="text"
+                    placeholder="Search this document…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") runSearch(searchQuery); }}
+                  />
+                  <span style={s.searchCount}>{searchResults.length ? `${searchResults.length} ${searchResults.length > 1 ? "matches" : "match"}` : ""}</span>
+                </div>
+                <div style={s.searchResults}>
+                  {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
+                  {!searching && searchResults.length === 0 && searchQuery.trim() && (
+                    <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>No matches found.</div>
+                  )}
+                  {searchResults.map((r, i) => (
+                    <div key={i} style={s.searchItem} onClick={() => { goToPage(r.page); setShowSearch(false); }}>
+                      <span style={s.searchPage}>p.{r.page}</span>
+                      <span style={s.searchSnip}>
+                        {r.before}<mark style={{ background: T.hover, color: T.accent, fontWeight: 600, borderRadius: "2px" }}>{r.match}</mark>{r.after}
+                      </span>
+                      <button style={s.askBtn} onClick={(e) => { e.stopPropagation(); askAboutSearchResult(r); }}>
+                        Ask about this →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Fullscreen */}
+            <button
+              style={{ ...s.iconBtn, color: fullscreen ? T.accent : T.muted }}
+              onClick={() => setFullscreen((v) => !v)}
+              title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+            >
+              {fullscreen ? (
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v4a1 1 0 0 1-1 1H3M21 8h-4a1 1 0 0 1-1-1V3M3 16h4a1 1 0 0 1 1 1v4M16 21v-4a1 1 0 0 1 1-1h4"/></svg>
+              ) : (
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+              )}
+            </button>
+          </>
+        ) : (
+          /* Mobile: overflow menu */
+          <div style={{ position: "relative" }}>
+            <button
+              style={{ ...s.iconBtn, color: showOverflow ? T.accent : T.muted }}
+              onClick={() => setShowOverflow((v) => !v)}
+              title="More"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+            </button>
+            {showOverflow && (
+              <div style={s.overflowMenu}>
+                <button style={s.overflowItem} onClick={() => { toggleBookmark(); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.includes(currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  {bookmarks.includes(currentPage) ? "Bookmarked" : "Bookmark"}
+                </button>
+                {bookmarks.length > 0 && (
+                  <button style={s.overflowItem} onClick={() => { setShowBookmarks((v) => !v); setShowOverflow(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                    Bookmarks ({bookmarks.length})
+                  </button>
+                )}
+                <button style={s.overflowItem} onClick={() => { toggleTTS(); setShowOverflow(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  {speaking ? "Stop reading" : "Read aloud"}
+                </button>
+                <button style={s.overflowItem} onClick={() => { setTheme((t) => t === "light" ? "dark" : "light"); setShowOverflow(false); }}>
+                  {theme === "light" ? "🌙" : "☀️"}
+                  {theme === "light" ? "Dark mode" : "Light mode"}
+                </button>
+                <button style={s.overflowItem} onClick={() => { setShowThumbs((v) => !v); setShowOverflow(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
+                  Pages
+                </button>
+                <button style={s.overflowItem} onClick={() => { setShowSearch((v) => !v); setShowOverflow(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                  Search
+                </button>
+                <button style={s.overflowItem} onClick={() => { setFullscreen((v) => !v); setShowOverflow(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+                  Fullscreen
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div style={s.progressBar}>
+        <div style={{ ...s.progressFill, width: numPages ? `${(currentPage / numPages) * 100}%` : "0%" }} />
+      </div>
+
+      {/* Mobile search panel (rendered outside toolbar when mobile) */}
+      {isMobile && showSearch && (
+        <div style={{ position: "absolute", top: 100, left: 8, right: 8, ...s.searchPanel, display: "flex", width: "auto" }}>
+          <div style={s.searchRow}>
+            <input
+              style={s.searchInput}
+              type="text"
+              placeholder="Search this document…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") runSearch(searchQuery); }}
+            />
+            <span style={s.searchCount}>{searchResults.length ? `${searchResults.length}` : ""}</span>
+          </div>
+          <div style={s.searchResults}>
+            {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
+            {!searching && searchResults.length === 0 && searchQuery.trim() && (
+              <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>No matches found.</div>
+            )}
+            {searchResults.map((r, i) => (
+              <div key={i} style={s.searchItem} onClick={() => { goToPage(r.page); setShowSearch(false); }}>
+                <span style={s.searchPage}>p.{r.page}</span>
+                <span style={s.searchSnip}>
+                  {r.before}<mark style={{ background: T.hover, color: T.accent, fontWeight: 600 }}>{r.match}</mark>{r.after}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
+      )}
 
-        <button
-          style={{ ...s.iconBtn, color: fullscreen ? "#C23B3B" : "#80796E" }}
-          onClick={() => setFullscreen((v) => !v)}
-          title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
-        >
-          {fullscreen ? (
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v4a1 1 0 0 1-1 1H3M21 8h-4a1 1 0 0 1-1-1V3M3 16h4a1 1 0 0 1 1 1v4M16 21v-4a1 1 0 0 1 1-1h4"/></svg>
-          ) : (
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
-          )}
-        </button>
-      </div>
+      {/* Mobile bookmarks panel */}
+      {isMobile && showBookmarks && bookmarks.length > 0 && (
+        <div style={{ position: "absolute", top: 100, right: 8, ...s.bookmarkPanel, width: 180 }}>
+          <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4 }}>Bookmarks</div>
+          {bookmarks.map((pg) => (
+            <button key={pg} style={s.bookmarkItem} onClick={() => { goToPage(pg); setShowBookmarks(false); }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              Page {pg}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Workspace */}
       <div style={s.workspace}>
-        {/* Thumbnails */}
-        <aside style={s.thumbsAside}>
-          <div style={s.thumbRail}>
-            {thumbs.map((t) => (
-              <button
-                key={t.page}
-                style={{
-                  ...s.thumb,
-                  borderColor: t.page === currentPage ? "#C23B3B" : "transparent",
-                  background: t.page === currentPage ? "rgba(194,59,59,0.10)" : "none",
-                }}
-                onClick={() => goToPage(t.page)}
-              >
-                <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.18)", display: "block" }} />
-                <span style={{ ...s.thumbLabel, color: t.page === currentPage ? "#C23B3B" : "#80796E" }}>{t.page}</span>
-              </button>
-            ))}
+        {/* Thumbnails (desktop sidebar) */}
+        {!isMobile && (
+          <aside style={s.thumbsAside}>
+            <div style={s.thumbRail}>
+              {thumbs.map((t) => (
+                <button
+                  key={t.page}
+                  style={{
+                    ...s.thumb,
+                    borderColor: t.page === currentPage ? T.accent : "transparent",
+                    background: t.page === currentPage ? T.hover : "none",
+                  }}
+                  onClick={() => goToPage(t.page)}
+                >
+                  <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
+                  <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
+
+        {/* Mobile thumbnails drawer */}
+        {isMobile && showThumbs && (
+          <div style={{
+            position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40,
+            display: "flex", justifyContent: "flex-start",
+          }} onClick={() => setShowThumbs(false)}>
+            <div style={{
+              width: 160, height: "100%", background: T.toolbar, overflowY: "auto",
+              padding: "10px 8px", display: "flex", flexDirection: "column", gap: 10,
+            }} onClick={(e) => e.stopPropagation()}>
+              {thumbs.map((t) => (
+                <button
+                  key={t.page}
+                  style={{
+                    ...s.thumb,
+                    borderColor: t.page === currentPage ? T.accent : "transparent",
+                    background: t.page === currentPage ? T.hover : "none",
+                  }}
+                  onClick={() => { goToPage(t.page); setShowThumbs(false); }}
+                >
+                  <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
+                  <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </aside>
+        )}
 
         {/* Viewer */}
-        <main ref={viewerRef} style={s.viewer} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <main
+          ref={viewerRef}
+          style={s.viewer}
+          onTouchStart={onTouchStartViewer}
+          onTouchMove={onTouchMoveViewer}
+          onTouchEnd={onTouchEndViewer}
+        >
+          {/* Resume toast */}
+          {resumePage && !loading && (
+            <div style={s.resumeToast}>
+              <span>📖 Resume p.{resumePage}?</span>
+              <button style={s.resumeBtn} onClick={doResume}>Go</button>
+              <button style={{ ...s.resumeBtn, background: "transparent", color: T.muted, border: `1px solid ${T.border}` }} onClick={() => setResumePage(null)}>×</button>
+            </div>
+          )}
+
           <div style={s.pageShadow}>
-            <canvas ref={canvasRef} style={{ display: "block" }} />
+            <canvas
+              ref={canvasRef}
+              style={{
+                display: "block",
+                filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+              }}
+            />
             <svg
               ref={lassoSvgRef}
-              style={s.lassoOverlay}
-              onPointerDown={onLassoDown}
-              onPointerMove={onLassoMove}
-              onPointerUp={onLassoUp}
+              style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}
+              onPointerDown={onOverlayDown}
+              onPointerMove={onOverlayMove}
+              onPointerUp={onOverlayUp}
             >
-              {lassoPath && <path d={lassoPath} style={s.lassoPath} />}
+              {/* Saved annotations */}
+              {savedAnnotationPaths.map((sp) => (
+                <path
+                  key={`a${sp.si}`}
+                  d={sp.d}
+                  stroke={sp.color}
+                  strokeWidth={sp.width}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ mixBlendMode: "multiply" }}
+                />
+              ))}
+              {/* Current stroke being drawn */}
+              {renderStrokes && tool === "highlight" && (
+                <path
+                  d={renderStrokes}
+                  stroke={penColor}
+                  strokeWidth={12}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ mixBlendMode: "multiply" }}
+                />
+              )}
+              {/* Lasso path for circle-to-ask */}
+              {lassoPath && tool === "circle" && <path d={lassoPath} style={s.lassoPath} />}
             </svg>
 
             {/* Chat popup */}
@@ -1099,7 +1778,9 @@ export default function PdfReader({ fileUrl, title }) {
                       {msg.image && (
                         <img src={msg.image} alt="Circled content" style={s.msgImage} />
                       )}
-                      {msg.content}
+                      {msg.role === "assistant"
+                        ? <MarkdownText>{msg.content}</MarkdownText>
+                        : msg.content}
                     </div>
                   ))}
                   {chatLoading && (
@@ -1153,19 +1834,10 @@ export default function PdfReader({ fileUrl, title }) {
             </div>
           )}
           {loadError && (
-            <div style={{ ...s.loadingOverlay, color: "#C23B3B" }}>{loadError}</div>
+            <div style={{ ...s.loadingOverlay, color: T.accent }}>{loadError}</div>
           )}
         </main>
       </div>
-
-      {/* Circle-to-Ask bubble */}
-      <button style={s.circleBubble} onClick={toggleCircleMode} title="Circle something to ask">
-        {circleMode ? (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
-        )}
-      </button>
     </div>
   );
 }
