@@ -1,6 +1,40 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 
+const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
+
+const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+// Route through backend proxy to avoid CORS issues with R2
+function getProxiedUrl(fileUrl) {
+  if (!fileUrl) return null;
+  return `${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(fileUrl)}`;
+}
+
+// Load pdf.js from CDN (avoids bundling issues with Vite + PWA)
+function loadPdfJs() {
+  if (typeof window !== "undefined" && window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${PDFJS_CDN}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+        resolve(window.pdfjsLib);
+      });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = PDFJS_CDN;
+    script.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+      resolve(window.pdfjsLib);
+    };
+    script.onerror = () => reject(new Error("Failed to load PDF library from CDN"));
+    document.head.appendChild(script);
+  });
+}
+
 const SUGGESTED_CHIPS = [
   "Why does this matter?",
   "Give an example",
@@ -45,40 +79,18 @@ export default function PdfReader({ fileUrl, title }) {
   const chatScrollRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Load PDF.js worker
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.pdfjsLib) return;
-    import("pdfjs-dist/build/pdf.min.js").then((pdfjsLib) => {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.js",
-        import.meta.url
-      ).toString();
-      window.pdfjsLib = pdfjsLib;
-    });
-  }, []);
-
   // Load PDF document
   useEffect(() => {
     if (!fileUrl) return;
     let cancelled = false;
 
     (async () => {
-      // Wait for pdfjsLib to be available
-      let tries = 0;
-      while (!window.pdfjsLib && tries < 50) {
-        await new Promise((r) => setTimeout(r, 100));
-        tries++;
-      }
-      if (!window.pdfjsLib) {
-        setLoadError("PDF library failed to load.");
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
         setLoadError("");
-        const loadingTask = window.pdfjsLib.getDocument(fileUrl);
+        const pdfjs = await loadPdfJs();
+        if (cancelled) return;
+        const loadingTask = pdfjs.getDocument(getProxiedUrl(fileUrl));
         const pdf = await loadingTask.promise;
         if (cancelled) return;
         pdfDocRef.current = pdf;
@@ -89,7 +101,7 @@ export default function PdfReader({ fileUrl, title }) {
         setLoading(false);
       } catch (err) {
         console.error("PDF load error:", err);
-        setLoadError("Couldn't open this PDF.");
+        setLoadError(`Couldn't open this PDF. ${err.message || ""}`);
         setLoading(false);
       }
     })();

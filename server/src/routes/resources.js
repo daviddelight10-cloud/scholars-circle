@@ -87,6 +87,43 @@ router.get("/teacher/my", requireAuth, requireRole("TEACHER", "LECTURER"), async
   }
 });
 
+// GET /api/resources/proxy-pdf?url=... - Proxy PDF file to avoid CORS issues with pdf.js
+router.get("/proxy-pdf", async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: "URL is required" });
+
+    // Only allow proxying from R2 public URL or known storage domains
+    const allowedPrefixes = [
+      process.env.R2_PUBLIC_URL,
+      "https://pub-",
+      "https://r2.cloudflarestorage.com",
+    ].filter(Boolean);
+
+    const isAllowed = allowedPrefixes.some((p) => url.startsWith(p));
+    if (!isAllowed) {
+      return res.status(403).json({ error: "URL domain not allowed" });
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: "Failed to fetch PDF from storage" });
+    }
+
+    const contentType = response.headers.get("content-type") || "application/pdf";
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", buffer.length);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    return res.send(buffer);
+  } catch (error) {
+    console.error("PDF proxy error:", error);
+    res.status(500).json({ error: "Failed to proxy PDF" });
+  }
+});
+
 // GET /api/resources/:token - Get resource by share token
 router.get("/:token", async (req, res) => {
   try {
