@@ -36,11 +36,20 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onC
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      credentials: "include",
       body: JSON.stringify({ reference, plan: selectedPlan, activationKey }),
     })
       .then(res => res.json().then(data => ({ ok: res.ok, data })))
       .then(({ ok, data }) => {
         if (ok && data.activated) {
+          // Update stored token if server returned a new one
+          if (data.token) {
+            try {
+              const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+              authData.authToken = data.token;
+              localStorage.setItem("scholars-circle-auth", JSON.stringify(authData));
+            } catch {}
+          }
           showToast("✅ Payment successful! Your account is now activated.");
           onActivated?.();
         } else {

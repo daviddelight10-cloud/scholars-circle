@@ -66,7 +66,8 @@ app.use(mongoSanitize());
 app.use(cookieParser());
 
 // Body parsing with size limits
-app.use(express.json({ limit: '10mb' }));
+// Capture raw body for Paystack webhook signature verification
+app.use(express.json({ limit: '10mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Health endpoint - MUST be before CORS for Railway health checks
