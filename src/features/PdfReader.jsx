@@ -137,14 +137,17 @@ export default function PdfReader({ fileUrl, title }) {
     const page = await pdfDocRef.current.getPage(n);
     const viewport = page.getViewport({ scale });
     const canvas = canvasRef.current;
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.width = Math.floor(viewport.width * dpr);
+    canvas.height = Math.floor(viewport.height * dpr);
+    canvas.style.width = viewport.width + "px";
+    canvas.style.height = viewport.height + "px";
     const ctx = canvas.getContext("2d");
 
     if (renderTaskRef.current) {
       try { renderTaskRef.current.cancel(); } catch (e) {}
     }
-    const task = page.render({ canvasContext: ctx, viewport });
+    const task = page.render({ canvasContext: ctx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
     renderTaskRef.current = task;
     try {
       await task.promise;
