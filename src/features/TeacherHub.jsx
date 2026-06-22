@@ -141,6 +141,7 @@ export default function TeacherHub({ token, auth }) {
   const [aiText, setAiText] = useState("");
   const [aiFile, setAiFile] = useState(null);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiCount, setAiCount] = useState(5);
 
   // URL param for shared question
   const [sharedCode, setSharedCode] = useState(null);
@@ -299,7 +300,8 @@ export default function TeacherHub({ token, auth }) {
         const { text: extracted } = await extractTextFromFile(aiFile);
         text = extracted;
       }
-      const prompt = `Generate 5 multiple-choice questions from the following content. Return ONLY a valid JSON array, each item: { "question": string, "options": [4 strings], "answer": 0-3, "explanation": string }.\n\nContent:\n${text}`;
+      const countStr = aiCount > 0 ? `${aiCount}` : "as many high-quality questions as you can based on the content (aim for 10-20)";
+      const prompt = `You are an expert exam question generator. Generate ${countStr} multiple-choice questions from the following study material. Cover different topics and difficulty levels from the content. Each question must be answerable from the material provided.\n\nReturn ONLY a valid JSON array, each item: { "question": string, "options": [4 strings], "answer": 0-3, "difficulty": "easy"|"medium"|"hard", "explanation": string, "topic": string }.\n\nStudy material:\n${text}`;
       const result = await callAI(prompt);
       const parsed = extractJSON(result, "array");
       const generated = parsed.map((q, i) => ({
@@ -603,13 +605,18 @@ export default function TeacherHub({ token, auth }) {
                   <div className="tag" style={{ color:"#555", marginBottom:6 }}>Paste Content</div>
                   <textarea rows={6} placeholder="Paste lecture notes, textbook content, or any study material..." value={aiText} onChange={e => setAiText(e.target.value)} />
                 </div>
-                <div style={{ marginBottom:18 }}>
+                <div style={{ marginBottom:14 }}>
                   <div className="tag" style={{ color:"#555", marginBottom:6 }}>Or Upload File (PDF, DOCX, TXT)</div>
                   <input type="file" accept=".pdf,.docx,.txt" onChange={e => setAiFile(e.target.files[0])} />
                   {aiFile && <div style={{ fontSize:12, color:"#4F8EF7", marginTop:6 }}>Selected: {aiFile.name}</div>}
                 </div>
+                <div style={{ marginBottom:18, display:"flex", alignItems:"center", gap:10 }}>
+                  <div className="tag" style={{ color:"#555", whiteSpace:"nowrap" }}>Number of Questions:</div>
+                  <input type="number" min={0} max={50} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(50, parseInt(e.target.value) || 0)))} style={{ width:70, textAlign:"center" }} />
+                  <span style={{ fontSize:11, color:"#555" }}>0 = Auto (AI decides)</span>
+                </div>
                 <button className="btn" onClick={generateFromAI} disabled={aiGenerating}>
-                  {aiGenerating ? "⏳ Generating..." : "🤖 Generate 5 Questions"}
+                  {aiGenerating ? "⏳ Generating..." : `🤖 Generate ${aiCount > 0 ? aiCount : "Auto"} Questions`}
                 </button>
               </div>
             )}

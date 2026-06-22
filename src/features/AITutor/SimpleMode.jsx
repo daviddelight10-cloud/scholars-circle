@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import MarkdownText from "../../components/MarkdownText.jsx";
 
 // Generic single-input mode used for Explain, Solve, Summarize, Translate
 export function SimpleMode({ tutor, mode, config }) {
@@ -122,7 +123,7 @@ export function SimpleMode({ tutor, mode, config }) {
               📋 Copy
             </button>
           </div>
-          {result}
+          <MarkdownText>{result}</MarkdownText>
         </div>
       )}
     </div>

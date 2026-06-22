@@ -142,4 +142,32 @@ router.post("/bulk", requireAuth, requireRole("TEACHER", "LECTURER"), async (req
   }
 });
 
+// Update question (teacher only)
+router.patch("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const allowed = ["question", "optionA", "optionB", "optionC", "optionD", "answerIndex", "difficulty", "year", "explanation", "topic"];
+    const data = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    const updated = await prisma.question.update({ where: { id }, data });
+    res.json(updated);
+  } catch (err) {
+    console.error("Update question error:", err);
+    res.status(500).json({ error: err.message || "Failed to update question" });
+  }
+});
+
+// Delete question (teacher only)
+router.delete("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+  try {
+    await prisma.question.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete question error:", err);
+    res.status(500).json({ error: err.message || "Failed to delete question" });
+  }
+});
+
 export default router;

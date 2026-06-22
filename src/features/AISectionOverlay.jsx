@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { callAI } from "../lib/aiClient";
 import LearningRoom from "./AITutor/LearningRoom";
 import GuidedStudy from "./GuidedStudy";
+import MarkdownText from "../components/MarkdownText.jsx";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -229,12 +230,12 @@ function ResponseCard({ data, onStartPractice }) {
 
       {/* Definition */}
       <CollapseSection icon="📖" iconBg="#0f2a1a" iconBdr="#1a4a2a" label="Short Definition" defaultOpen>
-        {data.definition}
+        <MarkdownText>{data.definition}</MarkdownText>
       </CollapseSection>
 
       {/* Explanation */}
       <CollapseSection icon="🔬" iconBg="#1a1a40" iconBdr="#2a2a70" label="Detailed Explanation">
-        {data.explanation}
+        <MarkdownText>{data.explanation}</MarkdownText>
       </CollapseSection>
 
       {/* Video */}
@@ -1059,7 +1060,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           padding: "9px 13px", fontSize: 13, color: "#c5cae9",
                           fontFamily: "Manrope,sans-serif",
                           animation: "scSlideIn 0.25s ease",
-                        }}>{m.text}</div>
+                        }}><MarkdownText>{m.text}</MarkdownText></div>
                       </div>
                     )}
                     {m.type === "loading" && (

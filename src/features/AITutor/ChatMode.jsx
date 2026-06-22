@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import MarkdownText from "../../components/MarkdownText.jsx";
 
 // ─── Voice helpers ─────────────────────────────────────────────────────────────
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -165,7 +166,7 @@ export function ChatMode({ tutor }) {
               border: m.role === "assistant" ? "1px solid rgba(99, 102, 241, 0.2)" : "none"
             }}
           >
-            {m.content}
+            {m.role === "assistant" ? <MarkdownText>{m.content}</MarkdownText> : m.content}
             {/* TTS button for AI responses */}
             {m.role === "assistant" && (
               <div style={{ marginTop: 8, display: "flex", gap: 6 }}>

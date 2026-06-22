@@ -213,16 +213,19 @@ export async function callAIMultimodal(prompt, imageOrImages, history = [], aiCo
 export function extractJSON(raw, kind = "object") {
   if (!raw || typeof raw !== "string") throw new Error("AI returned empty response.");
   
+  // Strip markdown code fences (```json ... ``` or ``` ... ```)
+  let cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '');
+  
   const open = kind === "array" ? "[" : "{";
   const close = kind === "array" ? "]" : "}";
-  const start = raw.indexOf(open);
-  const end = raw.lastIndexOf(close);
+  const start = cleaned.indexOf(open);
+  const end = cleaned.lastIndexOf(close);
   
   if (start === -1 || end === -1) {
     throw new Error("AI did not return valid JSON. Try again with a shorter document.");
   }
   
-  const jsonStr = raw.slice(start, end + 1);
+  const jsonStr = cleaned.slice(start, end + 1);
   
   // Try parsing as-is first
   try {
@@ -230,13 +233,15 @@ export function extractJSON(raw, kind = "object") {
   } catch (e) {
     // Try to fix common JSON issues
     try {
+      let fixed = jsonStr;
+      
       // Remove trailing commas before ] or }
-      let fixed = jsonStr.replace(/,\s*([\]\}])/g, '$1');
+      fixed = fixed.replace(/,\s*([\]\}])/g, '$1');
       
-      // Fix unescaped quotes in strings (common AI mistake)
-      fixed = fixed.replace(/"([^"]*)"([^":,}\]]*)"([^"]*)":/g, '"$1\\"$2$3":');
+      // Remove control characters that break JSON.parse
+      fixed = fixed.replace(/[\x00-\x1f]/g, ch => ch === '\n' || ch === '\t' || ch === '\r' ? ch : ' ');
       
-      // Try to close truncated arrays/objects
+      // Try to close truncated arrays/objects (AI hit token limit)
       const openBrackets = (fixed.match(/[\[{]/g) || []).length;
       const closeBrackets = (fixed.match(/[\]}]/g) || []).length;
       if (openBrackets > closeBrackets) {
@@ -253,7 +258,19 @@ export function extractJSON(raw, kind = "object") {
       
       return JSON.parse(fixed);
     } catch (fixError) {
-      // Last resort: try to extract partial valid data
+      // Last resort: try to extract individual valid objects from a truncated array
+      try {
+        const objects = [];
+        const objRegex = /\{[^{}]*\}/g;
+        let m;
+        while ((m = objRegex.exec(jsonStr)) !== null) {
+          try {
+            objects.push(JSON.parse(m[0]));
+          } catch {}
+        }
+        if (objects.length > 0) return kind === "array" ? objects : objects[0];
+      } catch {}
+      
       console.error("JSON parse failed, raw preview:", jsonStr.substring(0, 500));
       throw new Error("AI returned malformed JSON. The document may be too long. Try with a shorter document or fewer questions.");
     }

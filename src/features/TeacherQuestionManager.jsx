@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { extractTextFromFile } from "../features/AITutor/fileExtract.js";
+import { extractJSON } from "../lib/aiClient.js";
 
 const DRAFT_KEY = "sc_teacher_drafts_v1";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
@@ -57,6 +58,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
   const [aiText, setAiText] = useState("");
   const [aiFile, setAiFile] = useState(null);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiCount, setAiCount] = useState(10);
 
   // New subject modal
   const [showNewSubject, setShowNewSubject] = useState(false);
@@ -301,8 +303,9 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
     setAiGenerating(true);
     try {
       let text = aiText.trim();
-      if (aiFile) { const { text: extracted } = await extractTextFromFile(aiFile); text = extracted; }
-      const prompt = `Generate 10 multiple-choice questions from the following content. Return ONLY a valid JSON array, each item: { "question": string, "options": [4 strings], "answer": 0-3, "difficulty": "easy"|"medium"|"hard", "explanation": string, "topic": string }.\n\nContent:\n${text}`;
+      if (aiFile) { const { text: extracted, images } = await extractTextFromFile(aiFile); text = extracted; }
+      const countStr = aiCount > 0 ? `${aiCount}` : "as many high-quality questions as you can based on the content (aim for 10-20)";
+      const prompt = `You are an expert exam question generator. Generate ${countStr} multiple-choice questions from the following study material. Cover different topics and difficulty levels from the content. Each question must be answerable from the material provided.\n\nReturn ONLY a valid JSON array, each item: { "question": string, "options": [4 strings], "answer": 0-3, "difficulty": "easy"|"medium"|"hard", "explanation": string, "topic": string }.\n\nStudy material:\n${text}`;
       const r = await fetch(`${API_BASE}/ai/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -311,8 +314,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
       if (!r.ok) throw new Error("AI request failed");
       const data = await r.json();
       const raw = data.text || "";
-      const match = raw.match(/\[[\s\S]*\]/);
-      const parsed = JSON.parse(match ? match[0] : raw);
+      const parsed = extractJSON(raw, "array");
       const generated = parsed.map((q, i) => ({
         id: `ai-${Date.now()}-${i}`, subjectId,
         question: q.question || "", optionA: q.options?.[0] || "", optionB: q.options?.[1] || "",
@@ -511,8 +513,13 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Paste Text / Lecture Notes</label>
                 <textarea value={aiText} onChange={e => setAiText(e.target.value)} rows={8} placeholder="Paste lecture notes, textbook content, slides…" style={{ ...inp, resize: "vertical" }} />
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <label style={{ fontSize: 11, color: "#3949ab", fontWeight: 600, whiteSpace: "nowrap" }}>Number of Questions:</label>
+                <input type="number" min={0} max={50} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(50, parseInt(e.target.value) || 0)))} style={{ ...inp, width: 70, textAlign: "center" }} />
+                <span style={{ fontSize: 10, color: "#4a5080" }}>0 = Auto (AI decides)</span>
+              </div>
               <button onClick={generateFromAI} disabled={aiGenerating} style={{ background: aiGenerating ? "#12142a" : "#1a237e", border: "0.5px solid #3949ab", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: aiGenerating ? "#4a5080" : "#c5cae9", cursor: aiGenerating ? "not-allowed" : "pointer", fontWeight: 700 }}>
-                {aiGenerating ? "⏳ Generating…" : "🤖 Generate 10 Questions"}
+                {aiGenerating ? "⏳ Generating…" : `🤖 Generate ${aiCount > 0 ? aiCount : "Auto"} Questions`}
               </button>
             </div>
           )}

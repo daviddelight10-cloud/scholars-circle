@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { searchYouTube, fetchTranscript, fetchVideoDetails, getTranscriptWindow, formatTime } from "./youtubeApi.js";
 import { speak, stopSpeaking, SpeechRecognitionAPI } from "./voice.js";
+import MarkdownText from "../../components/MarkdownText.jsx";
 
 // ─── YouTube IFrame Player loader (singleton) ────────────────────────────────
 let ytApiPromise = null;
@@ -587,7 +588,7 @@ Transcript: "${fullText}"`;
                       border: m.role === "assistant" ? "1px solid rgba(99,102,241,0.2)" : "none",
                     }}
                   >
-                    {m.content}
+                    {m.role === "assistant" ? <MarkdownText>{m.content}</MarkdownText> : m.content}
                     {m.role === "assistant" && (
                       <div style={{ marginTop: 6 }}>
                         <button

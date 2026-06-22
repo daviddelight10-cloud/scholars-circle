@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { callAI } from "../lib/aiClient";
+import MarkdownText from "../components/MarkdownText.jsx";
 
 // ─── Session history helpers ────────────────────────────────────────────────────
 const SESSIONS_KEY = "sc_guided_sessions";
@@ -632,7 +633,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                 fontSize:13, color:"#c5cae9", lineHeight:1.8,
                 fontFamily:"Manrope,sans-serif", marginBottom:12, whiteSpace:"pre-wrap",
               }}>
-                {explanation}
+                <MarkdownText>{explanation}</MarkdownText>
               </div>
             )
           )}
@@ -703,7 +704,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                     ✦ AI Feedback
                   </div>
                   <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.7, fontFamily:"Manrope,sans-serif" }}>
-                    {feedback}
+                    <MarkdownText>{feedback}</MarkdownText>
                   </div>
                 </>,
                 { border:"0.5px solid #1a4a25" }
