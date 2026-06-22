@@ -1,7 +1,7 @@
 /**
  * Browser-side file text extraction.
- * Supports: .pdf (pdf.js CDN), .docx (mammoth CDN), .txt, .md, plain text.
- * Returns { text, pages? }.
+ * Supports: .pdf (pdf.js CDN), .docx (mammoth CDN), .txt, .md, images (PNG/JPG/etc).
+ * Returns { text, pages?, images? }.
  */
 
 const PDFJS_VERSION = "3.11.174";
@@ -32,6 +32,17 @@ export async function extractTextFromFile(file) {
   const name = (file.name || "").toLowerCase();
   const type = file.type || "";
 
+  // Image files — convert to base64 data URL
+  if (type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(name)) {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("Failed to read image file"));
+      reader.readAsDataURL(file);
+    });
+    return { text: "", images: [dataUrl] };
+  }
+
   // PDF
   if (type === "application/pdf" || name.endsWith(".pdf")) {
     const pdfjsLib = await loadScript(PDFJS_CDN, "pdfjsLib");
@@ -51,7 +62,29 @@ export async function extractTextFromFile(file) {
         console.warn(`PDF page ${i} extract failed:`, e);
       }
     }
-    return { text: cleanText(fullText), pages: pdf.numPages };
+    const cleaned = cleanText(fullText);
+    // Scanned PDF — render pages as images for multimodal AI
+    if (cleaned.length < 20) {
+      const pageImages = [];
+      const maxImgPages = Math.min(pdf.numPages, 5);
+      for (let i = 1; i <= maxImgPages; i++) {
+        try {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const c = document.createElement("canvas");
+          c.width = viewport.width;
+          c.height = viewport.height;
+          await page.render({ canvasContext: c.getContext("2d"), viewport }).promise;
+          pageImages.push(c.toDataURL("image/png"));
+        } catch (e) {
+          console.warn(`Failed to render page ${i} as image:`, e);
+        }
+      }
+      if (pageImages.length > 0) {
+        return { text: cleaned, pages: pdf.numPages, images: pageImages };
+      }
+    }
+    return { text: cleaned, pages: pdf.numPages };
   }
 
   // DOCX
@@ -84,7 +117,7 @@ export async function extractTextFromFile(file) {
     throw new Error("Old .doc format isn't supported. Please save as .docx or .pdf and re-upload.");
   }
 
-  throw new Error(`Unsupported file type: ${file.type || name}. Try PDF, DOCX, TXT, or MD.`);
+  throw new Error(`Unsupported file type: ${file.type || name}. Try PDF, DOCX, TXT, MD, or an image.`);
 }
 
 function cleanText(s) {

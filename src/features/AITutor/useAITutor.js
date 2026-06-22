@@ -2,7 +2,7 @@
 // Wraps callAI() with discipline + mode + memory + RAG context.
 
 import { useState, useCallback, useRef } from "react";
-import { callAI, extractJSON } from "../../lib/aiClient.js";
+import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient.js";
 import { buildSystemPrompt, userPrompt } from "./prompts.js";
 import { detectDiscipline } from "./disciplines.js";
 
@@ -52,7 +52,7 @@ export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs, stu
    * Send a single-shot prompt in any mode and return the result.
    * Does not append to chat history (use ask() for that).
    */
-  const generate = useCallback(async ({ mode, input, extra = {} }) => {
+  const generate = useCallback(async ({ mode, input, extra = {}, images }) => {
     setLoading(true);
     setError(null);
     try {
@@ -67,7 +67,9 @@ export function useAITutor({ aiConfig, subject, disciplineId, classroomDocs, stu
       const formatter = userPrompt[mode] || userPrompt.chat;
       const user = formatter(input, ...(extra.args || []));
       const fullPrompt = `${system}\n\n---\n\nUSER REQUEST:\n${user}`;
-      const text = await callAI(fullPrompt, aiConfig);
+      const text = images && images.length > 0
+        ? await callAIMultimodal(fullPrompt, images, [], aiConfig)
+        : await callAI(fullPrompt, aiConfig);
 
       // Auto-parse JSON for generator modes
       if (mode === "generate_flashcards" || mode === "generate_quiz") {

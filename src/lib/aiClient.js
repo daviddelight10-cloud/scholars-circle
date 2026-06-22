@@ -167,9 +167,10 @@ export async function callAI(prompt, aiConfig = {}) {
   return callDirect(prompt, aiConfig);
 }
 
-// Multimodal AI call with image + text + conversation history.
+// Multimodal AI call with image(s) + text + conversation history.
 // Uses the backend multimodal proxy endpoint. Returns plain text string.
-export async function callAIMultimodal(prompt, image, history = [], aiConfig = {}) {
+// imageOrImages can be a single base64 data URL string or an array of strings.
+export async function callAIMultimodal(prompt, imageOrImages, history = [], aiConfig = {}) {
   const provider = aiConfig.provider || "openrouter";
   const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "google/gemini-2.5-flash");
 
@@ -179,14 +180,19 @@ export async function callAIMultimodal(prompt, image, history = [], aiConfig = {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
+  // Normalize: single string → array
+  const images = imageOrImages
+    ? (Array.isArray(imageOrImages) ? imageOrImages : [imageOrImages])
+    : [];
+
   let res;
   try {
     res = await fetch(`${API_BASE}/ai-proxy/generate-multimodal`, {
       method: "POST",
       headers,
       credentials: "include",
-      body: JSON.stringify({ prompt, image, history, provider, model }),
-      signal: AbortSignal.timeout(60000),
+      body: JSON.stringify({ prompt, images: images.length > 0 ? images : undefined, history, provider, model }),
+      signal: AbortSignal.timeout(90000),
     });
   } catch (netErr) {
     if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {

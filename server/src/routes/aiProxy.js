@@ -119,9 +119,14 @@ router.post("/generate", requireAuth, async (req, res) => {
 // Supports conversation history for follow-up turns
 router.post("/generate-multimodal", requireAuth, async (req, res) => {
   try {
-    const { prompt, image, history, provider, model } = req.body;
+    const { prompt, image, images, history, provider, model } = req.body;
 
-    if (!prompt && !image) {
+    // Normalize images into an array
+    const allImages = [];
+    if (Array.isArray(images)) allImages.push(...images);
+    if (image) allImages.push(image);
+
+    if (!prompt && allImages.length === 0) {
       return res.status(400).json({ error: "Prompt or image is required" });
     }
 
@@ -166,14 +171,12 @@ router.post("/generate-multimodal", requireAuth, async (req, res) => {
         }
 
         // Add current message
-        if (image) {
-          messages.push({
-            role: "user",
-            content: [
-              { type: "text", text: prompt || "Explain what's shown in this image." },
-              { type: "image_url", image_url: { url: image } },
-            ],
-          });
+        if (allImages.length > 0) {
+          const content = [{ type: "text", text: prompt || "Explain what's shown in this image." }];
+          for (const img of allImages) {
+            content.push({ type: "image_url", image_url: { url: img } });
+          }
+          messages.push({ role: "user", content });
         } else {
           messages.push({ role: "user", content: prompt });
         }
@@ -212,11 +215,11 @@ router.post("/generate-multimodal", requireAuth, async (req, res) => {
 
         // Add current message
         const currentParts = [{ text: prompt || "Explain what's shown in this image." }];
-        if (image) {
+        for (const img of allImages) {
           currentParts.push({
             inline_data: {
               mime_type: "image/png",
-              data: image.split(",")[1] || image,
+              data: img.split(",")[1] || img,
             },
           });
         }

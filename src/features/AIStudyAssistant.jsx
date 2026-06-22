@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { callAI, extractJSON as extractJSONShared } from "../lib/aiClient";
+import { callAI, callAIMultimodal, extractJSON as extractJSONShared } from "../lib/aiClient";
 import { jsPDF } from "jspdf";
 
 const STORE_KEY = "sc_ai_study_assistant_v1";
@@ -43,6 +43,7 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
   
   const [uploadedFile, setUploadedFile] = useState(null);
   const [extractedText, setExtractedText] = useState("");
+  const [extractedImages, setExtractedImages] = useState([]); // base64 data URLs for image/scanned PDF
   const [isExtracting, setIsExtracting] = useState(false);
   
   const [difficulty, setDifficulty] = useState("medium");
@@ -67,9 +68,23 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
   async function extractTextFromFile(file) {
     setIsExtracting(true);
     setError("");
+    setExtractedText("");
+    setExtractedImages([]);
     
     try {
-      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+      
+      if (isImage) {
+        // Convert image to base64 data URL
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error("Failed to read image file"));
+          reader.readAsDataURL(file);
+        });
+        setExtractedImages([dataUrl]);
+        setExtractedText("");
+      } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
         // Load PDF.js from CDN dynamically
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
@@ -131,7 +146,28 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
           .trim();
         
         if (fullText.length < 20) {
-          setError("Warning: Very little text was extracted. The PDF might be scanned images. Try a text-based PDF or paste the content directly.");
+          // Scanned PDF — render pages as images for multimodal AI
+          const pageImages = [];
+          const maxImgPages = Math.min(totalPages, 5);
+          for (let i = 1; i <= maxImgPages; i++) {
+            try {
+              const page = await pdf.getPage(i);
+              const viewport = page.getViewport({ scale: 1.5 });
+              const c = document.createElement('canvas');
+              c.width = viewport.width;
+              c.height = viewport.height;
+              await page.render({ canvasContext: c.getContext('2d'), viewport }).promise;
+              pageImages.push(c.toDataURL('image/png'));
+            } catch (e) {
+              console.warn(`Failed to render page ${i} as image:`, e);
+            }
+          }
+          if (pageImages.length > 0) {
+            setExtractedImages(pageImages);
+            setError(`This PDF appears to be scanned (little to no text). ${pageImages.length} page${pageImages.length > 1 ? 's' : ''} will be sent as images to the AI.`);
+          } else {
+            setError("Warning: Very little text was extracted and could not render pages as images. Try a text-based PDF or paste content directly.");
+          }
           setExtractedText(fullText);
         } else {
           setExtractedText(fullText);
@@ -144,7 +180,20 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
         }
         setExtractedText(text.trim());
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
-        setError('DOCX support requires mammoth.js library. Please convert to PDF or TXT for now.');
+        // Load mammoth.js from CDN for DOCX
+        await new Promise((resolve, reject) => {
+          if (window.mammoth) { resolve(); return; }
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+          s.onload = resolve;
+          s.onerror = () => reject(new Error("Failed to load DOCX library"));
+          document.head.appendChild(s);
+        });
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await window.mammoth.extractRawText({ arrayBuffer });
+        const text = (result.value || '').trim();
+        if (!text) throw new Error("No text found in DOCX file");
+        setExtractedText(text);
       } else {
         setError('Unsupported file type. Please upload PDF, TXT, or paste text directly.');
       }
@@ -191,7 +240,7 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
     setError("");
     setResult(null);
     
-    if (!extractedText.trim()) {
+    if (!extractedText.trim() && extractedImages.length === 0) {
       setError("Please upload a file and extract text first.");
       return;
     }
@@ -233,9 +282,14 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
 
     try {
       setIsProcessing(true);
-      console.log("Starting AI processing...");
+      console.log("Starting AI processing...", extractedImages.length > 0 ? `with ${extractedImages.length} image(s)` : "text only");
       
-      const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      let raw;
+      if (extractedImages.length > 0) {
+        raw = await callAIMultimodal(prompt, extractedImages, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      } else {
+        raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      }
       console.log("AI response received:", raw?.substring(0, 200));
       
       if (!raw || raw.trim().length < 10) {
@@ -862,7 +916,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                 📤 Choose File
                 <input
                   type="file"
-                  accept=".pdf,.txt,.docx"
+                  accept=".pdf,.txt,.docx,.png,.jpg,.jpeg,.webp,.gif,.bmp"
                   onChange={handleFileUpload}
                   style={{ display: "none" }}
                 />
@@ -871,6 +925,16 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                 <span className="muted" style={{ fontSize: 13 }}>
                   {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
                 </span>
+              )}
+              {extractedImages.length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                  {extractedImages.slice(0, 3).map((img, i) => (
+                    <img key={i} src={img} alt={`Page ${i + 1}`} style={{ width: 80, height: 100, objectFit: "cover", borderRadius: 6, border: "1px solid #3b82f6" }} />
+                  ))}
+                  {extractedImages.length > 3 && (
+                    <span style={{ fontSize: 12, color: "#60a5fa", alignSelf: "center" }}>+{extractedImages.length - 3} more</span>
+                  )}
+                </div>
               )}
               {isExtracting && (
               <div style={{ 

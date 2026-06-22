@@ -14,6 +14,7 @@ const STORAGE_KEY = "scholars-circle-saved-materials";
 export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuestions }) {
   const [file, setFile] = useState(null);
   const [text, setText] = useState("");
+  const [images, setImages] = useState([]); // base64 data URLs for image/scanned PDF
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState(null);
   const [pages, setPages] = useState(null);
@@ -29,6 +30,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
     if (!f) return;
     setExtractError(null);
     setText("");
+    setImages([]);
     setOutput(null);
     setFile(f);
     setExtracting(true);
@@ -36,7 +38,10 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
       const result = await extractTextFromFile(f);
       setText(result.text);
       setPages(result.pages || null);
-      if (!result.text || result.text.length < 30) {
+      setImages(result.images || []);
+      if (result.images && result.images.length > 0) {
+        setExtractError(`Loaded ${result.images.length} image${result.images.length > 1 ? 's' : ''} — will be sent to the AI for analysis.`);
+      } else if (!result.text || result.text.length < 30) {
         setExtractError("Very little text was extracted. If this is a scanned PDF, please paste the text manually below.");
       }
     } catch (err) {
@@ -49,13 +54,14 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
   function clearFile() {
     setFile(null);
     setText("");
+    setImages([]);
     setPages(null);
     setOutput(null);
     setExtractError(null);
   }
 
   async function run(action) {
-    if (!text.trim()) {
+    if (!text.trim() && images.length === 0) {
       alert("Please upload a file or paste text first.");
       return;
     }
@@ -63,20 +69,21 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
     setOutput(null);
     try {
       let result;
+      const imgParam = images.length > 0 ? images : undefined;
       if (action === "summary") {
-        result = await tutor.generate({ mode: "summarize", input: trimForAI(text) });
+        result = await tutor.generate({ mode: "summarize", input: trimForAI(text), images: imgParam });
         setOutput({ kind: "summary", text: result.text });
       } else if (action === "teach") {
         const prompt = `Teach me everything in the following document as if I'm a 100-level student. Structure your response with:\n\n1. **Quick Overview** (3-5 sentences)\n2. **Key Concepts** (each explained simply with an analogy or example)\n3. **How These Concepts Connect**\n4. **Common Misconceptions / Pitfalls**\n5. **3 Self-Check Questions** (without answers, so I can think)\n\nDocument content:\n"""\n${trimForAI(text)}\n"""`;
-        result = await tutor.generate({ mode: "explain", input: prompt });
+        result = await tutor.generate({ mode: "explain", input: prompt, images: imgParam });
         setOutput({ kind: "teach", text: result.text });
       } else if (action === "mcq") {
         const prompt = `Generate ${mcqCount} multiple-choice questions strictly based on this material. Cover the most important concepts. Each question must have 4 options and one correct answer.\n\nReturn ONLY a JSON array of objects with this exact shape:\n[{"q": "question text", "options": ["A", "B", "C", "D"], "answer": 0, "explanation": "why this is correct"}]\n\nNo markdown, no commentary, just JSON.\n\nMaterial:\n"""\n${trimForAI(text)}\n"""`;
-        result = await tutor.generate({ mode: "generate_quiz", input: prompt });
+        result = await tutor.generate({ mode: "generate_quiz", input: prompt, images: imgParam });
         setOutput({ kind: "mcq", text: result.text, parsed: result.parsed });
       } else if (action === "flash") {
         const prompt = `Create ${flashCount} flashcards from this material. Cover the most testable concepts and definitions.\n\nReturn ONLY a JSON array of objects:\n[{"front": "question or term", "back": "answer or definition"}]\n\nNo markdown, no commentary, just JSON.\n\nMaterial:\n"""\n${trimForAI(text)}\n"""`;
-        result = await tutor.generate({ mode: "generate_flashcards", input: prompt });
+        result = await tutor.generate({ mode: "generate_flashcards", input: prompt, images: imgParam });
         setOutput({ kind: "flash", text: result.text, parsed: result.parsed });
       }
     } catch (err) {
@@ -101,7 +108,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
           Upload your study material
         </div>
         <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 10 }}>
-          PDF, DOCX, TXT, MD — up to ~50 pages
+          PDF, DOCX, TXT, MD, or images (PNG/JPG) — up to ~50 pages
         </div>
         <label style={{
           display: "inline-block",
@@ -114,7 +121,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
           fontSize: 13
         }}>
           {file ? "📁 Change file" : "📤 Choose file"}
-          <input type="file" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" onChange={handleFile} style={{ display: "none" }} />
+          <input type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,.gif,.bmp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,image/*" onChange={handleFile} style={{ display: "none" }} />
         </label>
         {file && (
           <div style={{ marginTop: 10, color: "#a5b4fc", fontSize: 12 }}>
@@ -125,6 +132,16 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
           </div>
         )}
         {extracting && <div style={{ marginTop: 10, color: "#fbbf24", fontSize: 12 }}>📖 Extracting text…</div>}
+        {images.length > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 10 }}>
+            {images.slice(0, 3).map((img, i) => (
+              <img key={i} src={img} alt={`Page ${i + 1}`} style={{ width: 70, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(99,102,241,0.4)" }} />
+            ))}
+            {images.length > 3 && (
+              <span style={{ fontSize: 11, color: "#9ca3af", alignSelf: "center" }}>+{images.length - 3} more</span>
+            )}
+          </div>
+        )}
         {extractError && <div style={{ marginTop: 10, color: "#f87171", fontSize: 12 }}>⚠️ {extractError}</div>}
       </div>
 
