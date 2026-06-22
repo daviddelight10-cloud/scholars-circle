@@ -151,14 +151,43 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onC
 
       {/* Status */}
       {isActivated ? (
-        <div style={{ ...card, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)", textAlign: "center" }}>
-          <div style={{ fontSize: "32px", marginBottom: "8px" }}>✅</div>
-          <div style={{ color: "#34d399", fontWeight: 700, fontSize: "16px", marginBottom: "4px" }}>
-            Your account is active!
+        <div style={{ ...card, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+            <span style={{ fontSize: "32px" }}>✅</span>
+            <div>
+              <div style={{ color: "#34d399", fontWeight: 700, fontSize: "16px", marginBottom: "2px" }}>
+                Your account is active!
+              </div>
+              <p style={{ color: "#7b82b8", fontSize: "13px", margin: 0 }}>
+                Extend your plan below anytime.
+              </p>
+            </div>
           </div>
-          <p style={{ color: "#7b82b8", fontSize: "13px", margin: 0 }}>
-            You can still extend your plan below.
-          </p>
+          {(() => {
+            const planLabel = user?.planType === "week1" ? "1-Week Plan" : user?.planType === "week2" ? "2-Week Plan" : user?.planType === "month1" ? "1-Month Plan" : "Active Plan";
+            const expiry = user?.activationExpiry ? new Date(user.activationExpiry) : null;
+            const daysLeft = expiry ? Math.ceil((expiry - Date.now()) / 86400000) : null;
+            return (
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 0", minWidth: "120px", background: "rgba(0,0,0,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
+                  <div style={{ fontSize: "11px", color: "#7b82b8", marginBottom: "4px" }}>Current Plan</div>
+                  <div style={{ fontSize: "15px", fontWeight: 700, color: "#e8eaf6" }}>{planLabel}</div>
+                </div>
+                <div style={{ flex: "1 1 0", minWidth: "100px", background: "rgba(0,0,0,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
+                  <div style={{ fontSize: "11px", color: "#7b82b8", marginBottom: "4px" }}>Days Remaining</div>
+                  <div style={{ fontSize: "15px", fontWeight: 700, color: daysLeft !== null && daysLeft <= 3 ? "#ef4444" : daysLeft !== null && daysLeft <= 7 ? "#f59e0b" : "#34d399" }}>
+                    {daysLeft !== null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"}` : "—"}
+                  </div>
+                </div>
+                <div style={{ flex: "1 1 0", minWidth: "120px", background: "rgba(0,0,0,0.2)", borderRadius: "10px", padding: "12px 14px" }}>
+                  <div style={{ fontSize: "11px", color: "#7b82b8", marginBottom: "4px" }}>Expires On</div>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#c5c9e8" }}>
+                    {expiry ? expiry.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—"}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       ) : (
         <div style={{ ...card, background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.25)", textAlign: "center" }}>

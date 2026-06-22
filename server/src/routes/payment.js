@@ -15,8 +15,8 @@ const PLAN_DURATIONS = {
 const PLAN_PRICES = { week1: 700, week2: 1300, month1: 2400 };
 const VALID_PLANS = ["week1", "week2", "month1"];
 
-function calcExpiry(plan) {
-  return new Date(Date.now() + (PLAN_DURATIONS[plan] || PLAN_DURATIONS.month1));
+function calcExpiry(plan, fromDate = new Date()) {
+  return new Date(fromDate.getTime() + (PLAN_DURATIONS[plan] || PLAN_DURATIONS.month1));
 }
 
 // POST /payment/verify — verify Paystack payment and activate user
@@ -67,7 +67,18 @@ router.post("/verify", requireAuth, async (req, res) => {
     }
 
     const now = new Date();
-    const expiryDate = calcExpiry(plan);
+
+    // Fetch current user to check if we should stack expiry
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+      select: { activationExpiry: true, isActivated: true },
+    });
+
+    // If user is still active and expiry is in the future, add days to existing expiry
+    const baseDate = (currentUser?.isActivated && currentUser?.activationExpiry && new Date(currentUser.activationExpiry) > now)
+      ? new Date(currentUser.activationExpiry)
+      : now;
+    const expiryDate = calcExpiry(plan, baseDate);
 
     // Activate user
     const updated = await prisma.user.update({
@@ -144,7 +155,12 @@ router.post("/webhook", async (req, res) => {
       }
 
       const now = new Date();
-      const expiryDate = calcExpiry(plan);
+
+      // If user is still active and expiry is in the future, add days to existing expiry
+      const baseDate = (user.isActivated && user.activationExpiry && new Date(user.activationExpiry) > now)
+        ? new Date(user.activationExpiry)
+        : now;
+      const expiryDate = calcExpiry(plan, baseDate);
 
       // Activate user
       await prisma.user.update({
