@@ -79,6 +79,7 @@ export default function PdfReader({ fileUrl, title }) {
   const pageTextRef = useRef(""); // captured page text for current chat session
   const chatScrollRef = useRef(null);
   const inputRef = useRef(null);
+  const touchStartRef = useRef({ x: 0, y: 0 });
 
   // Load PDF document
   useEffect(() => {
@@ -504,6 +505,24 @@ export default function PdfReader({ fileUrl, title }) {
     return () => { cancelled = true; };
   }, [showThumbs, thumbs.length]);
 
+  // ---- Swipe navigation ----
+  const onTouchStart = (e) => {
+    if (circleMode) return;
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const onTouchEnd = (e) => {
+    if (circleMode) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartRef.current.x;
+    const dy = t.clientY - touchStartRef.current.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx > 0) goToPage(currentPage - 1);
+      else goToPage(currentPage + 1);
+    }
+  };
+
   // ---- Styles ----
   const s = {
     container: {
@@ -527,14 +546,14 @@ export default function PdfReader({ fileUrl, title }) {
       borderBottom: "1px solid #E2DFD3",
       display: "flex",
       alignItems: "center",
-      gap: "8px",
-      padding: "8px 10px",
+      gap: "10px",
+      padding: "10px 14px",
       flexWrap: "wrap",
       flexShrink: 0,
     },
     docTitle: {
       fontFamily: "Georgia, serif",
-      fontSize: "14px",
+      fontSize: "15px",
       fontWeight: 600,
       color: "#3F3A33",
       marginRight: "4px",
@@ -544,9 +563,9 @@ export default function PdfReader({ fileUrl, title }) {
       maxWidth: "38vw",
     },
     iconBtn: {
-      width: "30px",
-      height: "30px",
-      borderRadius: "7px",
+      width: "40px",
+      height: "40px",
+      borderRadius: "8px",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -556,29 +575,29 @@ export default function PdfReader({ fileUrl, title }) {
       cursor: "pointer",
       flexShrink: 0,
     },
-    sep: { width: "1px", height: "20px", background: "#E2DFD3", margin: "0 4px" },
+    sep: { width: "1px", height: "24px", background: "#E2DFD3", margin: "0 4px" },
     pageIndicator: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: "12.5px",
+      fontSize: "14px",
       color: "#80796E",
       whiteSpace: "nowrap",
     },
     pageInput: {
-      width: "32px",
+      width: "40px",
       textAlign: "center",
       border: "1px solid #E2DFD3",
       borderRadius: "5px",
-      padding: "3px 2px",
+      padding: "4px 2px",
       fontFamily: "ui-monospace, monospace",
-      fontSize: "12.5px",
+      fontSize: "14px",
       background: "#FBFAF6",
       color: "#3F3A33",
     },
     zoomLabel: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: "11.5px",
+      fontSize: "13px",
       color: "#80796E",
-      minWidth: "38px",
+      minWidth: "44px",
       textAlign: "center",
     },
     spacer: { flex: 1 },
@@ -746,8 +765,8 @@ export default function PdfReader({ fileUrl, title }) {
       position: "absolute",
       bottom: "16px",
       right: "16px",
-      width: "48px",
-      height: "48px",
+      width: "54px",
+      height: "54px",
       borderRadius: "50%",
       background: circleMode ? "#3F3A33" : "#C23B3B",
       display: "flex",
@@ -938,13 +957,13 @@ export default function PdfReader({ fileUrl, title }) {
           onClick={() => setShowThumbs((v) => !v)}
           title="Pages"
         >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
         </button>
 
         <div style={s.sep} />
 
         <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} title="Previous page">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <span style={s.pageIndicator}>{numPages ? `${currentPage} / ${numPages}` : "– / –"}</span>
         <input
@@ -959,17 +978,17 @@ export default function PdfReader({ fileUrl, title }) {
           }}
         />
         <button style={{ ...s.iconBtn, opacity: currentPage === numPages ? 0.35 : 1 }} onClick={() => goToPage(currentPage + 1)} disabled={currentPage === numPages} title="Next page">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6"/></svg>
         </button>
 
         <div style={s.sep} />
 
         <button style={s.iconBtn} onClick={handleZoomOut} title="Zoom out">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M8 11h6"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M8 11h6"/></svg>
         </button>
         <span style={s.zoomLabel}>{Math.round(scale * 100)}%</span>
         <button style={s.iconBtn} onClick={handleZoomIn} title="Zoom in">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M11 8v6M8 11h6"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M11 8v6M8 11h6"/></svg>
         </button>
 
         <div style={s.spacer} />
@@ -980,7 +999,7 @@ export default function PdfReader({ fileUrl, title }) {
             onClick={() => setShowSearch((v) => !v)}
             title="Search in document"
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           </button>
           <div style={s.searchPanel}>
             <div style={s.searchRow}>
@@ -1020,9 +1039,9 @@ export default function PdfReader({ fileUrl, title }) {
           title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
         >
           {fullscreen ? (
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v4a1 1 0 0 1-1 1H3M21 8h-4a1 1 0 0 1-1-1V3M3 16h4a1 1 0 0 1 1 1v4M16 21v-4a1 1 0 0 1 1-1h4"/></svg>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v4a1 1 0 0 1-1 1H3M21 8h-4a1 1 0 0 1-1-1V3M3 16h4a1 1 0 0 1 1 1v4M16 21v-4a1 1 0 0 1 1-1h4"/></svg>
           ) : (
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
           )}
         </button>
       </div>
@@ -1050,7 +1069,7 @@ export default function PdfReader({ fileUrl, title }) {
         </aside>
 
         {/* Viewer */}
-        <main ref={viewerRef} style={s.viewer}>
+        <main ref={viewerRef} style={s.viewer} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <div style={s.pageShadow}>
             <canvas ref={canvasRef} style={{ display: "block" }} />
             <svg
