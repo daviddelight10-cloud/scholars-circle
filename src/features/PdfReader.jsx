@@ -53,6 +53,7 @@ export default function PdfReader({ fileUrl, title }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Circle-to-Ask state
   const [circleMode, setCircleMode] = useState(false);
@@ -158,6 +159,23 @@ export default function PdfReader({ fileUrl, title }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scale]);
+
+  // Re-fit width when fullscreen toggles
+  useEffect(() => {
+    if (!pdfDocRef.current) return;
+    setUserZoomed(false);
+    fitToWidth();
+  }, [fullscreen]);
+
+  // Esc to exit fullscreen
+  useEffect(() => {
+    if (!fullscreen) return;
+    const handler = (e) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [fullscreen]);
 
   // Handle window resize
   useEffect(() => {
@@ -496,6 +514,13 @@ export default function PdfReader({ fileUrl, title }) {
       background: "#EFEEE8",
       borderRadius: "10px",
       position: "relative",
+      ...(fullscreen && {
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        borderRadius: 0,
+        height: "100vh",
+      }),
     },
     toolbar: {
       background: "#fff",
@@ -988,6 +1013,18 @@ export default function PdfReader({ fileUrl, title }) {
             </div>
           </div>
         </div>
+
+        <button
+          style={{ ...s.iconBtn, color: fullscreen ? "#C23B3B" : "#80796E" }}
+          onClick={() => setFullscreen((v) => !v)}
+          title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+        >
+          {fullscreen ? (
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v4a1 1 0 0 1-1 1H3M21 8h-4a1 1 0 0 1-1-1V3M3 16h4a1 1 0 0 1 1 1v4M16 21v-4a1 1 0 0 1 1-1h4"/></svg>
+          ) : (
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+          )}
+        </button>
       </div>
 
       {/* Workspace */}
