@@ -828,26 +828,32 @@ export default function PdfReader({ fileUrl, title }) {
       background: T.toolbar,
       borderBottom: `1px solid ${T.border}`,
       display: "flex",
-      alignItems: "center",
-      gap: "6px",
-      padding: isMobile ? "8px 8px" : "10px 14px",
-      flexWrap: "wrap",
+      flexDirection: "column",
       flexShrink: 0,
+    },
+    toolbarRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: isMobile ? "2px" : "6px",
+      padding: isMobile ? "6px 8px" : "8px 14px",
+      width: "100%",
+      boxSizing: "border-box",
+      overflow: "hidden",
     },
     docTitle: {
       fontFamily: "Georgia, serif",
       fontSize: isMobile ? 12 : 15,
       fontWeight: 600,
       color: T.text,
-      marginRight: "4px",
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis",
-      maxWidth: isMobile ? "24vw" : "38vw",
+      flex: 1,
+      minWidth: 0,
     },
     iconBtn: {
-      width: "40px",
-      height: "40px",
+      width: isMobile ? "36px" : "40px",
+      height: isMobile ? "36px" : "40px",
       borderRadius: "8px",
       display: "flex",
       alignItems: "center",
@@ -858,30 +864,33 @@ export default function PdfReader({ fileUrl, title }) {
       cursor: "pointer",
       flexShrink: 0,
     },
-    sep: { width: "1px", height: "24px", background: T.border, margin: "0 2px" },
+    sep: { width: "1px", height: "24px", background: T.border, margin: isMobile ? "0 1px" : "0 2px", flexShrink: 0 },
     pageIndicator: {
       fontFamily: "ui-monospace, monospace",
       fontSize: isMobile ? 12 : 14,
       color: T.muted,
       whiteSpace: "nowrap",
+      flexShrink: 0,
     },
     pageInput: {
-      width: "40px",
+      width: isMobile ? "32px" : "40px",
       textAlign: "center",
       border: `1px solid ${T.border}`,
       borderRadius: "5px",
-      padding: "4px 2px",
+      padding: isMobile ? "3px 2px" : "4px 2px",
       fontFamily: "ui-monospace, monospace",
-      fontSize: 14,
+      fontSize: isMobile ? 12 : 14,
       background: T.inputBg,
       color: T.text,
+      flexShrink: 0,
     },
     zoomLabel: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: 13,
+      fontSize: isMobile ? 11 : 13,
       color: T.muted,
-      minWidth: "44px",
+      minWidth: isMobile ? "38px" : "44px",
       textAlign: "center",
+      flexShrink: 0,
     },
     spacer: { flex: 1 },
     workspace: { flex: 1, display: "flex", overflow: "hidden", minHeight: 0 },
@@ -955,10 +964,11 @@ export default function PdfReader({ fileUrl, title }) {
     // Search panel
     searchWrap: { position: "relative" },
     searchPanel: {
-      position: "absolute",
-      top: "38px",
-      right: 0,
-      width: isMobile ? "240px" : "280px",
+      position: isMobile ? "fixed" : "absolute",
+      top: isMobile ? 96 : "44px",
+      left: isMobile ? 8 : "auto",
+      right: isMobile ? 8 : 0,
+      width: isMobile ? "auto" : "280px",
       maxHeight: "320px",
       background: T.toolbar,
       border: `1px solid ${T.border}`,
@@ -967,7 +977,7 @@ export default function PdfReader({ fileUrl, title }) {
       display: showSearch ? "flex" : "none",
       flexDirection: "column",
       overflow: "hidden",
-      zIndex: 10,
+      zIndex: 200,
     },
     searchRow: {
       display: "flex",
@@ -1223,17 +1233,20 @@ export default function PdfReader({ fileUrl, title }) {
     },
     // Color picker popup
     colorPicker: {
-      position: "absolute",
-      top: 42,
-      left: 0,
+      position: "fixed",
+      top: "auto",
+      left: isMobile ? 8 : "auto",
+      right: isMobile ? 8 : "auto",
       display: "flex",
       gap: 6,
-      padding: "8px 10px",
+      padding: "10px 12px",
       background: T.toolbar,
       border: `1px solid ${T.border}`,
       borderRadius: 10,
       boxShadow: `0 6px 18px ${T.shadow}`,
-      zIndex: 15,
+      zIndex: 200,
+      flexWrap: "wrap",
+      maxWidth: "calc(100vw - 16px)",
     },
     colorDot: {
       width: 24,
@@ -1245,16 +1258,16 @@ export default function PdfReader({ fileUrl, title }) {
     },
     // Bookmark panel
     bookmarkPanel: {
-      position: "absolute",
-      top: 42,
-      right: 0,
-      width: isMobile ? "200px" : "220px",
+      position: isMobile ? "fixed" : "absolute",
+      top: isMobile ? 96 : 44,
+      right: isMobile ? 8 : 0,
+      width: isMobile ? 200 : 220,
       maxHeight: "300px",
       background: T.toolbar,
       border: `1px solid ${T.border}`,
       borderRadius: 10,
       boxShadow: `0 6px 18px ${T.shadow}`,
-      zIndex: 15,
+      zIndex: 200,
       overflowY: "auto",
       padding: "8px",
     },
@@ -1274,19 +1287,21 @@ export default function PdfReader({ fileUrl, title }) {
     },
     // Overflow menu (mobile)
     overflowMenu: {
-      position: "absolute",
-      top: 42,
-      right: 0,
+      position: "fixed",
+      top: "auto",
+      right: 8,
       background: T.toolbar,
       border: `1px solid ${T.border}`,
       borderRadius: 10,
       boxShadow: `0 6px 18px ${T.shadow}`,
-      zIndex: 15,
+      zIndex: 200,
       padding: "4px",
       display: "flex",
       flexDirection: "column",
       gap: 2,
-      minWidth: 160,
+      minWidth: 170,
+      maxHeight: "80vh",
+      overflowY: "auto",
     },
     overflowItem: {
       display: "flex",
@@ -1318,9 +1333,11 @@ export default function PdfReader({ fileUrl, title }) {
     // Resume toast
     resumeToast: {
       position: "absolute",
-      top: 8,
+      top: 12,
       left: "50%",
       transform: "translateX(-50%)",
+      maxWidth: "calc(100vw - 32px)",
+      whiteSpace: "nowrap",
       background: T.toolbar,
       border: `1px solid ${T.border}`,
       borderRadius: 20,
@@ -1354,6 +1371,122 @@ export default function PdfReader({ fileUrl, title }) {
 
       {/* Toolbar */}
       <div style={s.toolbar}>
+        {isMobile ? (
+          <>
+            {/* Mobile Row 1: title + tools + overflow */}
+            <div style={s.toolbarRow}>
+              <span style={s.docTitle}>{title || "PDF"}</span>
+              <div style={s.sep} />
+              {/* Highlight */}
+              <div style={{ position: "relative" }}>
+                <button
+                  style={{ ...s.iconBtn, color: tool === "highlight" ? T.accent : T.muted, background: tool === "highlight" ? T.hover : "none" }}
+                  onClick={() => { toggleTool("highlight"); setShowColorPicker((v) => !v); }}
+                  title="Highlight"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18h6l-3 3z" fill="currentColor"/><path d="M9.5 14.5l5-5m-7 7l7-7L17 12l-7 7-2.5-2.5z"/></svg>
+                </button>
+                {showColorPicker && tool === "highlight" && (
+                  <div style={s.colorPicker}>
+                    {PEN_COLORS.map((c) => (
+                      <button
+                        key={c.name}
+                        style={{ ...s.colorDot, background: c.value.replace("0.35", "0.7"), borderColor: penColor === c.value ? T.accent : "transparent" }}
+                        onClick={() => setPenColor(c.value)}
+                        title={c.name}
+                      />
+                    ))}
+                    <div style={{ width: 1, height: 20, background: T.border }} />
+                    <button style={{ ...s.iconBtn, width: 28, height: 28, color: T.muted }} onClick={clearPageAnnotations} title="Clear">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* Eraser */}
+              <button
+                style={{ ...s.iconBtn, color: tool === "erase" ? T.accent : T.muted, background: tool === "erase" ? T.hover : "none" }}
+                onClick={() => toggleTool("erase")} title="Eraser"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/></svg>
+              </button>
+              {/* Circle AI */}
+              <button
+                style={{ ...s.iconBtn, color: tool === "circle" ? T.accent : T.muted, background: tool === "circle" ? T.hover : "none" }}
+                onClick={() => toggleTool("circle")} title="Circle to Ask AI"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
+              </button>
+              <div style={s.sep} />
+              {/* Overflow */}
+              <div style={{ position: "relative" }}>
+                <button
+                  style={{ ...s.iconBtn, color: showOverflow ? T.accent : T.muted }}
+                  onClick={() => setShowOverflow((v) => !v)} title="More"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                </button>
+                {showOverflow && (
+                  <div style={s.overflowMenu}>
+                    <button style={s.overflowItem} onClick={() => { toggleBookmark(); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.includes(currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                      {bookmarks.includes(currentPage) ? "Bookmarked" : "Bookmark"}
+                    </button>
+                    {bookmarks.length > 0 && (
+                      <button style={s.overflowItem} onClick={() => { setShowBookmarks((v) => !v); setShowOverflow(false); }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                        Bookmarks ({bookmarks.length})
+                      </button>
+                    )}
+                    <button style={s.overflowItem} onClick={() => { toggleTTS(); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                      {speaking ? "Stop reading" : "Read aloud"}
+                    </button>
+                    <button style={s.overflowItem} onClick={() => { setTheme((t) => t === "light" ? "dark" : "light"); setShowOverflow(false); }}>
+                      {theme === "light" ? "🌙" : "☀️"} {theme === "light" ? "Dark mode" : "Light mode"}
+                    </button>
+                    <button style={s.overflowItem} onClick={() => { setShowThumbs((v) => !v); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
+                      Pages
+                    </button>
+                    <button style={s.overflowItem} onClick={() => { setShowSearch((v) => !v); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                      Search
+                    </button>
+                    <button style={s.overflowItem} onClick={() => { setFullscreen((v) => !v); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+                      Fullscreen
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Mobile Row 2: page nav + zoom */}
+            <div style={{ ...s.toolbarRow, borderTop: `1px solid ${T.border}`, paddingTop: 4, paddingBottom: 4 }}>
+              <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <span style={s.pageIndicator}>{numPages ? `${currentPage} / ${numPages}` : "–"}</span>
+              <input
+                style={s.pageInput} type="number" min="1" max={numPages} value={currentPage}
+                onChange={(e) => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) goToPage(v); }}
+              />
+              <button style={{ ...s.iconBtn, opacity: currentPage === numPages ? 0.35 : 1 }} onClick={() => goToPage(currentPage + 1)} disabled={currentPage === numPages}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6"/></svg>
+              </button>
+              <div style={s.sep} />
+              <button style={s.iconBtn} onClick={handleZoomOut}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M8 11h6"/></svg>
+              </button>
+              <span style={s.zoomLabel}>{Math.round(scale * 100)}%</span>
+              <button style={s.iconBtn} onClick={handleZoomIn}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M11 8v6M8 11h6"/></svg>
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Desktop: single row */
+          <div style={s.toolbarRow}>
         <span style={s.docTitle}>{title || "PDF"}</span>
 
         {/* Highlighter tool */}
@@ -1440,9 +1573,7 @@ export default function PdfReader({ fileUrl, title }) {
 
         <div style={s.spacer} />
 
-        {/* Desktop: show all secondary actions. Mobile: overflow menu */}
-        {!isMobile ? (
-          <>
+        {/* Secondary actions */}
             {/* Bookmark */}
             <div style={{ position: "relative" }}>
               <button
@@ -1553,54 +1684,9 @@ export default function PdfReader({ fileUrl, title }) {
                 <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
               )}
             </button>
-          </>
-        ) : (
-          /* Mobile: overflow menu */
-          <div style={{ position: "relative" }}>
-            <button
-              style={{ ...s.iconBtn, color: showOverflow ? T.accent : T.muted }}
-              onClick={() => setShowOverflow((v) => !v)}
-              title="More"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-            </button>
-            {showOverflow && (
-              <div style={s.overflowMenu}>
-                <button style={s.overflowItem} onClick={() => { toggleBookmark(); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.includes(currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                  {bookmarks.includes(currentPage) ? "Bookmarked" : "Bookmark"}
-                </button>
-                {bookmarks.length > 0 && (
-                  <button style={s.overflowItem} onClick={() => { setShowBookmarks((v) => !v); setShowOverflow(false); }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-                    Bookmarks ({bookmarks.length})
-                  </button>
-                )}
-                <button style={s.overflowItem} onClick={() => { toggleTTS(); setShowOverflow(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                  {speaking ? "Stop reading" : "Read aloud"}
-                </button>
-                <button style={s.overflowItem} onClick={() => { setTheme((t) => t === "light" ? "dark" : "light"); setShowOverflow(false); }}>
-                  {theme === "light" ? "🌙" : "☀️"}
-                  {theme === "light" ? "Dark mode" : "Light mode"}
-                </button>
-                <button style={s.overflowItem} onClick={() => { setShowThumbs((v) => !v); setShowOverflow(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
-                  Pages
-                </button>
-                <button style={s.overflowItem} onClick={() => { setShowSearch((v) => !v); setShowOverflow(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-                  Search
-                </button>
-                <button style={s.overflowItem} onClick={() => { setFullscreen((v) => !v); setShowOverflow(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
-                  Fullscreen
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+    </div>
 
       {/* Progress bar */}
       <div style={s.progressBar}>
