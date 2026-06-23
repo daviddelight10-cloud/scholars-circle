@@ -238,7 +238,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const isMob = window.innerWidth < 640;
     const available = container.clientWidth - (isMob ? 8 : 40);
     const fit = available / base.width;
-    setScale(Math.max(isMob ? 0.85 : 0.5, Math.min(2.2, fit)));
+    setScale(Math.max(0.5, Math.min(2.2, fit)));
   }, []);
 
   const renderPage = useCallback(async (n) => {
