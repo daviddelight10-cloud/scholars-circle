@@ -180,6 +180,15 @@ export default function PdfReader({ fileUrl, title }) {
   // Save-flashcard confirmation
   const [flashcardSaved, setFlashcardSaved] = useState(false);
 
+  // Scroll mode: "single" | "vertical" | "horizontal"
+  const [scrollMode, setScrollMode] = useState(() => loadStored(`sc_pdf_scrollmode_${docKey}`, "single"));
+  const [transitioning, setTransitioning] = useState(false);
+  const [transitionDir, setTransitionDir] = useState("next");
+  const pageItemRefs = useRef([]);
+  const pageCanvasRefs = useRef([]);
+  const observerRef = useRef(null);
+  const [visiblePages, setVisiblePages] = useState(new Set([1]));
+
   // Load PDF document
   useEffect(() => {
     if (!fileUrl) return;
@@ -255,13 +264,30 @@ export default function PdfReader({ fileUrl, title }) {
     }
   }, [scale]);
 
-  // Re-render on scale change
+  // Re-render on scale change (single mode only)
   useEffect(() => {
-    if (pdfDocRef.current && !loading) {
+    if (pdfDocRef.current && !loading && scrollMode === "single") {
       renderPage(currentPage);
+    }
+    // In continuous mode, clear rendered flags so pages re-render at new scale
+    if (scrollMode !== "single" && pdfDocRef.current && !loading) {
+      pageCanvasRefs.current.forEach((c) => { if (c) delete c.dataset.rendered; });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scale]);
+
+  // Render visible pages in continuous scroll mode
+  useEffect(() => {
+    if (scrollMode === "single" || !pdfDocRef.current || loading) return;
+    visiblePages.forEach((pg) => {
+      const canvas = pageCanvasRefs.current[pg - 1];
+      if (canvas && !canvas.dataset.rendered) {
+        canvas.dataset.rendered = "true";
+        renderPageToCanvas(pg, canvas);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visiblePages, scrollMode, loading, scale]);
 
   // Re-fit width when fullscreen toggles
   useEffect(() => {
@@ -294,14 +320,47 @@ export default function PdfReader({ fileUrl, title }) {
     return () => window.removeEventListener("resize", handler);
   }, [userZoomed, fitToWidth]);
 
+  const renderPageToCanvas = useCallback(async (n, canvasEl) => {
+    if (!pdfDocRef.current || !canvasEl) return;
+    const page = await pdfDocRef.current.getPage(n);
+    const viewport = page.getViewport({ scale });
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvasEl.width = Math.floor(viewport.width * dpr);
+    canvasEl.height = Math.floor(viewport.height * dpr);
+    canvasEl.style.width = viewport.width + "px";
+    canvasEl.style.height = viewport.height + "px";
+    const ctx = canvasEl.getContext("2d");
+    const task = page.render({ canvasContext: ctx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
+    try {
+      await task.promise;
+    } catch (err) {
+      if (!err || err.name !== "RenderingCancelledException") console.error(err);
+    }
+  }, [scale]);
+
   const goToPage = useCallback(async (n) => {
     if (!pdfDocRef.current) return;
     n = Math.max(1, Math.min(pdfDocRef.current.numPages, n));
     if (n === currentPage) return;
-    setCurrentPage(n);
     closeChat();
+
+    if (scrollMode !== "single") {
+      const el = pageItemRefs.current[n - 1];
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
+      setCurrentPage(n);
+      return;
+    }
+
+    const dir = n > currentPage ? "next" : "prev";
+    setTransitionDir(dir);
+    setTransitioning(true);
+    // Wait for exit animation
+    await new Promise((r) => setTimeout(r, 220));
+    setCurrentPage(n);
     await renderPage(n);
-  }, [currentPage, renderPage]);
+    // Enter animation
+    setTransitioning(false);
+  }, [currentPage, renderPage, scrollMode]);
 
   const handleZoomIn = () => {
     setUserZoomed(true);
@@ -362,7 +421,9 @@ export default function PdfReader({ fileUrl, title }) {
 
   // ---- Circle to Ask (lasso helpers) ----
   const getRelPoint = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
+    const canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[currentPage - 1];
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
     return {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
@@ -370,7 +431,7 @@ export default function PdfReader({ fileUrl, title }) {
   };
 
   const analyzeLasso = async (poly) => {
-    const canvas = canvasRef.current;
+    const canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[currentPage - 1];
     if (!canvas) return;
 
     // Scale lasso points from CSS pixels to canvas internal pixels
@@ -769,6 +830,49 @@ export default function PdfReader({ fileUrl, title }) {
   // ---- Bookmark persistence ----
   useEffect(() => { saveStored(`sc_pdf_bookmarks_${docKey}`, bookmarks); }, [bookmarks, docKey]);
 
+  // ---- Scroll mode persistence ----
+  useEffect(() => { saveStored(`sc_pdf_scrollmode_${docKey}`, scrollMode); }, [scrollMode, docKey]);
+
+  // ---- IntersectionObserver for continuous scroll mode ----
+  useEffect(() => {
+    if (scrollMode === "single" || !pdfDocRef.current) {
+      if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null; }
+      return;
+    }
+    if (observerRef.current) observerRef.current.disconnect();
+
+    const observer = new IntersectionObserver((entries) => {
+      const newVisible = new Set();
+      let mostVisiblePage = currentPage;
+      let maxRatio = 0;
+      entries.forEach((entry) => {
+        const pg = parseInt(entry.target.dataset.page, 10);
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.3) {
+          newVisible.add(pg);
+          if (entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            mostVisiblePage = pg;
+          }
+        }
+      });
+      if (newVisible.size > 0) {
+        setVisiblePages((prev) => new Set([...prev, ...newVisible]));
+        if (maxRatio >= 0.5 && mostVisiblePage !== currentPage) {
+          setCurrentPage(mostVisiblePage);
+        }
+      }
+    }, { root: viewerRef.current, threshold: [0, 0.3, 0.5, 0.7, 1] });
+
+    observerRef.current = observer;
+
+    // Observe all page items
+    pageItemRefs.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [scrollMode, numPages, currentPage]);
+
   // ---- Mobile detection ----
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -942,7 +1046,7 @@ export default function PdfReader({ fileUrl, title }) {
       fontSize: 10,
       color: T.muted,
     },
-    viewer: {
+    viewer: scrollMode === "single" ? {
       flex: 1,
       overflow: "auto",
       display: "flex",
@@ -950,12 +1054,73 @@ export default function PdfReader({ fileUrl, title }) {
       alignItems: "flex-start",
       padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
       position: "relative",
+    } : scrollMode === "vertical" ? {
+      flex: 1,
+      overflowY: "auto",
+      overflowX: "hidden",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: isMobile ? 8 : 16,
+      padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
+      position: "relative",
+    } : {
+      flex: 1,
+      overflowX: "auto",
+      overflowY: "hidden",
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: isMobile ? 8 : 24,
+      padding: isMobile ? "8px 4px 40px" : "24px 24px 40px",
+      position: "relative",
+      scrollSnapType: "x mandatory",
     },
     pageShadow: {
       position: "relative",
       background: theme === "dark" ? "#2a2a3e" : "white",
       boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
+      flexShrink: 0,
+    },
+    continuousPageItem: {
+      position: "relative",
+      background: theme === "dark" ? "#2a2a3e" : "white",
+      boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
+      lineHeight: 0,
+      flexShrink: 0,
+      scrollSnapAlign: scrollMode === "horizontal" ? "center" : "unset",
+    },
+    pageLabel: {
+      position: "absolute",
+      bottom: 4,
+      right: 8,
+      fontFamily: "ui-monospace, monospace",
+      fontSize: 10,
+      color: T.muted,
+      background: theme === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.7)",
+      borderRadius: 4,
+      padding: "1px 5px",
+      pointerEvents: "none",
+    },
+    scrollModeToggle: {
+      display: "flex",
+      gap: 2,
+      alignItems: "center",
+      flexShrink: 0,
+    },
+    scrollModeBtn: {
+      width: isMobile ? 26 : 30,
+      height: isMobile ? 26 : 30,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      border: `1px solid ${T.border}`,
+      borderRadius: 6,
+      background: "none",
+      color: T.muted,
+      cursor: "pointer",
+      flexShrink: 0,
     },
     loadingOverlay: {
       position: "absolute",
@@ -1446,7 +1611,22 @@ export default function PdfReader({ fileUrl, title }) {
 
   return (
     <div style={s.container}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes slideExitLeft { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-60px); opacity: 0; } }
+        @keyframes slideExitRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(60px); opacity: 0; } }
+        @keyframes slideEnterRight { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideEnterLeft { from { transform: translateX(-60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeExit { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes fadeEnter { from { opacity: 0; } to { opacity: 1; } }
+        .page-anim-exit-next { animation: slideExitLeft 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .page-anim-exit-prev { animation: slideExitRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .page-anim-enter-next { animation: slideEnterRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .page-anim-enter-prev { animation: slideEnterLeft 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .page-anim-fade-exit { animation: fadeExit 0.15s ease forwards; }
+        .page-anim-fade-enter { animation: fadeEnter 0.2s ease forwards; }
+      `}</style>
 
       {/* Toolbar */}
       <div style={s.toolbar}>
@@ -1536,6 +1716,20 @@ export default function PdfReader({ fileUrl, title }) {
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
                       Fullscreen
                     </button>
+                    <div style={{ ...s.overflowItem, cursor: "default", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                      <span style={{ fontSize: 11, color: T.muted }}>View mode</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button style={{ ...s.scrollModeBtn, background: scrollMode === "single" ? T.accent : "none", color: scrollMode === "single" ? "white" : T.muted, borderColor: scrollMode === "single" ? T.accent : T.border }} onClick={() => { setScrollMode("single"); setShowOverflow(false); }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg>
+                        </button>
+                        <button style={{ ...s.scrollModeBtn, background: scrollMode === "vertical" ? T.accent : "none", color: scrollMode === "vertical" ? "white" : T.muted, borderColor: scrollMode === "vertical" ? T.accent : T.border }} onClick={() => { setScrollMode("vertical"); setShowOverflow(false); }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="7" rx="1"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M12 11v2"/></svg>
+                        </button>
+                        <button style={{ ...s.scrollModeBtn, background: scrollMode === "horizontal" ? T.accent : "none", color: scrollMode === "horizontal" ? "white" : T.muted, borderColor: scrollMode === "horizontal" ? T.accent : T.border }} onClick={() => { setScrollMode("horizontal"); setShowOverflow(false); }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="6" width="7" height="12" rx="1"/><rect x="14" y="6" width="7" height="12" rx="1"/><path d="M11 12h2"/></svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1649,6 +1843,33 @@ export default function PdfReader({ fileUrl, title }) {
         <button style={s.iconBtn} onClick={handleZoomIn} title="Zoom in">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M11 8v6M8 11h6"/></svg>
         </button>
+
+        <div style={s.sep} />
+
+        {/* Scroll mode toggle */}
+        <div style={s.scrollModeToggle}>
+          <button
+            style={{ ...s.scrollModeBtn, background: scrollMode === "single" ? T.accent : "none", color: scrollMode === "single" ? "white" : T.muted, borderColor: scrollMode === "single" ? T.accent : T.border }}
+            onClick={() => setScrollMode("single")}
+            title="Single page"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg>
+          </button>
+          <button
+            style={{ ...s.scrollModeBtn, background: scrollMode === "vertical" ? T.accent : "none", color: scrollMode === "vertical" ? "white" : T.muted, borderColor: scrollMode === "vertical" ? T.accent : T.border }}
+            onClick={() => setScrollMode("vertical")}
+            title="Vertical scroll"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="7" rx="1"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M12 11v2"/></svg>
+          </button>
+          <button
+            style={{ ...s.scrollModeBtn, background: scrollMode === "horizontal" ? T.accent : "none", color: scrollMode === "horizontal" ? "white" : T.muted, borderColor: scrollMode === "horizontal" ? T.accent : T.border }}
+            onClick={() => setScrollMode("horizontal")}
+            title="Horizontal scroll"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="6" width="7" height="12" rx="1"/><rect x="14" y="6" width="7" height="12" rx="1"/><path d="M11 12h2"/></svg>
+          </button>
+        </div>
 
         <div style={s.spacer} />
 
@@ -1935,51 +2156,133 @@ export default function PdfReader({ fileUrl, title }) {
             </div>
           )}
 
-          <div style={s.pageShadow}>
-            <canvas
-              ref={canvasRef}
-              style={{
-                display: "block",
-                filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
-              }}
-            />
-            <svg
-              ref={lassoSvgRef}
-              style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}
-              onPointerDown={onOverlayDown}
-              onPointerMove={onOverlayMove}
-              onPointerUp={onOverlayUp}
+          {scrollMode === "single" ? (
+            <div
+              style={s.pageShadow}
+              className={
+                transitioning
+                  ? transitionDir === "next"
+                    ? "page-anim-exit-next"
+                    : "page-anim-exit-prev"
+                  : !transitioning && currentPage
+                    ? transitionDir === "next"
+                      ? "page-anim-enter-next"
+                      : "page-anim-enter-prev"
+                    : ""
+              }
             >
-              {/* Saved annotations */}
-              {savedAnnotationPaths.map((sp) => (
-                <path
-                  key={`a${sp.si}`}
-                  d={sp.d}
-                  stroke={sp.color}
-                  strokeWidth={sp.width}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ mixBlendMode: "multiply" }}
+              <canvas
+                ref={canvasRef}
+                style={{
+                  display: "block",
+                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                }}
+              />
+              <svg
+                ref={lassoSvgRef}
+                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}
+                onPointerDown={onOverlayDown}
+                onPointerMove={onOverlayMove}
+                onPointerUp={onOverlayUp}
+              >
+                {/* Saved annotations */}
+                {savedAnnotationPaths.map((sp) => (
+                  <path
+                    key={`a${sp.si}`}
+                    d={sp.d}
+                    stroke={sp.color}
+                    strokeWidth={sp.width}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ mixBlendMode: "multiply" }}
+                  />
+                ))}
+                {/* Current stroke being drawn */}
+                {renderStrokes && tool === "highlight" && (
+                  <path
+                    d={renderStrokes}
+                    stroke={penColor}
+                    strokeWidth={12}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ mixBlendMode: "multiply" }}
+                  />
+                )}
+                {/* Lasso path for circle-to-ask */}
+                {lassoPath && tool === "circle" && <path d={lassoPath} style={s.lassoPath} />}
+              </svg>
+            </div>
+          ) : (
+            // Continuous scroll mode — render all pages
+            Array.from({ length: numPages }, (_, i) => i + 1).map((pg) => (
+              <div
+                key={pg}
+                data-page={pg}
+                ref={(el) => { pageItemRefs.current[pg - 1] = el; }}
+                style={s.continuousPageItem}
+              >
+                <canvas
+                  ref={(el) => { pageCanvasRefs.current[pg - 1] = el; }}
+                  style={{
+                    display: "block",
+                    filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                  }}
                 />
-              ))}
-              {/* Current stroke being drawn */}
-              {renderStrokes && tool === "highlight" && (
-                <path
-                  d={renderStrokes}
-                  stroke={penColor}
-                  strokeWidth={12}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ mixBlendMode: "multiply" }}
-                />
-              )}
-              {/* Lasso path for circle-to-ask */}
-              {lassoPath && tool === "circle" && <path d={lassoPath} style={s.lassoPath} />}
-            </svg>
-
-          </div>
+                {/* Annotation overlay for this page (only if page is visible) */}
+                {visiblePages.has(pg) && (annotations[pg] || []).length > 0 && (
+                  <svg
+                    style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none", pointerEvents: pg === currentPage ? "auto" : "none" }}
+                    onPointerDown={pg === currentPage ? onOverlayDown : undefined}
+                    onPointerMove={pg === currentPage ? onOverlayMove : undefined}
+                    onPointerUp={pg === currentPage ? onOverlayUp : undefined}
+                  >
+                    {(annotations[pg] || []).map((stroke, si) => {
+                      const d = "M " + stroke.points.map((p) => {
+                        const sx = p.x * scale;
+                        const sy = p.y * scale;
+                        return `${sx},${sy}`;
+                      }).join(" L ");
+                      return (
+                        <path
+                          key={`p${pg}a${si}`}
+                          d={d}
+                          stroke={stroke.color}
+                          strokeWidth={stroke.width * scale}
+                          fill="none"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ mixBlendMode: "multiply" }}
+                        />
+                      );
+                    })}
+                  </svg>
+                )}
+                {/* Active drawing overlay for current page */}
+                {pg === currentPage && renderStrokes && tool === "highlight" && (
+                  <svg style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}>
+                    <path
+                      d={renderStrokes}
+                      stroke={penColor}
+                      strokeWidth={12}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ mixBlendMode: "multiply" }}
+                    />
+                  </svg>
+                )}
+                {/* Lasso for circle-to-ask on current page */}
+                {pg === currentPage && lassoPath && tool === "circle" && (
+                  <svg style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}>
+                    <path d={lassoPath} style={s.lassoPath} />
+                  </svg>
+                )}
+                <span style={s.pageLabel}>{pg}</span>
+              </div>
+            ))
+          )}
 
           {/* Chat popup — mobile bottom sheet / desktop side panel */}
           {chatOpen && (
