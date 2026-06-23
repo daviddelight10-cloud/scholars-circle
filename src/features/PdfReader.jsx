@@ -105,7 +105,7 @@ DETECT the content type from the image, then respond:
 Format: **bold** key terms. Numbered steps for problems. Bullet points for lists.
 Length: concise, but never cut short a multi-step solution.`;
 
-export default function PdfReader({ fileUrl, title }) {
+export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
 
   const [numPages, setNumPages] = useState(0);
@@ -119,7 +119,7 @@ export default function PdfReader({ fileUrl, title }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(initialFullscreen);
 
   // Theme
   const [theme, setTheme] = useState(() => loadStored("sc_pdf_theme", "light"));
@@ -235,9 +235,10 @@ export default function PdfReader({ fileUrl, title }) {
     const base = page.getViewport({ scale: 1 });
     const container = viewerRef.current;
     if (!container) return;
-    const available = container.clientWidth - 40;
+    const isMob = window.innerWidth < 640;
+    const available = container.clientWidth - (isMob ? 8 : 40);
     const fit = available / base.width;
-    setScale(Math.max(0.5, Math.min(2.2, fit)));
+    setScale(Math.max(isMob ? 0.85 : 0.5, Math.min(2.2, fit)));
   }, []);
 
   const renderPage = useCallback(async (n) => {
@@ -787,7 +788,7 @@ export default function PdfReader({ fileUrl, title }) {
       const t = e.changedTouches[0];
       const dx = t.clientX - touchStartRef.current.x;
       const dy = t.clientY - touchStartRef.current.y;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) {
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         if (dx > 0) goToPage(currentPage - 1);
         else goToPage(currentPage + 1);
       }
@@ -832,6 +833,19 @@ export default function PdfReader({ fileUrl, title }) {
 
   // ---- Scroll mode persistence ----
   useEffect(() => { saveStored(`sc_pdf_scrollmode_${docKey}`, scrollMode); }, [scrollMode, docKey]);
+
+  // ---- Re-render when scrollMode changes ----
+  useEffect(() => {
+    if (!pdfDocRef.current || loading) return;
+    if (scrollMode === "single") {
+      fitToWidth().then(() => renderPage(currentPage));
+    } else {
+      // Reset canvas render flags and seed visible pages with current page
+      pageCanvasRefs.current.forEach((c) => { if (c) delete c.dataset.rendered; });
+      setVisiblePages(new Set([currentPage]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollMode]);
 
   // ---- IntersectionObserver for continuous scroll mode ----
   useEffect(() => {
@@ -1635,6 +1649,11 @@ export default function PdfReader({ fileUrl, title }) {
           <>
             {/* Mobile Row 1: title + tools + overflow */}
             <div style={s.toolbarRow}>
+              {onBack && (
+                <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0, marginRight: 2 }} onClick={onBack} title="Back">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                </button>
+              )}
               <span style={s.docTitle}>{title || "PDF"}</span>
               <div style={s.sep} />
               {/* Highlight */}
@@ -1761,6 +1780,11 @@ export default function PdfReader({ fileUrl, title }) {
         ) : (
           /* Desktop: single row */
           <div style={s.toolbarRow}>
+            {onBack && (
+              <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0 }} onClick={onBack} title="Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              </button>
+            )}
         <span style={s.docTitle}>{title || "PDF"}</span>
 
         {/* Highlighter tool */}
@@ -2231,20 +2255,22 @@ export default function PdfReader({ fileUrl, title }) {
                     filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
                   }}
                 />
-                {/* Annotation overlay for this page (only if page is visible) */}
-                {visiblePages.has(pg) && (annotations[pg] || []).length > 0 && (
+                {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
+                {visiblePages.has(pg) && (
                   <svg
-                    style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none", pointerEvents: pg === currentPage ? "auto" : "none" }}
+                    ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
+                    style={{
+                      ...s.lassoOverlay,
+                      filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                      pointerEvents: pg === currentPage && tool !== "none" ? "auto" : "none",
+                    }}
                     onPointerDown={pg === currentPage ? onOverlayDown : undefined}
                     onPointerMove={pg === currentPage ? onOverlayMove : undefined}
                     onPointerUp={pg === currentPage ? onOverlayUp : undefined}
                   >
+                    {/* Saved annotations */}
                     {(annotations[pg] || []).map((stroke, si) => {
-                      const d = "M " + stroke.points.map((p) => {
-                        const sx = p.x * scale;
-                        const sy = p.y * scale;
-                        return `${sx},${sy}`;
-                      }).join(" L ");
+                      const d = "M " + stroke.points.map((p) => `${p.x * scale},${p.y * scale}`).join(" L ");
                       return (
                         <path
                           key={`p${pg}a${si}`}
@@ -2258,26 +2284,14 @@ export default function PdfReader({ fileUrl, title }) {
                         />
                       );
                     })}
-                  </svg>
-                )}
-                {/* Active drawing overlay for current page */}
-                {pg === currentPage && renderStrokes && tool === "highlight" && (
-                  <svg style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}>
-                    <path
-                      d={renderStrokes}
-                      stroke={penColor}
-                      strokeWidth={12}
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ mixBlendMode: "multiply" }}
-                    />
-                  </svg>
-                )}
-                {/* Lasso for circle-to-ask on current page */}
-                {pg === currentPage && lassoPath && tool === "circle" && (
-                  <svg style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}>
-                    <path d={lassoPath} style={s.lassoPath} />
+                    {/* Active highlight stroke (current page only) */}
+                    {pg === currentPage && renderStrokes && tool === "highlight" && (
+                      <path d={renderStrokes} stroke={penColor} strokeWidth={12} fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ mixBlendMode: "multiply" }} />
+                    )}
+                    {/* Lasso path for circle-to-ask (current page only) */}
+                    {pg === currentPage && lassoPath && tool === "circle" && (
+                      <path d={lassoPath} style={s.lassoPath} />
+                    )}
                   </svg>
                 )}
                 <span style={s.pageLabel}>{pg}</span>

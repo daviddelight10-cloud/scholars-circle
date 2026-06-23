@@ -205,9 +205,12 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
     switch (resource.contentType) {
       case "pdf":
         return resource.fileUrl ? (
-          <div style={{ borderRadius: "10px", overflow: "hidden", border: "0.5px solid #1e2245", height: "640px", position: "relative" }}>
-            <PdfReader fileUrl={resource.fileUrl} title={resource.title} />
-          </div>
+          <PdfReader
+            fileUrl={resource.fileUrl}
+            title={resource.title}
+            initialFullscreen={true}
+            onBack={onBack || (() => navigate(-1))}
+          />
         ) : (
           <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center", color: "#4a5080" }}>
             PDF not available
