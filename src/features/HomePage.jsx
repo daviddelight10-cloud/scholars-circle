@@ -83,6 +83,10 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollPct, setScrollPct] = useState(0);
   const [ringAnimated, setRingAnimated] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const ringRef = useRef(null);
   const heroRef = useRef(null);
   const windowWidth = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)[0];
@@ -107,6 +111,36 @@ export default function HomePage() {
   useEffect(() => {
     if (!isMobile) setMenuOpen(false);
   }, [isMobile]);
+
+  useEffect(() => {
+    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream);
+    setIsInstalled(window.matchMedia('(display-mode: standalone)').matches);
+
+    // Pick up event already captured by App.jsx
+    if (window.__deferredPrompt) setDeferredPrompt(window.__deferredPrompt);
+
+    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); window.__deferredPrompt = e; };
+    window.addEventListener('beforeinstallprompt', handler);
+
+    // Listen for App.jsx dispatching the event
+    const customHandler = (e) => { if (e.detail) setDeferredPrompt(e.detail); };
+    window.addEventListener('pwa-install-available', customHandler);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('pwa-install-available', customHandler);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    const prompt = deferredPrompt || window.__deferredPrompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    setDeferredPrompt(null);
+    window.__deferredPrompt = null;
+    if (outcome === 'accepted') setIsInstalled(true);
+  };
 
   const [featuresRef, featuresInView] = useInView(0.1);
   const [testiRef, testiInView] = useInView(0.1);
@@ -176,12 +210,12 @@ export default function HomePage() {
         @media (max-width: 760px) {
           .feature-grid { grid-template-columns: 1fr !important; }
           .compare { grid-template-columns: 1fr !important; }
-          .testimonial-scroll { display: flex !important; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+          .testimonial-scroll { display: flex !important; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0 12px; padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right)); }
           .testimonial-scroll::-webkit-scrollbar { display: none; }
-          .testimonial-scroll > * { min-width: 85vw; flex-shrink: 0; scroll-snap-align: center; }
-          .founder-scroll { display: flex !important; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+          .testimonial-scroll > * { min-width: 44vw; max-width: 44vw; flex-shrink: 0; scroll-snap-align: start; }
+          .founder-scroll { display: flex !important; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 0 12px; padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right)); }
           .founder-scroll::-webkit-scrollbar { display: none; }
-          .founder-scroll > * { min-width: 85vw; flex-shrink: 0; scroll-snap-align: center; }
+          .founder-scroll > * { min-width: 42vw; max-width: 42vw; flex-shrink: 0; scroll-snap-align: start; }
           .orbit-ring { width: 280px !important; height: 280px !important; }
           .hero-ring { width: 180px !important; height: 180px !important; }
           .hero-ring svg { width: 180px !important; height: 180px !important; }
@@ -400,22 +434,22 @@ export default function HomePage() {
       </section>
 
       {/* Testimonials */}
-      <section ref={testiRef} style={{ padding: '96px 0' }}>
+      <section ref={testiRef} style={{ padding: '64px 0' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
-          <div style={{ maxWidth: 640, marginBottom: 48 }}>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>From the reading rooms of LCU</span>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Students who got there with us.</h2>
+          <div style={{ maxWidth: 640, marginBottom: 32 }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, display: 'block' }}>From the reading rooms of LCU</span>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Students who got there with us.</h2>
           </div>
-          <div className="testimonial-scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+          <div className="testimonial-scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
             {TESTIMONIALS.map((t, i) => (
               <div key={i} style={{
                 opacity: testiInView ? 1 : 0,
-                transform: testiInView ? 'translateY(0)' : 'translateY(20px)',
+                transform: testiInView ? 'translateY(0)' : 'translateY(16px)',
                 transition: `opacity 0.5s ease ${i * 80}ms, transform 0.5s ease ${i * 80}ms`,
-                background: inkCard, border: `1px solid ${line}`, borderRadius: 18, padding: 26,
+                background: inkCard, border: `1px solid ${line}`, borderLeft: `3px solid ${blue}`, borderRadius: 10, padding: '10px 12px',
               }}>
-                <p style={{ fontSize: '0.98rem', marginBottom: 18, color: text }}>"{t.quote}"</p>
-                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', color: textFaint }}>{t.by}</p>
+                <p style={{ fontSize: '0.75rem', lineHeight: 1.45, marginBottom: 8, color: text }}>"{t.quote}"</p>
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.65rem', color: textFaint, margin: 0 }}>{t.by}</p>
               </div>
             ))}
           </div>
@@ -423,44 +457,106 @@ export default function HomePage() {
       </section>
 
       {/* Compact Founders */}
-      <section ref={foundersRef} style={{ padding: '96px 0', background: inkSoft, borderTop: `1px solid ${line}`, borderBottom: `1px solid ${line}` }}>
+      <section ref={foundersRef} style={{ padding: '64px 0', background: inkSoft, borderTop: `1px solid ${line}`, borderBottom: `1px solid ${line}` }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
-          <div style={{ maxWidth: 640, marginBottom: 48 }}>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>Built by students, for students</span>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>The team behind Scholar's Circle.</h2>
+          <div style={{ maxWidth: 640, marginBottom: 32 }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, display: 'block' }}>Built by students, for students</span>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>The team behind Scholar's Circle.</h2>
           </div>
-          <div className="founder-scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+          <div className="founder-scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
             {FOUNDERS.map((f, i) => (
               <div key={i} style={{
                 opacity: foundersInView ? 1 : 0,
-                transform: foundersInView ? 'translateY(0)' : 'translateY(24px)',
+                transform: foundersInView ? 'translateY(0)' : 'translateY(16px)',
                 transition: `opacity 0.6s ease ${i * 100}ms, transform 0.6s ease ${i * 100}ms`,
-                background: f.bg, border: `1px solid ${f.border}`, borderRadius: 18, padding: 28,
+                background: f.bg, border: `1px solid ${f.border}`, borderRadius: 10, padding: 10,
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-                  <img src={f.image} alt={f.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: `2px solid ${f.color}44` }} />
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg, ${f.color}, ${f.color}77)`, display: 'none', alignItems: 'center', justifyContent: 'center', fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 18, color: '#fff', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <img src={f.image} alt={f.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: `2px solid ${f.color}44` }} />
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${f.color}, ${f.color}77)`, display: 'none', alignItems: 'center', justifyContent: 'center', fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 13, color: '#fff', flexShrink: 0 }}>
                     {f.initials}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: text, marginBottom: 4 }}>{f.name}</p>
-                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: f.color, background: `${f.color}14`, padding: '3px 8px', borderRadius: 999, border: `1px solid ${f.color}30` }}>{f.roleShort}</span>
+                    <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 12, color: text, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.shortName}</p>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: f.color, background: `${f.color}14`, padding: '1px 6px', borderRadius: 999, border: `1px solid ${f.color}30` }}>{f.roleShort}</span>
                   </div>
                 </div>
-                <p style={{ color: textDim, fontSize: 14, lineHeight: 1.7, marginBottom: 14 }}>{f.bio}</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {f.tag.split(' · ').map(t => (
-                    <span key={t} style={{ padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 12, color: textFaint }}>{t}</span>
-                  ))}
-                </div>
+                <p style={{ color: textDim, fontSize: 10.5, lineHeight: 1.4, margin: 0 }}>{f.bio}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <PricingSection />
+      {/* Install App */}
+      <section style={{ padding: '48px 0', borderTop: `1px solid ${line}` }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Works on your phone</span>
+            <h2 style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Install Scholar's Circle</h2>
+            <p style={{ color: textDim, fontSize: '0.88rem', marginTop: 8 }}>No App Store needed — install directly from your browser in seconds.</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(2, minmax(0, 380px))', gap: 14, justifyContent: 'center', maxWidth: 780, margin: '0 auto' }}>
+            {/* Android card */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(61,214,140,0.08), rgba(79,142,247,0.06))', border: `1px solid rgba(61,214,140,0.25)`, borderRadius: 14, padding: isMobile ? '16px 14px' : '22px 24px' }}>
+              <div style={{ fontSize: isMobile ? 28 : 36, marginBottom: 10 }}>🤖</div>
+              <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: isMobile ? 13 : 15, color: text, marginBottom: 4 }}>Android</p>
+              <p style={{ color: textDim, fontSize: isMobile ? 11 : 12.5, lineHeight: 1.4, marginBottom: 14 }}>Tap below to add Scholar's Circle to your home screen instantly.</p>
+              {isInstalled ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(61,214,140,0.12)', border: '1px solid rgba(61,214,140,0.3)', borderRadius: 999, padding: '6px 14px', fontSize: 12, color: '#3DD68C', fontWeight: 600 }}>
+                  ✓ Already installed
+                </div>
+              ) : isIOS ? (
+                <p style={{ fontSize: 11, color: textFaint }}>Use the Safari steps on the right →</p>
+              ) : (
+                <button onClick={handleInstall} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(135deg, #3DD68C, #4F8EF7)', border: 'none', borderRadius: 999, padding: isMobile ? '8px 14px' : '9px 18px', fontSize: isMobile ? 12 : 13, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Install Now
+                </button>
+              )}
+            </div>
+            {/* iPhone card */}
+            <div style={{ background: 'linear-gradient(135deg, rgba(79,142,247,0.08), rgba(255,84,112,0.05))', border: `1px solid rgba(79,142,247,0.22)`, borderRadius: 14, padding: isMobile ? '16px 14px' : '22px 24px' }}>
+              <div style={{ fontSize: isMobile ? 28 : 36, marginBottom: 10 }}>🍎</div>
+              <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: isMobile ? 13 : 15, color: text, marginBottom: 4 }}>iPhone / iPad</p>
+              <p style={{ color: textDim, fontSize: isMobile ? 11 : 12.5, lineHeight: 1.4, marginBottom: 12 }}>Follow these steps in Safari:</p>
+              <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {[
+                  { icon: '↑', label: 'Tap the Share button' },
+                  { icon: '+', label: '"Add to Home Screen"' },
+                  { icon: '✓', label: 'Tap "Add" to confirm' },
+                ].map((step, i) => (
+                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(79,142,247,0.2)', border: '1px solid rgba(79,142,247,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: blue, flexShrink: 0 }}>{step.icon}</span>
+                    <span style={{ fontSize: isMobile ? 10.5 : 12, color: textDim }}>{step.label}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing — collapsible on mobile */}
+      {isMobile ? (
+        <div style={{ borderTop: `1px solid ${line}` }}>
+          <button
+            onClick={() => setPricingOpen(o => !o)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 28px', background: 'none', border: 'none', cursor: 'pointer', color: text, fontFamily: 'Manrope, sans-serif' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 16 }}>Pricing</span>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: blue, background: 'rgba(79,142,247,0.12)', border: '1px solid rgba(79,142,247,0.25)', borderRadius: 999, padding: '2px 8px' }}>from ₦700/week</span>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: pricingOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease', color: textDim, flexShrink: 0 }}><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div style={{ maxHeight: pricingOpen ? '2000px' : '0px', overflow: 'hidden', transition: 'max-height 0.35s ease' }}>
+            <PricingSection />
+          </div>
+        </div>
+      ) : (
+        <PricingSection />
+      )}
 
       {/* CTA Band */}
       <section style={{ padding: '96px 0' }}>

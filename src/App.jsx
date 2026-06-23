@@ -6001,6 +6001,10 @@ function App() {
 
       setShowInstallPrompt(true);
 
+      window.__deferredPrompt = e;
+
+      window.dispatchEvent(new CustomEvent('pwa-install-available', { detail: e }));
+
     };
 
 
