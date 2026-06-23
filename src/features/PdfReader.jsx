@@ -939,7 +939,8 @@ export default function PdfReader({ fileUrl, title }) {
       padding: isMobile ? "6px 8px" : "8px 14px",
       width: "100%",
       boxSizing: "border-box",
-      overflow: "hidden",
+      overflow: isMobile ? "hidden" : "visible",
+      overflowX: isMobile ? "hidden" : "auto",
     },
     docTitle: {
       fontFamily: "Georgia, serif",
