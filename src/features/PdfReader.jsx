@@ -209,13 +209,16 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         // Defer fitToWidth so fullscreen layout is painted before measuring container width
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         if (cancelled) return;
-        await fitToWidth();
-        await renderPage(1);
+        const fittedScale = await fitToWidth();
+        await renderPage(1, fittedScale);
         setLoading(false);
         // Re-fit after loading spinner unmounts (container dimensions may shift)
         setTimeout(async () => {
-          if (!cancelled) { await fitToWidth(); await renderPage(1); }
-        }, 120);
+          if (!cancelled) {
+            const s = await fitToWidth();
+            await renderPage(1, s);
+          }
+        }, 150);
       } catch (err) {
         console.error("PDF load error:", err);
         setLoadError(`Couldn't open this PDF. ${err.message || ""}`);
@@ -237,21 +240,23 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   }, [chatMessages, chatLoading]);
 
   const fitToWidth = useCallback(async () => {
-    if (!pdfDocRef.current) return;
+    if (!pdfDocRef.current) return null;
     const page = await pdfDocRef.current.getPage(1);
     const base = page.getViewport({ scale: 1 });
     const container = viewerRef.current;
-    if (!container) return;
+    if (!container) return null;
     const isMob = window.innerWidth < 640;
     const available = container.clientWidth - (isMob ? 8 : 40);
-    const fit = available / base.width;
-    setScale(Math.max(0.5, Math.min(2.2, fit)));
+    const fit = Math.max(0.5, Math.min(2.2, available / base.width));
+    setScale(fit);
+    return fit;
   }, []);
 
-  const renderPage = useCallback(async (n) => {
+  const renderPage = useCallback(async (n, scaleOverride) => {
     if (!pdfDocRef.current || !canvasRef.current) return;
     const page = await pdfDocRef.current.getPage(n);
-    const viewport = page.getViewport({ scale });
+    const useScale = scaleOverride ?? scale;
+    const viewport = page.getViewport({ scale: useScale });
     const canvas = canvasRef.current;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.width = Math.floor(viewport.width * dpr);
@@ -301,8 +306,24 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   useEffect(() => {
     if (!pdfDocRef.current) return;
     setUserZoomed(false);
-    fitToWidth();
+    fitToWidth().then((s) => { if (s) renderPage(currentPage, s); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullscreen]);
+
+  // Auto-refit on container resize (handles layout shifts, safe-area changes, orientation)
+  useEffect(() => {
+    if (!viewerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      if (pdfDocRef.current && !userZoomed && !loading) {
+        fitToWidth().then((s) => {
+          if (s && scrollMode === "single") renderPage(currentPage, s);
+        });
+      }
+    });
+    ro.observe(viewerRef.current);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userZoomed, loading, scrollMode, currentPage]);
 
   // Esc to exit fullscreen
   useEffect(() => {

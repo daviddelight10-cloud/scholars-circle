@@ -167,10 +167,31 @@ export default function HomePage() {
         .feature-card { transition: border-color 0.2s ease, transform 0.2s ease; }
         .feature-card:hover { border-color: ${lineStrong}; transform: translateY(-2px); }
 
-        @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; } .hero-visual { height: 340px; order: -1; } .nav-links { display: none !important; } .nav-actions { display: none !important; } .menu-btn { display: flex !important; } }
+        .scroll-x { overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+        .scroll-x::-webkit-scrollbar { display: none; }
+        .scroll-x > * { scroll-snap-align: center; }
+
+        @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; } .hero-visual { height: 280px; order: -1; } .nav-links { display: none !important; } .nav-actions { display: none !important; } .menu-btn { display: flex !important; } }
         @media (min-width: 901px) { .menu-btn { display: none !important; } .mobile-menu { display: none !important; } }
-        @media (max-width: 760px) { .feature-grid { grid-template-columns: 1fr !important; } .compare { grid-template-columns: 1fr !important; } }
-        @media (max-width: 560px) { .wrap { padding: 0 20px !important; } section { padding: 64px 0 !important; } .cta-band { padding: 44px 24px !important; } }
+        @media (max-width: 760px) {
+          .feature-grid { grid-template-columns: 1fr !important; }
+          .compare { grid-template-columns: 1fr !important; }
+          .testimonial-scroll { display: flex !important; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+          .testimonial-scroll::-webkit-scrollbar { display: none; }
+          .testimonial-scroll > * { min-width: 85vw; flex-shrink: 0; scroll-snap-align: center; }
+          .founder-scroll { display: flex !important; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+          .founder-scroll::-webkit-scrollbar { display: none; }
+          .founder-scroll > * { min-width: 85vw; flex-shrink: 0; scroll-snap-align: center; }
+          .orbit-ring { width: 280px !important; height: 280px !important; }
+          .hero-ring { width: 180px !important; height: 180px !important; }
+          .hero-ring svg { width: 180px !important; height: 180px !important; }
+          section { padding: 64px 0 !important; }
+        }
+        @media (min-width: 761px) {
+          .testimonial-scroll { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 22px; }
+          .founder-scroll { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 22px; }
+        }
+        @media (max-width: 560px) { .wrap { padding: 0 20px !important; } section { padding: 56px 0 !important; } .cta-band { padding: 44px 24px !important; } .hero-section { padding: 48px 0 32px !important; } }
         @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
       `}</style>
 
@@ -223,7 +244,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero */}
-      <section ref={heroRef} style={{ padding: '72px 0 40px', position: 'relative', overflow: 'hidden' }}>
+      <section ref={heroRef} className="hero-section" style={{ padding: '72px 0 40px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -200, right: -200, width: 520, height: 520, background: `radial-gradient(circle, rgba(79,142,247,0.16), transparent 70%)`, pointerEvents: 'none' }} />
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', position: 'relative', zIndex: 1 }}>
           <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: 56, alignItems: 'center' }}>
@@ -263,7 +284,7 @@ export default function HomePage() {
                   </span>
                 ))}
               </div>
-              <div style={{ position: 'relative', width: 230, height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="hero-ring" style={{ position: 'relative', width: 230, height: 230, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg viewBox="0 0 230 230" width="230" height="230" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
                   <defs>
                     <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -385,7 +406,7 @@ export default function HomePage() {
             <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>From the reading rooms of LCU</span>
             <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Students who got there with us.</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+          <div className="testimonial-scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
             {TESTIMONIALS.map((t, i) => (
               <div key={i} style={{
                 opacity: testiInView ? 1 : 0,
@@ -408,7 +429,7 @@ export default function HomePage() {
             <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>Built by students, for students</span>
             <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>The team behind Scholar's Circle.</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
+          <div className="founder-scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
             {FOUNDERS.map((f, i) => (
               <div key={i} style={{
                 opacity: foundersInView ? 1 : 0,
@@ -417,7 +438,8 @@ export default function HomePage() {
                 background: f.bg, border: `1px solid ${f.border}`, borderRadius: 18, padding: 28,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg, ${f.color}, ${f.color}77)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 18, color: '#fff', flexShrink: 0 }}>
+                  <img src={f.image} alt={f.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: `2px solid ${f.color}44` }} />
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: `linear-gradient(135deg, ${f.color}, ${f.color}77)`, display: 'none', alignItems: 'center', justifyContent: 'center', fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 18, color: '#fff', flexShrink: 0 }}>
                     {f.initials}
                   </div>
                   <div style={{ minWidth: 0 }}>

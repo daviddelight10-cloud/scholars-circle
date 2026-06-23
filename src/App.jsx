@@ -4584,21 +4584,21 @@ function App() {
 
 
 
-      const email = (signupEmailRef.current || "").trim();
+      const email = (signupEmailRef.current?.value || "").trim();
 
-      const fullName = (signupFullNameRef.current || "").trim();
+      const fullName = (signupFullNameRef.current?.value || "").trim();
 
-      const username = (signupUsernameRef.current || "").trim();
+      const username = (signupUsernameRef.current?.value || "").trim();
 
-      const password = (signupPasswordRef.current || "").trim();
+      const password = (signupPasswordRef.current?.value || "").trim();
 
-      const confirmPassword = (signupConfirmPasswordRef.current || "").trim();
+      const confirmPassword = (signupConfirmPasswordRef.current?.value || "").trim();
 
       // Get role from auth state (updated by onChange)
 
       const role = auth.signupRole || "STUDENT";
 
-      const inviteCode = (signupInviteCodeRef.current || "").trim();
+      const inviteCode = (signupInviteCodeRef.current?.value || "").trim();
 
       
 
@@ -4613,6 +4613,16 @@ function App() {
       }
 
       
+
+      if (!email || !username || !password) {
+
+        setAuth((a) => ({ ...a, error: "Please fill in your email, username, and password.", info: "" }));
+
+        setLoadingOverlay(false);
+
+        return;
+
+      }
 
       console.log("Registering with:", { email, username, fullName, role });
 
