@@ -209,7 +209,10 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
             fileUrl={resource.fileUrl}
             title={resource.title}
             initialFullscreen={true}
-            onBack={onBack || (() => navigate(-1))}
+            onBack={onBack || (() => {
+              if (window.history.length > 1) navigate(-1);
+              else navigate("/resources");
+            })}
           />
         ) : (
           <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center", color: "#4a5080" }}>
