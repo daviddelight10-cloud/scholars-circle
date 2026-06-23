@@ -206,6 +206,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         pdfDocRef.current = pdf;
         setNumPages(pdf.numPages);
         setCurrentPage(1);
+        // Defer fitToWidth so fullscreen layout is painted before measuring container width
+        await new Promise((r) => requestAnimationFrame(r));
+        if (cancelled) return;
         await fitToWidth();
         await renderPage(1);
         setLoading(false);
