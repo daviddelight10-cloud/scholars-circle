@@ -91,13 +91,19 @@ const SMART_CHIPS = [
   { label: "Why it matters", prompt: "Why is this important and where is it used in practice?" },
 ];
 
-const TUTOR_SYSTEM = `You are a direct, no-fluff study tutor. A student circled something on a PDF page and wants to understand it.
-Rules:
-- Answer what is circled directly. Do NOT greet, compliment, or encourage.
-- If it is a question, answer it. If a term/concept, define and explain it. If a math/science problem, solve it step-by-step. If a diagram, explain what it shows.
-- Use markdown: **bold** key terms, short bullet points, numbered steps for problems.
-- Be concise (~120 words) but allow numbered steps for problems.
-- End with a one-line "Why it matters" if not already obvious.`;
+const TUTOR_SYSTEM = `You are a study assistant. A student circled content in their PDF and needs a direct answer.
+
+RULE: Start your reply with the answer itself — NO preamble, NO "this is about...", NO "why it matters", NO compliments.
+
+DETECT the content type from the image, then respond:
+• QUESTION (has "?" or asks something) → Answer it completely and directly.
+• TERM / CONCEPT → Define it in plain language + one concrete example.
+• MATH / SCIENCE PROBLEM or FORMULA → Solve step by step with full working shown.
+• DIAGRAM or IMAGE → Name it, label key parts, explain what it shows.
+• GENERAL STATEMENT → Explain the core idea simply.
+
+Format: **bold** key terms. Numbered steps for problems. Bullet points for lists.
+Length: concise, but never cut short a multi-step solution.`;
 
 export default function PdfReader({ fileUrl, title }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
@@ -419,7 +425,8 @@ export default function PdfReader({ fileUrl, title }) {
     pageTextRef.current = pageText;
 
     // Start conversation: first user message with image
-    const firstPrompt = `${TUTOR_SYSTEM}\n\n---\n\nA student circled something on page ${currentPage} of their study PDF. ${pageText ? `Full text of that page for context:\n"""${pageText}"""\n\n` : ""}A cropped image of exactly what they circled is attached. Look at the image carefully and answer what is circled directly.`;
+    const pageContext = pageText ? `\n\nPage text (use only if the image alone is ambiguous):\n${pageText.slice(0, 1000)}` : "";
+    const firstPrompt = `${TUTOR_SYSTEM}${pageContext}\n\n---\n\nThe image attached is EXACTLY what the student circled. Look at the image. Identify what type of content it is (question / term / problem / diagram / statement). Then immediately provide the answer — begin your response with the answer, nothing else.`;
 
     setChatMessages([{ role: "user", content: "What did I circle?", image: thumb }]);
     setChatOpen(true);
@@ -458,7 +465,8 @@ export default function PdfReader({ fileUrl, title }) {
     const historyForApi = [...chatMessages, { role: "user", content: trimmed }];
 
     // Add page text context to the prompt
-    const promptWithContext = `${TUTOR_SYSTEM}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nUSER FOLLOW-UP:\n${trimmed}\n\n[Page ${currentPage} text for reference:\n"""${pageTextRef.current || "(no text extracted)"}"""\nAnswer the follow-up directly. No greetings or compliments.]`;
+    const followCtx = pageTextRef.current ? `\n\nPage text for reference:\n${pageTextRef.current.slice(0, 800)}` : "";
+    const promptWithContext = `${TUTOR_SYSTEM}${followCtx}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nUSER FOLLOW-UP: ${trimmed}\n\nAnswer the follow-up directly. Start with the answer.`;
 
     try {
       const answer = await callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" });
@@ -488,7 +496,8 @@ export default function PdfReader({ fileUrl, title }) {
     setChatError(null);
     setChatLoading(true);
     const historyForApi = chatMessages.slice(0, actualIdx + 1);
-    const promptWithContext = `${TUTOR_SYSTEM}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nUSER MESSAGE TO RETRY:\n${lastUserMsg.content}\n\n[Page ${currentPage} text for reference:\n"""${pageTextRef.current || "(no text extracted)"}"""\nAnswer directly. No greetings or compliments.]`;
+    const retryCtx = pageTextRef.current ? `\n\nPage text:\n${pageTextRef.current.slice(0, 800)}` : "";
+    const promptWithContext = `${TUTOR_SYSTEM}${retryCtx}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nRETRY: ${lastUserMsg.content}\n\nAnswer directly. Start with the answer.`;
     callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" })
       .then((answer) => {
         setChatMessages((prev) => [...prev, { role: "assistant", content: answer || "No response." }]);
