@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
+﻿import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
 
 import { useLocation } from "react-router-dom";
 
@@ -2488,6 +2488,8 @@ function App() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const [selectedPlan, setSelectedPlan] = useState(null);
+
+  const [paymentMethod, setPaymentMethod] = useState("paystack");
 
 
 
@@ -9098,323 +9100,145 @@ function App() {
 
 
       {showPaymentModal && (
-
         <div className="modal-overlay" onClick={() => setShowPaymentModal(false)} style={{ zIndex: 10001 }}>
-
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
-
-            <h3 style={{ margin: "0 0 16px 0" }}>💳 Upgrade Your Account</h3>
-
-            
-
-            <div style={{ marginBottom: 20 }}>
-
-              <p className="muted" style={{ marginBottom: 16 }}>Choose a plan that works for you:</p>
-
-              
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-                <div
-
-                  onClick={() => setSelectedPlan("week1")}
-
-                  style={{
-
-                    border: selectedPlan === "week1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
-
-                    borderRadius: 12,
-
-                    padding: 16,
-
-                    cursor: "pointer",
-
-                    background: selectedPlan === "week1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
-
-                    transition: "all 0.2s"
-
-                  }}
-
-                >
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600, fontSize: 16 }}>1 Week Plan</div>
-
-                      <div className="muted" style={{ fontSize: 12 }}>Perfect for trying out</div>
-
-                    </div>
-
-                    <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>₦700</div>
-
-                  </div>
-
-                </div>
-
-
-
-                <div
-
-                  onClick={() => setSelectedPlan("week2")}
-
-                  style={{
-
-                    border: selectedPlan === "week2" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
-
-                    borderRadius: 12,
-
-                    padding: 16,
-
-                    cursor: "pointer",
-
-                    background: selectedPlan === "week2" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
-
-                    transition: "all 0.2s"
-
-                  }}
-
-                >
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600, fontSize: 16 }}>2 Weeks Plan</div>
-
-                      <div className="muted" style={{ fontSize: 12 }}>Save ₦100</div>
-
-                    </div>
-
-                    <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>₦1,300</div>
-
-                  </div>
-
-                </div>
-
-
-
-                <div
-
-                  onClick={() => setSelectedPlan("month1")}
-
-                  style={{
-
-                    border: selectedPlan === "month1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
-
-                    borderRadius: 12,
-
-                    padding: 16,
-
-                    cursor: "pointer",
-
-                    background: selectedPlan === "month1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
-
-                    transition: "all 0.2s",
-
-                    position: "relative"
-
-                  }}
-
-                >
-
-                  <div style={{ position: "absolute", top: -10, right: 10, background: "#10b981", color: "white", fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>BEST VALUE</div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600, fontSize: 16 }}>1 Month Plan</div>
-
-                      <div className="muted" style={{ fontSize: 12 }}>Save ₦400</div>
-
-                    </div>
-
-                    <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>₦2,400</div>
-
-                  </div>
-
-                </div>
-
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, padding: 0 }}>
+            {/* Compact header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 700 }}>
+                <span>💎</span> Upgrade
               </div>
-
+              <button onClick={() => setShowPaymentModal(false)} style={{ background: "none", border: "none", color: "#7b82b8", fontSize: 20, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
             </div>
-
-
-
-            {selectedPlan && (
-              <div style={{ marginBottom: 20 }}>
-                {/* Paystack instant pay */}
-                <button
-                  onClick={() => {
-                    const plan = { week1: { label: "1 Week", price: 700 }, week2: { label: "2 Weeks", price: 1300 }, month1: { label: "1 Month", price: 2400 } }[selectedPlan];
-                    const rawEmail = auth.user?.email || auth.user?.username || "";
-                    const payEmail = rawEmail.includes("@") ? rawEmail : `${rawEmail || "user"}@scholars-circle.app`;
-                    try {
-                      const popup = new PaystackPop();
-                      popup.newTransaction({
-                        key: PAYSTACK_PUBLIC_KEY,
-                        email: payEmail,
-                        amount: plan.price * 100,
-                        currency: "NGN",
-                        reference: `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                        metadata: { plan: selectedPlan, activationKey: auth.user?.activationKey || "", userId: auth.user?.id || "" },
-                        onSuccess: (transaction) => {
-                          fetch(`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app"}/payment/verify`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                            body: JSON.stringify({ reference: transaction.reference, plan: selectedPlan, activationKey: auth.user?.activationKey || "" }),
-                          })
-                            .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                            .then(({ ok, data }) => {
-                              if (ok && data.activated) {
-                                refreshAuth();
-                                setShowPaymentModal(false);
-                              }
-                            })
-                            .catch(() => {});
-                        },
-                        onCancel: () => {},
-                      });
-                    } catch (err) {
-                      alert(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
-                    }
-                  }}
-                  style={{
-                    width: "100%", padding: "14px", borderRadius: 12, border: "none",
-                    fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 12,
-                    background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff",
-                  }}
-                >💳 Pay {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"} with Paystack · Instant Activation</button>
-
-                <div style={{ textAlign: "center", color: "#4a5080", fontSize: 11, marginBottom: 12 }}>— or pay manually —</div>
-
-                <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 12, padding: 16 }}>
-                  <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>🏦 Transfer to Opay</h4>
-                  <div style={{ fontSize: 13, lineHeight: 1.8 }}>
-                    <div><strong>Bank:</strong> Opay</div>
-                    <div><strong>Account Number:</strong> 9069372522</div>
-                    <div><strong>Account Name:</strong> Zibiri-David Delight Aluaye</div>
-                    <div><strong>Amount:</strong> {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"}</div>
+            <div style={{ padding: "16px 20px" }}>
+              {/* Plan picker — horizontal row */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                {[
+                  { id: "week1", label: "1 Week", price: "₦700" },
+                  { id: "week2", label: "2 Weeks", price: "₦1,300" },
+                  { id: "month1", label: "1 Month", price: "₦2,400", badge: "BEST VALUE" },
+                ].map((p) => (
+                  <div
+                    key={p.id}
+                    onClick={() => { setSelectedPlan(p.id); setPaymentMethod("paystack"); }}
+                    style={{
+                      flex: 1,
+                      position: "relative",
+                      border: selectedPlan === p.id ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)",
+                      borderRadius: 10,
+                      padding: "12px 8px",
+                      cursor: "pointer",
+                      background: selectedPlan === p.id ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.03)",
+                      textAlign: "center",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {p.badge && (
+                      <div style={{ position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)", background: "#10b981", color: "#fff", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 700, whiteSpace: "nowrap" }}>{p.badge}</div>
+                    )}
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{p.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>{p.price}</div>
+                    {selectedPlan === p.id && (
+                      <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>✓</div>
+                    )}
                   </div>
-                </div>
+                ))}
               </div>
-            )}
-
-
-
-            {selectedPlan && (
-
-              <div style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 12, padding: 16, marginBottom: 20 }}>
-
-                <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>📱 After Payment</h4>
-
-                <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-                  Send a screenshot of your payment receipt along with your activation key to our WhatsApp.
-                  <br /><strong style={{ color: "#ef9a9a" }}>⚠️ Manual activation may take up to 2 hours.</strong>
-                </p>
-
-                <div style={{ fontSize: 13, marginBottom: 8 }}>
-
-                  <strong>Your Activation Key:</strong>
-
-                </div>
-
-                <div style={{
-
-                  fontFamily: "monospace",
-
-                  fontSize: 18,
-
-                  fontWeight: 700,
-
-                  color: "#fbbf24",
-
-                  letterSpacing: 2,
-
-                  background: "rgba(0,0,0,0.3)",
-
-                  padding: "8px 12px",
-
-                  borderRadius: 6,
-
-                  textAlign: "center",
-
-                  marginBottom: 12
-
-                }}>
-
-                  {auth.user?.activationKey || "Log in to see your key"}
-
-                </div>
-
-                <a
-
-                  href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've made a payment for ${selectedPlan === "week1" ? "1 week" : selectedPlan === "week2" ? "2 weeks" : "1 month"} plan. My activation key is: ${auth.user?.activationKey || "N/A"}. Here's my payment proof:`)}`}
-
-                  target="_blank"
-
-                  rel="noopener noreferrer"
-
-                  style={{
-
-                    display: "block",
-
-                    textAlign: "center",
-
-                    background: "#25D366",
-
-                    color: "white",
-
-                    textDecoration: "none",
-
-                    padding: "12px",
-
-                    borderRadius: 8,
-
-                    fontWeight: 600,
-
-                    transition: "transform 0.2s"
-
-                  }}
-
-                  onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.02)"}
-
-                  onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
-
-                >
-
-                  💬 Send Payment Proof on WhatsApp
-
-                </a>
-
+              {/* Payment method toggle + content */}
+              {selectedPlan && (
+                <>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <button
+                      onClick={() => setPaymentMethod("paystack")}
+                      style={{
+                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "paystack" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)",
+                        background: paymentMethod === "paystack" ? "rgba(59,130,246,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                      }}
+                    >💳 Pay Online</button>
+                    <button
+                      onClick={() => setPaymentMethod("transfer")}
+                      style={{
+                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "transfer" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)",
+                        background: paymentMethod === "transfer" ? "rgba(59,130,246,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                      }}
+                    >🏦 Bank Transfer</button>
+                  </div>
+                  {/* Paystack */}
+                  {paymentMethod === "paystack" && (
+                    <button
+                      onClick={() => {
+                        const plan = { week1: { label: "1 Week", price: 700 }, week2: { label: "2 Weeks", price: 1300 }, month1: { label: "1 Month", price: 2400 } }[selectedPlan];
+                        const rawEmail = auth.user?.email || auth.user?.username || "";
+                        const payEmail = rawEmail.includes("@") ? rawEmail : `${rawEmail || "user"}@scholars-circle.app`;
+                        try {
+                          const popup = new PaystackPop();
+                          popup.newTransaction({
+                            key: PAYSTACK_PUBLIC_KEY,
+                            email: payEmail,
+                            amount: plan.price * 100,
+                            currency: "NGN",
+                            reference: `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                            metadata: { plan: selectedPlan, activationKey: auth.user?.activationKey || "", userId: auth.user?.id || "" },
+                            onSuccess: (transaction) => {
+                              fetch(`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app"}/payment/verify`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                                body: JSON.stringify({ reference: transaction.reference, plan: selectedPlan, activationKey: auth.user?.activationKey || "" }),
+                              })
+                                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                                .then(({ ok, data }) => {
+                                  if (ok && data.activated) {
+                                    refreshAuth();
+                                    setShowPaymentModal(false);
+                                  }
+                                })
+                                .catch(() => {});
+                            },
+                            onCancel: () => {},
+                          });
+                        } catch (err) {
+                          alert(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
+                        }
+                      }}
+                      style={{
+                        width: "100%", padding: "14px", borderRadius: 10, border: "none",
+                        fontSize: 15, fontWeight: 700, cursor: "pointer",
+                        background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff",
+                      }}
+                    >💳 Pay {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"} · Instant Activation</button>
+                  )}
+                  {/* Bank Transfer */}
+                  {paymentMethod === "transfer" && (
+                    <div>
+                      <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 10, padding: 12, marginBottom: 10, fontSize: 13, lineHeight: 1.7 }}>
+                        <div><strong>Bank:</strong> Opay</div>
+                        <div><strong>Account:</strong> 9069372522</div>
+                        <div><strong>Name:</strong> Zibiri-David Delight Aluaye</div>
+                        <div><strong>Amount:</strong> {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"}</div>
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9fa8da", marginBottom: 8, textAlign: "center" }}>
+                        Activation key: <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fbbf24", letterSpacing: 1 }}>{auth.user?.activationKey || "N/A"}</span>
+                      </div>
+                      <a
+                        href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've paid for ${selectedPlan === "week1" ? "1 week" : selectedPlan === "week2" ? "2 weeks" : "1 month"} plan. Key: ${auth.user?.activationKey || "N/A"}. Proof:`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "block", textAlign: "center", background: "#25D366", color: "#fff",
+                          textDecoration: "none", padding: "12px", borderRadius: 8, fontWeight: 600, fontSize: 14,
+                        }}
+                      >💬 Send Payment Proof on WhatsApp</a>
+                      <div style={{ fontSize: 10, color: "#4a5080", textAlign: "center", marginTop: 8 }}>Manual activation may take up to 2 hours</div>
+                    </div>
+                  )}
+                </>
+              )}
+              {/* Footer */}
+              <div style={{ marginTop: 16, textAlign: "center", fontSize: 11, color: "#4a5080" }}>
+                Cancel anytime · <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setShowPaymentModal(false)}>Close</span>
               </div>
-
-            )}
-
-
-
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-
-              <button
-
-                onClick={() => setShowPaymentModal(false)}
-
-                style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
-
-              >
-
-                Cancel
-
-              </button>
-
             </div>
-
           </div>
-
         </div>
-
       )}
 
 
