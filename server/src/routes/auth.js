@@ -53,6 +53,8 @@ const registerSchema = z.object({
 
   inviteCode: z.string().optional(),
 
+  fullName: z.string().optional(),
+
 });
 
 router.post("/register", registerLimiter, async (req, res) => {
@@ -121,6 +123,8 @@ router.post("/register", registerLimiter, async (req, res) => {
 
         username: data.username,
 
+        fullName: data.fullName || null,
+
         passwordHash,
 
         role: desiredRole,
@@ -145,7 +149,7 @@ router.post("/register", registerLimiter, async (req, res) => {
       }
     }
 
-    return res.status(201).json({ id: user.id, username: user.username, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated });
+    return res.status(201).json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated });
 
   } catch (e) {
     console.error("Registration error:", e);
@@ -247,6 +251,7 @@ router.post("/login", authLimiter, async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        fullName: user.fullName || null,
         role: user.role,
         activationKey: user.activationKey,
         isActivated: loginIsActivated,
@@ -274,6 +279,7 @@ router.get("/refresh", requireAuth, async (req, res) => {
       select: {
         id: true,
         username: true,
+        fullName: true,
         role: true,
         activationKey: true,
         isActivated: true,
@@ -323,6 +329,7 @@ router.get("/refresh", requireAuth, async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        fullName: user.fullName || null,
         role: user.role,
         activationKey: user.activationKey,
         isActivated,

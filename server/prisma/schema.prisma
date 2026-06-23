@@ -77,6 +77,8 @@ model User {
 
   username       String            @unique
 
+  fullName       String?
+
   passwordHash   String
 
   role           Role              @default(STUDENT)

@@ -3757,7 +3757,7 @@ textarea {
   }
   
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
     -webkit-overflow-scrolling: touch;
   }
   
@@ -3856,7 +3856,7 @@ textarea {
 /* === Celebration Toast === */
 .celebration-toast {
   position: fixed;
-  top: 20px;
+  top: calc(20px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 9998;
@@ -3898,7 +3898,7 @@ textarea {
 /* === Streak Warning === */
 .streak-warning {
   position: fixed;
-  bottom: 80px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 998;
@@ -4100,7 +4100,7 @@ textarea {
 /* === Celebration Notification === */
 .celebration-notification {
   position: fixed;
-  top: 60px;
+  top: calc(60px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 997;
@@ -4473,7 +4473,7 @@ img, video, iframe, canvas, svg { max-width: 100%; height: auto; }
 iframe { border: 0; }
 
 /* Prevent horizontal scroll caused by overflowing children */
-html, body { overflow-x: hidden; }
+html, body { overflow-x: clip; }
 
 /* Smooth fluid typography between phones and large screens */
 html { font-size: clamp(14px, 0.55vw + 12px, 17px); }

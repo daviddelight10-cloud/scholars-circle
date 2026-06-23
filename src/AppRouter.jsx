@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import HomePage from './features/HomePage';
 import App from './App';
 import ResearchHub from './features/ResearchHub';
@@ -8,8 +8,10 @@ import ResourceUploadForm from './components/teacher/ResourceUploadForm';
 
 // Auth check component
 function LandingPageWrapper() {
+  const location = useLocation();
+  const forceHome = new URLSearchParams(location.search).get('force_home') === '1';
   const authData = localStorage.getItem('scholars-circle-auth');
-  if (authData) {
+  if (authData && !forceHome) {
     try {
       const parsed = JSON.parse(authData);
       if (parsed.authUser) {

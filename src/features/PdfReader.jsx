@@ -207,11 +207,15 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         setNumPages(pdf.numPages);
         setCurrentPage(1);
         // Defer fitToWidth so fullscreen layout is painted before measuring container width
-        await new Promise((r) => requestAnimationFrame(r));
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         if (cancelled) return;
         await fitToWidth();
         await renderPage(1);
         setLoading(false);
+        // Re-fit after loading spinner unmounts (container dimensions may shift)
+        setTimeout(async () => {
+          if (!cancelled) { await fitToWidth(); await renderPage(1); }
+        }, 120);
       } catch (err) {
         console.error("PDF load error:", err);
         setLoadError(`Couldn't open this PDF. ${err.message || ""}`);
@@ -940,6 +944,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         zIndex: 9999,
         borderRadius: 0,
         height: "100vh",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
       }),
     },
     toolbar: {
@@ -953,7 +961,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       display: "flex",
       alignItems: "center",
       gap: isMobile ? "2px" : "6px",
-      padding: isMobile ? "6px 8px" : "8px 14px",
+      padding: isMobile ? "6px max(8px, env(safe-area-inset-left))" : "8px max(14px, env(safe-area-inset-left))",
+      paddingRight: isMobile ? "max(8px, env(safe-area-inset-right))" : "max(14px, env(safe-area-inset-right))",
       width: "100%",
       boxSizing: "border-box",
       overflow: isMobile ? "hidden" : "visible",

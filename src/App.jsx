@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
 
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 
 import { useToast } from "./components/Toast";
 
@@ -2257,6 +2257,8 @@ function App() {
   // Refs for signup form to avoid stale closure issues
 
   const signupEmailRef = useRef("");
+
+  const signupFullNameRef = useRef("");
 
   const signupUsernameRef = useRef("");
 
@@ -4584,6 +4586,8 @@ function App() {
 
       const email = (signupEmailRef.current || "").trim();
 
+      const fullName = (signupFullNameRef.current || "").trim();
+
       const username = (signupUsernameRef.current || "").trim();
 
       const password = (signupPasswordRef.current || "").trim();
@@ -4610,7 +4614,7 @@ function App() {
 
       
 
-      console.log("Registering with:", { email, username, role });
+      console.log("Registering with:", { email, username, fullName, role });
 
 
 
@@ -4623,6 +4627,8 @@ function App() {
           email,
 
           username,
+
+          fullName,
 
           password,
 
@@ -7507,669 +7513,482 @@ function App() {
 
   if (!auth.user) {
 
-
-
     return (
 
+      <main style={{ minHeight: '100vh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.5, WebkitFontSmoothing: 'antialiased', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
 
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+          a { color: inherit; text-decoration: none; }
+          h1, h2 { font-family: 'Syne', sans-serif; margin: 0; letter-spacing: -0.01em; }
+          p { margin: 0; }
+          button { font-family: inherit; }
 
-      <main className={darkMode ? "app dark" : "app light"}>
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes counterspin { to { transform: rotate(-360deg); } }
+          @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+          @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+          @keyframes sweep { from { transform: translateY(0); opacity: 1; } to { transform: translateY(420%); opacity: 0; } }
+          @keyframes blink { 50% { opacity: 0; } }
 
+          .auth-orbit-ring { animation: spin 70s linear infinite; }
+          .auth-orbit-chip span { display: inline-block; animation: counterspin 70s linear infinite; }
+          .auth-float-card { animation: float 6s ease-in-out infinite; }
+          .auth-pulse-dot { animation: pulse 2s ease-in-out infinite; }
+          .auth-scan-sweep { animation: sweep 2.6s ease-out 1; }
+          .auth-cursor { animation: blink 1s steps(2) infinite; color: #4F8EF7; }
 
+          .auth-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 11px 20px; border-radius: 999px;
+            font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 0.92rem;
+            cursor: pointer; border: 1px solid transparent;
+            transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+            white-space: nowrap;
+          }
+          .auth-btn:hover { transform: translateY(-1px); }
+          .auth-btn-ghost { color: #EDEFF5; border-color: rgba(255,255,255,0.16); background: transparent; }
+          .auth-btn-ghost:hover { border-color: #9AA3B5; }
+          .auth-btn-primary { background: #F5A623; color: #1A1300; }
+          .auth-btn-primary:hover { background: #FFB838; }
+          .auth-btn-sm { padding: 8px 16px; font-size: 0.85rem; }
+          .auth-btn-lg { padding: 15px 26px; font-size: 0.98rem; }
+
+          .auth-tab {
+            flex: 1; background: none; border: none; padding: 9px 0; border-radius: 999px;
+            font-weight: 700; font-size: 0.88rem; color: #646E84; cursor: pointer; position: relative; z-index: 1;
+            transition: color 0.2s ease;
+          }
+          .auth-tab.active { color: #1A1300; }
+
+          .auth-input {
+            width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease; appearance: none; -webkit-appearance: none;
+          }
+          .auth-input::placeholder { color: #646E84; }
+          .auth-input:focus { border-color: #4F8EF7; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
+
+          .auth-select {
+            width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
+            cursor: pointer; appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px;
+          }
+          .auth-select:focus { border-color: #4F8EF7; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
+
+          @media (max-width: 900px) {
+            .auth-shell { grid-template-columns: 1fr !important; }
+            .auth-visual-panel { display: none !important; }
+            .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; }
+          }
+          @media (max-width: 560px) {
+            .auth-form-panel { padding: 24px 20px !important; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            * { animation: none !important; transition: none !important; }
+          }
+        `}</style>
 
         {loadingOverlay && (
-
-
-
-          <div className="loading-overlay">
-
-
-
-            <img src="/loading.png" alt="Loading" className="loading-logo" />
-
-
-
-            <span className="loading-text">Loading…</span>
-
-
-
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,13,19,0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+            <img src="/loading.png" alt="Loading" style={{ width: 64, height: 64, borderRadius: 14 }} />
+            <span style={{ color: '#9AA3B5', fontSize: 14, fontFamily: 'JetBrains Mono, monospace' }}>Loading...</span>
           </div>
-
-
-
         )}
-
-
 
         {/* PWA Update Toast */}
-
         {showUpdateToast && (
-
           <div style={{
-
-            position: "fixed",
-
-            bottom: 20,
-
-            left: "50%",
-
-            transform: "translateX(-50%)",
-
-            background: "#1e293b",
-
-            color: "white",
-
-            padding: "12px 20px",
-
-            borderRadius: 12,
-
-            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-
-            zIndex: 9999,
-
-            display: "flex",
-
-            alignItems: "center",
-
-            gap: 12,
-
-            fontSize: 14,
-
-            maxWidth: 400,
-
-            border: "1px solid rgba(59,130,246,0.3)"
-
+            position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+            background: '#151A24', color: '#EDEFF5', padding: '12px 20px', borderRadius: 12,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, maxWidth: 400,
+            border: '1px solid rgba(79,142,247,0.3)'
           }}>
-
-            <span>🔄</span>
-
+            <span style={{ fontSize: 16 }}>Update</span>
             <span style={{ flex: 1 }}>
-
-              {updatePending ? "A new version is available!" : "App updated. Refresh to see changes."}
-
+              {updatePending ? 'A new version is available!' : 'App updated. Refresh to see changes.'}
             </span>
-
             <button
-
               onClick={() => {
-
-                if (updatePending) {
-
-                  applyUpdate();
-
-                } else {
-
-                  window.location.reload();
-
-                }
-
+                if (updatePending) { applyUpdate(); } else { window.location.reload(); }
               }}
-
-              style={{
-
-                background: "#3b82f6",
-
-                color: "white",
-
-                border: "none",
-
-                padding: "6px 14px",
-
-                borderRadius: 6,
-
-                cursor: "pointer",
-
-                fontSize: 13,
-
-                fontWeight: 600,
-
-                whiteSpace: "nowrap"
-
-              }}
-
+              style={{ background: '#4F8EF7', color: 'white', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}
             >
-
-              {updatePending ? "Update Now" : "Reload"}
-
+              {updatePending ? 'Update Now' : 'Reload'}
             </button>
-
             <button
-
               onClick={() => setShowUpdateToast(false)}
-
-              style={{
-
-                background: "none",
-
-                border: "none",
-
-                color: "#94a3b8",
-
-                cursor: "pointer",
-
-                fontSize: 18,
-
-                padding: 0
-
-              }}
-
-            >
-
-              ✕
-
-            </button>
-
+              style={{ background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', fontSize: 18, padding: 0 }}
+            >x</button>
           </div>
-
         )}
 
-
-
-        <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
-
-
-
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
-
-            <div style={{ fontSize: 48, marginBottom: 8 }}>🎓</div>
-
-            <h2 style={{ margin: 0, fontSize: 24 }}>Scholar's Circle</h2>
-
-            <p className="muted" style={{ margin: "4px 0 0 0", fontSize: 13 }}>Your personal learning companion</p>
-
-          </div>
-
-
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-
-            <button
-
-              onClick={() => setAuth((a) => ({ ...a, mode: "login", error: "", info: "" }))}
-
-              disabled={auth.mode === "login"}
-
-              style={{ flex: 1 }}
-
-            >
-
-              Login
-
-            </button>
-
-            <button
-
-              onClick={() => setAuth((a) => ({ ...a, mode: "signup", error: "", info: "" }))}
-
-              disabled={auth.mode === "signup"}
-
-              style={{ flex: 1 }}
-
-            >
-
-              Sign Up
-
-            </button>
-
-          </div>
-
-
-
-          {auth.mode === "signup" ? (
-
-
-
-            <>
-
-
-
-              <p className="muted">Create your account to start learning.</p>
-
-
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-
-
-                <input
-
-                  ref={signupEmailRef}
-
-                  onChange={(e) => { signupEmailRef.current = e.target.value.replace(/\s/g, ""); }}
-
-                  placeholder="Email"
-
-                  type="email"
-
-                  autoComplete="email"
-
-                />
-
-
-
-                <input
-
-                  ref={signupUsernameRef}
-
-                  onChange={(e) => { 
-
-                    // Only allow letters, numbers, and underscores
-
-                    const sanitized = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
-
-                    e.target.value = sanitized;
-
-                    signupUsernameRef.current = sanitized;
-
-                  }}
-
-                  placeholder="Username (letters, numbers, _ only)"
-
-                  autoComplete="username"
-
-                />
-
-
-
-                <div style={{ position: "relative" }}>
-
-                  <input
-
-                    ref={signupPasswordRef}
-
-                    type={showSignupPassword ? "text" : "password"}
-
-                    onChange={(e) => { signupPasswordRef.current = e.target.value; }}
-
-                    placeholder="Password (min 8 characters)"
-
-                    autoComplete="new-password"
-
-                    style={{ width: "100%", paddingRight: 40 }}
-
-                  />
-
-                  <button
-
-                    type="button"
-
-                    onClick={() => setShowSignupPassword((v) => !v)}
-
-                    style={{
-
-                      position: "absolute",
-
-                      right: 8,
-
-                      top: "50%",
-
-                      transform: "translateY(-50%)",
-
-                      background: "none",
-
-                      border: "none",
-
-                      cursor: "pointer",
-
-                      fontSize: 18,
-
-                      padding: 4
-
-                    }}
-
-                    tabIndex={-1}
-
-                  >
-
-                    {showSignupPassword ? "🙈" : "👁️"}
-
-                  </button>
-
-                </div>
-
-
-
-                <div style={{ position: "relative" }}>
-
-                  <input
-
-                    ref={signupConfirmPasswordRef}
-
-                    type={showSignupConfirmPassword ? "text" : "password"}
-
-                    onChange={(e) => { signupConfirmPasswordRef.current = e.target.value; }}
-
-                    placeholder="Confirm password"
-
-                    autoComplete="new-password"
-
-                    style={{ width: "100%", paddingRight: 40 }}
-
-                  />
-
-                  <button
-
-                    type="button"
-
-                    onClick={() => setShowSignupConfirmPassword((v) => !v)}
-
-                    style={{
-
-                      position: "absolute",
-
-                      right: 8,
-
-                      top: "50%",
-
-                      transform: "translateY(-50%)",
-
-                      background: "none",
-
-                      border: "none",
-
-                      cursor: "pointer",
-
-                      fontSize: 18,
-
-                      padding: 4
-
-                    }}
-
-                    tabIndex={-1}
-
-                  >
-
-                    {showSignupConfirmPassword ? "🙈" : "👁️"}
-
-                  </button>
-
-                </div>
-
-
-
-                <select ref={signupRoleRef} onChange={(e) => { setAuth((a) => ({ ...a, signupRole: e.target.value })); }} defaultValue="STUDENT">
-
-                  <option value="STUDENT">Student</option>
-
-                  <option value="TEACHER">Teacher</option>
-
-                </select>
-
-
-
-                {auth.signupRole === "TEACHER" && (
-
-                  <input
-
-                    ref={signupInviteCodeRef}
-
-                    onChange={(e) => { signupInviteCodeRef.current = e.target.value.replace(/\s/g, ""); }}
-
-                    placeholder="Teacher invite code"
-
-                  />
-
-                )}
-
-
-
-                <button onClick={signup} style={{ marginTop: 4 }}>Create Account</button>
-
-
-
+        <div className="auth-shell" style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+
+          {/* Visual Panel */}
+          <div className="auth-visual-panel" style={{
+            position: 'relative',
+            background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #11151E',
+            borderRight: '1px solid rgba(255,255,255,0.09)',
+            overflow: 'hidden',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            padding: '40px 48px',
+          }}>
+            <div style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none',
+              backgroundImage: 'linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px)',
+              backgroundSize: '42px 42px',
+              WebkitMaskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
+              maskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
+            }} />
+            <div className="auth-scan-sweep" style={{ position: 'absolute', left: 0, right: 0, top: '-30%', height: '30%', background: 'linear-gradient(180deg, rgba(79,142,247,0.10), transparent)', pointerEvents: 'none' }} />
+
+            {/* Top: Logo + boot line */}
+            <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem', color: '#EDEFF5' }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#F5A623', boxShadow: '0 0 0 4px rgba(245,166,35,0.14)' }} />
+                Scholar's Circle
+              </Link>
+              <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', color: '#646E84', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{'>>> connecting to your circle'}</span>
+                <span className="auth-cursor">_</span>
               </div>
-
-
-
-            </>
-
-
-
-          ) : (
-
-
-
-            <>
-
-
-
-              <p className="muted">Welcome back! Log in to continue your learning journey.</p>
-
-
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-
-
-                <input
-
-                  value={auth.username}
-
-                  onChange={(e) => setAuth((a) => ({ ...a, username: e.target.value.replace(/\s/g, "") }))}
-
-                  placeholder="Email or username"
-
-                  autoComplete="username"
-
-                />
-
-
-
-                <div style={{ position: "relative" }}>
-
-                  <input
-
-                    type={showLoginPassword ? "text" : "password"}
-
-                    value={auth.password}
-
-                    onChange={(e) => setAuth((a) => ({ ...a, password: e.target.value }))}
-
-                    placeholder="Password"
-
-                    autoComplete="current-password"
-
-                    style={{ width: "100%", paddingRight: 40 }}
-
-                    onKeyDown={(e) => { if (e.key === "Enter") login(); }}
-
-                  />
-
-                  <button
-
-                    type="button"
-
-                    onClick={() => setShowLoginPassword((v) => !v)}
-
-                    style={{
-
-                      position: "absolute",
-
-                      right: 8,
-
-                      top: "50%",
-
-                      transform: "translateY(-50%)",
-
-                      background: "none",
-
-                      border: "none",
-
-                      cursor: "pointer",
-
-                      fontSize: 18,
-
-                      padding: 4
-
-                    }}
-
-                    tabIndex={-1}
-
-                  >
-
-                    {showLoginPassword ? "🙈" : "👁️"}
-
-                  </button>
-
-                </div>
-
-
-
-                <button onClick={login} style={{ marginTop: 4 }}>Login</button>
-
-
-
-              </div>
-
-
-
-            </>
-
-
-
-          )}
-
-
-
-          {auth.info && (
-
-            <div style={{ marginTop: 16, padding: 12, background: "rgba(52,211,153,0.1)", borderRadius: 8, border: "1px solid rgba(52,211,153,0.3)" }}>
-
-              <p style={{ margin: 0, color: "#34d399", fontSize: 13 }}>{auth.info}</p>
-
             </div>
 
-          )}
-
-
-
-          {auth.error && (
-
-            <div style={{ marginTop: 16, padding: 12, background: "rgba(248,113,113,0.1)", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)" }}>
-
-              <p style={{ margin: 0, color: "#f87171", fontSize: 13 }}>{auth.error}</p>
-
+            {/* Center: Orbit + Ring */}
+            <div style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'relative', width: 340, height: 340 }}>
+                <div className="auth-orbit-ring" style={{ position: 'absolute', inset: 0, border: '1px dashed rgba(255,255,255,0.16)', borderRadius: '50%' }}>
+                  {[
+                    { top: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BIO 111' },
+                    { top: '50%', left: 'auto', right: '-12px', transform: 'translateY(-50%)', label: 'CHM 111' },
+                    { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'PHY 111' },
+                    { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'MTH 111' },
+                  ].map((c, i) => (
+                    <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                      <span>{c.label}</span>
+                    </span>
+                  ))}
+                </div>
+                <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#11151E', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
+                  <svg viewBox="0 0 190 190" width="190" height="190" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+                    <defs>
+                      <linearGradient id="authRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#4F8EF7" />
+                        <stop offset="100%" stopColor="#F5A623" />
+                      </linearGradient>
+                    </defs>
+                    <circle fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="8" cx="95" cy="95" r="80" />
+                    <circle
+                      fill="none" strokeWidth="8" strokeLinecap="round" stroke="url(#authRingGrad)"
+                      cx="95" cy="95" r="80"
+                      strokeDasharray="503"
+                      strokeDashoffset={auth.mode === 'signup' ? 503 - (503 * 0.12) : 503 - (503 * 0.68)}
+                      style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.2,0.7,0.2,1)' }}
+                    />
+                  </svg>
+                  <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, padding: '0 20px' }}>
+                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800, lineHeight: 1.2, color: '#EDEFF5' }}>
+                      {auth.mode === 'signup' ? 'Join the Circle.' : 'Welcome back.'}
+                    </h2>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: '#9AA3B5', marginTop: 6, display: 'block', letterSpacing: '0.03em' }}>
+                      {auth.mode === 'signup' ? '2-DAY FREE TRIAL - NO CARD' : 'YOUR STREAK IS WAITING'}
+                    </span>
+                  </div>
+                </div>
+                <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>+12 XP</div>
+                <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>4-day streak</div>
+              </div>
             </div>
 
-          )}
+            {/* Bottom: Pulse stat */}
+            <div style={{ position: 'relative', zIndex: 2 }}>
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: '#646E84' }}>
+                <span className="auth-pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#3DD68C', marginRight: 8, boxShadow: '0 0 0 3px rgba(61,214,140,0.18)' }} />
+                1,284 students studying right now
+              </span>
+            </div>
+          </div>
 
+          {/* Form Panel */}
+          <div className="auth-form-panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 32px' }}>
+            <div style={{ width: '100%', maxWidth: 380 }}>
 
-
-          {/* Customer Support Section */}
-
-          <div style={{ marginTop: 24, padding: 16, background: "rgba(148,163,184,0.08)", borderRadius: 12, border: "1px solid rgba(148,163,184,0.2)" }}>
-
-            <p style={{ margin: "0 0 12px 0", fontSize: 13, fontWeight: 600 }}>Need Help?</p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-
-              <a
-
-                href="https://wa.link/yj2em4?text=Hi%20Scholar's%20Circle%20team,%20I%20need%20help%20with%20my%20account."
-
-                target="_blank"
-
-                rel="noopener noreferrer"
-
-                style={{
-
-                  display: "flex",
-
-                  alignItems: "center",
-
-                  gap: 8,
-
-                  background: "#25D366",
-
-                  color: "white",
-
-                  textDecoration: "none",
-
-                  padding: "10px 14px",
-
-                  borderRadius: 8,
-
-                  fontSize: 13,
-
-                  fontWeight: 600,
-
-                  justifyContent: "center"
-
-                }}
-
-              >
-
-                💬 Chat on WhatsApp
-
+              <a href="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
+                {'<- Back to home'}
               </a>
 
-              <a
+              {/* Tabs */}
+              <div style={{ position: 'relative', display: 'flex', gap: 4, background: '#11151E', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 999, padding: 4, marginBottom: 32 }}>
+                <button
+                  className={'auth-tab ' + (auth.mode === 'login' ? 'active' : '')}
+                  onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))}
+                >Sign in</button>
+                <button
+                  className={'auth-tab ' + (auth.mode === 'signup' ? 'active' : '')}
+                  onClick={() => setAuth((a) => ({ ...a, mode: 'signup', error: '', info: '' }))}
+                >Sign up</button>
+                <div style={{
+                  position: 'absolute', top: 4, left: 4,
+                  width: 'calc(50% - 4px)', height: 'calc(100% - 8px)',
+                  background: '#F5A623', borderRadius: 999,
+                  transition: 'transform 0.25s cubic-bezier(0.3,0.7,0.3,0.1)',
+                  transform: auth.mode === 'signup' ? 'translateX(100%)' : 'translateX(0)',
+                }} />
+              </div>
 
-                href="tel:09028617178"
+              {/* Sign In */}
+              {auth.mode === 'login' ? (
+                <>
+                  <div style={{ marginBottom: 28 }}>
+                    <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Welcome back</h1>
+                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
+                  </div>
 
-                style={{
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email or username</label>
+                      <input
+                        className="auth-input"
+                        value={auth.username}
+                        onChange={(e) => setAuth((a) => ({ ...a, username: e.target.value.replace(/\s/g, '') }))}
+                        placeholder="you@email.com"
+                        autoComplete="username"
+                        onKeyDown={(e) => { if (e.key === 'Enter') login(); }}
+                      />
+                    </div>
 
-                  display: "flex",
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          className="auth-input"
+                          type={showLoginPassword ? 'text' : 'password'}
+                          value={auth.password}
+                          onChange={(e) => setAuth((a) => ({ ...a, password: e.target.value }))}
+                          placeholder="Enter your password"
+                          autoComplete="current-password"
+                          style={{ paddingRight: 40 }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') login(); }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword((v) => !v)}
+                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
+                          tabIndex={-1}
+                        >
+                          {showLoginPassword ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
 
-                  alignItems: "center",
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.86rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9AA3B5', cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ accentColor: '#F5A623', width: 15, height: 15 }} />Keep me signed in
+                      </label>
+                    </div>
 
-                  gap: 8,
+                    <button onClick={login} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%' }}>
+                      {'Sign in ->'}
+                    </button>
+                  </div>
 
-                  background: "#3b82f6",
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0', color: '#646E84', fontSize: '0.78rem', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                    or
+                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                  </div>
 
-                  color: "white",
+                  <button className="auth-btn auth-btn-ghost" style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: '0.9rem' }}>
+                    Continue with Google
+                  </button>
 
-                  textDecoration: "none",
+                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.88rem', color: '#9AA3B5' }}>
+                    New here? <span onClick={() => setAuth((a) => ({ ...a, mode: 'signup', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Start your 2-day free trial</span>
+                  </p>
+                </>
+              ) : (
+                /* Sign Up */
+                <>
+                  <div style={{ marginBottom: 28 }}>
+                    <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Join the Circle</h1>
+                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>2-day free trial. No card needed.</p>
+                  </div>
 
-                  padding: "10px 14px",
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Full name</label>
+                      <input
+                        className="auth-input"
+                        ref={signupFullNameRef}
+                        onChange={(e) => { signupFullNameRef.current = e.target.value; }}
+                        placeholder="Adeola Okafor"
+                        autoComplete="name"
+                      />
+                    </div>
 
-                  borderRadius: 8,
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Username</label>
+                      <input
+                        className="auth-input"
+                        ref={signupUsernameRef}
+                        onChange={(e) => {
+                          const sanitized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+                          e.target.value = sanitized;
+                          signupUsernameRef.current = sanitized;
+                        }}
+                        placeholder="adeola_okafor"
+                        autoComplete="username"
+                      />
+                    </div>
 
-                  fontSize: 13,
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
+                      <input
+                        className="auth-input"
+                        ref={signupEmailRef}
+                        onChange={(e) => { signupEmailRef.current = e.target.value.replace(/\s/g, ''); }}
+                        placeholder="you@email.com"
+                        type="email"
+                        autoComplete="email"
+                      />
+                    </div>
 
-                  fontWeight: 600,
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          className="auth-input"
+                          ref={signupPasswordRef}
+                          type={showSignupPassword ? 'text' : 'password'}
+                          onChange={(e) => { signupPasswordRef.current = e.target.value; }}
+                          placeholder="Min 8 characters"
+                          autoComplete="new-password"
+                          style={{ paddingRight: 40 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignupPassword((v) => !v)}
+                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
+                          tabIndex={-1}
+                        >
+                          {showSignupPassword ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
 
-                  justifyContent: "center"
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Confirm password</label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          className="auth-input"
+                          ref={signupConfirmPasswordRef}
+                          type={showSignupConfirmPassword ? 'text' : 'password'}
+                          onChange={(e) => { signupConfirmPasswordRef.current = e.target.value; }}
+                          placeholder="Re-enter your password"
+                          autoComplete="new-password"
+                          style={{ paddingRight: 40 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignupConfirmPassword((v) => !v)}
+                          style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#646E84', cursor: 'pointer', padding: 4, display: 'flex', fontSize: 14 }}
+                          tabIndex={-1}
+                        >
+                          {showSignupConfirmPassword ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
 
-                }}
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Role</label>
+                      <select
+                        className="auth-select"
+                        ref={signupRoleRef}
+                        onChange={(e) => { setAuth((a) => ({ ...a, signupRole: e.target.value })); }}
+                        defaultValue="STUDENT"
+                      >
+                        <option value="STUDENT">Student</option>
+                        <option value="TEACHER">Teacher</option>
+                      </select>
+                    </div>
 
-              >
+                    {auth.signupRole === 'TEACHER' && (
+                      <div>
+                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Teacher invite code</label>
+                        <input
+                          className="auth-input"
+                          ref={signupInviteCodeRef}
+                          onChange={(e) => { signupInviteCodeRef.current = e.target.value.replace(/\s/g, ''); }}
+                          placeholder="Enter invite code"
+                        />
+                      </div>
+                    )}
 
-                📞 Call: 09028617178
+                    <label style={{ fontSize: '0.82rem', color: '#646E84', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
+                      <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} />
+                      <span>I agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#4F8EF7', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#4F8EF7', fontWeight: 600 }}>Privacy Policy</a>.</span>
+                    </label>
 
-              </a>
+                    <button onClick={signup} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%' }}>
+                      {'Start your 2-day free trial ->'}
+                    </button>
+                  </div>
+
+                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.88rem', color: '#9AA3B5' }}>
+                    Already circling back? <span onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
+                  </p>
+                </>
+              )}
+
+              {/* Error / Info banners */}
+              {auth.info && (
+                <div style={{ marginTop: 16, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.3)' }}>
+                  <p style={{ margin: 0, color: '#34d399', fontSize: 13 }}>{auth.info}</p>
+                </div>
+              )}
+
+              {auth.error && (
+                <div style={{ marginTop: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
+                  <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
+                </div>
+              )}
+
+              {/* Support */}
+              <div style={{ marginTop: 24, padding: 16, background: 'rgba(148,163,184,0.06)', borderRadius: 12, border: '1px solid rgba(148,163,184,0.15)' }}>
+                <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 600, color: '#9AA3B5' }}>Need help?</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <a
+                    href="https://wa.link/yj2em4?text=Hi%20Scholar's%20Circle%20team,%20I%20need%20help%20with%20my%20account."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#25D366', color: 'white', textDecoration: 'none', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
+                  >
+                    Chat on WhatsApp
+                  </a>
+                  <a
+                    href="tel:09028617178"
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#4F8EF7', color: 'white', textDecoration: 'none', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
+                  >
+                    Call: 09028617178
+                  </a>
+                </div>
+                <p style={{ marginTop: 8, fontSize: 11, textAlign: 'center', color: '#646E84' }}>
+                  Having trouble? Reach out and we'll help you right away.
+                </p>
+              </div>
 
             </div>
-
-            <p className="muted" style={{ marginTop: 8, fontSize: 11, textAlign: "center" }}>
-
-              Having trouble logging in or signing up? Reach out and we'll help you right away.
-
-            </p>
-
           </div>
-
-
-
-          <p className="muted" style={{ marginTop: "20px", fontSize: "12px", textAlign: "center" }}>
-
-            By using this app, you agree to our <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-
-          </p>
-
-
 
         </div>
 
-
-
       </main>
 
-
-
     );
-
-
 
   }
 
