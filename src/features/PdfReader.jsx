@@ -82,11 +82,22 @@ function loadPdfJs() {
   });
 }
 
-const SUGGESTED_CHIPS = [
-  "Why does this matter?",
-  "Give an example",
-  "Is this likely on the exam?",
+const SMART_CHIPS = [
+  { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
+  { label: "Step-by-step", prompt: "Break this down into clear numbered steps." },
+  { label: "Give an example", prompt: "Give a concrete worked example of this." },
+  { label: "Define key terms", prompt: "Define the key terms involved in plain language." },
+  { label: "Quiz me", prompt: "Ask me 2 short questions to test if I understood this. Wait for my answers." },
+  { label: "Why it matters", prompt: "Why is this important and where is it used in practice?" },
 ];
+
+const TUTOR_SYSTEM = `You are a direct, no-fluff study tutor. A student circled something on a PDF page and wants to understand it.
+Rules:
+- Answer what is circled directly. Do NOT greet, compliment, or encourage.
+- If it is a question, answer it. If a term/concept, define and explain it. If a math/science problem, solve it step-by-step. If a diagram, explain what it shows.
+- Use markdown: **bold** key terms, short bullet points, numbered steps for problems.
+- Be concise (~120 words) but allow numbered steps for problems.
+- End with a one-line "Why it matters" if not already obvious.`;
 
 export default function PdfReader({ fileUrl, title }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
@@ -156,8 +167,12 @@ export default function PdfReader({ fileUrl, title }) {
   const chatScrollRef = useRef(null);
   const inputRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
-  const pinchRef = useRef(null);
-  const lastTapRef = useRef(0);
+
+  // Page sorter filter
+  const [pageFilter, setPageFilter] = useState("all");
+
+  // Save-flashcard confirmation
+  const [flashcardSaved, setFlashcardSaved] = useState(false);
 
   // Load PDF document
   useEffect(() => {
@@ -404,9 +419,9 @@ export default function PdfReader({ fileUrl, title }) {
     pageTextRef.current = pageText;
 
     // Start conversation: first user message with image
-    const firstPrompt = `A student circled something on page ${currentPage} of their study notes (a PDF). ${pageText ? `Full text of that page, for context:\n"""${pageText}"""\n\n` : ""}A cropped image of exactly what they circled is attached. Identify what's being asked or shown there specifically, and explain it like a clear, encouraging tutor. Keep it under 90 words.`;
+    const firstPrompt = `${TUTOR_SYSTEM}\n\n---\n\nA student circled something on page ${currentPage} of their study PDF. ${pageText ? `Full text of that page for context:\n"""${pageText}"""\n\n` : ""}A cropped image of exactly what they circled is attached. Look at the image carefully and answer what is circled directly.`;
 
-    setChatMessages([{ role: "user", content: firstPrompt, image: thumb }]);
+    setChatMessages([{ role: "user", content: "What did I circle?", image: thumb }]);
     setChatOpen(true);
     setChatLoading(true);
     setChatError(null);
@@ -443,7 +458,7 @@ export default function PdfReader({ fileUrl, title }) {
     const historyForApi = [...chatMessages, { role: "user", content: trimmed }];
 
     // Add page text context to the prompt
-    const promptWithContext = `${trimmed}\n\n[Context: You are a tutor helping a student with their study notes. The student previously circled something on page ${currentPage} and you explained it. Continue the conversation naturally. Page text for reference:\n"""${pageTextRef.current || "(no text extracted)"}"""\nKeep your answer under 120 words.]`;
+    const promptWithContext = `${TUTOR_SYSTEM}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nUSER FOLLOW-UP:\n${trimmed}\n\n[Page ${currentPage} text for reference:\n"""${pageTextRef.current || "(no text extracted)"}"""\nAnswer the follow-up directly. No greetings or compliments.]`;
 
     try {
       const answer = await callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" });
@@ -473,7 +488,7 @@ export default function PdfReader({ fileUrl, title }) {
     setChatError(null);
     setChatLoading(true);
     const historyForApi = chatMessages.slice(0, actualIdx + 1);
-    const promptWithContext = `${lastUserMsg.content}\n\n[Context: You are a tutor helping a student with their study notes. Continue the conversation naturally. Page text for reference:\n"""${pageTextRef.current || "(no text extracted)"}"""\nKeep your answer under 120 words.]`;
+    const promptWithContext = `${TUTOR_SYSTEM}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nUSER MESSAGE TO RETRY:\n${lastUserMsg.content}\n\n[Page ${currentPage} text for reference:\n"""${pageTextRef.current || "(no text extracted)"}"""\nAnswer directly. No greetings or compliments.]`;
     callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" })
       .then((answer) => {
         setChatMessages((prev) => [...prev, { role: "assistant", content: answer || "No response." }]);
@@ -686,46 +701,19 @@ export default function PdfReader({ fileUrl, title }) {
     );
   };
 
-  // ---- Pinch-to-zoom ----
+  // ---- Swipe navigation ----
   const onTouchStartViewer = (e) => {
     if (tool !== "none") return;
-    if (e.touches.length === 2) {
-      const [t1, t2] = [e.touches[0], e.touches[1]];
-      pinchRef.current = {
-        dist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
-        scale: scale,
-      };
-    } else if (e.touches.length === 1) {
+    if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      // Double-tap detection
-      const now = Date.now();
-      if (now - lastTapRef.current < 300) {
-        // Double tap: toggle zoom
-        setUserZoomed(true);
-        setScale((s) => s > 1.5 ? Math.max(0.5, s / 1.8) : Math.min(2.6, s * 1.8));
-      }
-      lastTapRef.current = now;
     }
   };
 
-  const onTouchMoveViewer = (e) => {
-    if (tool !== "none") return;
-    if (e.touches.length === 2 && pinchRef.current) {
-      e.preventDefault();
-      const [t1, t2] = [e.touches[0], e.touches[1]];
-      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-      const ratio = dist / pinchRef.current.dist;
-      const newScale = Math.max(0.5, Math.min(3, pinchRef.current.scale * ratio));
-      setScale(newScale);
-      setUserZoomed(true);
-    }
-  };
+  const onTouchMoveViewer = () => {};
 
   const onTouchEndViewer = (e) => {
     if (tool !== "none") return;
-    if (e.touches.length < 2) pinchRef.current = null;
-    // Swipe nav (only if not pinching)
-    if (e.changedTouches.length === 1 && !pinchRef.current) {
+    if (e.changedTouches.length === 1) {
       const t = e.changedTouches[0];
       const dx = t.clientX - touchStartRef.current.x;
       const dy = t.clientY - touchStartRef.current.y;
@@ -906,10 +894,28 @@ export default function PdfReader({ fileUrl, title }) {
       width: "132px",
       height: "100%",
       overflowY: "auto",
-      padding: "10px 8px",
+      padding: "0 8px 10px",
       display: "flex",
       flexDirection: "column",
       gap: "10px",
+    },
+    pageFilterRow: {
+      display: "flex",
+      gap: 4,
+      padding: "8px 8px 6px",
+      flexWrap: "wrap",
+      flexShrink: 0,
+    },
+    pageFilterTab: {
+      fontSize: 10.5,
+      fontWeight: 600,
+      padding: "3px 8px",
+      borderRadius: 999,
+      border: `1px solid ${T.border}`,
+      background: "none",
+      color: T.muted,
+      cursor: "pointer",
+      whiteSpace: "nowrap",
     },
     thumb: {
       display: "flex",
@@ -1071,33 +1077,62 @@ export default function PdfReader({ fileUrl, title }) {
       cursor: "pointer",
       transition: "transform 0.12s ease, background 0.15s ease",
     },
-    // Chat popup
-    chatPopup: {
-      position: "absolute",
-      left: chatPosition.left,
-      top: chatPosition.top,
-      width: isMobile ? "calc(100vw - 16px)" : "280px",
-      maxWidth: "320px",
+    // Chat popup — mobile bottom sheet / desktop side panel
+    chatBackdrop: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.45)",
+      zIndex: 90,
+    },
+    chatPopup: isMobile ? {
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: "72vh",
       background: T.toolbar,
-      border: `1px solid ${T.border}`,
-      borderRadius: "10px",
-      boxShadow: `0 10px 28px ${T.shadow}`,
-      zIndex: 20,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      boxShadow: `0 -4px 24px ${T.shadow}`,
+      zIndex: 100,
       display: "flex",
       flexDirection: "column",
-      maxHeight: "420px",
+      animation: "slideUp 0.2s ease",
+    } : {
+      position: "fixed",
+      top: "50%",
+      right: 16,
+      transform: "translateY(-50%)",
+      width: 420,
+      maxWidth: "calc(100vw - 32px)",
+      maxHeight: "calc(100vh - 100px)",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
+      borderRadius: 12,
+      boxShadow: `0 12px 36px ${T.shadow}`,
+      zIndex: 100,
+      display: "flex",
+      flexDirection: "column",
+    },
+    sheetHandle: {
+      width: 40,
+      height: 4,
+      background: T.border,
+      borderRadius: 2,
+      margin: "8px auto 4px",
+      flexShrink: 0,
     },
     chatHead: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      padding: "8px 10px",
+      padding: isMobile ? "6px 14px 8px" : "10px 14px",
       borderBottom: `1px solid ${T.border}`,
       flexShrink: 0,
     },
     chatTag: {
       fontFamily: "ui-monospace, monospace",
-      fontSize: 10,
+      fontSize: isMobile ? 11 : 12,
       textTransform: "uppercase",
       letterSpacing: "0.04em",
       color: T.accent,
@@ -1112,10 +1147,10 @@ export default function PdfReader({ fileUrl, title }) {
     },
     chatThread: {
       overflowY: "auto",
-      padding: 10,
+      padding: isMobile ? 12 : 14,
       display: "flex",
       flexDirection: "column",
-      gap: 8,
+      gap: 10,
       flex: 1,
       minHeight: 60,
     },
@@ -1125,26 +1160,26 @@ export default function PdfReader({ fileUrl, title }) {
       background: T.accent,
       color: "white",
       borderRadius: "10px 10px 2px 10px",
-      padding: "7px 11px",
-      fontSize: 12.5,
-      lineHeight: 1.45,
+      padding: "8px 12px",
+      fontSize: isMobile ? 13 : 14,
+      lineHeight: 1.5,
     },
     msgAssistant: {
       alignSelf: "flex-start",
-      maxWidth: "85%",
+      maxWidth: "88%",
       background: T.chatBot,
       color: T.text,
       borderRadius: "10px 10px 10px 2px",
-      padding: "7px 11px",
-      fontSize: 12.5,
-      lineHeight: 1.45,
+      padding: "8px 12px",
+      fontSize: isMobile ? 13 : 14,
+      lineHeight: 1.55,
     },
     msgImage: {
       maxWidth: "100%",
-      maxHeight: 80,
+      maxHeight: isMobile ? 120 : 100,
       borderRadius: 6,
       border: `1px solid ${T.border}`,
-      marginBottom: 4,
+      marginBottom: 6,
       display: "block",
     },
     msgLoading: {
@@ -1152,11 +1187,11 @@ export default function PdfReader({ fileUrl, title }) {
       display: "flex",
       alignItems: "center",
       gap: 7,
-      fontSize: 12.5,
+      fontSize: isMobile ? 13 : 14,
       color: T.muted,
       background: T.chatBot,
       borderRadius: "10px 10px 10px 2px",
-      padding: "7px 11px",
+      padding: "8px 12px",
     },
     msgError: {
       alignSelf: "flex-start",
@@ -1182,26 +1217,26 @@ export default function PdfReader({ fileUrl, title }) {
     },
     chipsRow: {
       display: "flex",
-      gap: 5,
-      padding: "6px 10px",
+      gap: 6,
+      padding: isMobile ? "8px 12px" : "8px 14px",
       flexWrap: "wrap",
       flexShrink: 0,
     },
     chip: {
-      fontSize: 11,
+      fontSize: isMobile ? 12 : 12.5,
       fontWeight: 500,
       color: T.text,
       background: T.chipBg,
       border: `1px solid ${T.border}`,
       borderRadius: "999px",
-      padding: "3px 10px",
+      padding: isMobile ? "5px 12px" : "4px 11px",
       cursor: "pointer",
       whiteSpace: "nowrap",
     },
     chatInputRow: {
       display: "flex",
       gap: 6,
-      padding: "8px 10px",
+      padding: isMobile ? "8px 12px 12px" : "8px 14px 10px",
       borderTop: `1px solid ${T.border}`,
       flexShrink: 0,
     },
@@ -1209,13 +1244,13 @@ export default function PdfReader({ fileUrl, title }) {
       flex: 1,
       border: `1px solid ${T.border}`,
       borderRadius: 8,
-      padding: "6px 8px",
-      fontSize: 12.5,
+      padding: isMobile ? "8px 10px" : "6px 8px",
+      fontSize: isMobile ? 14 : 13,
       color: T.text,
       background: T.inputBg,
       outline: "none",
       resize: "none",
-      minHeight: 32,
+      minHeight: 36,
       maxHeight: 60,
       fontFamily: "inherit",
     },
@@ -1224,11 +1259,25 @@ export default function PdfReader({ fileUrl, title }) {
       color: "white",
       border: "none",
       borderRadius: 8,
-      padding: "6px 12px",
-      fontSize: 12.5,
+      padding: isMobile ? "8px 16px" : "6px 14px",
+      fontSize: isMobile ? 14 : 13,
       fontWeight: 600,
       cursor: chatInput.trim() && !chatLoading ? "pointer" : "default",
       opacity: chatInput.trim() && !chatLoading ? 1 : 0.35,
+      flexShrink: 0,
+    },
+    saveCardBtn: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      background: T.chipBg,
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      padding: "6px 12px",
+      fontSize: 12.5,
+      fontWeight: 600,
+      color: flashcardSaved ? T.accent : T.text,
+      cursor: flashcardSaved ? "default" : "pointer",
       flexShrink: 0,
     },
     // Color picker popup
@@ -1362,12 +1411,33 @@ export default function PdfReader({ fileUrl, title }) {
     },
   };
 
+  const filteredThumbs = thumbs.filter((t) => {
+    if (pageFilter === "all") return true;
+    if (pageFilter === "bookmarked") return bookmarks.includes(t.page);
+    if (pageFilter === "highlighted") return annotations[t.page]?.length > 0;
+    return true;
+  });
+
   const showChips = chatMessages.length > 0 && chatMessages[chatMessages.length - 1]?.role === "assistant" && !chatLoading;
   const lastIsAssistant = chatMessages.length > 0 && chatMessages[chatMessages.length - 1]?.role === "assistant";
+  const lastAssistantMsg = [...chatMessages].reverse().find((m) => m.role === "assistant");
+
+  const saveAsFlashcard = () => {
+    if (!lastAssistantMsg) return;
+    const front = `Page ${currentPage} — ${title || "PDF notes"}`;
+    const back = lastAssistantMsg.content.slice(0, 500);
+    const card = { front, back, subject: title || "PDF Notes" };
+    try {
+      const existing = JSON.parse(localStorage.getItem("customFlashcards") || "[]");
+      localStorage.setItem("customFlashcards", JSON.stringify([...existing, card]));
+      setFlashcardSaved(true);
+      setTimeout(() => setFlashcardSaved(false), 2500);
+    } catch (e) {}
+  };
 
   return (
     <div style={s.container}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
 
       {/* Toolbar */}
       <div style={s.toolbar}>
@@ -1742,8 +1812,33 @@ export default function PdfReader({ fileUrl, title }) {
         {/* Thumbnails (desktop sidebar) */}
         {!isMobile && (
           <aside style={s.thumbsAside}>
+            <div style={s.pageFilterRow}>
+              {[
+                { key: "all", label: "All" },
+                { key: "bookmarked", label: "🔖" },
+                { key: "highlighted", label: "🖍" },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  style={{
+                    ...s.pageFilterTab,
+                    background: pageFilter === f.key ? T.accent : "none",
+                    color: pageFilter === f.key ? "white" : T.muted,
+                    borderColor: pageFilter === f.key ? T.accent : T.border,
+                  }}
+                  onClick={() => setPageFilter(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
             <div style={s.thumbRail}>
-              {thumbs.map((t) => (
+              {filteredThumbs.length === 0 && (
+                <div style={{ fontSize: 11, color: T.muted, padding: "12px 4px", textAlign: "center" }}>
+                  No {pageFilter === "bookmarked" ? "bookmarked" : "highlighted"} pages
+                </div>
+              )}
+              {filteredThumbs.map((t) => (
                 <button
                   key={t.page}
                   style={{
@@ -1769,9 +1864,34 @@ export default function PdfReader({ fileUrl, title }) {
           }} onClick={() => setShowThumbs(false)}>
             <div style={{
               width: 160, height: "100%", background: T.toolbar, overflowY: "auto",
-              padding: "10px 8px", display: "flex", flexDirection: "column", gap: 10,
+              padding: "0 8px 10px", display: "flex", flexDirection: "column", gap: 10,
             }} onClick={(e) => e.stopPropagation()}>
-              {thumbs.map((t) => (
+              <div style={s.pageFilterRow}>
+                {[
+                  { key: "all", label: "All" },
+                  { key: "bookmarked", label: "🔖" },
+                  { key: "highlighted", label: "🖍" },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    style={{
+                      ...s.pageFilterTab,
+                      background: pageFilter === f.key ? T.accent : "none",
+                      color: pageFilter === f.key ? "white" : T.muted,
+                      borderColor: pageFilter === f.key ? T.accent : T.border,
+                    }}
+                    onClick={() => setPageFilter(f.key)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              {filteredThumbs.length === 0 && (
+                <div style={{ fontSize: 11, color: T.muted, padding: "12px 4px", textAlign: "center" }}>
+                  No {pageFilter === "bookmarked" ? "bookmarked" : "highlighted"} pages
+                </div>
+              )}
+              {filteredThumbs.map((t) => (
                 <button
                   key={t.page}
                   style={{
@@ -1850,11 +1970,18 @@ export default function PdfReader({ fileUrl, title }) {
               {lassoPath && tool === "circle" && <path d={lassoPath} style={s.lassoPath} />}
             </svg>
 
-            {/* Chat popup */}
-            {chatOpen && (
+          </div>
+
+          {/* Chat popup — mobile bottom sheet / desktop side panel */}
+          {chatOpen && (
+            <>
+              {isMobile && <div style={s.chatBackdrop} onClick={closeChat} />}
               <div style={s.chatPopup}>
+                {isMobile && <div style={s.sheetHandle} />}
                 <div style={s.chatHead}>
-                  <span style={s.chatTag}>{chatMessages.length > 0 ? "Tutor Chat" : "Loading…"}</span>
+                  <span style={s.chatTag}>
+                    {chatMessages.length > 0 ? `Answer · p.${currentPage}` : "Loading…"}
+                  </span>
                   <button style={s.chatClose} onClick={closeChat}>✕</button>
                 </div>
 
@@ -1871,7 +1998,7 @@ export default function PdfReader({ fileUrl, title }) {
                   ))}
                   {chatLoading && (
                     <div style={s.msgLoading}>
-                      <span style={s.spinner} /> One sec…
+                      <span style={s.spinner} /> Analyzing…
                     </div>
                   )}
                   {chatError && (
@@ -1884,15 +2011,20 @@ export default function PdfReader({ fileUrl, title }) {
 
                 {showChips && (
                   <div style={s.chipsRow}>
-                    {SUGGESTED_CHIPS.map((chip) => (
-                      <button key={chip} style={s.chip} onClick={() => sendFollowUp(chip)}>
-                        {chip}
+                    {SMART_CHIPS.map((chip) => (
+                      <button key={chip.label} style={s.chip} onClick={() => sendFollowUp(chip.prompt)}>
+                        {chip.label}
                       </button>
                     ))}
                   </div>
                 )}
 
                 <div style={s.chatInputRow}>
+                  {lastIsAssistant && (
+                    <button style={s.saveCardBtn} onClick={saveAsFlashcard}>
+                      {flashcardSaved ? "✓ Saved" : "🔖 Save"}
+                    </button>
+                  )}
                   <textarea
                     ref={inputRef}
                     style={s.chatTextarea}
@@ -1911,8 +2043,8 @@ export default function PdfReader({ fileUrl, title }) {
                   </button>
                 </div>
               </div>
-            )}
-          </div>
+            </>
+          )}
 
           {loading && (
             <div style={s.loadingOverlay}>
