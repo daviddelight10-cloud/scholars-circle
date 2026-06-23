@@ -11657,1091 +11657,206 @@ function App() {
       )}
 
       {tab === "settings" && (
-
-
-
         <>
-
-
-
-        <NotificationSettings token={token} />
-
-
-
-        <div className="card">
-
-
-
-          <h2>Settings, AI & Sync</h2>
-
-
-
-          <div className="row">
-
-
-
-            <span>Theme</span>
-
-
-
-            <button onClick={() => setDarkMode((v) => !v)}>{darkMode ? "Dark" : "Light"}</button>
-
-
-
-          </div>
-
-
-
-          <div className="row">
-
-
-
-            <button
-
-
-
-              onClick={() => {
-
-
-
-                setToken("");
-
-
-
-                setAuth({ username: "", password: "", user: null, error: "" });
-
-
-
-              }}
-
-
-
-            >
-
-
-
-              Logout
-
-
-
-            </button>
-
-
-
-            <button className="danger" onClick={handleResetAll}>
-
-
-
-              Reset data
-
-
-
-            </button>
-
-
-
-          </div>
-
-
-
-          {demoMode && (
-
-            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-
-              <h3 style={{ margin: "0 0 12px 0", color: "#facc15" }}>🎯 Demo Mode Progress</h3>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-
-                {DEMO_ACHIEVEMENTS.map(ach => {
-
-                  const earned = demoUsage.demoProgress.achievements.includes(ach.id);
-
-                  return (
-
-                    <div key={ach.id} style={{
-
-                      background: earned ? "rgba(52,211,153,0.1)" : "rgba(148,163,184,0.1)",
-
-                      border: earned ? "1px solid rgba(52,211,153,0.3)" : "1px solid rgba(148,163,184,0.3)",
-
-                      borderRadius: 8,
-
-                      padding: 12,
-
-                      opacity: earned ? 1 : 0.6
-
-                    }}>
-
-                      <div style={{ fontSize: 20 }}>{ach.icon}</div>
-
-                      <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>{ach.label}</div>
-
-                      <div style={{ fontSize: 11, marginTop: 2 }}>{ach.desc}</div>
-
-                      {earned && <div style={{ color: "#34d399", fontSize: 11, marginTop: 4 }}>✓ Earned</div>}
-
-                    </div>
-
-                  );
-
-                })}
-
-              </div>
-
-              <div style={{ marginTop: 16, padding: 12, background: "rgba(59,130,246,0.1)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.3)" }}>
-
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Demo Completion: {Math.round((demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100)}%</div>
-
-                <div style={{ height: 8, background: "rgba(148,163,184,0.3)", borderRadius: 4, overflow: "hidden" }}>
-
-                  <div style={{
-
-                    height: "100%",
-
-                    width: `${(demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100}%`,
-
-                    background: "#3b82f6",
-
-                    transition: "width 0.3s"
-
-                  }} />
-
-                </div>
-
-                <button onClick={() => setShowPaymentModal(true)} style={{ marginTop: 12, width: "100%", background: "#3b82f6", color: "white", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
-
-                  Upgrade to Full Version
-
-                </button>
-
-              </div>
-
-            </div>
-
-          )}
-
-
-
-          {auth.user?.activationKey && (
-
-            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-
-              <p className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Your Activation Key</p>
-
-              <div style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 700, color: "#facc15", letterSpacing: 2 }}>
-
-                {auth.user.activationKey}
-
-              </div>
-
-              {!isActivated && <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Share this key with your teacher to get activated</p>}
-
-              {isActivated && <p className="muted" style={{ fontSize: 11, marginTop: 8, color: "#34d399" }}>✓ Your account is activated</p>}
-
-            </div>
-
-          )}
-
-          {/* Subscription Plan Card — visible to students */}
-          {!isTeacher && auth.user && (() => {
-            const planType = auth.user.planType;
-            const expiry = auth.user.activationExpiry ? new Date(auth.user.activationExpiry) : null;
-            const daysLeft = expiry ? Math.ceil((expiry - Date.now()) / 86400000) : null;
-            const planLabel = planType === "week1" ? "1-Week Plan" : planType === "week2" ? "2-Week Plan" : planType === "month1" ? "1-Month Plan" : null;
-            const statusColor = !isActivated ? "#94a3b8" : daysLeft !== null && daysLeft <= 3 ? "#ef4444" : daysLeft !== null && daysLeft <= 7 ? "#f59e0b" : "#10b981";
-            const statusText = !isActivated ? "Not Activated" : daysLeft !== null && daysLeft <= 0 ? "Expired" : daysLeft !== null && daysLeft <= 1 ? "Expires Today!" : daysLeft !== null ? `${daysLeft} days left` : "Active";
-            const statusBg = !isActivated ? "rgba(148,163,184,0.1)" : daysLeft !== null && daysLeft <= 3 ? "rgba(239,68,68,0.1)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)";
-            const statusBorder = !isActivated ? "rgba(148,163,184,0.3)" : daysLeft !== null && daysLeft <= 3 ? "rgba(239,68,68,0.3)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,158,11,0.3)" : "rgba(16,185,129,0.3)";
-            return (
-              <div style={{ background: statusBg, border: `1px solid ${statusBorder}`, borderRadius: 10, padding: 16, marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <p className="muted" style={{ fontSize: 12, margin: 0 }}>📋 Subscription Plan</p>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}40`, borderRadius: 20, padding: "3px 10px" }}>
-                    ● {statusText}
-                  </span>
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>
-                  {planLabel || (isActivated ? "Active Plan" : "No Active Plan")}
-                </div>
-                {expiry && (
-                  <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                    {daysLeft !== null && daysLeft > 0
-                      ? `Expires ${expiry.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}`
-                      : `Expired on ${expiry.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`}
-                  </div>
-                )}
-                {!isActivated && (
-                  <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>
-                    Share your activation key above with your teacher to get started.
-                  </p>
-                )}
-                {isActivated && daysLeft !== null && daysLeft <= 7 && daysLeft > 0 && (
-                  <p style={{ fontSize: 11, color: statusColor, marginTop: 8, marginBottom: 0, fontWeight: 600 }}>
-                    ⚠️ Contact your teacher to renew your subscription before it expires.
-                  </p>
-                )}
-              </div>
-            );
-          })()}
-
-          {!auth.user?.activationKey && !isTeacher && (
-
-            <div style={{ background: "rgba(148,163,184,0.1)", border: "1px solid rgba(148,163,184,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-
-              <p className="muted" style={{ fontSize: 12 }}>
-
-                {token ? "Your account doesn't have an activation key. You may be using a demo account." : "Log in to see your activation key."}
-
-              </p>
-
-            </div>
-
-          )}
-
-
-
-          <h3>AI Assistant</h3>
-
-          <div style={{ background: "rgba(45,212,160,0.1)", border: "1px solid rgba(45,212,160,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-
-            <p style={{ margin: 0, color: "#2dd4a0", fontWeight: 600 }}>✅ AI Powered by OpenRouter (Gemini 2.5 Flash)</p>
-
-            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>AI features are enabled automatically. No configuration needed!</p>
-
-          </div>
-
-
-
-          <AIHelper aiConfig={{ provider: "openrouter", model: "google/gemini-2.5-flash", apiKey: "" }} onUsed={() => {
-
-
-
-            setAiHelpUsed(true);
-
-
-
-            setStats((s) => ({ ...s, questsDone: { ...s.questsDone, q8: true } }));
-
-
-
-          }} />
-
-
-
-          <h3>Cloud Sync (Supabase)</h3>
-
-
-
-          <div className="row">
-
-
-
-            <input placeholder="Supabase URL" value={syncConfig.url} onChange={(e) => setSyncConfig((p) => ({ ...p, url: e.target.value }))} />
-
-
-
-            <input placeholder="Supabase anon key" value={syncConfig.key} onChange={(e) => setSyncConfig((p) => ({ ...p, key: e.target.value }))} />
-
-
-
-          </div>
-
-
-
-          <div className="row">
-
-
-
-            <input placeholder="user_id" value={syncConfig.userId} onChange={(e) => setSyncConfig((p) => ({ ...p, userId: e.target.value }))} />
-
-
-
-            <button onClick={syncToCloud}>Push</button>
-
-
-
-            <button onClick={pullFromCloud}>Pull</button>
-
-
-
-          </div>
-
-
-
-          {syncStatus && <p className="muted">{syncStatus}</p>}
-
-
-
-          <p className="muted">Create table: learning_profiles(user_id text primary key, payload jsonb).</p>
-
-
-
-          <h3>Customer Support</h3>
-
-
-
-          <div style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-
-            <p style={{ margin: "0 0 12px 0", fontWeight: 600 }}>Need help? We're here for you!</p>
-
-            
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-
-              <a
-
-                href="https://wa.link/yj2em4"
-
-                target="_blank"
-
-                rel="noopener noreferrer"
-
-                style={{
-
-                  display: "flex",
-
-                  alignItems: "center",
-
-                  gap: 10,
-
-                  background: "#25D366",
-
-                  color: "white",
-
-                  textDecoration: "none",
-
-                  padding: "12px 16px",
-
-                  borderRadius: 8,
-
-                  fontWeight: 600,
-
-                  transition: "transform 0.2s"
-
-                }}
-
-                onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.02)"}
-
-                onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
-
-              >
-
-                <span style={{ fontSize: 20 }}>💬</span>
-
-                <span>Chat on WhatsApp</span>
-
-              </a>
-
-
-
-              <a
-
-                href="tel:09028617178"
-
-                style={{
-
-                  display: "flex",
-
-                  alignItems: "center",
-
-                  gap: 10,
-
-                  background: "#3b82f6",
-
-                  color: "white",
-
-                  textDecoration: "none",
-
-                  padding: "12px 16px",
-
-                  borderRadius: 8,
-
-                  fontWeight: 600,
-
-                  transition: "transform 0.2s"
-
-                }}
-
-                onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.02)"}
-
-                onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
-
-              >
-
-                <span style={{ fontSize: 20 }}>📞</span>
-
-                <span>Call: 09028617178</span>
-
-              </a>
-
-            </div>
-
-
-
-            <p className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-
-              Available 9AM - 6PM (Mon-Fri). For faster response, use WhatsApp.
-
-            </p>
-
-          </div>
-
-
-
-          <h3>🔔 Notifications</h3>
-
-          
-
-          <div style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-
-            {notificationPermission !== 'granted' ? (
-
-              <div>
-
-                <p style={{ margin: "0 0 12px 0" }}>Enable notifications to get study reminders and stay on track!</p>
-
-                <button 
-
-                  onClick={requestNotificationPermission}
-
-                  style={{ background: "#fbbf24", color: "#000", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
-
-                >
-
-                  Enable Notifications
-
-                </button>
-
-              </div>
-
-            ) : (
-
-              <div>
-
-                <p style={{ margin: "0 0 12px 0", color: "#34d399", fontWeight: 600 }}>✅ Notifications enabled</p>
-
-                
-
-                <div style={{ display: "grid", gap: 12 }}>
-
-                  {/* Daily Reminder */}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600 }}>📚 Daily Reminder</div>
-
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Get reminded to study daily</div>
-
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
-                      <input 
-
-                        type="time" 
-
-                        value={notificationSettings.dailyReminderTime}
-
-                        onChange={(e) => setNotificationSettings(s => ({ ...s, dailyReminderTime: e.target.value }))}
-
-                        style={{ width: 90, padding: "4px 8px", fontSize: 13 }}
-
-                      />
-
-                      <input 
-
-                        type="checkbox" 
-
-                        checked={notificationSettings.dailyReminder}
-
-                        onChange={(e) => setNotificationSettings(s => ({ ...s, dailyReminder: e.target.checked }))}
-
-                        style={{ width: 18, height: 18 }}
-
-                      />
-
-                    </div>
-
-                  </div>
-
-                  
-
-                  {/* Streak Warning */}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600 }}>🔥 Streak Warning</div>
-
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Alert when streak is about to break</div>
-
-                    </div>
-
-                    <input 
-
-                      type="checkbox" 
-
-                      checked={notificationSettings.streakWarning}
-
-                      onChange={(e) => setNotificationSettings(s => ({ ...s, streakWarning: e.target.checked }))}
-
-                      style={{ width: 18, height: 18 }}
-
-                    />
-
-                  </div>
-
-                  
-
-                  {/* Inactivity Reminder */}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600 }}>👋 Inactivity Reminder</div>
-
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Nudge when you haven't studied</div>
-
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
-                      <select 
-
-                        value={notificationSettings.inactivityDays}
-
-                        onChange={(e) => setNotificationSettings(s => ({ ...s, inactivityDays: Number(e.target.value) }))}
-
-                        style={{ padding: "4px 8px", fontSize: 13 }}
-
-                      >
-
-                        <option value={1}>1 day</option>
-
-                        <option value={2}>2 days</option>
-
-                        <option value={3}>3 days</option>
-
-                        <option value={5}>5 days</option>
-
-                        <option value={7}>1 week</option>
-
-                      </select>
-
-                      <input 
-
-                        type="checkbox" 
-
-                        checked={notificationSettings.inactivityReminder}
-
-                        onChange={(e) => setNotificationSettings(s => ({ ...s, inactivityReminder: e.target.checked }))}
-
-                        style={{ width: 18, height: 18 }}
-
-                      />
-
-                    </div>
-
-                  </div>
-
-                  
-
-                  {/* Spaced Review */}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600 }}>🔄 Spaced Review</div>
-
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Remind when cards are due</div>
-
-                    </div>
-
-                    <input 
-
-                      type="checkbox" 
-
-                      checked={notificationSettings.spacedReviewReminder}
-
-                      onChange={(e) => setNotificationSettings(s => ({ ...s, spacedReviewReminder: e.target.checked }))}
-
-                      style={{ width: 18, height: 18 }}
-
-                    />
-
-                  </div>
-
-                  
-
-                  {/* Weekly Progress */}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.2)" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600 }}>📊 Weekly Progress</div>
-
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Sunday evening summary</div>
-
-                    </div>
-
-                    <input 
-
-                      type="checkbox" 
-
-                      checked={notificationSettings.weeklyProgress}
-
-                      onChange={(e) => setNotificationSettings(s => ({ ...s, weeklyProgress: e.target.checked }))}
-
-                      style={{ width: 18, height: 18 }}
-
-                    />
-
-                  </div>
-
-                  
-
-                  {/* Motivational Quotes */}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
-
-                    <div>
-
-                      <div style={{ fontWeight: 600 }}>💡 Daily Inspiration</div>
-
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Morning motivational quotes</div>
-
-                    </div>
-
-                    <input 
-
-                      type="checkbox" 
-
-                      checked={notificationSettings.motivationalQuotes}
-
-                      onChange={(e) => setNotificationSettings(s => ({ ...s, motivationalQuotes: e.target.checked }))}
-
-                      style={{ width: 18, height: 18 }}
-
-                    />
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            )}
-
-          </div>
-
-
-
-          <div style={{ background: "rgba(148,163,184,0.1)", border: "1px solid rgba(148,163,184,0.3)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-
-            <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>Common Issues</h4>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-
-              <details style={{ cursor: "pointer" }}>
-
-                <summary style={{ fontWeight: 500, padding: 4 }}>How do I reset my password?</summary>
-
-                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
-
-                  Contact support via WhatsApp with your username and email. We'll help you reset it.
-
-                </p>
-
-              </details>
-
-              <details style={{ cursor: "pointer" }}>
-
-                <summary style={{ fontWeight: 500, padding: 4 }}>App not installing on iPhone?</summary>
-
-                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
-
-                  Tap Share → Add to Home Screen. Make sure you're on Safari and HTTPS.
-
-                </p>
-
-              </details>
-
-              <details style={{ cursor: "pointer" }}>
-
-                <summary style={{ fontWeight: 500, padding: 4 }}>How to activate my account?</summary>
-
-                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
-
-                  Share your activation key (shown above) with your teacher. They'll activate you.
-
-                </p>
-
-              </details>
-
-              <details style={{ cursor: "pointer" }}>
-
-                <summary style={{ fontWeight: 500, padding: 4 }}>AI not working?</summary>
-
-                <p className="muted" style={{ marginTop: 4, fontSize: 12, marginLeft: 12 }}>
-
-                  AI features are powered by our backend. If you're experiencing issues, please try again later or contact support.
-
-                </p>
-
-              </details>
-
-            </div>
-
-          </div>
-
-
-
-          <div style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: 10, padding: 16 }}>
-
-            <h4 style={{ margin: "0 0 8px 0", fontSize: 14 }}>Feedback & Suggestions</h4>
-
-            <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-
-              We love hearing from you! Share your ideas for new features or report bugs.
-
-            </p>
-
-            <button
-
-              onClick={() => {
-
-                const message = encodeURIComponent("Hi Scholar's Circle team, I have a suggestion/feedback:");
-
-                window.open(`https://wa.link/yj2em4?text=${message}`, "_blank");
-
-              }}
-
-              style={{
-
-                background: "#34d399",
-
-                color: "white",
-
-                border: "none",
-
-                padding: "10px 16px",
-
-                borderRadius: 6,
-
-                cursor: "pointer",
-
-                fontWeight: 600,
-
-                width: "100%"
-
-              }}
-
-            >
-
-              📝 Send Feedback
-
-            </button>
-
-          </div>
-
-
-
-          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: 16 }}>
-
-            <h4 style={{ margin: "0 0 8px 0", fontSize: 14, color: "#ef4444" }}>⚠️ Danger Zone</h4>
-
-            <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-
-              Once you delete your account, all your data will be permanently lost. This action cannot be undone.
-
-            </p>
-
-            <button
-
-              onClick={() => setShowDeleteModal(true)}
-
-              style={{
-
-                background: "#ef4444",
-
-                color: "white",
-
-                border: "none",
-
-                padding: "10px 16px",
-
-                borderRadius: 6,
-
-                cursor: "pointer",
-
-                fontWeight: 600,
-
-                width: "100%"
-
-              }}
-
-            >
-
-              🗑️ Delete Account
-
-            </button>
-
-          </div>
-
-
-
+        {/* Page header */}
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+            ⚙️ Settings
+          </h2>
+          <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "#7b82b8" }}>Manage your account, preferences & support</p>
         </div>
 
-
-
-        {showDeleteModal && (
-
-          <div style={{
-
-            position: "fixed",
-
-            inset: 0,
-
-            background: "rgba(0,0,0,0.7)",
-
-            zIndex: 2000,
-
-            display: "flex",
-
-            alignItems: "center",
-
-            justifyContent: "center",
-
-            padding: 16
-
-          }}>
-
-            <div className="card" style={{
-
-              maxWidth: 400,
-
-              width: "100%",
-
-              padding: 24,
-
-              background: "#0f1830",
-
-              border: "1px solid rgba(239,68,68,0.3)"
-
-            }}>
-
-              <h3 style={{ margin: "0 0 12px 0", color: "#ef4444" }}>Delete Account</h3>
-
-              <p className="muted" style={{ marginBottom: 16 }}>
-
-                Are you sure you want to delete your account? This will permanently delete all your data including:
-
-              </p>
-
-              <ul style={{ color: "#9ca3af", fontSize: 13, marginBottom: 16, paddingLeft: 20 }}>
-
-                <li>Practice history and stats</li>
-
-                <li>Flashcards and notes</li>
-
-                <li>Custom questions</li>
-
-                <li>Classroom assignments</li>
-
-              </ul>
-
-              <div style={{ marginBottom: 16 }}>
-
-                <label style={{ display: "block", fontSize: 13, marginBottom: 8, color: "#a5b4fc" }}>
-
-                  Enter your password to confirm:
-
-                </label>
-
-                <input
-
-                  type="password"
-
-                  value={deletePassword}
-
-                  onChange={(e) => setDeletePassword(e.target.value)}
-
-                  placeholder="Your password"
-
-                  style={{
-
-                    width: "100%",
-
-                    padding: "10px 12px",
-
-                    borderRadius: 8,
-
-                    border: "1px solid rgba(99,102,241,0.3)",
-
-                    background: "rgba(15,23,42,0.8)",
-
-                    color: "#fff",
-
-                    fontSize: 16,
-
-                    outline: "none"
-
-                  }}
-
-                />
-
-              </div>
-
-              <div style={{ display: "flex", gap: 12 }}>
-
-                <button
-
-                  onClick={() => {
-
-                    setShowDeleteModal(false);
-
-                    setDeletePassword("");
-
-                  }}
-
-                  disabled={deleteLoading}
-
-                  style={{
-
-                    flex: 1,
-
-                    padding: "10px 16px",
-
-                    borderRadius: 8,
-
-                    border: "1px solid rgba(99,102,241,0.3)",
-
-                    background: "rgba(30,41,59,0.7)",
-
-                    color: "#a5b4fc",
-
-                    cursor: deleteLoading ? "not-allowed" : "pointer",
-
-                    fontWeight: 600
-
-                  }}
-
-                >
-
-                  Cancel
-
-                </button>
-
-                <button
-
-                  onClick={async () => {
-
-                    if (!deletePassword.trim()) {
-
-                      toast.warning("Please enter your password");
-
-                      return;
-
-                    }
-
-                    setDeleteLoading(true);
-
-                    try {
-
-                      const response = await fetch(`${API_BASE}/auth/delete-account`, {
-
-                        method: "DELETE",
-
-                        headers: {
-
-                          "Content-Type": "application/json",
-
-                          "Authorization": `Bearer ${token}`
-
-                        },
-
-                        body: JSON.stringify({ password: deletePassword })
-
-                      });
-
-                      const data = await response.json();
-
-                      if (!response.ok) {
-
-                        throw new Error(data.error || "Failed to delete account");
-
-                      }
-
-                      toast.success("Account deleted successfully");
-
-                      localStorage.clear();
-
-                      setToken("");
-
-                      setAuth({ username: "", password: "", user: null, error: "" });
-
-                      window.location.href = "/";
-
-                    } catch (e) {
-
-                      toast.error(e.message || "Failed to delete account");
-
-                    } finally {
-
-                      setDeleteLoading(false);
-
-                    }
-
-                  }}
-
-                  disabled={deleteLoading}
-
-                  style={{
-
-                    flex: 1,
-
-                    padding: "10px 16px",
-
-                    borderRadius: 8,
-
-                    border: "none",
-
-                    background: "#ef4444",
-
-                    color: "white",
-
-                    cursor: deleteLoading ? "not-allowed" : "pointer",
-
-                    fontWeight: 600
-
-                  }}
-
-                >
-
-                  {deleteLoading ? "Deleting..." : "Delete"}
-
-                </button>
-
-              </div>
-
+        {/* 👤 Account — Activation key + Subscription */}
+        {auth.user?.activationKey && (
+          <div style={{ background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
+              <span>👤</span> Account
             </div>
-
+            <p style={{ fontSize: 12, color: "#7b82b8", margin: "0 0 4px 0" }}>Your Activation Key</p>
+            <div style={{ fontFamily: "monospace", fontSize: 18, fontWeight: 700, color: "#fbbf24", letterSpacing: 2, marginBottom: 12 }}>
+              {auth.user.activationKey}
+            </div>
+            {!isActivated && <p style={{ fontSize: 11, color: "#7b82b8", margin: 0 }}>Share this key with your teacher to get activated</p>}
+            {isActivated && <p style={{ fontSize: 11, color: "#34d399", margin: 0 }}>✓ Your account is activated</p>}
           </div>
-
         )}
 
+        {/* Subscription Plan Card */}
+        {!isTeacher && auth.user && (() => {
+          const planType = auth.user.planType;
+          const expiry = auth.user.activationExpiry ? new Date(auth.user.activationExpiry) : null;
+          const daysLeft = expiry ? Math.ceil((expiry - Date.now()) / 86400000) : null;
+          const planLabel = planType === "week1" ? "1-Week Plan" : planType === "week2" ? "2-Week Plan" : planType === "month1" ? "1-Month Plan" : null;
+          const statusColor = !isActivated ? "#94a3b8" : daysLeft !== null && daysLeft <= 3 ? "#ef4444" : daysLeft !== null && daysLeft <= 7 ? "#f59e0b" : "#10b981";
+          const statusText = !isActivated ? "Not Activated" : daysLeft !== null && daysLeft <= 0 ? "Expired" : daysLeft !== null && daysLeft <= 1 ? "Expires Today!" : daysLeft !== null ? `${daysLeft} days left` : "Active";
+          const statusBg = !isActivated ? "rgba(148,163,184,0.1)" : daysLeft !== null && daysLeft <= 3 ? "rgba(239,68,68,0.1)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)";
+          const statusBorder = !isActivated ? "rgba(148,163,184,0.3)" : daysLeft !== null && daysLeft <= 3 ? "rgba(239,68,68,0.3)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,158,11,0.3)" : "rgba(16,185,129,0.3)";
+          return (
+            <div style={{ background: statusBg, border: `1px solid ${statusBorder}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>📋 Subscription</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}40`, borderRadius: 20, padding: "3px 10px" }}>
+                  ● {statusText}
+                </span>
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", marginBottom: 4 }}>
+                {planLabel || (isActivated ? "Active Plan" : "No Active Plan")}
+              </div>
+              {expiry && (
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                  {daysLeft !== null && daysLeft > 0
+                    ? `Expires ${expiry.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}`
+                    : `Expired on ${expiry.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`}
+                </div>
+              )}
+              {isActivated && daysLeft !== null && daysLeft <= 7 && daysLeft > 0 && (
+                <p style={{ fontSize: 11, color: statusColor, marginTop: 8, marginBottom: 0, fontWeight: 600 }}>
+                  ⚠️ Contact your teacher to renew before it expires.
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
+        {/* Demo Mode Progress */}
+        {demoMode && (
+          <div style={{ background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: 15, fontWeight: 700, color: "#facc15" }}>🎯 Demo Progress</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+              {DEMO_ACHIEVEMENTS.map(ach => {
+                const earned = demoUsage.demoProgress.achievements.includes(ach.id);
+                return (
+                  <div key={ach.id} style={{
+                    background: earned ? "rgba(52,211,153,0.1)" : "rgba(148,163,184,0.08)",
+                    border: earned ? "1px solid rgba(52,211,153,0.3)" : "1px solid rgba(148,163,184,0.2)",
+                    borderRadius: 8, padding: 10, opacity: earned ? 1 : 0.6
+                  }}>
+                    <div style={{ fontSize: 18 }}>{ach.icon}</div>
+                    <div style={{ fontWeight: 600, fontSize: 12, marginTop: 4 }}>{ach.label}</div>
+                    <div style={{ fontSize: 10, marginTop: 2, color: "#94a3b8" }}>{ach.desc}</div>
+                    {earned && <div style={{ color: "#34d399", fontSize: 10, marginTop: 4 }}>✓ Earned</div>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 14, padding: 10, background: "rgba(59,130,246,0.1)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.3)" }}>
+              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Completion: {Math.round((demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100)}%</div>
+              <div style={{ height: 6, background: "rgba(148,163,184,0.3)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${(demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100}%`, background: "#3b82f6", transition: "width 0.3s" }} />
+              </div>
+              <button onClick={() => setShowPaymentModal(true)} style={{ marginTop: 10, width: "100%", background: "#3b82f6", color: "white", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
+                Upgrade to Full Version
+              </button>
+            </div>
+          </div>
+        )}
 
+        {/* 🎨 Appearance */}
+        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
+            <span>🎨</span> Appearance
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 14 }}>Theme</span>
+            <button onClick={() => setDarkMode((v) => !v)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: darkMode ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.05)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              {darkMode ? "🌙 Dark" : "☀️ Light"}
+            </button>
+          </div>
+        </div>
+
+        {/* 🔔 Notifications */}
+        <NotificationSettings token={token} />
+
+        {/* 💬 Support */}
+        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
+            <span>💬</span> Support
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <a href="https://wa.link/yj2em4" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, background: "#25D366", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}>
+              <span style={{ fontSize: 18 }}>💬</span> Chat on WhatsApp
+            </a>
+            <a href="tel:09028617178" style={{ display: "flex", alignItems: "center", gap: 10, background: "#3b82f6", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}>
+              <span style={{ fontSize: 18 }}>📞</span> Call: 09028617178
+            </a>
+          </div>
+          <p style={{ marginTop: 10, fontSize: 11, color: "#7b82b8", marginBottom: 0 }}>Available 9AM–6PM (Mon–Fri). For faster response, use WhatsApp.</p>
+        </div>
+
+        {/* ❓ Help / FAQ */}
+        <div style={{ background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
+            <span>❓</span> Common Issues
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <details style={{ cursor: "pointer" }}>
+              <summary style={{ fontWeight: 500, padding: "4px 0", fontSize: 13 }}>How do I reset my password?</summary>
+              <p style={{ marginTop: 4, fontSize: 12, marginLeft: 12, color: "#94a3b8" }}>Contact support via WhatsApp with your username and email. We'll help you reset it.</p>
+            </details>
+            <details style={{ cursor: "pointer" }}>
+              <summary style={{ fontWeight: 500, padding: "4px 0", fontSize: 13 }}>App not installing on iPhone?</summary>
+              <p style={{ marginTop: 4, fontSize: 12, marginLeft: 12, color: "#94a3b8" }}>Tap Share → Add to Home Screen. Make sure you're on Safari and HTTPS.</p>
+            </details>
+            <details style={{ cursor: "pointer" }}>
+              <summary style={{ fontWeight: 500, padding: "4px 0", fontSize: 13 }}>How to activate my account?</summary>
+              <p style={{ marginTop: 4, fontSize: 12, marginLeft: 12, color: "#94a3b8" }}>Share your activation key (shown above) with your teacher. They'll activate you.</p>
+            </details>
+          </div>
+        </div>
+
+        {/* 📝 Feedback */}
+        <div style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 15, fontWeight: 700 }}>
+            <span>📝</span> Feedback
+          </div>
+          <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10 }}>We love hearing from you! Share ideas for new features or report bugs.</p>
+          <button onClick={() => { const msg = encodeURIComponent("Hi Scholar's Circle team, I have a suggestion/feedback:"); window.open(`https://wa.link/yj2em4?text=${msg}`, "_blank"); }} style={{ background: "#34d399", color: "white", border: "none", padding: "10px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, width: "100%", fontSize: 14 }}>
+            📝 Send Feedback
+          </button>
+        </div>
+
+        {/* 🗑️ Danger Zone */}
+        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700, color: "#ef4444" }}>
+            <span>🗑️</span> Danger Zone
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => { setToken(""); setAuth({ username: "", password: "", user: null, error: "" }); }} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              Logout
+            </button>
+            <button className="danger" onClick={handleResetAll} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.1)", color: "#f87171", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              Reset Data
+            </button>
+            <button onClick={() => setShowDeleteModal(true)} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.4)", background: "#ef4444", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              🗑️ Delete Account
+            </button>
+          </div>
+        </div>
+
+        {showDeleteModal && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}>
+            <div style={{ background: "#1a1d2e", borderRadius: 12, padding: 24, maxWidth: 400, width: "90%" }}>
+              <h3 style={{ margin: "0 0 12px 0", color: "#ef4444" }}>Delete Account</h3>
+              <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>This will permanently delete your account and all data. This cannot be undone.</p>
+              <input type="password" placeholder="Enter your password to confirm" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(0,0,0,0.3)", color: "#fff", fontSize: 14, marginBottom: 12 }} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setShowDeleteModal(false)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+                <button onClick={handleDeleteAccount} disabled={deleteLoading} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "#ef4444", color: "white", cursor: "pointer", fontWeight: 600 }}>
+                  {deleteLoading ? "Deleting…" : "Delete Forever"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         </>
-
-
-
       )}
 
 
