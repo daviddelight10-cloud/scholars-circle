@@ -699,7 +699,7 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
       {authCase === "loggedin" && trialInfo && !unlimited && allowed && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "8px", padding: "10px 12px", marginBottom: "16px", fontSize: "12px", color: "#ffb74d" }}>
           <span>✨</span>
-          Free preview: {remaining} resource{remaining !== 1 ? "s" : ""} remaining — <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => onBack ? onBack() : navigate("/app")}>Upgrade for unlimited →</span>
+          Free preview: {remaining} resource{remaining !== 1 ? "s" : ""} remaining — <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => { if (onBack) onBack(); navigate("/app#upgrade"); }}>Upgrade for unlimited →</span>
         </div>
       )}
 
@@ -713,12 +713,12 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", marginTop: "20px" }}>
             <button
-              onClick={() => onBack ? onBack() : navigate("/app")}
+              onClick={() => { if (onBack) onBack(); navigate("/app#upgrade"); }}
               style={{ padding: "12px 32px", background: "linear-gradient(135deg,#5c35a0,#1a237e)", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", maxWidth: "280px" }}
             >
               💎 Upgrade to Premium
             </button>
-            <div style={{ fontSize: "11px", color: "#4a5080" }}>Starting from ₦500/week · Cancel anytime</div>
+            <div style={{ fontSize: "11px", color: "#4a5080" }}>Starting from ₦700/week · Cancel anytime</div>
           </div>
         </div>
       )}

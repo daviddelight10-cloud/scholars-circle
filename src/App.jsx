@@ -2244,6 +2244,14 @@ function App() {
 
   }, [location.pathname]);
 
+  // Open payment modal when navigated with #upgrade hash (from ResourceViewer)
+  useEffect(() => {
+    if (window.location.hash === "#upgrade") {
+      setShowPaymentModal(true);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, [location]);
+
 
 
   // Refs for signup form to avoid stale closure issues
@@ -8315,7 +8323,7 @@ function App() {
 
           isChecking={isCheckingActivation}
 
-          onGetPremium={() => setTab("premium")}
+          onGetPremium={() => setShowPaymentModal(true)}
 
           deferredPrompt={deferredPrompt}
 
