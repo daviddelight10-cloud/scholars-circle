@@ -123,8 +123,8 @@ export default function ResearchHub({ onBack } = {}) {
         </h1>
         <p style={{ fontSize: "14px", color: "#7b82b8" }}>Find & share study materials</p>
         {trialInfo && !trialInfo.isActivated && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "10px", padding: "6px 14px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "20px", fontSize: "12px", color: "#ffb74d" }}>
-            ✨ {Math.max(0, trialInfo.freeTrialLimit - trialInfo.freeTrialViews)} of {trialInfo.freeTrialLimit} free opens left
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "10px", padding: "6px 14px", background: "#0f0a28", border: "0.5px solid #5c35a0", borderRadius: "20px", fontSize: "12px", color: "#b39ddb" }}>
+            ⭐ Premium resources require upgrade — <span style={{ textDecoration: "underline", cursor: "pointer", color: "#b39ddb" }} onClick={() => navigate("/app#upgrade")}>Upgrade now →</span>
           </div>
         )}
       </div>

@@ -613,12 +613,9 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
   const badgeColor = getSubjectBadgeColor(resource.subject);
   const icon = getContentTypeIcon(resource.contentType);
   const iconClass = getContentTypeIconClass(resource.contentType);
-  // Use live trial info from logView response; fall back to user object from auth
+  // Use trial info from logView response
+  const isPremiumResource = resource?.isPremium || trialInfo?.isPremium || false;
   const allowed = trialInfo ? trialInfo.allowed : (user?.isActivated ?? true);
-  const unlimited = trialInfo?.unlimited || user?.isActivated || false;
-  const freeViews = trialInfo?.freeTrialViews ?? 0;
-  const freeLimit = trialInfo?.freeTrialLimit ?? 3;
-  const remaining = Math.max(0, freeLimit - freeViews);
 
   return (
     <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
@@ -695,21 +692,13 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
         </div>
       </div>
 
-      {/* Free trial banner — shows remaining opens for non-activated users */}
-      {authCase === "loggedin" && trialInfo && !unlimited && allowed && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "8px", padding: "10px 12px", marginBottom: "16px", fontSize: "12px", color: "#ffb74d" }}>
-          <span>✨</span>
-          Free preview: {remaining} resource{remaining !== 1 ? "s" : ""} remaining — <span style={{ textDecoration: "underline", cursor: "pointer" }} onClick={() => { if (onBack) onBack(); navigate("/app#upgrade"); }}>Upgrade for unlimited →</span>
-        </div>
-      )}
-
-      {/* Paywall — free trial exhausted */}
-      {authCase === "loggedin" && trialInfo && !allowed && (
+      {/* Premium paywall — non-activated user trying to view a premium resource */}
+      {authCase === "loggedin" && isPremiumResource && !allowed && (
         <div style={{ background: "linear-gradient(135deg,#0d0820,#1a0828)", border: "0.5px solid #5c35a0", borderRadius: "14px", padding: "28px 24px", marginBottom: "16px", textAlign: "center" }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔒</div>
-          <div style={{ fontSize: "18px", fontWeight: 700, color: "#e8eaf6", marginBottom: "8px" }}>Free trial complete</div>
+          <div style={{ fontSize: "18px", fontWeight: 700, color: "#e8eaf6", marginBottom: "8px" }}>Premium Resource</div>
           <div style={{ fontSize: "13px", color: "#9fa8da", marginBottom: "8px", lineHeight: 1.6 }}>
-            You've used all {freeLimit} free resource opens.<br/>Upgrade to get <strong>unlimited access</strong> to all notes, PDFs & MCQs.
+            This is a <strong>premium resource</strong> — upgrade to access all premium notes, PDFs & MCQs.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", marginTop: "20px" }}>
             <button
@@ -724,14 +713,14 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
       )}
 
       {/* Content or Auth Overlay */}
-      {authCase === "loggedin" && (allowed || !trialInfo) ? (
+      {authCase === "loggedin" && (allowed || (!trialInfo && !isPremiumResource)) ? (
         <div style={{ marginBottom: "16px" }}>{renderContent()}</div>
       ) : authCase !== "loggedin" ? (
         <div style={{ marginBottom: "16px" }}>{renderAuthOverlay()}</div>
       ) : null}
 
       {/* Share button */}
-      {authCase === "loggedin" && (allowed || !trialInfo) && (
+      {authCase === "loggedin" && (allowed || (!trialInfo && !isPremiumResource)) && (
         <button
           onClick={handleShare}
           style={{

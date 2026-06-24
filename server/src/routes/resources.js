@@ -229,7 +229,7 @@ router.post("/:token/view", async (req, res) => {
     // Log view record (ignore duplicates)
     prisma.resourceView.create({ data: { resourceId: resource.id, userId: userId || null } }).catch(() => {});
 
-    // Authenticated user — check and enforce free trial
+    // Authenticated user — check access based on premium flag
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -237,26 +237,26 @@ router.post("/:token/view", async (req, res) => {
       });
 
       if (user) {
-        // Activated/paid users: unlimited access
+        // Non-premium resources: unlimited access for everyone
+        if (!resource.isPremium) {
+          return res.json({ allowed: true, unlimited: true, isPremium: false, freeTrialViews: user.freeTrialViews, freeTrialLimit: user.freeTrialLimit });
+        }
+
+        // Premium resources: only activated/paid users get access
         if (user.isActivated) {
-          return res.json({ allowed: true, unlimited: true, freeTrialViews: user.freeTrialViews, freeTrialLimit: user.freeTrialLimit });
+          return res.json({ allowed: true, unlimited: true, isPremium: true, freeTrialViews: user.freeTrialViews, freeTrialLimit: user.freeTrialLimit });
         }
-        // Over free trial limit
-        if (user.freeTrialViews >= user.freeTrialLimit) {
-          return res.json({ allowed: false, freeTrialViews: user.freeTrialViews, freeTrialLimit: user.freeTrialLimit });
-        }
-        // Within limit — increment
-        const updated = await prisma.user.update({
-          where: { id: userId },
-          data: { freeTrialViews: { increment: 1 } },
-          select: { freeTrialViews: true, freeTrialLimit: true },
-        });
-        return res.json({ allowed: true, freeTrialViews: updated.freeTrialViews, freeTrialLimit: updated.freeTrialLimit });
+
+        // Non-activated user trying to view premium resource — blocked
+        return res.json({ allowed: false, unlimited: false, isPremium: true, freeTrialViews: user.freeTrialViews, freeTrialLimit: user.freeTrialLimit });
       }
     }
 
-    // Guest user — no access
-    return res.json({ allowed: false, freeTrialViews: 0, freeTrialLimit: 3 });
+    // Guest user — no access to premium, free access to non-premium
+    if (!resource.isPremium) {
+      return res.json({ allowed: true, unlimited: true, isPremium: false, freeTrialViews: 0, freeTrialLimit: 3 });
+    }
+    return res.json({ allowed: false, unlimited: false, isPremium: true, freeTrialViews: 0, freeTrialLimit: 3 });
   } catch (error) {
     console.error("Error logging view:", error);
     res.status(500).json({ error: "Failed to log view" });
