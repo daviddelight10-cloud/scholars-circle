@@ -2252,6 +2252,13 @@ function App() {
     }
   }, [location]);
 
+  // Listen for custom event from ResourceViewer (works when rendered in-app)
+  useEffect(() => {
+    const handleOpenPremium = () => setShowPaymentModal(true);
+    window.addEventListener("sc-open-premium", handleOpenPremium);
+    return () => window.removeEventListener("sc-open-premium", handleOpenPremium);
+  }, []);
+
 
 
   // Refs for signup form to avoid stale closure issues

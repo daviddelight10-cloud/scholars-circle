@@ -702,7 +702,7 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", marginTop: "20px" }}>
             <button
-              onClick={() => { if (onBack) onBack(); navigate("/app#upgrade"); }}
+              onClick={() => { window.dispatchEvent(new CustomEvent("sc-open-premium")); if (onBack) onBack(); navigate("/app#upgrade"); }}
               style={{ padding: "12px 32px", background: "linear-gradient(135deg,#5c35a0,#1a237e)", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", maxWidth: "280px" }}
             >
               💎 Upgrade to Premium
