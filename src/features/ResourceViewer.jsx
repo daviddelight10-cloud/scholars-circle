@@ -109,8 +109,7 @@ export default function ResourceViewer({ token: tokenProp, onBack } = {}) {
 
   const handleBack = () => {
     if (onBack) { onBack(); return; }
-    if (window.history.length > 1) navigate(-1);
-    else navigate("/resources");
+    navigate("/app#research-hub");
   };
 
   const handleLogin = async (e) => {

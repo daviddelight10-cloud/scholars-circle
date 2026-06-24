@@ -2250,6 +2250,10 @@ function App() {
       setShowPaymentModal(true);
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
+    if (window.location.hash === "#research-hub") {
+      setTab("research-hub");
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
   }, [location]);
 
   // Listen for custom event from ResourceViewer (works when rendered in-app)
