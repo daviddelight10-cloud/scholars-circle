@@ -1116,6 +1116,9 @@ ${extractedText}
         setFsrsFlashcardView("browse");
       } else {
         const err = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          window.dispatchEvent(new CustomEvent("sc-open-premium"));
+        }
         setFsrsFlashcardError(err.error || "Failed to generate flashcards");
       }
     } catch (err) {

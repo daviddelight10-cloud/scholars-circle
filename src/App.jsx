@@ -533,6 +533,13 @@ function App() {
     return () => window.removeEventListener("sc-open-premium", handleOpenPremium);
   }, []);
 
+  // Listen for custom event from ResourceViewer to navigate to Research Hub
+  useEffect(() => {
+    const handleOpenResearchHub = () => setTab("research-hub");
+    window.addEventListener("sc-open-research-hub", handleOpenResearchHub);
+    return () => window.removeEventListener("sc-open-research-hub", handleOpenResearchHub);
+  }, []);
+
 
 
   // Refs for signup form to avoid stale closure issues
@@ -8729,7 +8736,7 @@ function App() {
             <ResourceViewer
               token={homeViewerToken}
               initialPage={homeViewerPage}
-              onBack={() => { setHomeViewerToken(null); setHomeViewerPage(null); }}
+              onBack={() => { setHomeViewerToken(null); setHomeViewerPage(null); setTab("research-hub"); }}
             />
           </Suspense>
         </ErrorBoundary>

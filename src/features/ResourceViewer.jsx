@@ -279,7 +279,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
   const handleBack = () => {
     if (onBack) { onBack(); return; }
-    navigate("/app#research-hub");
+    window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
+    navigate("/app");
   };
 
   const handleLogin = async (e) => {
@@ -381,8 +382,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             resourceId={resource.id}
             initialPage={initialPage}
             onBack={onBack || (() => {
-              if (window.history.length > 1) navigate(-1);
-              else navigate("/resources");
+              window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
+              navigate("/app");
             })}
           />
         ) : (
