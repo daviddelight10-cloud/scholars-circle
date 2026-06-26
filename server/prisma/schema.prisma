@@ -1268,6 +1268,7 @@ model Department {
   subjects    Subject[]           @relation("SubjectPrimaryDept")
   subjectDepts SubjectDepartment[]
   userDepts   UserDepartment[]
+  resourceDepts ResourceDepartment[]
 }
 
 model SubjectDepartment {
@@ -1288,6 +1289,16 @@ model UserDepartment {
   semester     String?
   setAt        DateTime   @default(now())
 
+  @@index([departmentId])
+}
+
+model ResourceDepartment {
+  resourceId   String
+  departmentId String
+  resource     Resource   @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, departmentId])
   @@index([departmentId])
 }
 
@@ -1369,6 +1380,7 @@ model Resource {
   reviewQueueItems ReviewQueueItem[]
   pdfReviewItems   PdfReviewItem[]
   pdfFlashcards    PdfFlashcard[]
+  resourceDepts    ResourceDepartment[]
 
   @@index([contentType])
   @@index([subject])

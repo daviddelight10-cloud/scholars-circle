@@ -134,7 +134,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
 
   const filteredResources = useMemo(() => {
     return resources.filter((r) => {
-      const matchesDept = filters.department === "all" || r.department === filters.department;
+      const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
       const matchesLevel = filters.level === "all" || r.level === filters.level;
       const matchesSemester = filters.semester === "all" || r.semester === filters.semester;
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
@@ -144,7 +144,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
 
   const filteredPending = useMemo(() => {
     return pendingResources.filter((r) => {
-      const matchesDept = filters.department === "all" || r.department === filters.department;
+      const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
       const matchesLevel = filters.level === "all" || r.level === filters.level;
       const matchesSemester = filters.semester === "all" || r.semester === filters.semester;
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;

@@ -58,9 +58,14 @@ router.get("/", requireAuth, async (req, res) => {
       }),
       ...(type && type !== "all" && { contentType: type }),
       ...(subject && subject !== "all" && { subject }),
-      ...(department && department !== "all" && { department }),
       ...(level && level !== "all" && { level }),
       ...(semester && semester !== "all" && { semester }),
+      ...(department && department !== "all" && {
+        OR: [
+          { department },
+          { resourceDepts: { some: { department: { name: department } } } },
+        ],
+      }),
     };
 
     const resources = await prisma.resource.findMany({
@@ -68,6 +73,7 @@ router.get("/", requireAuth, async (req, res) => {
       include: {
         uploader: { select: { id: true, username: true, role: true } },
         _count: { select: { bookmarks: true } },
+        resourceDepts: { include: { department: { select: { id: true, name: true } } } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -84,7 +90,7 @@ router.get("/teacher/my", requireAuth, requireRole("TEACHER", "LECTURER"), async
   try {
     const resources = await prisma.resource.findMany({
       where: { uploadedBy: req.user.sub },
-      include: { uploader: { select: { id: true, username: true, role: true } }, _count: { select: { bookmarks: true } } },
+      include: { uploader: { select: { id: true, username: true, role: true } }, _count: { select: { bookmarks: true } }, resourceDepts: { include: { department: { select: { id: true, name: true } } } } },
       orderBy: { createdAt: "desc" },
     });
     res.json(resources);
@@ -151,7 +157,7 @@ router.get("/pending", requireAuth, requireRole("TEACHER", "LECTURER"), async (r
   try {
     const resources = await prisma.resource.findMany({
       where: { status: "pending" },
-      include: { uploader: { select: { id: true, username: true, role: true } } },
+      include: { uploader: { select: { id: true, username: true, role: true } }, resourceDepts: { include: { department: { select: { id: true, name: true } } } } },
       orderBy: { createdAt: "desc" },
     });
     res.json(resources);
@@ -1035,7 +1041,7 @@ router.get("/pdf-review/flashcards/:resourceId", requireAuth, async (req, res) =
 // POST /api/resources - Create new resource (any authenticated user)
 router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   try {
-    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester } = req.body;
+    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds } = req.body;
 
     if (!title || !subject || !contentType) {
       return res.status(400).json({ error: "Title, subject, and content type are required" });
@@ -1054,6 +1060,16 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const levelMap = { 1: "100 Level", 2: "200 Level", 3: "300 Level", 4: "400 Level", 5: "500 Level", 6: "600 Level" };
     const finalLevel = level || (userDept ? levelMap[userDept.yearLevel] || null : null);
     const finalSemester = semester || userDept?.semester || null;
+
+    // Parse departmentIds — can be a JSON array string or repeated form fields
+    let parsedDeptIds = [];
+    if (departmentIds) {
+      if (typeof departmentIds === "string") {
+        try { parsedDeptIds = JSON.parse(departmentIds); } catch { parsedDeptIds = [departmentIds]; }
+      } else if (Array.isArray(departmentIds)) {
+        parsedDeptIds = departmentIds;
+      }
+    }
 
     // For MCQ type, mcqData is required instead of file
     if (contentType === "mcq") {
@@ -1105,8 +1121,14 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         department: finalDept,
         level: finalLevel,
         semester: finalSemester,
+        resourceDepts: parsedDeptIds.length > 0 ? {
+          create: parsedDeptIds.map((deptId) => ({ departmentId: deptId })),
+        } : undefined,
       },
-      include: { uploader: { select: { id: true, username: true, role: true } } },
+      include: {
+        uploader: { select: { id: true, username: true, role: true } },
+        resourceDepts: { include: { department: { select: { id: true, name: true } } } },
+      },
     });
 
     res.status(201).json(resource);
@@ -1169,7 +1191,7 @@ router.post("/:token/view", requireAuth, async (req, res) => {
 });
 
 // PATCH /api/resources/:id - Update resource (uploader only)
-router.patch("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, subject, description, isPremium } = req.body;
@@ -1209,7 +1231,7 @@ router.patch("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req
 });
 
 // DELETE /api/resources/:id - Delete resource (uploader or teacher/lecturer)
-router.delete("/:id", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 

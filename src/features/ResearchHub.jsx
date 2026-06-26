@@ -769,7 +769,9 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     const userLevel = levelMap[userDept.yearLevel] || null;
     const userSem = userDept.semester || activeSemester || null;
     return resources.filter((r) => {
-      if (r.department && r.department !== userDept.department) return false;
+      const deptMatches = !r.department || r.department === userDept.department ||
+        (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === userDept.department));
+      if (!deptMatches) return false;
       if (userLevel && r.level && r.level !== userLevel) return false;
       if (userSem && r.semester && r.semester !== userSem) return false;
       return true;
@@ -791,7 +793,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     let list = tabResources.filter((r) => {
       const matchesSearch = search === "" || r.title.toLowerCase().includes(search.toLowerCase()) || r.subject.toLowerCase().includes(search.toLowerCase());
       const matchesType = activeFilter === "all" || r.contentType === activeFilter;
-      const matchesDept = filters.department === "all" || r.department === filters.department;
+      const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
       const matchesLevel = filters.level === "all" || r.level === filters.level;
       const matchesSemester = filters.semester === "all" || r.semester === filters.semester;
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;

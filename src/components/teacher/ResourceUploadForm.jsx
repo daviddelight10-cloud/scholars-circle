@@ -14,11 +14,11 @@ export default function ResourceUploadForm() {
     contentType: "",
     description: "",
     isPremium: false,
-    department: "",
     level: "",
     semester: "",
   });
   const [departments, setDepartments] = useState([]);
+  const [selectedDeptIds, setSelectedDeptIds] = useState([]);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -169,7 +169,7 @@ export default function ResourceUploadForm() {
       formDataToSend.append("contentType", formData.contentType.toLowerCase().replace(" ", "_"));
       formDataToSend.append("description", formData.description);
       formDataToSend.append("isPremium", formData.isPremium);
-      if (formData.department) formDataToSend.append("department", formData.department);
+      if (selectedDeptIds.length > 0) formDataToSend.append("departmentIds", JSON.stringify(selectedDeptIds));
       if (formData.level) formDataToSend.append("level", formData.level);
       if (formData.semester) formDataToSend.append("semester", formData.semester);
 
@@ -312,19 +312,30 @@ export default function ResourceUploadForm() {
 
         {/* Department / Level / Semester */}
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 180px" }}>
+          <div style={{ flex: "1 1 100%" }}>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Department
+              Departments (select multiple)
             </label>
-            <select
-              name="department"
-              value={formData.department}
-              onChange={handleInputChange}
-              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#9fa8da", outline: "none" }}
-            >
-              <option value="">Select department…</option>
-              {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
-            </select>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {departments.map((d) => {
+                const selected = selectedDeptIds.includes(d.id);
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setSelectedDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])}
+                    style={{
+                      padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                      background: selected ? "#1a237e" : "#0a0c1e",
+                      border: selected ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
+                      color: selected ? "#c5cae9" : "#7b82b8",
+                    }}
+                  >
+                    {d.icon || "🏛️"} {d.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div style={{ flex: "1 1 120px" }}>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
