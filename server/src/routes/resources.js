@@ -110,6 +110,7 @@ router.get("/bookmarks", requireAuth, async (req, res) => {
           include: {
             uploader: { select: { id: true, username: true, role: true } },
             _count: { select: { bookmarks: true } },
+            resourceDepts: { include: { department: { select: { id: true, name: true } } } },
           },
         },
       },

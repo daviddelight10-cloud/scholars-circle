@@ -692,7 +692,14 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     xhr.addEventListener("load", () => {
       setUploading(false);
       if (xhr.status >= 200 && xhr.status < 300) {
-        try { const resource = JSON.parse(xhr.responseText); setResources((prev) => [resource, ...prev]); } catch {}
+        try {
+          const resource = JSON.parse(xhr.responseText);
+          setResources((prev) => {
+            const updated = [resource, ...prev];
+            try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
+            return updated;
+          });
+        } catch {}
         setShowUploadModal(false);
         if (uploadPreview) URL.revokeObjectURL(uploadPreview);
         setUploadPreview(null);
@@ -742,7 +749,14 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     xhr.addEventListener("load", () => {
       setUploading(false);
       if (xhr.status >= 200 && xhr.status < 300) {
-        try { const resource = JSON.parse(xhr.responseText); setResources((prev) => [resource, ...prev]); } catch {}
+        try {
+          const resource = JSON.parse(xhr.responseText);
+          setResources((prev) => {
+            const updated = [resource, ...prev];
+            try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
+            return updated;
+          });
+        } catch {}
         setShowUploadModal(false);
         showToast("MCQs submitted ✓");
         setActiveTab("uploads");
@@ -768,7 +782,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
   // For You: filter by user's department + level + semester if available
   const forYouResources = useMemo(() => {
-    if (!userDept || !userDept.department) return resources;
+    if (!userDept || !userDept.department) return [];
     const levelMap = { 1: "100 Level", 2: "200 Level", 3: "300 Level", 4: "400 Level" };
     const userLevel = levelMap[userDept.yearLevel] || null;
     const userSem = userDept.semester || activeSemester || null;
@@ -816,7 +830,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
   const tabLabel = { foryou: "For You", all: "All Materials", space: "My Space", uploads: "My Uploads", progress: "Progress", fsrs: "Review" }[activeTab];
   const emptyMessage = {
-    foryou: "No materials match your department and level yet — check All Materials for everything.",
+    foryou: userDept && userDept.department ? "No materials match your department and level yet — check All Materials for everything." : "Set your department to see materials curated for you.",
     all: "No resources found. Try a different search.",
     space: "Nothing saved yet — tap the ☆ on any resource to add it to your space.",
     uploads: "You haven't uploaded anything yet — tap + Add material to share your first note, PDF, or MCQ set.",
