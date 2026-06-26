@@ -7,10 +7,6 @@ import { useUserData } from "../contexts/UserDataContext";
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const CACHE_TTL = 5 * 60 * 1000;
 
-const DEPARTMENTS = ["Biology", "Chemistry", "Physics", "Pharmacy", "Anatomy", "Other"];
-const LEVELS = ["100 Level", "200 Level", "300 Level", "400 Level"];
-const SEMESTERS = ["First Semester", "Second Semester"];
-
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
 // ============ MEMOIZED RESOURCE CARD ============
@@ -381,7 +377,7 @@ function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
   );
 }
 
-export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate } = {}) {
+export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate, activeSemester } = {}) {
   const navigate = useNavigate();
   const { setLastActivity } = useUserData();
   const [resources, setResources] = useState([]);
@@ -418,9 +414,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [mcqRows, setMcqRows] = useState([emptyMcqRow()]);
-  const [uploadDept, setUploadDept] = useState("");
-  const [uploadLevel, setUploadLevel] = useState("");
-  const [uploadSemester, setUploadSemester] = useState("");
   const fileInputRef = useRef(null);
 
   const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
@@ -626,9 +619,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     setUploadFile(null);
     setUploadPreview(null);
     setUploadProgress(0);
-    setUploadDept("");
-    setUploadLevel("");
-    setUploadSemester("");
     setMcqRows([emptyMcqRow()]);
     setShowUploadModal(true);
   };
@@ -691,9 +681,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     formData.append("contentType", uploadType);
     formData.append("isPremium", "false");
     formData.append("file", uploadFile);
-    if (uploadDept) formData.append("department", uploadDept);
-    if (uploadLevel) formData.append("level", uploadLevel);
-    if (uploadSemester) formData.append("semester", uploadSemester);
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -709,7 +696,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         setShowUploadModal(false);
         if (uploadPreview) URL.revokeObjectURL(uploadPreview);
         setUploadPreview(null);
-        showToast("Uploaded — pending review ⏳");
+        showToast("Uploaded ✓");
       } else {
         showToast("Upload failed");
       }
@@ -742,9 +729,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     formData.append("contentType", "mcq");
     formData.append("isPremium", "false");
     formData.append("mcqData", JSON.stringify(mcqRows));
-    if (uploadDept) formData.append("department", uploadDept);
-    if (uploadLevel) formData.append("level", uploadLevel);
-    if (uploadSemester) formData.append("semester", uploadSemester);
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -758,7 +742,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       if (xhr.status >= 200 && xhr.status < 300) {
         try { const resource = JSON.parse(xhr.responseText); setResources((prev) => [resource, ...prev]); } catch {}
         setShowUploadModal(false);
-        showToast("MCQs submitted — pending review ⏳");
+        showToast("MCQs submitted ✓");
       } else {
         showToast("Submission failed");
       }
@@ -778,17 +762,19 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     return Array.from(set).sort();
   }, [resources]);
 
-  // For You: filter by user's department + level if available
+  // For You: filter by user's department + level + semester if available
   const forYouResources = useMemo(() => {
     if (!userDept || !userDept.department) return resources;
     const levelMap = { 1: "100 Level", 2: "200 Level", 3: "300 Level", 4: "400 Level" };
     const userLevel = levelMap[userDept.yearLevel] || null;
+    const userSem = userDept.semester || activeSemester || null;
     return resources.filter((r) => {
       if (r.department && r.department !== userDept.department) return false;
       if (userLevel && r.level && r.level !== userLevel) return false;
+      if (userSem && r.semester && r.semester !== userSem) return false;
       return true;
     });
-  }, [resources, userDept]);
+  }, [resources, userDept, activeSemester]);
 
   // Tab-based source list
   const tabResources = useMemo(() => {
@@ -1006,30 +992,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
               <label style={styles.fieldLabel}>Subject / course code</label>
               <input list="subjectOptions" value={uploadSubject} onChange={(e) => setUploadSubject(e.target.value)} placeholder="e.g. BIO 111" style={styles.input} />
               <datalist id="subjectOptions">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 120px" }}>
-                <label style={styles.fieldLabel}>Department</label>
-                <select value={uploadDept} onChange={(e) => setUploadDept(e.target.value)} style={styles.input}>
-                  <option value="">Select...</option>
-                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: "1 1 120px" }}>
-                <label style={styles.fieldLabel}>Level</label>
-                <select value={uploadLevel} onChange={(e) => setUploadLevel(e.target.value)} style={styles.input}>
-                  <option value="">Select...</option>
-                  {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: "1 1 120px" }}>
-                <label style={styles.fieldLabel}>Semester</label>
-                <select value={uploadSemester} onChange={(e) => setUploadSemester(e.target.value)} style={styles.input}>
-                  <option value="">Select...</option>
-                  {SEMESTERS.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
             </div>
 
             {uploadType !== "mcq" ? (

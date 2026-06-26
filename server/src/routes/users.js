@@ -11,10 +11,11 @@ router.get("/me/department", requireAuth, async (req, res) => {
       where: { userId: req.user.sub },
       include: { department: { select: { id: true, name: true } } },
     });
-    if (!userDept) return res.json({ department: null, yearLevel: null });
+    if (!userDept) return res.json({ department: null, yearLevel: null, semester: null });
     res.json({
       department: userDept.department?.name || null,
       yearLevel: userDept.yearLevel || null,
+      semester: userDept.semester || null,
     });
   } catch (error) {
     console.error("Error fetching user department:", error);

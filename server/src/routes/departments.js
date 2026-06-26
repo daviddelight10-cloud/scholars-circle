@@ -76,14 +76,14 @@ router.get("/user", requireAuth, async (req, res) => {
 // POST /api/departments/user — set user's department + year level
 router.post("/user", requireAuth, async (req, res) => {
   try {
-    const { departmentId, yearLevel } = req.body;
+    const { departmentId, yearLevel, semester } = req.body;
     if (!departmentId || !yearLevel) {
       return res.status(400).json({ error: "departmentId and yearLevel required" });
     }
     const row = await prisma.userDepartment.upsert({
       where: { userId: req.user.sub },
-      update: { departmentId, yearLevel: Number(yearLevel), setAt: new Date() },
-      create: { userId: req.user.sub, departmentId, yearLevel: Number(yearLevel) },
+      update: { departmentId, yearLevel: Number(yearLevel), semester: semester || null, setAt: new Date() },
+      create: { userId: req.user.sub, departmentId, yearLevel: Number(yearLevel), semester: semester || null },
       include: { department: true },
     });
     res.json(row);

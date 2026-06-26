@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { callAI, extractJSON } from "../../lib/aiClient";
 import { getSubjectBadgeColor } from "../../lib/researchUtils";
+import { getDepartments } from "../../lib/departments.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -13,7 +14,11 @@ export default function ResourceUploadForm() {
     contentType: "",
     description: "",
     isPremium: false,
+    department: "",
+    level: "",
+    semester: "",
   });
+  const [departments, setDepartments] = useState([]);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -31,6 +36,12 @@ export default function ResourceUploadForm() {
 
   const subjects = ["PHY", "BIO", "ANA", "Cardiology", "GST", "HEE", "Other"];
   const contentTypes = ["Note", "PDF", "MCQ", "Tutorial Question"];
+  const levels = ["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"];
+  const semesters = ["First Semester", "Second Semester"];
+
+  useEffect(() => {
+    getDepartments().then(setDepartments).catch(() => {});
+  }, []);
 
   const isMcqType = formData.contentType === "MCQ";
 
@@ -158,6 +169,9 @@ export default function ResourceUploadForm() {
       formDataToSend.append("contentType", formData.contentType.toLowerCase().replace(" ", "_"));
       formDataToSend.append("description", formData.description);
       formDataToSend.append("isPremium", formData.isPremium);
+      if (formData.department) formDataToSend.append("department", formData.department);
+      if (formData.level) formDataToSend.append("level", formData.level);
+      if (formData.semester) formDataToSend.append("semester", formData.semester);
 
       if (isMcqType) {
         formDataToSend.append("mcqData", JSON.stringify(mcqBank));
@@ -294,6 +308,52 @@ export default function ResourceUploadForm() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Department / Level / Semester */}
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 180px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Department
+            </label>
+            <select
+              name="department"
+              value={formData.department}
+              onChange={handleInputChange}
+              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#9fa8da", outline: "none" }}
+            >
+              <option value="">Select department…</option>
+              {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: "1 1 120px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Level
+            </label>
+            <select
+              name="level"
+              value={formData.level}
+              onChange={handleInputChange}
+              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#9fa8da", outline: "none" }}
+            >
+              <option value="">Select level…</option>
+              {levels.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div style={{ flex: "1 1 120px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Semester
+            </label>
+            <select
+              name="semester"
+              value={formData.semester}
+              onChange={handleInputChange}
+              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#9fa8da", outline: "none" }}
+            >
+              <option value="">Select semester…</option>
+              {semesters.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* File Upload (hidden for MCQ) */}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount } from "../lib/researchUtils";
+import { getDepartments } from "../lib/departments.js";
 import ResourceViewer from "./ResourceViewer";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -18,9 +19,11 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const [activeTab, setActiveTab] = useState("my");
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filters, setFilters] = useState({ department: "all", level: "all", semester: "all", subject: "all" });
+  const [departments, setDepartments] = useState([]);
 
   useEffect(() => {
     fetchMyResources();
+    getDepartments().then(setDepartments).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -127,7 +130,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     setTimeout(() => setToast(null), 2200);
   };
 
-  const activeFilterCount = ["department", "level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
+  const activeFilterCount = ["level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
 
   const filteredResources = useMemo(() => {
     return resources.filter((r) => {
@@ -235,7 +238,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
       </div>
 
       {/* Tabs + Filter */}
-      <div style={{ display: "flex", gap: "8px", marginBottom: "20px", alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "14px", alignItems: "center", flexWrap: "wrap" }}>
         <button onClick={() => setActiveTab("my")} style={activeTab === "my" ? tabActiveStyle : tabStyle}>
           My Uploads ({filteredResources.length})
         </button>
@@ -251,6 +254,35 @@ export default function TeacherResourcesHub({ onBack } = {}) {
           <span>🔧 Filters</span>
           {activeFilterCount > 0 && <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: "999px", fontSize: "10px", padding: "1px 6px" }}>{activeFilterCount}</span>}
         </button>
+      </div>
+
+      {/* Department Tabs */}
+      <div style={{ display: "flex", gap: "6px", overflowX: "auto", marginBottom: "20px", paddingBottom: "4px" }}>
+        <button
+          onClick={() => setFilters((p) => ({ ...p, department: "all" }))}
+          style={{
+            padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer",
+            background: filters.department === "all" ? "#1a237e" : "#0f1128",
+            border: filters.department === "all" ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
+            color: filters.department === "all" ? "#c5cae9" : "#7b82b8",
+          }}
+        >
+          All
+        </button>
+        {departments.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => setFilters((p) => ({ ...p, department: d.name }))}
+            style={{
+              padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer",
+              background: filters.department === d.name ? "#1a237e" : "#0f1128",
+              border: filters.department === d.name ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
+              color: filters.department === d.name ? "#c5cae9" : "#7b82b8",
+            }}
+          >
+            {d.icon || "🏛️"} {d.name}
+          </button>
+        ))}
       </div>
 
       {/* My Uploads Tab */}
@@ -302,7 +334,6 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             </div>
 
             {[
-              { key: "department", label: "Department" },
               { key: "level", label: "Level" },
               { key: "semester", label: "Semester" },
               { key: "subject", label: "Subject" },

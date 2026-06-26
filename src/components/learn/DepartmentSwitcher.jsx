@@ -11,11 +11,12 @@ function liveCount(subjects, deptId) {
   ).length;
 }
 
-export default function DepartmentSwitcher({ activeDept, activeYearLevel, subjects, onConfirm, onClose, onSkip, isOnboarding = false }) {
+export default function DepartmentSwitcher({ activeDept, activeYearLevel, activeSemester, subjects, onConfirm, onClose, onSkip, isOnboarding = false }) {
   const [departments, setDepartments] = useState([]);
-  const [step, setStep] = useState("dept"); // "dept" | "year"
+  const [step, setStep] = useState("dept"); // "dept" | "year" | "semester"
   const [selectedDept, setSelectedDept] = useState(activeDept || null);
   const [selectedYear, setSelectedYear] = useState(activeYearLevel || 1);
+  const [selectedSemester, setSelectedSemester] = useState(activeSemester || null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fetchError, setFetchError] = useState(false);
@@ -35,8 +36,8 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, subjec
     if (!selectedDept) return;
     setSaving(true);
     try {
-      await setUserDepartment(selectedDept.id, selectedYear);
-      onConfirm(selectedDept, selectedYear);
+      await setUserDepartment(selectedDept.id, selectedYear, selectedSemester);
+      onConfirm(selectedDept, selectedYear, selectedSemester);
     } catch {
       setSaving(false);
     }
@@ -86,10 +87,10 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, subjec
 
         {/* Step indicators */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
-          {["dept", "year"].map((s, i) => (
+          {["dept", "year", "semester"].map((s) => (
             <div key={s} style={{
               flex: 1, height: "3px", borderRadius: "2px",
-              background: s === step || (s === "dept" && step === "year") ? "#3949ab" : "#1e2245",
+              background: s === step || (s === "dept" && (step === "year" || step === "semester")) || (s === "year" && step === "semester") ? "#3949ab" : "#1e2245",
             }} />
           ))}
         </div>
@@ -177,11 +178,44 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, subjec
               }}>
                 ← Back
               </button>
-              <button onClick={handleConfirm} disabled={saving} style={{
+              <button onClick={() => setStep("semester")} style={{
                 flex: 2, padding: "14px", background: "#1a237e", color: "#e8eaf6",
                 border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer",
               }}>
-                {saving ? "Saving…" : `Confirm — ${selectedDept?.icon || "🏛️"} ${selectedDept?.name}, Year ${selectedYear}`}
+                Next →
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Step: Semester */}
+        {step === "semester" && (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
+              {["First Semester", "Second Semester"].map((s) => (
+                <button key={s} onClick={() => setSelectedSemester(s)} style={{
+                  padding: "22px 14px", borderRadius: "12px", cursor: "pointer",
+                  border: selectedSemester === s ? "1.5px solid #3949ab" : "0.5px solid #1e2245",
+                  background: selectedSemester === s ? "#0f1535" : "#0a0b18",
+                  color: selectedSemester === s ? "#e8eaf6" : "#7b82b8",
+                  fontWeight: 700, fontSize: "15px",
+                }}>
+                  {s}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => setStep("year")} style={{
+                flex: 1, padding: "14px", background: "#0a0b18", color: "#7b82b8",
+                border: "0.5px solid #1e2245", borderRadius: "12px", fontSize: "14px", cursor: "pointer",
+              }}>
+                ← Back
+              </button>
+              <button onClick={handleConfirm} disabled={saving || !selectedSemester} style={{
+                flex: 2, padding: "14px", background: selectedSemester ? "#1a237e" : "#1e2245", color: "#e8eaf6",
+                border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedSemester ? "pointer" : "default",
+              }}>
+                {saving ? "Saving…" : `Confirm — ${selectedDept?.icon || "🏛️"} ${selectedDept?.name}, Year ${selectedYear}, ${selectedSemester || ""}`}
               </button>
             </div>
           </>

@@ -1032,14 +1032,28 @@ router.get("/pdf-review/flashcards/:resourceId", requireAuth, async (req, res) =
   }
 });
 
-// POST /api/resources - Create new resource (teacher only)
-router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), upload.single("file"), async (req, res) => {
+// POST /api/resources - Create new resource (any authenticated user)
+router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   try {
     const { title, subject, contentType, description, isPremium, mcqData, department, level, semester } = req.body;
 
     if (!title || !subject || !contentType) {
       return res.status(400).json({ error: "Title, subject, and content type are required" });
     }
+
+    // Fetch user's department info for auto-filling if not provided
+    const userDept = await prisma.userDepartment.findUnique({
+      where: { userId: req.user.sub },
+      include: { department: { select: { name: true } } },
+    });
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { role: true } });
+    const isStudent = user?.role === "STUDENT";
+
+    // Auto-fill department/level/semester from user's profile if not provided
+    const finalDept = department || userDept?.department?.name || null;
+    const levelMap = { 1: "100 Level", 2: "200 Level", 3: "300 Level", 4: "400 Level", 5: "500 Level", 6: "600 Level" };
+    const finalLevel = level || (userDept ? levelMap[userDept.yearLevel] || null : null);
+    const finalSemester = semester || userDept?.semester || null;
 
     // For MCQ type, mcqData is required instead of file
     if (contentType === "mcq") {
@@ -1087,10 +1101,10 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), upload.single(
         isPremium: isPremium === "true",
         shareToken,
         mcqData: contentType === "mcq" ? JSON.parse(mcqData) : null,
-        status: "pending", // All new uploads require teacher approval
-        department: department || null,
-        level: level || null,
-        semester: semester || null,
+        status: isStudent ? "approved" : "pending",
+        department: finalDept,
+        level: finalLevel,
+        semester: finalSemester,
       },
       include: { uploader: { select: { id: true, username: true, role: true } } },
     });

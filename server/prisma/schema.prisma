@@ -1285,6 +1285,7 @@ model UserDepartment {
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   yearLevel    Int        @default(1)
+  semester     String?
   setAt        DateTime   @default(now())
 
   @@index([departmentId])

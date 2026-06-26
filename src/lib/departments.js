@@ -25,10 +25,10 @@ export async function getUserDepartment() {
   return res.json();
 }
 
-export async function setUserDepartment(departmentId, yearLevel) {
+export async function setUserDepartment(departmentId, yearLevel, semester) {
   const res = await authFetch(`${BASE}/api/departments/user`, {
     method: "POST",
-    body: JSON.stringify({ departmentId, yearLevel }),
+    body: JSON.stringify({ departmentId, yearLevel, semester }),
   });
   if (!res.ok) throw new Error("Failed to save department");
   return res.json();

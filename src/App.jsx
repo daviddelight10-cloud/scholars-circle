@@ -346,6 +346,9 @@ function App() {
   const [activeYearLevel, setActiveYearLevel] = useState(() => {
     return parseInt(localStorage.getItem("sc_active_level") || "1");
   });
+  const [activeSemester, setActiveSemester] = useState(() => {
+    return localStorage.getItem("sc_active_semester") || null;
+  });
   const [showDeptSwitcher, setShowDeptSwitcher] = useState(false);
 
 
@@ -9466,6 +9469,7 @@ function App() {
         <DepartmentSwitcher
           activeDept={activeDept}
           activeYearLevel={activeYearLevel}
+          activeSemester={activeSemester}
           subjects={subjects}
           isOnboarding={!activeDept}
           onClose={() => setShowDeptSwitcher(false)}
@@ -9473,12 +9477,14 @@ function App() {
             try { localStorage.setItem("sc_active_dept", "skipped"); } catch {}
             setShowDeptSwitcher(false);
           }}
-          onConfirm={(dept, year) => {
+          onConfirm={(dept, year, semester) => {
             setActiveDept(dept);
             setActiveYearLevel(year);
+            setActiveSemester(semester);
             try {
               localStorage.setItem("sc_active_dept", JSON.stringify(dept));
               localStorage.setItem("sc_active_level", String(year));
+              localStorage.setItem("sc_active_semester", semester || "");
             } catch {}
             setShowDeptSwitcher(false);
           }}
@@ -9646,7 +9652,7 @@ function App() {
 
       {tab === "research-hub" && (
         <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
-        <ResearchHub onBack={() => setTab("today")} streak={stats.streak} onStreakUpdate={handleStreakUpdate} />
+        <ResearchHub onBack={() => setTab("today")} streak={stats.streak} onStreakUpdate={handleStreakUpdate} activeSemester={activeSemester} />
         </Suspense>
       )}
 
