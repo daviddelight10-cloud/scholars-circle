@@ -11,10 +11,10 @@ const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174
 // ── Theme palettes ────────────────────────────────────────────────────────────
 const THEMES = {
   light: {
-    bg: "#EFEEE8", toolbar: "#fff", border: "#E2DFD3", text: "#3F3A33",
-    muted: "#80796E", accent: "#C23B3B", hover: "rgba(194,59,59,0.10)",
-    inputBg: "#FBFAF6", chatBot: "#F5F4EF", thumbBg: "#FBFAF6",
-    shadow: "rgba(0,0,0,0.10)", chipBg: "#F0EEE8",
+    bg: "#EFEEE8", toolbar: "#fff", border: "#C9C5B8", text: "#2D2823",
+    muted: "#6B665C", accent: "#C23B3B", hover: "rgba(194,59,59,0.10)",
+    inputBg: "#F2F0EA", chatBot: "#EEEAE2", thumbBg: "#FBFAF6",
+    shadow: "rgba(0,0,0,0.14)", chipBg: "#E8E5DD",
   },
   dark: {
     bg: "#1a1a2e", toolbar: "#16213e", border: "#0f3460", text: "#e0e0e0",
@@ -585,6 +585,16 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // ---- AI Study Tools helpers ----
   const MAX_STUDY_CHARS = 20000;
 
+  const capturePageImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    try {
+      return canvas.toDataURL("image/jpeg", 0.7);
+    } catch {
+      return null;
+    }
+  };
+
   const extractTextForRange = async (from, to) => {
     if (!pdfDocRef.current) return "";
     const parts = [];
@@ -604,6 +614,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   const resolveRange = () => {
     if (numPages <= 1) return { from: 1, to: 1, label: "page 1" };
+    if (studyRangeType === "auto") return { from: currentPage, to: currentPage, label: `page ${currentPage} (auto)` };
     if (studyRangeType === "current") return { from: currentPage, to: currentPage, label: `page ${currentPage}` };
     if (studyRangeType === "custom") {
       const from = Math.max(1, Math.min(studyFrom, numPages));
@@ -688,6 +699,97 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const { from, to, label } = resolveRange();
     if (from > to) { setStudyError("Invalid page range."); return; }
 
+    const count = Math.max(3, Math.min(40, studyCount));
+    const isAutoMode = studyRangeType === "auto";
+
+    // Auto mode: capture current page as image and send to AI visually
+    if (isAutoMode) {
+      setStudyStep("loading");
+      setStudyLoadingMsg("Looking at page…");
+
+      const pageImage = capturePageImage();
+      if (!pageImage) {
+        setStudyError("Could not capture the current page. Try switching to text-based mode.");
+        setStudyStep("setup");
+        return;
+      }
+
+      // Also get page text as supplementary context
+      let supplementaryText = "";
+      try { supplementaryText = await getPageText(currentPage); } catch {}
+
+      if (studyMode === "mcq") {
+        setStudyLoadingMsg("Writing questions from page…");
+        const prompt = `You are an expert exam writer for university students. Look at the page image provided and generate exactly ${count} multiple-choice questions based on what you see.
+
+${supplementaryText ? `The page also contains this text (use alongside the image):\n"""\n${supplementaryText.slice(0, 5000)}\n"""` : ""}
+
+FORMAT — separate each question with a line containing only "---":
+Q: <question text>
+A. <option A>
+B. <option B>
+C. <option C>
+D. <option D>
+Correct Answer: <letter>
+Explanation: <brief explanation>
+
+Rules:
+- Exactly 4 options (A–D) per question
+- One correct answer
+- Questions should test understanding, not just memorization
+- Keep explanations to 1–2 sentences
+- Base questions on what is visible in the page image`;
+        try {
+          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+          if (!raw || raw.trim().length < 10) {
+            setStudyError("AI returned an empty response. Try again.");
+            setStudyStep("setup");
+            return;
+          }
+          setStudyResult(raw);
+          const mcqs = parseMcqMarkdown(raw);
+          setParsedMcqs(mcqs);
+          setStudyStep("result");
+        } catch (err) {
+          setStudyError(err.message || "Failed to generate questions. Please try again.");
+          setStudyStep("setup");
+        }
+      } else {
+        setStudyLoadingMsg("Summarizing page…");
+        const prompt = `You are an expert study assistant. Look at the page image provided and summarize it for university exam preparation.
+
+${supplementaryText ? `The page also contains this text (use alongside the image):\n"""\n${supplementaryText.slice(0, 5000)}\n"""` : ""}
+
+Use this structure with Markdown headings:
+
+## Key Topics
+- List the main topics covered
+
+## Important Details
+- Key facts, definitions, formulas, and concepts
+
+## Likely Exam Focus
+- What questions or topics are most likely to appear on an exam based on this content
+
+Keep it concise but thorough. Use bullet points and bold key terms.`;
+        try {
+          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+          if (!raw || raw.trim().length < 10) {
+            setStudyError("AI returned an empty response. Try again.");
+            setStudyStep("setup");
+            return;
+          }
+          setStudyResult(raw);
+          setStudyStep("result");
+        } catch (err) {
+          setStudyError(err.message || "Failed to generate summary. Please try again.");
+          setStudyStep("setup");
+        }
+      }
+      return;
+    }
+
+    // Text-based mode
     setStudyStep("loading");
     setStudyLoadingMsg("Reading pages…");
 
@@ -705,8 +807,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       setStudyStep("setup");
       return;
     }
-
-    const count = Math.max(3, Math.min(40, studyCount));
 
     if (studyMode === "mcq") {
       setStudyLoadingMsg("Writing questions…");
@@ -3327,7 +3427,7 @@ ${extractedText}
                       <div>
                         <div style={s.studyLabel}>Page Range</div>
                         <div style={s.studyRangeRow}>
-                          {["all", "current", "custom"].map((r) => (
+                          {["auto", "all", "current", "custom"].map((r) => (
                             <button
                               key={r}
                               style={{
@@ -3338,7 +3438,7 @@ ${extractedText}
                               }}
                               onClick={() => setStudyRangeType(r)}
                             >
-                              {r === "all" ? `All (${numPages})` : r === "current" ? `This page (${currentPage})` : "Custom"}
+                              {r === "auto" ? `🤖 Auto (p.${currentPage})` : r === "all" ? `All (${numPages})` : r === "current" ? `This page (${currentPage})` : "Custom"}
                             </button>
                           ))}
                         </div>

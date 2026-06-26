@@ -912,7 +912,10 @@ router.post("/pdf-review/flashcards/generate", requireAuth, aiRateLimit, async (
     // Server-side AI call — use the proxy endpoint directly
     const aiRes = await fetch(`${process.env.API_BASE || "http://localhost:3000"}/ai-proxy/generate-multimodal`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: req.headers.authorization || "",
+      },
       body: JSON.stringify({
         prompt: `You are an expert flashcard creator for university students. Generate exactly ${numCards} flashcards from the text below.
 
