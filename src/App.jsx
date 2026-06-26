@@ -122,6 +122,8 @@ import { StudyGroups } from "./features/StudyGroups";
 
 const GamificationHub = lazy(() => import("./features/Gamification"));
 const ResearchHub = lazy(() => import("./features/ResearchHub"));
+
+const ResourceViewer = lazy(() => import("./features/ResourceViewer"));
 const TeacherResourcesHub = lazy(() => import("./features/TeacherResourcesHub"));
 const AdminDashboard = lazy(() => import("./features/AdminDashboard"));
 const Lecturers = lazy(() => import("./features/Lecturers/index.jsx"));
@@ -596,6 +598,10 @@ function App() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  const [homeViewerToken, setHomeViewerToken] = useState(null);
+
+  const [homeViewerPage, setHomeViewerPage] = useState(null);
 
   const [progressSubTab, setProgressSubTab] = useState("stats");
 
@@ -8294,7 +8300,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">🏠</span>
+          <span className="nav-icon">📚</span>
 
           <span className="nav-label">Learn</span>
 
@@ -8302,17 +8308,17 @@ function App() {
 
         <button
 
-          className={["aitutor", "lectures"].includes(tab) ? "active" : ""}
+          className={["research-hub", "resources"].includes(tab) ? "active" : ""}
 
-          onClick={() => setTab("aitutor")}
+          onClick={() => setTab("research-hub")}
 
-          title="AI Tutor"
+          title="Research Hub"
 
         >
 
-          <span className="nav-icon"><span className="nav-icon-wrapper">🤖<span className="nav-icon-badge" /></span></span>
+          <span className="nav-icon">🔍</span>
 
-          <span className="nav-label">AI Tutor</span>
+          <span className="nav-label">Research</span>
 
         </button>
 
@@ -8326,7 +8332,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">🏠</span>
+          <span className="nav-icon">📊</span>
 
           <span className="nav-label">Progress</span>
 
@@ -8677,6 +8683,8 @@ function App() {
 
           onOpenStudy={(topic, mode, attachment) => { setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiKey(k => k + 1); setTab("aitutor"); }}
 
+          onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerToken(shareToken); }}
+
           token={token}
 
           onImportToBank={(questions, topic) => {
@@ -8721,11 +8729,17 @@ function App() {
 
       )}
 
-
-
-
-
-
+      {homeViewerToken && (
+        <ErrorBoundary>
+          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+            <ResourceViewer
+              token={homeViewerToken}
+              initialPage={homeViewerPage}
+              onBack={() => { setHomeViewerToken(null); setHomeViewerPage(null); }}
+            />
+          </Suspense>
+        </ErrorBoundary>
+      )}
 
       {tab === "lectures" && (
 

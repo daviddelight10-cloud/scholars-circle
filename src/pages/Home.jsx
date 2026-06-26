@@ -20,6 +20,7 @@ function Home({
   onOpenAI,
   onOpenLearn,
   onOpenStudy,
+  onOpenResource,
   onImportToBank,
   loading,
   token,
@@ -58,6 +59,7 @@ function Home({
       onStartSubject={onStartSubject}
       onOpenTab={onOpenTab}
       onOpenLeaderboard={onOpenLeaderboard}
+      onOpenResource={onOpenResource}
       token={token}
       authUser={authUser}
     />

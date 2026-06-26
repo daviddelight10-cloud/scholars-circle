@@ -560,6 +560,7 @@ export default function Dashboard({
   onOpenAI,
   onOpenLearn,
   onOpenStudy,
+  onOpenResource,
   token,
   authUser,
 }) {
@@ -588,9 +589,27 @@ export default function Dashboard({
     onOpenTab?.("research-hub");
   }, [onOpenTab]);
 
-  const handleReviewReadings = useCallback(() => {
+  const handleReviewReadings = useCallback(async () => {
+    if (onOpenResource) {
+      try {
+        const res = await fetch(`${API_BASE}/api/resources/pdf-review/due`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const due = await res.json();
+          const firstPdf = due?.wholePdfs?.[0];
+          const firstPage = due?.pages?.[0];
+          if (firstPdf?.resource?.shareToken) {
+            onOpenResource(firstPdf.resource.shareToken);
+            return;
+          }
+          if (firstPage?.resource?.shareToken) {
+            onOpenResource(firstPage.resource.shareToken, firstPage.pageIndex);
+            return;
+          }
+        }
+      } catch {}
+    }
     onOpenTab?.("research-hub");
-  }, [onOpenTab]);
+  }, [onOpenTab, onOpenResource]);
 
   const handleOpenAI = useCallback((topic) => {
     onOpenAI?.(topic);
@@ -619,7 +638,7 @@ export default function Dashboard({
         }
         @media (max-width: 420px) {
           .dash-ring-wall { grid-template-columns: 1fr !important; }
-          .dash-topbar-actions .dash-pill { display: none !important; }
+          .dash-topbar-actions .dash-pill { padding: 5px 9px !important; font-size: 0.72rem !important; }
         }
         @media (max-width: 768px) {
           .dash-ask-card { padding: 20px 16px !important; }
