@@ -6,7 +6,6 @@ import { API_BASE } from "./constants.js";
 
 let _proxyStatus = null; // { enabled, providers, defaultProvider }
 let _proxyStatusPromise = null;
-let _limitModalShownThisSession = false;
 
 export async function getProxyStatus() {
   // Return cached status if available
@@ -76,10 +75,7 @@ async function callViaProxy(prompt, provider, model) {
   try { data = await res.json(); } catch {}
   if (!res.ok) {
     if (res.status === 429) {
-      if (!_limitModalShownThisSession) {
-        _limitModalShownThisSession = true;
-        window.dispatchEvent(new CustomEvent("sc-open-premium"));
-      }
+      window.dispatchEvent(new CustomEvent("sc-open-premium"));
       const err = new Error(data?.error || "Daily AI limit reached. Upgrade for unlimited access!");
       err.isLimitError = true;
       throw err;
@@ -215,10 +211,7 @@ export async function callAIMultimodal(prompt, imageOrImages, history = [], aiCo
   try { data = await res.json(); } catch {}
   if (!res.ok) {
     if (res.status === 429) {
-      if (!_limitModalShownThisSession) {
-        _limitModalShownThisSession = true;
-        window.dispatchEvent(new CustomEvent("sc-open-premium"));
-      }
+      window.dispatchEvent(new CustomEvent("sc-open-premium"));
       const err = new Error(data?.error || "Daily AI limit reached. Upgrade for unlimited access!");
       err.isLimitError = true;
       throw err;
