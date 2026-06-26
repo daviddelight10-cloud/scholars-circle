@@ -1190,11 +1190,11 @@ router.post("/:token/view", requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /api/resources/:id - Update resource (uploader only)
+// PATCH /api/resources/:id - Update resource (uploader or teacher/lecturer)
 router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, subject, description, isPremium } = req.body;
+    const { title, subject, description, isPremium, department, level, semester, departmentIds } = req.body;
 
     const resource = await prisma.resource.findUnique({
       where: { id },
@@ -1204,8 +1204,21 @@ router.patch("/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Resource not found" });
     }
 
-    if (resource.uploadedBy !== req.user.sub) {
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { role: true } });
+    const isTeacher = user?.role === "TEACHER" || user?.role === "LECTURER";
+
+    if (resource.uploadedBy !== req.user.sub && !isTeacher) {
       return res.status(403).json({ error: "You can only edit your own resources" });
+    }
+
+    // Parse departmentIds if provided
+    let parsedDeptIds = null;
+    if (departmentIds) {
+      if (typeof departmentIds === "string") {
+        try { parsedDeptIds = JSON.parse(departmentIds); } catch { parsedDeptIds = [departmentIds]; }
+      } else if (Array.isArray(departmentIds)) {
+        parsedDeptIds = departmentIds;
+      }
     }
 
     const updated = await prisma.resource.update({
@@ -1215,11 +1228,19 @@ router.patch("/:id", requireAuth, async (req, res) => {
         ...(subject && { subject }),
         ...(description !== undefined && { description }),
         ...(isPremium !== undefined && { isPremium: isPremium === "true" }),
+        ...(department !== undefined && { department }),
+        ...(level !== undefined && { level }),
+        ...(semester !== undefined && { semester }),
+        ...(parsedDeptIds !== null && {
+          resourceDepts: {
+            deleteMany: {},
+            create: parsedDeptIds.map((deptId) => ({ departmentId: deptId })),
+          },
+        }),
       },
       include: {
-        uploader: {
-          select: { id: true, username: true, role: true },
-        },
+        uploader: { select: { id: true, username: true, role: true } },
+        resourceDepts: { include: { department: { select: { id: true, name: true } } } },
       },
     });
 

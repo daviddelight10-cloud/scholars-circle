@@ -20,6 +20,12 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filters, setFilters] = useState({ department: "all", level: "all", semester: "all", subject: "all" });
   const [departments, setDepartments] = useState([]);
+  const [editResource, setEditResource] = useState(null);
+  const [editForm, setEditForm] = useState({ title: "", subject: "", description: "", isPremium: false, level: "", semester: "" });
+  const [editDeptIds, setEditDeptIds] = useState([]);
+  const [editSaving, setEditSaving] = useState(false);
+  const levels = ["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"];
+  const semesters = ["First Semester", "Second Semester"];
 
   useEffect(() => {
     fetchMyResources();
@@ -130,6 +136,52 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     setTimeout(() => setToast(null), 2200);
   };
 
+  const openEdit = (resource) => {
+    setEditResource(resource);
+    setEditForm({
+      title: resource.title || "",
+      subject: resource.subject || "",
+      description: resource.description || "",
+      isPremium: resource.isPremium || false,
+      level: resource.level || "",
+      semester: resource.semester || "",
+    });
+    setEditDeptIds(resource.resourceDepts ? resource.resourceDepts.map((rd) => rd.departmentId) : []);
+  };
+
+  const submitEdit = async () => {
+    if (!editResource) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/${editResource.id}`, {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editForm.title,
+          subject: editForm.subject,
+          description: editForm.description,
+          isPremium: editForm.isPremium,
+          level: editForm.level,
+          semester: editForm.semester,
+          departmentIds: editDeptIds,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setResources((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setPendingResources((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setEditResource(null);
+        showToast("Resource updated ✓");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Update failed");
+      }
+    } catch {
+      showToast("Update failed — check connection");
+    }
+    setEditSaving(false);
+  };
+
   const activeFilterCount = ["level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
 
   const filteredResources = useMemo(() => {
@@ -212,6 +264,13 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
             }}>👁️</button>
           )}
+          <button onClick={() => openEdit(resource)} title="Edit" style={{
+            width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#9fa8da"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
+          >✏️</button>
           <button onClick={() => setDeleteConfirm(resource.id)} title="Delete" style={{
             width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
@@ -375,6 +434,81 @@ export default function TeacherResourcesHub({ onBack } = {}) {
       {/* Error */}
       {error && (
         <div style={{ background: "#1a0808", border: "0.5px solid #4a1010", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "#ef9a9a", marginTop: "16px" }}>{error}</div>
+      )}
+
+      {/* Edit Resource Modal */}
+      {editResource && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => !editSaving && setEditResource(null)}>
+          <div style={{ background: "#0d0f20", border: "0.5px solid #2a2d4a", borderRadius: "18px", padding: "26px", width: "90%", maxWidth: "480px", maxHeight: "86vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#e8eaf6", margin: 0 }}>Edit Resource</h2>
+              <button onClick={() => setEditResource(null)} style={{ background: "none", border: "none", color: "#4a5080", fontSize: "16px", cursor: "pointer", padding: "4px" }}>✕</button>
+            </div>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Title</label>
+              <input value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+            </div>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Subject</label>
+              <input value={editForm.subject} onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+            </div>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Description</label>
+              <textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none", resize: "vertical" }} />
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Level</label>
+                <select value={editForm.level} onChange={(e) => setEditForm((p) => ({ ...p, level: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}>
+                  <option value="">None</option>
+                  {levels.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Semester</label>
+                <select value={editForm.semester} onChange={(e) => setEditForm((p) => ({ ...p, semester: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}>
+                  <option value="">None</option>
+                  {semesters.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "6px", display: "block" }}>Departments</label>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {departments.map((d) => {
+                  const selected = editDeptIds.includes(d.id);
+                  return (
+                    <button key={d.id} type="button" onClick={() => setEditDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])} style={{
+                      padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                      background: selected ? "#1a237e" : "#0a0c1e", border: selected ? "0.5px solid #3949ab" : "0.5px solid #1e2245", color: selected ? "#c5cae9" : "#7b82b8",
+                    }}>
+                      {d.icon || "🏛️"} {d.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "18px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#9fa8da", cursor: "pointer" }}>
+                <input type="checkbox" checked={editForm.isPremium} onChange={(e) => setEditForm((p) => ({ ...p, isPremium: e.target.checked }))} />
+                Premium resource
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => setEditResource(null)} style={{ flex: 1, padding: "10px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#9fa8da", cursor: "pointer" }}>Cancel</button>
+              <button onClick={submitEdit} disabled={editSaving} style={{ flex: 1, padding: "10px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: "14px", fontWeight: 700, color: "#c5cae9", cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.5 : 1 }}>
+                {editSaving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}
