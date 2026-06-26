@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import FlashcardRunner from "../components/FlashcardRunner.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -105,7 +106,7 @@ DETECT the content type from the image, then respond:
 Format: **bold** key terms. Numbered steps for problems. Bullet points for lists.
 Length: concise, but never cut short a multi-step solution.`;
 
-export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack }) {
+export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
 
   const [numPages, setNumPages] = useState(0);
@@ -180,6 +181,37 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // Save-flashcard confirmation
   const [flashcardSaved, setFlashcardSaved] = useState(false);
 
+  // ── AI Study Tools state ───────────────────────────────────────────────────
+  const studyPrefs = loadStored(`sc_pdf_studyprefs_${docKey}`, { studyMode: "mcq", studyRangeType: "all", studyCount: 10 });
+  const [studyToolsOpen, setStudyToolsOpen] = useState(false);
+  const [studyMode, setStudyMode] = useState(studyPrefs.studyMode || "mcq"); // "mcq" | "summary"
+  const [studyRangeType, setStudyRangeType] = useState(studyPrefs.studyRangeType || "all"); // "all" | "current" | "custom"
+  const [studyFrom, setStudyFrom] = useState(1);
+  const [studyTo, setStudyTo] = useState(1);
+  const [studyCount, setStudyCount] = useState(studyPrefs.studyCount || 10);
+  const [studyStep, setStudyStep] = useState("setup"); // "setup" | "loading" | "result"
+  const [studyResult, setStudyResult] = useState("");
+  const [studyError, setStudyError] = useState("");
+  const [studyLoadingMsg, setStudyLoadingMsg] = useState("");
+  const [parsedMcqs, setParsedMcqs] = useState([]);
+  const [studySaveStatus, setStudySaveStatus] = useState("idle"); // "idle" | "saving" | "saved" | "error"
+  const [studySaveError, setStudySaveError] = useState("");
+  const [studyIsPublic, setStudyIsPublic] = useState(false);
+
+  // ── FSRS Spaced Repetition state ────────────────────────────────────────────
+  const [fsrsStatus, setFsrsStatus] = useState(null); // per-resource FSRS data
+  const [fsrsRatingBar, setFsrsRatingBar] = useState(false); // show page rating bar
+  const [fsrsWholePdfRating, setFsrsWholePdfRating] = useState(false); // show whole-PDF rating
+  const [fsrsRatingBusy, setFsrsRatingBusy] = useState(false);
+  const [fsrsLastResult, setFsrsLastResult] = useState(null); // { intervalLabel, stateLabel }
+  const [fsrsFlashcards, setFsrsFlashcards] = useState([]);
+  const [fsrsFlashcardView, setFsrsFlashcardView] = useState("menu"); // "menu" | "generate" | "review" | "browse"
+  const [fsrsFlashcardLoading, setFsrsFlashcardLoading] = useState(false);
+  const [fsrsFlashcardError, setFsrsFlashcardError] = useState("");
+  const [fsrsFlashcardCount, setFsrsFlashcardCount] = useState(10);
+  const [aiUsage, setAiUsage] = useState(null);
+  const pageEnterTimeRef = useRef(Date.now());
+
   // Scroll mode: "single" | "vertical" | "horizontal"
   const [scrollMode, setScrollMode] = useState(() => loadStored(`sc_pdf_scrollmode_${docKey}`, "single"));
   const [transitioning, setTransitioning] = useState(false);
@@ -205,18 +237,21 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         if (cancelled) return;
         pdfDocRef.current = pdf;
         setNumPages(pdf.numPages);
-        setCurrentPage(1);
+        const startPage = initialPage ? Math.max(1, Math.min(initialPage, pdf.numPages)) : 1;
+        setCurrentPage(startPage);
+        // Initialize FSRS tracking for this PDF
+        if (propResourceId) initFsrs(pdf.numPages);
         // Defer fitToWidth so fullscreen layout is painted before measuring container width
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         if (cancelled) return;
         const fittedScale = await fitToWidth();
-        await renderPage(1, fittedScale);
+        await renderPage(startPage, fittedScale);
         setLoading(false);
         // Re-fit after loading spinner unmounts (container dimensions may shift)
         setTimeout(async () => {
           if (!cancelled) {
             const s = await fitToWidth();
-            await renderPage(1, s);
+            await renderPage(startPage, s);
           }
         }, 150);
       } catch (err) {
@@ -518,6 +553,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const pageContext = pageText ? `\n\nPage text (use only if the image alone is ambiguous):\n${pageText.slice(0, 1000)}` : "";
     const firstPrompt = `${TUTOR_SYSTEM}${pageContext}\n\n---\n\nThe image attached is EXACTLY what the student circled. Look at the image. Identify what type of content it is (question / term / problem / diagram / statement). Then immediately provide the answer — begin your response with the answer, nothing else.`;
 
+    setStudyToolsOpen(false);
     setChatMessages([{ role: "user", content: "What did I circle?", image: thumb }]);
     setChatOpen(true);
     setChatLoading(true);
@@ -533,6 +569,457 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
   };
 
+  // ---- AI Study Tools helpers ----
+  const MAX_STUDY_CHARS = 20000;
+
+  const extractTextForRange = async (from, to) => {
+    if (!pdfDocRef.current) return "";
+    const parts = [];
+    let total = 0;
+    for (let n = from; n <= to; n++) {
+      if (total >= MAX_STUDY_CHARS) break;
+      const text = await getPageText(n);
+      parts.push(text);
+      total += text.length;
+    }
+    let combined = parts.join("\n\n");
+    if (combined.length > MAX_STUDY_CHARS) {
+      combined = combined.slice(0, MAX_STUDY_CHARS) + "\n\n[...content truncated for processing...]";
+    }
+    return combined;
+  };
+
+  const resolveRange = () => {
+    if (numPages <= 1) return { from: 1, to: 1, label: "page 1" };
+    if (studyRangeType === "current") return { from: currentPage, to: currentPage, label: `page ${currentPage}` };
+    if (studyRangeType === "custom") {
+      const from = Math.max(1, Math.min(studyFrom, numPages));
+      const to = Math.max(from, Math.min(studyTo, numPages));
+      return { from, to, label: from === to ? `page ${from}` : `pages ${from}–${to}` };
+    }
+    return { from: 1, to: numPages, label: numPages > 1 ? `pages 1–${numPages}` : "page 1" };
+  };
+
+  const parseMcqMarkdown = (raw) => {
+    const blocks = raw.split(/^---$/m).map((b) => b.trim()).filter(Boolean);
+    const mcqs = [];
+    for (const block of blocks) {
+      const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (lines.length < 3) continue;
+      const qLine = lines.find((l) => /^Q\d*[:.)]?\s*/i.test(l) || (!/^[A-D][.):]\s/.test(l) && !/^Correct\s*Answer/i.test(l) && !/^Explanation/i.test(l)));
+      if (!qLine) continue;
+      const question = qLine.replace(/^Q\d*[:.)]?\s*/i, "").trim();
+
+      const options = {};
+      for (const line of lines) {
+        const m = line.match(/^([A-D])[\.\):]\s*(.+)/);
+        if (m) options[m[1]] = m[2].trim();
+      }
+      if (Object.keys(options).length < 2) continue;
+
+      const correctLine = lines.find((l) => /^Correct\s*Answer/i.test(l));
+      let correct = "";
+      if (correctLine) {
+        const m = correctLine.match(/([A-D])/);
+        if (m) correct = m[1];
+      }
+
+      const explLine = lines.find((l) => /^Explanation/i.test(l));
+      const explanation = explLine ? explLine.replace(/^Explanation[:.)]?\s*/i, "").trim() : "";
+
+      if (question && Object.keys(options).length >= 2 && correct) {
+        mcqs.push({ question, options, correct, explanation });
+      }
+    }
+    return mcqs;
+  };
+
+  const openStudyTools = () => {
+    closeChat();
+    setStudyToolsOpen(true);
+    setStudyStep("setup");
+    setStudyError("");
+    setStudyResult("");
+    setParsedMcqs([]);
+    setStudySaveStatus("idle");
+    setStudySaveError("");
+    if (numPages > 1 && studyRangeType === "custom") {
+      const clampedFrom = Math.max(1, Math.min(studyFrom, numPages));
+      setStudyFrom(clampedFrom);
+      setStudyTo(Math.max(clampedFrom, Math.min(studyTo, numPages)));
+    }
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    if (authData.authToken) {
+      fetch(`${API_BASE}/ai-proxy/usage`, {
+        headers: { Authorization: `Bearer ${authData.authToken}` },
+        credentials: "include",
+      }).then(r => r.ok ? r.json() : null).then(data => setAiUsage(data)).catch(() => {});
+    }
+  };
+
+  const closeStudyTools = () => {
+    setStudyToolsOpen(false);
+    setStudyStep("setup");
+    setStudyError("");
+    setStudyResult("");
+    setParsedMcqs([]);
+    setStudySaveStatus("idle");
+    setStudySaveError("");
+  };
+
+  const handleStudyGenerate = async () => {
+    setStudyError("");
+    setStudyResult("");
+    setParsedMcqs([]);
+
+    const { from, to, label } = resolveRange();
+    if (from > to) { setStudyError("Invalid page range."); return; }
+
+    setStudyStep("loading");
+    setStudyLoadingMsg("Reading pages…");
+
+    let extractedText;
+    try {
+      extractedText = await extractTextForRange(from, to);
+    } catch (e) {
+      setStudyError("Could not extract text from those pages.");
+      setStudyStep("setup");
+      return;
+    }
+
+    if (!extractedText.trim()) {
+      setStudyError("No text found in the selected pages. This PDF might be scanned images only.");
+      setStudyStep("setup");
+      return;
+    }
+
+    const count = Math.max(3, Math.min(40, studyCount));
+
+    if (studyMode === "mcq") {
+      setStudyLoadingMsg("Writing questions…");
+      const prompt = `You are an expert exam writer for university students. Generate exactly ${count} multiple-choice questions from the text below.
+
+FORMAT — separate each question with a line containing only "---":
+Q: <question text>
+A. <option A>
+B. <option B>
+C. <option C>
+D. <option D>
+Correct Answer: <letter>
+Explanation: <brief explanation>
+
+Rules:
+- Exactly 4 options (A–D) per question
+- One correct answer
+- Questions should test understanding, not just memorization
+- Keep explanations to 1–2 sentences
+
+TEXT:
+"""
+${extractedText}
+"""`;
+      try {
+        const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        if (!raw || raw.trim().length < 10) {
+          setStudyError("AI returned an empty response. Try again with a different page range.");
+          setStudyStep("setup");
+          return;
+        }
+        setStudyResult(raw);
+        const mcqs = parseMcqMarkdown(raw);
+        setParsedMcqs(mcqs);
+        setStudyStep("result");
+      } catch (err) {
+        setStudyError(err.message || "Failed to generate questions. Please try again.");
+        setStudyStep("setup");
+      }
+    } else {
+      setStudyLoadingMsg("Summarizing…");
+      const prompt = `You are an expert study assistant. Summarize the text below for university exam preparation.
+
+Use this structure with Markdown headings:
+
+## Key Topics
+- List the main topics covered
+
+## Important Details
+- Key facts, definitions, formulas, and concepts
+
+## Likely Exam Focus
+- What questions or topics are most likely to appear on an exam based on this content
+
+Keep it concise but thorough. Use bullet points and bold key terms.
+
+TEXT:
+"""
+${extractedText}
+"""`;
+      try {
+        const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        if (!raw || raw.trim().length < 10) {
+          setStudyError("AI returned an empty response. Try again with a different page range.");
+          setStudyStep("setup");
+          return;
+        }
+        setStudyResult(raw);
+        setStudyStep("result");
+      } catch (err) {
+        setStudyError(err.message || "Failed to generate summary. Please try again.");
+        setStudyStep("setup");
+      }
+    }
+  };
+
+  const handleStudyCopy = () => {
+    if (!studyResult) return;
+    navigator.clipboard?.writeText(studyResult).catch(() => {});
+  };
+
+  const handleStudyNew = () => {
+    setStudyStep("setup");
+    setStudyResult("");
+    setParsedMcqs([]);
+    setStudySaveStatus("idle");
+    setStudySaveError("");
+  };
+
+  const generateSummaryPdf = async (markdownText, docTitle, rangeLabel) => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 48;
+    const maxWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    const ensureSpace = (lineHeight) => {
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    const addWrappedText = (text, fontSize, fontStyle, indent = 0) => {
+      doc.setFontSize(fontSize);
+      doc.setFont("helvetica", fontStyle);
+      const lines = doc.splitTextToSize(text, maxWidth - indent);
+      for (const line of lines) {
+        ensureSpace(fontSize * 1.4);
+        doc.text(line, margin + indent, y);
+        y += fontSize * 1.4;
+      }
+    };
+
+    // Title
+    addWrappedText(docTitle, 16, "bold");
+    y += 6;
+    addWrappedText(`AI Summary — ${rangeLabel}`, 11, "normal");
+    y += 12;
+
+    const lines = markdownText.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) { y += 6; continue; }
+
+      if (trimmed.startsWith("## ")) {
+        y += 8;
+        addWrappedText(trimmed.replace(/^##\s+/, ""), 14, "bold");
+        y += 4;
+      } else if (trimmed.startsWith("# ")) {
+        y += 8;
+        addWrappedText(trimmed.replace(/^#\s+/, ""), 15, "bold");
+        y += 4;
+      } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+        addWrappedText("• " + trimmed.replace(/^[-*]\s+/, ""), 12, "normal", 12);
+      } else if (/^\d+\.\s/.test(trimmed)) {
+        addWrappedText(trimmed, 12, "normal", 12);
+      } else {
+        // Strip markdown bold markers for PDF
+        const clean = trimmed.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
+        addWrappedText(clean, 12, "normal");
+      }
+    }
+
+    return doc.output("datauristring").split(",")[1];
+  };
+
+  const handleStudySave = async () => {
+    if (studySaveStatus === "saving") return;
+    setStudySaveStatus("saving");
+    setStudySaveError("");
+
+    const { label } = resolveRange();
+    const shortTitle = (title || "PDF").replace(/\.[^.]+$/, "").slice(0, 60);
+
+    try {
+      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      const token = authData.authToken;
+      if (!token) throw new Error("Not authenticated");
+
+      let body;
+      if (studyMode === "mcq") {
+        if (parsedMcqs.length === 0) throw new Error("No parsed questions to save");
+        body = {
+          title: `[AI] MCQs from ${shortTitle} (${label})`,
+          subject: "General",
+          contentType: "mcq",
+          mcqData: parsedMcqs,
+          description: `AI-generated MCQs from ${shortTitle}, ${label}`,
+          isPublic: studyIsPublic,
+        };
+      } else {
+        const base64 = await generateSummaryPdf(studyResult, shortTitle, label);
+        body = {
+          title: `[AI] Summary: ${shortTitle} (${label})`,
+          subject: "General",
+          contentType: "pdf",
+          fileBuffer: base64,
+          fileName: `summary-${Date.now()}.pdf`,
+          description: `AI-generated summary from ${shortTitle}, ${label}`,
+          isPublic: studyIsPublic,
+        };
+      }
+
+      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Save failed");
+      }
+
+      setStudySaveStatus("saved");
+      setTimeout(() => setStudySaveStatus("idle"), 2500);
+    } catch (err) {
+      setStudySaveStatus("error");
+      setStudySaveError(err.message || "Failed to save");
+    }
+  };
+
+  // ---- FSRS Spaced Repetition helpers ----
+  const getFsrsAuthHeaders = () => {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${authData.authToken}`,
+    };
+  };
+
+  const initFsrs = async (totalPages) => {
+    if (!propResourceId) return;
+    try {
+      await fetch(`${API_BASE}/api/resources/pdf-review/init`, {
+        method: "POST",
+        headers: getFsrsAuthHeaders(),
+        body: JSON.stringify({ resourceId: propResourceId, totalPages }),
+      });
+      fetchFsrsStatus();
+    } catch {}
+  };
+
+  const fetchFsrsStatus = async () => {
+    if (!propResourceId) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/pdf-review/status/${propResourceId}`, {
+        headers: getFsrsAuthHeaders(),
+      });
+      if (res.ok) setFsrsStatus(await res.json());
+    } catch {}
+  };
+
+  const rateFsrsItem = async (itemType, grade, pageIndex, flashcardId) => {
+    if (!propResourceId || fsrsRatingBusy) return;
+    setFsrsRatingBusy(true);
+    setFsrsLastResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/pdf-review/rate`, {
+        method: "POST",
+        headers: getFsrsAuthHeaders(),
+        body: JSON.stringify({ resourceId: propResourceId, itemType, grade, pageIndex, flashcardId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFsrsLastResult(data);
+        fetchFsrsStatus();
+      }
+    } catch {}
+    setFsrsRatingBusy(false);
+  };
+
+  const ratePage = (grade) => {
+    rateFsrsItem("page", grade, currentPage);
+    setFsrsRatingBar(false);
+  };
+
+  const rateWholePdf = (grade) => {
+    rateFsrsItem("whole_pdf", grade);
+    setFsrsWholePdfRating(false);
+  };
+
+  const fetchFlashcards = async () => {
+    if (!propResourceId) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/pdf-review/flashcards/${propResourceId}`, {
+        headers: getFsrsAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFsrsFlashcards(data.flashcards || []);
+      }
+    } catch {}
+  };
+
+  const generateFlashcards = async () => {
+    if (!propResourceId || fsrsFlashcardLoading) return;
+    setFsrsFlashcardLoading(true);
+    setFsrsFlashcardError("");
+    try {
+      const { from, to } = resolveRange();
+      const pages = [];
+      for (let n = from; n <= to; n++) {
+        const text = await getPageText(n);
+        if (text.trim()) pages.push({ page: n, text });
+      }
+      if (pages.length === 0) {
+        setFsrsFlashcardError("No text found in selected pages.");
+        setFsrsFlashcardLoading(false);
+        return;
+      }
+      const res = await fetch(`${API_BASE}/api/resources/pdf-review/flashcards/generate`, {
+        method: "POST",
+        headers: getFsrsAuthHeaders(),
+        body: JSON.stringify({ resourceId: propResourceId, pages, count: fsrsFlashcardCount }),
+      });
+      if (res.ok) {
+        await fetchFlashcards();
+        setFsrsFlashcardView("browse");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setFsrsFlashcardError(err.error || "Failed to generate flashcards");
+      }
+    } catch (err) {
+      setFsrsFlashcardError(err.message || "Failed to generate flashcards");
+    }
+    setFsrsFlashcardLoading(false);
+  };
+
+  const getPageDot = (page) => {
+    if (!fsrsStatus?.pages) return null;
+    const p = fsrsStatus.pages.find((x) => x.pageIndex === page);
+    if (!p) return null;
+    if (p.isMastered) return { color: "#22c55e", title: "Mastered" };
+    if (p.isDue) return { color: "#ef4444", title: "Due for review" };
+    if (p.state === 1 || p.state === 3) return { color: "#f59e0b", title: "Learning" };
+    if (p.state === 0) return { color: "#94a3b8", title: "New" };
+    return { color: "#3b82f6", title: "Review" };
+  };
+
   // ---- Chat popup ----
   const closeChat = () => {
     setChatOpen(false);
@@ -541,6 +1028,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setChatInput("");
     setChatError(null);
   };
+
+  // Close study tools when chat opens (mutual exclusion)
+  // This is called from openStudyTools via closeChat, and vice versa
 
   const sendFollowUp = async (text) => {
     const trimmed = text.trim();
@@ -620,6 +1110,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       });
     }
 
+    setStudyToolsOpen(false);
     setChatMessages([{ role: "user", content: firstPrompt }]);
     setChatOpen(true);
     setChatLoading(true);
@@ -933,6 +1424,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (currentPage > 1) saveStored(`sc_pdf_lastpage_${docKey}`, currentPage);
   }, [currentPage, docKey]);
 
+  // ---- Study Tools: persist prefs ----
+  useEffect(() => {
+    saveStored(`sc_pdf_studyprefs_${docKey}`, { studyMode, studyRangeType, studyCount });
+  }, [studyMode, studyRangeType, studyCount, docKey]);
+
   // ---- TTS: stop on page change ----
   useEffect(() => {
     return () => {
@@ -1088,6 +1584,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       border: "1.5px solid transparent",
       background: "none",
       cursor: "pointer",
+      position: "relative",
     },
     thumbLabel: {
       fontFamily: "ui-monospace, monospace",
@@ -1631,6 +2128,292 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       fontWeight: 600,
       cursor: "pointer",
     },
+    // ── AI Study Tools styles ────────────────────────────────────────────────
+    studyFab: {
+      position: "absolute",
+      bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 20,
+      right: isMobile ? 16 : 20,
+      width: 48,
+      height: 48,
+      borderRadius: "50%",
+      background: T.accent,
+      color: "white",
+      border: "none",
+      cursor: "pointer",
+      boxShadow: `0 4px 16px ${T.shadow}`,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 30,
+      transition: "transform 0.15s ease, opacity 0.15s ease",
+    },
+    studyBackdrop: {
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.45)",
+      zIndex: 90,
+    },
+    studyPanel: isMobile ? {
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: "80vh",
+      background: T.toolbar,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      boxShadow: `0 -4px 24px ${T.shadow}`,
+      zIndex: 100,
+      display: "flex",
+      flexDirection: "column",
+      animation: "slideUp 0.2s ease",
+    } : {
+      position: "fixed",
+      top: "50%",
+      right: 16,
+      transform: "translateY(-50%)",
+      width: 440,
+      maxWidth: "calc(100vw - 32px)",
+      maxHeight: "calc(100vh - 100px)",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
+      borderRadius: 12,
+      boxShadow: `0 12px 36px ${T.shadow}`,
+      zIndex: 100,
+      display: "flex",
+      flexDirection: "column",
+    },
+    studyHead: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: isMobile ? "6px 14px 8px" : "10px 14px",
+      borderBottom: `1px solid ${T.border}`,
+      flexShrink: 0,
+    },
+    studyTitle: {
+      fontSize: isMobile ? 13 : 14,
+      fontWeight: 700,
+      color: T.text,
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+    },
+    studyClose: {
+      color: T.muted,
+      fontSize: 13,
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+    },
+    studyBody: {
+      overflowY: "auto",
+      padding: isMobile ? 14 : 16,
+      flex: 1,
+      display: "flex",
+      flexDirection: "column",
+      gap: 14,
+    },
+    studyLabel: {
+      fontSize: 11,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.04em",
+      color: T.muted,
+      marginBottom: 6,
+    },
+    studySegRow: {
+      display: "flex",
+      gap: 0,
+      background: T.inputBg,
+      borderRadius: 10,
+      padding: 3,
+      border: `1px solid ${T.border}`,
+    },
+    studySegBtn: {
+      flex: 1,
+      padding: "8px 12px",
+      border: "none",
+      borderRadius: 8,
+      fontSize: 13,
+      fontWeight: 600,
+      cursor: "pointer",
+      transition: "all 0.15s ease",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    studyRangeRow: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap",
+    },
+    studyRangeBtn: {
+      padding: "6px 12px",
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      fontSize: 12,
+      fontWeight: 500,
+      cursor: "pointer",
+      background: "none",
+      color: T.muted,
+      transition: "all 0.15s ease",
+    },
+    studyRangeInput: {
+      width: 56,
+      padding: "6px 8px",
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      fontSize: 13,
+      textAlign: "center",
+      background: T.inputBg,
+      color: T.text,
+      fontFamily: "inherit",
+    },
+    studyCountRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+    },
+    studyCountInput: {
+      width: 60,
+      padding: "6px 8px",
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      fontSize: 14,
+      textAlign: "center",
+      background: T.inputBg,
+      color: T.text,
+      fontFamily: "inherit",
+    },
+    studyCountChip: {
+      padding: "4px 10px",
+      border: `1px solid ${T.border}`,
+      borderRadius: 16,
+      fontSize: 11,
+      fontWeight: 600,
+      cursor: "pointer",
+      background: "none",
+      color: T.muted,
+      transition: "all 0.15s ease",
+    },
+    studyGenerateBtn: {
+      width: "100%",
+      padding: "12px 16px",
+      background: T.accent,
+      color: "white",
+      border: "none",
+      borderRadius: 10,
+      fontSize: 14,
+      fontWeight: 700,
+      cursor: "pointer",
+      transition: "opacity 0.15s ease",
+    },
+    studyLoadingBox: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 14,
+      padding: 40,
+      flex: 1,
+    },
+    studyLoadingText: {
+      fontSize: 14,
+      color: T.muted,
+      fontWeight: 500,
+    },
+    studyResultActions: {
+      display: "flex",
+      gap: 6,
+      padding: isMobile ? "8px 12px 12px" : "8px 14px 10px",
+      borderTop: `1px solid ${T.border}`,
+      flexShrink: 0,
+      flexWrap: "wrap",
+      alignItems: "center",
+    },
+    studyActionBtn: {
+      padding: "6px 12px",
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      fontSize: 12,
+      fontWeight: 600,
+      cursor: "pointer",
+      background: "none",
+      color: T.text,
+      transition: "all 0.15s ease",
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+    },
+    studySaveBtn: {
+      padding: "6px 14px",
+      borderRadius: 8,
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: "pointer",
+      border: "none",
+      transition: "all 0.15s ease",
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+    },
+    studyErrorBox: {
+      background: theme === "dark" ? "rgba(233,69,96,0.15)" : "#FFF0F0",
+      color: T.accent,
+      borderRadius: 8,
+      padding: "10px 12px",
+      fontSize: 12.5,
+      lineHeight: 1.5,
+      display: "flex",
+      flexDirection: "column",
+      gap: 4,
+    },
+    studyErrorRetry: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: T.accent,
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      padding: 0,
+    },
+    studyVisibilityRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "8px 12px",
+      background: T.inputBg,
+      borderRadius: 8,
+      border: `1px solid ${T.border}`,
+    },
+    studyToggle: {
+      width: 36,
+      height: 20,
+      borderRadius: 10,
+      background: studyIsPublic ? T.accent : T.border,
+      position: "relative",
+      cursor: "pointer",
+      transition: "background 0.2s ease",
+      flexShrink: 0,
+    },
+    studyToggleKnob: {
+      width: 16,
+      height: 16,
+      borderRadius: "50%",
+      background: "white",
+      position: "absolute",
+      top: 2,
+      left: studyIsPublic ? 18 : 2,
+      transition: "left 0.2s ease",
+    },
+    studyMcqNote: {
+      fontSize: 11.5,
+      color: T.muted,
+      fontStyle: "italic",
+      padding: "6px 0",
+    },
   };
 
   const filteredThumbs = thumbs.filter((t) => {
@@ -1989,6 +2772,28 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
             </button>
 
+            {/* FSRS Rate Page */}
+            {propResourceId && (
+              <button
+                style={{ ...s.iconBtn, color: fsrsRatingBar ? T.accent : T.muted, background: fsrsRatingBar ? T.hover : "none" }}
+                onClick={() => { setFsrsRatingBar((v) => !v); setFsrsWholePdfRating(false); }}
+                title="Rate this page (FSRS)"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+              </button>
+            )}
+
+            {/* FSRS Rate Whole PDF */}
+            {propResourceId && (
+              <button
+                style={{ ...s.iconBtn, color: fsrsWholePdfRating ? T.accent : T.muted, background: fsrsWholePdfRating ? T.hover : "none" }}
+                onClick={() => { setFsrsWholePdfRating((v) => !v); setFsrsRatingBar(false); }}
+                title="Rate entire PDF (FSRS)"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 13l1.5 3.5L17 17l-3.5 1.5L12 22l-1.5-3.5L7 17l3.5-.5z"/></svg>
+              </button>
+            )}
+
             {/* Search */}
             <div style={s.searchWrap}>
               <button
@@ -2126,7 +2931,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                   No {pageFilter === "bookmarked" ? "bookmarked" : "highlighted"} pages
                 </div>
               )}
-              {filteredThumbs.map((t) => (
+              {filteredThumbs.map((t) => {
+                const dot = getPageDot(t.page);
+                return (
                 <button
                   key={t.page}
                   style={{
@@ -2138,8 +2945,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                 >
                   <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
                   <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
+                  {dot && <span title={dot.title} style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: dot.color, border: "1px solid rgba(0,0,0,0.2)" }} />}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </aside>
         )}
@@ -2179,7 +2988,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                   No {pageFilter === "bookmarked" ? "bookmarked" : "highlighted"} pages
                 </div>
               )}
-              {filteredThumbs.map((t) => (
+              {filteredThumbs.map((t) => {
+                const dot = getPageDot(t.page);
+                return (
                 <button
                   key={t.page}
                   style={{
@@ -2191,8 +3002,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                 >
                   <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
                   <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
+                  {dot && <span title={dot.title} style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: dot.color, border: "1px solid rgba(0,0,0,0.2)" }} />}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -2332,6 +3145,23 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
             ))
           )}
 
+          {/* AI Study Tools floating button */}
+          {!chatOpen && !loading && !loadError && (
+            <button
+              style={{
+                ...s.studyFab,
+                opacity: studyToolsOpen ? 0 : 1,
+                pointerEvents: studyToolsOpen ? "none" : "auto",
+              }}
+              onClick={openStudyTools}
+              title="AI Study Tools"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+              </svg>
+            </button>
+          )}
+
           {/* Chat popup — mobile bottom sheet / desktop side panel */}
           {chatOpen && (
             <>
@@ -2404,6 +3234,412 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                 </div>
               </div>
             </>
+          )}
+
+          {/* AI Study Tools panel — mobile bottom sheet / desktop side panel */}
+          {studyToolsOpen && (
+            <>
+              {isMobile && <div style={s.studyBackdrop} onClick={closeStudyTools} />}
+              <div style={s.studyPanel}>
+                {isMobile && <div style={s.sheetHandle} />}
+                <div style={s.studyHead}>
+                  <span style={s.studyTitle}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>
+                    </svg>
+                    AI Study Tools
+                  </span>
+                  <button style={s.studyClose} onClick={closeStudyTools}>✕</button>
+                </div>
+
+                {aiUsage && !aiUsage.isActivated && (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "8px 12px",
+                    margin: "0 12px 8px",
+                    borderRadius: 8,
+                    background: "rgba(250, 204, 21, 0.1)",
+                    border: "1px solid rgba(250, 204, 21, 0.3)",
+                    fontSize: 12,
+                    color: "#facc15",
+                  }}>
+                    <span>⚡ AI requests remaining today: {Math.max(0, aiUsage.limit - aiUsage.used)}/{aiUsage.limit}</span>
+                    <span style={{ fontSize: 10, opacity: 0.7 }}>Upgrade for unlimited</span>
+                  </div>
+                )}
+
+                {studyStep === "setup" && (
+                  <div style={s.studyBody}>
+                    {/* Mode toggle */}
+                    <div>
+                      <div style={s.studyLabel}>Mode</div>
+                      <div style={s.studySegRow}>
+                        <button
+                          style={{
+                            ...s.studySegBtn,
+                            background: studyMode === "mcq" ? T.accent : "none",
+                            color: studyMode === "mcq" ? "white" : T.text,
+                          }}
+                          onClick={() => setStudyMode("mcq")}
+                        >
+                          📝 MCQs
+                        </button>
+                        <button
+                          style={{
+                            ...s.studySegBtn,
+                            background: studyMode === "summary" ? T.accent : "none",
+                            color: studyMode === "summary" ? "white" : T.text,
+                          }}
+                          onClick={() => setStudyMode("summary")}
+                        >
+                          📄 Summary
+                        </button>
+                        <button
+                          style={{
+                            ...s.studySegBtn,
+                            background: studyMode === "flashcard" ? T.accent : "none",
+                            color: studyMode === "flashcard" ? "white" : T.text,
+                          }}
+                          onClick={() => { setStudyMode("flashcard"); fetchFlashcards(); setFsrsFlashcardView("menu"); }}
+                        >
+                          🎴 Flashcards
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Page range */}
+                    {numPages > 1 && (
+                      <div>
+                        <div style={s.studyLabel}>Page Range</div>
+                        <div style={s.studyRangeRow}>
+                          {["all", "current", "custom"].map((r) => (
+                            <button
+                              key={r}
+                              style={{
+                                ...s.studyRangeBtn,
+                                background: studyRangeType === r ? T.accent : "none",
+                                color: studyRangeType === r ? "white" : T.muted,
+                                borderColor: studyRangeType === r ? T.accent : T.border,
+                              }}
+                              onClick={() => setStudyRangeType(r)}
+                            >
+                              {r === "all" ? `All (${numPages})` : r === "current" ? `This page (${currentPage})` : "Custom"}
+                            </button>
+                          ))}
+                        </div>
+                        {studyRangeType === "custom" && (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                            <input
+                              style={s.studyRangeInput}
+                              type="number"
+                              min={1}
+                              max={numPages}
+                              value={studyFrom}
+                              onChange={(e) => setStudyFrom(Math.max(1, Math.min(numPages, parseInt(e.target.value) || 1)))}
+                            />
+                            <span style={{ color: T.muted, fontSize: 12 }}>to</span>
+                            <input
+                              style={s.studyRangeInput}
+                              type="number"
+                              min={1}
+                              max={numPages}
+                              value={studyTo}
+                              onChange={(e) => setStudyTo(Math.max(1, Math.min(numPages, parseInt(e.target.value) || 1)))}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* MCQ count */}
+                    {studyMode === "mcq" && (
+                      <div>
+                        <div style={s.studyLabel}>Number of Questions</div>
+                        <div style={s.studyCountRow}>
+                          <input
+                            style={s.studyCountInput}
+                            type="number"
+                            min={3}
+                            max={40}
+                            value={studyCount}
+                            onChange={(e) => setStudyCount(Math.max(3, Math.min(40, parseInt(e.target.value) || 10)))}
+                          />
+                          {[5, 10, 15, 20].map((n) => (
+                            <button
+                              key={n}
+                              style={{
+                                ...s.studyCountChip,
+                                background: studyCount === n ? T.accent : "none",
+                                color: studyCount === n ? "white" : T.muted,
+                                borderColor: studyCount === n ? T.accent : T.border,
+                              }}
+                              onClick={() => setStudyCount(n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Flashcard mode — menu */}
+                    {studyMode === "flashcard" && fsrsFlashcardView === "menu" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={s.studyLabel}>Flashcards (FSRS)</div>
+                        <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
+                          Generate AI flashcards from this PDF and review them with spaced repetition. Each flashcard is scheduled using the FSRS algorithm.
+                        </div>
+                        {fsrsFlashcards.length > 0 && (
+                          <div style={{ fontSize: 12, color: T.text, background: T.hover, borderRadius: 8, padding: "8px 12px" }}>
+                            You have {fsrsFlashcards.length} flashcard{fsrsFlashcards.length > 1 ? "s" : ""} ({fsrsFlashcards.filter((f) => f.fsrs?.isDue).length} due)
+                          </div>
+                        )}
+                        <button style={s.studyGenerateBtn} onClick={() => setFsrsFlashcardView("generate")}>
+                          ✨ Generate New Flashcards
+                        </button>
+                        {fsrsFlashcards.length > 0 && (
+                          <>
+                            <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.accent}`, color: T.accent }} onClick={() => setFsrsFlashcardView("review")}>
+                              🔄 Review Due ({fsrsFlashcards.filter((f) => f.fsrs?.isDue).length})
+                            </button>
+                            <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("browse")}>
+                              📋 Browse All ({fsrsFlashcards.length})
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Flashcard mode — generate */}
+                    {studyMode === "flashcard" && fsrsFlashcardView === "generate" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={s.studyLabel}>Number of Flashcards</div>
+                        <div style={s.studyCountRow}>
+                          <input
+                            style={s.studyCountInput}
+                            type="number"
+                            min={3}
+                            max={30}
+                            value={fsrsFlashcardCount}
+                            onChange={(e) => setFsrsFlashcardCount(Math.max(3, Math.min(30, parseInt(e.target.value) || 10)))}
+                          />
+                          {[5, 10, 15, 20].map((n) => (
+                            <button
+                              key={n}
+                              style={{
+                                ...s.studyCountChip,
+                                background: fsrsFlashcardCount === n ? T.accent : "none",
+                                color: fsrsFlashcardCount === n ? "white" : T.muted,
+                                borderColor: fsrsFlashcardCount === n ? T.accent : T.border,
+                              }}
+                              onClick={() => setFsrsFlashcardCount(n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                        {fsrsFlashcardError && <div style={s.studyErrorBox}>{fsrsFlashcardError}</div>}
+                        <button style={s.studyGenerateBtn} disabled={fsrsFlashcardLoading} onClick={generateFlashcards}>
+                          {fsrsFlashcardLoading ? "Generating…" : `Generate ${fsrsFlashcardCount} Flashcards`}
+                        </button>
+                        <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("menu")}>
+                          ← Back
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Flashcard mode — review */}
+                    {studyMode === "flashcard" && fsrsFlashcardView === "review" && (
+                      <div>
+                        {fsrsFlashcards.filter((f) => f.fsrs?.isDue).length > 0 ? (
+                          <FlashcardRunner
+                            flashcards={fsrsFlashcards.filter((f) => f.fsrs?.isDue)}
+                            resourceId={propResourceId}
+                            onComplete={() => { fetchFlashcards(); setFsrsFlashcardView("menu"); }}
+                          />
+                        ) : (
+                          <div style={{ textAlign: "center", padding: "30px 16px", color: T.muted, fontSize: 13 }}>
+                            No flashcards due for review right now. 🎉
+                            <button style={{ ...s.studyGenerateBtn, marginTop: 12, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("menu")}>
+                              ← Back
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Flashcard mode — browse */}
+                    {studyMode === "flashcard" && fsrsFlashcardView === "browse" && (
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>All Flashcards ({fsrsFlashcards.length})</span>
+                          <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setFsrsFlashcardView("menu")}>← Back</button>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                          {fsrsFlashcards.map((fc) => (
+                            <div key={fc.id} style={{ background: T.hover, borderRadius: 10, padding: "10px 12px", border: `0.5px solid ${T.border}` }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 4 }}>{fc.front}</div>
+                              <div style={{ fontSize: 11, color: T.muted }}>{fc.back}</div>
+                              {fc.fsrs && (
+                                <div style={{ marginTop: 6, display: "flex", gap: 8, fontSize: 10 }}>
+                                  <span style={{ color: fc.fsrs.isDue ? "#ef4444" : "#4a5080" }}>{fc.fsrs.isDue ? "Due now" : `Due ${new Date(fc.fsrs.dueAt).toLocaleDateString()}`}</span>
+                                  {fc.fsrs.isMastered && <span style={{ color: "#22c55e" }}>✓ Mastered</span>}
+                                  <span style={{ color: T.muted }}>Reps: {fc.fsrs.reps}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Visibility toggle — only for MCQ/summary */}
+                    {studyMode !== "flashcard" && (
+                    <div>
+                      <div style={s.studyLabel}>Visibility</div>
+                      <div style={s.studyVisibilityRow}>
+                        <div style={s.studyToggle} onClick={() => setStudyIsPublic((v) => !v)}>
+                          <div style={s.studyToggleKnob} />
+                        </div>
+                        <span style={{ fontSize: 12.5, color: T.text }}>
+                          {studyIsPublic ? "Public — visible to everyone in Research Hub" : "Private — only visible to you in My Space"}
+                        </span>
+                      </div>
+                    </div>
+                    )}
+
+                    {studyError && studyMode !== "flashcard" && (
+                      <div style={s.studyErrorBox}>
+                        {studyError}
+                      </div>
+                    )}
+
+                    {studyMode !== "flashcard" && (
+                    <button
+                      style={{
+                        ...s.studyGenerateBtn,
+                        opacity: studyRangeType === "custom" && studyFrom > studyTo ? 0.4 : 1,
+                      }}
+                      disabled={studyRangeType === "custom" && studyFrom > studyTo}
+                      onClick={handleStudyGenerate}
+                    >
+                      {studyMode === "mcq" ? `Generate ${studyCount} Questions` : "Generate Summary"}
+                    </button>
+                    )}
+                  </div>
+                )}
+
+                {studyStep === "loading" && (
+                  <div style={s.studyLoadingBox}>
+                    <span style={{ ...s.spinner, width: 24, height: 24, borderWidth: 3 }} />
+                    <span style={s.studyLoadingText}>{studyLoadingMsg}</span>
+                  </div>
+                )}
+
+                {studyStep === "result" && (
+                  <>
+                    <div style={s.studyBody}>
+                      {studyMode === "mcq" && parsedMcqs.length === 0 && (
+                        <div style={s.studyMcqNote}>
+                          Couldn't structure these questions for saving — you can still copy the text below.
+                        </div>
+                      )}
+                      <MarkdownText>{studyResult}</MarkdownText>
+                    </div>
+                    <div style={s.studyResultActions}>
+                      <button style={s.studyActionBtn} onClick={handleStudyCopy}>
+                        📋 Copy
+                      </button>
+                      <button style={s.studyActionBtn} onClick={handleStudyGenerate}>
+                        🔄 Regenerate
+                      </button>
+                      <button style={s.studyActionBtn} onClick={handleStudyNew}>
+                        ✨ New
+                      </button>
+                      <div style={{ flex: 1 }} />
+                      {studySaveStatus === "error" && (
+                        <span style={{ fontSize: 11, color: T.accent }}>{studySaveError}</span>
+                      )}
+                      <button
+                        style={{
+                          ...s.studySaveBtn,
+                          background: studySaveStatus === "saved" ? "#2a8a4a" : studySaveStatus === "error" ? T.accent : T.accent,
+                          color: "white",
+                          opacity: (studyMode === "mcq" && parsedMcqs.length === 0) || studySaveStatus === "saving" ? 0.5 : 1,
+                        }}
+                        disabled={(studyMode === "mcq" && parsedMcqs.length === 0) || studySaveStatus === "saving"}
+                        onClick={handleStudySave}
+                      >
+                        {studySaveStatus === "saving" ? "Saving…" : studySaveStatus === "saved" ? "✓ Saved" : studySaveStatus === "error" ? "Retry Save" : `Save to Research Hub${studyIsPublic ? " (Public)" : " (Private)"}`}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* FSRS Page Rating Bar */}
+          {fsrsRatingBar && !loading && !loadError && (
+            <div style={{
+              position: "absolute", bottom: isMobile ? 60 : 16, left: "50%", transform: "translateX(-50%)",
+              background: T.toolbar, border: `0.5px solid ${T.border}`, borderRadius: 14,
+              padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, zIndex: 30,
+              boxShadow: `0 4px 20px ${T.shadow}`, maxWidth: isMobile ? "92%" : "auto",
+            }}>
+              <span style={{ fontSize: 12, color: T.text, fontWeight: 600, whiteSpace: "nowrap" }}>Rate p.{currentPage}:</span>
+              {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#3b82f6" }].map((r) => (
+                <button key={r.g} disabled={fsrsRatingBusy} onClick={() => ratePage(r.g)}
+                  style={{
+                    padding: "6px 12px", borderRadius: 8, border: `1px solid ${r.c}40`, background: `${r.c}15`,
+                    color: r.c, fontSize: 12, fontWeight: 700, cursor: fsrsRatingBusy ? "not-allowed" : "pointer",
+                    opacity: fsrsRatingBusy ? 0.5 : 1,
+                  }}>
+                  {r.l}
+                </button>
+              ))}
+              <button onClick={() => setFsrsRatingBar(false)}
+                style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
+            </div>
+          )}
+
+          {/* FSRS Whole-PDF Rating Bar */}
+          {fsrsWholePdfRating && !loading && !loadError && (
+            <div style={{
+              position: "absolute", bottom: isMobile ? 60 : 16, left: "50%", transform: "translateX(-50%)",
+              background: T.toolbar, border: `0.5px solid ${T.accent}`, borderRadius: 14,
+              padding: "14px 20px", display: "flex", flexDirection: "column", gap: 10, zIndex: 30,
+              boxShadow: `0 4px 20px ${T.shadow}`, maxWidth: isMobile ? "92%" : 400,
+            }}>
+              <span style={{ fontSize: 13, color: T.text, fontWeight: 700, textAlign: "center" }}>How well did you understand this PDF?</span>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#3b82f6" }].map((r) => (
+                  <button key={r.g} disabled={fsrsRatingBusy} onClick={() => rateWholePdf(r.g)}
+                    style={{
+                      padding: "8px 16px", borderRadius: 10, border: `1px solid ${r.c}40`, background: `${r.c}15`,
+                      color: r.c, fontSize: 13, fontWeight: 700, cursor: fsrsRatingBusy ? "not-allowed" : "pointer",
+                      opacity: fsrsRatingBusy ? 0.5 : 1,
+                    }}>
+                    {r.l}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setFsrsWholePdfRating(false)}
+                style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 14, padding: 2, alignSelf: "flex-end" }}>✕</button>
+            </div>
+          )}
+
+          {/* FSRS last result toast */}
+          {fsrsLastResult && (fsrsRatingBar || fsrsWholePdfRating) && (
+            <div style={{
+              position: "absolute", bottom: isMobile ? 120 : 80, left: "50%", transform: "translateX(-50%)",
+              background: T.hover, border: `0.5px solid ${T.border}`, borderRadius: 8,
+              padding: "6px 14px", fontSize: 11, color: T.muted, zIndex: 31, whiteSpace: "nowrap",
+            }}>
+              Next review: {fsrsLastResult.intervalLabel} · {fsrsLastResult.stateLabel}
+            </div>
           )}
 
           {loading && (

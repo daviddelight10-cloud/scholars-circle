@@ -2,7 +2,7 @@
 // Handles permission, subscribing to the browser's push service, and syncing
 // the subscription with our backend.
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+import { API_BASE } from "./constants.js";
 
 /** True if the browser supports web push at all. */
 export function isPushSupported() {

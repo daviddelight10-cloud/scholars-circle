@@ -1,5 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-const prisma = new PrismaClient();
+import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import express from "express";
 const router = express.Router();
@@ -65,6 +64,7 @@ router.post("/progress", requireAuth, async (req, res) => {
         wrongCounts: data.wrongCounts,
         srData: data.srData,
         lastStudied: data.lastStudied ? new Date(data.lastStudied) : null,
+        lastActivity: data.lastActivity ? new Date(data.lastActivity) : null,
         darkMode: data.darkMode,
         themePack: data.themePack,
         density: data.density,
@@ -81,6 +81,7 @@ router.post("/progress", requireAuth, async (req, res) => {
         wrongCounts: data.wrongCounts || {},
         srData: data.srData || {},
         lastStudied: data.lastStudied ? new Date(data.lastStudied) : null,
+        lastActivity: data.lastActivity ? new Date(data.lastActivity) : null,
         darkMode: data.darkMode ?? true,
         themePack: data.themePack || "aurora",
         density: data.density || "cozy",
@@ -342,6 +343,7 @@ router.post("/sync", requireAuth, async (req, res) => {
           wrongCounts: data.wrongCounts,
           srData: data.srData,
           lastStudied: data.lastStudied ? new Date(data.lastStudied) : null,
+          lastActivity: data.lastActivity ? new Date(data.lastActivity) : null,
         },
         create: {
           userId,
@@ -355,6 +357,7 @@ router.post("/sync", requireAuth, async (req, res) => {
           wrongCounts: data.wrongCounts || {},
           srData: data.srData || {},
           lastStudied: data.lastStudied ? new Date(data.lastStudied) : null,
+          lastActivity: data.lastActivity ? new Date(data.lastActivity) : null,
         },
       });
     }

@@ -1,11 +1,32 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { aiRateLimit, FREE_TRIAL_AI_DAILY_LIMIT, getResetAt } from "../middleware/aiRateLimit.js";
 import { logSecurityEvent } from "../lib/logger.js";
+import { prisma } from "../db.js";
 
 const router = express.Router();
 
+// GET /ai-proxy/usage — Returns today's AI usage count and limit for the frontend
+router.get("/usage", requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+      select: { isActivated: true },
+    });
+    const isActivated = user?.isActivated ?? false;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const used = await prisma.aiUsageLog.count({
+      where: { userId: req.user.sub, createdAt: { gte: startOfDay } },
+    });
+    res.json({ used, limit: FREE_TRIAL_AI_DAILY_LIMIT, isActivated, resetAt: getResetAt() });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch usage" });
+  }
+});
+
 // POST /ai-proxy/generate - Proxy AI requests to keep API keys server-side
-router.post("/generate", requireAuth, async (req, res) => {
+router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
   try {
     const { prompt, provider, model } = req.body;
 
@@ -117,7 +138,7 @@ router.post("/generate", requireAuth, async (req, res) => {
 
 // POST /ai-proxy/generate-multimodal - Proxy multimodal (image+text) AI requests
 // Supports conversation history for follow-up turns
-router.post("/generate-multimodal", requireAuth, async (req, res) => {
+router.post("/generate-multimodal", requireAuth, aiRateLimit, async (req, res) => {
   try {
     const { prompt, image, images, history, provider, model } = req.body;
 

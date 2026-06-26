@@ -2,6 +2,7 @@ import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { addLeagueXP, awardBadge } from "../lib/badges.js";
+import { updateUniversalStreak } from "../lib/sm2.js";
 
 const router = express.Router();
 
@@ -47,25 +48,17 @@ router.post("/", requireAuth, async (req, res) => {
     if (xpGained > 0) {
       addLeagueXP(req.user.sub, xpGained).catch(e => console.error("League XP error:", e.message));
     }
-    // Increment general XP + sessions + streak in UserProgress
+    // Increment general XP + sessions + streak in UserProgress (shared streak logic)
     if (score > 0) {
-      const today = new Date().toISOString().split("T")[0];
-      const up = await prisma.userProgress.findUnique({ where: { userId: req.user.sub } });
-      if (up) {
-        const lastDay = up.lastStudied ? new Date(up.lastStudied).toISOString().split("T")[0] : null;
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-        const newStreak = lastDay === today ? up.streak : (lastDay === yesterday ? up.streak + 1 : 1);
-        await prisma.userProgress.update({
-          where: { userId: req.user.sub },
-          data: {
-            xp: { increment: xpGained },
-            sessions: { increment: 1 },
-            totalCorrect: { increment: score },
-            streak: newStreak,
-            lastStudied: new Date(),
-          },
-        });
-      }
+      await updateUniversalStreak(req.user.sub, prisma);
+      await prisma.userProgress.update({
+        where: { userId: req.user.sub },
+        data: {
+          xp: { increment: xpGained },
+          sessions: { increment: 1 },
+          totalCorrect: { increment: score },
+        },
+      }).catch(() => {});
     }
     // Perfect score badge
     if (percentage === 100 && total >= 5 && mode === "exam") {

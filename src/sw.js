@@ -10,6 +10,25 @@ cleanupOutdatedCaches();
 // Precache build assets injected by vite-plugin-pwa
 precacheAndRoute(self.__WB_MANIFEST || []);
 
+// Offline fallback: serve offline.html for navigation requests when network fails
+registerRoute(
+  ({ request }) => request.mode === "navigate",
+  new NetworkFirst({
+    cacheName: "pages-cache",
+    networkTimeoutSeconds: 3,
+    plugins: [
+      {
+        handlerDidError: async () => {
+          const cache = await caches.open("pages-cache");
+          const cached = await cache.match("/offline.html");
+          if (cached) return cached;
+          return Response.error();
+        },
+      },
+    ],
+  })
+);
+
 // Cache Unsplash hero/cover images
 registerRoute(
   ({ url }) => url.origin === "https://images.unsplash.com",

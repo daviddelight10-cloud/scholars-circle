@@ -121,14 +121,20 @@ router.post("/challenges/:id/submit", requireAuth, async (req, res) => {
     if (!challenge) return res.status(404).json({ error: "Challenge not found" });
     if (new Date() > challenge.endAt) return res.status(400).json({ error: "Challenge ended" });
 
+    const existing = await prisma.weeklyChallengeEntry.findUnique({
+      where: { challengeId_userId: { challengeId: id, userId } },
+    });
+
     const entry = await prisma.weeklyChallengeEntry.upsert({
       where: { challengeId_userId: { challengeId: id, userId } },
       update: { score: Math.max(score, 0), total },
       create: { challengeId: id, userId, score, total },
     });
 
-    // Award XP via league
-    await addLeagueXP(userId, challenge.xpReward);
+    // Award XP only on first submission (not re-submissions)
+    if (!existing) {
+      await addLeagueXP(userId, challenge.xpReward);
+    }
 
     res.json(entry);
   } catch (e) { res.status(500).json({ error: e.message }); }

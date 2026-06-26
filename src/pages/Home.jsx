@@ -1,10 +1,67 @@
-import React from "react";
+import React, { memo } from "react";
+import Dashboard from "../components/Dashboard";
+import { CardSkeleton, StatsGridSkeleton } from "../components/LoadingSkeleton";
+import { useAuth } from "../contexts/AuthContext";
+import { useUI } from "../contexts/UIContext";
+import { useUserData } from "../contexts/UserDataContext";
 
-export default function Home() {
+function Home({
+  authUser: authUserProp,
+  subjects: subjectsProp,
+  mastery: masteryProp,
+  dueCards,
+  history: historyProp,
+  stats: statsProp,
+  aiConfig: aiConfigProp,
+  onStartSpaced,
+  onStartSubject,
+  onOpenTab,
+  onOpenLeaderboard,
+  onOpenAI,
+  onOpenLearn,
+  onOpenStudy,
+  onImportToBank,
+  loading,
+  token,
+}) {
+  const { user: ctxUser } = useAuth();
+  const { stats: ctxStats, history: ctxHistory, subjects: ctxSubjects, mastery: ctxMastery } = useUserData();
+  const { aiConfig: ctxAiConfig } = useUI();
+
+  const authUser = authUserProp ?? ctxUser;
+  const subjects = subjectsProp ?? ctxSubjects ?? [];
+  const mastery = masteryProp ?? ctxMastery ?? {};
+  const history = historyProp ?? ctxHistory ?? [];
+  const stats = statsProp ?? ctxStats ?? {};
+  const aiConfig = aiConfigProp ?? ctxAiConfig;
+  if (loading) {
+    return (
+      <>
+        <StatsGridSkeleton count={4} />
+        <div style={{ height: 16 }} />
+        <CardSkeleton />
+      </>
+    );
+  }
   return (
-    <div className="card">
-      <h2>🏠 Home</h2>
-      <p className="muted">Dashboard and Today screen - content to be migrated from App.jsx</p>
-    </div>
+    <Dashboard
+      userName={authUser?.username || authUser?.name || "Scholar"}
+      onOpenAI={onOpenAI}
+      onOpenLearn={onOpenLearn}
+      onOpenStudy={onOpenStudy}
+      subjects={subjects}
+      mastery={mastery}
+      dueCards={dueCards}
+      history={history}
+      stats={stats}
+      onStartSpaced={onStartSpaced}
+      onStartSubject={onStartSubject}
+      onOpenTab={onOpenTab}
+      onOpenLeaderboard={onOpenLeaderboard}
+      token={token}
+      authUser={authUser}
+    />
   );
 }
+
+export default memo(Home);

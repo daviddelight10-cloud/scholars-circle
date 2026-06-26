@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 const router = express.Router();
 
 // Get all questions with filters
-router.get("/", async (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   const { subjectId, difficulty, year, topic } = req.query;
   const rows = await prisma.question.findMany({
     where: {
@@ -22,7 +22,7 @@ router.get("/", async (req, res) => {
 });
 
 // Get unique topics for a subject
-router.get("/topics", async (req, res) => {
+router.get("/topics", requireAuth, async (req, res) => {
   const { subjectId } = req.query;
 
   if (!subjectId) {
@@ -102,7 +102,13 @@ router.get("/topics/analytics", requireAuth, async (req, res) => {
 // Create question with topic (teacher only)
 router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
-    const q = await prisma.question.create({ data: req.body });
+    const { subjectId, question, optionA, optionB, optionC, optionD, answerIndex, difficulty, year, explanation, topic } = req.body;
+    if (!subjectId || !question || !optionA || !optionB || !optionC || !optionD || answerIndex === undefined) {
+      return res.status(400).json({ error: "Missing required fields (subjectId, question, optionA-D, answerIndex)" });
+    }
+    const q = await prisma.question.create({
+      data: { subjectId, question, optionA, optionB, optionC, optionD, answerIndex, difficulty, year, explanation, topic },
+    });
     res.status(201).json(q);
   } catch (err) {
     console.error("Create question error:", err);

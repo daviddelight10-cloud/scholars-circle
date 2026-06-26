@@ -2,7 +2,6 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import mongoSanitize from "express-mongo-sanitize";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
 import subjectRoutes from "./routes/subjects.js";
@@ -58,9 +57,6 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
 }));
-
-// Sanitize data to prevent NoSQL injection
-app.use(mongoSanitize());
 
 // Cookie parser
 app.use(cookieParser());

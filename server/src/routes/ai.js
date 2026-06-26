@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { aiRateLimit } from "../middleware/aiRateLimit.js";
 import { prisma } from "../db.js";
 
 const router = Router();
@@ -110,7 +111,7 @@ function providersAvailable() {
   return list;
 }
 
-router.post("/generate", async (req, res) => {
+router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
   const { prompt, provider, model } = req.body || {};
   if (!prompt || typeof prompt !== "string") {
     return res.status(400).json({ error: "prompt is required" });

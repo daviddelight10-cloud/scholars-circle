@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import React, { createContext, useContext, useReducer } from "react";
 
 const UIContext = createContext(null);
 
@@ -89,37 +89,8 @@ function uiReducer(state, action) {
 export function UIProvider({ children }) {
   const [state, dispatch] = useReducer(uiReducer, initialState);
 
-  // Load dark mode from localStorage on mount
-  useEffect(() => {
-    const savedDarkMode = localStorage.getItem("darkMode");
-    if (savedDarkMode !== null) {
-      dispatch({ type: "SET_DARK_MODE", payload: savedDarkMode === "true" });
-    }
-  }, []);
-
-  // Save dark mode to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem("darkMode", state.darkMode);
-    if (state.darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [state.darkMode]);
-
-  // Handle online/offline status
-  useEffect(() => {
-    const handleOnline = () => dispatch({ type: "SET_OFFLINE", payload: false });
-    const handleOffline = () => dispatch({ type: "SET_OFFLINE", payload: true });
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
+  // Context is an in-memory store only; App.jsx handles persistence and side effects
+  // (darkMode in scholars-circle-state, online/offline event listeners).
 
   const value = {
     ...state,

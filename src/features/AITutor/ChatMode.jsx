@@ -27,10 +27,23 @@ export function ChatMode({ tutor }) {
   const scrollRef = useRef(null);
   const [speakingIdx, setSpeakingIdx] = useState(null);
   const [listening, setListening] = useState(false);
+  const [aiUsage, setAiUsage] = useState(null);
   const [autoSpeak, setAutoSpeak] = useState(() => {
     try { return localStorage.getItem("sc_tutor_autospeak") === "1"; } catch { return false; }
   });
   const recognitionRef = useRef(null);
+
+  const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
+
+  useEffect(() => {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token) return;
+    fetch(`${API_BASE}/ai-proxy/usage`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    }).then(r => r.ok ? r.json() : null).then(data => setAiUsage(data)).catch(() => {});
+  }, [messages.length]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -143,9 +156,37 @@ export function ChatMode({ tutor }) {
         {messages.length === 0 && (
           <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
-            <p>Start a conversation with your AI tutor</p>
-            <p style={{ fontSize: 12 }}>Ask anything about your subject — concepts, problems, exam prep.</p>
-            <p style={{ fontSize: 11, marginTop: 8, color: "#64748b" }}>🎤 Use the mic button to speak · 🔊 Click listen on any response</p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: "#a5b4fc" }}>Chat with Scholar's Circle AI</p>
+            <p style={{ fontSize: 13, marginTop: 4 }}>Your academic chat assistant — ask me anything about your studies.</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 20, maxWidth: 480, margin: "20px auto 0" }}>
+              {[
+                { icon: "📖", label: "Explain a concept", prompt: "Can you explain the concept of supply and demand?" },
+                { icon: "🧮", label: "Solve a problem", prompt: "Help me solve this step by step: 2x + 5 = 15" },
+                { icon: "📝", label: "Study tips", prompt: "What are some effective study techniques for exams?" },
+                { icon: "📅", label: "Plan my week", prompt: "Help me create a study schedule for this week" },
+                { icon: "🎯", label: "Career advice", prompt: "What career options do I have with a computer science degree?" },
+                { icon: "💪", label: "Motivation", prompt: "I'm feeling overwhelmed with my coursework. Any advice?" },
+              ].map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setInput(s.prompt); }}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 20,
+                    border: "1px solid rgba(99, 102, 241, 0.3)",
+                    background: "rgba(30, 41, 59, 0.6)",
+                    color: "#a5b4fc",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {s.icon} {s.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 11, marginTop: 16, color: "#64748b" }}>🎤 Use the mic button to speak · 🔊 Click listen on any response</p>
           </div>
         )}
         {messages.map((m, i) => (
@@ -197,6 +238,25 @@ export function ChatMode({ tutor }) {
         )}
       </div>
 
+      {/* AI Usage Banner for free trial users */}
+      {aiUsage && !aiUsage.isActivated && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 12px",
+          marginBottom: 8,
+          borderRadius: 8,
+          background: "rgba(250, 204, 21, 0.1)",
+          border: "1px solid rgba(250, 204, 21, 0.3)",
+          fontSize: 12,
+          color: "#facc15",
+        }}>
+          <span>⚡ AI requests remaining today: {Math.max(0, aiUsage.limit - aiUsage.used)}/{aiUsage.limit}</span>
+          <span style={{ fontSize: 10, color: "#9ca3af" }}>Upgrade for unlimited</span>
+        </div>
+      )}
+
       {/* Voice Controls Bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <button
@@ -246,7 +306,7 @@ export function ChatMode({ tutor }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={listening ? "Listening... speak now" : "Ask your tutor anything..."}
+          placeholder={listening ? "Listening... speak now" : "Ask me anything about your studies..."}
           disabled={loading}
           style={{
             flex: 1,

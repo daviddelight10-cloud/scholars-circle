@@ -4,6 +4,24 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// GET /api/users/me/department - Get current user's department and year level
+router.get("/me/department", requireAuth, async (req, res) => {
+  try {
+    const userDept = await prisma.userDepartment.findUnique({
+      where: { userId: req.user.sub },
+      include: { department: { select: { id: true, name: true } } },
+    });
+    if (!userDept) return res.json({ department: null, yearLevel: null });
+    res.json({
+      department: userDept.department?.name || null,
+      yearLevel: userDept.yearLevel || null,
+    });
+  } catch (error) {
+    console.error("Error fetching user department:", error);
+    res.status(500).json({ error: "Failed to fetch department" });
+  }
+});
+
 // Leaderboard: accessible to all authenticated users
 router.get("/leaderboard", requireAuth, async (req, res) => {
   const { period = "all", subjectId } = req.query;
@@ -71,8 +89,9 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
 
     const studyHours = sessions.reduce((sum, s) => sum + (s.durationSec || 0), 0) / 3600;
 
-    const personalBest = sessions.length > 0
-      ? Math.max(...sessions.filter(s => s.mode === "exam").map(s => s.percentage))
+    const examScores = sessions.filter(s => s.mode === "exam").map(s => s.percentage);
+    const personalBest = examScores.length > 0
+      ? Math.max(...examScores)
       : 0;
 
     // Calculate XP gained in period
@@ -166,8 +185,9 @@ router.get("/:userId/profile", requireAuth, async (req, res) => {
   const totalQuestions = sessions.reduce((sum, s) => sum + s.total, 0);
   const correctRate = totalQuestions > 0 ? ((user.progress?.totalCorrect || 0) / totalQuestions) * 100 : 0;
   const studyHours = sessions.reduce((sum, s) => sum + (s.durationSec || 0), 0) / 3600;
-  const personalBest = sessions.length > 0
-    ? Math.max(...sessions.filter(s => s.mode === "exam").map(s => s.percentage))
+  const profileExamScores = sessions.filter(s => s.mode === "exam").map(s => s.percentage);
+  const personalBest = profileExamScores.length > 0
+    ? Math.max(...profileExamScores)
     : 0;
 
   res.json({

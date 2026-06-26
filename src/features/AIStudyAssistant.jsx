@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { callAI, callAIMultimodal, extractJSON as extractJSONShared } from "../lib/aiClient";
 import { jsPDF } from "jspdf";
 import MarkdownText from "../components/MarkdownText.jsx";
@@ -64,6 +64,18 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
   const [mcqScore, setMcqScore] = useState(0);
   const [mcqShowResult, setMcqShowResult] = useState(false);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [aiUsage, setAiUsage] = useState(null);
+
+  const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
+
+  useEffect(() => {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    if (!authData.authToken) return;
+    fetch(`${API_BASE}/ai-proxy/usage`, {
+      headers: { Authorization: `Bearer ${authData.authToken}` },
+      credentials: "include",
+    }).then(r => r.ok ? r.json() : null).then(data => setAiUsage(data)).catch(() => {});
+  }, [isProcessing]);
   const [flashcardFlipped, setFlashcardFlipped] = useState(false);
 
   async function extractTextFromFile(file) {
@@ -551,6 +563,24 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
         Upload your study materials (PDF, TXT) and let AI create MCQs, summaries, flashcards, and explanations.
         Perfect for 100-level students!
       </p>
+
+      {aiUsage && !aiUsage.isActivated && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 12px",
+          marginBottom: 12,
+          borderRadius: 8,
+          background: "rgba(250, 204, 21, 0.1)",
+          border: "1px solid rgba(250, 204, 21, 0.3)",
+          fontSize: 12,
+          color: "#facc15",
+        }}>
+          <span>⚡ AI requests remaining today: {Math.max(0, aiUsage.limit - aiUsage.used)}/{aiUsage.limit}</span>
+          <span style={{ fontSize: 10, opacity: 0.7 }}>Upgrade for unlimited</span>
+        </div>
+      )}
 
       {/* Tab Navigation */}
       <div className="row" style={{ gap: 8, marginBottom: 16, flexWrap: "wrap" }}>

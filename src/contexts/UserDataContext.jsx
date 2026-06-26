@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import React, { createContext, useContext, useReducer } from "react";
 
 const UserDataContext = createContext(null);
 
@@ -25,6 +25,7 @@ const initialState = {
   discussion: [],
   outlineProgress: {},
   lastStudied: null,
+  lastActivity: null,
 };
 
 function userDataReducer(state, action) {
@@ -95,6 +96,8 @@ function userDataReducer(state, action) {
       };
     case "SET_LAST_STUDIED":
       return { ...state, lastStudied: action.payload };
+    case "SET_LAST_ACTIVITY":
+      return { ...state, lastActivity: action.payload };
     default:
       return state;
   }
@@ -103,63 +106,8 @@ function userDataReducer(state, action) {
 export function UserDataProvider({ children }) {
   const [state, dispatch] = useReducer(userDataReducer, initialState);
 
-  // Load data from localStorage on mount
-  useEffect(() => {
-    const savedStats = localStorage.getItem("stats");
-    const savedHistory = localStorage.getItem("history");
-    const savedMastery = localStorage.getItem("mastery");
-    const savedSrData = localStorage.getItem("srData");
-    const savedNotes = localStorage.getItem("notes");
-    const savedCustomFlashcards = localStorage.getItem("customFlashcards");
-    const savedOutlineProgress = localStorage.getItem("outlineProgress");
-    const savedLastStudied = localStorage.getItem("lastStudied");
-
-    if (savedStats) dispatch({ type: "SET_STATS", payload: JSON.parse(savedStats) });
-    if (savedHistory) dispatch({ type: "SET_HISTORY", payload: JSON.parse(savedHistory) });
-    if (savedMastery) dispatch({ type: "SET_MASTERY", payload: JSON.parse(savedMastery) });
-    if (savedSrData) dispatch({ type: "SET_SR_DATA", payload: JSON.parse(savedSrData) });
-    if (savedNotes) dispatch({ type: "SET_NOTES", payload: JSON.parse(savedNotes) });
-    if (savedCustomFlashcards) dispatch({ type: "SET_CUSTOM_FLASHCARDS", payload: JSON.parse(savedCustomFlashcards) });
-    if (savedOutlineProgress) dispatch({ type: "SET_OUTLINE_PROGRESS", payload: JSON.parse(savedOutlineProgress) });
-    if (savedLastStudied) dispatch({ type: "SET_LAST_STUDIED", payload: savedLastStudied });
-  }, []);
-
-  // Save data to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem("stats", JSON.stringify(state.stats));
-  }, [state.stats]);
-
-  useEffect(() => {
-    localStorage.setItem("history", JSON.stringify(state.history));
-  }, [state.history]);
-
-  useEffect(() => {
-    localStorage.setItem("mastery", JSON.stringify(state.mastery));
-  }, [state.mastery]);
-
-  useEffect(() => {
-    localStorage.setItem("srData", JSON.stringify(state.srData));
-  }, [state.srData]);
-
-  useEffect(() => {
-    localStorage.setItem("notes", JSON.stringify(state.notes));
-  }, [state.notes]);
-
-  useEffect(() => {
-    localStorage.setItem("customFlashcards", JSON.stringify(state.customFlashcards));
-  }, [state.customFlashcards]);
-
-  useEffect(() => {
-    localStorage.setItem("outlineProgress", JSON.stringify(state.outlineProgress));
-  }, [state.outlineProgress]);
-
-  useEffect(() => {
-    if (state.lastStudied) {
-      localStorage.setItem("lastStudied", state.lastStudied);
-    } else {
-      localStorage.removeItem("lastStudied");
-    }
-  }, [state.lastStudied]);
+  // Context is an in-memory store only; App.jsx handles localStorage persistence
+  // via per-user namespaced keys (scholars-circle-state::userId).
 
   const value = {
     ...state,
@@ -184,6 +132,7 @@ export function UserDataProvider({ children }) {
     setOutlineProgress: (progress) => dispatch({ type: "SET_OUTLINE_PROGRESS", payload: progress }),
     updateOutlineProgress: (subjectId, data) => dispatch({ type: "UPDATE_OUTLINE_PROGRESS", payload: { subjectId, data } }),
     setLastStudied: (lastStudied) => dispatch({ type: "SET_LAST_STUDIED", payload: lastStudied }),
+    setLastActivity: (activity) => dispatch({ type: "SET_LAST_ACTIVITY", payload: activity }),
   };
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>;

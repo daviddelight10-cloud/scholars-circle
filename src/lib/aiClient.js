@@ -2,7 +2,7 @@
 // never leaves the server. Falls back to a direct browser-side call only if
 // the user explicitly stored their own API key client-side.
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
+import { API_BASE } from "./constants.js";
 
 let _proxyStatus = null; // { enabled, providers, defaultProvider }
 let _proxyStatusPromise = null;

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
 
 import { useLocation, Link } from "react-router-dom";
 
@@ -27,699 +27,67 @@ import LearnHub from "./features/LearnHub.jsx";
 import DepartmentSwitcher from "./components/learn/DepartmentSwitcher.jsx";
 import { getDepartments, getUserDepartment } from "./lib/departments.js";
 
-import CampusComm from "./features/CampusComm.jsx";
-
 import NotificationBell from "./features/NotificationBellImproved.jsx";
 
 import NotificationsTab from "./features/NotificationsTab.jsx";
 
 
 
-// Context providers
-import { AuthProvider } from "./contexts/AuthContext";
-import { UserDataProvider } from "./contexts/UserDataContext";
-import { UIProvider } from "./contexts/UIContext";
+// Context providers + hooks
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { UserDataProvider, useUserData } from "./contexts/UserDataContext";
+import { UIProvider, useUI } from "./contexts/UIContext";
 
-// Page components
-import Home from "./pages/Home";
-import Learn from "./pages/Learn";
-import AITutorPage from "./pages/AITutor";
-import Progress from "./pages/Progress";
-import Resources from "./pages/Resources";
-import ClassroomPage from "./pages/Classroom";
-import Profile from "./pages/Profile";
-
-// Research Hub components
-import ResearchHub from "./features/ResearchHub";
-import TeacherResourcesHub from "./features/TeacherResourcesHub";
-import ResourceUploadForm from "./components/teacher/ResourceUploadForm";
+// Page components (lazy loaded for code splitting)
+const Home = lazy(() => import("./pages/Home"));
+const Learn = lazy(() => import("./pages/Learn"));
+const AITutorPage = lazy(() => import("./pages/AITutor"));
+const Progress = lazy(() => import("./pages/Progress"));
+const Resources = lazy(() => import("./pages/Resources"));
+const ClassroomPage = lazy(() => import("./pages/Classroom"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 // Components
 import { ErrorBoundary } from "./components/ErrorBoundary";
-
-
-
-const NOTES_KEY = "sc_user_notes_v1";
-
-const CUSTOM_QUESTIONS_KEY = "sc_custom_questions_v1";
-
-const AI_DOCS_KEY = "sc_ai_study_assistant_v1";
-
-const LECTURE_NOTES_KEY = "sc_lecture_notes_v1";
-
-
-
-function loadFromStorage(key) {
-
-  try {
-
-    const raw = localStorage.getItem(key);
-
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-
-    return Array.isArray(parsed) ? parsed : [];
-
-  } catch {
-
-    return [];
-
-  }
-
-}
-
-
-
-function DemoLockedOverlay({ title, description, icon = "🔒", features = [], showPlans = false }) {
-
-  const [selectedPlan, setSelectedPlan] = useState(null);
-
-
-
-  const plans = [
-
-    { id: "week1", name: "1 Week Plan", price: "₦700", savings: "Perfect for trying out" },
-
-    { id: "week2", name: "2 Weeks Plan", price: "₦1,300", savings: "Save ₦100" },
-
-    { id: "month1", name: "1 Month Plan", price: "₦2,400", savings: "Save ₦400", highlight: true },
-
-  ];
-
-
-
-  const bankDetails = {
-
-    bank: "Opay",
-
-    accountNumber: "9069372522",
-
-    accountName: "Zibiri-David Delight Aluaye",
-
-  };
-
-
-
-  return (
-
-    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
-
-      <div style={{ fontSize: 48, marginBottom: 12 }}>{icon}</div>
-
-      <h2 style={{ margin: "0 0 8px 0", fontSize: 20, color: "var(--text-primary, #f1f5f9)" }}>⭐ Premium Feature</h2>
-
-      <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "var(--text-primary, #f1f5f9)" }}>{title}</h3>
-
-      <p style={{ marginBottom: 20, lineHeight: 1.5, fontSize: 13, color: "var(--text-secondary, #cbd5e1)" }}>{description}</p>
-
-
-
-      {features.length > 0 && (
-
-        <div style={{ background: "var(--success-bg, rgba(45,212,160,0.1))", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--success-border, rgba(45,212,160,0.3))" }}>
-
-          <strong style={{ color: "var(--success-text, #2dd4a0)", display: "block", marginBottom: 10, fontSize: 13 }}>✨ What you'll unlock:</strong>
-
-          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12, color: "var(--text-primary, #f1f5f9)" }}>
-
-            {features.map((f, i) => <li key={i}>{f}</li>)}
-
-          </ul>
-
-        </div>
-
-      )}
-
-
-
-      {showPlans && (
-
-        <div style={{ marginBottom: 20 }}>
-
-          <p style={{ marginBottom: 12, fontSize: 13, color: "var(--text-secondary, #cbd5e1)" }}>Choose a plan that works for you:</p>
-
-
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-
-            {plans.map((plan) => (
-
-              <div
-
-                key={plan.id}
-
-                onClick={() => setSelectedPlan(plan.id)}
-
-                style={{
-
-                  border: selectedPlan === plan.id ? "2px solid var(--accent-color, #3b82f6)" : "1px solid var(--border-color, #334155)",
-
-                  borderRadius: 10,
-
-                  padding: 14,
-
-                  cursor: "pointer",
-
-                  background: selectedPlan === plan.id ? "var(--selected-bg, rgba(59,130,246,0.1))" : "var(--item-bg, rgba(255,255,255,0.05))",
-
-                  transition: "all 0.2s",
-
-                  position: "relative"
-
-                }}
-
-              >
-
-                {plan.highlight && (
-
-                  <div style={{ position: "absolute", top: -8, right: 10, background: "#10b981", color: "white", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>BEST VALUE</div>
-
-                )}
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-
-                  <div>
-
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary, #f1f5f9)" }}>{plan.name}</div>
-
-                    <div style={{ fontSize: 11, color: "var(--text-muted, #94a3b8)" }}>{plan.savings}</div>
-
-                  </div>
-
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "var(--accent-color, #3b82f6)" }}>{plan.price}</div>
-
-                </div>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {showPlans && selectedPlan && (
-
-        <div style={{ background: "var(--selected-bg, rgba(59,130,246,0.1))", border: "1px solid var(--accent-color, rgba(59,130,246,0.3))", borderRadius: 10, padding: 14, marginBottom: 16 }}>
-
-          <h4 style={{ margin: "0 0 10px 0", fontSize: 13, color: "var(--text-primary, #f1f5f9)" }}>🏦 Payment Details</h4>
-
-          <div style={{ fontSize: 12, lineHeight: 1.7, color: "var(--text-secondary, #cbd5e1)" }}>
-
-            <div><strong>Bank:</strong> {bankDetails.bank}</div>
-
-            <div><strong>Account Number:</strong> {bankDetails.accountNumber}</div>
-
-            <div><strong>Account Name:</strong> {bankDetails.accountName}</div>
-
-            <div><strong>Amount:</strong> {plans.find(p => p.id === selectedPlan)?.price}</div>
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {showPlans && selectedPlan && (
-
-        <div style={{ background: "var(--warning-bg, rgba(251,191,36,0.1))", border: "1px solid var(--warning-border, rgba(251,191,36,0.3))", borderRadius: 10, padding: 14, marginBottom: 16 }}>
-
-          <h4 style={{ margin: "0 0 10px 0", fontSize: 13, color: "var(--text-primary, #f1f5f9)" }}>📱 After Payment</h4>
-
-          <p style={{ fontSize: 11, marginBottom: 10, color: "var(--text-secondary, #cbd5e1)" }}>
-
-            Send a screenshot of your payment receipt to our WhatsApp to activate:
-
-          </p>
-
-          <a
-
-            href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've made a payment for ${plans.find(p => p.id === selectedPlan)?.name}. Here's my payment proof:`)}`}
-
-            target="_blank"
-
-            rel="noopener noreferrer"
-
-            style={{
-
-              display: "block",
-
-              textAlign: "center",
-
-              background: "#25D366",
-
-              color: "white",
-
-              textDecoration: "none",
-
-              padding: "10px",
-
-              borderRadius: 6,
-
-              fontWeight: 600,
-
-              fontSize: 13
-
-            }}
-
-          >
-
-            💬 Send Payment Proof on WhatsApp
-
-          </a>
-
-        </div>
-
-      )}
-
-
-
-      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-
-        <button
-
-          onClick={() => {
-
-            if (showPlans && !selectedPlan) {
-
-              toast.warning("Please select a plan first");
-
-              return;
-
-            }
-
-            if (!selectedPlan) {
-
-              toast.info(`🚀 Upgrade to access ${title}!`);
-
-            }
-
-          }}
-
-          style={{
-
-            background: "var(--accent-color, #3b82f6)",
-
-            color: "white",
-
-            fontWeight: 600,
-
-            padding: "12px 24px",
-
-            fontSize: 14,
-
-            border: "none",
-
-            borderRadius: 6,
-
-            cursor: "pointer"
-
-          }}
-
-        >
-
-          {selectedPlan ? `Pay ${plans.find(p => p.id === selectedPlan)?.price}` : "Upgrade Now"}
-
-        </button>
-
-        <button
-
-          onClick={() => toast.info("🎁 Start your 14-day free trial today! No credit card required.")}
-
-          style={{
-
-            background: "transparent",
-
-            border: "1px solid var(--border-color, #334155)",
-
-            color: "var(--text-primary, #f1f5f9)",
-
-            padding: "10px 20px",
-
-            fontSize: 13,
-
-            borderRadius: 6,
-
-            cursor: "pointer"
-
-          }}
-
-        >
-
-          Free Trial
-
-        </button>
-
-      </div>
-
-
-
-      </div>
-
-  );
-
-}
-
-
-
-function GlobalSearchDropdown({ query, filter, subjects }) {
-
-  const safeSubjects = subjects || [];
-
-  const allContent = useMemo(() => {
-
-    const userNotes = loadFromStorage(NOTES_KEY);
-
-    const customQuestions = loadFromStorage(CUSTOM_QUESTIONS_KEY);
-
-    const aiDocs = loadFromStorage(AI_DOCS_KEY);
-
-    const lectureNotes = loadFromStorage(LECTURE_NOTES_KEY);
-
-
-
-    return {
-
-      notes: userNotes.filter(Boolean).map((n) => ({
-
-        type: "note",
-
-        id: n?.id || "",
-
-        subjectId: n?.subjectId,
-
-        subject: safeSubjects.find((s) => s.id === n?.subjectId)?.label || "Unknown",
-
-        title: "Student Note",
-
-        content: n?.content || "",
-
-        timestamp: n?.updatedAt
-
-      })),
-
-      questions: customQuestions.filter(Boolean).map((q, i) => ({
-
-        type: "question",
-
-        id: `q_${i}`,
-
-        subjectId: q?.subjectId,
-
-        subject: safeSubjects.find((s) => s.id === q?.subjectId)?.label || "Unknown",
-
-        title: "Custom Question",
-
-        content: `${q?.q || ""} ${q?.options?.join(" ") || ""} ${q?.explanation || ""}`,
-
-        timestamp: Date.now()
-
-      })),
-
-      flashcards: aiDocs.filter(Boolean).flatMap((doc) =>
-
-        (doc?.flashcards || []).filter(Boolean).map((f, i) => ({
-
-          type: "flashcard",
-
-          id: `${doc?.id || ""}_f_${i}`,
-
-          subjectId: doc?.subjectId,
-
-          subject: doc?.subjectLabel || "Unknown",
-
-          title: "Flashcard",
-
-          content: `${f?.front || ""} ${f?.back || ""}`,
-
-          timestamp: doc?.createdAt
-
-        }))
-
-      ),
-
-      lectures: lectureNotes.filter(Boolean).map((n) => ({
-
-        type: "lecture",
-
-        id: n?.id || "",
-
-        subjectId: n?.subjectId,
-
-        subject: safeSubjects.find((s) => s.id === n?.subjectId)?.label || "Unknown",
-
-        title: n?.title || "",
-
-        content: `${(n?.summary || []).join(" ")} ${(n?.key_terms || []).filter(Boolean).map(t => `${t?.term || ""} ${t?.definition || ""}`).join(" ")}`,
-
-        timestamp: n?.createdAt
-
-      }))
-
-    };
-
-  }, [safeSubjects]);
-
-
-
-  const searchResults = useMemo(() => {
-
-    if (!query.trim()) return [];
-
-
-
-    const lowerQuery = query.toLowerCase();
-
-    const allItems = [
-
-      ...allContent.notes,
-
-      ...allContent.questions,
-
-      ...allContent.flashcards,
-
-      ...allContent.lectures
-
-    ];
-
-
-
-    const filtered = allItems.filter((item) => {
-
-      if (filter !== "all" && item.type !== filter) return false;
-
-
-
-      const contentMatch = item.content.toLowerCase().includes(lowerQuery);
-
-      const titleMatch = item.title.toLowerCase().includes(lowerQuery);
-
-      const subjectMatch = item.subject.toLowerCase().includes(lowerQuery);
-
-
-
-      return contentMatch || titleMatch || subjectMatch;
-
-    });
-
-
-
-    return filtered.sort((a, b) => {
-
-      const aContentScore = a.content.toLowerCase().includes(lowerQuery) ? 3 : 0;
-
-      const aTitleScore = a.title.toLowerCase().includes(lowerQuery) ? 2 : 0;
-
-      const aSubjectScore = a.subject.toLowerCase().includes(lowerQuery) ? 1 : 0;
-
-      const aScore = aContentScore + aTitleScore + aSubjectScore;
-
-
-
-      const bContentScore = b.content.toLowerCase().includes(lowerQuery) ? 3 : 0;
-
-      const bTitleScore = b.title.toLowerCase().includes(lowerQuery) ? 2 : 0;
-
-      const bSubjectScore = b.subject.toLowerCase().includes(lowerQuery) ? 1 : 0;
-
-      const bScore = bContentScore + bTitleScore + bSubjectScore;
-
-
-
-      return bScore - aScore;
-
-    });
-
-  }, [query, filter, allContent]);
-
-
-
-  const typeIcons = {
-
-    note: "📝",
-
-    question: "❓",
-
-    flashcard: "🃏",
-
-    lecture: "🎓"
-
-  };
-
-
-
-  const typeColors = {
-
-    note: "#818cf8",
-
-    question: "#facc15",
-
-    flashcard: "#2dd4a0",
-
-    lecture: "#ef4444"
-
-  };
-
-
-
-  function highlightText(text, query) {
-
-    if (!query) return text;
-
-    // Sanitize text to prevent XSS
-
-    const sanitizedText = DOMPurify.sanitize(text);
-
-    // Escape special regex characters to prevent errors
-
-    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    const regex = new RegExp(`(${escapedQuery})`, 'gi');
-
-    return sanitizedText.replace(regex, '<mark style="background: #fef08a; padding: 0 2px; border-radius: 2px;">$1</mark>');
-
-  }
-
-
-
-  if (!query.trim()) {
-
-    return <p className="muted" style={{ textAlign: "center", padding: 20 }}>Start typing to search across all your content</p>;
-
-  }
-
-
-
-  if (searchResults.length === 0) {
-
-    return <p className="muted" style={{ textAlign: "center", padding: 20 }}>No results found for "{query}"</p>;
-
-  }
-
-
-
-  return (
-
-    <div>
-
-      <p className="muted" style={{ marginBottom: 12, fontSize: 12 }}>
-
-        Found {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}
-
-      </p>
-
-      {searchResults.map((item) => (
-
-        <div
-
-          key={item.id}
-
-          style={{
-
-            padding: 10,
-
-            background: "#1f2937",
-
-            borderRadius: 6,
-
-            marginBottom: 6,
-
-            borderLeft: `4px solid ${typeColors[item.type]}`
-
-          }}
-
-        >
-
-          <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
-
-            <span style={{ fontSize: 13, fontWeight: 500 }}>
-
-              {typeIcons[item.type]} {item.title}
-
-            </span>
-
-            <span style={{ fontSize: 11, color: "#9ca3af" }}>
-
-              {item.subject}
-
-            </span>
-
-          </div>
-
-          <p
-
-            style={{
-
-              fontSize: 12,
-
-              color: "#d1d5db",
-
-              marginBottom: 4,
-
-              lineHeight: 1.4
-
-            }}
-
-            dangerouslySetInnerHTML={{
-
-              __html: highlightText(
-
-                item.content.length > 150
-
-                  ? item.content.substring(0, 150) + "..."
-
-                  : item.content,
-
-                query
-
-              )
-
-            }}
-
-          />
-
-          <span style={{ fontSize: 10, color: "#6b7280" }}>
-
-            {new Date(item.timestamp).toLocaleDateString()}
-
-          </span>
-
-        </div>
-
-      ))}
-
-    </div>
-
-  );
-
-}
+import {
+  NOTES_KEY, CUSTOM_QUESTIONS_KEY, AI_DOCS_KEY, LECTURE_NOTES_KEY,
+  EMPTY_STATS, EMPTY_QUESTS, BADGES, LEAGUES, DEMO_USERS, DEMO_LIMITS,
+  DEMO_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS,
+} from "./lib/constants";
+import {
+  loadFromStorage, todayKey, percent, pickAdaptiveQuestion,
+  getLeague, getNextLeague, api, syncUserDataToBackend, loadUserDataFromBackend,
+} from "./lib/appUtils";
+
+import DemoLockedOverlay from "./components/DemoLockedOverlay";
+import { GlobalSearchDropdown } from "./components/GlobalSearchDropdown";
+import {
+  ConfettiOverlay, CelebrationToast, StreakLossWarning,
+  StudyHeatmap, LeagueProgress, CelebrationNotification,
+} from "./components/Celebrations";
+import {
+  CommandPalette, AIHelper, SimpleCheckpoint,
+  RevisionPlanner, BulkImport, AIQuestionGen,
+} from "./components/SmallComponents";
+import { SessionPlayer } from "./components/SessionPlayer";
+import { QuestionBank } from "./components/QuestionBank";
+import { Classroom } from "./components/Classroom";
+import { FlashcardDeck } from "./components/FlashcardDeck";
+import { Leaderboard } from "./components/Leaderboard";
+import { PomodoroTimer, NotesEditor, TimetableBuilder, CheatSheet } from "./components/StudyTools";
+import { SearchResults, AchievementsBadges, ConfidenceHeatmap } from "./components/SearchAndBadges";
+import { DiscussionBoard } from "./components/Discussion";
+import { AITutorChat } from "./components/AITutorChat";
+import { StudyReminders } from "./components/StudyReminders";
+import { KeyManagement, LockedScreen } from "./components/AdminComponents";
+
+
+
+// DemoLockedOverlay imported from ./components/DemoLockedOverlay
+
+
+
+// GlobalSearchDropdown imported from ./components/GlobalSearchDropdown
 
 
 
@@ -753,12 +121,16 @@ import { StudyGroups } from "./features/StudyGroups";
 
 
 const GamificationHub = lazy(() => import("./features/Gamification"));
+const ResearchHub = lazy(() => import("./features/ResearchHub"));
+const TeacherResourcesHub = lazy(() => import("./features/TeacherResourcesHub"));
+const AdminDashboard = lazy(() => import("./features/AdminDashboard"));
+const Lecturers = lazy(() => import("./features/Lecturers/index.jsx"));
+const CampusComm = lazy(() => import("./features/CampusComm.jsx"));
 
 
 
 import { ExamSimulator, selectAdaptiveQuestions, calculateSessionAnalytics, PostSessionInsights } from "./features/EnhancedSession";
 import StatsPanel from "./features/StatsPanel";
-import AdminDashboard from "./features/AdminDashboard";
 
 
 
@@ -772,10 +144,6 @@ import AISectionOverlay from "./features/AISectionOverlay.jsx";
 
 
 import { StudentProfile, useStudentProfile } from "./features/StudentProfile.jsx";
-
-
-
-import Lecturers from "./features/Lecturers/index.jsx";
 
 
 
@@ -818,79 +186,71 @@ import CourseOutline from "./features/CourseOutline";
 
 
 
-const EMPTY_STATS = {
+// EMPTY_STATS, EMPTY_QUESTS imported from ./lib/constants
 
 
 
-  xp: 0,
 
 
 
-  sessions: 0,
 
+// BADGES imported from ./lib/constants
 
 
-  streak: 0,
 
+// LEAGUES, getLeague, getNextLeague imported from ./lib/constants and ./lib/appUtils
 
 
-  coins: 0,
 
 
 
-  weeklyGoal: 5,
 
 
+// DEMO_USERS, DEMO_LIMITS, DEMO_ACHIEVEMENTS imported from ./lib/constants
 
-  questsDone: {},
+// API_BASE imported from ./lib/constants
 
 
 
-  totalCorrect: 0,
 
 
 
-};
 
+// todayKey imported from ./lib/appUtils
 
+// percent imported from ./lib/appUtils
 
-const EMPTY_QUESTS = [
 
 
 
-  { id: "q1", label: "Complete 1 study session", target: 1, type: "sessions" },
 
 
 
-  { id: "q2", label: "Get 3 correct answers", target: 3, type: "correct" },
+// pickAdaptiveQuestion imported from ./lib/appUtils
 
 
 
-  { id: "q3", label: "Complete 3 sessions today", target: 3, type: "sessions" },
 
 
 
-  { id: "q4", label: "Score 80% or above in an exam", target: 80, type: "score" },
 
+// api imported from ./lib/appUtils
 
 
-  { id: "q5", label: "Study 2 different subjects", target: 2, type: "subjects" },
 
 
 
-  { id: "q6", label: "Get 10 correct answers", target: 10, type: "correct" },
 
 
+// syncUserDataToBackend imported from ./lib/appUtils
 
-  { id: "q7", label: "Complete Spaced Review", target: 1, type: "spaced" },
 
 
 
-  { id: "q8", label: "Use the AI Helper once", target: 1, type: "ai" },
 
 
 
-];
+// loadUserDataFromBackend imported from ./lib/appUtils
 
 
 
@@ -898,1129 +258,11 @@ const EMPTY_QUESTS = [
 
 
 
-const BADGES = [
+// ConfettiOverlay, CelebrationToast, StreakLossWarning, StudyHeatmap, LeagueProgress, CelebrationNotification imported from ./components/Celebrations
 
 
 
-  // Session badges
-
-  { id: "first_session",  icon: "🌱", label: "First Steps",    desc: "Complete your first session",            check: (s)       => s.sessions >= 1 },
-
-
-
-  { id: "sessions_10",   icon: "📚", label: "Dedicated",       desc: "Complete 10 study sessions",             check: (s)       => s.sessions >= 10 },
-
-
-
-  { id: "sessions_25",   icon: "🏅", label: "Veteran",         desc: "Complete 25 study sessions",             check: (s)       => s.sessions >= 25 },
-
-
-
-  { id: "sessions_50",   icon: "🎖️", label: "Legend",         desc: "Complete 50 study sessions",             check: (s)       => s.sessions >= 50 },
-
-
-
-  { id: "sessions_100",  icon: "🏆", label: "Hall of Fame",    desc: "Complete 100 study sessions",            check: (s)       => s.sessions >= 100, rare: true },
-
-
-
-  // Streak badges
-
-  { id: "streak_3",      icon: "⚡", label: "On Fire",         desc: "Keep a 3-day streak",                    check: (s)       => s.streak >= 3 },
-
-
-
-  { id: "streak_7",      icon: "🔥", label: "7-Day Streak",    desc: "Keep a 7-day streak",                    check: (s)       => s.streak >= 7 },
-
-
-
-  { id: "streak_14",     icon: "💫", label: "14-Day Streak",   desc: "Keep a 14-day streak",                   check: (s)       => s.streak >= 14 },
-
-
-
-  { id: "streak_30",     icon: "🌟", label: "30-Day Streak",   desc: "Keep a 30-day streak",                   check: (s)       => s.streak >= 30, rare: true },
-
-
-
-  { id: "streak_100",    icon: "💎", label: "100-Day Legend",  desc: "Keep a 100-day streak",                  check: (s)       => s.streak >= 100, rare: true, legendary: true },
-
-
-
-  // XP badges
-
-  { id: "xp_100",        icon: "⭐", label: "Scholar",         desc: "Earn 100 XP",                            check: (s)       => s.xp >= 100 },
-
-
-
-  { id: "xp_500",        icon: "💫", label: "Expert",          desc: "Earn 500 XP",                            check: (s)       => s.xp >= 500 },
-
-
-
-  { id: "xp_1000",       icon: "🌟", label: "Master Scholar",  desc: "Earn 1000 XP",                           check: (s)       => s.xp >= 1000 },
-
-
-
-  { id: "xp_5000",       icon: "👑", label: "XP King",         desc: "Earn 5000 XP",                           check: (s)       => s.xp >= 5000, rare: true },
-
-
-
-  // Accuracy badges
-
-  { id: "correct_50",    icon: "🎯", label: "Sharpshooter",    desc: "Get 50 correct answers total",           check: (s)       => s.totalCorrect >= 50 },
-
-
-
-  { id: "correct_100",   icon: "🎪", label: "Centurion",       desc: "Get 100 correct answers total",          check: (s)       => s.totalCorrect >= 100 },
-
-
-
-  { id: "correct_500",   icon: "🎯", label: "Accuracy Master", desc: "Get 500 correct answers total",         check: (s)       => s.totalCorrect >= 500, rare: true },
-
-
-
-  { id: "perfect_score", icon: "🏆", label: "Perfectionist",   desc: "Score 100% on any exam",                 check: (s, h)    => h.some(x => x.score === x.total && x.total > 0 && x.mode === "exam") },
-
-
-
-  { id: "perfect_5",     icon: "🎖️", label: "5x Perfect",      desc: "Score 100% on 5 exams",                  check: (s, h)    => h.filter(x => x.score === x.total && x.total > 0 && x.mode === "exam").length >= 5, rare: true },
-
-
-
-  // Time-based badges (collectible)
-
-  { id: "night_owl",     icon: "🦉", label: "Night Owl",       desc: "Study after 10 pm",                      check: (s, h)    => h.some(x => new Date(x.ts).getHours() >= 22), rare: true },
-
-
-
-  { id: "early_bird",    icon: "🐦", label: "Early Bird",      desc: "Study before 6 am",                      check: (s, h)    => h.some(x => new Date(x.ts).getHours() < 6), rare: true },
-
-
-
-  { id: "weekend_warrior", icon: "⚔️", label: "Weekend Warrior", desc: "Study on Saturday and Sunday",         check: (s, h)    => { const days = h.map(x => new Date(x.ts).getDay()); return days.includes(0) && days.includes(6); }, rare: true },
-
-
-
-  { id: "lunch_learner", icon: "🍽️", label: "Lunch Learner",   desc: "Study between 12pm-2pm",                 check: (s, h)    => h.some(x => { const hr = new Date(x.ts).getHours(); return hr >= 12 && hr < 14; }) },
-
-
-
-  { id: "midnight_oil",  icon: "🕯️", label: "Midnight Oil",    desc: "Study past midnight",                    check: (s, h)    => h.some(x => { const hr = new Date(x.ts).getHours(); return hr >= 0 && hr < 4; }), rare: true },
-
-
-
-  // Subject badges
-
-  { id: "all_subjects",  icon: "🌈", label: "Well Rounded",    desc: "Study every subject at least once",      check: (s, h, sub) => new Set(h.map(x => x.subjectId)).size >= sub.length },
-
-
-
-  { id: "subject_master", icon: "🎓", label: "Subject Master", desc: "Study one subject 10 times",             check: (s, h)    => { const counts = {}; h.forEach(x => counts[x.subjectId] = (counts[x.subjectId] || 0) + 1); return Object.values(counts).some(c => c >= 10); } },
-
-
-
-  // Mastery badges
-
-  { id: "mastery_80",    icon: "🎓", label: "Master",          desc: "Reach 80% mastery in any subject",       check: (s, h, sub, m) => Object.values(m).some(v => v >= 80) },
-
-
-
-  { id: "mastery_100",   icon: "👑", label: "Grandmaster",     desc: "Reach 100% mastery in any subject",       check: (s, h, sub, m) => Object.values(m).some(v => v >= 100) },
-
-
-
-  { id: "mastery_all",   icon: "🏆", label: "All Master",      desc: "Reach 80% in all subjects",              check: (s, h, sub, m) => sub.every(s => (m[s.id] || 0) >= 80), rare: true },
-
-
-
-  // Coin badges
-
-  { id: "coins_50",      icon: "💰", label: "Coin Collector",  desc: "Accumulate 50 coins",                    check: (s)       => s.coins >= 50 },
-
-
-
-  { id: "coins_100",     icon: "💎", label: "Rich Scholar",    desc: "Accumulate 100 coins",                   check: (s)       => s.coins >= 100 },
-
-
-
-  { id: "coins_500",     icon: "👑", label: "Coin King",       desc: "Accumulate 500 coins",                   check: (s)       => s.coins >= 500, rare: true },
-
-
-
-  // Speed badges
-
-  { id: "speed_demon",   icon: "💨", label: "Speed Demon",     desc: "Finish an exam in under 2 minutes",      check: (s, h)    => h.some(x => x.mode === "exam" && x.seconds > 0 && x.seconds < 120) },
-
-
-
-  { id: "lightning",     icon: "⚡", label: "Lightning Fast",  desc: "Finish a quiz in under 30 seconds",      check: (s, h)    => h.some(x => x.seconds > 0 && x.seconds < 30), rare: true },
-
-
-
-  // Hidden achievements (secret until unlocked)
-
-  { id: "comeback",      icon: "🔄", label: "Comeback Kid",    desc: "Study after 7+ day break",               check: (s, h)    => { if (h.length < 2) return false; const sorted = [...h].sort((a,b) => b.ts - a.ts); const gap = sorted[0].ts - sorted[1].ts; return gap > 7 * 24 * 60 * 60 * 1000; }, hidden: true },
-
-
-
-  { id: "marathon",      icon: "🏃", label: "Marathon",        desc: "Study 5 sessions in one day",            check: (s, h)    => { const today = new Date().toDateString(); return h.filter(x => new Date(x.ts).toDateString() === today).length >= 5; }, hidden: true },
-
-
-
-  { id: "first_blood",   icon: "🩸", label: "First Blood",     desc: "Be the first to study today",            check: (s, h)    => { const today = new Date().toDateString(); const todaySessions = h.filter(x => new Date(x.ts).toDateString() === today); return todaySessions.length === 1 && Date.now() - todaySessions[0].ts < 60000; }, hidden: true },
-
-
-
-];
-
-
-
-// League system
-
-const LEAGUES = [
-
-  { id: "bronze", name: "Bronze", icon: "🥉", minXP: 0, color: "#cd7f32" },
-
-  { id: "silver", name: "Silver", icon: "🥈", minXP: 200, color: "#c0c0c0" },
-
-  { id: "gold", name: "Gold", icon: "🥇", minXP: 500, color: "#ffd700" },
-
-  { id: "platinum", name: "Platinum", icon: "💎", minXP: 1000, color: "#e5e4e2" },
-
-  { id: "diamond", name: "Diamond", icon: "💠", minXP: 2500, color: "#b9f2ff" },
-
-  { id: "champion", name: "Champion", icon: "👑", minXP: 5000, color: "#ff6b6b" },
-
-];
-
-
-
-function getLeague(xp) {
-
-  for (let i = LEAGUES.length - 1; i >= 0; i--) {
-
-    if (xp >= LEAGUES[i].minXP) return LEAGUES[i];
-
-  }
-
-  return LEAGUES[0];
-
-}
-
-
-
-function getNextLeague(xp) {
-
-  const current = getLeague(xp);
-
-  const idx = LEAGUES.findIndex(l => l.id === current.id);
-
-  if (idx < LEAGUES.length - 1) return LEAGUES[idx + 1];
-
-  return null;
-
-}
-
-
-
-
-
-
-
-const DEMO_USERS = [
-
-
-
-  { username: "teacher", password: "teacher123", role: "teacher", isActivated: true },
-
-
-
-  { username: "student", password: "student123", role: "student", isActivated: false },
-
-
-
-];
-
-
-
-const DEMO_LIMITS = {
-
-  aiMessages: 5,
-
-  practiceQuestions: 10,
-
-  questionBankQuestions: 5,
-
-  flashcardReviews: 10,
-
-  timetableSlots: 3,
-
-  reminders: 2,
-
-  allowedTabs: ["today", "subjects", "quiz", "settings"],
-
-  dailyTimeLimit: 30,
-
-  totalSessions: 5,
-
-  exportEnabled: false,
-
-  analyticsDepth: "basic",
-
-  trialDays: 2,
-
-  masteryCap: 70,
-
-  maxStreak: 7,
-
-  allowedDifficulties: ["easy", "medium"],
-
-  maxSpacedReviewCards: 5,
-
-  maxCustomFlashcardDecks: 1,
-
-  allowedThemes: ["aurora", "paper"],
-
-  premiumThemes: ["neon"],
-
-  leaderboardAccess: false,
-
-  studyGroupsAccess: false,
-
-  pastPapersLimit: 1,
-
-  aiTutorMessages: 3,
-
-  classroomAccess: false,
-
-  pomodoroSessions: 2,
-
-  notesLimit: 5,
-
-  hidePremiumTabs: true,
-
-  aiStudyAssistantDaily: 1,
-
-  lectureToNotesDaily: 1,
-
-  questionBankLocked: true,
-
-  quizDaily: 5,
-
-};
-
-
-
-const DEMO_ACHIEVEMENTS = [
-
-  { id: "demo_explorer", icon: "🗺️", label: "Demo Explorer", desc: "Visit 5 different tabs", check: (p) => p.tabsVisited.size >= 5 },
-
-  { id: "feature_tester", icon: "🧪", label: "Feature Tester", desc: "Try 3 different features", check: (p) => p.featuresTried.size >= 3 },
-
-  { id: "quiz_master", icon: "📝", label: "Quiz Master", desc: "Complete 3 practice sessions", check: (p, u) => u.practiceQuestions >= 3 },
-
-  { id: "ai_curious", icon: "🤖", label: "AI Curious", desc: "Use AI Tutor once", check: (p, u) => u.aiMessages >= 1 },
-
-  { id: "timetable_planner", icon: "📅", label: "Timetable Planner", desc: "Add 2 timetable slots", check: (p, u) => u.timetableSlots >= 2 },
-
-  { id: "note_taker", icon: "📝", label: "Note Taker", desc: "Create a note", check: (p) => p.featuresTried.has("notes") },
-
-  { id: "flashcard_flipper", icon: "🔄", label: "Flashcard Flipper", desc: "Review 5 flashcards", check: (p, u) => u.flashcardReviews >= 5 },
-
-  { id: "demo_complete", icon: "🎯", label: "Demo Complete", desc: "Earn all demo achievements", check: (p, u, a) => a.length >= 7 },
-
-];
-
-
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
-
-
-
-
-
-
-
-function todayKey() {
-
-
-
-  return new Date().toDateString();
-
-
-
-}
-
-function percent(score, total) {
-
-
-
-  if (!total) return 0;
-
-
-
-  return Math.round((score / total) * 100);
-
-
-
-}
-
-
-
-
-
-
-
-function pickAdaptiveQuestion(pool, wrongCounts, mastery) {
-
-
-
-  const weighted = pool.flatMap((q) => {
-
-
-
-    const wrong = wrongCounts[q.key] || 0;
-
-
-
-    const m = mastery[q.subjectId] ?? 0;
-
-
-
-    const weight = 1 + wrong + (m < 60 ? 2 : 0);
-
-
-
-    return Array.from({ length: weight }, () => q);
-
-
-
-  });
-
-
-
-  return weighted[Math.floor(Math.random() * weighted.length)];
-
-
-
-}
-
-
-
-
-
-
-
-async function api(path, { token, method = "GET", body } = {}) {
-
-
-
-  const res = await fetch(`${API_BASE}${path}`, {
-
-
-
-    method,
-
-
-
-    headers: {
-
-
-
-      "Content-Type": "application/json",
-
-
-
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-
-
-
-    },
-
-
-
-    ...(body ? { body: JSON.stringify(body) } : {}),
-
-
-
-  });
-
-
-
-  const data = await res.json().catch(() => ({}));
-
-
-
-  if (!res.ok) throw new Error(data.error || "API request failed");
-
-
-
-  return data;
-
-
-
-}
-
-
-
-
-
-
-
-async function syncUserDataToBackend(token, data) {
-
-
-
-  if (!token) return;
-
-
-
-  // Sync all user data to backend via the bulk sync endpoint
-
-  try {
-
-    await api("/user-data/sync", {
-
-      token,
-
-      method: "POST",
-
-      body: {
-
-        stats: data.progress,
-
-        mastery: data.progress?.mastery,
-
-        wrongCounts: data.progress?.wrongCounts,
-
-        srData: data.progress?.srData,
-
-        lastStudied: data.progress?.lastStudied,
-
-        timetable: data.timetable,
-
-        notes: data.notes,
-
-        outlineProgress: data.outlineProgress,
-
-      },
-
-    });
-
-  } catch (e) { console.error("Failed to sync to backend:", e); }
-
-
-
-}
-
-
-
-
-
-
-
-async function loadUserDataFromBackend(token) {
-
-
-
-  if (!token) return null;
-
-
-
-  try {
-
-
-
-    const data = await api("/user-data", { token });
-
-
-
-    return data;
-
-
-
-  } catch (e) {
-
-
-
-    console.error("Failed to load from backend:", e);
-
-
-
-    return null;
-
-
-
-  }
-
-
-
-}
-
-
-
-
-
-
-
-// Confetti celebration overlay
-
-function ConfettiOverlay() {
-
-  const [particles, setParticles] = useState([]);
-
-
-
-  useEffect(() => {
-
-    const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#1dd1a1', '#ff9f43', '#ee5a24'];
-
-    const newParticles = [];
-
-    for (let i = 0; i < 150; i++) {
-
-      newParticles.push({
-
-        id: i,
-
-        x: Math.random() * 100,
-
-        y: -10 - Math.random() * 20,
-
-        color: colors[Math.floor(Math.random() * colors.length)],
-
-        size: 4 + Math.random() * 8,
-
-        speedY: 2 + Math.random() * 4,
-
-        speedX: (Math.random() - 0.5) * 3,
-
-        rotation: Math.random() * 360,
-
-        rotationSpeed: (Math.random() - 0.5) * 10,
-
-      });
-
-    }
-
-    setParticles(newParticles);
-
-  }, []);
-
-
-
-  return (
-
-    <div className="confetti-container">
-
-      {particles.map(p => (
-
-        <div
-
-          key={p.id}
-
-          className="confetti-particle"
-
-          style={{
-
-            left: `${p.x}%`,
-
-            top: `${p.y}%`,
-
-            width: p.size,
-
-            height: p.size * 0.6,
-
-            background: p.color,
-
-            transform: `rotate(${p.rotation}deg)`,
-
-            animation: `confetti-fall 3s ease-out forwards`,
-
-            animationDelay: `${Math.random() * 0.5}s`,
-
-          }}
-
-        />
-
-      ))}
-
-    </div>
-
-  );
-
-}
-
-
-
-// Celebration toast notification
-
-function CelebrationToast({ celebration, onClose }) {
-
-  const messages = {
-
-    streak: (data) => `🔥 ${data.days}-Day Streak! Keep it up!`,
-
-    league: (data) => `🎉 Promoted to ${data.league.icon} ${data.league.name}!`,
-
-    perfect: (data) => `🏆 Perfect Score! ${data.score}/${data.total}`,
-
-    badge: (data) => `🏅 Badge Unlocked: ${data.icon} ${data.label}`,
-
-  };
-
-
-
-  return (
-
-    <div className="celebration-toast" onClick={onClose}>
-
-      <div className="celebration-content">
-
-        <span className="celebration-icon">
-
-          {celebration.type === 'streak' && celebration.data.icon}
-
-          {celebration.type === 'league' && celebration.data.league.icon}
-
-          {celebration.type === 'perfect' && '🏆'}
-
-          {celebration.type === 'badge' && celebration.data.icon}
-
-        </span>
-
-        <span className="celebration-message">
-
-          {messages[celebration.type]?.(celebration.data) || '🎉 Achievement!'}
-
-        </span>
-
-      </div>
-
-    </div>
-
-  );
-
-}
-
-
-
-// Streak loss warning component
-
-function StreakLossWarning({ streak, lastStudied }) {
-
-  const [showWarning, setShowWarning] = useState(false);
-
-  const [hoursLeft, setHoursLeft] = useState(0);
-
-
-
-  useEffect(() => {
-
-    if (!lastStudied || streak < 3) {
-
-      setShowWarning(false);
-
-      return;
-
-    }
-
-
-
-    const checkStreak = () => {
-
-      const now = new Date();
-
-      const lastDate = new Date(lastStudied);
-
-      const tomorrow = new Date(lastDate);
-
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      tomorrow.setHours(23, 59, 59, 999);
-
-
-
-      const hoursRemaining = (tomorrow - now) / (1000 * 60 * 60);
-
-
-
-      if (hoursRemaining < 6 && hoursRemaining > 0) {
-
-        setHoursLeft(Math.ceil(hoursRemaining));
-
-        setShowWarning(true);
-
-      } else {
-
-        setShowWarning(false);
-
-      }
-
-    };
-
-
-
-    checkStreak();
-
-    const interval = setInterval(checkStreak, 60000);
-
-    return () => clearInterval(interval);
-
-  }, [lastStudied, streak]);
-
-
-
-  if (!showWarning) return null;
-
-
-
-  return (
-
-    <div className="streak-warning">
-
-      <span className="streak-warning-icon">⚠️</span>
-
-      <span className="streak-warning-text">
-
-        Your <strong>{streak}-day streak</strong> will break in <strong>{hoursLeft} hours!</strong>
-
-      </span>
-
-      <button className="streak-warning-btn" onClick={() => setShowWarning(false)}>
-
-        Study Now
-
-      </button>
-
-    </div>
-
-  );
-
-}
-
-
-
-// Study Heatmap Calendar Component
-
-function StudyHeatmap({ heatmap }) {
-
-  const [showTooltip, setShowTooltip] = useState(null);
-
-
-
-  const generateCalendar = () => {
-
-    const days = [];
-
-    const today = new Date();
-
-
-
-    for (let i = 89; i >= 0; i--) {
-
-      const date = new Date(today);
-
-      date.setDate(date.getDate() - i);
-
-      const key = date.toISOString().split('T')[0];
-
-      const count = heatmap[key] || 0;
-
-      days.push({ date: key, count, day: date.getDay() });
-
-    }
-
-
-
-    return days;
-
-  };
-
-
-
-  const days = generateCalendar();
-
-  const maxCount = Math.max(...Object.values(heatmap), 1);
-
-
-
-  const getColor = (count) => {
-
-    if (count === 0) return 'rgba(148, 163, 184, 0.1)';
-
-    const intensity = count / maxCount;
-
-    if (intensity >= 0.75) return '#22c55e';
-
-    if (intensity >= 0.5) return '#4ade80';
-
-    if (intensity >= 0.25) return '#86efac';
-
-    return '#bbf7d0';
-
-  };
-
-
-
-  const totalSessions = Object.values(heatmap).reduce((a, b) => a + b, 0);
-
-  const activeDays = Object.values(heatmap).filter(v => v > 0).length;
-
-
-
-  return (
-
-    <div className="heatmap-container">
-
-      <div className="heatmap-header">
-
-        <span className="heatmap-title">📊 Study Activity</span>
-
-        <span className="heatmap-stats">{activeDays} active days • {totalSessions} total</span>
-
-      </div>
-
-      <div className="heatmap-grid">
-
-        {days.map((d, i) => (
-
-          <div
-
-            key={i}
-
-            className="heatmap-cell"
-
-            style={{ background: getColor(d.count) }}
-
-            onMouseEnter={() => setShowTooltip(d)}
-
-            onMouseLeave={() => setShowTooltip(null)}
-
-          >
-
-            {showTooltip?.date === d.date && (
-
-              <div className="heatmap-tooltip">
-
-                <strong>{d.date}</strong>
-
-                <br />
-
-                {d.count} questions answered
-
-              </div>
-
-            )}
-
-          </div>
-
-        ))}
-
-      </div>
-
-      <div className="heatmap-legend">
-
-        <span>Less</span>
-
-        <div className="heatmap-legend-cells">
-
-          <div style={{ background: getColor(0) }} />
-
-          <div style={{ background: getColor(maxCount * 0.25) }} />
-
-          <div style={{ background: getColor(maxCount * 0.5) }} />
-
-          <div style={{ background: getColor(maxCount * 0.75) }} />
-
-          <div style={{ background: getColor(maxCount) }} />
-
-        </div>
-
-        <span>More</span>
-
-      </div>
-
-    </div>
-
-  );
-
-}
-
-
-
-// League Progress Component
-
-function LeagueProgress({ xp }) {
-
-  const currentLeague = getLeague(xp);
-
-  const nextLeague = getNextLeague(xp);
-
-  const progress = nextLeague
-
-    ? ((xp - currentLeague.minXP) / (nextLeague.minXP - currentLeague.minXP)) * 100
-
-    : 100;
-
-
-
-  return (
-
-    <div className="league-progress">
-
-      <div className="league-current">
-
-        <span className="league-icon" style={{ color: currentLeague.color }}>{currentLeague.icon}</span>
-
-        <span className="league-name">{currentLeague.name}</span>
-
-      </div>
-
-      {nextLeague && (
-
-        <>
-
-          <div className="league-bar">
-
-            <div
-
-              className="league-bar-fill"
-
-              style={{ width: `${progress}%`, background: currentLeague.color }}
-
-            />
-
-          </div>
-
-          <div className="league-next">
-
-            <span>{nextLeague.icon} {nextLeague.name}</span>
-
-            <span>{nextLeague.minXP - xp} XP to go</span>
-
-          </div>
-
-        </>
-
-      )}
-
-      {!nextLeague && (
-
-        <div className="league-max">
-
-          👑 Maximum League Reached!
-
-        </div>
-
-      )}
-
-    </div>
-
-  );
-
-}
-
-
-
-// Celebration Notification Component
-
-function CelebrationNotification({ stats, history, yesterdayTime }) {
-
-  const [notification, setNotification] = useState(null);
-
-
-
-  useEffect(() => {
-
-    // Check if studied more than yesterday
-
-    const today = new Date().toDateString();
-
-    const todaySessions = history.filter(h => new Date(h.ts).toDateString() === today);
-
-    const todayTime = todaySessions.length * 5; // rough estimate in minutes
-
-
-
-    if (yesterdayTime > 0 && todayTime > yesterdayTime + 10) {
-
-      setNotification({
-
-        type: 'improvement',
-
-        message: `You studied ${todayTime - yesterdayTime} minutes more than yesterday! 🎉`,
-
-      });
-
-    }
-
-
-
-    // Check if in top 10% (simulated)
-
-    if (stats.xp > 500 && Math.random() > 0.9) {
-
-      setNotification({
-
-        type: 'top10',
-
-        message: "You're in the top 10% this week! 🏆",
-
-      });
-
-    }
-
-  }, [stats.xp, history, yesterdayTime]);
-
-
-
-  if (!notification) return null;
-
-
-
-  return (
-
-    <div className="celebration-notification" onClick={() => setNotification(null)}>
-
-      <span>{notification.message}</span>
-
-    </div>
-
-  );
-
-}
-
-
-
-const PRIMARY_TABS = ["today", "practice", "aitutor", "analytics", "premium"];
-
-const TAB_LABELS = {
-
-  today: "🏠 Home", dashboard: "🏠 Home", practice: "📚 Learn", aitutor: "🤖 AI Tutor",
-
-  analytics: "📊 Progress", studypaths: "🛤️ Study Paths", learn: "📚 Learn", classroom: "🏫 Classroom",
-
-  bank: "🏦 Questions", planner: "📅 Planner",
-
-  outline: "📋 Course Outline", keys: "🔑 Keys", invites: "🎫 Invites", admin: "⚙️ Admin",
-
-  flashcards: "🃏 Flashcards", lecturers: "👨‍🏫 Lecturers", reminders: "🔔 Reminders",
-
-  leaderboard: "🏆 Leaderboard", gamification: "⚔️ Arena", studygroups: "👥 Study Groups",
-
-  notes: "📝 Notes", achievements: "🏅 Badges", timetable: "🗓️ Timetable",
-
-  cheatsheet: "💡 Cheat Sheet", discuss: "💬 Discussion", settings: "⚙️ Settings",
-
-  profile: "👤 Profile", pomodoro: "⏱️ Focus Timer", lectures: "🎓 Lectures",
-
-  pastpapers: "📄 Past Papers", notifications: "🔔 Notifications",
-
-  "teacher-questions": "📝 My Questions", "campus-comm": "📢 Announcements",
-
-  premium: "💎 Premium"
-
-};
+// PRIMARY_TABS, TAB_LABELS imported from ./lib/constants;
 
 
 
@@ -2145,6 +387,32 @@ function App() {
       const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
 
       if (raw) return JSON.parse(raw).lastStudied ?? null;
+
+    } catch { /* ignore */ }
+
+    return null;
+
+  });
+
+  const [lastActivity, setLastActivity] = useState(() => {
+
+    try {
+
+      const authRaw = localStorage.getItem("scholars-circle-auth");
+
+      let uid = "guest";
+
+      if (authRaw) {
+
+        const authParsed = JSON.parse(authRaw);
+
+        uid = authParsed.authUser?.id || authParsed.authUser?.username || "guest";
+
+      }
+
+      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
+
+      if (raw) return JSON.parse(raw).lastActivity ?? null;
 
     } catch { /* ignore */ }
 
@@ -2403,6 +671,11 @@ function App() {
 
 
   const [headerExpanded, setHeaderExpanded] = useState(true);
+
+  useEffect(() => {
+    if (tab === "today") setHeaderExpanded(false);
+    else setHeaderExpanded(true);
+  }, [tab]);
 
 
 
@@ -2839,7 +1112,7 @@ function App() {
 
           label: backend.label,
 
-          icon: backend.icon || (backend.label.includes("MTH") ? "∫" : backend.label.includes("BIO") ? "🐟" : backend.label.includes("CHM") ? "🧪" : backend.label.includes("PHY") ? "⚡" : backend.label.includes("GST") ? "📚" : "📖"),
+          icon: backend.icon || (backend.label.includes("MTH") ? "📍" : backend.label.includes("BIO") ? "🐟" : backend.label.includes("CHM") ? "⚗️" : backend.label.includes("PHY") ? "⚛️" : backend.label.includes("GST") ? "📚" : "📖"),
 
           accent: "#fb923c",
 
@@ -2867,7 +1140,7 @@ function App() {
 
     if (customQuestions.length) {
 
-      result.push({ id: "custom", label: "Custom Bank", icon: "🧩", image: SUBJECTS[0]?.image || "", lessons: [], questions: customQuestions });
+      result.push({ id: "custom", label: "Custom Bank", icon: "📦", image: SUBJECTS[0]?.image || "", lessons: [], questions: customQuestions });
 
     }
 
@@ -2910,6 +1183,37 @@ function App() {
   // dueCards must be defined before notification useEffect
 
   const dueCards = allQuestions.filter((q) => (srData[q.key]?.due || 0) <= Date.now() && srData[q.key]);
+
+
+
+  // --- Context sync: push local state to contexts so page components can consume via hooks ---
+  const ctxAuth = useAuth();
+  const ctxUserData = useUserData();
+  const ctxUI = useUI();
+
+  useEffect(() => { ctxAuth.setUser(auth.user); }, [auth.user]);
+  useEffect(() => { ctxAuth.setToken(token); }, [token]);
+  useEffect(() => { ctxUserData.setStats(stats); }, [stats]);
+  useEffect(() => { ctxUserData.setHistory(history); }, [history]);
+  useEffect(() => { ctxUserData.setMastery(mastery); }, [mastery]);
+  useEffect(() => { ctxUserData.setSrData(srData); }, [srData]);
+  useEffect(() => { ctxUserData.setSubjects(subjects); }, [subjects]);
+  useEffect(() => { ctxUserData.setAssignments(assignments); }, [assignments]);
+  useEffect(() => { ctxUserData.setWrongCounts(wrongCounts); }, [wrongCounts]);
+  useEffect(() => { ctxUserData.setNotes(notes); }, [notes]);
+  useEffect(() => { ctxUserData.setCustomFlashcards(customFlashcards); }, [customFlashcards]);
+  useEffect(() => { ctxUserData.setOutlineProgress(outlineProgress); }, [outlineProgress]);
+  useEffect(() => { ctxUserData.setLastActivity(lastActivity); }, [lastActivity]);
+  useEffect(() => { ctxUI.setTab(tab); }, [tab]);
+  useEffect(() => { ctxUI.setDarkMode(darkMode); }, [darkMode]);
+  useEffect(() => { ctxUI.setDemoMode(demoMode); }, [demoMode]);
+  useEffect(() => { ctxUI.setDemoUsage(demoUsage); }, [demoUsage]);
+  useEffect(() => { ctxUI.setProgressSubTab(progressSubTab); }, [progressSubTab]);
+  useEffect(() => { ctxUI.setLearnSubTab(learnSubTab); }, [learnSubTab]);
+  useEffect(() => { ctxUI.setResourcesSubTab(resourcesSubTab); }, [resourcesSubTab]);
+  useEffect(() => { ctxUI.setAiTutorSubTab(aiTutorSubTab); }, [aiTutorSubTab]);
+  useEffect(() => { ctxUI.setAiConfig(aiConfig); }, [aiConfig]);
+  // --- End context sync ---
 
 
 
@@ -3137,6 +1441,8 @@ function App() {
 
         setLastStudied(parsed.lastStudied ?? null);
 
+        setLastActivity(parsed.lastActivity ?? null);
+
 
 
         setSyncConfig(parsed.syncConfig ?? { url: "", key: "", userId: "local-user" });
@@ -3230,6 +1536,8 @@ function App() {
         setDarkMode(parsed.darkMode ?? true);
 
         setLastStudied(parsed.lastStudied ?? null);
+
+        setLastActivity(parsed.lastActivity ?? null);
 
         setNotes(parsed.notes ?? {});
 
@@ -3463,7 +1771,7 @@ function App() {
 
     if (token && auth.user?.id) {
 
-      // Logged-in user: backend is source of truth — load from server
+      // Logged-in user: backend is source of truth → load from server
       // But if offline, skip the network call and use localStorage immediately
       if (!navigator.onLine) {
         loadLocalState();
@@ -3527,6 +1835,8 @@ function App() {
 
           setLastStudied(data.progress.lastStudied ? new Date(data.progress.lastStudied).toISOString().split('T')[0] : null);
 
+          setLastActivity(data.progress.lastActivity ?? null);
+
           if (data.progress.themePack) setThemePack(data.progress.themePack);
 
           if (data.progress.density) setDensity(data.progress.density);
@@ -3589,7 +1899,7 @@ function App() {
           // Only show if not previously skipped
           setTimeout(() => setShowDeptSwitcher(true), 1200);
         }
-        // "skipped" → user dismissed onboarding, don't show again
+        // "skipped" ? user dismissed onboarding, don't show again
 
       }).catch((err) => {
 
@@ -3651,6 +1961,8 @@ function App() {
         setDarkMode(parsed.darkMode ?? true);
 
         setLastStudied(parsed.lastStudied ?? null);
+
+        setLastActivity(parsed.lastActivity ?? null);
 
         setNotes(parsed.notes ?? {});
 
@@ -3773,12 +2085,6 @@ function App() {
   useEffect(() => {
 
     if (!token || isFaculty) return;
-
-    
-
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
-
-    
 
     async function checkAnnouncements() {
 
@@ -3937,7 +2243,7 @@ function App() {
 
       } catch {
 
-        // Keep whatever was pre-populated from localStorage — don't clear it
+        // Keep whatever was pre-populated from localStorage — don’t clear it
 
       }
 
@@ -4120,6 +2426,8 @@ function App() {
 
 
         lastStudied,
+
+        lastActivity,
 
 
 
@@ -4336,6 +2644,10 @@ function App() {
 
 
     lastStudied,
+
+
+
+    lastActivity,
 
 
 
@@ -4881,6 +3193,12 @@ function App() {
 
 
 
+  function handleStreakUpdate(newStreak, longestStreak) {
+    setStats((s) => ({ ...s, streak: newStreak }));
+    setLastStudied(new Date().toISOString().split('T')[0]);
+    setLastActivity(new Date().toISOString());
+  }
+
   function updateStreak() {
 
     const now = new Date();
@@ -4896,6 +3214,8 @@ function App() {
     if (!lastStudied) {
 
       setLastStudied(todayStr);
+
+      setLastActivity(new Date().toISOString());
 
       return 1;
 
@@ -4944,6 +3264,8 @@ function App() {
 
 
     setLastStudied(todayStr);
+
+    setLastActivity(new Date().toISOString());
 
     return newStreak;
 
@@ -5007,7 +3329,7 @@ function App() {
 
     if ([3, 7, 14, 30, 50, 100].includes(newStreak) && newStreak !== oldStreak) {
 
-      triggerCelebration('streak', { days: newStreak, icon: newStreak >= 30 ? '🌟' : newStreak >= 14 ? '💫' : newStreak >= 7 ? '🔥' : '⚡' });
+      triggerCelebration('streak', { days: newStreak, icon: newStreak >= 30 ? '🔥' : newStreak >= 14 ? '🔥' : newStreak >= 7 ? '✨' : '✨' });
 
     }
 
@@ -5039,7 +3361,7 @@ function App() {
 
       setTimeout(() => {
 
-        toast.info(`🎉 Amazing! Demo streak limit of ${DEMO_LIMITS.maxStreak} days reached. Upgrade for unlimited!`);
+        toast.info(`🔥 Amazing! Demo streak limit of ${DEMO_LIMITS.maxStreak} days reached. Upgrade for unlimited!`);
 
       }, 500);
 
@@ -5223,7 +3545,7 @@ function App() {
         import("./lib/mastery.js").then(({ submitMasterySession }) => {
           submitMasterySession(sourceSubject.id, masteryResults).then((res) => {
             if (res?.justMastered && res?.xpBonus > 0) {
-              setTimeout(() => toast.success(`🏆 100% Mastery! +${res.xpBonus} XP bonus earned!`), 800);
+              setTimeout(() => toast.success(`🎉 100% Mastery! +${res.xpBonus} XP bonus earned!`), 800);
             }
           });
         });
@@ -5351,6 +3673,8 @@ function App() {
     setOutlineProgress({});
 
     setLastStudied(null);
+
+    setLastActivity(null);
 
   }
 
@@ -5572,7 +3896,7 @@ function App() {
 
           console.log("[refreshAuth] Account activated!");
 
-          toast.success("🎉 Your account has been activated! Welcome aboard!");
+          toast.success("✅ Your account has been activated! Welcome aboard!");
 
           // Exit demo mode so restrictions are lifted immediately
 
@@ -5596,7 +3920,7 @@ function App() {
         if (newIsActivated && res.user.activationExpiry && !expiryWarnedRef.current) {
           const daysLeft = Math.ceil((new Date(res.user.activationExpiry) - Date.now()) / 86400000);
           if (daysLeft <= 0) {
-            toast.error("⚠️ Your subscription has expired! Contact your teacher to renew.");
+            toast.error("❌ Your subscription has expired! Contact your teacher to renew.");
             expiryWarnedRef.current = true;
           } else if (daysLeft <= 1) {
             toast.error("⚠️ Your subscription expires TODAY! Contact your teacher to renew.");
@@ -5605,7 +3929,7 @@ function App() {
             toast.error(`⚠️ Subscription expires in ${daysLeft} days. Please renew soon!`);
             expiryWarnedRef.current = true;
           } else if (daysLeft <= 7) {
-            toast(`📅 Your subscription expires in ${daysLeft} days.`, { duration: 6000 });
+            toast(`⚠️ Your subscription expires in ${daysLeft} days.`, { duration: 6000 });
             expiryWarnedRef.current = true;
           }
         }
@@ -5728,6 +4052,8 @@ function App() {
 
             lastStudied,
 
+            lastActivity,
+
             timetable,
 
             outlineProgress,
@@ -5803,6 +4129,8 @@ function App() {
         srData,
 
         lastStudied,
+
+        lastActivity,
 
         timetable,
 
@@ -5885,6 +4213,8 @@ function App() {
         setSrData(data.progress.srData || {});
 
         setLastStudied(data.progress.lastStudied || null);
+
+        setLastActivity(data.progress.lastActivity ?? null);
 
         if (data.progress.themePack) setThemePack(data.progress.themePack);
 
@@ -5982,7 +4312,7 @@ function App() {
 
     // return () => clearInterval(interval);
 
-  }, [token, auth.user?.id, stats, mastery, wrongCounts, srData, lastStudied, timetable, outlineProgress, notes]);
+  }, [token, auth.user?.id, stats, mastery, wrongCounts, srData, lastStudied, lastActivity, timetable, outlineProgress, notes]);
 
 
 
@@ -6430,13 +4760,13 @@ function App() {
 
             const messages = [
 
-              { title: "📚 Time to Study!", body: "Your daily study session awaits. Keep your streak going!" },
+              { title: "⏰ Time to Study!", body: "Your daily study session awaits. Keep your streak going!" },
 
-              { title: "🎯 Ready to Learn?", body: "Take 10 minutes to review and maintain your progress!" },
+              { title: "📚 Ready to Learn?", body: "Take 10 minutes to review and maintain your progress!" },
 
-              { title: "💪 Don't Break the Chain!", body: "A quick study session now keeps your streak alive!" },
+              { title: "🔥 Don't Break the Chain!", body: "A quick study session now keeps your streak alive!" },
 
-              { title: "🧠 Knowledge Awaits!", body: "Your brain is ready for some exercise. Let's study!" }
+              { title: "📚 Knowledge Awaits!", body: "Your brain is ready for some exercise. Let's study!" }
 
             ];
 
@@ -6484,7 +4814,7 @@ function App() {
 
           sendNotification(
 
-            "⚠️ Streak in Danger!",
+            "🔥 Streak in Danger!",
 
             `Your ${stats.streak}-day streak will break in ${hoursLeft} hours! Study now to save it.`,
 
@@ -6522,7 +4852,7 @@ function App() {
 
             { title: "📚 Your Books Are Gathering Dust!", body: "Your knowledge needs refreshing. Come back for a quick review!" },
 
-            { title: "🌟 Don't Give Up!", body: "Every expert was once a beginner. Keep going with your studies!" }
+            { title: "💪 Don't Give Up!", body: "Every expert was once a beginner. Keep going with your studies!" }
 
           ];
 
@@ -6548,7 +4878,7 @@ function App() {
 
         sendNotification(
 
-          "🔄 Spaced Review Due",
+          "🔔 Spaced Review Due",
 
           `You have ${dueCards.length} cards waiting for review. Spaced repetition helps you remember 90% better!`,
 
@@ -7000,7 +5330,7 @@ function App() {
 
 
 
-    setActiveSession({ mode: "diagnostic", source: { id: "diagnostic", label: "Diagnostic", icon: "🧪" }, questions: finalQuestions });
+    setActiveSession({ mode: "diagnostic", source: { id: "diagnostic", label: "Diagnostic", icon: "📖" }, questions: finalQuestions });
 
 
 
@@ -7088,7 +5418,7 @@ function App() {
 
 
 
-    setActiveSession({ mode: "adaptive", source: { id: "adaptive", label: "Adaptive", icon: "🎯" }, questions: picked });
+    setActiveSession({ mode: "adaptive", source: { id: "adaptive", label: "Adaptive", icon: "📖" }, questions: picked });
 
 
 
@@ -7128,7 +5458,7 @@ function App() {
 
 
 
-      source: { id: "spaced", label: "Spaced Review", icon: "🧠" },
+      source: { id: "spaced", label: "Spaced Review", icon: "📖" },
 
 
 
@@ -7172,7 +5502,7 @@ function App() {
 
 
 
-    setActiveSession({ mode: "weak", source: { id: "weak", label: "Weak Drill", icon: "⚔️" }, questions: finalWeak });
+    setActiveSession({ mode: "weak", source: { id: "weak", label: "Weak Drill", icon: "📖" }, questions: finalWeak });
 
 
 
@@ -7212,7 +5542,7 @@ function App() {
 
 
 
-    setActiveSession({ mode: "error", source: { id: "error", label: "Error Drill", icon: "🔁" }, questions: finalWrongs, totalSeconds: finalWrongs.length * 60 });
+    setActiveSession({ mode: "error", source: { id: "error", label: "Error Drill", icon: "📖" }, questions: finalWrongs, totalSeconds: finalWrongs.length * 60 });
 
 
 
@@ -7336,7 +5666,7 @@ function App() {
 
 
 
-        payload: { stats, history, wrongCounts, mastery, srData, assignments, lastStudied },
+        payload: { stats, history, wrongCounts, mastery, srData, assignments, lastStudied, lastActivity },
 
 
 
@@ -7469,6 +5799,8 @@ function App() {
 
 
       setLastStudied(data.payload.lastStudied ?? null);
+
+      setLastActivity(data.payload.lastActivity ?? null);
 
 
 
@@ -8071,7 +6403,7 @@ function App() {
 
           }}>
 
-            <span>🔄</span>
+            <span>📱</span>
 
             <span style={{ flex: 1 }}>
 
@@ -8145,7 +6477,7 @@ function App() {
 
             >
 
-              ✕
+              ?
 
             </button>
 
@@ -8263,7 +6595,7 @@ function App() {
 
           }}>
 
-            <span>🔄</span>
+            <span>📱</span>
 
             <span style={{ flex: 1 }}>
 
@@ -8337,7 +6669,7 @@ function App() {
 
             >
 
-              ✕
+              ?
 
             </button>
 
@@ -8421,6 +6753,27 @@ function App() {
 
     <main className={darkMode ? "app dark" : "app light"}>
 
+      {/* Offline Banner */}
+      {isOffline && (
+        <div style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 999,
+          background: "linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.08))",
+          borderBottom: "1px solid rgba(245,158,11,0.3)",
+          padding: "8px 16px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: 13,
+          color: "#fbbf24",
+          fontWeight: 500,
+        }}>
+          <span style={{ fontSize: 16 }}>⚠️</span>
+          <span>You're offline. Cached content is available — changes will sync when you reconnect.</span>
+        </div>
+      )}
+
       {/* PWA Update Toast */}
 
       {showUpdateToast && (
@@ -8461,7 +6814,7 @@ function App() {
 
         }}>
 
-          <span>🔄</span>
+          <span>📱</span>
 
           <span style={{ flex: 1 }}>
 
@@ -8535,7 +6888,7 @@ function App() {
 
           >
 
-            ✕
+            ?
 
           </button>
 
@@ -8685,7 +7038,7 @@ function App() {
 
         }}>
 
-          <span>🔄</span>
+          <span>📱</span>
 
           <span style={{ flex: 1 }}>
 
@@ -8759,7 +7112,7 @@ function App() {
 
           >
 
-            ✕
+            ?
 
           </button>
 
@@ -8795,7 +7148,7 @@ function App() {
 
         }}>
 
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>⏰ Time Limit Warning</div>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>? Time Limit Warning</div>
 
           <div style={{ fontSize: 13, marginBottom: 12 }}>
 
@@ -8949,7 +7302,7 @@ function App() {
             {/* Compact header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 700 }}>
-                <span>💎</span> Upgrade
+                <span>⭐</span> Upgrade
               </div>
               <button onClick={() => setShowPaymentModal(false)} style={{ background: "none", border: "none", color: "#7b82b8", fontSize: 20, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
             </div>
@@ -8982,7 +7335,7 @@ function App() {
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{p.label}</div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>{p.price}</div>
                     {selectedPlan === p.id && (
-                      <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>✓</div>
+                      <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>?</div>
                     )}
                   </div>
                 ))}
@@ -9023,7 +7376,7 @@ function App() {
                             reference: `SC-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                             metadata: { plan: selectedPlan, activationKey: auth.user?.activationKey || "", userId: auth.user?.id || "" },
                             onSuccess: (transaction) => {
-                              fetch(`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app"}/payment/verify`, {
+                              fetch(`${API_BASE}/payment/verify`, {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                                 body: JSON.stringify({ reference: transaction.reference, plan: selectedPlan, activationKey: auth.user?.activationKey || "" }),
@@ -9048,7 +7401,7 @@ function App() {
                         fontSize: 15, fontWeight: 700, cursor: "pointer",
                         background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff",
                       }}
-                    >💳 Pay {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"} · Instant Activation</button>
+                    >💳 Pay {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"} → Instant Activation</button>
                   )}
                   {/* Bank Transfer */}
                   {paymentMethod === "transfer" && (
@@ -9078,7 +7431,7 @@ function App() {
               )}
               {/* Footer */}
               <div style={{ marginTop: 16, textAlign: "center", fontSize: 11, color: "#4a5080" }}>
-                Cancel anytime · <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setShowPaymentModal(false)}>Close</span>
+                Cancel anytime — <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setShowPaymentModal(false)}>Close</span>
               </div>
             </div>
           </div>
@@ -9095,7 +7448,7 @@ function App() {
 
           <div className="modal-box" style={{ maxWidth: 500, textAlign: "center", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
 
-            <div style={{ fontSize: 64, marginBottom: 16 }}>⏰</div>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>📱</div>
 
             <h2 style={{ margin: "0 0 12px 0", color: "var(--warning-color, #fbbf24)" }}>Daily Time Limit Reached</h2>
 
@@ -9107,7 +7460,7 @@ function App() {
 
             <div style={{ background: "var(--success-bg, rgba(45,212,160,0.1))", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--success-border, rgba(45,212,160,0.3))" }}>
 
-              <strong style={{ color: "var(--success-text, #2dd4a0)", display: "block", marginBottom: 10 }}>✨ Upgrade for:</strong>
+              <strong style={{ color: "var(--success-text, #2dd4a0)", display: "block", marginBottom: 10 }}>? Upgrade for:</strong>
 
               <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12, color: "var(--text-primary, #f1f5f9)" }}>
 
@@ -9325,7 +7678,7 @@ function App() {
 
             <div style={{ textAlign: "center", marginBottom: 16 }}>
 
-              <span style={{ fontSize: 48, display: "block", marginBottom: 8 }}>⚠️</span>
+              <span style={{ fontSize: 48, display: "block", marginBottom: 8 }}>🎁</span>
 
               <h3 style={{ color: "#fbbf24", fontSize: 20, textTransform: "uppercase", letterSpacing: 1 }}>Important Announcement</h3>
 
@@ -9344,8 +7697,6 @@ function App() {
             <button
 
               onClick={async () => {
-
-                const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
                 await fetch(`${API_BASE}/classroom/announcements/${globalAnnouncement.id}/read`, {
 
@@ -9381,7 +7732,7 @@ function App() {
 
             >
 
-              ✓ Got it, dismiss
+              ? Got it, dismiss
 
             </button>
 
@@ -9421,7 +7772,7 @@ function App() {
 
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
 
-            <span style={{ fontSize: 24 }}>⏳</span>
+            <span style={{ fontSize: 24 }}>⭐</span>
 
             <div style={{ flex: 1 }}>
 
@@ -9497,7 +7848,7 @@ function App() {
 
           }}>
 
-            <div style={{ fontSize: 32, marginBottom: 16 }}>🎓</div>
+            <div style={{ fontSize: 32, marginBottom: 16 }}>💯</div>
 
             <h3 style={{ margin: "0 0 12px 0" }}>Welcome to Demo Mode!</h3>
 
@@ -9591,7 +7942,7 @@ function App() {
 
           >
 
-            <span>{headerExpanded ? "▲" : "▼"}</span>
+            <span>{headerExpanded ? "▼" : "▶"}</span>
 
             <span>{headerExpanded ? "Hide Header" : "Show Header"}</span>
 
@@ -9655,7 +8006,7 @@ function App() {
 
           <div className="app-logo">
 
-            <div className="logo-icon">🎓</div>
+            <div className="logo-icon">🎮</div>
 
             <div className="logo-text">
 
@@ -9679,11 +8030,11 @@ function App() {
 
             <button className="header-btn palette-btn" onClick={() => setShowPalette(true)} title="Ctrl/Cmd+K">
 
-              <span className="btn-icon">🔍</span>
+              <span className="btn-icon">📝</span>
 
               <span className="btn-label">Search</span>
 
-              <span className="shortcut">⌘K</span>
+              <span className="shortcut">?K</span>
 
             </button>
 
@@ -9705,7 +8056,7 @@ function App() {
 
                 <span className="btn-label">{themePack.charAt(0).toUpperCase() + themePack.slice(1)}</span>
 
-                <span style={{ fontSize: 10 }}>▼</span>
+                <span style={{ fontSize: 10 }}>✨</span>
 
               </div>
 
@@ -9731,7 +8082,7 @@ function App() {
 
                   <div className="theme-preview neon"></div>
 
-                  <span className="theme-name">💜 Neon</span>
+                  <span className="theme-name">🎉 Neon</span>
 
                 </div>
 
@@ -9745,7 +8096,7 @@ function App() {
 
             <button className="header-btn theme-btn" onClick={() => setDarkMode((v) => !v)} title="Toggle theme">
 
-              {darkMode ? "🌙" : "☀️"}
+              {darkMode ? "🌙 Dark" : "☀️ Light"}
 
             </button>
 
@@ -9761,7 +8112,7 @@ function App() {
 
             <button className="header-btn profile-btn" onClick={() => setTab("profile")} title="My Profile">
 
-              <span className="btn-icon">👤</span>
+              <span className="btn-icon">📝</span>
 
               <span className="btn-label">Profile</span>
 
@@ -9775,7 +8126,7 @@ function App() {
 
               <button className="header-btn" onClick={handleInstallClick}>
 
-                <span className="btn-icon">📱</span>
+                <span className="btn-icon">📥</span>
 
                 <span className="btn-label">Install</span>
 
@@ -9819,7 +8170,7 @@ function App() {
 
               <div className="user-stat xp-stat">
 
-                <span className="stat-icon">⚡</span>
+                <span className="stat-icon">🔥</span>
 
                 <span className="stat-value">{stats.xp}</span>
 
@@ -9829,7 +8180,7 @@ function App() {
 
               <div className="user-stat streak-stat">
 
-                <span className="stat-icon">🔥</span>
+                <span className="stat-icon">🎯</span>
 
                 <span className="stat-value">{stats.streak || 0}</span>
 
@@ -9839,7 +8190,7 @@ function App() {
 
               <div className="user-stat session-stat">
 
-                <span className="stat-icon">📚</span>
+                <span className="stat-icon">🎯</span>
 
                 <span className="stat-value">{stats.sessions}</span>
 
@@ -9943,7 +8294,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">📚</span>
+          <span className="nav-icon">🏠</span>
 
           <span className="nav-label">Learn</span>
 
@@ -9975,7 +8326,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">📊</span>
+          <span className="nav-icon">🏠</span>
 
           <span className="nav-label">Progress</span>
 
@@ -10013,7 +8364,7 @@ function App() {
 
             {/* Section: Study Resources */}
 
-            <div className="mobile-menu-section-label">📖 Study Resources</div>
+            <div className="mobile-menu-section-label">📚 Study Resources</div>
 
             <div className="mobile-menu-grid">
 
@@ -10041,7 +8392,7 @@ function App() {
 
               <button className={tab === "lecturers" ? "active" : ""} onClick={() => { setTab("lecturers"); setShowMobileMenu(false); }}>
 
-                <span>👨‍🏫</span> Lecturers
+                <span>👩‍🏫</span> Lecturers
 
               </button>
 
@@ -10063,13 +8414,13 @@ function App() {
 
             {/* Section: Tools */}
 
-            <div className="mobile-menu-section-label">🛠️ Tools</div>
+            <div className="mobile-menu-section-label">🗠️ Tools</div>
 
             <div className="mobile-menu-grid">
 
               <button className={tab === "timetable" ? "active" : ""} onClick={() => { setTab("timetable"); setShowMobileMenu(false); }}>
 
-                <span>🗓️</span> Timetable
+                <span>📅️</span> Timetable
 
               </button>
 
@@ -10093,7 +8444,7 @@ function App() {
 
               <button className={tab === "research-hub" ? "active" : ""} onClick={() => { setTab("research-hub"); setShowMobileMenu(false); }}>
 
-                <span>📚</span> Research Hub
+                <span>🔍</span> Research Hub
 
               </button>
 
@@ -10145,7 +8496,7 @@ function App() {
 
               <>
 
-                <div className="mobile-menu-section-label">🎓 Faculty Tools</div>
+                <div className="mobile-menu-section-label">👩‍🎓 Faculty Tools</div>
 
                 <div className="mobile-menu-grid">
 
@@ -10157,7 +8508,7 @@ function App() {
 
                   <button className={tab === "teacher-resources" ? "active" : ""} onClick={() => { setTab("teacher-resources"); setShowMobileMenu(false); }}>
 
-                    <span>📤</span> Teacher Resources
+                    <span>💻</span> Teacher Resources
 
                   </button>
 
@@ -10179,13 +8530,13 @@ function App() {
 
                       <button className={tab === "invites" ? "active" : ""} onClick={() => { setTab("invites"); setShowMobileMenu(false); }}>
 
-                        <span>🎫</span> Invites
+                        <span>✉️</span> Invites
 
                       </button>
 
                       <button className={tab === "admin" ? "active" : ""} onClick={() => { setTab("admin"); setShowMobileMenu(false); }}>
 
-                        <span>🛡️</span> Admin Panel
+                        <span>⚙️</span> Admin Panel
 
                       </button>
 
@@ -10233,17 +8584,17 @@ function App() {
 
           ["discuss", "💬 Discussion"],
 
-          ["timetable", "🗓️ Timetable"],
+          ["timetable", "📅️ Timetable"],
 
           ["settings", "⚙️ Settings"],
 
-          ["research-hub", "📚 Research Hub"],
+          ["research-hub", "🔍 Research Hub"],
 
           ...(!isFaculty ? [["premium", "💎 Premium"]] : []),
 
-          ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["teacher-resources", "📤 Teacher Resources"], ["campus-comm", "📢 Announcements"], ["departments", "🏛️ Departments"]] : []),
+          ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["teacher-resources", "💻 Teacher Resources"], ["campus-comm", "📢 Announcements"], ["departments", "🏛️ Departments"]] : []),
 
-          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "🎫 Invites"], ["admin", "🛡️ Admin"]] : []),
+          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "✉️ Invites"], ["admin", "⚙️ Admin"]] : []),
 
         ].filter(([id]) => {
 
@@ -10293,59 +8644,42 @@ function App() {
 
 
 
-        <TodayScreen
+        <ErrorBoundary>
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Home
+          loading={loadingOverlay}
 
-          userName={auth.user?.username || auth.user?.name || "Scholar"}
+          authUser={auth.user}
 
-          onOpenAI={(ctx) => { setAiDefaultView("chat"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
+          subjects={subjects}
+
+          mastery={mastery}
+
+          dueCards={dueCards}
+
+          history={history}
+
+          stats={stats}
+
+          aiConfig={aiConfig}
+
+          onStartSpaced={startSpacedReview}
+
+          onStartSubject={(id) => startSubjectPractice(id)}
+
+          onOpenTab={setTab}
+
+          onOpenLeaderboard={() => { setProgressSubTab("leaderboard"); setTab("analytics"); }}
+
+          onOpenAI={(topic) => { setAiDefaultView("chat"); setAiStudyTopic(topic || ""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
           onOpenLearn={() => { setAiDefaultView("learn"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
           onOpenStudy={(topic, mode, attachment) => { setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiKey(k => k + 1); setTab("aitutor"); }}
 
-          subjects={subjects}
-
-
-
-          mastery={mastery}
-
-
-
-          dueCards={dueCards}
-
-
-
-          history={history}
-
-
-
-          stats={stats}
-
-
-
-          aiConfig={aiConfig}
-
-
-
-          onStartSpaced={startSpacedReview}
-
-
-
-          onStartSubject={(id) => startSubjectPractice(id)}
-
-
-
-          onOpenTab={setTab}
-
-
-
-          userId={auth.user?.id || auth.user?.username || "guest"}
-
-
+          token={token}
 
           onImportToBank={(questions, topic) => {
-
-            // Save imported questions to localStorage
 
             const key = `sc_custom_questions::${auth.user?.id || auth.user?.username || "guest"}`;
 
@@ -10375,13 +8709,13 @@ function App() {
 
             localStorage.setItem(key, JSON.stringify([...existing, ...newQuestions]));
 
-            toast.success(`✓ Imported ${newQuestions.length} questions to your Question Bank!`);
+            toast.success(`✅ Imported ${newQuestions.length} questions to your Question Bank!`);
 
           }}
 
-
-
         />
+                </Suspense>
+        </ErrorBoundary>
 
 
 
@@ -10411,7 +8745,7 @@ function App() {
 
             description={`You've used your daily Lecture to Notes limit (${DEMO_LIMITS.lectureToNotesDaily}/day). Upgrade for unlimited access!`}
 
-            icon="🎓"
+            icon="⏱️"
 
             features={["Unlimited lecture conversions", "AI-powered summaries", "Auto-generated flashcards", "Key term extraction"]}
 
@@ -10429,7 +8763,7 @@ function App() {
 
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 
-                  <span style={{ fontSize: 16 }}>🎓</span>
+                  <span style={{ fontSize: 16 }}>⏱️</span>
 
                   <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.lectureToNotesDaily - (demoUsage.lectureToNotesDate === new Date().toDateString() ? demoUsage.lectureToNotesUsed : 0)} Lecture to Notes use(s) remaining today.</span>
 
@@ -10507,7 +8841,7 @@ function App() {
 
             description="Study Groups is a premium feature. Upgrade to collaborate with other students and join study sessions!"
 
-            icon="👥"
+            icon="⏱️"
 
             features={["Join study groups", "Collaborate with peers", "Share notes & resources", "Group study sessions"]}
 
@@ -10555,7 +8889,7 @@ function App() {
 
           <div className="card">
 
-            <h2>🎯 Practice with Hints</h2>
+            <h2>💡 Practice with Hints</h2>
 
             <p className="muted">
 
@@ -10631,7 +8965,7 @@ function App() {
 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 
-                <span style={{ fontSize: 16 }}>📄</span>
+                <span style={{ fontSize: 16 }}>⏱️</span>
 
                 <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.pastPapersLimit - (demoUsage.pastPapersUsed || 0)} past paper remaining.</span>
 
@@ -10671,7 +9005,7 @@ function App() {
 
               }
 
-              setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📝" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
+              setActiveSession({ mode: "exam", source: { id: "pastpaper", label: `Past Paper ${yr}`, icon: "📖" }, questions: finalQs, totalSeconds: (demoMode ? 15 : mins) * 60 });
 
               if (demoMode) {
 
@@ -10743,7 +9077,7 @@ function App() {
 
               <div className="demo-banner warning">
 
-                <span className="banner-icon">🔒</span>
+                <span className="banner-icon">💡</span>
 
                 <span className="banner-text">Free Trial: Limited to 4 subjects. Upgrade for full access.</span>
 
@@ -10753,7 +9087,7 @@ function App() {
 
               <div className="demo-banner info">
 
-                <span className="banner-icon">📝</span>
+                <span className="banner-icon">💡</span>
 
                 <span className="banner-text">Demo: {Math.max(0, DEMO_LIMITS.quizDaily - (demoUsage.quizDate === new Date().toDateString() ? demoUsage.quizUsed : 0))} quiz(es) remaining today.</span>
 
@@ -10841,7 +9175,7 @@ function App() {
 
 
 
-                    <strong>{s.label} {locked ? "🔒" : isCapped ? "⭐" : ""}</strong>
+                    <strong>{s.label} {locked ? "🔒" : isCapped ? "⏳" : ""}</strong>
 
 
 
@@ -10873,7 +9207,7 @@ function App() {
 
             <div className="demo-banner warning" style={{ marginTop: 16 }}>
 
-              <span className="banner-icon">⭐</span>
+              <span className="banner-icon">⚠️</span>
 
               <span className="banner-text">Mastery capped at {DEMO_LIMITS.masteryCap}% in demo. Upgrade to unlock full mastery tracking!</span>
 
@@ -10909,7 +9243,7 @@ function App() {
 
               >
 
-                Weak Drill 🔒
+                Weak Drill 💡
 
               </button>
 
@@ -10945,7 +9279,7 @@ function App() {
 
 
 
-                  source: { id: "challenge", label: "Peer Challenge", icon: "🏁" },
+                  source: { id: "challenge", label: "Peer Challenge", icon: "📖" },
 
 
 
@@ -11003,7 +9337,7 @@ function App() {
 
               {demoMode && dueCards.length > DEMO_LIMITS.maxSpacedReviewCards
 
-                ? `Spaced Review (${DEMO_LIMITS.maxSpacedReviewCards}/${dueCards.length}) 🔒`
+                ? `⏱ Spaced Review (${DEMO_LIMITS.maxSpacedReviewCards}/${dueCards.length}) ⏱`
 
                 : `Spaced Review (${dueCards.length})`}
 
@@ -11037,7 +9371,7 @@ function App() {
 
 
 
-                <div className="quest-check">{stats.questsDone[q.id] ? "✓" : "○"}</div>
+                <div className="quest-check">{stats.questsDone[q.id] ? "✅" : "⭕"}</div>
 
 
 
@@ -11077,7 +9411,10 @@ function App() {
 
 
       {tab === "practice" && (
-        <LearnHub
+        <ErrorBoundary>
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Learn
+          loading={loadingOverlay}
           subjects={subjects}
           mastery={mastery}
           srData={srData}
@@ -11091,7 +9428,6 @@ function App() {
           DEMO_LIMITS={DEMO_LIMITS}
           token={token}
           completeSession={completeSession}
-          mastery={mastery}
           startSubjectPractice={startSubjectPractice}
           startAdaptive={startAdaptive}
           startSpacedReview={startSpacedReview}
@@ -11107,6 +9443,8 @@ function App() {
           activeYearLevel={activeYearLevel}
           onOpenDeptSwitcher={() => setShowDeptSwitcher(true)}
         />
+                </Suspense>
+        </ErrorBoundary>
       )}
 
       {showDeptSwitcher && (
@@ -11151,105 +9489,23 @@ function App() {
 
 
       {tab === "classroom" && (
-
-        demoMode ? (
-
-          <DemoLockedOverlay
-
-            title="🏫 Classroom Locked"
-
-            description="Join virtual classrooms, participate in discussions, and submit assignments. Upgrade to Pro for full classroom access!"
-
-            icon="🏫"
-
-          />
-
-        ) : (
-
-        <Classroom
-
-
-
+        <ErrorBoundary>
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <ClassroomPage
+          loading={loadingOverlay}
           subjects={subjects}
-
-
-
           assignments={assignments}
-
-
-
-          teacherMode={isFaculty}
-
-
-
-          setTeacherMode={() => {}}
-
-          currentUser={auth.user}
-
+          setAssignments={setAssignments}
+          refreshAssignments={refreshAssignments}
+          isFaculty={isFaculty}
+          authUser={auth.user}
           token={token}
-
-
-
-          onCreate={async (a) => {
-
-            try {
-
-              if (token) {
-
-                const backendSubject = backendSubjects.find((s) => s.label === subjects.find((x) => x.id === a.subjectId)?.label);
-
-                if (backendSubject) {
-
-                  await api("/assignments", {
-
-                    token,
-
-                    method: "POST",
-
-                    body: { title: a.title, subjectId: backendSubject.id, dueAt: a.due || null },
-
-                  });
-
-                  refreshAssignments();
-
-                }
-
-              }
-
-            } catch {
-
-              setAssignments((prev) => [...prev, a]);
-
-            }
-
-          }}
-
-          onComplete={async (id) => {
-
-            try {
-
-              await apiRequest("/api/assignments/complete", "POST", { id }, token);
-
-            } catch {
-
-              // ignore offline
-
-            }
-
-            setAssignments((prev) =>
-
-              prev.map((a) => (a.id === id ? { ...a, completed: true, completedAt: new Date().toISOString() } : a))
-
-            );
-
-          }}
-
+          demoMode={demoMode}
+          backendSubjects={backendSubjects}
           onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-
         />
-
-        )
-
+                </Suspense>
+        </ErrorBoundary>
       )}
 
 
@@ -11260,78 +9516,30 @@ function App() {
       {tab === "planner" && <RevisionPlanner mastery={mastery} dueCards={dueCards} subjects={subjects} />}
 
       {tab === "resources" && (
-        <div className="card">
-          <h2>📚 Study Resources</h2>
-          {/* Sub-tabs */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            {[
-              { id: "notes", label: "📝 Notes" },
-              { id: "flashcards", label: "🔄 Flashcards" },
-              { id: "cheatsheet", label: "📋 Cheat Sheets" },
-              { id: "outline", label: "📑 Course Outline" },
-            ].map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setResourcesSubTab(id)}
-                style={{
-                  padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                  border: resourcesSubTab === id ? "2px solid #f59e0b" : "1px solid rgba(245,158,11,0.25)",
-                  background: resourcesSubTab === id ? "linear-gradient(135deg,#d97706,#f59e0b)" : "rgba(30,41,59,0.6)",
-                  color: resourcesSubTab === id ? "#fff" : "#fcd34d",
-                }}
-              >{label}</button>
-            ))}
-          </div>
-
-          {resourcesSubTab === "notes" && (
-            <>
-              {demoMode && (
-                <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 16 }}>📝</span>
-                    <span style={{ fontSize: 13 }}>Free Trial: {DEMO_LIMITS.notesLimit - Object.values(notes).flat().length} notes remaining.</span>
-                  </div>
-                </div>
-              )}
-              <NotesEditor
-                subjects={subjects}
-                notes={notes}
-                setNotes={(newNotes) => {
-                  if (demoMode) {
-                    const noteCount = Object.values(newNotes).flat().length;
-                    if (noteCount > DEMO_LIMITS.notesLimit) {
-                      toast.warning(`Free Trial limit: Max ${DEMO_LIMITS.notesLimit} notes. Upgrade for unlimited!`);
-                      return;
-                    }
-                  }
-                  setNotes(newNotes);
-                }}
-                demoMode={demoMode}
-              />
-            </>
-          )}
-
-          {resourcesSubTab === "flashcards" && (
-            <FlashcardDeck subjects={subjects} srData={srData} customFlashcards={customFlashcards} setCustomFlashcards={setCustomFlashcards} token={token} />
-          )}
-
-          {resourcesSubTab === "cheatsheet" && (
-            <CheatSheet subjects={subjects} mastery={mastery} />
-          )}
-
-          {resourcesSubTab === "outline" && (
-            <CourseOutline
-              subjects={subjects}
-              outlineSubjectId={outlineSubjectId}
-              setOutlineSubjectId={setOutlineSubjectId}
-              startSubjectPractice={startSubjectPractice}
-              addNote={(text) => setNotes((p) => ({ ...p, [outlineSubjectId]: text }))}
-              outlineProgress={outlineProgress}
-              setOutlineProgress={setOutlineProgress}
-              toast={toast}
-            />
-          )}
-        </div>
+        <ErrorBoundary>
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Resources
+          loading={loadingOverlay}
+          subjects={subjects}
+          notes={notes}
+          setNotes={setNotes}
+          srData={srData}
+          customFlashcards={customFlashcards}
+          setCustomFlashcards={setCustomFlashcards}
+          token={token}
+          mastery={mastery}
+          demoMode={demoMode}
+          resourcesSubTab={resourcesSubTab}
+          setResourcesSubTab={setResourcesSubTab}
+          outlineSubjectId={outlineSubjectId}
+          setOutlineSubjectId={setOutlineSubjectId}
+          outlineProgress={outlineProgress}
+          setOutlineProgress={setOutlineProgress}
+          startSubjectPractice={startSubjectPractice}
+          toast={toast}
+        />
+                </Suspense>
+        </ErrorBoundary>
       )}
 
 
@@ -11340,106 +9548,32 @@ function App() {
 
 
       {tab === "analytics" && (
-
-        <>
-
-        {/* Progress Hub sub-tabs */}
-
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-
-          {[
-
-            { id: "stats", label: "📊 Stats" },
-
-            { id: "leaderboard", label: "🏆 Leaderboard" },
-
-            { id: "badges", label: "🏅 Badges" },
-
-            { id: "arena", label: "⚔️ Arena" },
-
-          ].map(({ id, label }) => (
-
-            <button
-
-              key={id}
-
-              onClick={() => setProgressSubTab(id)}
-
-              style={{
-
-                padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-
-                border: progressSubTab === id ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.25)",
-
-                background: progressSubTab === id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(30,41,59,0.6)",
-
-                color: progressSubTab === id ? "#fff" : "#a5b4fc",
-
-              }}
-
-            >{label}</button>
-
-          ))}
-
-        </div>
-
-
-
-        {progressSubTab === "leaderboard" && (
-
-          <Leaderboard username={auth.user.username} xp={stats.xp} sessions={stats.sessions} streak={stats.streak} mastery={mastery} subjects={subjects} token={token} />
-
-        )}
-
-
-
-        {progressSubTab === "badges" && (
-
-          <AchievementsBadges badges={BADGES} stats={stats} history={history} subjects={subjects} mastery={mastery} />
-
-        )}
-
-
-
-        {progressSubTab === "arena" && (
-          <Suspense fallback={<div className="card"><p className="muted">Loading arena...</p></div>}>
-            <GamificationHub token={token} userId={auth.user?.id} username={auth.user?.username} classroomId={null} leaderboard={[]} />
-          </Suspense>
-        )}
-
-
-
-        {progressSubTab === "stats" && (
-
-        <div>
-
-
-
-          <h2>📊 Analytics</h2>
-
-          <StatsPanel
-            history={history}
-            stats={stats}
-            subjects={subjects}
-            mastery={mastery}
-            aiConfig={aiConfig}
-            onRePractice={(missed) => {
-              setCustomQuestions(prev => [...missed, ...prev]);
-              setTab("practice");
-            }}
-          />
-
-        </div>
-
-        )}
-
-        </>
-
+        <ErrorBoundary>
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Progress
+          loading={loadingOverlay}
+          authUser={auth.user}
+          stats={stats}
+          history={history}
+          subjects={subjects}
+          mastery={mastery}
+          token={token}
+          progressSubTab={progressSubTab}
+          setProgressSubTab={setProgressSubTab}
+          aiConfig={aiConfig}
+          onRePractice={(missed) => {
+            setCustomQuestions(prev => [...missed, ...prev]);
+            setTab("practice");
+          }}
+        />
+                </Suspense>
+        </ErrorBoundary>
       )}
 
 
 
       {tab === "admin" && isTeacher && (
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <AdminDashboard
           adminUsers={adminUsers}
           adminLogins={adminLogins}
@@ -11447,6 +9581,7 @@ function App() {
           onRefresh={refreshAdmin}
           token={token}
         />
+        </Suspense>
       )}
 
 
@@ -11471,6 +9606,7 @@ function App() {
 
       {tab === "campus-comm" && isFaculty && (
 
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <CampusComm
 
           token={token}
@@ -11479,6 +9615,7 @@ function App() {
 
         />
 
+        </Suspense>
       )}
 
 
@@ -11493,11 +9630,15 @@ function App() {
       )}
 
       {tab === "research-hub" && (
-        <ResearchHub onBack={() => setTab("today")} />
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <ResearchHub onBack={() => setTab("today")} streak={stats.streak} onStreakUpdate={handleStreakUpdate} />
+        </Suspense>
       )}
 
       {tab === "teacher-resources" && (
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <TeacherResourcesHub onBack={() => setTab("today")} />
+        </Suspense>
       )}
 
       {tab === "settings" && (
@@ -11510,18 +9651,18 @@ function App() {
           <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "#7b82b8" }}>Manage your account, preferences & support</p>
         </div>
 
-        {/* 👤 Account — Activation key + Subscription */}
+        {/* 💳 Account — Activation key + Subscription */}
         {auth.user?.activationKey && (
           <div style={{ background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
-              <span>👤</span> Account
+              <span>💳</span> Account
             </div>
             <p style={{ fontSize: 12, color: "#7b82b8", margin: "0 0 4px 0" }}>Your Activation Key</p>
             <div style={{ fontFamily: "monospace", fontSize: 18, fontWeight: 700, color: "#fbbf24", letterSpacing: 2, marginBottom: 12 }}>
               {auth.user.activationKey}
             </div>
             {!isActivated && <p style={{ fontSize: 11, color: "#7b82b8", margin: 0 }}>Share this key with your teacher to get activated</p>}
-            {isActivated && <p style={{ fontSize: 11, color: "#34d399", margin: 0 }}>✓ Your account is activated</p>}
+            {isActivated && <p style={{ fontSize: 11, color: "#34d399", margin: 0 }}>? Your account is activated</p>}
           </div>
         )}
 
@@ -11538,9 +9679,9 @@ function App() {
           return (
             <div style={{ background: statusBg, border: `1px solid ${statusBorder}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>📋 Subscription</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8" }}>💳 Subscription</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}40`, borderRadius: 20, padding: "3px 10px" }}>
-                  ● {statusText}
+                  ? {statusText}
                 </span>
               </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", marginBottom: 4 }}>
@@ -11565,7 +9706,7 @@ function App() {
         {/* Demo Mode Progress */}
         {demoMode && (
           <div style={{ background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: 15, fontWeight: 700, color: "#facc15" }}>🎯 Demo Progress</h3>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: 15, fontWeight: 700, color: "#facc15" }}>📊 Demo Progress</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
               {DEMO_ACHIEVEMENTS.map(ach => {
                 const earned = demoUsage.demoProgress.achievements.includes(ach.id);
@@ -11578,7 +9719,7 @@ function App() {
                     <div style={{ fontSize: 18 }}>{ach.icon}</div>
                     <div style={{ fontWeight: 600, fontSize: 12, marginTop: 4 }}>{ach.label}</div>
                     <div style={{ fontSize: 10, marginTop: 2, color: "#94a3b8" }}>{ach.desc}</div>
-                    {earned && <div style={{ color: "#34d399", fontSize: 10, marginTop: 4 }}>✓ Earned</div>}
+                    {earned && <div style={{ color: "#34d399", fontSize: 10, marginTop: 4 }}>? Earned</div>}
                   </div>
                 );
               })}
@@ -11611,14 +9752,14 @@ function App() {
         {/* 🔔 Notifications */}
         <NotificationSettings token={token} />
 
-        {/* 💬 Support */}
+        {/* 🎟️ Support */}
         <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
-            <span>💬</span> Support
+            <span>🎟️</span> Support
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <a href="https://wa.link/yj2em4" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, background: "#25D366", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}>
-              <span style={{ fontSize: 18 }}>💬</span> Chat on WhatsApp
+              <span style={{ fontSize: 18 }}>📞</span> Chat on WhatsApp
             </a>
             <a href="tel:09028617178" style={{ display: "flex", alignItems: "center", gap: 10, background: "#3b82f6", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}>
               <span style={{ fontSize: 18 }}>📞</span> Call: 09028617178
@@ -11627,7 +9768,7 @@ function App() {
           <p style={{ marginTop: 10, fontSize: 11, color: "#7b82b8", marginBottom: 0 }}>Available 9AM–6PM (Mon–Fri). For faster response, use WhatsApp.</p>
         </div>
 
-        {/* ❓ Help / FAQ */}
+        {/* ? Help / FAQ */}
         <div style={{ background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
             <span>❓</span> Common Issues
@@ -11648,21 +9789,21 @@ function App() {
           </div>
         </div>
 
-        {/* 📝 Feedback */}
+        {/* 💬 Feedback */}
         <div style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 15, fontWeight: 700 }}>
-            <span>📝</span> Feedback
+            <span>💬</span> Feedback
           </div>
           <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10 }}>We love hearing from you! Share ideas for new features or report bugs.</p>
           <button onClick={() => { const msg = encodeURIComponent("Hi Scholar's Circle team, I have a suggestion/feedback:"); window.open(`https://wa.link/yj2em4?text=${msg}`, "_blank"); }} style={{ background: "#34d399", color: "white", border: "none", padding: "10px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, width: "100%", fontSize: 14 }}>
-            📝 Send Feedback
+            📧 Send Feedback
           </button>
         </div>
 
-        {/* 🗑️ Danger Zone */}
+        {/* ⚠️ Danger Zone */}
         <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700, color: "#ef4444" }}>
-            <span>🗑️</span> Danger Zone
+            <span>⚠️</span> Danger Zone
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button onClick={() => { setToken(""); setAuth({ username: "", password: "", user: null, error: "" }); }} style={{ padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
@@ -11682,16 +9823,21 @@ function App() {
 
 
       {tab === "aitutor" && (
-        <AISectionOverlay
-          key={aiKey}
-          defaultView={aiDefaultView}
-          studyTopic={aiStudyTopic}
-          studyMode={aiStudyMode}
-          studyAttachment={aiStudyAttachment}
+        <ErrorBoundary>
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <AITutorPage
+          loading={loadingOverlay}
+          aiKey={aiKey}
+          aiDefaultView={aiDefaultView}
+          aiStudyTopic={aiStudyTopic}
+          aiStudyMode={aiStudyMode}
+          aiStudyAttachment={aiStudyAttachment}
           aiConfig={aiConfig}
           subjects={subjects}
           onExit={() => setTab("today")}
         />
+                </Suspense>
+        </ErrorBoundary>
       )}
 
       {tab === "aitutor_legacy" && (
@@ -11718,7 +9864,7 @@ function App() {
 
               }}
 
-            >🤖 AI Chat</button>
+            >🧠 AI Chat</button>
 
             <button
 
@@ -11736,7 +9882,7 @@ function App() {
 
               }}
 
-            >🎓 Lecture to Notes</button>
+            >🎙️ Lecture to Notes</button>
 
           </div>
 
@@ -11790,7 +9936,7 @@ function App() {
 
                 description={`You've used your daily limit (${DEMO_LIMITS.lectureToNotesDaily}/day). Upgrade for unlimited access!`}
 
-                icon="🎓"
+                icon="⏱️"
 
                 features={["Unlimited lecture conversions", "AI-powered summaries", "Auto-generated flashcards", "Key term extraction"]}
 
@@ -11806,7 +9952,7 @@ function App() {
 
                   <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
 
-                    <span style={{ fontSize: 13 }}>⚡ Demo: {DEMO_LIMITS.lectureToNotesDaily - (demoUsage.lectureToNotesDate === new Date().toDateString() ? demoUsage.lectureToNotesUsed : 0)} conversion(s) remaining today.</span>
+                    <span style={{ fontSize: 13 }}>? Demo: {DEMO_LIMITS.lectureToNotesDaily - (demoUsage.lectureToNotesDate === new Date().toDateString() ? demoUsage.lectureToNotesUsed : 0)} conversion(s) remaining today.</span>
 
                   </div>
 
@@ -11841,17 +9987,16 @@ function App() {
 
 
       {tab === "profile" && (
-
-        <StudentProfile
-
-          profile={studentProfile}
-
+        <ErrorBoundary>
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Profile
+          loading={loadingOverlay}
+          studentProfile={studentProfile}
           authUser={auth.user}
-
           onSave={(p) => updateStudentProfile(p)}
-
         />
-
+                </Suspense>
+        </ErrorBoundary>
       )}
 
 
@@ -11872,6 +10017,7 @@ function App() {
 
       {tab === "lecturers" && (
 
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <Lecturers
 
           token={token}
@@ -11882,6 +10028,7 @@ function App() {
 
         />
 
+        </Suspense>
       )}
 
 
@@ -12057,123 +10204,17 @@ function App() {
 
 
 
-function CommandPalette({ query, setQuery, onClose, actions }) {
+// CommandPalette imported from ./components/SmallComponents
 
 
 
-  const filtered = actions.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()));
 
 
 
-  return (
 
+// SessionPlayer imported from ./components/SessionPlayer
 
-
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-
-
-
-      <div className="modal-box" style={{ maxWidth: 520 }}>
-
-
-
-        <div className="row" style={{ alignItems: "center", gap: 8 }}>
-
-
-
-          <input
-
-
-
-            autoFocus
-
-
-
-            placeholder="Type a command…"
-
-
-
-            value={query}
-
-
-
-            onChange={(e) => setQuery(e.target.value)}
-
-
-
-            style={{ flex: 1 }}
-
-
-
-          />
-
-
-
-          <button onClick={onClose}>Esc</button>
-
-
-
-        </div>
-
-
-
-        <div style={{ maxHeight: 320, overflowY: "auto", marginTop: 10, display: "grid", gap: 6 }}>
-
-
-
-          {filtered.slice(0, 12).map((a) => (
-
-
-
-            <button key={a.label} className="palette-row" onClick={() => { a.run(); onClose(); setQuery(""); }}>
-
-
-
-              <span>{a.label}</span>
-
-
-
-              {a.kbd && <kbd>{a.kbd}</kbd>}
-
-
-
-            </button>
-
-
-
-          ))}
-
-
-
-          {filtered.length === 0 && <p className="muted">No matches.</p>}
-
-
-
-        </div>
-
-
-
-      </div>
-
-
-
-    </div>
-
-
-
-  );
-
-
-
-}
-
-
-
-
-
-
-
-function SessionPlayer({ session, onExit, onComplete, aiConfig }) {
+function _SessionPlayer_REMOVED({ session, onExit, onComplete, aiConfig }) {
 
 
 
@@ -12823,7 +10864,7 @@ ${isCorrect
 
               }}>
 
-                ⏱ {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                ? {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
 
               </div>
 
@@ -12885,7 +10926,7 @@ ${isCorrect
 
             }}>
 
-              <span style={{ fontSize: 16 }}>⚡</span>
+              <span style={{ fontSize: 16 }}>🏁</span>
 
               <span>{currentXP}</span>
 
@@ -12929,7 +10970,7 @@ ${isCorrect
 
               }}>
 
-                <span style={{ fontSize: 16 }}>🔥</span>
+                <span style={{ fontSize: 16 }}>⏱️</span>
 
                 <span>{currentStreak}</span>
 
@@ -12975,7 +11016,7 @@ ${isCorrect
 
             >
 
-              ✕ Exit
+              ? Exit
 
             </button>
 
@@ -13037,7 +11078,7 @@ ${isCorrect
 
             Running score: <span style={{ color: "#e0e7ff" }}>{score}/{Math.max(1, idx + (showResult ? 1 : 0))}</span>
 
-            {perQuestionTarget && <span> · Pace: ~{perQuestionTarget}s/question</span>}
+            {perQuestionTarget && <span> → Pace: ~{perQuestionTarget}s/question</span>}
 
           </p>
 
@@ -13103,7 +11144,7 @@ ${isCorrect
 
           >
 
-            {flaggedQuestions.has(idx) ? "🚩" : "🏳️"}
+            {flaggedQuestions.has(idx) ? "👁️" : "✅"}
 
           </button>
 
@@ -13165,7 +11206,7 @@ ${isCorrect
 
               <option value="unsure">🤔 Unsure</option>
 
-              <option value="okay">😊 Okay</option>
+              <option value="okay">😐 Okay</option>
 
               <option value="sure">😎 Sure</option>
 
@@ -13197,7 +11238,7 @@ ${isCorrect
 
           >
 
-            🔊 Read
+            📖 Read
 
           </button>
 
@@ -13331,7 +11372,7 @@ ${isCorrect
 
                     }}>
 
-                      {isCorrectOption ? "✓" : isWrong ? "✗" : String.fromCharCode(65 + i)}
+                      {isCorrectOption ? "✅" : isWrong ? "❌" : String.fromCharCode(65 + i)}
 
                     </span>
 
@@ -13433,7 +11474,7 @@ ${isCorrect
 
               >
 
-                {aiLoading ? "🤖 Thinking..." : "🤖 Ask AI to explain"}
+                {aiLoading ? "🤖 Thinking..." : "💡 Ask AI to explain"}
 
               </button>
 
@@ -13515,7 +11556,7 @@ ${isCorrect
 
           >
 
-            {isExamLike && idx === session.questions.length - 1 ? "Submit Exam 📝" : "Submit →"}
+            {isExamLike && idx === session.questions.length - 1 ? "Submit Exam ✅" : "Submit ➡️"}
 
           </button>
 
@@ -13551,7 +11592,7 @@ ${isCorrect
 
           >
 
-            {idx === session.questions.length - 1 ? "Finish 🎉" : "Next Question →"}
+            {idx === session.questions.length - 1 ? "Finish ✅" : "Next Question ➡️"}
 
           </button>
 
@@ -13579,7 +11620,9 @@ ${isCorrect
 
 
 
-function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreate, onComplete, onImportQuestions, token, currentUser }) {
+// Classroom imported from ./components/Classroom
+
+function _Classroom_REMOVED({ subjects, assignments, teacherMode, setTeacherMode, onCreate, onComplete, onImportQuestions, token, currentUser }) {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id || "");
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
@@ -13604,8 +11647,6 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   const tabListRef = useRef(null);
   const touchStartX = useRef(null);
-
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
   // Track viewport changes
   useEffect(() => {
@@ -13738,10 +11779,10 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
 
   const TABS = [
     { id: "announcements", label: "📢 Announcements" },
-    { id: "sessions", label: "🎥 Live Sessions" },
+    { id: "sessions", label: "📡 Live Sessions" },
     { id: "assignments", label: "📝 Assignments" },
     { id: "docs", label: "📄 Docs & Links" },
-    { id: "attendance", label: "📋 Attendance" },
+    { id: "attendance", label: "✅ Attendance" },
   ];
 
   // Sub-tab navigation
@@ -13782,7 +11823,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
         <div style={{ fontSize: 18, fontWeight: 800, color: CL.text, fontFamily: "Syne,sans-serif", flex: 1 }}>🏫 Classroom</div>
         {teacherMode
           ? <button onClick={() => setShowCreateClass(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 10, padding: "7px 14px", fontSize: 12, color: CL.border, cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>+ New Class</button>
-          : <button onClick={() => setShowJoinClass(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 10, padding: "7px 14px", fontSize: 12, color: CL.border, cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>🔗 Join Class</button>
+          : <button onClick={() => setShowJoinClass(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 10, padding: "7px 14px", fontSize: 12, color: CL.border, cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>👥 Join Class</button>
         }
       </div>
 
@@ -13800,7 +11841,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
           </div>
           {teacherMode
             ? <button onClick={() => setShowCreateClass(true)} style={{ background: "#1a237e", border: `0.5px solid ${CL.border}`, borderRadius: 10, padding: "8px 18px", fontSize: 12, color: "#c5cae9", cursor: "pointer" }}>+ Create Classroom</button>
-            : <button onClick={() => setShowJoinClass(true)} style={{ background: "#1a237e", border: `0.5px solid ${CL.border}`, borderRadius: 10, padding: "8px 18px", fontSize: 12, color: "#c5cae9", cursor: "pointer" }}>🔗 Join a Classroom</button>
+            : <button onClick={() => setShowJoinClass(true)} style={{ background: "#1a237e", border: `0.5px solid ${CL.border}`, borderRadius: 10, padding: "8px 18px", fontSize: 12, color: "#c5cae9", cursor: "pointer" }}>👥 Join a Classroom</button>
           }
         </div>
       )}
@@ -13849,13 +11890,13 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                         <button onClick={() => { if (window.confirm("Start Exam Mode?")) window.dispatchEvent(new CustomEvent("startExamMode", { detail: selectedClassroom.exams[0] })); }} style={{ marginLeft: 8, background: "#ef4444", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 10, color: "#fff", cursor: "pointer" }}>Prep</button>
                       </div>
                     )}
-                    {teacherMode && <button onClick={() => setShowExamModal(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 9, padding: "5px 11px", fontSize: 11, color: CL.muted, cursor: "pointer" }}>📅 Add Exam</button>}
+                    {teacherMode && <button onClick={() => setShowExamModal(true)} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: 9, padding: "5px 11px", fontSize: 11, color: CL.muted, cursor: "pointer" }}>📝 Add Exam</button>}
                   </div>
                 </div>
 
                 {/* Pill tabs with navigation arrows */}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 10 }}>
-                  <button onClick={() => goToTab("prev")} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: "50%", width: 28, height: 28, flexShrink: 0, color: CL.muted, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>‹</button>
+                  <button onClick={() => goToTab("prev")} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: "50%", width: 28, height: 28, flexShrink: 0, color: CL.muted, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>←</button>
                   <div ref={tabListRef} style={{ display: "flex", gap: 6, flex: 1, overflowX: "auto", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", scrollBehavior: "smooth" }}>
                     {TABS.map(t => (
                       <button key={t.id} onClick={() => setClassTab(t.id)} style={{
@@ -13868,7 +11909,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                       }}>{t.label}</button>
                     ))}
                   </div>
-                  <button onClick={() => goToTab("next")} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: "50%", width: 28, height: 28, flexShrink: 0, color: CL.muted, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>›</button>
+                  <button onClick={() => goToTab("next")} style={{ background: CL.faint, border: `0.5px solid ${CL.line}`, borderRadius: "50%", width: 28, height: 28, flexShrink: 0, color: CL.muted, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>←</button>
                 </div>
 
                 {/* Announcements tab */}
@@ -13890,7 +11931,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                       ? <p style={{ fontSize: 12, color: CL.hint, padding: "16px 4px" }}>No announcements yet.</p>
                       : (selectedClassroom.announcements || []).map(a => (
                         <div key={a.id} style={{ background: a.isImportant ? "#140800" : CL.card, border: `0.5px solid ${a.isImportant ? "#4a2000" : CL.line}`, borderRadius: 12, padding: "11px 14px", marginBottom: 8 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: a.isImportant ? "#ffb74d" : CL.text, marginBottom: 4 }}>{a.isImportant ? "⚠️ " : ""}{a.title}</div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: a.isImportant ? "#ffb74d" : CL.text, marginBottom: 4 }}>{a.isImportant ? "🚨 " : ""}{a.title}</div>
                           <div style={{ fontSize: 12, color: CL.muted, lineHeight: 1.6 }}>{a.content}</div>
                           <div style={{ fontSize: 10, color: CL.hint, marginTop: 5 }}>{new Date(a.createdAt).toLocaleString()}</div>
                         </div>
@@ -13917,9 +11958,9 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, background: CL.card, border: `0.5px solid ${CL.line}`, borderRadius: 12, padding: "10px 14px", marginBottom: 7 }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: CL.text }}>{a.title}</div>
-                                <div style={{ fontSize: 10, color: CL.hint }}>{subj?.label || ""}{a.due ? ` · Due ${a.due}` : ""}</div>
+                                <div style={{ fontSize: 10, color: CL.hint }}>{subj?.label || ""}{a.due ? ` — Due ${a.due}` : ""}</div>
                               </div>
-                              <button onClick={() => onComplete(a.id)} style={{ background: a.done ? "#071410" : "#1a237e", border: `0.5px solid ${a.done ? "#0a3020" : CL.border}`, borderRadius: 9, padding: "5px 12px", fontSize: 11, color: a.done ? "#81c784" : "#c5cae9", cursor: "pointer" }}>{a.done ? "✓ Done" : "Mark Done"}</button>
+                              <button onClick={() => onComplete(a.id)} style={{ background: a.done ? "#071410" : "#1a237e", border: `0.5px solid ${a.done ? "#0a3020" : CL.border}`, borderRadius: 9, padding: "5px 12px", fontSize: 11, color: a.done ? "#81c784" : "#c5cae9", cursor: "pointer" }}>{a.done ? "✅ Done" : "Mark Done"}</button>
                             </div>
                           );
                         })}
@@ -13942,7 +11983,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                       )}
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                         {(selectedClassroom.links || []).map(link => (
-                          <button key={link.id} onClick={() => setPopupLink(link)} style={{ background: "#0a0c1e", border: `0.5px solid #2a2d6a`, borderRadius: 20, padding: "6px 13px", fontSize: 11, color: "#9fa8da", cursor: "pointer" }}>🔗 {link.title}</button>
+                          <button key={link.id} onClick={() => setPopupLink(link)} style={{ background: "#0a0c1e", border: `0.5px solid #2a2d6a`, borderRadius: 20, padding: "6px 13px", fontSize: 11, color: "#9fa8da", cursor: "pointer" }}>👉 {link.title}</button>
                         ))}
                         {!(selectedClassroom.links?.length) && <span style={{ fontSize: 12, color: CL.hint }}>No links yet.</span>}
                       </div>
@@ -13957,10 +11998,10 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
                       )}
                       {(selectedClassroom.documents || []).map(doc => (
                         <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0c1e", border: `0.5px solid ${CL.line}`, borderRadius: 11, padding: "9px 12px", marginBottom: 7 }}>
-                          <span style={{ fontSize: 18 }}>{doc.fileType === "pdf" ? "📕" : doc.fileType === "docx" ? "📘" : "📄"}</span>
+                          <span style={{ fontSize: 18 }}>{doc.fileType === "pdf" ? "📄" : doc.fileType === "docx" ? "📄" : "📄"}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: CL.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.title}</div>
-                            <div style={{ fontSize: 10, color: CL.hint }}>{doc.fileType?.toUpperCase()} · {(doc.fileSize / 1024).toFixed(1)} KB</div>
+                            <div style={{ fontSize: 10, color: CL.hint }}>{doc.fileType?.toUpperCase()} — {(doc.fileSize / 1024).toFixed(1)} KB</div>
                           </div>
                           <button onClick={async () => {
                             try {
@@ -14018,7 +12059,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
       {showJoinClass && (
         <div className="modal-overlay" onClick={() => { setShowJoinClass(false); setJoinError(""); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, padding: 20 }}>
-            <h3 style={{ margin: "0 0 14px 0", fontSize: 16 }}>🔗 Join Classroom</h3>
+            <h3 style={{ margin: "0 0 14px 0", fontSize: 16 }}>👥 Join Classroom</h3>
             <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 12 }}>Enter the Classroom ID provided by your teacher.</p>
             <input value={joinClassCode} onChange={(e) => setJoinClassCode(e.target.value)} placeholder="Classroom ID (e.g., 'abc123')" style={{ width: "100%", boxSizing: "border-box", marginBottom: 8, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", fontSize: 14, outline: "none" }} />
             {joinError && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 8 }}>{joinError}</p>}
@@ -14034,7 +12075,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
       {popupLink && (
         <div className="modal-overlay" onClick={() => setPopupLink(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, padding: 20 }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: 16 }}>🔗 {popupLink.title}</h3>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: 16 }}>👉 {popupLink.title}</h3>
             <p style={{ wordBreak: "break-all", color: "#a5b4fc", marginBottom: 16, fontSize: 13 }}>{popupLink.url}</p>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setPopupLink(null)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Close</button>
@@ -14049,7 +12090,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
         <div className="modal-overlay" onClick={() => { markAnnouncementRead(showAnnouncementPopup.id); setShowAnnouncementPopup(null); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, padding: 20, border: "2px solid rgba(239,68,68,0.5)", background: "linear-gradient(135deg, rgba(30,41,59,0.95), rgba(239,68,68,0.1))" }}>
             <div style={{ textAlign: "center", marginBottom: 14 }}>
-              <span style={{ fontSize: 40 }}>⚠️</span>
+              <span style={{ fontSize: 40 }}>🚨</span>
               <h3 style={{ color: "#fbbf24", margin: "4px 0 0 0" }}>Important Announcement</h3>
             </div>
             <h4 style={{ margin: "0 0 8px 0" }}>{showAnnouncementPopup.title}</h4>
@@ -14064,7 +12105,7 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
       {showExamModal && (
         <div className="modal-overlay" onClick={() => setShowExamModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, padding: 20 }}>
-            <h3 style={{ margin: "0 0 14px 0", fontSize: 16 }}>📅 Add Exam</h3>
+            <h3 style={{ margin: "0 0 14px 0", fontSize: 16 }}>📝 Add Exam</h3>
             <input value={newExam.title} onChange={(e) => setNewExam((prev) => ({ ...prev, title: e.target.value }))} placeholder="Exam title (e.g., 'MTH111 Mid-Semester')" style={{ width: "100%", boxSizing: "border-box", marginBottom: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", fontSize: 14, outline: "none" }} />
             <input type="datetime-local" value={newExam.examDate} onChange={(e) => setNewExam((prev) => ({ ...prev, examDate: e.target.value }))} style={{ width: "100%", boxSizing: "border-box", marginBottom: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", fontSize: 14, outline: "none" }} />
             <input type="number" value={newExam.duration} onChange={(e) => setNewExam((prev) => ({ ...prev, duration: parseInt(e.target.value) }))} placeholder="Duration (minutes)" style={{ width: "100%", boxSizing: "border-box", marginBottom: 14, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#fff", fontSize: 14, outline: "none" }} />
@@ -14078,7 +12119,9 @@ function Classroom({ subjects, assignments, teacherMode, setTeacherMode, onCreat
     </div>
   );
 }
-function AIHelper({ aiConfig, onUsed }) {
+// AIHelper imported from ./components/SmallComponents
+
+function _AIHelper_REMOVED({ aiConfig, onUsed }) {
 
 
 
@@ -14194,7 +12237,9 @@ function AIHelper({ aiConfig, onUsed }) {
 
 
 
-function SimpleCheckpoint({ question, onDone }) {
+// SimpleCheckpoint imported from ./components/SmallComponents
+
+function _SimpleCheckpoint_REMOVED({ question, onDone }) {
 
 
 
@@ -14262,7 +12307,7 @@ function SimpleCheckpoint({ question, onDone }) {
 
 
 
-        <p className="muted">{selected === question.answer ? "Correct ✅" : "Try again next round ❌"}</p>
+        <p className="muted">{selected === question.answer ? "Correct ?" : "Try again next round ?"}</p>
 
 
 
@@ -14294,7 +12339,9 @@ function SimpleCheckpoint({ question, onDone }) {
 
 
 
-function QuestionBank({ subjects, onStartPastPaper }) {
+// QuestionBank imported from ./components/QuestionBank
+
+function _QuestionBank_REMOVED({ subjects, onStartPastPaper }) {
 
 
 
@@ -14382,7 +12429,7 @@ function QuestionBank({ subjects, onStartPastPaper }) {
 
       subjectLabel: qu.topic || "Custom",
 
-      subjectIcon: "✨",
+      subjectIcon: "📄",
 
     }))
 
@@ -14570,7 +12617,7 @@ function QuestionBank({ subjects, onStartPastPaper }) {
 
 
 
-            📝 Take {year} Paper ({selectedRows.length} Qs · {minutes} min)
+            📝 Take {year} Paper ({selectedRows.length} Qs — {minutes} min)
 
 
 
@@ -14634,7 +12681,9 @@ function QuestionBank({ subjects, onStartPastPaper }) {
 
 
 
-function RevisionPlanner({ mastery, dueCards, subjects }) {
+// RevisionPlanner imported from ./components/SmallComponents
+
+function _RevisionPlanner_REMOVED({ mastery, dueCards, subjects }) {
 
 
 
@@ -14726,7 +12775,9 @@ function RevisionPlanner({ mastery, dueCards, subjects }) {
 
 
 
-function BulkImport({ onImportQuestions }) {
+// BulkImport imported from ./components/SmallComponents
+
+function _BulkImport_REMOVED({ onImportQuestions }) {
 
 
 
@@ -14842,7 +12893,9 @@ function BulkImport({ onImportQuestions }) {
 
 
 
-function FlashcardDeck({ subjects, srData, customFlashcards, setCustomFlashcards, token }) {
+// FlashcardDeck imported from ./components/FlashcardDeck
+
+function _FlashcardDeck_REMOVED({ subjects, srData, customFlashcards, setCustomFlashcards, token }) {
 
 
 
@@ -15158,7 +13211,7 @@ function FlashcardDeck({ subjects, srData, customFlashcards, setCustomFlashcards
 
 
 
-          <p style={{ fontSize: "2rem" }}>🎉</p>
+          <p style={{ fontSize: "2rem" }}>💡</p>
 
 
 
@@ -15242,7 +13295,7 @@ function FlashcardDeck({ subjects, srData, customFlashcards, setCustomFlashcards
 
 
 
-              <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }} onClick={next}>Got it right ✓</button>
+              <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }} onClick={next}>Got it right ?</button>
 
 
 
@@ -15418,7 +13471,9 @@ function FlashcardDeck({ subjects, srData, customFlashcards, setCustomFlashcards
 
 
 
-function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token }) {
+// Leaderboard imported from ./components/Leaderboard
+
+function _Leaderboard_REMOVED({ username, xp, sessions, streak, mastery, subjects, token }) {
 
 
 
@@ -15454,10 +13509,6 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
 
 
-  const API_BASE_LB = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
-
-
-
 
 
 
@@ -15478,7 +13529,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
 
 
-    fetch(`${API_BASE_LB}/users/leaderboard?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API_BASE}/users/leaderboard?${params}`, { headers: { Authorization: `Bearer ${token}` } })
 
 
 
@@ -15522,7 +13573,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
     setLoadingProfile(true);
 
-    fetch(`${API_BASE_LB}/users/${selectedUser.userId}/profile`, {
+    fetch(`${API_BASE}/users/${selectedUser.userId}/profile`, {
 
       headers: { Authorization: `Bearer ${token}` }
 
@@ -15644,7 +13695,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
     if (xp >= 1000) return { name: "Diamond", color: "#4F8EF7", icon: "💎" };
 
-    if (xp >= 500) return { name: "Platinum", color: "#a855f7", icon: "💠" };
+    if (xp >= 500) return { name: "Platinum", color: "#a855f7", icon: "👑" };
 
     if (xp >= 250) return { name: "Gold", color: "#facc15", icon: "🥇" };
 
@@ -15666,7 +13717,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
     if (streak >= 7) return "🔥";
 
-    if (streak >= 3) return "⚡";
+    if (streak >= 3) return "✨";
 
     return "";
 
@@ -15682,9 +13733,9 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
     const minutesAgo = (Date.now() - new Date(lastActive).getTime()) / 60000;
 
-    if (minutesAgo < 5) return "🟢 Active now";
+    if (minutesAgo < 5) return "👍 Active now";
 
-    if (minutesAgo < 1440) return "🟡 Studied today";
+    if (minutesAgo < 1440) return "📚 Studied today";
 
     return "";
 
@@ -15711,7 +13762,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
   const nextTier = TIERS[myTierIdx + 1];
 
   function getInitials(name) {
-    if (!name) return '?';
+    if (!name) return '👤';
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return name.slice(0, 2).toUpperCase();
@@ -15764,13 +13815,13 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
           <span className="tag">YOUR LEAGUE</span>
           <h2>{myTier.name} Circle</h2>
           <p>
-            <span className="promo">Top 5</span> advance to {nextTier ? nextTier.name : 'Champion'} ·{' '}
+            <span className="promo">Top 5</span> advance to {nextTier ? nextTier.name : 'Champion'} —{' '}
             <span className="demo">Bottom 5</span> drop to {myTierIdx > 0 ? TIERS[myTierIdx - 1].name : 'Bronze'}
           </p>
         </div>
         <div className="lb-countdown">
           <div className="cd-label">LEAGUE RESETS IN</div>
-          <div className="cd-value">{countdown || '—'}</div>
+          <div className="cd-value">{countdown || '⏱'}</div>
         </div>
       </div>
 
@@ -15794,7 +13845,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
               className={`lb-scope-tab ${timePeriod === period ? 'active' : ''}`}
               onClick={() => setTimePeriod(period)}
             >
-              {period === 'all' ? '🏆 All' : period === 'weekly' ? '📅 Week' : '📆 Month'}
+              {period === 'all' ? '📊 All' : period === 'weekly' ? '📅 Week' : '📅 Month'}
             </button>
           ))}
         </div>
@@ -15857,7 +13908,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
       {/* Rank List (4th onward) */}
       {rest.length > 0 && (
         <>
-          <span className="lb-section-label">{myTier.name.toUpperCase()} CIRCLE · RANK 4–{ranked.length}</span>
+          <span className="lb-section-label">{myTier.name.toUpperCase()} CIRCLE • RANK 4—{ranked.length}</span>
           <div className="lb-rank-list">
             {rest.map((entry, i) => {
               const rank = i + 4;
@@ -15872,12 +13923,12 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
                 >
                   <span className="lb-rank-num">{rank}</span>
                   <span className={`lb-rank-trend ${entry.trend > 0 ? 'up' : entry.trend < 0 ? 'down' : 'same'}`}>
-                    {entry.trend > 0 ? '▲' : entry.trend < 0 ? '▼' : '–'}{entry.trend !== 0 && entry.trend ? Math.abs(entry.trend) : ''}
+                    {entry.trend > 0 ? '↑' : entry.trend < 0 ? '↓' : '↓'}{entry.trend !== 0 && entry.trend ? Math.abs(entry.trend) : ''}
                   </span>
                   <span className="lb-rank-av">{getInitials(entry.username)}</span>
                   <span className="lb-rank-name">
                     <span className="nm">{entry.username}{entry.isMe && ' (you)'}</span>
-                    {entry.streak > 0 && <span className="meta">🔥 {entry.streak}d streak · {entry.sessions} sessions</span>}
+                    {entry.streak > 0 && <span className="meta">🔥 {entry.streak}d streak — {entry.sessions} sessions</span>}
                   </span>
                   <span className="lb-rank-xp">{(entry.xp || 0).toLocaleString()} XP</span>
                 </div>
@@ -15912,11 +13963,11 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
       {/* Sticky You Bar */}
       {me && (
         <div className="lb-you-bar">
-          <span>#{myRank} · <b>You</b> · {(me.xp || 0).toLocaleString()} XP</span>
+          <span>#{myRank} — <b>You</b> — {(me.xp || 0).toLocaleString()} XP</span>
           {personAbove && (
             <>
               <div className="sep" />
-              <span className="next">{xpToPass > 0 ? `${xpToPass} XP to pass ${personAbove.username} →` : "You're at the top! 🎉"}</span>
+              <span className="next">{xpToPass > 0 ? `${xpToPass} XP to pass ${personAbove.username} 🏆` : "You're at the top! 🎉"}</span>
             </>
           )}
         </div>
@@ -15991,7 +14042,7 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
                       </div>
                     )}
                     {userProfileData.personalBest > 0 && (
-                      <span className="lb-profile-pb">🏆 PB: {userProfileData.personalBest}%</span>
+                      <span className="lb-profile-pb">🏅 PB: {userProfileData.personalBest}%</span>
                     )}
                   </div>
                 </div>
@@ -16020,7 +14071,9 @@ function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token 
 
 
 
-function PomodoroTimer({ onSessionDone }) {
+// PomodoroTimer imported from ./components/StudyTools
+
+function _PomodoroTimer_REMOVED({ onSessionDone }) {
 
 
 
@@ -16148,7 +14201,7 @@ function PomodoroTimer({ onSessionDone }) {
 
 
 
-      const msg = mode.id === "work" ? "Focus session done! Take a break." : "Break over — back to work!";
+      const msg = mode.id === "work" ? "Focus session done! Take a break." : "Break over → back to work!";
 
 
 
@@ -16348,7 +14401,7 @@ function PomodoroTimer({ onSessionDone }) {
 
 
 
-          {running ? "⏸ Pause" : "▶ Start"}
+          {running ? "⏸️ Pause" : "▶️ Start"}
 
 
 
@@ -16356,7 +14409,7 @@ function PomodoroTimer({ onSessionDone }) {
 
 
 
-        <button onClick={() => { setTimeLeft(mode.duration); setRunning(false); }}>↺ Reset</button>
+        <button onClick={() => { setTimeLeft(mode.duration); setRunning(false); }}>? Reset</button>
 
 
 
@@ -16404,7 +14457,9 @@ function PomodoroTimer({ onSessionDone }) {
 
 
 
-function NotesEditor({ subjects, notes, setNotes }) {
+// NotesEditor imported from ./components/StudyTools
+
+function _NotesEditor_REMOVED({ subjects, notes, setNotes }) {
 
 
 
@@ -16560,7 +14615,9 @@ function NotesEditor({ subjects, notes, setNotes }) {
 
 
 
-function SearchResults({ query, subjects, onStart }) {
+// SearchResults imported from ./components/SearchAndBadges
+
+function _SearchResults_REMOVED({ query, subjects, onStart }) {
 
 
 
@@ -16748,7 +14805,7 @@ function SearchResults({ query, subjects, onStart }) {
 
 
 
-              <span className="muted" style={{ fontSize: 12 }}>{qn.subjectLabel} · {qn.difficulty}</span>
+              <span className="muted" style={{ fontSize: 12 }}>{qn.subjectLabel} — {qn.difficulty}</span>
 
 
 
@@ -16788,7 +14845,9 @@ function SearchResults({ query, subjects, onStart }) {
 
 
 
-function AchievementsBadges({ badges, stats, history, subjects, mastery }) {
+// AchievementsBadges imported from ./components/SearchAndBadges
+
+function _AchievementsBadges_REMOVED({ badges, stats, history, subjects, mastery }) {
 
 
 
@@ -16928,7 +14987,9 @@ function AchievementsBadges({ badges, stats, history, subjects, mastery }) {
 
 
 
-function TimetableBuilder({ timetable, setTimetable, subjects }) {
+// TimetableBuilder imported from ./components/StudyTools
+
+function _TimetableBuilder_REMOVED({ timetable, setTimetable, subjects }) {
 
 
 
@@ -17252,7 +15313,9 @@ function TimetableBuilder({ timetable, setTimetable, subjects }) {
 
 
 
-function CheatSheet({ subjects, mastery }) {
+// CheatSheet imported from ./components/StudyTools
+
+function _CheatSheet_REMOVED({ subjects, mastery }) {
 
 
 
@@ -17480,7 +15543,9 @@ function CheatSheet({ subjects, mastery }) {
 
 
 
-function DiscussionBoard({ subjects, discussion, setDiscussion, username, isTeacher }) {
+// DiscussionBoard imported from ./components/Discussion
+
+function _DiscussionBoard_REMOVED({ subjects, discussion, setDiscussion, username, isTeacher }) {
 
 
 
@@ -17694,7 +15759,9 @@ function DiscussionBoard({ subjects, discussion, setDiscussion, username, isTeac
 
 
 
-function DiscussionThread({ thread, onReply, username, isTeacher }) {
+// DiscussionThread imported from ./components/Discussion
+
+function _DiscussionThread_REMOVED({ thread, onReply, username, isTeacher }) {
 
 
 
@@ -17718,7 +15785,7 @@ function DiscussionThread({ thread, onReply, username, isTeacher }) {
 
 
 
-        <span className="post-author">{thread.author} <span className="muted" style={{ fontSize: 11 }}>({thread.role}) · {new Date(thread.ts).toLocaleString()}</span></span>
+        <span className="post-author">{thread.author} <span className="muted" style={{ fontSize: 11 }}>({thread.role}) — {new Date(thread.ts).toLocaleString()}</span></span>
 
 
 
@@ -17726,7 +15793,7 @@ function DiscussionThread({ thread, onReply, username, isTeacher }) {
 
 
 
-        <button style={{ fontSize: 12 }} onClick={() => setShowReply(v => !v)}>↩ Reply ({thread.replies.length})</button>
+        <button style={{ fontSize: 12 }} onClick={() => setShowReply(v => !v)}>? Reply ({thread.replies.length})</button>
 
 
 
@@ -17746,7 +15813,7 @@ function DiscussionThread({ thread, onReply, username, isTeacher }) {
 
 
 
-            {r.author} <span className="muted" style={{ fontSize: 11 }}>({r.role}) · {new Date(r.ts).toLocaleString()}</span>
+            {r.author} <span className="muted" style={{ fontSize: 11 }}>({r.role}) — {new Date(r.ts).toLocaleString()}</span>
 
 
 
@@ -17814,7 +15881,9 @@ function DiscussionThread({ thread, onReply, username, isTeacher }) {
 
 
 
-function AIQuestionGen({ onImportQuestions }) {
+// AIQuestionGen imported from ./components/SmallComponents
+
+function _AIQuestionGen_REMOVED({ onImportQuestions }) {
 
 
 
@@ -18014,7 +16083,7 @@ function AIQuestionGen({ onImportQuestions }) {
 
 
 
-            ✅ Import all {preview.length} to Question Bank
+            ? Import all {preview.length} to Question Bank
 
 
 
@@ -18046,7 +16115,9 @@ function AIQuestionGen({ onImportQuestions }) {
 
 
 
-function ConfidenceHeatmap({ history }) {
+// ConfidenceHeatmap imported from ./components/SearchAndBadges
+
+function _ConfidenceHeatmap_REMOVED({ history }) {
 
 
 
@@ -18130,7 +16201,9 @@ function ConfidenceHeatmap({ history }) {
 
 
 
-function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, demoMode, demoUsage, setDemoUsage }) {
+// AITutorChat imported from ./components/AITutorChat
+
+function _AITutorChat_REMOVED({ aiConfig, chatHistory, setChatHistory, subjects, token, demoMode, demoUsage, setDemoUsage }) {
 
 
 
@@ -18204,7 +16277,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
         role: "assistant",
 
-        content: "👋 Hello! I'm your AI Tutor. What should I teach you today? I can help you with any subject - just ask me a question or select a specific subject from the dropdown above.",
+        content: "🤖 Hello! I'm your AI Tutor. What should I teach you today? I can help you with any subject - just ask me a question or select a specific subject from the dropdown above.",
 
         timestamp: Date.now()
 
@@ -18430,7 +16503,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
       role: "assistant",
 
-      content: "👋 Hello! I'm your AI Tutor. What should I teach you today? I can help you with any subject - just ask me a question or select a specific subject from the dropdown above.",
+      content: "🤖 Hello! I'm your AI Tutor. What should I teach you today? I can help you with any subject - just ask me a question or select a specific subject from the dropdown above.",
 
       timestamp: Date.now()
 
@@ -18588,7 +16661,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
                       >
 
-                        🔍 Break it down more
+                        💡 Break it down more
 
                       </button>
 
@@ -18630,7 +16703,7 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
                       >
 
-                        👶 Explain like I'm 6
+                        👩🏛️ Explain like I'm 6
 
                       </button>
 
@@ -18742,7 +16815,9 @@ function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, d
 
 
 
-function StudyReminders({ reminders, setReminders, timetable, notificationPermission, setNotificationPermission, token }) {
+// StudyReminders imported from ./components/StudyReminders
+
+function _StudyReminders_REMOVED({ reminders, setReminders, timetable, notificationPermission, setNotificationPermission, token }) {
 
 
 
@@ -18814,7 +16889,7 @@ function StudyReminders({ reminders, setReminders, timetable, notificationPermis
 
 
 
-            new Notification("📚 Study Reminder", { body: r.label, icon: "/loading.png" });
+            new Notification("🔔 Study Reminder", { body: r.label, icon: "/loading.png" });
 
 
 
@@ -19244,7 +17319,7 @@ function StudyReminders({ reminders, setReminders, timetable, notificationPermis
 
 
 
-                {r.sent ? "✅" : isPast ? "⏰" : "📅"} {r.label} — {new Date(r.time).toLocaleString()}
+                {r.sent ? "✅" : isPast ? "⏰" : "🔔"} {r.label} — {new Date(r.time).toLocaleString()}
 
 
 
@@ -19290,7 +17365,9 @@ function StudyReminders({ reminders, setReminders, timetable, notificationPermis
 
 
 
-function KeyManagement({ token }) {
+// KeyManagement imported from ./components/AdminComponents
+
+function _KeyManagement_REMOVED({ token }) {
 
   const [students, setStudents] = useState([]);
 
@@ -19408,7 +17485,7 @@ function KeyManagement({ token }) {
 
       <h2>🔑 Student Key Management</h2>
 
-      <p className="muted">{students.length} students total · <strong style={{ color: "#facc15" }}>{pendingCount} pending</strong> · <strong style={{ color: "#34d399" }}>{activeCount} activated</strong></p>
+      <p className="muted">{students.length} students total — <strong style={{ color: "#facc15" }}>{pendingCount} pending</strong> — <strong style={{ color: "#34d399" }}>{activeCount} activated</strong></p>
 
 
 
@@ -19508,15 +17585,15 @@ function KeyManagement({ token }) {
 
                     {s.isExpired ? (
 
-                      <span style={{ color: "#f87171", fontWeight: 600 }}>● Expired</span>
+                      <span style={{ color: "#f87171", fontWeight: 600 }}>? Expired</span>
 
                     ) : s.isActivated ? (
 
-                      <span style={{ color: "#34d399", fontWeight: 600 }}>● Active</span>
+                      <span style={{ color: "#34d399", fontWeight: 600 }}>? Active</span>
 
                     ) : (
 
-                      <span style={{ color: "#f87171", fontWeight: 600 }}>○ Pending</span>
+                      <span style={{ color: "#f87171", fontWeight: 600 }}>? Pending</span>
 
                     )}
 
@@ -19880,7 +17957,9 @@ function KeyManagement({ token }) {
 
 
 
-function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, onRefresh, isChecking, onGetPremium, deferredPrompt, onInstall, isIOS }) {
+// LockedScreen imported from ./components/AdminComponents
+
+function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, onTryDemo, onRefresh, isChecking, onGetPremium, deferredPrompt, onInstall, isIOS }) {
 
   const [showActivationKey, setShowActivationKey] = useState(false);
 
@@ -19900,7 +17979,7 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
         <div className="card" style={{ maxWidth: 480, textAlign: "center" }}>
 
-          <div style={{ fontSize: 64, marginBottom: 12 }}>✅</div>
+          <div style={{ fontSize: 64, marginBottom: 12 }}>📱</div>
 
           <h2>Account Created Successfully!</h2>
 
@@ -20026,7 +18105,7 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
         <div style={{ textAlign: "center", marginBottom: 32 }}>
 
-          <div style={{ fontSize: 72, marginBottom: 16 }}>🎓</div>
+          <div style={{ fontSize: 72, marginBottom: 16 }}>🎮</div>
 
           <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Welcome to Scholar's Circle!</h1>
 
@@ -20064,7 +18143,7 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
             </div>
 
-            <div style={{ fontSize: 48, marginBottom: 12 }}>⭐</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📱</div>
 
             <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Premium Access</h3>
 
@@ -20086,7 +18165,7 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
               <div className="muted" style={{ fontSize: 12 }}>
 
-                or ₦1,300/2 weeks • ₦2,400/month
+                or ₦1,300/2 weeks — ₦2,400/month
 
               </div>
 
@@ -20098,15 +18177,15 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
             <ul style={{ textAlign: "left", fontSize: 13, marginBottom: 24, lineHeight: 2, listStyle: "none", padding: 0 }}>
 
-              <li>✓ Unlimited practice questions</li>
+              <li>✅ Unlimited practice questions</li>
 
-              <li>✓ Unlimited AI Tutor access</li>
+              <li>✅ Unlimited AI Tutor access</li>
 
-              <li>✓ All subjects & past papers</li>
+              <li>✅ All subjects & past papers</li>
 
-              <li>✓ Advanced analytics</li>
+              <li>✅ Advanced analytics</li>
 
-              <li>✓ Priority support</li>
+              <li>✅ Priority support</li>
 
             </ul>
 
@@ -20190,7 +18269,7 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
             </div>
 
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🎁</div>
 
             <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>2-Day Free Trial</h3>
 
@@ -20218,15 +18297,15 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
             <ul style={{ textAlign: "left", fontSize: 13, marginBottom: 24, lineHeight: 2, listStyle: "none", padding: 0 }}>
 
-              <li>✓ All practice modes</li>
+              <li>✅ All practice modes</li>
 
-              <li>✓ AI Tutor access</li>
+              <li>✅ AI Tutor access</li>
 
-              <li>✓ All subjects unlocked</li>
+              <li>✅ All subjects unlocked</li>
 
-              <li>✓ No daily limits</li>
+              <li>✅ No daily limits</li>
 
-              <li>✓ Full features for 2 days</li>
+              <li>✅ Full features for 2 days</li>
 
             </ul>
 
@@ -20322,7 +18401,7 @@ function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, 
 
           >
 
-            <span>{showActivationKey ? "▼" : "▶"}</span>
+            <span>{showActivationKey ? "👁️" : "👁‍👀"}</span>
 
             <span>Have an activation key from your teacher?</span>
 

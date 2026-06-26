@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import React, { createContext, useContext, useReducer } from "react";
 
 const AuthContext = createContext(null);
 
@@ -56,22 +56,8 @@ function authReducer(state, action) {
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Load token from localStorage on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) {
-      dispatch({ type: "SET_TOKEN", payload: savedToken });
-    }
-  }, []);
-
-  // Save token to localStorage when it changes
-  useEffect(() => {
-    if (state.token) {
-      localStorage.setItem("token", state.token);
-    } else {
-      localStorage.removeItem("token");
-    }
-  }, [state.token]);
+  // Context is an in-memory store only; App.jsx handles token persistence
+  // via scholars-circle-auth in localStorage.
 
   const value = {
     ...state,
@@ -85,8 +71,8 @@ export function AuthProvider({ children }) {
     clearInfo: () => dispatch({ type: "CLEAR_INFO" }),
     resetForm: () => dispatch({ type: "RESET_FORM" }),
     logout: () => dispatch({ type: "LOGOUT" }),
-    isFaculty: state.user?.role === "FACULTY" || state.user?.role === "LECTURER",
-    isTeacher: state.user?.role === "TEACHER",
+    isFaculty: state.user?.role === "TEACHER" || state.user?.role === "LECTURER",
+    isTeacher: state.user?.role === "TEACHER" || state.user?.role === "LECTURER",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

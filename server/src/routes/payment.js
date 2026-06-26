@@ -141,6 +141,13 @@ router.post("/webhook", async (req, res) => {
         return res.status(200).json({ status: "ok" });
       }
 
+      // Verify amount paid matches plan price
+      const amountPaid = (req.body.data.amount || 0) / 100;
+      if (amountPaid < PLAN_PRICES[plan]) {
+        console.log("Webhook: Insufficient payment", { reference, plan, amountPaid, expected: PLAN_PRICES[plan] });
+        return res.status(200).json({ status: "ok" });
+      }
+
       // Find user by activationKey or userId
       let user;
       if (activationKey) {

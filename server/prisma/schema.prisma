@@ -175,6 +175,22 @@ model User {
 
   questionAttempts  QuestionAttempt[]
 
+  quizAttempts      QuizAttempt[]
+
+  bookmarks         ResourceBookmark[]
+
+  resourceRatings   ResourceRating[]
+
+  resourceComments  ResourceComment[]
+
+  reviewQueueItems  ReviewQueueItem[]
+  pdfReviewItems    PdfReviewItem[]
+  pdfFlashcards     PdfFlashcard[]
+
+  totalXp           Int      @default(0)
+
+  aiUsageLogs       AiUsageLog[]
+
 }
 
 // ============ CAMPUS ANNOUNCEMENTS ============
@@ -483,6 +499,8 @@ model UserProgress {
 
   streak       Int      @default(0)
 
+  longestStreak Int     @default(0)
+
   coins        Int      @default(0)
 
   weeklyGoal   Int      @default(5)
@@ -496,6 +514,8 @@ model UserProgress {
   srData       Json     @default("{}")
 
   lastStudied   DateTime?
+
+  lastActivity  DateTime?
 
   darkMode     Boolean  @default(true)
 
@@ -587,6 +607,26 @@ model AIChatMessage {
 
 
   @@index([userId, timestamp])
+
+}
+
+
+
+model AiUsageLog {
+
+  id        String   @id @default(cuid())
+
+  userId    String
+
+  endpoint  String
+
+  provider  String?
+
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 
 }
 
@@ -1310,9 +1350,24 @@ model Resource {
   viewCount   Int      @default(0)
   shareToken  String   @unique
   mcqData     Json?    // For MCQ type: stores questions array
+  status      String   @default("approved")  // pending | approved | rejected
+  department  String?
+  level       String?
+  semester    String?
+  avgRating   Float    @default(0)
+  ratingCount Int      @default(0)
+  flagCount   Int      @default(0)
+  takenCount  Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   views       ResourceView[]
+  quizAttempts QuizAttempt[]
+  bookmarks   ResourceBookmark[]
+  ratings     ResourceRating[]
+  comments    ResourceComment[]
+  reviewQueueItems ReviewQueueItem[]
+  pdfReviewItems   PdfReviewItem[]
+  pdfFlashcards    PdfFlashcard[]
 
   @@index([contentType])
   @@index([subject])
@@ -1331,5 +1386,124 @@ model ResourceView {
 
   @@index([resourceId])
   @@index([userId])
+}
+
+model ResourceBookmark {
+  id          String   @id @default(cuid())
+  resourceId  String
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([resourceId, userId])
+  @@index([userId])
+  @@index([resourceId])
+}
+
+model QuizAttempt {
+  id          String   @id @default(cuid())
+  resourceId  String
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score       Int
+  total       Int
+  xpAwarded   Int      @default(0)
+  details     Json?    // [{ questionIndex, correct }] per-question results
+  createdAt   DateTime @default(now())
+
+  @@index([resourceId])
+  @@index([userId])
+}
+
+model ResourceRating {
+  id          String   @id @default(cuid())
+  resourceId  String
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stars       Int      // 1-5
+  createdAt   DateTime @default(now())
+
+  @@unique([resourceId, userId])
+  @@index([resourceId])
+}
+
+model ResourceComment {
+  id          String   @id @default(cuid())
+  resourceId  String
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text        String
+  flagged     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([resourceId])
+}
+
+model ReviewQueueItem {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resourceId      String
+  resource        Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  questionIndex   Int
+  dueAt           DateTime
+  createdAt       DateTime @default(now())
+
+  // SM-2 algorithm fields
+  easinessFactor  Float    @default(2.5)
+  intervalDays    Int      @default(0)
+  repetitions     Int      @default(0)
+  lastReviewed    DateTime?
+  quality         Int?
+
+  @@unique([userId, resourceId, questionIndex])
+  @@index([userId, dueAt])
+}
+
+// ============ FSRS SPACED REPETITION (PDF) ============
+model PdfReviewItem {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resourceId    String
+  resource      Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  itemType      String   // "whole_pdf" | "page" | "flashcard"
+  pageIndex     Int?     // null for whole_pdf, page number for page type
+  flashcardId   String?  // references PdfFlashcard.id for flashcard type
+
+  // FSRS fields
+  state         Int      @default(0)  // 0=new, 1=learning, 2=review, 3=relearning
+  stability     Float    @default(0)
+  difficulty    Float    @default(0)
+  reps          Int      @default(0)
+  lapses        Int      @default(0)
+  lastReviewAt  DateTime?
+  nextReviewAt  DateTime?
+  dueAt         DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, resourceId, itemType, pageIndex, flashcardId])
+  @@index([userId, dueAt])
+  @@index([userId, resourceId])
+}
+
+model PdfFlashcard {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resourceId  String
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  front       String
+  back        String
+  sourcePage  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, resourceId])
 }
 

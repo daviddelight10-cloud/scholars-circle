@@ -64,7 +64,7 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, re
 router.get("/my", requireAuth, async (req, res) => {
   try {
     const userId = req.user.sub;
-    const isTeacher = req.user.role === "TEACHER";
+    const isTeacher = req.user.role === "TEACHER" || req.user.role === "LECTURER";
 
     let classrooms;
     if (isTeacher) {
@@ -132,6 +132,17 @@ router.get("/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Classroom not found" });
     }
 
+    // Verify access: creator or member only
+    const isCreator = classroom.createdById === req.user.sub;
+    if (!isCreator) {
+      const membership = await prisma.classroomMember.findUnique({
+        where: { classroomId_userId: { classroomId: id, userId: req.user.sub } },
+      }).catch(() => null);
+      if (!membership) {
+        return res.status(403).json({ error: "Not a member of this classroom" });
+      }
+    }
+
     res.json(classroom);
   } catch (error) {
     console.error("Error fetching classroom:", error);
@@ -185,10 +196,15 @@ router.post("/:id/links", requireAuth, requireRole("TEACHER", "LECTURER"), async
   }
 });
 
-// Delete a link (teacher only)
+// Delete a link (teacher only — must be classroom creator)
 router.delete("/:classroomId/links/:linkId", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
-    const { linkId } = req.params;
+    const { classroomId, linkId } = req.params;
+
+    const classroom = await prisma.classroom.findUnique({ where: { id: classroomId }, select: { createdById: true } });
+    if (!classroom) return res.status(404).json({ error: "Classroom not found" });
+    if (classroom.createdById !== req.user.sub) return res.status(403).json({ error: "Only the classroom creator can delete links" });
+
     await prisma.classroomLink.delete({ where: { id: linkId } });
     res.json({ success: true });
   } catch (error) {
@@ -331,10 +347,14 @@ router.get("/documents/:documentId/download", requireAuth, async (req, res) => {
   }
 });
 
-// Delete document (teacher only)
+// Delete document (teacher only — must be classroom creator)
 router.delete("/:classroomId/documents/:documentId", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
-    const { documentId } = req.params;
+    const { classroomId, documentId } = req.params;
+
+    const classroom = await prisma.classroom.findUnique({ where: { id: classroomId }, select: { createdById: true } });
+    if (!classroom) return res.status(404).json({ error: "Classroom not found" });
+    if (classroom.createdById !== req.user.sub) return res.status(403).json({ error: "Only the classroom creator can delete documents" });
 
     const document = await prisma.classroomDocument.findUnique({
       where: { id: documentId },

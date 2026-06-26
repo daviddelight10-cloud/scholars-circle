@@ -286,6 +286,9 @@ router.get("/refresh", requireAuth, async (req, res) => {
         activationExpiry: true,
         planType: true,
         activatedAt: true,
+        totalXp: true,
+        freeTrialViews: true,
+        freeTrialLimit: true,
       },
     });
 
@@ -336,6 +339,9 @@ router.get("/refresh", requireAuth, async (req, res) => {
         planType: user.planType || null,
         activationExpiry: user.activationExpiry || null,
         activatedAt: user.activatedAt || null,
+        totalXp: user.totalXp || 0,
+        freeTrialViews: user.freeTrialViews ?? 0,
+        freeTrialLimit: user.freeTrialLimit ?? 3,
       },
     });
   } catch (e) {

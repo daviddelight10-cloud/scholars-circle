@@ -125,10 +125,10 @@ export default function AITutor({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 20, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              🎓 AI Tutor
+              💬 Scholar's Circle AI
             </h2>
             <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
-              {activeDiscipline.icon} {activeDiscipline.label}
+              Your academic chat assistant
               {subject && <> · 📖 {subject.label}</>}
             </div>
           </div>

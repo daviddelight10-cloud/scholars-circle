@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
+import { API_BASE as BASE } from "./constants.js";
 
 async function authFetch(url, opts = {}) {
   let token = null;

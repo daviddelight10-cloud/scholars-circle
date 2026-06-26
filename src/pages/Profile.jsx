@@ -1,10 +1,26 @@
-import React from "react";
+import React, { memo } from "react";
+import { StudentProfile } from "../features/StudentProfile.jsx";
+import { CardSkeleton } from "../components/LoadingSkeleton";
+import { useAuth } from "../contexts/AuthContext";
 
-export default function Profile() {
+function Profile({
+  studentProfile,
+  authUser: authUserProp,
+  onSave,
+  loading,
+}) {
+  const { user: ctxUser } = useAuth();
+  const authUser = authUserProp ?? ctxUser;
+  if (loading) {
+    return <CardSkeleton />;
+  }
   return (
-    <div className="card">
-      <h2>⚙️ Profile & Settings</h2>
-      <p className="muted">User profile and settings - content to be migrated from App.jsx</p>
-    </div>
+    <StudentProfile
+      profile={studentProfile}
+      authUser={authUser}
+      onSave={onSave}
+    />
   );
 }
+
+export default memo(Profile);
