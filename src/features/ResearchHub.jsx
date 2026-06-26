@@ -458,7 +458,9 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       }
     } catch {}
     try {
-      const response = await fetch(`${API_BASE}/api/resources`);
+      const response = await fetch(`${API_BASE}/api/resources`, {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         const data = await response.json();
         setResources(data);

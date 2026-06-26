@@ -344,30 +344,39 @@ router.get("/quiz-attempts/:resourceId/stats", requireAuth, async (req, res) => 
   }
 });
 
-// GET /api/resources/proxy-pdf?url=... - Proxy PDF file to avoid CORS issues with pdf.js
+// GET /api/resources/proxy-pdf?url=... - Proxy file from R2 to avoid CORS issues
 router.get("/proxy-pdf", requireAuth, async (req, res) => {
   try {
     const { url } = req.query;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
     // Only allow proxying from R2 public URL or known storage domains
-    const r2PublicUrl = process.env.R2_PUBLIC_URL;
+    const r2PublicUrl = process.env.R2_PUBLIC_URL || "";
     const allowedPrefixes = [
       r2PublicUrl,
       "https://r2.cloudflarestorage.com",
+      "https://pub-",
     ].filter(Boolean);
 
-    const isAllowed = allowedPrefixes.some((p) => url.startsWith(p));
+    // Also allow any URL that starts with the R2 public URL domain
+    let isAllowed = allowedPrefixes.some((p) => url.startsWith(p));
+    if (!isAllowed && r2PublicUrl) {
+      try {
+        const r2Host = new URL(r2PublicUrl).hostname;
+        const urlHost = new URL(url).hostname;
+        if (r2Host === urlHost) isAllowed = true;
+      } catch {}
+    }
     if (!isAllowed) {
       return res.status(403).json({ error: "URL domain not allowed" });
     }
 
     const response = await fetch(url);
     if (!response.ok) {
-      return res.status(response.status).json({ error: "Failed to fetch PDF from storage" });
+      return res.status(response.status).json({ error: "Failed to fetch file from storage" });
     }
 
-    const contentType = response.headers.get("content-type") || "application/pdf";
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
     const buffer = Buffer.from(await response.arrayBuffer());
 
     res.setHeader("Content-Type", contentType);
@@ -376,8 +385,8 @@ router.get("/proxy-pdf", requireAuth, async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     return res.send(buffer);
   } catch (error) {
-    console.error("PDF proxy error:", error);
-    res.status(500).json({ error: "Failed to proxy PDF" });
+    console.error("File proxy error:", error);
+    res.status(500).json({ error: "Failed to proxy file" });
   }
 });
 

@@ -10,6 +10,11 @@ export function requireAuth(req, res, next) {
     token = req.cookies.auth_token;
   }
   
+  // If still no token, try query param (for iframe/img embeds that can't send headers)
+  if (!token && req.query && req.query.token) {
+    token = req.query.token;
+  }
+  
   if (!token) return res.status(401).json({ error: "Missing token" });
   
   try {

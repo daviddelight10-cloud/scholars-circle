@@ -408,7 +408,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             {resource.description && <p style={{ marginTop: 8, marginBottom: 8 }}>{resource.description}</p>}
             {resource.fileUrl ? (
               <iframe
-                src={resource.fileUrl}
+                src={`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}&token=${encodeURIComponent(JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || "")}`}
                 title={resource.title}
                 style={{ width: "100%", height: "400px", border: "none", borderRadius: "8px", marginTop: 12, background: "#0a0c1e" }}
               />
