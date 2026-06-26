@@ -85,8 +85,8 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/resources/teacher/my - Get teacher's own resources (MUST be before /:token)
-router.get("/teacher/my", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+// GET /api/resources/teacher/my - Get user's own uploaded resources (MUST be before /:token)
+router.get("/teacher/my", requireAuth, async (req, res) => {
   try {
     const resources = await prisma.resource.findMany({
       where: { uploadedBy: req.user.sub },

@@ -697,6 +697,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         if (uploadPreview) URL.revokeObjectURL(uploadPreview);
         setUploadPreview(null);
         showToast("Uploaded ✓");
+        setActiveTab("uploads");
+        fetchMyUploads();
       } else {
         showToast("Upload failed");
       }
@@ -743,6 +745,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         try { const resource = JSON.parse(xhr.responseText); setResources((prev) => [resource, ...prev]); } catch {}
         setShowUploadModal(false);
         showToast("MCQs submitted ✓");
+        setActiveTab("uploads");
+        fetchMyUploads();
       } else {
         showToast("Submission failed");
       }
@@ -1072,7 +1076,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             )}
 
             <p style={styles.modalFootnote}>
-              Uploads go to pending review before appearing in Research Hub — this keeps shared material accurate for everyone.
+              Your upload will appear in My Uploads immediately.
             </p>
           </div>
         </div>
