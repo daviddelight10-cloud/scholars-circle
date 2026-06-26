@@ -8448,12 +8448,6 @@ function App() {
 
               </button>
 
-              <button className={tab === "research-hub" ? "active" : ""} onClick={() => { setTab("research-hub"); setShowMobileMenu(false); }}>
-
-                <span>🔍</span> Research Hub
-
-              </button>
-
             </div>
 
 

@@ -2143,7 +2143,7 @@ ${extractedText}
     },
     // ── AI Study Tools styles ────────────────────────────────────────────────
     studyFab: {
-      position: "absolute",
+      position: "fixed",
       bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 20,
       right: isMobile ? 16 : 20,
       width: 48,
