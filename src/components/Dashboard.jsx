@@ -72,6 +72,7 @@ function RingCard({ entry, onClick }) {
 
   return (
     <div
+      className="dash-ring-card"
       onClick={onClick}
       style={{
         background: T.inkCard, border: `1px solid ${T.line}`, borderRadius: RADIUS.lg,
@@ -158,7 +159,7 @@ function ResumeCard({ lastActivity, mastery, subjects, onResume, hasHistory }) {
   const offset = circumference - (circumference * pct / 100);
 
   return (
-    <div style={{
+    <div className="dash-resume-card" style={{
       background: `linear-gradient(135deg, ${T.inkCard}, ${T.inkCard2})`,
       border: `1px solid ${T.line}`, borderRadius: RADIUS.lg,
       padding: 30, display: "flex", alignItems: "center", gap: 28, position: "relative", overflow: "hidden",
@@ -168,7 +169,7 @@ function ResumeCard({ lastActivity, mastery, subjects, onResume, hasHistory }) {
         background: "radial-gradient(circle at 100% 0%, rgba(79,142,247,0.14), transparent 60%)",
         pointerEvents: "none",
       }} />
-      <div style={{ position: "relative", width: 108, height: 108, flexShrink: 0 }}>
+      <div className="dash-resume-ring" style={{ position: "relative", width: 108, height: 108, flexShrink: 0 }}>
         <svg viewBox="0 0 100 100" width={108} height={108} style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
           <defs>
             <linearGradient id="gradResume" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -221,7 +222,7 @@ function DueCard({ sm2DueCount, fsrsDueCount, onReviewQuestions, onReviewReading
   const rLabel = `${fsrsDueCount} reading${fsrsDueCount !== 1 ? "s" : ""}`;
 
   return (
-    <div style={{
+    <div className="dash-due-card" style={{
       background: T.inkCard, border: `1px solid ${T.line}`, borderRadius: RADIUS.lg,
       padding: 26, display: "flex", flexDirection: "column", justifyContent: "space-between",
     }}>
@@ -280,7 +281,7 @@ function AskCard({ onOpenAI }) {
   const chips = ["Explain the brachial plexus", "Quiz me on GST 115", "Summarise today's PHY 111 slide"];
 
   return (
-    <div style={{
+    <div className="dash-ask-card" style={{
       background: `linear-gradient(135deg, rgba(79,142,247,0.07), ${T.inkCard})`,
       border: `1px solid ${T.line}`, borderRadius: RADIUS.lg, padding: 30,
       display: "flex", flexDirection: "column", gap: 18,
@@ -600,7 +601,32 @@ export default function Dashboard({
 
   return (
     <div style={{ fontFamily: FONTS.body, color: T.text, maxWidth: 1180, margin: "0 auto", padding: "0 0 80px" }}>
-      <style>{`@keyframes spin-slow { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .dash-hero-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+        .dash-ring-wall { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .dash-lower-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .dash-resume-card { display: flex; align-items: center; gap: 28px; }
+        .dash-resume-ring { width: 108px; height: 108px; flexShrink: 0; }
+        .dash-topbar-actions { display: flex; align-items: center; gap: 12px; }
+        @media (max-width: 768px) {
+          .dash-hero-row { grid-template-columns: 1fr !important; }
+          .dash-ring-wall { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+          .dash-lower-grid { grid-template-columns: 1fr !important; }
+          .dash-resume-card { flex-direction: column !important; gap: 16px !important; text-align: center !important; padding: 22px 16px !important; }
+          .dash-resume-ring { width: 80px !important; height: 80px !important; }
+          .dash-topbar-actions { gap: 8px !important; }
+        }
+        @media (max-width: 420px) {
+          .dash-ring-wall { grid-template-columns: 1fr !important; }
+          .dash-topbar-actions .dash-pill { display: none !important; }
+        }
+        @media (max-width: 768px) {
+          .dash-ask-card { padding: 20px 16px !important; }
+          .dash-due-card { padding: 18px 16px !important; }
+          .dash-ring-card { padding: 16px 12px !important; }
+        }
+      `}</style>
 
       {/* Topbar */}
       <div style={{
@@ -617,15 +643,15 @@ export default function Dashboard({
               : "Start a review today to begin your streak."}
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{
+        <div className="dash-topbar-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="dash-pill" style={{
             display: "flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 999,
             background: T.inkCard, border: `1px solid ${T.lineStrong}`,
             fontFamily: FONTS.mono, fontSize: "0.8rem", fontWeight: 600, color: T.coral,
           }}>
             🔥 {stats?.streak || 0}
           </div>
-          <div style={{
+          <div className="dash-pill" style={{
             display: "flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: 999,
             background: T.inkCard, border: `1px solid ${T.lineStrong}`,
             fontFamily: FONTS.mono, fontSize: "0.8rem", fontWeight: 600, color: T.gold,
@@ -652,9 +678,7 @@ export default function Dashboard({
       </div>
 
       {/* Hero row */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginTop: 8,
-      }}>
+      <div className="dash-hero-row" style={{ marginTop: 8 }}>
         <ResumeCard
           lastActivity={lastActivity}
           mastery={mastery}
@@ -693,7 +717,7 @@ export default function Dashboard({
             Take a quiz in Research Hub and your subject mastery will show up here.
           </div>
         ) : (
-          <div style={{
+          <div className="dash-ring-wall" style={{
             display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16,
           }}>
             {subjectMastery.map((entry) => (
@@ -713,7 +737,7 @@ export default function Dashboard({
       </div>
 
       {/* Lower grid — leaderboard + assignments */}
-      <div style={{
+      <div className="dash-lower-grid" style={{
         display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 46,
       }}>
         <LeaderboardCard userXp={stats?.xp || 0} userName={userName} onOpenTab={onOpenTab} onOpenLeaderboard={onOpenLeaderboard} token={token} />

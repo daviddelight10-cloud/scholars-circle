@@ -60,6 +60,17 @@ function getProxiedUrl(fileUrl) {
   return `${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(fileUrl)}`;
 }
 
+// Fetch PDF via proxy with auth headers (pdf.js can't send custom headers)
+async function fetchProxiedPdf(fileUrl) {
+  const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+  const res = await fetch(getProxiedUrl(fileUrl), {
+    headers: authData.authToken ? { Authorization: `Bearer ${authData.authToken}` } : {},
+  });
+  if (!res.ok) throw new Error(`Failed to fetch PDF (${res.status})`);
+  const buffer = await res.arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
 // Load pdf.js from CDN (avoids bundling issues with Vite + PWA)
 function loadPdfJs() {
   if (typeof window !== "undefined" && window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
@@ -232,7 +243,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         setLoadError("");
         const pdfjs = await loadPdfJs();
         if (cancelled) return;
-        const loadingTask = pdfjs.getDocument(getProxiedUrl(fileUrl));
+        const pdfData = await fetchProxiedPdf(fileUrl);
+        if (cancelled) return;
+        const loadingTask = pdfjs.getDocument({ data: pdfData });
         const pdf = await loadingTask.promise;
         if (cancelled) return;
         pdfDocRef.current = pdf;

@@ -242,7 +242,10 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     const cached = getCached(cacheKey);
     if (cached) { setResource(cached); setLoading(false); triggerLogView(cached); return; }
     try {
-      const res = await fetch(`${API_BASE}/api/resources/${token}`);
+      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      const res = await fetch(`${API_BASE}/api/resources/${token}`, {
+        headers: authData.authToken ? { Authorization: `Bearer ${authData.authToken}` } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         setCache(cacheKey, data);
@@ -263,7 +266,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const triggerLogView = async (res) => {
     try {
       const parsed = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      const jwtToken = parsed.token || null;
+      const jwtToken = parsed.authToken || null;
       if (!jwtToken) return; // guests handled via auth overlay
       const r = await fetch(`${API_BASE}/api/resources/${res.shareToken || token}/view`, {
         method: "POST",
