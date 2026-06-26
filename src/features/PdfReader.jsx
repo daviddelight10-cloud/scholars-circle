@@ -644,8 +644,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       const correctLine = lines.find((l) => /^Correct\s*Answer/i.test(l));
       let correct = "";
       if (correctLine) {
-        const m = correctLine.match(/([A-D])/);
-        if (m) correct = m[1];
+        const m = correctLine.match(/Correct\s*Answer[:\s]*([A-D])/i);
+        if (m) correct = m[1].toUpperCase();
       }
 
       const explLine = lines.find((l) => /^Explanation/i.test(l));
