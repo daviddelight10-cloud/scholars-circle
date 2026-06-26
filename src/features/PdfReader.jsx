@@ -720,9 +720,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
       if (studyMode === "mcq") {
         setStudyLoadingMsg("Writing questions from page…");
-        const prompt = `You are an expert exam writer for university students. Look at the page image provided and generate exactly ${count} multiple-choice questions based on what you see.
+        const prompt = `You are an expert exam writer for university students. Look at the page image provided and generate multiple-choice questions based on what you see.
 
 ${supplementaryText ? `The page also contains this text (use alongside the image):\n"""\n${supplementaryText.slice(0, 5000)}\n"""` : ""}
+
+Determine the appropriate number of questions yourself based on how much content is on the page (between 3 and 20). A dense full page of text should yield more questions; a sparse page with little content should yield fewer.
 
 FORMAT — separate each question with a line containing only "---":
 Q: <question text>
@@ -1130,7 +1132,7 @@ ${extractedText}
     if (p.isDue) return { color: "#ef4444", title: "Due for review" };
     if (p.state === 1 || p.state === 3) return { color: "#f59e0b", title: "Learning" };
     if (p.state === 0) return { color: "#94a3b8", title: "New" };
-    return { color: "#3b82f6", title: "Review" };
+    return { color: theme === "light" ? "#2563EB" : "#3b82f6", title: "Review" };
   };
 
   // ---- Chat popup ----
@@ -3295,7 +3297,7 @@ ${extractedText}
                         <img src={msg.image} alt="Circled content" style={s.msgImage} />
                       )}
                       {msg.role === "assistant"
-                        ? <MarkdownText>{msg.content}</MarkdownText>
+                        ? <MarkdownText theme={theme}>{msg.content}</MarkdownText>
                         : msg.content}
                     </div>
                   ))}
@@ -3467,7 +3469,7 @@ ${extractedText}
                     )}
 
                     {/* MCQ count */}
-                    {studyMode === "mcq" && (
+                    {studyMode === "mcq" && studyRangeType !== "auto" && (
                       <div>
                         <div style={s.studyLabel}>Number of Questions</div>
                         <div style={s.studyCountRow}>
@@ -3597,7 +3599,7 @@ ${extractedText}
                               <div style={{ fontSize: 11, color: T.muted }}>{fc.back}</div>
                               {fc.fsrs && (
                                 <div style={{ marginTop: 6, display: "flex", gap: 8, fontSize: 10 }}>
-                                  <span style={{ color: fc.fsrs.isDue ? "#ef4444" : "#4a5080" }}>{fc.fsrs.isDue ? "Due now" : `Due ${new Date(fc.fsrs.dueAt).toLocaleDateString()}`}</span>
+                                  <span style={{ color: fc.fsrs.isDue ? "#ef4444" : (theme === "light" ? "#2563EB" : "#4a5080") }}>{fc.fsrs.isDue ? "Due now" : `Due ${new Date(fc.fsrs.dueAt).toLocaleDateString()}`}</span>
                                   {fc.fsrs.isMastered && <span style={{ color: "#22c55e" }}>✓ Mastered</span>}
                                   <span style={{ color: T.muted }}>Reps: {fc.fsrs.reps}</span>
                                 </div>
@@ -3659,7 +3661,7 @@ ${extractedText}
                           Couldn't structure these questions for saving — you can still copy the text below.
                         </div>
                       )}
-                      <MarkdownText>{studyResult}</MarkdownText>
+                      <MarkdownText theme={theme}>{studyResult}</MarkdownText>
                     </div>
                     <div style={s.studyResultActions}>
                       <button style={s.studyActionBtn} onClick={handleStudyCopy}>
