@@ -207,12 +207,18 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const allResources = useMemo(() => [...resources, ...pendingResources], [resources, pendingResources]);
 
   const filterOptions = useMemo(() => {
-    const keys = ["department", "level", "semester", "subject"];
+    const keys = ["level", "semester", "subject"];
     const result = {};
     for (const key of keys) {
       const set = new Set(allResources.map((r) => r[key]).filter(Boolean));
       result[key] = Array.from(set).sort();
     }
+    const deptSet = new Set();
+    for (const r of allResources) {
+      if (r.department) deptSet.add(r.department);
+      if (r.resourceDepts) r.resourceDepts.forEach((rd) => deptSet.add(rd.department.name));
+    }
+    result.department = Array.from(deptSet).sort();
     return result;
   }, [allResources]);
 

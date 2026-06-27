@@ -14,7 +14,7 @@ async function authFetch(url, opts = {}) {
 }
 
 export async function getDepartments() {
-  const res = await fetch(`${BASE}/api/departments`);
+  const res = await authFetch(`${BASE}/api/departments`);
   if (!res.ok) throw new Error("Failed to load departments");
   return res.json();
 }

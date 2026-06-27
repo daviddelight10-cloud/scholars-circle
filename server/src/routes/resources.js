@@ -1265,8 +1265,10 @@ router.delete("/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Resource not found" });
     }
 
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { role: true } });
+
     // Teachers can delete any resource (including student uploads); uploaders can delete their own
-    if (resource.uploadedBy !== req.user.sub && req.user.role !== "TEACHER" && req.user.role !== "LECTURER") {
+    if (resource.uploadedBy !== req.user.sub && user?.role !== "TEACHER" && user?.role !== "LECTURER") {
       return res.status(403).json({ error: "You can only delete your own resources" });
     }
 
