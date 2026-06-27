@@ -6155,18 +6155,6 @@ function App() {
                     <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
                   </div>
 
-                  {auth.info && (
-                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.3)' }}>
-                      <p style={{ margin: 0, color: '#34d399', fontSize: 13 }}>{auth.info}</p>
-                    </div>
-                  )}
-
-                  {auth.error && (
-                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
-                      <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
-                    </div>
-                  )}
-
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
                       <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email or username</label>
@@ -6237,26 +6225,13 @@ function App() {
                     <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>2-day free trial. No card needed.</p>
                   </div>
 
-                  {auth.info && (
-                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.3)' }}>
-                      <p style={{ margin: 0, color: '#34d399', fontSize: 13 }}>{auth.info}</p>
-                    </div>
-                  )}
-
-                  {auth.error && (
-                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
-                      <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
-                    </div>
-                  )}
-
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
                       <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Full name</label>
                       <input
                         className="auth-input"
                         ref={signupFullNameRef}
-                        onChange={(e) => { signupFullNameRef.current = e.target.value; }}
-                        placeholder="Adeola Okafor"
+                                                placeholder="Adeola Okafor"
                         autoComplete="name"
                       />
                     </div>
@@ -6269,7 +6244,6 @@ function App() {
                         onChange={(e) => {
                           const sanitized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
                           e.target.value = sanitized;
-                          signupUsernameRef.current = sanitized;
                         }}
                         placeholder="adeola_okafor"
                         autoComplete="username"
@@ -6281,7 +6255,7 @@ function App() {
                       <input
                         className="auth-input"
                         ref={signupEmailRef}
-                        onChange={(e) => { signupEmailRef.current = e.target.value.replace(/\s/g, ''); }}
+                        onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, ''); }}
                         placeholder="you@email.com"
                         type="email"
                         autoComplete="email"
@@ -6295,8 +6269,7 @@ function App() {
                           className="auth-input"
                           ref={signupPasswordRef}
                           type={showSignupPassword ? 'text' : 'password'}
-                          onChange={(e) => { signupPasswordRef.current = e.target.value; }}
-                          placeholder="Min 8 characters"
+                                                    placeholder="Min 8 characters"
                           autoComplete="new-password"
                           style={{ paddingRight: 40 }}
                         />
@@ -6318,8 +6291,7 @@ function App() {
                           className="auth-input"
                           ref={signupConfirmPasswordRef}
                           type={showSignupConfirmPassword ? 'text' : 'password'}
-                          onChange={(e) => { signupConfirmPasswordRef.current = e.target.value; }}
-                          placeholder="Re-enter your password"
+                                                    placeholder="Re-enter your password"
                           autoComplete="new-password"
                           style={{ paddingRight: 40 }}
                         />
@@ -6353,7 +6325,7 @@ function App() {
                         <input
                           className="auth-input"
                           ref={signupInviteCodeRef}
-                          onChange={(e) => { signupInviteCodeRef.current = e.target.value.replace(/\s/g, ''); }}
+                          onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, ''); }}
                           placeholder="Enter invite code"
                         />
                       </div>
@@ -6373,6 +6345,19 @@ function App() {
                     Already circling back? <span onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
                   </p>
                 </>
+              )}
+
+              {/* Error / Info banners */}
+              {auth.info && (
+                <div style={{ marginTop: 16, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.3)' }}>
+                  <p style={{ margin: 0, color: '#34d399', fontSize: 13 }}>{auth.info}</p>
+                </div>
+              )}
+
+              {auth.error && (
+                <div style={{ marginTop: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
+                  <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
+                </div>
               )}
 
               {/* Support */}
