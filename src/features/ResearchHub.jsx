@@ -488,7 +488,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
   const fetchUserDept = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/users/me/department`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/users/me/department`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
         setUserDept(data);
