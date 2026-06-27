@@ -787,6 +787,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     const userLevel = levelMap[userDept.yearLevel] || null;
     const userSem = userDept.semester || activeSemester || null;
     return resources.filter((r) => {
+      if (r.uploader?.role === "STUDENT") return false;
       const deptMatches = r.department === userDept.department ||
         (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === userDept.department));
       if (!deptMatches) return false;
