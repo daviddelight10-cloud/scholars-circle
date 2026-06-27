@@ -3049,19 +3049,12 @@ function App() {
 
       });
 
-
-
       // auto-login after successful registration
-
-
-
-      const data = await api("/auth/login", {
-
-        method: "POST",
-
-        body: { login: email, password: password },
-
-      });
+      try {
+        const data = await api("/auth/login", {
+          method: "POST",
+          body: { login: email, password: password },
+        });
 
 
 
@@ -3191,53 +3184,34 @@ function App() {
 
       });
 
-
+      } catch (loginErr) {
+        // Registration succeeded but auto-login failed — switch to login mode
+        console.error("Auto-login after registration failed:", loginErr);
+        setAuth((a) => ({
+          ...a,
+          mode: "login",
+          error: "",
+          info: "Account created successfully! Please sign in with your email and password.",
+          username: email,
+        }));
+      }
 
     } catch (e) {
 
       console.error("Registration error:", e);
 
-      
+      let errorMessage = e.message || "Sign up failed. Please try again.";
 
-      // Extract detailed error message
-
-      let errorMessage = "Sign up failed. Please try again.";
-
-      
-
-      if (e.message) {
-
-        errorMessage = e.message;
-
+      // Network errors — server unreachable
+      if (e.message === "Failed to fetch" || e.message?.includes("NetworkError") || e.message?.includes("network")) {
+        errorMessage = "Could not connect to the server. Please check your internet connection and try again.";
       }
-
-      
-
-      // Add helpful hints for common errors
-
-      if (errorMessage.includes("Password must")) {
-
-        errorMessage += "\n\nPassword requirement:\n• At least 8 characters";
-
-      } else if (errorMessage.includes("Username")) {
-
-        errorMessage += "\n\nUsername requirements:\n• 3-30 characters\n• Letters, numbers, and underscores only\n• No spaces allowed";
-
-      } else if (errorMessage.includes("invite code")) {
-
-        errorMessage += "\n\nPlease check your invite code or contact an administrator.";
-
-      } else if (errorMessage.includes("already exists")) {
-
-        errorMessage += "\n\nTry logging in instead or use a different email/username.";
-
+      // Rate limit errors
+      else if (e.message?.includes("Too many") || e.message?.includes("rate limit")) {
+        errorMessage = "Too many signup attempts. Please wait a few minutes and try again.";
       }
-
-
 
       setAuth((a) => ({ ...a, error: errorMessage, info: "" }));
-
-
 
     }
 
@@ -6181,6 +6155,18 @@ function App() {
                     <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
                   </div>
 
+                  {auth.info && (
+                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.3)' }}>
+                      <p style={{ margin: 0, color: '#34d399', fontSize: 13 }}>{auth.info}</p>
+                    </div>
+                  )}
+
+                  {auth.error && (
+                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
+                      <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
                       <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email or username</label>
@@ -6224,8 +6210,8 @@ function App() {
                       </label>
                     </div>
 
-                    <button onClick={login} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%' }}>
-                      {'Sign in ->'}
+                    <button onClick={login} disabled={loadingOverlay} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%', opacity: loadingOverlay ? 0.6 : 1, cursor: loadingOverlay ? 'not-allowed' : 'pointer' }}>
+                      {loadingOverlay ? 'Signing in...' : 'Sign in ->'}
                     </button>
                   </div>
 
@@ -6250,6 +6236,18 @@ function App() {
                     <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Join the Circle</h1>
                     <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>2-day free trial. No card needed.</p>
                   </div>
+
+                  {auth.info && (
+                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.3)' }}>
+                      <p style={{ margin: 0, color: '#34d399', fontSize: 13 }}>{auth.info}</p>
+                    </div>
+                  )}
+
+                  {auth.error && (
+                    <div style={{ marginBottom: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
+                      <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
@@ -6366,8 +6364,8 @@ function App() {
                       <span>I agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#4F8EF7', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#4F8EF7', fontWeight: 600 }}>Privacy Policy</a>.</span>
                     </label>
 
-                    <button onClick={signup} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%' }}>
-                      {'Start your 2-day free trial ->'}
+                    <button onClick={signup} disabled={loadingOverlay} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%', opacity: loadingOverlay ? 0.6 : 1, cursor: loadingOverlay ? 'not-allowed' : 'pointer' }}>
+                      {loadingOverlay ? 'Creating account...' : 'Start your 2-day free trial ->'}
                     </button>
                   </div>
 
@@ -6375,19 +6373,6 @@ function App() {
                     Already circling back? <span onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
                   </p>
                 </>
-              )}
-
-              {/* Error / Info banners */}
-              {auth.info && (
-                <div style={{ marginTop: 16, padding: 12, background: 'rgba(52,211,153,0.1)', borderRadius: 10, border: '1px solid rgba(52,211,153,0.3)' }}>
-                  <p style={{ margin: 0, color: '#34d399', fontSize: 13 }}>{auth.info}</p>
-                </div>
-              )}
-
-              {auth.error && (
-                <div style={{ marginTop: 16, padding: 12, background: 'rgba(248,113,113,0.1)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.3)' }}>
-                  <p style={{ margin: 0, color: '#f87171', fontSize: 13, whiteSpace: 'pre-wrap' }}>{auth.error}</p>
-                </div>
               )}
 
               {/* Support */}
