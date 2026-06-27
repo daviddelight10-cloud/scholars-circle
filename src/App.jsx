@@ -2953,9 +2953,69 @@ function App() {
 
       
 
-      if (!email || !username || !password) {
+      if (!email) {
 
-        setAuth((a) => ({ ...a, error: "Please fill in your email, username, and password.", info: "" }));
+        setAuth((a) => ({ ...a, error: "Please enter your email address.", info: "" }));
+
+        setLoadingOverlay(false);
+
+        return;
+
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+
+        setAuth((a) => ({ ...a, error: "Please enter a valid email address (e.g. you@example.com).", info: "" }));
+
+        setLoadingOverlay(false);
+
+        return;
+
+      }
+
+      if (!username) {
+
+        setAuth((a) => ({ ...a, error: "Please choose a username.", info: "" }));
+
+        setLoadingOverlay(false);
+
+        return;
+
+      }
+
+      if (username.length < 3) {
+
+        setAuth((a) => ({ ...a, error: "Username must be at least 3 characters.", info: "" }));
+
+        setLoadingOverlay(false);
+
+        return;
+
+      }
+
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+
+        setAuth((a) => ({ ...a, error: "Username can only contain letters, numbers, and underscores (no spaces).", info: "" }));
+
+        setLoadingOverlay(false);
+
+        return;
+
+      }
+
+      if (!password) {
+
+        setAuth((a) => ({ ...a, error: "Please enter a password.", info: "" }));
+
+        setLoadingOverlay(false);
+
+        return;
+
+      }
+
+      if (password.length < 8) {
+
+        setAuth((a) => ({ ...a, error: "Password must be at least 8 characters.", info: "" }));
 
         setLoadingOverlay(false);
 

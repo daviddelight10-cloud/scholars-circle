@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
 import PdfReader from "./PdfReader.jsx";
+import DocumentReader from "./DocumentReader.jsx";
 import McqQuizRunner from "./McqQuizRunner.jsx";
 
 import { API_BASE } from "../lib/constants";
@@ -389,6 +390,27 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         ) : (
           <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center", color: "#4a5080" }}>
             PDF not available
+          </div>
+        );
+
+      case "image":
+      case "docx":
+      case "txt":
+      case "pptx":
+        return resource.fileUrl ? (
+          <DocumentReader
+            fileUrl={resource.fileUrl}
+            title={resource.title}
+            contentType={resource.contentType}
+            resourceId={resource.id}
+            onBack={onBack || (() => {
+              window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
+              navigate("/app");
+            })}
+          />
+        ) : (
+          <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center", color: "#4a5080" }}>
+            Document not available
           </div>
         );
 

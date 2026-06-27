@@ -15,12 +15,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: (req, file, cb) => {
-    const allowedExtensions = [".pdf", ".docx", ".doc", ".txt", ".json"];
+    const allowedExtensions = [".pdf", ".docx", ".doc", ".txt", ".json", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".pptx"];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedExtensions.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error("Only PDF, DOCX, TXT, and JSON files are allowed (max 20MB)"));
+      cb(new Error("Only PDF, DOCX, PPTX, TXT, JSON, and image files are allowed (max 20MB)"));
     }
   },
 });

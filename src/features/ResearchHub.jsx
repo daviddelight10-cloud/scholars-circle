@@ -1000,7 +1000,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             </div>
 
             <div style={styles.segmentRow}>
-              {[["pdf", "PDF"], ["note", "Note"], ["mcq", "MCQ set"]].map(([key, label]) => (
+              {[["pdf", "PDF"], ["image", "Image"], ["docx", "DOCX"], ["pptx", "PPTX"], ["txt", "TXT"], ["note", "Note"], ["mcq", "MCQ set"]].map(([key, label]) => (
                 <button key={key} onClick={() => setUploadType(key)} style={uploadType === key ? styles.segActive : styles.seg}>{label}</button>
               ))}
             </div>
@@ -1027,7 +1027,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                     background: dragOver ? "#0f1240" : "#0a0c1e",
                   }}
                 >
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt" onChange={handleFilePick} style={{ display: "none" }} ref={fileInputRef} />
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleFilePick} style={{ display: "none" }} ref={fileInputRef} />
                   {uploadPreview ? (
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
                       <img src={uploadPreview} alt="Preview" style={{ maxWidth: "100%", maxHeight: "160px", borderRadius: "8px", objectFit: "contain" }} />

@@ -35,7 +35,7 @@ export default function ResourceUploadForm() {
   const [mcqBank, setMcqBank] = useState([]);
 
   const subjects = ["PHY", "BIO", "ANA", "Cardiology", "GST", "HEE", "Other"];
-  const contentTypes = ["Note", "PDF", "MCQ", "Tutorial Question"];
+  const contentTypes = ["Note", "PDF", "Image", "DOCX", "PPTX", "TXT", "MCQ", "Tutorial Question"];
   const levels = ["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"];
   const semesters = ["First Semester", "Second Semester"];
 
@@ -390,14 +390,14 @@ export default function ResourceUploadForm() {
                 id="fileInput"
                 type="file"
                 onChange={handleFileChange}
-                accept=".pdf,.docx,.doc,.txt,.json"
+                accept=".pdf,.docx,.doc,.txt,.json,.png,.jpg,.jpeg,.webp,.gif,.bmp,.pptx"
                 style={{ display: "none" }}
               />
               <div style={{ fontSize: "24px", color: "#3a3d60", marginBottom: "8px" }}>📁</div>
               <p style={{ fontSize: "14px", color: "#4a5080", margin: 0 }}>
                 {file ? file.name : "Drop file here or tap to browse"}
               </p>
-              <span style={{ fontSize: "12px", color: "#2e3260" }}>PDF, DOCX, TXT, JSON · Max 20MB</span>
+              <span style={{ fontSize: "12px", color: "#2e3260" }}>PDF, DOCX, PPTX, TXT, Images · Max 20MB</span>
             </div>
           </div>
         )}

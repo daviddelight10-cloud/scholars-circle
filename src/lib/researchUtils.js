@@ -33,6 +33,10 @@ export function getContentTypeIcon(type) {
     note: "📖",
     mcq: "📝",
     tutorial_question: "❓",
+    image: "🖼️",
+    docx: "📃",
+    pptx: "📊",
+    txt: "📝",
   };
   return icons[type] || "📄";
 }
@@ -44,6 +48,10 @@ export function getContentTypeIconClass(type) {
     note: "icon-note",
     mcq: "icon-mcq",
     tutorial_question: "icon-tq",
+    image: "icon-image",
+    docx: "icon-docx",
+    pptx: "icon-pptx",
+    txt: "icon-txt",
   };
   return classes[type] || "icon-pdf";
 }
