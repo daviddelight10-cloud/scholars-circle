@@ -222,8 +222,8 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
   }, [rawQuestions, prepareQuestions]);
 
   const handleRetryWrong = useCallback(() => {
-    prepareQuestions(rawQuestions, true, answers);
-  }, [rawQuestions, answers, prepareQuestions]);
+    prepareQuestions(shuffledQuestions, true, answers);
+  }, [shuffledQuestions, answers, prepareQuestions]);
 
   const handleShare = async () => {
     if (!shareToken) return;
