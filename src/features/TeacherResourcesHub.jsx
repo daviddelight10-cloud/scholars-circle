@@ -24,6 +24,9 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const [editForm, setEditForm] = useState({ title: "", subject: "", description: "", isPremium: false, level: "", semester: "" });
   const [editDeptIds, setEditDeptIds] = useState([]);
   const [editSaving, setEditSaving] = useState(false);
+  const [editingMcq, setEditingMcq] = useState(null);
+  const [mcqDrafts, setMcqDrafts] = useState([]);
+  const [mcqSaving, setMcqSaving] = useState(false);
   const levels = ["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"];
   const semesters = ["First Semester", "Second Semester"];
 
@@ -182,6 +185,50 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     setEditSaving(false);
   };
 
+  const openMcqEditor = (resource) => {
+    let mcqs = resource.mcqData;
+    if (typeof mcqs === "string") {
+      try { mcqs = JSON.parse(mcqs); } catch { mcqs = []; }
+    }
+    if (!Array.isArray(mcqs)) mcqs = [];
+    setMcqDrafts(mcqs.map((q) => ({
+      question: q.question || "",
+      options: q.options || { A: "", B: "", C: "", D: "" },
+      correct: q.correct || "A",
+      explanation: q.explanation || "",
+    })));
+    setEditingMcq(resource);
+  };
+
+  const saveMcq = async () => {
+    if (!editingMcq) return;
+    if (mcqDrafts.length === 0) {
+      showToast("At least one question is required");
+      return;
+    }
+    setMcqSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/${editingMcq.id}`, {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ mcqData: mcqDrafts }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setResources((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setPendingResources((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setEditingMcq(null);
+        showToast("Questions updated ✓");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Update failed");
+      }
+    } catch {
+      showToast("Update failed — check connection");
+    }
+    setMcqSaving(false);
+  };
+
   const activeFilterCount = ["level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
 
   const filteredResources = useMemo(() => {
@@ -269,6 +316,15 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
             }}>👁️</button>
+          )}
+          {resource.contentType === "mcq" && (
+            <button onClick={() => openMcqEditor(resource)} title="Edit Questions" style={{
+              width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+            }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#9fa8da"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
+            >📝</button>
           )}
           <button onClick={() => openEdit(resource)} title="Edit" style={{
             width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
@@ -526,6 +582,50 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             <div style={{ display: "flex", gap: "10px" }}>
               <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: "10px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#9fa8da", cursor: "pointer" }}>Cancel</button>
               <button onClick={() => handleDelete(deleteConfirm)} style={{ flex: 1, padding: "10px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#ef9a9a", cursor: "pointer" }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MCQ Editor Modal */}
+      {editingMcq && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", zIndex: 2000, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={(e) => e.target === e.currentTarget && setEditingMcq(null)}>
+          <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2140", borderTop: "2px solid #3949ab", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 720, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "14px 18px 10px", borderBottom: "0.5px solid #1e2140", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#e8eaf6", flex: 1, fontFamily: "Syne,sans-serif" }}>Edit MCQ Questions — {editingMcq.title}</div>
+              <button onClick={() => setEditingMcq(null)} style={{ background: "none", border: "none", color: "#4a5080", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ overflowY: "auto", padding: "14px 18px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+              {mcqDrafts.map((q, qi) => (
+                <div key={qi} style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 12, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#3949ab" }}>Q{qi + 1}</span>
+                    <div style={{ flex: 1 }} />
+                    <button onClick={() => setMcqDrafts((prev) => prev.filter((_, i) => i !== qi))} style={{ background: "#140808", border: "0.5px solid #4a1414", borderRadius: 7, padding: "3px 8px", fontSize: 11, color: "#ef9a9a", cursor: "pointer" }}>✕</button>
+                  </div>
+                  <textarea value={q.question} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, question: e.target.value } : x))} rows={2} placeholder="Question text…" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#9fa8da", outline: "none", resize: "vertical", marginBottom: 8 }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+                    {["A", "B", "C", "D"].map((l) => (
+                      <div key={l} style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: q.correct === l ? "#81c784" : "#4a5080", fontWeight: q.correct === l ? 700 : 400, flexShrink: 0, width: 14 }}>{l}:</span>
+                        <input value={q.options?.[l] || ""} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, options: { ...x.options, [l]: e.target.value } } : x))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 7, padding: "5px 8px", fontSize: 11, color: "#9fa8da", outline: "none" }} />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                    <select value={q.correct} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, correct: e.target.value } : x))} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 7, padding: "4px 8px", fontSize: 11, color: "#9fa8da", outline: "none" }}>
+                      {["A", "B", "C", "D"].map((l) => <option key={l} value={l}>✓ {l}</option>)}
+                    </select>
+                  </div>
+                  <textarea value={q.explanation || ""} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, explanation: e.target.value } : x))} rows={2} placeholder="Explanation (optional)…" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 8, padding: "8px 10px", fontSize: 11, color: "#9fa8da", outline: "none", resize: "vertical" }} />
+                </div>
+              ))}
+              <button onClick={() => setMcqDrafts((prev) => [...prev, { question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" }])} style={{ background: "#0d0f1f", border: "0.5px dashed #2a3080", borderRadius: 10, padding: "10px", fontSize: 12, color: "#9fa8da", cursor: "pointer", fontWeight: 600 }}>
+                + Add Question
+              </button>
+              <button onClick={saveMcq} disabled={mcqSaving} style={{ background: mcqSaving ? "#12142a" : "#1a237e", border: "0.5px solid #3949ab", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: mcqSaving ? "#4a5080" : "#c5cae9", cursor: mcqSaving ? "not-allowed" : "pointer", fontWeight: 700, marginTop: 4 }}>
+                {mcqSaving ? "Saving…" : `Save ${mcqDrafts.length} Question${mcqDrafts.length !== 1 ? "s" : ""}`}
+              </button>
             </div>
           </div>
         </div>

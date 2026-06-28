@@ -32,6 +32,7 @@ export default function ResourceUploadForm() {
   const [manualQuestion, setManualQuestion] = useState("");
   const [manualOptions, setManualOptions] = useState({ A: "", B: "", C: "", D: "" });
   const [manualCorrect, setManualCorrect] = useState("");
+  const [manualExplanation, setManualExplanation] = useState("");
   const [mcqBank, setMcqBank] = useState([]);
 
   const subjects = ["PHY", "BIO", "ANA", "Cardiology", "GST", "HEE", "Other"];
@@ -52,6 +53,7 @@ export default function ResourceUploadForm() {
       setManualQuestion("");
       setManualOptions({ A: "", B: "", C: "", D: "" });
       setManualCorrect("");
+      setManualExplanation("");
       setAiNotes("");
     }
   }, [formData.contentType, isMcqType]);
@@ -97,6 +99,7 @@ export default function ResourceUploadForm() {
         question: manualQuestion,
         options: manualOptions,
         correct: manualCorrect,
+        explanation: manualExplanation || undefined,
       },
     ]);
 
@@ -104,6 +107,7 @@ export default function ResourceUploadForm() {
     setManualQuestion("");
     setManualOptions({ A: "", B: "", C: "", D: "" });
     setManualCorrect("");
+    setManualExplanation("");
     setError("");
   };
 
@@ -117,7 +121,7 @@ export default function ResourceUploadForm() {
     setError("");
 
     try {
-      const prompt = `You are an exam MCQ generator for university students. Generate exactly ${aiCount} multiple-choice questions based on this topic/notes:\n\n${aiNotes}\n\nRespond ONLY with a valid JSON array. No markdown, no extra text. Format:\n[\n  {\n    "question": "Question text?",\n    "options": {"A":"...","B":"...","C":"...","D":"..."},\n    "correct": "A"\n  }\n]`;
+      const prompt = `You are an exam MCQ generator for university students. Generate exactly ${aiCount} multiple-choice questions based on this topic/notes:\n\n${aiNotes}\n\nRespond ONLY with a valid JSON array. No markdown, no extra text. Format:\n[\n  {\n    "question": "Question text?",\n    "options": {"A":"...","B":"...","C":"...","D":"..."},\n    "correct": "A",\n    "explanation": "Brief explanation of why the correct answer is right."\n  }\n]`;
 
       const response = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
       const parsed = extractJSON(response, "array");
@@ -517,6 +521,26 @@ export default function ResourceUploadForm() {
                     </div>
                   ))}
                 </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", color: "#7b82b8", marginBottom: "4px" }}>Explanation (optional)</label>
+                  <textarea
+                    value={manualExplanation}
+                    onChange={(e) => setManualExplanation(e.target.value)}
+                    rows="2"
+                    placeholder="Explain why the correct answer is right…"
+                    style={{
+                      width: "100%",
+                      background: "#0a0c1e",
+                      border: "0.5px solid #1e2245",
+                      borderRadius: "8px",
+                      padding: "8px 12px",
+                      fontSize: "12px",
+                      color: "#9fa8da",
+                      outline: "none",
+                      resize: "none",
+                    }}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={addManualQuestion}
@@ -676,6 +700,11 @@ export default function ResourceUploadForm() {
                           </span>
                         ))}
                       </div>
+                      {q.explanation && (
+                        <div style={{ fontSize: "10px", color: "#7b82b8", marginTop: "6px", fontStyle: "italic", lineHeight: 1.4 }}>
+                          💡 {q.explanation}
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => deleteMcqQuestion(i)}

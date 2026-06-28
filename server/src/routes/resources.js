@@ -1211,7 +1211,7 @@ router.post("/:token/view", requireAuth, async (req, res) => {
 router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, subject, description, isPremium, department, level, semester, departmentIds } = req.body;
+    const { title, subject, description, isPremium, department, level, semester, departmentIds, mcqData } = req.body;
 
     const resource = await prisma.resource.findUnique({
       where: { id },
@@ -1238,6 +1238,20 @@ router.patch("/:id", requireAuth, async (req, res) => {
       }
     }
 
+    // Parse mcqData if provided (for MCQ-type resources)
+    let parsedMcqData = null;
+    if (mcqData) {
+      try {
+        const data = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData;
+        if (!Array.isArray(data) || data.length === 0) {
+          return res.status(400).json({ error: "MCQ data must be a non-empty array" });
+        }
+        parsedMcqData = data;
+      } catch {
+        return res.status(400).json({ error: "Invalid MCQ data format" });
+      }
+    }
+
     const updated = await prisma.resource.update({
       where: { id },
       data: {
@@ -1248,6 +1262,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
         ...(department !== undefined && { department }),
         ...(level !== undefined && { level }),
         ...(semester !== undefined && { semester }),
+        ...(parsedMcqData && { mcqData: parsedMcqData }),
         ...(parsedDeptIds !== null && {
           resourceDepts: {
             deleteMany: {},
