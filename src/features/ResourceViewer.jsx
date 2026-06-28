@@ -33,10 +33,6 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
 
-  // MCQ state
-  const [selectedAnswers, setSelectedAnswers] = useState({});
-  const [showResults, setShowResults] = useState(false);
-
   useEffect(() => {
     checkAuth();
   }, []);
@@ -196,13 +192,6 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     setTimeout(() => setToast(null), 2200);
   };
 
-  const handleMCQAnswer = (questionIndex, option) => {
-    setSelectedAnswers((prev) => ({ ...prev, [questionIndex]: option }));
-  };
-
-  const checkMCQResults = () => {
-    setShowResults(true);
-  };
 
   const renderContent = () => {
     if (!resource) return null;
@@ -636,8 +625,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         <div style={{ marginBottom: "16px" }}>{renderAuthOverlay()}</div>
       ) : null}
 
-      {/* Share button */}
-      {authCase === "loggedin" && (allowed || (!trialInfo && !isPremiumResource)) && (
+      {/* Share button — not rendered for MCQ (McqQuizRunner owns share on its results screen) */}
+      {authCase === "loggedin" && resource?.contentType !== "mcq" && (allowed || (!trialInfo && !isPremiumResource)) && (
         <button
           onClick={handleShare}
           style={{
@@ -660,8 +649,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         </button>
       )}
 
-      {/* Ratings & Comments */}
-      {authCase === "loggedin" && (allowed || (!trialInfo && !isPremiumResource)) && resource?.id && (
+      {/* Ratings & Comments — not rendered for MCQ (McqQuizRunner owns ratings on its results screen) */}
+      {authCase === "loggedin" && resource?.contentType !== "mcq" && (allowed || (!trialInfo && !isPremiumResource)) && resource?.id && (
         <RatingsAndComments resourceId={resource.id} />
       )}
 

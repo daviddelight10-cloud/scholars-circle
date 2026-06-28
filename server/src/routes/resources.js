@@ -214,14 +214,15 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "resourceId, score, and total are required" });
     }
 
-    const xpAwarded = score * 20;
-
     // Check if this is the user's first attempt on this resource
     const existingAttempts = await prisma.quizAttempt.findMany({
       where: { resourceId, userId: req.user.sub },
       select: { id: true },
     });
     const isFirstAttempt = existingAttempts.length === 0;
+
+    // Gate XP to first attempt only (prevents farming); 10 XP per correct — matches session rate
+    const xpAwarded = isFirstAttempt ? score * 10 : 0;
 
     // Create attempt record
     const attempt = await prisma.quizAttempt.create({
@@ -289,11 +290,18 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
     // Update universal daily streak (synced across the whole app)
     const streakInfo = await updateUniversalStreak(req.user.sub, prisma);
 
-    // Increment user's totalXp
-    await prisma.user.update({
-      where: { id: req.user.sub },
-      data: { totalXp: { increment: xpAwarded } },
-    });
+    // Write XP to both ledgers on first attempt so totalXp and userProgress.xp stay in sync
+    if (xpAwarded > 0) {
+      await prisma.user.update({
+        where: { id: req.user.sub },
+        data: { totalXp: { increment: xpAwarded } },
+      });
+      await prisma.userProgress.upsert({
+        where: { userId: req.user.sub },
+        create: { userId: req.user.sub, xp: xpAwarded },
+        update: { xp: { increment: xpAwarded } },
+      }).catch(() => {});
+    }
 
     // Compute percentile and rank
     const allAttempts = await prisma.quizAttempt.findMany({
@@ -1089,8 +1097,8 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
       if (!Array.isArray(parsedMcqData) || parsedMcqData.length === 0) {
         return res.status(400).json({ error: "MCQ data must be a non-empty array" });
       }
-    } else {
-      // For non-MCQ types, file is required
+    } else if (contentType !== "note") {
+      // For non-MCQ, non-note types, file is required
       if (!req.file) {
         return res.status(400).json({ error: "File is required for this content type" });
       }
@@ -1126,7 +1134,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         isPremium: isPremium === "true",
         shareToken,
         mcqData: contentType === "mcq" ? JSON.parse(mcqData) : null,
-        status: isStudent ? "approved" : "pending",
+        status: isStudent ? "pending" : "approved",
         department: finalDept,
         level: finalLevel,
         semester: finalSemester,

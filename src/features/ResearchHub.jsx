@@ -405,16 +405,19 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const [uploadType, setUploadType] = useState("pdf");
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadSubject, setUploadSubject] = useState("");
   const [uploadFile, setUploadFile] = useState(null);
+  const [uploadDescription, setUploadDescription] = useState("");
   const [uploadPreview, setUploadPreview] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [mcqRows, setMcqRows] = useState([emptyMcqRow()]);
   const fileInputRef = useRef(null);
+  const foryouFallenBack = useRef(false);
 
   const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
   const filterLabels = { all: "All", note: "Notes", pdf: "PDF", mcq: "MCQ", tutorial_question: "Tutorial Q" };
@@ -545,11 +548,12 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   };
 
   const handleQuizComplete = useCallback((data) => {
-    // Refresh review queue and stats after quiz submission
+    // Refresh review queue, stats, and XP badge after quiz submission
     fetchReviewQueue();
     fetchReviewStats();
     fetchFsrsDue();
     fetchFsrsStats();
+    fetchUserInfo();
     // Notify parent (App.jsx) of streak update for universal sync
     if (onStreakUpdate && data.streak != null) onStreakUpdate(data.streak, data.longestStreak);
   }, [onStreakUpdate]);
@@ -617,6 +621,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     setUploadTitle("");
     setUploadSubject("");
     setUploadFile(null);
+    setUploadDescription("");
     setUploadPreview(null);
     setUploadProgress(0);
     setMcqRows([emptyMcqRow()]);
@@ -630,10 +635,23 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     setUploadPreview(null);
   };
 
+  const extToContentType = (filename) => {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    if (["pdf"].includes(ext)) return "pdf";
+    if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext)) return "image";
+    if (["docx", "doc"].includes(ext)) return "docx";
+    if (["pptx"].includes(ext)) return "pptx";
+    if (["txt"].includes(ext)) return "txt";
+    return null;
+  };
+
   const handleFileSelected = (file) => {
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) { showToast("File too large — 20MB max"); return; }
     setUploadFile(file);
+    // Auto-detect contentType from file extension to prevent mismatch
+    const detected = extToContentType(file.name);
+    if (detected) setUploadType(detected);
     if (file.type.startsWith("image/")) {
       const url = URL.createObjectURL(file);
       setUploadPreview(url);
@@ -668,8 +686,16 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   };
 
   const submitFileUpload = () => {
-    if (!uploadTitle.trim() || !uploadSubject.trim() || !uploadFile) {
-      showToast("Add a title, subject, and file first");
+    if (!uploadTitle.trim() || !uploadSubject.trim()) {
+      showToast("Add a title and subject first");
+      return;
+    }
+    if (uploadType !== "note" && !uploadFile) {
+      showToast("Choose a file first");
+      return;
+    }
+    if (uploadType === "note" && !uploadDescription.trim()) {
+      showToast("Write some note content first");
       return;
     }
     setUploading(true);
@@ -680,7 +706,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     formData.append("subject", uploadSubject.trim());
     formData.append("contentType", uploadType);
     formData.append("isPremium", "false");
-    formData.append("file", uploadFile);
+    if (uploadFile) formData.append("file", uploadFile);
+    if (uploadDescription.trim()) formData.append("description", uploadDescription.trim());
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -694,11 +721,14 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const resource = JSON.parse(xhr.responseText);
-          setResources((prev) => {
-            const updated = [resource, ...prev];
-            try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
-            return updated;
-          });
+          // Only inject approved resources into the All Materials cache
+          if (resource.status === "approved") {
+            setResources((prev) => {
+              const updated = [resource, ...prev];
+              try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
+              return updated;
+            });
+          }
         } catch {}
         setShowUploadModal(false);
         if (uploadPreview) URL.revokeObjectURL(uploadPreview);
@@ -751,11 +781,14 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const resource = JSON.parse(xhr.responseText);
-          setResources((prev) => {
-            const updated = [resource, ...prev];
-            try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
-            return updated;
-          });
+          // Only inject approved resources into the All Materials cache
+          if (resource.status === "approved") {
+            setResources((prev) => {
+              const updated = [resource, ...prev];
+              try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
+              return updated;
+            });
+          }
         } catch {}
         setShowUploadModal(false);
         showToast("MCQs submitted ✓");
@@ -796,6 +829,15 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       return true;
     });
   }, [resources, userDept, activeSemester]);
+
+  // Auto-fallback: if For You is empty after initial load, switch to All Materials once
+  useEffect(() => {
+    if (activeTab !== "foryou" || loading) return;
+    if (forYouResources.length === 0 && !foryouFallenBack.current) {
+      foryouFallenBack.current = true;
+      setActiveTab("all");
+    }
+  }, [activeTab, loading, forYouResources]);
 
   // Tab-based source list
   const tabResources = useMemo(() => {
@@ -846,7 +888,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
   return (
     <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
-      <button onClick={() => onBack ? onBack() : navigate("/app")} style={styles.backBtn}>← Back</button>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "14px", marginBottom: "20px" }}>
@@ -884,18 +925,46 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             </div>
           )}
         </div>
-        <button onClick={() => openUpload("pdf")} style={styles.addBtn}>+ Add material</button>
+        <div style={{ position: "relative" }}>
+          <button onClick={() => setShowAddMenu((v) => !v)} style={styles.addBtn}>
+            + Add material <span style={{ fontSize: "10px", opacity: 0.75, marginLeft: "2px" }}>▾</span>
+          </button>
+          {showAddMenu && (
+            <>
+              <div onClick={() => setShowAddMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 9 }} />
+              <div style={styles.addDropdown}>
+                <button onClick={() => { openUpload("pdf"); setShowAddMenu(false); }} style={styles.addDropdownItem}>
+                  <span>📎 Upload file</span>
+                  <span style={{ fontSize: "10px", color: "#4a5080", display: "block", fontWeight: 400, marginTop: "2px" }}>PDF, Image, DOCX, Note…</span>
+                </button>
+                <div style={{ height: "0.5px", background: "#1e2245", margin: "0 12px" }} />
+                <button onClick={() => { openUpload("mcq"); setShowAddMenu(false); }} style={styles.addDropdownItem}>
+                  <span>✎ Create MCQ set</span>
+                  <span style={{ fontSize: "10px", color: "#4a5080", display: "block", fontWeight: 400, marginTop: "2px" }}>Build a quiz question set</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Review Banner */}
       <ReviewBanner reviewData={reviewData} reviewStats={reviewStats} onReview={handleReview} />
 
-      {/* Tabs */}
-      <div style={styles.tabRow}>
-        {[["foryou", "For You"], ["all", "All Materials"], ["space", "My Space"], ["uploads", "My Uploads"], ["progress", "Progress"], ["fsrs", "Review"]].map(([key, label]) => (
+      {/* Tabs — horizontally scrollable on mobile */}
+      <div className="sc-tabrow" style={styles.tabRow}>
+        {[["foryou", "For You"], ["all", "All"], ["space", "My Space"], ["uploads", "Uploads"]].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)} style={activeTab === key ? styles.tabActive : styles.tab}>
             {label}
             {key === "space" && bookmarkedIds.size > 0 && <span style={styles.tabCount}>{bookmarkedIds.size}</span>}
+          </button>
+        ))}
+        {/* Thin divider before analytics */}
+        <div style={{ width: "1px", background: "#1e2245", margin: "6px 4px", flexShrink: 0 }} />
+        {[["progress", "📊"], ["fsrs", "🔁"]].map(([key, icon]) => (
+          <button key={key} title={key === "progress" ? "Progress" : "Review"} onClick={() => setActiveTab(key)}
+            style={activeTab === key ? styles.tabActive : { ...styles.tab, color: "#3a3d60", padding: "8px 12px" }}>
+            {icon}
             {key === "progress" && reviewData && reviewData.total > 0 && <span style={styles.tabCount}>{reviewData.total}</span>}
             {key === "fsrs" && fsrsStats && fsrsStats.dueCount > 0 && <span style={styles.tabCount}>{fsrsStats.dueCount}</span>}
           </button>
@@ -1015,7 +1084,22 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
               <datalist id="subjectOptions">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
             </div>
 
-            {uploadType !== "mcq" ? (
+            {uploadType === "note" ? (
+              <>
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={styles.fieldLabel}>Note content</label>
+                  <textarea
+                    value={uploadDescription}
+                    onChange={(e) => setUploadDescription(e.target.value)}
+                    placeholder="Write your note here…"
+                    style={{ ...styles.input, minHeight: "120px", resize: "vertical", fontFamily: "inherit" }}
+                  />
+                </div>
+                <button onClick={submitFileUpload} disabled={uploading || !uploadDescription.trim()} style={{ ...styles.submit, opacity: uploading || !uploadDescription.trim() ? 0.5 : 1, cursor: uploading || !uploadDescription.trim() ? "not-allowed" : "pointer" }}>
+                  {uploading ? "Uploading..." : "Publish note"}
+                </button>
+              </>
+            ) : uploadType !== "mcq" ? (
               <>
                 <label
                   onDrop={handleDrop}
@@ -1091,7 +1175,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             )}
 
             <p style={styles.modalFootnote}>
-              Your upload will appear in My Uploads immediately.
+              Your upload will appear in My Uploads. Student uploads require moderator approval before going public; teacher/lecturer uploads go live immediately.
             </p>
           </div>
         </div>
@@ -1102,6 +1186,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
           from { opacity: 0; transform: translateX(-50%) translateY(8px); }
           to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
+        .sc-tabrow::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   );
@@ -1110,7 +1195,9 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 const styles = {
   backBtn: { display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "13px", color: "#7b82b8", cursor: "pointer", marginBottom: "20px" },
   addBtn: { padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#c5cae9", cursor: "pointer" },
-  tabRow: { display: "flex", gap: "6px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "999px", padding: "4px", marginBottom: "16px", width: "fit-content", flexWrap: "wrap" },
+  tabRow: { display: "flex", gap: "4px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "999px", padding: "4px", marginBottom: "16px", width: "100%", alignItems: "center", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" },
+  addDropdown: { position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#0d0f20", border: "0.5px solid #2a2d4a", borderRadius: "10px", overflow: "hidden", zIndex: 10, minWidth: "210px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" },
+  addDropdownItem: { width: "100%", padding: "12px 16px", background: "none", border: "none", color: "#c5c9e8", fontSize: "13px", fontWeight: 600, cursor: "pointer", textAlign: "left", display: "block" },
   tab: { padding: "8px 16px", borderRadius: "999px", background: "none", border: "none", fontSize: "13px", fontWeight: 600, color: "#4a5080", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" },
   tabActive: { padding: "8px 16px", borderRadius: "999px", background: "#1a237e", border: "none", fontSize: "13px", fontWeight: 700, color: "#c5cae9", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" },
   tabCount: { background: "rgba(26,35,126,0.4)", borderRadius: "999px", fontSize: "11px", padding: "1px 7px" },

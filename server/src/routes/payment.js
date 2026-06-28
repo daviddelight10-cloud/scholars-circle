@@ -68,13 +68,34 @@ router.post("/verify", requireAuth, async (req, res) => {
 
     const now = new Date();
 
-    // Fetch current user to check if we should stack expiry
+    // Atomically claim this transaction reference — prevents double activation
+    // when both /verify (frontend onSuccess) and /webhook (Paystack server) fire.
+    // Only the first writer wins; the second sees transactionId already matches and skips.
+    const claim = await prisma.user.updateMany({
+      where: { id: req.user.sub, transactionId: { not: reference } },
+      data: { transactionId: reference },
+    });
+
+    if (claim.count === 0) {
+      // This reference was already processed — return existing state without stacking
+      const existing = await prisma.user.findUnique({
+        where: { id: req.user.sub },
+        select: { id: true, isActivated: true, planType: true, activationExpiry: true, username: true, role: true },
+      });
+      const newToken = jwt.sign(
+        { sub: existing.id, role: existing.role, username: existing.username, isActivated: existing.isActivated },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+      return res.json({ activated: true, user: existing, token: newToken });
+    }
+
+    // We won the claim — safe to stack expiry onto existing plan if still active
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.sub },
       select: { activationExpiry: true, isActivated: true },
     });
 
-    // If user is still active and expiry is in the future, add days to existing expiry
     const baseDate = (currentUser?.isActivated && currentUser?.activationExpiry && new Date(currentUser.activationExpiry) > now)
       ? new Date(currentUser.activationExpiry)
       : now;
@@ -89,7 +110,6 @@ router.post("/verify", requireAuth, async (req, res) => {
         activationExpiry: expiryDate,
         planType: plan,
         paymentStatus: "verified",
-        transactionId: reference,
       },
       select: { id: true, isActivated: true, planType: true, activationExpiry: true, username: true, role: true },
     });
@@ -161,11 +181,30 @@ router.post("/webhook", async (req, res) => {
         return res.status(200).json({ status: "ok" });
       }
 
+      // Atomically claim this transaction reference — prevents double activation
+      // when both /verify (frontend) and /webhook (Paystack) fire concurrently.
+      const claim = await prisma.user.updateMany({
+        where: { id: user.id, transactionId: { not: reference } },
+        data: { transactionId: reference },
+      });
+
+      if (claim.count === 0) {
+        // Already processed by /verify or a previous webhook delivery — skip
+        console.log("Webhook: Transaction already processed, skipping", { reference });
+        return res.status(200).json({ status: "ok" });
+      }
+
       const now = new Date();
 
+      // Re-fetch user after claim to get current activation state
+      const freshUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { isActivated: true, activationExpiry: true },
+      });
+
       // If user is still active and expiry is in the future, add days to existing expiry
-      const baseDate = (user.isActivated && user.activationExpiry && new Date(user.activationExpiry) > now)
-        ? new Date(user.activationExpiry)
+      const baseDate = (freshUser?.isActivated && freshUser?.activationExpiry && new Date(freshUser.activationExpiry) > now)
+        ? new Date(freshUser.activationExpiry)
         : now;
       const expiryDate = calcExpiry(plan, baseDate);
 
@@ -178,7 +217,6 @@ router.post("/webhook", async (req, res) => {
           activationExpiry: expiryDate,
           planType: plan,
           paymentStatus: "verified",
-          transactionId: reference,
         },
       });
 
