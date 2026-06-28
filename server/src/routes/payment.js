@@ -71,8 +71,9 @@ router.post("/verify", requireAuth, async (req, res) => {
     // Atomically claim this transaction reference — prevents double activation
     // when both /verify (frontend onSuccess) and /webhook (Paystack server) fire.
     // Only the first writer wins; the second sees transactionId already matches and skips.
+    // OR null needed because SQL NULL != value is NULL (not true), so first-time payers would be skipped.
     const claim = await prisma.user.updateMany({
-      where: { id: req.user.sub, transactionId: { not: reference } },
+      where: { id: req.user.sub, OR: [{ transactionId: null }, { transactionId: { not: reference } }] },
       data: { transactionId: reference },
     });
 
@@ -183,8 +184,9 @@ router.post("/webhook", async (req, res) => {
 
       // Atomically claim this transaction reference — prevents double activation
       // when both /verify (frontend) and /webhook (Paystack) fire concurrently.
+      // OR null needed because SQL NULL != value is NULL (not true), so first-time payers would be skipped.
       const claim = await prisma.user.updateMany({
-        where: { id: user.id, transactionId: { not: reference } },
+        where: { id: user.id, OR: [{ transactionId: null }, { transactionId: { not: reference } }] },
         data: { transactionId: reference },
       });
 
