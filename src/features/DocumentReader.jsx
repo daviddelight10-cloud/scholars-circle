@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { X } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -117,6 +118,15 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
   const [isDrawing, setIsDrawing] = useState(false);
   const drawStartRef = useRef({ x: 0, y: 0 });
   const t = THEMES[theme];
+
+  // Escape key to exit
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape" && onBack) onBack();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onBack]);
 
   // Fetch and extract content
   useEffect(() => {
@@ -453,7 +463,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: t.bg }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
         <div style={{ fontSize: "32px", marginBottom: "12px" }}>📖</div>
         <div style={{ color: t.muted, fontSize: "14px" }}>Loading document…</div>
       </div>
@@ -462,7 +472,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
 
   if (error) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: t.bg }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
         <div style={{ fontSize: "32px", marginBottom: "12px" }}>⚠️</div>
         <div style={{ color: t.accent, fontSize: "14px", marginBottom: "16px" }}>{error}</div>
         {onBack && <button onClick={onBack} style={{ padding: "8px 20px", borderRadius: "8px", border: `0.5px solid ${t.border}`, background: t.toolbar, color: t.text, cursor: "pointer" }}>← Back</button>}
@@ -471,9 +481,25 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: t.bg }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", background: t.bg }}>
+      {/* Small exit button */}
+      <button
+        onClick={onBack}
+        title="Exit (Esc)"
+        style={{
+          position: "fixed", top: 12, right: 12, zIndex: 10000,
+          width: 36, height: 36, borderRadius: "50%",
+          background: "rgba(0,0,0,0.5)", border: "none",
+          color: "#fff", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(4px)",
+        }}
+      >
+        <X size={18} />
+      </button>
+
       {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: t.toolbar, borderBottom: `0.5px solid ${t.border}`, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: t.toolbar, borderBottom: `0.5px solid ${t.border}`, flexShrink: 0, paddingRight: 52 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: t.muted, fontSize: "18px", cursor: "pointer", padding: "4px 8px" }}>←</button>
         <span style={{ fontSize: "13px", fontWeight: 600, color: t.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
         <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ background: "none", border: "none", color: t.muted, fontSize: "16px", cursor: "pointer", padding: "4px 8px" }}>{theme === "dark" ? "☀️" : "🌙"}</button>

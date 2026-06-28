@@ -6,6 +6,14 @@ import { useToast } from "./components/Toast";
 
 import DOMPurify from "dompurify";
 
+import {
+  Home as HomeIcon, BookOpen, Bot, BarChart3, Search, Menu, X,
+  School, Users, MessageCircle, Calendar, Bell, Timer,
+  CalendarDays, User, Settings, Gem, FileText, Laptop,
+  Megaphone, KeyRound, Mail, Cog, GraduationCap, Building2,
+  Download, Moon, Sun, Sparkles, ClipboardList, UserCircle,
+} from "lucide-react";
+
 
 
 import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPLIERS } from "./data";
@@ -8076,7 +8084,7 @@ function App() {
 
             <button className="header-btn palette-btn" onClick={() => setShowPalette(true)} title="Ctrl/Cmd+K">
 
-              <span className="btn-icon">📝</span>
+              <span className="btn-icon"><Search size={16} /></span>
 
               <span className="btn-label">Search</span>
 
@@ -8142,7 +8150,7 @@ function App() {
 
             <button className="header-btn theme-btn" onClick={() => setDarkMode((v) => !v)} title="Toggle theme">
 
-              {darkMode ? "🌙 Dark" : "☀️ Light"}
+              {darkMode ? <><Moon size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Dark</> : <><Sun size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Light</>}
 
             </button>
 
@@ -8158,7 +8166,7 @@ function App() {
 
             <button className="header-btn profile-btn" onClick={() => setTab("profile")} title="My Profile">
 
-              <span className="btn-icon">📝</span>
+              <span className="btn-icon"><User size={16} /></span>
 
               <span className="btn-label">Profile</span>
 
@@ -8172,7 +8180,7 @@ function App() {
 
               <button className="header-btn" onClick={handleInstallClick}>
 
-                <span className="btn-icon">📥</span>
+                <span className="btn-icon"><Download size={16} /></span>
 
                 <span className="btn-label">Install</span>
 
@@ -8324,7 +8332,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">🏠</span>
+          <HomeIcon size={20} className="nav-icon" />
 
           <span className="nav-label">Home</span>
 
@@ -8340,7 +8348,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">📚</span>
+          <BookOpen size={20} className="nav-icon" />
 
           <span className="nav-label">Learn</span>
 
@@ -8356,7 +8364,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">🔍</span>
+          <Search size={20} className="nav-icon" />
 
           <span className="nav-label">Research</span>
 
@@ -8372,7 +8380,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">📊</span>
+          <BarChart3 size={20} className="nav-icon" />
 
           <span className="nav-label">Progress</span>
 
@@ -8388,7 +8396,7 @@ function App() {
 
         >
 
-          <span className="nav-icon">{showMobileMenu ? "✕" : "☰"}</span>
+          <span className="nav-icon">{showMobileMenu ? <X size={20} /> : <Menu size={20} />}</span>
 
           <span className="nav-label">More</span>
 
@@ -8410,13 +8418,13 @@ function App() {
 
             {/* Section: Study Resources */}
 
-            <div className="mobile-menu-section-label">📚 Study Resources</div>
+            <div className="mobile-menu-section-label"><BookOpen size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Study Resources</div>
 
             <div className="mobile-menu-grid">
 
               <button className={tab === "resources" ? "active" : ""} onClick={() => { setTab("resources"); setShowMobileMenu(false); }}>
 
-                <span>📚</span> Resources
+                <BookOpen size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Resources
 
               </button>
 
@@ -8426,31 +8434,31 @@ function App() {
 
             {/* Section: Classroom & Community */}
 
-            <div className="mobile-menu-section-label">🏫 Classroom & Community</div>
+            <div className="mobile-menu-section-label"><School size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Classroom & Community</div>
 
             <div className="mobile-menu-grid">
 
               <button className={tab === "classroom" ? "active" : ""} onClick={() => { setTab("classroom"); setShowMobileMenu(false); }}>
 
-                <span>🏫</span> Classroom
+                <School size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Classroom
 
               </button>
 
               <button className={tab === "lecturers" ? "active" : ""} onClick={() => { setTab("lecturers"); setShowMobileMenu(false); }}>
 
-                <span>👩‍🏫</span> Lecturers
+                <GraduationCap size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Lecturers
 
               </button>
 
               <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
 
-                <span>👥</span> Study Groups
+                <Users size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Study Groups
 
               </button>
 
               <button className={tab === "discuss" ? "active" : ""} onClick={() => { setTab("discuss"); setShowMobileMenu(false); }}>
 
-                <span>💬</span> Discussion
+                <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Discussion
 
               </button>
 
@@ -8460,31 +8468,31 @@ function App() {
 
             {/* Section: Tools */}
 
-            <div className="mobile-menu-section-label">🗠️ Tools</div>
+            <div className="mobile-menu-section-label"><Cog size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Tools</div>
 
             <div className="mobile-menu-grid">
 
               <button className={tab === "timetable" ? "active" : ""} onClick={() => { setTab("timetable"); setShowMobileMenu(false); }}>
 
-                <span>📅️</span> Timetable
+                <CalendarDays size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Timetable
 
               </button>
 
               <button className={tab === "reminders" ? "active" : ""} onClick={() => { setTab("reminders"); setShowMobileMenu(false); }}>
 
-                <span>🔔</span> Reminders
+                <Bell size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Reminders
 
               </button>
 
               <button className={tab === "pomodoro" ? "active" : ""} onClick={() => { setTab("pomodoro"); setShowMobileMenu(false); }}>
 
-                <span>⏱️</span> Focus Timer
+                <Timer size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Focus Timer
 
               </button>
 
               <button className={tab === "planner" ? "active" : ""} onClick={() => { setTab("planner"); setShowMobileMenu(false); }}>
 
-                <span>📅</span> Planner
+                <CalendarDays size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Planner
 
               </button>
 
@@ -8494,25 +8502,25 @@ function App() {
 
             {/* Section: Account */}
 
-            <div className="mobile-menu-section-label">👤 Account</div>
+            <div className="mobile-menu-section-label"><UserCircle size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Account</div>
 
             <div className="mobile-menu-grid">
 
               <button className={tab === "profile" ? "active" : ""} onClick={() => { setTab("profile"); setShowMobileMenu(false); }}>
 
-                <span>👤</span> Profile
+                <User size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Profile
 
               </button>
 
               <button className={tab === "notifications" ? "active" : ""} onClick={() => { setTab("notifications"); setShowMobileMenu(false); }}>
 
-                <span>🔔</span> Notifications
+                <Bell size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Notifications
 
               </button>
 
               <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setShowMobileMenu(false); }}>
 
-                <span>⚙️</span> Settings
+                <Settings size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Settings
 
               </button>
 
@@ -8520,7 +8528,7 @@ function App() {
 
                 <button className={tab === "premium" ? "active" : ""} onClick={() => { setTab("premium"); setShowMobileMenu(false); }} style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2))", border: "1px solid rgba(139,92,246,0.4)" }}>
 
-                  <span>💎</span> Premium
+                  <Gem size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Premium
 
                 </button>
 
@@ -8536,25 +8544,25 @@ function App() {
 
               <>
 
-                <div className="mobile-menu-section-label">👩‍🎓 Faculty Tools</div>
+                <div className="mobile-menu-section-label"><GraduationCap size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Faculty Tools</div>
 
                 <div className="mobile-menu-grid">
 
                   <button className={tab === "teacher-questions" ? "active" : ""} onClick={() => { setTab("teacher-questions"); setShowMobileMenu(false); }}>
 
-                    <span>📝</span> My Questions
+                    <FileText size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> My Questions
 
                   </button>
 
                   <button className={tab === "teacher-resources" ? "active" : ""} onClick={() => { setTab("teacher-resources"); setShowMobileMenu(false); }}>
 
-                    <span>💻</span> Teacher Resources
+                    <Laptop size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Teacher Resources
 
                   </button>
 
                   <button className={tab === "campus-comm" ? "active" : ""} onClick={() => { setTab("campus-comm"); setShowMobileMenu(false); }}>
 
-                    <span>📢</span> Announcements
+                    <Megaphone size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Announcements
 
                   </button>
 
@@ -8564,19 +8572,19 @@ function App() {
 
                       <button className={tab === "keys" ? "active" : ""} onClick={() => { setTab("keys"); setShowMobileMenu(false); }}>
 
-                        <span>🔑</span> Student Keys
+                        <KeyRound size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Student Keys
 
                       </button>
 
                       <button className={tab === "invites" ? "active" : ""} onClick={() => { setTab("invites"); setShowMobileMenu(false); }}>
 
-                        <span>✉️</span> Invites
+                        <Mail size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Invites
 
                       </button>
 
                       <button className={tab === "admin" ? "active" : ""} onClick={() => { setTab("admin"); setShowMobileMenu(false); }}>
 
-                        <span>⚙️</span> Admin Panel
+                        <Cog size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Admin Panel
 
                       </button>
 
@@ -8608,33 +8616,33 @@ function App() {
 
         {[
 
-          ["today", "🏠 Home"],
+          ["today", "Home", HomeIcon],
 
-          ["practice", "📚 Learn"],
+          ["practice", "Learn", BookOpen],
 
-          ["aitutor", "🤖 AI Tutor"],
+          ["aitutor", "AI Tutor", Bot],
 
-          ["analytics", "📊 Progress"],
+          ["analytics", "Progress", BarChart3],
 
-          ["classroom", "🏫 Classroom"],
+          ["classroom", "Classroom", School],
 
-          ["resources", "📚 Resources"],
+          ["resources", "Resources", BookOpen],
 
-          ["studygroups", "👥 Groups"],
+          ["studygroups", "Groups", Users],
 
-          ["discuss", "💬 Discussion"],
+          ["discuss", "Discussion", MessageCircle],
 
-          ["timetable", "📅️ Timetable"],
+          ["timetable", "Timetable", CalendarDays],
 
-          ["settings", "⚙️ Settings"],
+          ["settings", "Settings", Settings],
 
-          ["research-hub", "🔍 Research Hub"],
+          ["research-hub", "Research Hub", Search],
 
-          ...(!isFaculty ? [["premium", "💎 Premium"]] : []),
+          ...(!isFaculty ? [["premium", "Premium", Gem]] : []),
 
-          ...(isFaculty ? [["teacher-questions", "📝 My Questions"], ["teacher-resources", "💻 Teacher Resources"], ["campus-comm", "📢 Announcements"], ["departments", "🏛️ Departments"]] : []),
+          ...(isFaculty ? [["teacher-questions", "My Questions", FileText], ["teacher-resources", "Teacher Resources", Laptop], ["campus-comm", "Announcements", Megaphone], ["departments", "Departments", Building2]] : []),
 
-          ...(isTeacher ? [["keys", "🔑 Keys"], ["invites", "✉️ Invites"], ["admin", "⚙️ Admin"]] : []),
+          ...(isTeacher ? [["keys", "Keys", KeyRound], ["invites", "Invites", Mail], ["admin", "Admin", Cog]] : []),
 
         ].filter(([id]) => {
 
@@ -8642,13 +8650,15 @@ function App() {
 
           return !["classroom"].includes(id);
 
-        }).map(([id, label]) => {
+        }).map(([id, label, Icon]) => {
           return (
             <button
               key={id}
               className={["today", "dashboard"].includes(tab) && id === "today" ? "active" : tab === id ? "active" : ""}
               onClick={() => setTab(id)}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
+              <Icon size={16} />
               {label}
             </button>
           );
