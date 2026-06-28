@@ -25,6 +25,17 @@ export function requireAuth(req, res, next) {
   }
 }
 
+export function optionalAuth(req, _res, next) {
+  const auth = req.headers.authorization || "";
+  let token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token && req.cookies && req.cookies.auth_token) token = req.cookies.auth_token;
+  if (!token && req.query && req.query.token) token = req.query.token;
+  if (token) {
+    try { req.user = jwt.verify(token, process.env.JWT_SECRET); } catch {}
+  }
+  return next();
+}
+
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });

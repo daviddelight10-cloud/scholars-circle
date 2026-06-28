@@ -1,6 +1,6 @@
 import express from "express";
 import { prisma } from "../db.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { aiRateLimit } from "../middleware/aiRateLimit.js";
 import multer from "multer";
 import path from "path";
@@ -569,7 +569,8 @@ router.get("/progress", requireAuth, async (req, res) => {
 });
 
 // GET /api/resources/:token - Get resource by share token
-router.get("/:token", requireAuth, async (req, res) => {
+// Uses optionalAuth so guests can load metadata and see the login overlay
+router.get("/:token", optionalAuth, async (req, res) => {
   try {
     const { token } = req.params;
 
@@ -580,6 +581,13 @@ router.get("/:token", requireAuth, async (req, res) => {
 
     if (!resource) {
       return res.status(404).json({ error: "Resource not found" });
+    }
+
+    // Unauthenticated guests get safe metadata only — fileUrl/mcqData withheld
+    // The frontend shows its login/signup overlay for the actual content
+    if (!req.user) {
+      const { fileUrl, storagePath, mcqData, ...safe } = resource;
+      return res.json({ ...safe, _requiresAuth: true });
     }
 
     res.json(resource);
