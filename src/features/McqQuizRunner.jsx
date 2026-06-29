@@ -56,7 +56,20 @@ const backBtnStyle = {
   marginBottom: "20px",
 };
 
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComplete }) {
+  const isMobile = useIsMobile();
   const rawQuestions = useMemo(() => {
     const raw = resource.mcqData;
     if (!raw) return [];
@@ -292,25 +305,25 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
     return (
       <div style={{ ...fullscreenStyle, overflowY: "auto" }}>
         <ExitButton onBack={onBack} />
-        <div style={{ maxWidth: "640px", margin: "0 auto", padding: "60px 20px 40px" }}>
+        <div style={{ maxWidth: "640px", margin: "0 auto", padding: isMobile ? "50px 12px 32px" : "60px 20px 40px" }}>
           <div style={{
             background: "#0d0f20",
             border: "0.5px solid #1e2245",
-            borderRadius: "16px",
-            padding: "32px 24px",
+            borderRadius: isMobile ? "12px" : "16px",
+            padding: isMobile ? "24px 16px" : "32px 24px",
             textAlign: "center",
           }}>
-            <div style={{ fontSize: "40px", marginBottom: "12px" }}>
+            <div style={{ fontSize: isMobile ? "32px" : "40px", marginBottom: "8px" }}>
               {score === totalQuestions ? "🏆" : score >= totalQuestions / 2 ? "🎉" : "📚"}
             </div>
-            <div style={{ fontSize: "22px", fontWeight: 700, color: "#e8eaf6", marginBottom: "6px" }}>
+            <div style={{ fontSize: isMobile ? "18px" : "22px", fontWeight: 700, color: "#e8eaf6", marginBottom: "4px" }}>
               Quiz Complete!
             </div>
-            <div style={{ fontSize: "28px", fontWeight: 800, color: score >= totalQuestions / 2 ? "#66bb6a" : "#ffb74d", marginBottom: "20px" }}>
+            <div style={{ fontSize: isMobile ? "24px" : "28px", fontWeight: 800, color: score >= totalQuestions / 2 ? "#66bb6a" : "#ffb74d", marginBottom: "16px" }}>
               {score} / {totalQuestions}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? "8px" : "10px", marginBottom: "16px" }}>
               <StatCard icon={<Zap size={16} />} label="XP Earned" value={`+${xpEarned}`} color="#f5a623" />
               <StatCard icon={<Clock size={16} />} label="Total Time" value={formatTime(totalTime)} color="#7986cb" />
               {totalXp != null && (
@@ -378,49 +391,49 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
           )}
 
           {showReview && (
-            <div style={{ marginTop: "16px" }}>
+            <div style={{ marginTop: isMobile ? "12px" : "16px" }}>
               {shuffledQuestions.map((q, i) => {
                 const userAnswer = answers[i];
                 const isCorrect = userAnswer === q.correct;
                 const wasSkipped = skipped.has(i) && !locked[i];
                 return (
                   <div key={i} style={{
-                    marginBottom: "12px", padding: "16px",
+                    marginBottom: isMobile ? "8px" : "12px", padding: isMobile ? "12px" : "16px",
                     background: "#0d0f20", border: `0.5px solid ${isCorrect ? "#2a6a3a" : wasSkipped ? "#3a3d60" : "#6a2a2a"}`,
                     borderRadius: "10px",
                   }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-                      {isCorrect ? <CheckCircle2 size={16} style={{ color: "#66bb6a" }} /> : wasSkipped ? <SkipForward size={16} style={{ color: "#7b82b8" }} /> : <XCircle size={16} style={{ color: "#ef5350" }} />}
-                      <span style={{ fontSize: "13px", fontWeight: 600, color: "#c5c9e8" }}>Q{i + 1}. {q.question}</span>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "8px" }}>
+                      {isCorrect ? <CheckCircle2 size={isMobile ? 14 : 16} style={{ color: "#66bb6a", flexShrink: 0, marginTop: 2 }} /> : wasSkipped ? <SkipForward size={isMobile ? 14 : 16} style={{ color: "#7b82b8", flexShrink: 0, marginTop: 2 }} /> : <XCircle size={isMobile ? 14 : 16} style={{ color: "#ef5350", flexShrink: 0, marginTop: 2 }} />}
+                      <span style={{ fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#c5c9e8", lineHeight: 1.4 }}>Q{i + 1}. {q.question}</span>
                     </div>
                     {Object.entries(q.options).map(([key, val]) => {
                       const isCorrectOpt = key === q.correct;
                       const isUserPick = userAnswer === key;
                       return (
                         <div key={key} style={{
-                          display: "flex", alignItems: "center", gap: "8px",
-                          padding: "8px 12px", marginBottom: "4px", borderRadius: "6px",
+                          display: "flex", alignItems: "center", gap: "6px",
+                          padding: isMobile ? "6px 10px" : "8px 12px", marginBottom: "4px", borderRadius: "6px",
                           background: isCorrectOpt ? "rgba(76,175,80,0.12)" : isUserPick ? "rgba(244,67,54,0.12)" : "transparent",
                           border: `0.5px solid ${isCorrectOpt ? "#2a6a3a" : isUserPick ? "#6a2a2a" : "#1e2245"}`,
                         }}>
-                          <span style={{ fontSize: "12px", fontWeight: 700, color: isCorrectOpt ? "#66bb6a" : isUserPick ? "#ef5350" : "#5a6090", minWidth: "20px" }}>{key}.</span>
-                          <span style={{ fontSize: "13px", color: isCorrectOpt ? "#a5d6a7" : isUserPick ? "#ef9a9a" : "#9fa8da", flex: 1 }}>{val}</span>
-                          {isCorrectOpt && <CheckCircle2 size={14} style={{ color: "#66bb6a" }} />}
-                          {isUserPick && !isCorrectOpt && <XCircle size={14} style={{ color: "#ef5350" }} />}
+                          <span style={{ fontSize: isMobile ? "11px" : "12px", fontWeight: 700, color: isCorrectOpt ? "#66bb6a" : isUserPick ? "#ef5350" : "#5a6090", minWidth: "18px" }}>{key}.</span>
+                          <span style={{ fontSize: isMobile ? "12px" : "13px", color: isCorrectOpt ? "#a5d6a7" : isUserPick ? "#ef9a9a" : "#9fa8da", flex: 1 }}>{val}</span>
+                          {isCorrectOpt && <CheckCircle2 size={isMobile ? 12 : 14} style={{ color: "#66bb6a" }} />}
+                          {isUserPick && !isCorrectOpt && <XCircle size={isMobile ? 12 : 14} style={{ color: "#ef5350" }} />}
                         </div>
                       );
                     })}
                     {q.explanation && (
                       <div style={{
-                        marginTop: "10px", padding: "10px 12px",
+                        marginTop: "8px", padding: isMobile ? "8px 10px" : "10px 12px",
                         background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-                        fontSize: "12px", color: "#9fa8da", lineHeight: 1.6,
+                        fontSize: isMobile ? "11px" : "12px", color: "#9fa8da", lineHeight: 1.5,
                       }}>
                         <span style={{ fontWeight: 700, color: "#7986cb" }}>Explanation: </span>
                         {q.explanation}
                       </div>
                     )}
-                    <div style={{ marginTop: "6px", fontSize: "11px", color: "#4a5080" }}>
+                    <div style={{ marginTop: "6px", fontSize: isMobile ? "10px" : "11px", color: "#4a5080" }}>
                       Time: {formatTime(timePerQuestion.current[i])}
                       {flagged.has(i) && " · Flagged"}
                     </div>
@@ -462,76 +475,78 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
       <ExitButton onBack={onBack} />
 
       <div style={{
-        display: "flex", alignItems: "center", gap: "10px",
-        padding: "12px 52px 12px 20px",
+        display: "flex", alignItems: "center", gap: isMobile ? "6px" : "10px",
+        padding: isMobile ? "8px 44px 8px 12px" : "12px 52px 12px 20px",
         background: "#0a0c1e", borderBottom: "0.5px solid #1e2245",
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: "13px", fontWeight: 600, color: "#9fa8da", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: isMobile ? "11px" : "13px", fontWeight: 600, color: "#9fa8da", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {resource.title}
         </span>
-        <span style={{ fontSize: "12px", color: "#5a6090", display: "flex", alignItems: "center", gap: "4px" }}>
-          <Clock size={13} /> {formatTime(elapsedThisQ)}
+        <span style={{ fontSize: isMobile ? "10px" : "12px", color: "#5a6090", display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+          <Clock size={isMobile ? 11 : 13} /> {formatTime(elapsedThisQ)}
         </span>
-        <span style={{ fontSize: "12px", fontWeight: 600, color: "#66bb6a" }}>
-          Score: {score}/{totalQuestions}
+        <span style={{ fontSize: isMobile ? "10px" : "12px", fontWeight: 600, color: "#66bb6a", flexShrink: 0 }}>
+          {score}/{totalQuestions}
         </span>
       </div>
 
-      <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-          <span style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8" }}>
-            Question {currentIndex + 1} of {totalQuestions}
+      <div style={{ padding: isMobile ? "8px 12px 0" : "12px 20px 0", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+          <span style={{ fontSize: isMobile ? "11px" : "12px", fontWeight: 600, color: "#7b82b8" }}>
+            Q{currentIndex + 1}/{totalQuestions}
             {retryWrongOnly && <span style={{ marginLeft: 6, color: "#ef9a9a" }}>(wrong only)</span>}
           </span>
         </div>
-        <div style={{ height: "6px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
+        <div style={{ height: "4px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
           <div style={{
             height: "100%", width: `${progressPct}%`,
             background: "linear-gradient(90deg, #3949ab, #5c6bc0)",
             borderRadius: "4px", transition: "width 0.3s ease",
           }} />
         </div>
-        <div style={{ display: "flex", gap: "4px", marginTop: "8px", flexWrap: "wrap" }}>
-          {shuffledQuestions.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goToQuestion(i)}
-              style={{
-                width: "10px", height: "10px", borderRadius: "50%",
-                border: "none", cursor: "pointer", padding: 0,
-                background: i === currentIndex ? "#5c6bc0"
-                  : locked[i] ? (answers[i] === shuffledQuestions[i].correct ? "#4caf50" : "#ef5350")
-                  : skipped.has(i) ? "#5a6090"
-                  : flagged.has(i) ? "#ff7043"
-                  : "#1e2245",
-              }}
-              title={`Q${i + 1}`}
-            />
-          ))}
-        </div>
+        {(!isMobile || totalQuestions <= 20) && (
+          <div style={{ display: "flex", gap: "3px", marginTop: "6px", flexWrap: "wrap" }}>
+            {shuffledQuestions.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => goToQuestion(i)}
+                style={{
+                  width: isMobile ? "8px" : "10px", height: isMobile ? "8px" : "10px", borderRadius: "50%",
+                  border: "none", cursor: "pointer", padding: 0,
+                  background: i === currentIndex ? "#5c6bc0"
+                    : locked[i] ? (answers[i] === shuffledQuestions[i].correct ? "#4caf50" : "#ef5350")
+                    : skipped.has(i) ? "#5a6090"
+                    : flagged.has(i) ? "#ff7043"
+                    : "#1e2245",
+                }}
+                title={`Q${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px", maxWidth: "700px", margin: "0 auto", width: "100%" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px" : "20px", maxWidth: "700px", margin: "0 auto", width: "100%" }}>
         <div style={{
           background: "#0d0f20",
           border: "0.5px solid #1e2245",
-          borderRadius: "12px",
-          padding: "20px",
+          borderRadius: isMobile ? "10px" : "12px",
+          padding: isMobile ? "14px" : "20px",
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-            <div style={{ fontSize: "16px", fontWeight: 600, color: "#e8eaf6", lineHeight: 1.5, flex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+            <div style={{ fontSize: isMobile ? "14px" : "16px", fontWeight: 600, color: "#e8eaf6", lineHeight: 1.5, flex: 1 }}>
               {q.question}
             </div>
             <button onClick={handleFlag} style={{
               background: "none", border: "none", cursor: "pointer", padding: "4px",
               color: isFlagged ? "#ff7043" : "#3a3d60", flexShrink: 0,
             }} title="Flag for review">
-              <Flag size={18} fill={isFlagged ? "#ff7043" : "none"} />
+              <Flag size={isMobile ? 16 : 18} fill={isFlagged ? "#ff7043" : "none"} />
             </button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? "6px" : "8px" }}>
             {Object.entries(q.options).map(([key, value]) => {
               const isSelected = selectedAnswer === key;
               const isCorrectOption = key === q.correct;
@@ -543,8 +558,8 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                   key={key}
                   onClick={() => handleSelectAnswer(key)}
                   style={{
-                    display: "flex", alignItems: "center", gap: "12px",
-                    padding: "12px 14px", borderRadius: "10px",
+                    display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px",
+                    padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: "10px",
                     border: showCorrect ? "1px solid #2a6a3a" : showWrong ? "1px solid #6a2a2a" : "0.5px solid #1e2245",
                     background: showCorrect ? "#0f2a1a" : showWrong ? "#2a0f0f" : isSelected ? "#0f1240" : "transparent",
                     cursor: isLocked ? "default" : "pointer",
@@ -553,25 +568,25 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                   }}
                 >
                   <div style={{
-                    width: "28px", height: "28px", borderRadius: "6px",
+                    width: isMobile ? "24px" : "28px", height: isMobile ? "24px" : "28px", borderRadius: "6px",
                     background: showCorrect ? "#2a6a3a" : showWrong ? "#6a2a2a" : "#12142a",
                     border: showCorrect ? "1px solid #3a8a4a" : showWrong ? "1px solid #8a3a3a" : "0.5px solid #252860",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: "12px", fontWeight: 700,
+                    fontSize: isMobile ? "11px" : "12px", fontWeight: 700,
                     color: showCorrect ? "#a5d6a7" : showWrong ? "#ef9a9a" : "#5a6090",
                     flexShrink: 0,
                   }}>
                     {key}
                   </div>
                   <span style={{
-                    fontSize: "14px",
+                    fontSize: isMobile ? "13px" : "14px",
                     color: showCorrect ? "#a5d6a7" : showWrong ? "#ef9a9a" : "#c5c9e8",
                     flex: 1,
                   }}>
                     {value}
                   </span>
-                  {showCorrect && <CheckCircle2 size={18} style={{ color: "#66bb6a" }} />}
-                  {showWrong && <XCircle size={18} style={{ color: "#ef5350" }} />}
+                  {showCorrect && <CheckCircle2 size={isMobile ? 16 : 18} style={{ color: "#66bb6a" }} />}
+                  {showWrong && <XCircle size={isMobile ? 16 : 18} style={{ color: "#ef5350" }} />}
                 </div>
               );
             })}
@@ -579,9 +594,9 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
 
           {isLocked && q.explanation && (
             <div style={{
-              marginTop: "16px", padding: "14px",
+              marginTop: isMobile ? "12px" : "16px", padding: isMobile ? "10px 12px" : "14px",
               background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-              fontSize: "13px", color: "#9fa8da", lineHeight: 1.6,
+              fontSize: isMobile ? "12px" : "13px", color: "#9fa8da", lineHeight: 1.6,
             }}>
               <span style={{ fontWeight: 700, color: "#7986cb" }}>Explanation: </span>
               {q.explanation}
@@ -603,38 +618,40 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
               onClick={handleNext}
               disabled={submitting}
               style={{
-                width: "100%", marginTop: "16px", padding: "12px",
+                width: "100%", marginTop: isMobile ? "12px" : "16px", padding: isMobile ? "10px" : "12px",
                 background: submitting ? "#0f1128" : "#1a237e",
                 border: "0.5px solid #3949ab", borderRadius: "10px",
-                fontSize: "14px", fontWeight: 700, color: "#c5cae9",
+                fontSize: isMobile ? "13px" : "14px", fontWeight: 700, color: "#c5cae9",
                 cursor: submitting ? "not-allowed" : "pointer",
                 opacity: submitting ? 0.5 : 1,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
               }}
             >
-              {submitting ? "Submitting..." : currentIndex < totalQuestions - 1 ? "Next Question" : "See Results"}
-              {!submitting && <ChevronRight size={16} />}
+              {submitting ? "Submitting..." : currentIndex < totalQuestions - 1 ? "Next" : "See Results"}
+              {!submitting && <ChevronRight size={isMobile ? 14 : 16} />}
             </button>
           ) : (
-            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: isMobile ? "12px" : "16px" }}>
               <button
                 onClick={handleSkip}
                 style={{
-                  flex: 1, padding: "12px",
+                  flex: 1, padding: isMobile ? "10px" : "12px",
                   background: "transparent", border: "0.5px solid #2a2d4a", borderRadius: "10px",
-                  fontSize: "13px", fontWeight: 600, color: "#5a6090", cursor: "pointer",
+                  fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#5a6090", cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                 }}
               >
-                <SkipForward size={15} /> Skip
+                <SkipForward size={isMobile ? 13 : 15} /> Skip
               </button>
             </div>
           )}
         </div>
 
-        <div style={{ marginTop: "12px", textAlign: "center", fontSize: "11px", color: "#3a3d60" }}>
-          Press A–D to select · Enter to skip/next · Esc to exit
-        </div>
+        {!isMobile && (
+          <div style={{ marginTop: "12px", textAlign: "center", fontSize: "11px", color: "#3a3d60" }}>
+            Press A–D to select · Enter to skip/next · Esc to exit
+          </div>
+        )}
       </div>
     </div>
   );
