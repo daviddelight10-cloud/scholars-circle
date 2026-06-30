@@ -4,6 +4,7 @@ import App from './App';
 import ResearchHub from './features/ResearchHub';
 import ResourceViewer from './features/ResourceViewer';
 import TeacherResourcesHub from './features/TeacherResourcesHub';
+import SharedFolderView from './features/SharedFolderView';
 import ResourceUploadForm from './components/teacher/ResourceUploadForm';
 
 // Auth check component
@@ -44,6 +45,9 @@ export default function AppRouter() {
       <Route path="/resources/:token" element={<ResourceViewer />} />
       <Route path="/teacher/resources" element={<TeacherResourcesHub />} />
       <Route path="/teacher/resources/upload" element={<ResourceUploadForm />} />
+
+      {/* Shared folder route */}
+      <Route path="/folders/:shareToken" element={<SharedFolderView />} />
 
       {/* Catch all - redirect to landing page */}
       <Route path="*" element={<Navigate to="/" replace />} />

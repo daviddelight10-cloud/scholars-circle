@@ -37,6 +37,7 @@ export function getContentTypeIcon(type) {
     docx: "📃",
     pptx: "📊",
     txt: "📝",
+    flashcard_deck: "🎴",
   };
   return icons[type] || "📄";
 }
@@ -52,6 +53,7 @@ export function getContentTypeIconClass(type) {
     docx: "icon-docx",
     pptx: "icon-pptx",
     txt: "icon-txt",
+    flashcard_deck: "icon-flashcard",
   };
   return classes[type] || "icon-pdf";
 }

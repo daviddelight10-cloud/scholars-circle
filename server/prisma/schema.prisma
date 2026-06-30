@@ -187,6 +187,8 @@ model User {
   pdfReviewItems    PdfReviewItem[]
   pdfFlashcards     PdfFlashcard[]
 
+  folders           Folder[] @relation("FolderOwner")
+
   totalXp           Int      @default(0)
 
   aiUsageLogs       AiUsageLog[]
@@ -1269,6 +1271,7 @@ model Department {
   subjectDepts SubjectDepartment[]
   userDepts   UserDepartment[]
   resourceDepts ResourceDepartment[]
+  folderDepts  FolderDepartment[]
 }
 
 model SubjectDepartment {
@@ -1362,10 +1365,13 @@ model Resource {
   viewCount   Int      @default(0)
   shareToken  String   @unique
   mcqData     Json?    // For MCQ type: stores questions array
-  status      String   @default("approved")  // pending | approved | rejected
+  flashcardData Json?  // For flashcard_deck type: stores [{front, back}] array
+  status      String   @default("approved")  // pending | approved | rejected | private
   department  String?
   level       String?
   semester    String?
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   avgRating   Float    @default(0)
   ratingCount Int      @default(0)
   flagCount   Int      @default(0)
@@ -1386,6 +1392,7 @@ model Resource {
   @@index([subject])
   @@index([shareToken])
   @@index([uploadedBy])
+  @@index([folderId])
 }
 
 model ResourceView {
@@ -1518,5 +1525,34 @@ model PdfFlashcard {
   createdAt   DateTime @default(now())
 
   @@index([userId, resourceId])
+}
+
+// ============ FOLDERS (Research Hub) ============
+model Folder {
+  id          String   @id @default(cuid())
+  name        String
+  courseCode  String?
+  ownerId     String
+  owner       User     @relation("FolderOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  visibility  String   @default("private") // private | shared | link
+  shareToken  String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  resources     Resource[]
+  folderDepts   FolderDepartment[]
+
+  @@index([ownerId])
+  @@index([visibility])
+}
+
+model FolderDepartment {
+  folderId     String
+  departmentId String
+  folder       Folder     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([folderId, departmentId])
+  @@index([departmentId])
 }
 

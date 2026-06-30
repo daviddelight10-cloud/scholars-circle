@@ -117,7 +117,7 @@ DETECT the content type from the image, then respond:
 Format: **bold** key terms. Numbered steps for problems. Bullet points for lists.
 Length: concise, but never cut short a multi-step solution.`;
 
-export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
+export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, folderId: propFolderId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
 
   const [numPages, setNumPages] = useState(0);
@@ -981,6 +981,7 @@ ${extractedText}
           mcqData: parsedMcqs,
           description: `AI-generated MCQs from ${shortTitle}, ${label}`,
           isPublic: studyIsPublic,
+          folderId: propFolderId || undefined,
         };
       } else {
         const base64 = await generateSummaryPdf(studyResult, shortTitle, label);
@@ -992,6 +993,7 @@ ${extractedText}
           fileName: `summary-${Date.now()}.pdf`,
           description: `AI-generated summary from ${shortTitle}, ${label}`,
           isPublic: studyIsPublic,
+          folderId: propFolderId || undefined,
         };
       }
 

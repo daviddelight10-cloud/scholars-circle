@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount, copyShareToken } from "../lib/researchUtils";
+import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, updateFolder } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
 import { useUserData } from "../contexts/UserDataContext";
 
@@ -9,8 +10,43 @@ const CACHE_TTL = 5 * 60 * 1000;
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
+// ============ MCQ PROGRESS RING ============
+function McqProgressRing({ practiced, pct, progress }) {
+  const size = 28;
+  const stroke = 3;
+  const radius = (size - stroke) / 2;
+  const circ = 2 * Math.PI * radius;
+  const offset = circ - (pct / 100) * circ;
+  const color = pct >= 80 ? "#66bb6a" : pct >= 50 ? "#ffb74d" : pct > 0 ? "#ff5470" : "#5a6090";
+  const ringBg = "#1e2245";
+
+  if (!practiced) {
+    return (
+      <div title="Not attempted yet" style={{
+        width: size, height: size, borderRadius: "50%", border: `${stroke}px solid ${ringBg}`,
+        display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9px", color: "#3a3d60", flexShrink: 0,
+      }}>—</div>
+    );
+  }
+
+  return (
+    <div title={`Best: ${progress.bestScore}/${progress.total} (${pct}%) · ${progress.attempts} attempt${progress.attempts > 1 ? "s" : ""}`} style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={ringBg} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.4s ease" }} />
+      </svg>
+      <div style={{
+        position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: "8px", fontWeight: 700, color,
+      }}>{pct}%</div>
+    </div>
+  );
+}
+
 // ============ MEMOIZED RESOURCE CARD ============
-const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookmarkBusy, onOpen, onToggleBookmark, onShare }) {
+const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookmarkBusy, onOpen, onToggleBookmark, onShare, mcqProgress }) {
   const badgeColor = getSubjectBadgeColor(resource.subject);
   const icon = getContentTypeIcon(resource.contentType);
   const iconClass = getContentTypeIconClass(resource.contentType);
@@ -18,6 +54,10 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
   const isPremium = resource.isPremium;
   const saveCount = resource._count?.bookmarks ?? 0;
   const rating = resource.avgRating ? resource.avgRating.toFixed(1) : null;
+  const isMcq = resource.contentType === "mcq";
+  const progress = isMcq && mcqProgress ? mcqProgress[resource.id] : null;
+  const pct = progress && progress.total > 0 ? Math.round((progress.bestScore / progress.total) * 100) : 0;
+  const practiced = progress != null;
 
   return (
     <div style={styles.card}
@@ -30,6 +70,9 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
           border: iconClass === "icon-pdf" ? "0.5px solid #4a1010" : iconClass === "icon-mcq" ? "0.5px solid #2a3080" : iconClass === "icon-note" ? "0.5px solid #1a4a2a" : "0.5px solid #3a2800",
         }}>{icon}</div>
         <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {isMcq && (
+            <McqProgressRing practiced={practiced} pct={pct} progress={progress} />
+          )}
           {isPending && <span style={styles.pendingTag}>Pending</span>}
           {isPremium && <span style={styles.premiumTag}>Premium</span>}
           <span style={{ fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "10px", background: badgeColor.bg, color: badgeColor.text, border: `0.5px solid ${badgeColor.border}` }}>{resource.subject}</span>
@@ -419,6 +462,19 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const fileInputRef = useRef(null);
   const foryouFallenBack = useRef(false);
 
+  // Folder state
+  const [folders, setFolders] = useState({ own: [], shared: [] });
+  const [activeFolder, setActiveFolder] = useState(null);
+  const [folderDetail, setFolderDetail] = useState(null);
+  const [folderLoading, setFolderLoading] = useState(false);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderCourseCode, setNewFolderCourseCode] = useState("");
+  const [newFolderVisibility, setNewFolderVisibility] = useState("private");
+  const [uploadFolderId, setUploadFolderId] = useState(null);
+  const [folderSearch, setFolderSearch] = useState("");
+  const [mcqProgress, setMcqProgress] = useState({});
+
   const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
   const filterLabels = { all: "All", note: "Notes", pdf: "PDF", mcq: "MCQ", tutorial_question: "Tutorial Q" };
 
@@ -430,6 +486,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     fetchReviewStats();
     fetchFsrsDue();
     fetchFsrsStats();
+    fetchFolders();
+    fetchMcqProgress();
   }, []);
 
   useEffect(() => {
@@ -547,6 +605,109 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     } catch {}
   };
 
+  const fetchFolders = async () => {
+    try {
+      const data = await listFolders();
+      setFolders(data);
+    } catch {}
+  };
+
+  const fetchMcqProgress = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/my-mcq-progress`, { headers: getAuthHeaders() });
+      if (res.ok) setMcqProgress(await res.json());
+    } catch {}
+  };
+
+  const fetchFolderDetail = async (folderId) => {
+    setFolderLoading(true);
+    try {
+      const data = await getFolder(folderId);
+      setFolderDetail(data);
+    } catch (err) {
+      showToast("Failed to load folder");
+    } finally {
+      setFolderLoading(false);
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) { showToast("Folder name required"); return; }
+    try {
+      const data = await createFolder({
+        name: newFolderName.trim(),
+        courseCode: newFolderCourseCode.trim() || null,
+        visibility: newFolderVisibility,
+      });
+      setFolders((prev) => ({ ...prev, own: [data, ...(prev.own || [])] }));
+      setShowCreateFolder(false);
+      setNewFolderName("");
+      setNewFolderCourseCode("");
+      setNewFolderVisibility("private");
+      showToast("Folder created ✓");
+    } catch (err) {
+      showToast(err.message || "Failed to create folder");
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    if (!confirm("Delete this folder? Resources inside will remain but lose folder association.")) return;
+    try {
+      await apiDeleteFolder(folderId);
+      setFolders((prev) => ({ ...prev, own: (prev.own || []).filter((f) => f.id !== folderId) }));
+      if (activeFolder === folderId) { setActiveFolder(null); setFolderDetail(null); }
+      showToast("Folder deleted");
+    } catch (err) {
+      showToast("Failed to delete folder");
+    }
+  };
+
+  const handleShareFolder = async (folder) => {
+    if (!folder.shareToken) { showToast("Share not available"); return; }
+    const url = `${window.location.origin}/folders/${folder.shareToken}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Folder link copied! 🔗");
+    } catch {
+      showToast("Could not copy link");
+    }
+  };
+
+  const openFolder = (folderId) => {
+    setActiveFolder(folderId);
+    setFolderDetail(null);
+    fetchFolderDetail(folderId);
+  };
+
+  const closeFolder = () => {
+    setActiveFolder(null);
+    setFolderDetail(null);
+  };
+
+  const openUploadInFolder = (folderId, type) => {
+    setUploadFolderId(folderId);
+    openUpload(type);
+  };
+
+  const getCurrentUserId = () => {
+    try {
+      return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authUser?.id || null;
+    } catch { return null; }
+  };
+
+  const folderResources = useMemo(() => {
+    if (!folderDetail) return [];
+    const shared = folderDetail.sharedResources || [];
+    const mine = folderDetail.myResources || [];
+    return [...mine, ...shared];
+  }, [folderDetail]);
+
+  const folderIsOwner = useMemo(() => {
+    if (!folderDetail) return false;
+    const uid = getCurrentUserId();
+    return uid && folderDetail.ownerId === uid;
+  }, [folderDetail]);
+
   const handleQuizComplete = useCallback((data) => {
     // Refresh review queue, stats, and XP badge after quiz submission
     fetchReviewQueue();
@@ -554,6 +715,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     fetchFsrsDue();
     fetchFsrsStats();
     fetchUserInfo();
+    fetchMcqProgress();
     // Notify parent (App.jsx) of streak update for universal sync
     if (onStreakUpdate && data.streak != null) onStreakUpdate(data.streak, data.longestStreak);
   }, [onStreakUpdate]);
@@ -631,6 +793,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const closeUpload = () => {
     if (uploading) return;
     setShowUploadModal(false);
+    setUploadFolderId(null);
     if (uploadPreview) URL.revokeObjectURL(uploadPreview);
     setUploadPreview(null);
   };
@@ -708,6 +871,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     formData.append("isPremium", "false");
     if (uploadFile) formData.append("file", uploadFile);
     if (uploadDescription.trim()) formData.append("description", uploadDescription.trim());
+    if (uploadFolderId) formData.append("folderId", uploadFolderId);
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -734,8 +898,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         if (uploadPreview) URL.revokeObjectURL(uploadPreview);
         setUploadPreview(null);
         showToast("Uploaded ✓");
-        setActiveTab("uploads");
-        fetchMyUploads();
+        if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
+        else { setActiveTab("uploads"); fetchMyUploads(); }
       } else {
         showToast("Upload failed");
       }
@@ -768,6 +932,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     formData.append("contentType", "mcq");
     formData.append("isPremium", "false");
     formData.append("mcqData", JSON.stringify(mcqRows));
+    if (uploadFolderId) formData.append("folderId", uploadFolderId);
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -792,8 +957,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         } catch {}
         setShowUploadModal(false);
         showToast("MCQs submitted ✓");
-        setActiveTab("uploads");
-        fetchMyUploads();
+        if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
+        else { setActiveTab("uploads"); fetchMyUploads(); }
       } else {
         showToast("Submission failed");
       }
@@ -953,7 +1118,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
       {/* Tabs — horizontally scrollable on mobile */}
       <div className="sc-tabrow" style={styles.tabRow}>
-        {[["foryou", "For You"], ["all", "All"], ["space", "My Space"], ["uploads", "Uploads"]].map(([key, label]) => (
+        {[["foryou", "For You"], ["all", "All"], ["folders", "Folders"], ["space", "My Space"], ["uploads", "Uploads"]].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)} style={activeTab === key ? styles.tabActive : styles.tab}>
             {label}
             {key === "space" && bookmarkedIds.size > 0 && <span style={styles.tabCount}>{bookmarkedIds.size}</span>}
@@ -981,6 +1146,134 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
           setViewerInitialPage(page || null);
           setViewerToken(token);
         }} />
+      ) : activeTab === "folders" ? (
+        activeFolder ? (
+          /* Folder Detail View */
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+              <button onClick={closeFolder} style={styles.backBtn}>← Folders</button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
+                {folderDetail?.courseCode && <div style={{ fontSize: 12, color: "#7b82b8" }}>{folderDetail.courseCode}</div>}
+              </div>
+              {folderDetail && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  {folderDetail.visibility === "link" && (
+                    <button onClick={() => handleShareFolder(folderDetail)} style={styles.iconActionBtn}>🔗</button>
+                  )}
+                  {folderIsOwner && (
+                    <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ ...styles.iconActionBtn, color: "#ef9a9a" }}>🗑</button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* In-folder actions */}
+            {folderDetail && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                <button onClick={() => openUploadInFolder(folderDetail.id, "pdf")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+                  📎 Upload to folder
+                </button>
+                <button onClick={() => openUploadInFolder(folderDetail.id, "mcq")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+                  ✎ Create MCQ set
+                </button>
+              </div>
+            )}
+
+            {/* Folder resources */}
+            {folderLoading ? (
+              <div style={styles.emptyState}>Loading folder contents…</div>
+            ) : folderResources.length > 0 ? (
+              <div style={styles.grid}>
+                {folderResources.map((resource) => (
+                  <ResourceCard
+                    key={resource.id}
+                    resource={resource}
+                    isBookmarked={bookmarkedIds.has(resource.id)}
+                    bookmarkBusy={bookmarkBusyId === resource.id}
+                    onOpen={handleOpen}
+                    onToggleBookmark={toggleBookmark}
+                    onShare={handleShare}
+                    mcqProgress={mcqProgress}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={styles.emptyState}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
+                This folder is empty. Upload materials or generate AI content to get started.
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Folder Grid View */
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ ...styles.searchWrap, flex: "1 1 240px" }}>
+                <span style={{ color: "#3a3d60", fontSize: "16px" }}>🔍</span>
+                <input type="text" value={folderSearch} onChange={(e) => setFolderSearch(e.target.value)} placeholder="Search folders…" style={styles.searchInput} />
+              </div>
+              <button onClick={() => setShowCreateFolder(true)} style={{ ...styles.addBtn, marginLeft: 10 }}>
+                + New folder
+              </button>
+            </div>
+
+            {/* My Folders */}
+            {folders.own && folders.own.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={styles.sectionLabel}>My Folders</div>
+                <div style={styles.folderGrid}>
+                  {folders.own.filter((f) => !folderSearch || f.name.toLowerCase().includes(folderSearch.toLowerCase())).map((folder) => (
+                    <div key={folder.id} style={styles.folderCard} onClick={() => openFolder(folder.id)}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
+                      {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: folder.visibility === "private" ? "#1a0808" : "#0f2a1a", color: folder.visibility === "private" ? "#ef9a9a" : "#a5d6a7", border: `0.5px solid ${folder.visibility === "private" ? "#4a1010" : "#2a6a3a"}` }}>
+                          {folder.visibility === "private" ? "🔒 Private" : folder.visibility === "link" ? "🔗 Link" : "👥 Shared"}
+                        </span>
+                        {folder._count?.resources > 0 && <span style={{ fontSize: 10, color: "#4a5080" }}>{folder._count.resources} items</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Shared Folders */}
+            {folders.shared && folders.shared.length > 0 && (
+              <div>
+                <div style={styles.sectionLabel}>Shared With Me</div>
+                <div style={styles.folderGrid}>
+                  {folders.shared.filter((f) => !folderSearch || f.name.toLowerCase().includes(folderSearch.toLowerCase())).map((folder) => (
+                    <div key={folder.id} style={styles.folderCard} onClick={() => openFolder(folder.id)}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
+                      {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
+                      <div style={{ fontSize: 10, color: "#4a5080" }}>by {folder.owner?.username || "Unknown"}</div>
+                      {folder._count?.resources > 0 && <span style={{ fontSize: 10, color: "#4a5080", marginTop: 4, display: "block" }}>{folder._count.resources} items</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(!folders.own || folders.own.length === 0) && (!folders.shared || folders.shared.length === 0) && (
+              <div style={styles.emptyState}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>📁</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#7b82b8", marginBottom: 6 }}>No folders yet</div>
+                <div style={{ fontSize: 13, color: "#4a5080", maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
+                  Create a folder to organize your study materials. You can make private folders or share them with your department.
+                </div>
+                <button onClick={() => setShowCreateFolder(true)} style={{ ...styles.addBtn, marginTop: 16 }}>+ Create your first folder</button>
+              </div>
+            )}
+          </div>
+        )
       ) : (
         <>
           {/* Search + Filter button + Sort */}
@@ -1036,6 +1329,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                   onOpen={handleOpen}
                   onToggleBookmark={toggleBookmark}
                   onShare={handleShare}
+                  mcqProgress={mcqProgress}
                 />
               ))}
             </div>
@@ -1181,6 +1475,44 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         </div>
       )}
 
+      {/* Create Folder Modal */}
+      {showCreateFolder && (
+        <div style={styles.overlay} onClick={() => setShowCreateFolder(false)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+              <h2 style={styles.modalTitle}>Create folder</h2>
+              <button onClick={() => setShowCreateFolder(false)} style={styles.closeBtn}>✕</button>
+            </div>
+
+            <div style={{ marginBottom: "12px" }}>
+              <label style={styles.fieldLabel}>Folder name</label>
+              <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g. Anatomy — Year 1" style={styles.input} />
+            </div>
+            <div style={{ marginBottom: "12px" }}>
+              <label style={styles.fieldLabel}>Course code (optional)</label>
+              <input value={newFolderCourseCode} onChange={(e) => setNewFolderCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={styles.input} />
+            </div>
+            <div style={{ marginBottom: "18px" }}>
+              <label style={styles.fieldLabel}>Visibility</label>
+              <div style={styles.segmentRow}>
+                {[["private", "🔒 Private"], ["link", "🔗 Link share"], ["shared", "👥 Department"]].map(([key, label]) => (
+                  <button key={key} onClick={() => setNewFolderVisibility(key)} style={newFolderVisibility === key ? styles.segActive : styles.seg}>{label}</button>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: "#4a5080", marginTop: 6, lineHeight: 1.4 }}>
+                {newFolderVisibility === "private" && "Only you can see this folder."}
+                {newFolderVisibility === "link" && "Anyone with the link can view this folder."}
+                {newFolderVisibility === "shared" && "Students in your department can access this folder."}
+              </p>
+            </div>
+
+            <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ ...styles.submit, opacity: !newFolderName.trim() ? 0.5 : 1, cursor: !newFolderName.trim() ? "not-allowed" : "pointer" }}>
+              Create folder
+            </button>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes fadeup {
           from { opacity: 0; transform: translateX(-50%) translateY(8px); }
@@ -1230,4 +1562,6 @@ const styles = {
   dropzone: { display: "block", textAlign: "center", padding: "26px 14px", border: "1.5px dashed #252860", borderRadius: "12px", cursor: "pointer", marginBottom: "14px", transition: "all 0.15s" },
   submit: { width: "100%", padding: "12px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#c5cae9" },
   modalFootnote: { fontSize: "11px", color: "#4a5080", marginTop: "14px", lineHeight: 1.4 },
+  folderGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "14px" },
+  folderCard: { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "16px", cursor: "pointer", transition: "borderColor 0.15s" },
 };

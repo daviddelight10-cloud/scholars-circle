@@ -4,6 +4,7 @@ import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copy
 import PdfReader from "./PdfReader.jsx";
 import DocumentReader from "./DocumentReader.jsx";
 import McqQuizRunner from "./McqQuizRunner.jsx";
+import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 
 import { API_BASE } from "../lib/constants";
@@ -204,6 +205,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             title={resource.title}
             initialFullscreen={true}
             resourceId={resource.id}
+            folderId={resource.folderId}
             initialPage={initialPage}
             onBack={onBack || (() => {
               window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
@@ -270,6 +272,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
       case "mcq":
         return <McqQuizRunner resource={resource} shareToken={resource.shareToken} onBack={handleBack} onQuizComplete={onQuizComplete} />;
+
+      case "flashcard_deck":
+        return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onQuizComplete} />;
 
       case "tutorial_question":
         return (
@@ -625,8 +630,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         <div style={{ marginBottom: "16px" }}>{renderAuthOverlay()}</div>
       ) : null}
 
-      {/* Share button — not rendered for MCQ (McqQuizRunner owns share on its results screen) */}
-      {authCase === "loggedin" && resource?.contentType !== "mcq" && (allowed || (!trialInfo && !isPremiumResource)) && (
+      {/* Share button — not rendered for MCQ or flashcard decks (they own their own back/share) */}
+      {authCase === "loggedin" && resource?.contentType !== "mcq" && resource?.contentType !== "flashcard_deck" && (allowed || (!trialInfo && !isPremiumResource)) && (
         <button
           onClick={handleShare}
           style={{
@@ -649,8 +654,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         </button>
       )}
 
-      {/* Ratings & Comments — not rendered for MCQ (McqQuizRunner owns ratings on its results screen) */}
-      {authCase === "loggedin" && resource?.contentType !== "mcq" && (allowed || (!trialInfo && !isPremiumResource)) && resource?.id && (
+      {/* Ratings & Comments — not rendered for MCQ or flashcard decks */}
+      {authCase === "loggedin" && resource?.contentType !== "mcq" && resource?.contentType !== "flashcard_deck" && (allowed || (!trialInfo && !isPremiumResource)) && resource?.id && (
         <RatingsAndComments resourceId={resource.id} />
       )}
 

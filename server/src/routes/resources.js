@@ -237,53 +237,74 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
       });
     }
 
-    // Update review queue using SM-2 spaced repetition algorithm
+    // Update FSRS spaced repetition for each MCQ question
     if (details && Array.isArray(details)) {
+      const now = new Date();
       for (const d of details) {
-        const quality = computeQuality(d.correct, d.timeSpentMs ?? null);
+        // Map quiz result to FSRS grade (1=Again, 2=Hard, 3=Good, 4=Easy)
+        const grade = d.correct ? (d.timeSpentMs && d.timeSpentMs < 5000 ? 4 : 3) : 1;
 
-        // Find existing review item for this question
-        const existing = await prisma.reviewQueueItem.findUnique({
-          where: { userId_resourceId_questionIndex: { userId: req.user.sub, resourceId, questionIndex: d.questionIndex } },
-        }).catch(() => null);
-
-        if (d.correct && quality >= 4 && (!existing || existing.repetitions >= 2)) {
-          // High-quality correct answer with enough repetitions — graduate from review queue
-          await prisma.reviewQueueItem.deleteMany({
-            where: { userId: req.user.sub, resourceId, questionIndex: d.questionIndex },
-          }).catch(() => {});
-        } else {
-          // Apply SM-2 algorithm
-          const currentEF = existing?.easinessFactor ?? 2.5;
-          const currentReps = existing?.repetitions ?? 0;
-          const currentInterval = existing?.intervalDays ?? 0;
-
-          const result = sm2(quality, currentEF, currentReps, currentInterval);
-          const dueAt = computeDueDate(result.intervalDays);
-
-          await prisma.reviewQueueItem.upsert({
-            where: { userId_resourceId_questionIndex: { userId: req.user.sub, resourceId, questionIndex: d.questionIndex } },
-            create: {
+        const existing = await prisma.pdfReviewItem.findUnique({
+          where: {
+            userId_resourceId_itemType_pageIndex_flashcardId: {
               userId: req.user.sub,
               resourceId,
-              questionIndex: d.questionIndex,
-              dueAt,
-              easinessFactor: result.easinessFactor,
-              intervalDays: result.intervalDays,
-              repetitions: result.repetitions,
-              lastReviewed: new Date(),
-              quality,
+              itemType: "mcq",
+              pageIndex: d.questionIndex,
+              flashcardId: "none",
             },
-            update: {
-              dueAt,
-              easinessFactor: result.easinessFactor,
-              intervalDays: result.intervalDays,
-              repetitions: result.repetitions,
-              lastReviewed: new Date(),
-              quality,
+          },
+        }).catch(() => null);
+
+        const card = existing
+          ? {
+              state: existing.state,
+              stability: existing.stability,
+              difficulty: existing.difficulty,
+              reps: existing.reps,
+              lapses: existing.lapses,
+              lastReviewAt: existing.lastReviewAt,
+            }
+          : fsrsNewCard();
+
+        const result = fsrsRate(card, grade, now);
+
+        await prisma.pdfReviewItem.upsert({
+          where: {
+            userId_resourceId_itemType_pageIndex_flashcardId: {
+              userId: req.user.sub,
+              resourceId,
+              itemType: "mcq",
+              pageIndex: d.questionIndex,
+              flashcardId: "none",
             },
-          }).catch(() => {});
-        }
+          },
+          create: {
+            userId: req.user.sub,
+            resourceId,
+            itemType: "mcq",
+            pageIndex: d.questionIndex,
+            flashcardId: "none",
+            state: result.state,
+            stability: result.stability,
+            difficulty: result.difficulty,
+            reps: result.reps,
+            lapses: result.lapses,
+            lastReviewAt: result.lastReviewAt,
+            nextReviewAt: result.nextReviewDate,
+            dueAt: result.nextReviewDate,
+          },
+          update: {
+            state: result.state,
+            stability: result.stability,
+            difficulty: result.difficulty,
+            reps: result.reps,
+            lapses: result.lapses,
+            lastReviewAt: result.lastReviewAt,
+            nextReviewAt: result.nextReviewDate,
+            dueAt: result.nextReviewDate,
+          },
+        }).catch(() => {});
       }
     }
 
@@ -505,6 +526,43 @@ router.get("/review-queue/stats", requireAuth, async (req, res) => {
 });
 
 
+// GET /api/resources/my-mcq-progress — Per-resource MCQ attempt progress for the current user
+router.get("/my-mcq-progress", requireAuth, async (req, res) => {
+  try {
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { userId: req.user.sub },
+      select: { resourceId: true, score: true, total: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const progress = {};
+    for (const a of attempts) {
+      if (!progress[a.resourceId]) {
+        progress[a.resourceId] = {
+          bestScore: a.score,
+          total: a.total,
+          attempts: 1,
+          lastAttemptedAt: a.createdAt,
+        };
+      } else {
+        progress[a.resourceId].attempts += 1;
+        if (a.score > progress[a.resourceId].bestScore) {
+          progress[a.resourceId].bestScore = a.score;
+        }
+        if (a.createdAt > progress[a.resourceId].lastAttemptedAt) {
+          progress[a.resourceId].lastAttemptedAt = a.createdAt;
+        }
+      }
+    }
+
+    res.json(progress);
+  } catch (error) {
+    console.error("Error fetching MCQ progress:", error);
+    res.status(500).json({ error: "Failed to fetch MCQ progress" });
+  }
+});
+
+
 router.get("/progress", requireAuth, async (req, res) => {
   try {
     const attempts = await prisma.quizAttempt.findMany({
@@ -610,14 +668,38 @@ router.get("/:token", optionalAuth, async (req, res) => {
 // Auto-bookmarks for the creator so it appears in "My Space"
 router.post("/study-tool-save", requireAuth, async (req, res) => {
   try {
-    const { title, subject, contentType, description, mcqData, fileBuffer, fileName, isPublic } = req.body;
+    const { title, subject, contentType, description, mcqData, flashcardData, fileBuffer, fileName, isPublic, folderId } = req.body;
 
     if (!title || !subject || !contentType) {
       return res.status(400).json({ error: "Title, subject, and content type are required" });
     }
 
+    // If folderId is provided, fetch folder for metadata inheritance
+    let folder = null;
+    let folderDeptIds = [];
+    if (folderId) {
+      folder = await prisma.folder.findUnique({
+        where: { id: folderId },
+        include: { folderDepts: { select: { departmentId: true } } },
+      });
+      if (!folder) {
+        return res.status(404).json({ error: "Folder not found" });
+      }
+      folderDeptIds = folder.folderDepts.map((fd) => fd.departmentId);
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { role: true } });
+    const isStudent = user?.role === "STUDENT";
+
     const shareToken = await generateShareToken();
-    const status = isPublic ? "approved" : "private";
+    // If saving into a shared folder, status follows uploader role (pending for students)
+    // Otherwise respect isPublic flag
+    let status;
+    if (folderId) {
+      status = isStudent ? "pending" : "approved";
+    } else {
+      status = isPublic ? "approved" : "private";
+    }
 
     let fileUrl = null;
     let storagePath = null;
@@ -646,10 +728,22 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
       }
     }
 
+    // For flashcard_deck type: validate flashcardData
+    let parsedFlashcardData = null;
+    if (contentType === "flashcard_deck") {
+      if (!flashcardData) {
+        return res.status(400).json({ error: "Flashcard data is required for flashcard_deck type" });
+      }
+      parsedFlashcardData = typeof flashcardData === "string" ? JSON.parse(flashcardData) : flashcardData;
+      if (!Array.isArray(parsedFlashcardData) || parsedFlashcardData.length === 0) {
+        return res.status(400).json({ error: "Flashcard data must be a non-empty array of {front, back} objects" });
+      }
+    }
+
     const resource = await prisma.resource.create({
       data: {
         title,
-        subject,
+        subject: folder?.courseCode || subject,
         contentType,
         fileUrl,
         storagePath,
@@ -660,10 +754,35 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
         isPremium: false,
         shareToken,
         mcqData: parsedMcqData,
+        flashcardData: parsedFlashcardData,
         status,
+        folderId: folderId || null,
+        resourceDepts: folderDeptIds.length > 0 ? {
+          create: folderDeptIds.map((deptId) => ({ departmentId: deptId })),
+        } : undefined,
       },
       include: { uploader: { select: { id: true, username: true, role: true } } },
     });
+
+    // Seed FSRS PdfReviewItems for each flashcard in a flashcard_deck
+    if (contentType === "flashcard_deck" && parsedFlashcardData) {
+      const now = new Date();
+      await prisma.pdfReviewItem.createMany({
+        data: parsedFlashcardData.map((_, idx) => ({
+          userId: req.user.sub,
+          resourceId: resource.id,
+          itemType: "flashcard",
+          pageIndex: -1,
+          flashcardId: `deck_${idx}`,
+          state: 0,
+          stability: 0,
+          difficulty: 0,
+          reps: 0,
+          lapses: 0,
+          dueAt: now,
+        })),
+      }).catch(() => {});
+    }
 
     // Auto-bookmark for the creator so it appears in "My Space"
     await prisma.resourceBookmark.upsert({
@@ -734,7 +853,7 @@ router.post("/pdf-review/rate", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "resourceId, itemType, and grade are required" });
     }
     const g = Math.max(1, Math.min(4, Math.round(grade)));
-    const pIdx = itemType === "page" ? (pageIndex ?? -1) : -1;
+    const pIdx = (itemType === "page" || itemType === "mcq") ? (pageIndex ?? -1) : -1;
     const fId = itemType === "flashcard" ? (flashcardId || "none") : "none";
 
     const existing = await prisma.pdfReviewItem.findUnique({
@@ -805,6 +924,7 @@ router.get("/pdf-review/due", requireAuth, async (req, res) => {
     const wholePdfs = items.filter((i) => i.itemType === "whole_pdf");
     const pages = items.filter((i) => i.itemType === "page");
     const flashcards = items.filter((i) => i.itemType === "flashcard");
+    const mcqs = items.filter((i) => i.itemType === "mcq");
 
     // For flashcards, fetch the flashcard data
     const flashcardIds = flashcards.map((f) => f.flashcardId).filter(Boolean);
@@ -817,6 +937,7 @@ router.get("/pdf-review/due", requireAuth, async (req, res) => {
       wholePdfs: wholePdfs.map((i) => ({ ...i, resource: i.resource })),
       pages: pages.map((i) => ({ ...i, resource: i.resource })),
       flashcards: flashcards.map((i) => ({ ...i, flashcard: fcMap.get(i.flashcardId) || null, resource: i.resource })),
+      mcqs: mcqs.map((i) => ({ ...i, resource: i.resource })),
       totalDue: items.length,
     });
   } catch (error) {
@@ -856,6 +977,9 @@ router.get("/pdf-review/stats", requireAuth, async (req, res) => {
       masteredCount,
       newCount,
       reviewCount,
+      mcqCount: items.filter((i) => i.itemType === "mcq").length,
+      flashcardCount: items.filter((i) => i.itemType === "flashcard").length,
+      pdfCount: items.filter((i) => i.itemType === "whole_pdf" || i.itemType === "page").length,
       nextDueAt: nextDue,
       streak: up?.streak ?? 0,
       longestStreak: up?.longestStreak ?? 0,
@@ -1058,7 +1182,7 @@ router.get("/pdf-review/flashcards/:resourceId", requireAuth, async (req, res) =
 // POST /api/resources - Create new resource (any authenticated user)
 router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   try {
-    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds } = req.body;
+    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId } = req.body;
 
     if (!title || !subject || !contentType) {
       return res.status(400).json({ error: "Title, subject, and content type are required" });
@@ -1072,6 +1196,20 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { role: true } });
     const isStudent = user?.role === "STUDENT";
 
+    // If folderId is provided, fetch the folder to inherit metadata and department associations
+    let folder = null;
+    let folderDeptIds = [];
+    if (folderId) {
+      folder = await prisma.folder.findUnique({
+        where: { id: folderId },
+        include: { folderDepts: { select: { departmentId: true } } },
+      });
+      if (!folder) {
+        return res.status(404).json({ error: "Folder not found" });
+      }
+      folderDeptIds = folder.folderDepts.map((fd) => fd.departmentId);
+    }
+
     // Auto-fill department/level/semester from user's profile if not provided
     const finalDept = department || userDept?.department?.name || null;
     const levelMap = { 1: "100 Level", 2: "200 Level", 3: "300 Level", 4: "400 Level", 5: "500 Level", 6: "600 Level" };
@@ -1079,8 +1217,11 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const finalSemester = semester || userDept?.semester || null;
 
     // Parse departmentIds — can be a JSON array string or repeated form fields
+    // If uploading into a shared folder, inherit the folder's department associations
     let parsedDeptIds = [];
-    if (departmentIds) {
+    if (folderId && folderDeptIds.length > 0) {
+      parsedDeptIds = folderDeptIds;
+    } else if (departmentIds) {
       if (typeof departmentIds === "string") {
         try { parsedDeptIds = JSON.parse(departmentIds); } catch { parsedDeptIds = [departmentIds]; }
       } else if (Array.isArray(departmentIds)) {
@@ -1123,7 +1264,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const resource = await prisma.resource.create({
       data: {
         title,
-        subject,
+        subject: folder?.courseCode || subject,
         contentType,
         fileUrl,
         storagePath,
@@ -1134,10 +1275,12 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         isPremium: isPremium === "true",
         shareToken,
         mcqData: contentType === "mcq" ? JSON.parse(mcqData) : null,
+        flashcardData: contentType === "flashcard_deck" ? (typeof req.body.flashcardData === "string" ? JSON.parse(req.body.flashcardData) : req.body.flashcardData) : null,
         status: isStudent ? "pending" : "approved",
         department: finalDept,
         level: finalLevel,
         semester: finalSemester,
+        folderId: folderId || null,
         resourceDepts: parsedDeptIds.length > 0 ? {
           create: parsedDeptIds.map((deptId) => ({ departmentId: deptId })),
         } : undefined,

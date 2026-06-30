@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount } from "../lib/researchUtils";
 import { getDepartments } from "../lib/departments.js";
+import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, getPendingResources } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -30,8 +31,21 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const levels = ["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"];
   const semesters = ["First Semester", "Second Semester"];
 
+  // Folder state
+  const [folders, setFolders] = useState([]);
+  const [activeFolder, setActiveFolder] = useState(null);
+  const [folderDetail, setFolderDetail] = useState(null);
+  const [folderLoading, setFolderLoading] = useState(false);
+  const [folderPending, setFolderPending] = useState([]);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderCourseCode, setNewFolderCourseCode] = useState("");
+  const [newFolderDeptIds, setNewFolderDeptIds] = useState([]);
+  const [newFolderVisibility, setNewFolderVisibility] = useState("shared");
+
   useEffect(() => {
     fetchMyResources();
+    fetchFolders();
     getDepartments().then(setDepartments).catch(() => {});
   }, []);
 
@@ -77,6 +91,110 @@ export default function TeacherResourcesHub({ onBack } = {}) {
       setError("Failed to fetch pending resources");
     } finally {
       setPendingLoading(false);
+    }
+  };
+
+  const fetchFolders = async () => {
+    try {
+      const data = await listFolders();
+      setFolders(data.own || []);
+    } catch {}
+  };
+
+  const fetchFolderDetail = async (folderId) => {
+    setFolderLoading(true);
+    try {
+      const data = await getFolder(folderId);
+      setFolderDetail(data);
+    } catch {
+      showToast("Failed to load folder");
+    } finally {
+      setFolderLoading(false);
+    }
+  };
+
+  const fetchFolderPending = async (folderId) => {
+    try {
+      const data = await getPendingResources(folderId);
+      setFolderPending(data);
+    } catch {
+      setFolderPending([]);
+    }
+  };
+
+  const openFolder = (folderId) => {
+    setActiveFolder(folderId);
+    setFolderDetail(null);
+    setFolderPending([]);
+    fetchFolderDetail(folderId);
+    fetchFolderPending(folderId);
+  };
+
+  const closeFolder = () => {
+    setActiveFolder(null);
+    setFolderDetail(null);
+    setFolderPending([]);
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) { showToast("Folder name required"); return; }
+    try {
+      const data = await createFolder({
+        name: newFolderName.trim(),
+        courseCode: newFolderCourseCode.trim() || null,
+        visibility: newFolderVisibility,
+        departmentIds: newFolderDeptIds,
+      });
+      setFolders((prev) => [data, ...prev]);
+      setShowCreateFolder(false);
+      setNewFolderName("");
+      setNewFolderCourseCode("");
+      setNewFolderDeptIds([]);
+      setNewFolderVisibility("shared");
+      showToast("Folder created ✓");
+    } catch (err) {
+      showToast(err.message || "Failed to create folder");
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    if (!confirm("Delete this folder? Resources inside will remain but lose folder association.")) return;
+    try {
+      await apiDeleteFolder(folderId);
+      setFolders((prev) => prev.filter((f) => f.id !== folderId));
+      if (activeFolder === folderId) closeFolder();
+      showToast("Folder deleted");
+    } catch {
+      showToast("Failed to delete folder");
+    }
+  };
+
+  const handleApproveFolderItem = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/resources/${id}/approve`, { method: "PATCH", headers: getAuthHeaders() });
+      if (response.ok) {
+        setFolderPending((prev) => prev.filter((r) => r.id !== id));
+        if (activeFolder) fetchFolderDetail(activeFolder);
+        showToast("Resource approved ✓");
+      } else {
+        showToast("Failed to approve");
+      }
+    } catch {
+      showToast("Failed to approve");
+    }
+  };
+
+  const handleRejectFolderItem = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/resources/${id}/reject`, { method: "PATCH", headers: getAuthHeaders() });
+      if (response.ok) {
+        setFolderPending((prev) => prev.filter((r) => r.id !== id));
+        showToast("Resource rejected");
+      } else {
+        showToast("Failed to reject");
+      }
+    } catch {
+      showToast("Failed to reject");
     }
   };
 
@@ -363,6 +481,9 @@ export default function TeacherResourcesHub({ onBack } = {}) {
         <button onClick={() => setActiveTab("my")} style={activeTab === "my" ? tabActiveStyle : tabStyle}>
           My Uploads ({filteredResources.length})
         </button>
+        <button onClick={() => setActiveTab("folders")} style={activeTab === "folders" ? tabActiveStyle : tabStyle}>
+          📁 Folders ({folders.length})
+        </button>
         <button onClick={() => setActiveTab("pending")} style={activeTab === "pending" ? tabActiveStyle : tabStyle}>
           Pending Approval ({filteredPending.length})
         </button>
@@ -423,6 +544,99 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             </div>
           )}
         </>
+      )}
+
+      {/* Folders Tab */}
+      {activeTab === "folders" && (
+        activeFolder ? (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
+              <button onClick={closeFolder} style={{ padding: "8px 14px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "13px", color: "#7b82b8", cursor: "pointer" }}>← Folders</button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
+                {folderDetail?.courseCode && <div style={{ fontSize: 12, color: "#7b82b8" }}>{folderDetail.courseCode}</div>}
+              </div>
+              {folderDetail && (
+                <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ padding: "8px 12px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "8px", fontSize: 13, color: "#ef9a9a", cursor: "pointer" }}>🗑 Delete</button>
+              )}
+            </div>
+
+            {/* Pending contributions */}
+            {folderPending.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#ffcc80", marginBottom: 10 }}>⏳ Pending Contributions ({folderPending.length})</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {folderPending.map((r) => (
+                    <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "10px" }}>
+                      <div style={{ flex: 1, overflow: "hidden" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#c5c9e8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.title}</div>
+                        <div style={{ fontSize: 11, color: "#7b82b8" }}>{r.contentType} · by {r.uploader?.username || "Unknown"}</div>
+                      </div>
+                      <button onClick={() => handleApproveFolderItem(r.id)} style={{ width: 32, height: 32, background: "#0f2a1a", border: "0.5px solid #2a6a3a", borderRadius: "7px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#66bb6a", fontSize: 14 }}>✓</button>
+                      <button onClick={() => handleRejectFolderItem(r.id)} style={{ width: 32, height: 32, background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "7px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#ef9a9a", fontSize: 14 }}>✗</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Folder resources */}
+            {folderLoading ? (
+              <div style={{ color: "#7b82b8", padding: 40, textAlign: "center" }}>Loading folder contents…</div>
+            ) : (folderDetail?.sharedResources || []).length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {folderDetail.sharedResources.map((r) => renderResourceRow(r, false))}
+              </div>
+            ) : (
+              <div style={{ background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center" }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
+                <div style={{ fontSize: 14, color: "#7b82b8" }}>This folder is empty. Upload materials or approve pending contributions.</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 14, color: "#7b82b8" }}>Create shared folders for your departments. Students can contribute materials for your approval.</div>
+              <button onClick={() => setShowCreateFolder(true)} style={{ padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#c5cae9", cursor: "pointer", flexShrink: 0 }}>+ New folder</button>
+            </div>
+
+            {folders.length === 0 ? (
+              <div style={{ background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center" }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>📁</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#7b82b8", marginBottom: 6 }}>No folders yet</div>
+                <div style={{ fontSize: 13, color: "#4a5080", maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
+                  Create shared folders to organize materials by course or department. Students can upload into your folders for approval.
+                </div>
+                <button onClick={() => setShowCreateFolder(true)} style={{ marginTop: 16, padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#c5cae9", cursor: "pointer" }}>+ Create your first folder</button>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "14px" }}>
+                {folders.map((folder) => (
+                  <div key={folder.id} style={{ background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "16px", cursor: "pointer", transition: "borderColor 0.15s" }}
+                    onClick={() => openFolder(folder.id)}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}>
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
+                    {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: folder.visibility === "private" ? "#1a0808" : "#0f2a1a", color: folder.visibility === "private" ? "#ef9a9a" : "#a5d6a7", border: `0.5px solid ${folder.visibility === "private" ? "#4a1010" : "#2a6a3a"}` }}>
+                        {folder.visibility === "private" ? "🔒 Private" : folder.visibility === "link" ? "🔗 Link" : "👥 Shared"}
+                      </span>
+                      {folder._count?.resources > 0 && <span style={{ fontSize: 10, color: "#4a5080" }}>{folder._count.resources} items</span>}
+                    </div>
+                    {folder.folderDepts && folder.folderDepts.length > 0 && (
+                      <div style={{ fontSize: 10, color: "#4a5080", marginTop: 6 }}>
+                        {folder.folderDepts.map((fd) => fd.department?.name || fd.departmentId).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {/* Pending Approval Tab */}
@@ -635,6 +849,59 @@ export default function TeacherResourcesHub({ onBack } = {}) {
       {toast && (
         <div style={{ position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)", background: "#0f2a1a", border: "0.5px solid #2a6a3a", color: "#a5d6a7", padding: "10px 20px", borderRadius: "20px", fontSize: "13px", fontWeight: 600, zIndex: 999, display: "flex", alignItems: "center", gap: "8px", animation: "fadeup 0.2s ease" }}>
           <span>✓</span>{toast}
+        </div>
+      )}
+
+      {/* Create Folder Modal */}
+      {showCreateFolder && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setShowCreateFolder(false)}>
+          <div style={{ background: "#0d0f20", border: "0.5px solid #2a2d4a", borderRadius: "18px", padding: "26px", width: "90%", maxWidth: "480px", maxHeight: "86vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 800, color: "#e8eaf6", margin: 0 }}>Create shared folder</h2>
+              <button onClick={() => setShowCreateFolder(false)} style={{ background: "none", border: "none", color: "#4a5080", fontSize: "16px", cursor: "pointer", padding: "4px" }}>✕</button>
+            </div>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Folder name</label>
+              <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g. Anatomy — Year 1" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+            </div>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Course code (optional)</label>
+              <input value={newFolderCourseCode} onChange={(e) => setNewFolderCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+            </div>
+
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "6px", display: "block" }}>Departments</label>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {departments.map((d) => {
+                  const selected = newFolderDeptIds.includes(d.id);
+                  return (
+                    <button key={d.id} type="button" onClick={() => setNewFolderDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])} style={{
+                      padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                      background: selected ? "#1a237e" : "#0a0c1e", border: selected ? "0.5px solid #3949ab" : "0.5px solid #1e2245", color: selected ? "#c5cae9" : "#7b82b8",
+                    }}>
+                      {d.icon || "🏛️"} {d.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 11, color: "#4a5080", marginTop: 6 }}>Students in selected departments can view and contribute to this folder.</p>
+            </div>
+
+            <div style={{ marginBottom: "18px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Visibility</label>
+              <div style={{ display: "flex", gap: "6px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "4px" }}>
+                {[["shared", "👥 Department"], ["link", "🔗 Link share"], ["private", "🔒 Private"]].map(([key, label]) => (
+                  <button key={key} onClick={() => setNewFolderVisibility(key)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: newFolderVisibility === key ? "#1a237e" : "none", fontSize: "13px", fontWeight: 700, color: newFolderVisibility === key ? "#c5cae9" : "#4a5080", cursor: "pointer" }}>{label}</button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ width: "100%", padding: "12px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#c5cae9", cursor: !newFolderName.trim() ? "not-allowed" : "pointer", opacity: !newFolderName.trim() ? 0.5 : 1 }}>
+              Create folder
+            </button>
+          </div>
         </div>
       )}
 
