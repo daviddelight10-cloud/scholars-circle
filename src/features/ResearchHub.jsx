@@ -1074,6 +1074,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     const currentList = folderCategorized[activeFolderTab] || [];
 
     return (
+      <>
       <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
@@ -1149,9 +1150,190 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             {activeFolderTab === "mcqs" && "No MCQ sets in this folder yet. Create one or generate from a PDF."}
           </div>
         )}
+
       </div>
-    );
+      {uploadModal}
+      {createFolderModal}
+    </>
+  );
   }
+
+  const uploadModal = showUploadModal && (
+    <div style={styles.overlay} onClick={closeUpload}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+          <h2 style={styles.modalTitle}>Add material</h2>
+          <button onClick={closeUpload} style={styles.closeBtn}>✕</button>
+        </div>
+
+        <div style={styles.segmentRow}>
+          {[["pdf", "PDF"], ["image", "Image"], ["docx", "DOCX"], ["pptx", "PPTX"], ["txt", "TXT"], ["note", "Note"], ["mcq", "MCQ set"]].map(([key, label]) => (
+            <button key={key} onClick={() => setUploadType(key)} style={uploadType === key ? styles.segActive : styles.seg}>{label}</button>
+          ))}
+        </div>
+
+        <div style={{ marginBottom: "12px" }}>
+          <label style={styles.fieldLabel}>Title</label>
+          <input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder="e.g. Upper Limb — Brachial Plexus Notes" style={styles.input} />
+        </div>
+        <div style={{ marginBottom: "12px" }}>
+          <label style={styles.fieldLabel}>Subject / course code</label>
+          <input list="subjectOptions" value={uploadSubject} onChange={(e) => setUploadSubject(e.target.value)} placeholder="e.g. BIO 111" style={styles.input} />
+          <datalist id="subjectOptions">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
+        </div>
+
+        {uploadType === "note" ? (
+          <>
+            <div style={{ marginBottom: "12px" }}>
+              <label style={styles.fieldLabel}>Note content</label>
+              <textarea
+                value={uploadDescription}
+                onChange={(e) => setUploadDescription(e.target.value)}
+                placeholder="Write your note here…"
+                style={{ ...styles.input, minHeight: "120px", resize: "vertical", fontFamily: "inherit" }}
+              />
+            </div>
+            <button onClick={submitFileUpload} disabled={uploading || !uploadDescription.trim()} style={{ ...styles.submit, opacity: uploading || !uploadDescription.trim() ? 0.5 : 1, cursor: uploading || !uploadDescription.trim() ? "not-allowed" : "pointer" }}>
+              {uploading ? "Uploading..." : "Publish note"}
+            </button>
+          </>
+        ) : uploadType !== "mcq" ? (
+          <>
+            <label
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              style={{
+                ...styles.dropzone,
+                borderColor: dragOver ? "#3949ab" : uploadFile ? "#2a6a3a" : "#252860",
+                background: dragOver ? "#0f1240" : "#0a0c1e",
+              }}
+            >
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleFilePick} style={{ display: "none" }} ref={fileInputRef} />
+              {uploadPreview ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                  <img src={uploadPreview} alt="Preview" style={{ maxWidth: "100%", maxHeight: "160px", borderRadius: "8px", objectFit: "contain" }} />
+                  <span style={{ fontSize: "12px", color: "#a5d6a7" }}>✓ {uploadFile.name}</span>
+                </div>
+              ) : uploadFile ? (
+                <span style={{ fontSize: "13px", color: "#a5d6a7" }}>✓ {uploadFile.name}</span>
+              ) : (
+                <span style={{ fontSize: "13px", color: "#4a5080" }}>
+                  {dragOver ? "Drop file here" : "Tap to choose or drag a file · PDF, JPG, PNG, DOCX · max 20MB"}
+                </span>
+              )}
+            </label>
+
+            {uploading && (
+              <div style={{ marginBottom: "14px" }}>
+                <div style={{ height: "6px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #3949ab, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
+                </div>
+                <div style={{ fontSize: "11px", color: "#7986cb", textAlign: "center", marginTop: "4px" }}>{uploadProgress}%</div>
+              </div>
+            )}
+
+            <button onClick={submitFileUpload} disabled={uploading || !uploadFile} style={{ ...styles.submit, opacity: uploading || !uploadFile ? 0.5 : 1, cursor: uploading || !uploadFile ? "not-allowed" : "pointer" }}>
+              {uploading ? "Uploading..." : "Upload"}
+            </button>
+          </>
+        ) : (
+          <>
+            {mcqRows.map((row, i) => (
+              <div key={i} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "14px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8" }}>Question {i + 1}</span>
+                  {mcqRows.length > 1 && <button onClick={() => removeMcqRow(i)} style={{ background: "none", border: "none", color: "#ef9a9a", fontSize: "11px", cursor: "pointer" }}>Remove</button>}
+                </div>
+                <input value={row.question} onChange={(e) => updateMcqRow(i, { question: e.target.value })} placeholder="Question text" style={{ ...styles.input, marginBottom: "8px" }} />
+                {Object.entries(row.options).map(([key, value]) => (
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                    <input type="radio" name={`correct-${i}`} checked={row.correct === key} onChange={() => updateMcqRow(i, { correct: key })} title="Mark as correct" style={{ accentColor: "#3949ab" }} />
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: row.correct === key ? "#66bb6a" : "#4a5080", width: "16px" }}>{key}</span>
+                    <input value={value} onChange={(e) => updateMcqOption(i, key, e.target.value)} placeholder={`Option ${key}`} style={{ ...styles.input, flex: 1 }} />
+                  </div>
+                ))}
+                <textarea value={row.explanation} onChange={(e) => updateMcqRow(i, { explanation: e.target.value })} placeholder="Brief explanation (optional but recommended)" style={{ ...styles.input, minHeight: "50px", resize: "vertical", marginTop: "6px" }} />
+              </div>
+            ))}
+            <button onClick={addMcqRow} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px dashed #2a2d4a", background: "none", color: "#7b82b8", fontSize: "12.5px", fontWeight: 600, cursor: "pointer", marginBottom: "14px" }}>+ Add another question</button>
+
+            {uploading && (
+              <div style={{ marginBottom: "14px" }}>
+                <div style={{ height: "6px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #3949ab, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
+                </div>
+              </div>
+            )}
+
+            <button onClick={submitMcqUpload} disabled={uploading} style={{ ...styles.submit, opacity: uploading ? 0.5 : 1, cursor: uploading ? "not-allowed" : "pointer" }}>
+              {uploading ? "Submitting..." : "Submit MCQs"}
+            </button>
+          </>
+        )}
+
+        <p style={styles.modalFootnote}>
+          Your upload will appear in My Uploads. Student uploads require moderator approval before going public; teacher/lecturer uploads go live immediately.
+        </p>
+      </div>
+    </div>
+  );
+
+  const createFolderModal = showCreateFolder && (
+    <div style={styles.overlay} onClick={() => setShowCreateFolder(false)}>
+      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+          <h2 style={styles.modalTitle}>Create folder</h2>
+          <button onClick={() => setShowCreateFolder(false)} style={styles.closeBtn}>✕</button>
+        </div>
+
+        <div style={{ marginBottom: "12px" }}>
+          <label style={styles.fieldLabel}>Folder name</label>
+          <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g. Anatomy — Year 1" style={styles.input} />
+        </div>
+        <div style={{ marginBottom: "12px" }}>
+          <label style={styles.fieldLabel}>Course code (optional)</label>
+          <input value={newFolderCourseCode} onChange={(e) => setNewFolderCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={styles.input} />
+        </div>
+        <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
+          <div style={{ flex: 1 }}>
+            <label style={styles.fieldLabel}>Level</label>
+            <select value={newFolderLevel} onChange={(e) => setNewFolderLevel(e.target.value)} style={styles.select}>
+              <option value="">Any level</option>
+              {["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"].map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={styles.fieldLabel}>Semester</label>
+            <select value={newFolderSemester} onChange={(e) => setNewFolderSemester(e.target.value)} style={styles.select}>
+              <option value="">Any semester</option>
+              <option value="First Semester">First Semester</option>
+              <option value="Second Semester">Second Semester</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ marginBottom: "18px" }}>
+          <label style={styles.fieldLabel}>Visibility</label>
+          <div style={styles.segmentRow}>
+            {[["private", "🔒 Private"], ["link", "🔗 Link share"], ["shared", "👥 Department"]].map(([key, label]) => (
+              <button key={key} onClick={() => setNewFolderVisibility(key)} style={newFolderVisibility === key ? styles.segActive : styles.seg}>{label}</button>
+            ))}
+          </div>
+          <p style={{ fontSize: 11, color: "#4a5080", marginTop: 6, lineHeight: 1.4 }}>
+            {newFolderVisibility === "private" && "Only you can see this folder."}
+            {newFolderVisibility === "link" && "Anyone with the link can view this folder."}
+            {newFolderVisibility === "shared" && "Students in your department can access this folder."}
+          </p>
+        </div>
+
+        <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ ...styles.submit, opacity: !newFolderName.trim() ? 0.5 : 1, cursor: !newFolderName.trim() ? "not-allowed" : "pointer" }}>
+          Create folder
+        </button>
+      </div>
+    </div>
+  );
 
   const tabLabel = { foryou: "For You", all: "All Materials", space: "My Space", uploads: "My Uploads", progress: "Progress", fsrs: "Review" }[activeTab];
   const emptyMessage = {
@@ -1418,183 +1600,10 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       )}
 
       {/* Upload Modal */}
-      {showUploadModal && (
-        <div style={styles.overlay} onClick={closeUpload}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <h2 style={styles.modalTitle}>Add material</h2>
-              <button onClick={closeUpload} style={styles.closeBtn}>✕</button>
-            </div>
-
-            <div style={styles.segmentRow}>
-              {[["pdf", "PDF"], ["image", "Image"], ["docx", "DOCX"], ["pptx", "PPTX"], ["txt", "TXT"], ["note", "Note"], ["mcq", "MCQ set"]].map(([key, label]) => (
-                <button key={key} onClick={() => setUploadType(key)} style={uploadType === key ? styles.segActive : styles.seg}>{label}</button>
-              ))}
-            </div>
-
-            <div style={{ marginBottom: "12px" }}>
-              <label style={styles.fieldLabel}>Title</label>
-              <input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder="e.g. Upper Limb — Brachial Plexus Notes" style={styles.input} />
-            </div>
-            <div style={{ marginBottom: "12px" }}>
-              <label style={styles.fieldLabel}>Subject / course code</label>
-              <input list="subjectOptions" value={uploadSubject} onChange={(e) => setUploadSubject(e.target.value)} placeholder="e.g. BIO 111" style={styles.input} />
-              <datalist id="subjectOptions">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
-            </div>
-
-            {uploadType === "note" ? (
-              <>
-                <div style={{ marginBottom: "12px" }}>
-                  <label style={styles.fieldLabel}>Note content</label>
-                  <textarea
-                    value={uploadDescription}
-                    onChange={(e) => setUploadDescription(e.target.value)}
-                    placeholder="Write your note here…"
-                    style={{ ...styles.input, minHeight: "120px", resize: "vertical", fontFamily: "inherit" }}
-                  />
-                </div>
-                <button onClick={submitFileUpload} disabled={uploading || !uploadDescription.trim()} style={{ ...styles.submit, opacity: uploading || !uploadDescription.trim() ? 0.5 : 1, cursor: uploading || !uploadDescription.trim() ? "not-allowed" : "pointer" }}>
-                  {uploading ? "Uploading..." : "Publish note"}
-                </button>
-              </>
-            ) : uploadType !== "mcq" ? (
-              <>
-                <label
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  style={{
-                    ...styles.dropzone,
-                    borderColor: dragOver ? "#3949ab" : uploadFile ? "#2a6a3a" : "#252860",
-                    background: dragOver ? "#0f1240" : "#0a0c1e",
-                  }}
-                >
-                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleFilePick} style={{ display: "none" }} ref={fileInputRef} />
-                  {uploadPreview ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-                      <img src={uploadPreview} alt="Preview" style={{ maxWidth: "100%", maxHeight: "160px", borderRadius: "8px", objectFit: "contain" }} />
-                      <span style={{ fontSize: "12px", color: "#a5d6a7" }}>✓ {uploadFile.name}</span>
-                    </div>
-                  ) : uploadFile ? (
-                    <span style={{ fontSize: "13px", color: "#a5d6a7" }}>✓ {uploadFile.name}</span>
-                  ) : (
-                    <span style={{ fontSize: "13px", color: "#4a5080" }}>
-                      {dragOver ? "Drop file here" : "Tap to choose or drag a file · PDF, JPG, PNG, DOCX · max 20MB"}
-                    </span>
-                  )}
-                </label>
-
-                {uploading && (
-                  <div style={{ marginBottom: "14px" }}>
-                    <div style={{ height: "6px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #3949ab, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#7986cb", textAlign: "center", marginTop: "4px" }}>{uploadProgress}%</div>
-                  </div>
-                )}
-
-                <button onClick={submitFileUpload} disabled={uploading || !uploadFile} style={{ ...styles.submit, opacity: uploading || !uploadFile ? 0.5 : 1, cursor: uploading || !uploadFile ? "not-allowed" : "pointer" }}>
-                  {uploading ? "Uploading..." : "Upload"}
-                </button>
-              </>
-            ) : (
-              <>
-                {mcqRows.map((row, i) => (
-                  <div key={i} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "14px", marginBottom: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8" }}>Question {i + 1}</span>
-                      {mcqRows.length > 1 && <button onClick={() => removeMcqRow(i)} style={{ background: "none", border: "none", color: "#ef9a9a", fontSize: "11px", cursor: "pointer" }}>Remove</button>}
-                    </div>
-                    <input value={row.question} onChange={(e) => updateMcqRow(i, { question: e.target.value })} placeholder="Question text" style={{ ...styles.input, marginBottom: "8px" }} />
-                    {Object.entries(row.options).map(([key, value]) => (
-                      <div key={key} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                        <input type="radio" name={`correct-${i}`} checked={row.correct === key} onChange={() => updateMcqRow(i, { correct: key })} title="Mark as correct" style={{ accentColor: "#3949ab" }} />
-                        <span style={{ fontSize: "11px", fontWeight: 700, color: row.correct === key ? "#66bb6a" : "#4a5080", width: "16px" }}>{key}</span>
-                        <input value={value} onChange={(e) => updateMcqOption(i, key, e.target.value)} placeholder={`Option ${key}`} style={{ ...styles.input, flex: 1 }} />
-                      </div>
-                    ))}
-                    <textarea value={row.explanation} onChange={(e) => updateMcqRow(i, { explanation: e.target.value })} placeholder="Brief explanation (optional but recommended)" style={{ ...styles.input, minHeight: "50px", resize: "vertical", marginTop: "6px" }} />
-                  </div>
-                ))}
-                <button onClick={addMcqRow} style={{ width: "100%", padding: "10px", borderRadius: "10px", border: "1px dashed #2a2d4a", background: "none", color: "#7b82b8", fontSize: "12.5px", fontWeight: 600, cursor: "pointer", marginBottom: "14px" }}>+ Add another question</button>
-
-                {uploading && (
-                  <div style={{ marginBottom: "14px" }}>
-                    <div style={{ height: "6px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #3949ab, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
-                    </div>
-                  </div>
-                )}
-
-                <button onClick={submitMcqUpload} disabled={uploading} style={{ ...styles.submit, opacity: uploading ? 0.5 : 1, cursor: uploading ? "not-allowed" : "pointer" }}>
-                  {uploading ? "Submitting..." : "Submit MCQs"}
-                </button>
-              </>
-            )}
-
-            <p style={styles.modalFootnote}>
-              Your upload will appear in My Uploads. Student uploads require moderator approval before going public; teacher/lecturer uploads go live immediately.
-            </p>
-          </div>
-        </div>
-      )}
+      {uploadModal}
 
       {/* Create Folder Modal */}
-      {showCreateFolder && (
-        <div style={styles.overlay} onClick={() => setShowCreateFolder(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <h2 style={styles.modalTitle}>Create folder</h2>
-              <button onClick={() => setShowCreateFolder(false)} style={styles.closeBtn}>✕</button>
-            </div>
-
-            <div style={{ marginBottom: "12px" }}>
-              <label style={styles.fieldLabel}>Folder name</label>
-              <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g. Anatomy — Year 1" style={styles.input} />
-            </div>
-            <div style={{ marginBottom: "12px" }}>
-              <label style={styles.fieldLabel}>Course code (optional)</label>
-              <input value={newFolderCourseCode} onChange={(e) => setNewFolderCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={styles.input} />
-            </div>
-            <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
-              <div style={{ flex: 1 }}>
-                <label style={styles.fieldLabel}>Level</label>
-                <select value={newFolderLevel} onChange={(e) => setNewFolderLevel(e.target.value)} style={styles.select}>
-                  <option value="">Any level</option>
-                  {["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"].map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={styles.fieldLabel}>Semester</label>
-                <select value={newFolderSemester} onChange={(e) => setNewFolderSemester(e.target.value)} style={styles.select}>
-                  <option value="">Any semester</option>
-                  <option value="First Semester">First Semester</option>
-                  <option value="Second Semester">Second Semester</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ marginBottom: "18px" }}>
-              <label style={styles.fieldLabel}>Visibility</label>
-              <div style={styles.segmentRow}>
-                {[["private", "🔒 Private"], ["link", "🔗 Link share"], ["shared", "👥 Department"]].map(([key, label]) => (
-                  <button key={key} onClick={() => setNewFolderVisibility(key)} style={newFolderVisibility === key ? styles.segActive : styles.seg}>{label}</button>
-                ))}
-              </div>
-              <p style={{ fontSize: 11, color: "#4a5080", marginTop: 6, lineHeight: 1.4 }}>
-                {newFolderVisibility === "private" && "Only you can see this folder."}
-                {newFolderVisibility === "link" && "Anyone with the link can view this folder."}
-                {newFolderVisibility === "shared" && "Students in your department can access this folder."}
-              </p>
-            </div>
-
-            <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ ...styles.submit, opacity: !newFolderName.trim() ? 0.5 : 1, cursor: !newFolderName.trim() ? "not-allowed" : "pointer" }}>
-              Create folder
-            </button>
-          </div>
-        </div>
-      )}
+      {createFolderModal}
 
       <style>{`
         @keyframes fadeup {
