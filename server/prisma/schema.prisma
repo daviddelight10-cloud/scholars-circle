@@ -1535,6 +1535,8 @@ model Folder {
   ownerId     String
   owner       User     @relation("FolderOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   visibility  String   @default("private") // private | shared | link
+  level       String?  // 100 Level, 200 Level, etc.
+  semester    String?  // First Semester, Second Semester
   shareToken  String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -39,7 +39,7 @@ async function canAccessFolder(userId, folder) {
 // POST /api/folders — Create a folder
 router.post("/", requireAuth, async (req, res) => {
   try {
-    const { name, courseCode, visibility, departmentIds } = req.body;
+    const { name, courseCode, visibility, departmentIds, level, semester } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Folder name is required" });
     }
@@ -76,6 +76,8 @@ router.post("/", requireAuth, async (req, res) => {
         courseCode: courseCode?.trim() || null,
         ownerId: req.user.sub,
         visibility: finalVisibility,
+        level: level || null,
+        semester: semester || null,
         shareToken,
         folderDepts: parsedDeptIds.length > 0 ? {
           create: parsedDeptIds.map((deptId) => ({ departmentId: deptId })),
@@ -287,7 +289,7 @@ router.get("/:id/pending", requireAuth, requireRole("TEACHER", "LECTURER"), asyn
 router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, courseCode, visibility, departmentIds, generateShareToken } = req.body;
+    const { name, courseCode, visibility, departmentIds, generateShareToken, level, semester } = req.body;
 
     const folder = await prisma.folder.findUnique({ where: { id } });
     if (!folder) {
@@ -300,6 +302,8 @@ router.patch("/:id", requireAuth, async (req, res) => {
     const data = {};
     if (name !== undefined) data.name = name.trim();
     if (courseCode !== undefined) data.courseCode = courseCode?.trim() || null;
+    if (level !== undefined) data.level = level || null;
+    if (semester !== undefined) data.semester = semester || null;
 
     if (visibility !== undefined) {
       const user = await prisma.user.findUnique({

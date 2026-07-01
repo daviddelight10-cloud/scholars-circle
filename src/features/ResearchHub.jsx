@@ -471,6 +471,9 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderCourseCode, setNewFolderCourseCode] = useState("");
   const [newFolderVisibility, setNewFolderVisibility] = useState("private");
+  const [newFolderLevel, setNewFolderLevel] = useState("");
+  const [newFolderSemester, setNewFolderSemester] = useState("");
+  const [activeFolderTab, setActiveFolderTab] = useState("materials");
   const [uploadFolderId, setUploadFolderId] = useState(null);
   const [folderSearch, setFolderSearch] = useState("");
   const [mcqProgress, setMcqProgress] = useState({});
@@ -638,12 +641,16 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         name: newFolderName.trim(),
         courseCode: newFolderCourseCode.trim() || null,
         visibility: newFolderVisibility,
+        level: newFolderLevel || null,
+        semester: newFolderSemester || null,
       });
       setFolders((prev) => ({ ...prev, own: [data, ...(prev.own || [])] }));
       setShowCreateFolder(false);
       setNewFolderName("");
       setNewFolderCourseCode("");
       setNewFolderVisibility("private");
+      setNewFolderLevel("");
+      setNewFolderSemester("");
       showToast("Folder created ✓");
     } catch (err) {
       showToast(err.message || "Failed to create folder");
@@ -676,12 +683,14 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const openFolder = (folderId) => {
     setActiveFolder(folderId);
     setFolderDetail(null);
+    setActiveFolderTab("materials");
     fetchFolderDetail(folderId);
   };
 
   const closeFolder = () => {
     setActiveFolder(null);
     setFolderDetail(null);
+    setActiveFolderTab("materials");
   };
 
   const openUploadInFolder = (folderId, type) => {
@@ -701,6 +710,25 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     const mine = folderDetail.myResources || [];
     return [...mine, ...shared];
   }, [folderDetail]);
+
+  const folderCategorized = useMemo(() => {
+    const materials = [];
+    const summaries = [];
+    const flashcards = [];
+    const mcqs = [];
+    for (const r of folderResources) {
+      if (r.contentType === "mcq") {
+        mcqs.push(r);
+      } else if (r.contentType === "flashcard_deck") {
+        flashcards.push(r);
+      } else if (r.title?.startsWith("[AI] Summary")) {
+        summaries.push(r);
+      } else {
+        materials.push(r);
+      }
+    }
+    return { materials, summaries, flashcards, mcqs };
+  }, [folderResources]);
 
   const folderIsOwner = useMemo(() => {
     if (!folderDetail) return false;
@@ -1036,6 +1064,95 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} />;
   }
 
+  if (activeTab === "folders" && activeFolder) {
+    const folderSubTabs = [
+      ["materials", "📄 Materials", folderCategorized.materials.length],
+      ["summary", "📝 Summary", folderCategorized.summaries.length],
+      ["flashcards", "🎴 Flash Cards", folderCategorized.flashcards.length],
+      ["mcqs", "✎ MCQs", folderCategorized.mcqs.length],
+    ];
+    const currentList = folderCategorized[activeFolderTab] || [];
+
+    return (
+      <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+          <button onClick={closeFolder} style={styles.backBtn}>← Folders</button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+              {folderDetail?.courseCode && <span style={{ fontSize: 11, color: "#7b82b8" }}>{folderDetail.courseCode}</span>}
+              {folderDetail?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folderDetail.level}</span>}
+              {folderDetail?.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folderDetail.semester}</span>}
+            </div>
+          </div>
+          {folderDetail && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {folderDetail.visibility === "link" && (
+                <button onClick={() => handleShareFolder(folderDetail)} style={styles.iconActionBtn}>🔗</button>
+              )}
+              {folderIsOwner && (
+                <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ ...styles.iconActionBtn, color: "#ef9a9a" }}>🗑</button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* In-folder actions */}
+        {folderDetail && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            <button onClick={() => openUploadInFolder(folderDetail.id, "pdf")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+              📎 Upload to folder
+            </button>
+            <button onClick={() => openUploadInFolder(folderDetail.id, "mcq")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+              ✎ Create MCQ set
+            </button>
+          </div>
+        )}
+
+        {/* Sub-tab row */}
+        <div className="sc-tabrow" style={{ ...styles.tabRow, marginBottom: 16 }}>
+          {folderSubTabs.map(([key, label, count]) => (
+            <button key={key} onClick={() => setActiveFolderTab(key)} style={activeFolderTab === key ? styles.tabActive : styles.tab}>
+              {label}
+              {count > 0 && <span style={styles.tabCount}>{count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        {folderLoading ? (
+          <div style={styles.emptyState}>Loading folder contents…</div>
+        ) : currentList.length > 0 ? (
+          <div style={styles.grid}>
+            {currentList.map((resource) => (
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
+                isBookmarked={bookmarkedIds.has(resource.id)}
+                bookmarkBusy={bookmarkBusyId === resource.id}
+                onOpen={handleOpen}
+                onToggleBookmark={toggleBookmark}
+                onShare={handleShare}
+                mcqProgress={mcqProgress}
+              />
+            ))}
+          </div>
+        ) : (
+          <div style={styles.emptyState}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>
+              {activeFolderTab === "materials" ? "📄" : activeFolderTab === "summary" ? "📝" : activeFolderTab === "flashcards" ? "🎴" : "✎"}
+            </div>
+            {activeFolderTab === "materials" && "No materials in this folder yet. Upload PDFs, notes, or other files."}
+            {activeFolderTab === "summary" && "No AI-generated summaries yet. Open a PDF and use the AI tool to generate summaries."}
+            {activeFolderTab === "flashcards" && "No flashcard decks in this folder yet."}
+            {activeFolderTab === "mcqs" && "No MCQ sets in this folder yet. Create one or generate from a PDF."}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const tabLabel = { foryou: "For You", all: "All Materials", space: "My Space", uploads: "My Uploads", progress: "Progress", fsrs: "Review" }[activeTab];
   const emptyMessage = {
     foryou: userDept && userDept.department ? "No materials match your department and level yet — check All Materials for everything." : "Set your department to see materials curated for you.",
@@ -1147,76 +1264,16 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
           setViewerToken(token);
         }} />
       ) : activeTab === "folders" ? (
-        activeFolder ? (
-          /* Folder Detail View */
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <button onClick={closeFolder} style={styles.backBtn}>← Folders</button>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
-                {folderDetail?.courseCode && <div style={{ fontSize: 12, color: "#7b82b8" }}>{folderDetail.courseCode}</div>}
-              </div>
-              {folderDetail && (
-                <div style={{ display: "flex", gap: 8 }}>
-                  {folderDetail.visibility === "link" && (
-                    <button onClick={() => handleShareFolder(folderDetail)} style={styles.iconActionBtn}>🔗</button>
-                  )}
-                  {folderIsOwner && (
-                    <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ ...styles.iconActionBtn, color: "#ef9a9a" }}>🗑</button>
-                  )}
-                </div>
-              )}
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ ...styles.searchWrap, flex: "1 1 240px" }}>
+              <span style={{ color: "#3a3d60", fontSize: "16px" }}>🔍</span>
+              <input type="text" value={folderSearch} onChange={(e) => setFolderSearch(e.target.value)} placeholder="Search folders…" style={styles.searchInput} />
             </div>
-
-            {/* In-folder actions */}
-            {folderDetail && (
-              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                <button onClick={() => openUploadInFolder(folderDetail.id, "pdf")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
-                  📎 Upload to folder
-                </button>
-                <button onClick={() => openUploadInFolder(folderDetail.id, "mcq")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
-                  ✎ Create MCQ set
-                </button>
-              </div>
-            )}
-
-            {/* Folder resources */}
-            {folderLoading ? (
-              <div style={styles.emptyState}>Loading folder contents…</div>
-            ) : folderResources.length > 0 ? (
-              <div style={styles.grid}>
-                {folderResources.map((resource) => (
-                  <ResourceCard
-                    key={resource.id}
-                    resource={resource}
-                    isBookmarked={bookmarkedIds.has(resource.id)}
-                    bookmarkBusy={bookmarkBusyId === resource.id}
-                    onOpen={handleOpen}
-                    onToggleBookmark={toggleBookmark}
-                    onShare={handleShare}
-                    mcqProgress={mcqProgress}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div style={styles.emptyState}>
-                <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
-                This folder is empty. Upload materials or generate AI content to get started.
-              </div>
-            )}
+            <button onClick={() => setShowCreateFolder(true)} style={{ ...styles.addBtn, marginLeft: 10 }}>
+              + New folder
+            </button>
           </div>
-        ) : (
-          /* Folder Grid View */
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <div style={{ ...styles.searchWrap, flex: "1 1 240px" }}>
-                <span style={{ color: "#3a3d60", fontSize: "16px" }}>🔍</span>
-                <input type="text" value={folderSearch} onChange={(e) => setFolderSearch(e.target.value)} placeholder="Search folders…" style={styles.searchInput} />
-              </div>
-              <button onClick={() => setShowCreateFolder(true)} style={{ ...styles.addBtn, marginLeft: 10 }}>
-                + New folder
-              </button>
-            </div>
 
             {/* My Folders */}
             {folders.own && folders.own.length > 0 && (
@@ -1230,6 +1287,10 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                       <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
                       {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+                        {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
+                        {folder.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folder.semester}</span>}
+                      </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: folder.visibility === "private" ? "#1a0808" : "#0f2a1a", color: folder.visibility === "private" ? "#ef9a9a" : "#a5d6a7", border: `0.5px solid ${folder.visibility === "private" ? "#4a1010" : "#2a6a3a"}` }}>
                           {folder.visibility === "private" ? "🔒 Private" : folder.visibility === "link" ? "🔗 Link" : "👥 Shared"}
@@ -1254,6 +1315,10 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                       <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
                       {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+                        {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
+                        {folder.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folder.semester}</span>}
+                      </div>
                       <div style={{ fontSize: 10, color: "#4a5080" }}>by {folder.owner?.username || "Unknown"}</div>
                       {folder._count?.resources > 0 && <span style={{ fontSize: 10, color: "#4a5080", marginTop: 4, display: "block" }}>{folder._count.resources} items</span>}
                     </div>
@@ -1272,8 +1337,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                 <button onClick={() => setShowCreateFolder(true)} style={{ ...styles.addBtn, marginTop: 16 }}>+ Create your first folder</button>
               </div>
             )}
-          </div>
-        )
+        </div>
       ) : (
         <>
           {/* Search + Filter button + Sort */}
@@ -1491,6 +1555,25 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             <div style={{ marginBottom: "12px" }}>
               <label style={styles.fieldLabel}>Course code (optional)</label>
               <input value={newFolderCourseCode} onChange={(e) => setNewFolderCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={styles.input} />
+            </div>
+            <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
+              <div style={{ flex: 1 }}>
+                <label style={styles.fieldLabel}>Level</label>
+                <select value={newFolderLevel} onChange={(e) => setNewFolderLevel(e.target.value)} style={styles.select}>
+                  <option value="">Any level</option>
+                  {["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"].map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={styles.fieldLabel}>Semester</label>
+                <select value={newFolderSemester} onChange={(e) => setNewFolderSemester(e.target.value)} style={styles.select}>
+                  <option value="">Any semester</option>
+                  <option value="First Semester">First Semester</option>
+                  <option value="Second Semester">Second Semester</option>
+                </select>
+              </div>
             </div>
             <div style={{ marginBottom: "18px" }}>
               <label style={styles.fieldLabel}>Visibility</label>
