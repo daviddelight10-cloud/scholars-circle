@@ -15,15 +15,15 @@ export async function copyShareToken(token) {
 // Get color class for subject badge
 export function getSubjectBadgeColor(subject) {
   const colors = {
-    PHY: { bg: "#0f1440", text: "#7986cb", border: "#2a3080" },
-    BIO: { bg: "#0f2a1a", text: "#66bb6a", border: "#1a4a2a" },
+    PHY: { bg: "#1a1a1a", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
+    BIO: { bg: "#0f2a1a", text: "#66bb6a", border: "#2a6a3a" },
     ANA: { bg: "#2a0a0a", text: "#ef9a9a", border: "#4a1010" },
     CHM: { bg: "#1a1000", text: "#ffb74d", border: "#3a2800" },
     Cardiology: { bg: "#2a0a0a", text: "#ef9a9a", border: "#4a1010" },
-    GST: { bg: "#0f1440", text: "#7986cb", border: "#2a3080" },
-    HEE: { bg: "#0f2a1a", text: "#66bb6a", border: "#1a4a2a" },
+    GST: { bg: "#1a1a1a", text: "#FFD700", border: "rgba(255,215,0,0.25)" },
+    HEE: { bg: "#0f2a1a", text: "#66bb6a", border: "#2a6a3a" },
   };
-  return colors[subject] || { bg: "#0f1128", text: "#7b82b8", border: "#252860" };
+  return colors[subject] || { bg: "#1a1a1a", text: "#888", border: "#2a2a2a" };
 }
 
 // Get icon for content type

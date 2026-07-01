@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import HomePage from './features/HomePage';
 import App from './App';
-import ResearchHub from './features/ResearchHub';
+import ResearchHub from './features/research-hub/ResearchHub';
 import ResourceViewer from './features/ResourceViewer';
 import TeacherResourcesHub from './features/TeacherResourcesHub';
 import SharedFolderView from './features/SharedFolderView';

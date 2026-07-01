@@ -129,7 +129,7 @@ import { StudyGroups } from "./features/StudyGroups";
 
 
 const GamificationHub = lazy(() => import("./features/Gamification"));
-const ResearchHub = lazy(() => import("./features/ResearchHub"));
+const ResearchHub = lazy(() => import("./features/research-hub/ResearchHub"));
 
 const ResourceViewer = lazy(() => import("./features/ResourceViewer"));
 const TeacherResourcesHub = lazy(() => import("./features/TeacherResourcesHub"));
