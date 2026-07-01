@@ -1060,104 +1060,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     return sorted;
   }, [tabResources, search, activeFilter, filters, sortBy]);
 
-  if (viewerToken) {
-    return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} />;
-  }
-
-  if (activeTab === "folders" && activeFolder) {
-    const folderSubTabs = [
-      ["materials", "📄 Materials", folderCategorized.materials.length],
-      ["summary", "📝 Summary", folderCategorized.summaries.length],
-      ["flashcards", "🎴 Flash Cards", folderCategorized.flashcards.length],
-      ["mcqs", "✎ MCQs", folderCategorized.mcqs.length],
-    ];
-    const currentList = folderCategorized[activeFolderTab] || [];
-
-    return (
-      <>
-      <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
-          <button onClick={closeFolder} style={styles.backBtn}>← Folders</button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-              {folderDetail?.courseCode && <span style={{ fontSize: 11, color: "#7b82b8" }}>{folderDetail.courseCode}</span>}
-              {folderDetail?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folderDetail.level}</span>}
-              {folderDetail?.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folderDetail.semester}</span>}
-            </div>
-          </div>
-          {folderDetail && (
-            <div style={{ display: "flex", gap: 8 }}>
-              {folderDetail.visibility === "link" && (
-                <button onClick={() => handleShareFolder(folderDetail)} style={styles.iconActionBtn}>🔗</button>
-              )}
-              {folderIsOwner && (
-                <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ ...styles.iconActionBtn, color: "#ef9a9a" }}>🗑</button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* In-folder actions */}
-        {folderDetail && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            <button onClick={() => openUploadInFolder(folderDetail.id, "pdf")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
-              📎 Upload to folder
-            </button>
-            <button onClick={() => openUploadInFolder(folderDetail.id, "mcq")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
-              ✎ Create MCQ set
-            </button>
-          </div>
-        )}
-
-        {/* Sub-tab row */}
-        <div className="sc-tabrow" style={{ ...styles.tabRow, marginBottom: 16 }}>
-          {folderSubTabs.map(([key, label, count]) => (
-            <button key={key} onClick={() => setActiveFolderTab(key)} style={activeFolderTab === key ? styles.tabActive : styles.tab}>
-              {label}
-              {count > 0 && <span style={styles.tabCount}>{count}</span>}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        {folderLoading ? (
-          <div style={styles.emptyState}>Loading folder contents…</div>
-        ) : currentList.length > 0 ? (
-          <div style={styles.grid}>
-            {currentList.map((resource) => (
-              <ResourceCard
-                key={resource.id}
-                resource={resource}
-                isBookmarked={bookmarkedIds.has(resource.id)}
-                bookmarkBusy={bookmarkBusyId === resource.id}
-                onOpen={handleOpen}
-                onToggleBookmark={toggleBookmark}
-                onShare={handleShare}
-                mcqProgress={mcqProgress}
-              />
-            ))}
-          </div>
-        ) : (
-          <div style={styles.emptyState}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>
-              {activeFolderTab === "materials" ? "📄" : activeFolderTab === "summary" ? "📝" : activeFolderTab === "flashcards" ? "🎴" : "✎"}
-            </div>
-            {activeFolderTab === "materials" && "No materials in this folder yet. Upload PDFs, notes, or other files."}
-            {activeFolderTab === "summary" && "No AI-generated summaries yet. Open a PDF and use the AI tool to generate summaries."}
-            {activeFolderTab === "flashcards" && "No flashcard decks in this folder yet."}
-            {activeFolderTab === "mcqs" && "No MCQ sets in this folder yet. Create one or generate from a PDF."}
-          </div>
-        )}
-
-      </div>
-      {uploadModal}
-      {createFolderModal}
-    </>
-  );
-  }
-
   const uploadModal = showUploadModal && (
     <div style={styles.overlay} onClick={closeUpload}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -1334,6 +1236,104 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       </div>
     </div>
   );
+
+  if (viewerToken) {
+    return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} />;
+  }
+
+  if (activeTab === "folders" && activeFolder) {
+    const folderSubTabs = [
+      ["materials", "📄 Materials", folderCategorized.materials.length],
+      ["summary", "📝 Summary", folderCategorized.summaries.length],
+      ["flashcards", "🎴 Flash Cards", folderCategorized.flashcards.length],
+      ["mcqs", "✎ MCQs", folderCategorized.mcqs.length],
+    ];
+    const currentList = folderCategorized[activeFolderTab] || [];
+
+    return (
+      <>
+      <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+          <button onClick={closeFolder} style={styles.backBtn}>← Folders</button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+              {folderDetail?.courseCode && <span style={{ fontSize: 11, color: "#7b82b8" }}>{folderDetail.courseCode}</span>}
+              {folderDetail?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folderDetail.level}</span>}
+              {folderDetail?.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folderDetail.semester}</span>}
+            </div>
+          </div>
+          {folderDetail && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {folderDetail.visibility === "link" && (
+                <button onClick={() => handleShareFolder(folderDetail)} style={styles.iconActionBtn}>🔗</button>
+              )}
+              {folderIsOwner && (
+                <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ ...styles.iconActionBtn, color: "#ef9a9a" }}>🗑</button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* In-folder actions */}
+        {folderDetail && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            <button onClick={() => openUploadInFolder(folderDetail.id, "pdf")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+              📎 Upload to folder
+            </button>
+            <button onClick={() => openUploadInFolder(folderDetail.id, "mcq")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+              ✎ Create MCQ set
+            </button>
+          </div>
+        )}
+
+        {/* Sub-tab row */}
+        <div className="sc-tabrow" style={{ ...styles.tabRow, marginBottom: 16 }}>
+          {folderSubTabs.map(([key, label, count]) => (
+            <button key={key} onClick={() => setActiveFolderTab(key)} style={activeFolderTab === key ? styles.tabActive : styles.tab}>
+              {label}
+              {count > 0 && <span style={styles.tabCount}>{count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        {folderLoading ? (
+          <div style={styles.emptyState}>Loading folder contents…</div>
+        ) : currentList.length > 0 ? (
+          <div style={styles.grid}>
+            {currentList.map((resource) => (
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
+                isBookmarked={bookmarkedIds.has(resource.id)}
+                bookmarkBusy={bookmarkBusyId === resource.id}
+                onOpen={handleOpen}
+                onToggleBookmark={toggleBookmark}
+                onShare={handleShare}
+                mcqProgress={mcqProgress}
+              />
+            ))}
+          </div>
+        ) : (
+          <div style={styles.emptyState}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>
+              {activeFolderTab === "materials" ? "📄" : activeFolderTab === "summary" ? "📝" : activeFolderTab === "flashcards" ? "🎴" : "✎"}
+            </div>
+            {activeFolderTab === "materials" && "No materials in this folder yet. Upload PDFs, notes, or other files."}
+            {activeFolderTab === "summary" && "No AI-generated summaries yet. Open a PDF and use the AI tool to generate summaries."}
+            {activeFolderTab === "flashcards" && "No flashcard decks in this folder yet."}
+            {activeFolderTab === "mcqs" && "No MCQ sets in this folder yet. Create one or generate from a PDF."}
+          </div>
+        )}
+
+      </div>
+      {uploadModal}
+      {createFolderModal}
+    </>
+  );
+  }
 
   const tabLabel = { foryou: "For You", all: "All Materials", space: "My Space", uploads: "My Uploads", progress: "Progress", fsrs: "Review" }[activeTab];
   const emptyMessage = {
