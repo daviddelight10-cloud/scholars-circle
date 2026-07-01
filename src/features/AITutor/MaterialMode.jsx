@@ -180,7 +180,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
         <ActionBtn icon="🎓" label="Teach me" desc="Walk-through lesson" onClick={() => run("teach")} loading={busy === "teach"} disabled={!text.trim() || !!busy} />
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <ActionBtn icon="❓" label="Generate MCQs" desc={`${mcqCount} questions`} onClick={() => run("mcq")} loading={busy === "mcq"} disabled={!text.trim() || !!busy} />
-          <input type="number" min="3" max="50" value={mcqCount} onChange={(e) => setMcqCount(parseInt(e.target.value) || 10)} style={smallInp} />
+          <input type="number" min="3" max="150" value={mcqCount} onChange={(e) => setMcqCount(parseInt(e.target.value) || 10)} style={smallInp} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <ActionBtn icon="🃏" label="Flashcards" desc={`${flashCount} cards`} onClick={() => run("flash")} loading={busy === "flash"} disabled={!text.trim() || !!busy} />

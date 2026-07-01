@@ -585,11 +585,11 @@ export default function ResourceUploadForm() {
                   />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "11px", color: "#7b82b8" }}>Questions to generate</span>
+                  <span style={{ fontSize: "11px", color: "#7b82b8" }}>Questions to generate (max 150)</span>
                   <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
                     <button
                       type="button"
-                      onClick={() => setAiCount((prev) => Math.max(5, prev - 5))}
+                      onClick={() => setAiCount((prev) => Math.max(1, prev - 5))}
                       style={{
                         width: "26px",
                         height: "26px",
@@ -604,12 +604,28 @@ export default function ResourceUploadForm() {
                     >
                       −
                     </button>
-                    <span style={{ width: "28px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#c5c9e8" }}>
-                      {aiCount}
-                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={150}
+                      value={aiCount}
+                      onChange={(e) => setAiCount(Math.max(1, Math.min(150, parseInt(e.target.value) || 1)))}
+                      style={{
+                        width: "50px",
+                        textAlign: "center",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        color: "#c5c9e8",
+                        background: "#12142a",
+                        border: "0.5px solid #252860",
+                        borderRadius: "6px",
+                        padding: "4px",
+                        outline: "none",
+                      }}
+                    />
                     <button
                       type="button"
-                      onClick={() => setAiCount((prev) => Math.min(30, prev + 5))}
+                      onClick={() => setAiCount((prev) => Math.min(150, prev + 5))}
                       style={{
                         width: "26px",
                         height: "26px",

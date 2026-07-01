@@ -515,7 +515,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <label style={{ fontSize: 11, color: "#3949ab", fontWeight: 600, whiteSpace: "nowrap" }}>Number of Questions:</label>
-                <input type="number" min={0} max={50} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(50, parseInt(e.target.value) || 0)))} style={{ ...inp, width: 70, textAlign: "center" }} />
+                <input type="number" min={0} max={150} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(150, parseInt(e.target.value) || 0)))} style={{ ...inp, width: 70, textAlign: "center" }} />
                 <span style={{ fontSize: 10, color: "#4a5080" }}>0 = Auto (AI decides)</span>
               </div>
               <button onClick={generateFromAI} disabled={aiGenerating} style={{ background: aiGenerating ? "#12142a" : "#1a237e", border: "0.5px solid #3949ab", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: aiGenerating ? "#4a5080" : "#c5cae9", cursor: aiGenerating ? "not-allowed" : "pointer", fontWeight: 700 }}>

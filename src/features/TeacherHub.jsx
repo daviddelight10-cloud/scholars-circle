@@ -612,7 +612,7 @@ export default function TeacherHub({ token, auth }) {
                 </div>
                 <div style={{ marginBottom:18, display:"flex", alignItems:"center", gap:10 }}>
                   <div className="tag" style={{ color:"#555", whiteSpace:"nowrap" }}>Number of Questions:</div>
-                  <input type="number" min={0} max={50} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(50, parseInt(e.target.value) || 0)))} style={{ width:70, textAlign:"center" }} />
+                  <input type="number" min={0} max={150} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(150, parseInt(e.target.value) || 0)))} style={{ width:70, textAlign:"center" }} />
                   <span style={{ fontSize:11, color:"#555" }}>0 = Auto (AI decides)</span>
                 </div>
                 <button className="btn" onClick={generateFromAI} disabled={aiGenerating}>
