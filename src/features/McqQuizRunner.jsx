@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { X, Flag, SkipForward, RotateCcw, Share2, Clock, CheckCircle2, XCircle, ChevronRight, Trophy, Zap, BarChart3, Flame } from "lucide-react";
+import { X, Flag, SkipForward, RotateCcw, Share2, Clock, CheckCircle2, XCircle, ChevronRight, Trophy, Zap, BarChart3, Flame, Sparkles, Send } from "lucide-react";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import { copyShareToken } from "../lib/researchUtils.js";
+import MarkdownText from "../components/MarkdownText.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
@@ -93,6 +94,9 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
   const [submitError, setSubmitError] = useState("");
   const [retryWrongOnly, setRetryWrongOnly] = useState(false);
   const [shareToast, setShareToast] = useState("");
+  const [aiExplainData, setAiExplainData] = useState({}); // keyed by question index: { explanation, followUps: [], loading }
+  const [followUpInput, setFollowUpInput] = useState("");
+  const [aiFollowUpLoading, setAiFollowUpLoading] = useState(false);
   const questionStartRef = useRef(Date.now());
   const timePerQuestion = useRef({});
   const quizStartRef = useRef(Date.now());
@@ -250,7 +254,73 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
   const goToQuestion = useCallback((idx) => {
     setCurrentIndex(idx);
     setShowReview(false);
+    setFollowUpInput("");
   }, []);
+
+  const getAIExplain = useCallback(async (qIdx) => {
+    const q = shuffledQuestions[qIdx];
+    if (!q) return;
+    setAiExplainData(prev => ({ ...prev, [qIdx]: { ...prev[qIdx], loading: true } }));
+    try {
+      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      const token = authData.authToken;
+      const optionsStr = Object.entries(q.options).map(([k, v]) => `${k}. ${v}`).join("\n");
+      const correctAnswer = q.options[q.correct] || q.correct;
+      const userAnswer = answers[qIdx] ? q.options[answers[qIdx]] : "(skipped)";
+      const prompt = `You are a helpful study tutor. A student just answered this MCQ question:\n\nQuestion: ${q.question}\nOptions:\n${optionsStr}\nCorrect answer: ${correctAnswer}\nStudent's answer: ${userAnswer}\n\nGive a clear, concise explanation (2-3 sentences) of why the correct answer is right. Be educational and encouraging.`;
+      const res = await fetch(`${API_BASE}/ai/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!res.ok) throw new Error("AI request failed");
+      const data = await res.json();
+      setAiExplainData(prev => ({ ...prev, [qIdx]: { explanation: data.text || "No explanation generated.", followUps: [], loading: false } }));
+    } catch {
+      setAiExplainData(prev => ({ ...prev, [qIdx]: { explanation: "Could not get AI explanation. Please try again.", followUps: [], loading: false } }));
+    }
+  }, [shuffledQuestions, answers]);
+
+  const askFollowUp = useCallback(async (qIdx) => {
+    const q = shuffledQuestions[qIdx];
+    if (!q || !followUpInput.trim()) return;
+    const userQuestion = followUpInput.trim();
+    setFollowUpInput("");
+    setAiFollowUpLoading(true);
+    try {
+      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      const token = authData.authToken;
+      const optionsStr = Object.entries(q.options).map(([k, v]) => `${k}. ${v}`).join("\n");
+      const correctAnswer = q.options[q.correct] || q.correct;
+      const prevExplain = aiExplainData[qIdx]?.explanation || "";
+      const prevFollowUps = (aiExplainData[qIdx]?.followUps || []).map(f => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n");
+      const prompt = `You are a helpful study tutor. The student asked about this MCQ question earlier and you gave an explanation. Now they have a follow-up question.\n\nOriginal Question: ${q.question}\nOptions:\n${optionsStr}\nCorrect answer: ${correctAnswer}\n\nYour previous explanation: ${prevExplain}\n\nPrevious follow-ups:\n${prevFollowUps || "(none)"}\n\nStudent's follow-up question: ${userQuestion}\n\nAnswer concisely (2-4 sentences). Be educational and encouraging.`;
+      const res = await fetch(`${API_BASE}/ai/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!res.ok) throw new Error("AI request failed");
+      const data = await res.json();
+      setAiExplainData(prev => ({
+        ...prev,
+        [qIdx]: {
+          ...prev[qIdx],
+          followUps: [...(prev[qIdx]?.followUps || []), { question: userQuestion, answer: data.text || "No response." }],
+        },
+      }));
+    } catch {
+      setAiExplainData(prev => ({
+        ...prev,
+        [qIdx]: {
+          ...prev[qIdx],
+          followUps: [...(prev[qIdx]?.followUps || []), { question: userQuestion, answer: "Could not get a response. Please try again." }],
+        },
+      }));
+    } finally {
+      setAiFollowUpLoading(false);
+    }
+  }, [shuffledQuestions, aiExplainData, followUpInput]);
 
   const totalTime = Date.now() - quizStartRef.current;
 
@@ -437,6 +507,99 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                       Time: {formatTime(timePerQuestion.current[i])}
                       {flagged.has(i) && " · Flagged"}
                     </div>
+
+                    {/* AI Explain in review */}
+                    <div style={{ marginTop: "8px" }}>
+                      {!aiExplainData[i] && (
+                        <button
+                          onClick={() => getAIExplain(i)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: "6px",
+                            padding: isMobile ? "6px 12px" : "7px 14px",
+                            background: "rgba(218,165,32,0.12)", border: "0.5px solid rgba(218,165,32,0.3)",
+                            borderRadius: "8px", fontSize: isMobile ? "11px" : "12px", fontWeight: 700,
+                            color: "#DAA520", cursor: "pointer",
+                          }}
+                        >
+                          <Sparkles size={isMobile ? 12 : 14} /> AI Explain
+                        </button>
+                      )}
+
+                      {aiExplainData[i]?.loading && (
+                        <div style={{
+                          marginTop: "6px", padding: "8px 12px",
+                          background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
+                          borderRadius: "8px", fontSize: "11px", color: "#DAA520",
+                        }}>
+                          ⏳ Getting AI explanation…
+                        </div>
+                      )}
+
+                      {aiExplainData[i]?.explanation && !aiExplainData[i]?.loading && (
+                        <div style={{
+                          marginTop: "6px", padding: isMobile ? "8px 10px" : "10px 12px",
+                          background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
+                          borderRadius: "8px",
+                        }}>
+                          <div style={{
+                            fontSize: "10px", fontWeight: 700, color: "#DAA520",
+                            textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px",
+                            display: "flex", alignItems: "center", gap: "4px",
+                          }}>
+                            <Sparkles size={11} /> AI Explanation
+                          </div>
+                          <div style={{ fontSize: isMobile ? "11px" : "12px", color: "#c5c9e8", lineHeight: 1.6 }}>
+                            <MarkdownText>{aiExplainData[i].explanation}</MarkdownText>
+                          </div>
+
+                          {aiExplainData[i].followUps?.map((fu, fi) => (
+                            <div key={fi} style={{ marginTop: "8px" }}>
+                              <div style={{ fontSize: "11px", color: "#7986cb", fontWeight: 600, marginBottom: "2px" }}>
+                                Q: {fu.question}
+                              </div>
+                              <div style={{
+                                fontSize: "11px", color: "#c5c9e8", lineHeight: 1.5,
+                                padding: "5px 8px", background: "rgba(0,0,0,0.2)", borderRadius: "6px",
+                              }}>
+                                {fu.answer}
+                              </div>
+                            </div>
+                          ))}
+
+                          <div style={{ display: "flex", gap: "5px", marginTop: "8px" }}>
+                            <input
+                              value={i === currentIndex ? followUpInput : ""}
+                              onChange={(e) => { setCurrentIndex(i); setFollowUpInput(e.target.value); }}
+                              onKeyDown={(e) => { if (e.key === "Enter" && !aiFollowUpLoading) { setCurrentIndex(i); askFollowUp(i); } }}
+                              placeholder="Ask a follow-up…"
+                              disabled={aiFollowUpLoading}
+                              style={{
+                                flex: 1, padding: isMobile ? "6px 8px" : "7px 10px",
+                                background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "6px",
+                                color: "#c5c9e8", fontSize: "11px", outline: "none",
+                              }}
+                            />
+                            <button
+                              onClick={() => { setCurrentIndex(i); askFollowUp(i); }}
+                              disabled={aiFollowUpLoading || (i === currentIndex && !followUpInput.trim())}
+                              style={{
+                                padding: isMobile ? "6px 8px" : "7px 10px",
+                                background: aiFollowUpLoading ? "#0f1128" : "rgba(218,165,32,0.15)",
+                                border: "0.5px solid rgba(218,165,32,0.3)", borderRadius: "6px",
+                                color: "#DAA520", cursor: "pointer",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                opacity: aiFollowUpLoading ? 0.5 : 1,
+                              }}
+                            >
+                              <Send size={isMobile ? 11 : 13} />
+                            </button>
+                          </div>
+                          {aiFollowUpLoading && i === currentIndex && (
+                            <div style={{ fontSize: "10px", color: "#5a6090", marginTop: "3px" }}>⏳ Thinking…</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -610,6 +773,105 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
               fontSize: "12px", color: "#4a5080", fontStyle: "italic",
             }}>
               No explanation provided for this question.
+            </div>
+          )}
+
+          {/* AI Explain button + follow-up chat */}
+          {isLocked && (
+            <div style={{ marginTop: "12px" }}>
+              {!aiExplainData[currentIndex] && (
+                <button
+                  onClick={() => getAIExplain(currentIndex)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "6px",
+                    padding: isMobile ? "8px 14px" : "8px 16px",
+                    background: "rgba(218,165,32,0.12)", border: "0.5px solid rgba(218,165,32,0.3)",
+                    borderRadius: "8px", fontSize: isMobile ? "12px" : "13px", fontWeight: 700,
+                    color: "#DAA520", cursor: "pointer",
+                  }}
+                >
+                  <Sparkles size={isMobile ? 13 : 15} /> AI Explain
+                </button>
+              )}
+
+              {aiExplainData[currentIndex]?.loading && (
+                <div style={{
+                  marginTop: "8px", padding: "10px 14px",
+                  background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
+                  borderRadius: "8px", fontSize: "12px", color: "#DAA520",
+                }}>
+                  ⏳ Getting AI explanation…
+                </div>
+              )}
+
+              {aiExplainData[currentIndex]?.explanation && !aiExplainData[currentIndex]?.loading && (
+                <div style={{
+                  marginTop: "8px", padding: isMobile ? "10px 12px" : "12px 14px",
+                  background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
+                  borderRadius: "10px",
+                }}>
+                  <div style={{
+                    fontSize: "11px", fontWeight: 700, color: "#DAA520",
+                    textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "6px",
+                    display: "flex", alignItems: "center", gap: "4px",
+                  }}>
+                    <Sparkles size={12} /> AI Explanation
+                  </div>
+                  <div style={{ fontSize: isMobile ? "12px" : "13px", color: "#c5c9e8", lineHeight: 1.7 }}>
+                    <MarkdownText>{aiExplainData[currentIndex].explanation}</MarkdownText>
+                  </div>
+
+                  {/* Follow-up Q&A history */}
+                  {aiExplainData[currentIndex].followUps?.map((fu, fi) => (
+                    <div key={fi} style={{ marginTop: "10px" }}>
+                      <div style={{
+                        fontSize: "12px", color: "#7986cb", fontWeight: 600, marginBottom: "3px",
+                      }}>
+                        Q: {fu.question}
+                      </div>
+                      <div style={{
+                        fontSize: "12px", color: "#c5c9e8", lineHeight: 1.6,
+                        padding: "6px 10px", background: "rgba(0,0,0,0.2)", borderRadius: "6px",
+                      }}>
+                        {fu.answer}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Follow-up input */}
+                  <div style={{ display: "flex", gap: "6px", marginTop: "10px" }}>
+                    <input
+                      value={followUpInput}
+                      onChange={(e) => setFollowUpInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !aiFollowUpLoading) askFollowUp(currentIndex); }}
+                      placeholder="Ask a follow-up question…"
+                      disabled={aiFollowUpLoading}
+                      style={{
+                        flex: 1, padding: isMobile ? "8px 10px" : "8px 12px",
+                        background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
+                        color: "#c5c9e8", fontSize: "12px", outline: "none",
+                      }}
+                    />
+                    <button
+                      onClick={() => askFollowUp(currentIndex)}
+                      disabled={aiFollowUpLoading || !followUpInput.trim()}
+                      style={{
+                        padding: isMobile ? "8px 10px" : "8px 12px",
+                        background: aiFollowUpLoading || !followUpInput.trim() ? "#0f1128" : "rgba(218,165,32,0.15)",
+                        border: "0.5px solid rgba(218,165,32,0.3)", borderRadius: "8px",
+                        color: "#DAA520", cursor: aiFollowUpLoading || !followUpInput.trim() ? "default" : "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        opacity: aiFollowUpLoading || !followUpInput.trim() ? 0.5 : 1,
+                      }}
+                    >
+                      <Send size={isMobile ? 13 : 15} />
+                    </button>
+                  </div>
+                  {aiFollowUpLoading && (
+                    <div style={{ fontSize: "11px", color: "#5a6090", marginTop: "4px" }}>⏳ Thinking…</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
