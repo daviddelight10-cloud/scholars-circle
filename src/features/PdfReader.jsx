@@ -583,7 +583,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   };
 
   // ---- AI Study Tools helpers ----
-  const MAX_STUDY_CHARS = 20000;
+  const MAX_STUDY_CHARS = 60000; // Increased — gemini-2.5-flash handles large context
+  const CHUNK_SIZE = 12000; // Per-chunk text size for map-reduce summarization
+  const CHUNK_OVERLAP = 500; // Overlap between chunks to preserve context
 
   const capturePageImage = () => {
     const canvas = canvasRef.current;
@@ -610,6 +612,116 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       combined = combined.slice(0, MAX_STUDY_CHARS) + "\n\n[...content truncated for processing...]";
     }
     return combined;
+  };
+
+  // Split text into overlapping chunks for map-reduce summarization
+  const splitIntoChunks = (text, chunkSize = CHUNK_SIZE, overlap = CHUNK_OVERLAP) => {
+    if (text.length <= chunkSize) return [text];
+    const chunks = [];
+    let start = 0;
+    while (start < text.length) {
+      const end = Math.min(start + chunkSize, text.length);
+      chunks.push(text.slice(start, end));
+      if (end >= text.length) break;
+      start = end - overlap;
+    }
+    return chunks;
+  };
+
+  // Map-reduce summarization for long texts
+  const summarizeLongText = async (fullText, onProgress) => {
+    const chunks = splitIntoChunks(fullText);
+
+    // If text fits in a single chunk, do a direct summary
+    if (chunks.length <= 1) {
+      if (onProgress) onProgress("Summarizing…");
+      const prompt = buildSummaryPrompt(fullText);
+      return await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+    }
+
+    // Map: summarize each chunk individually
+    const chunkSummaries = [];
+    for (let i = 0; i < chunks.length; i++) {
+      if (onProgress) onProgress(`Summarizing part ${i + 1} of ${chunks.length}…`);
+      const chunkPrompt = `You are an expert study assistant. This is part ${i + 1} of ${chunks.length} of a longer document. Summarize THIS section thoroughly for university exam preparation.
+
+Use this structure with Markdown headings:
+
+## Key Topics (Part ${i + 1})
+- List the main topics covered in this section
+
+## Important Details (Part ${i + 1})
+- Key facts, definitions, formulas, and concepts with **bold** key terms
+- Be thorough — include all significant points, don't skip details
+
+## Likely Exam Focus (Part ${i + 1})
+- What questions or topics from this section are most likely to appear on an exam
+
+TEXT (Part ${i + 1} of ${chunks.length}):
+"""
+${chunks[i]}
+"""`;
+      const raw = await callAIMultimodal(chunkPrompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      chunkSummaries.push(raw || "");
+    }
+
+    // Reduce: combine all chunk summaries into one unified summary
+    if (onProgress) onProgress("Combining summaries…");
+    const combinedPrompt = `You are an expert study assistant. Below are summaries from ${chunks.length} parts of a longer document. Combine them into ONE comprehensive, well-organized study summary.
+
+Remove duplicate points. Organize by theme, not by part number. Merge related topics together.
+
+Use this final structure with Markdown headings:
+
+## Key Topics
+- List ALL main topics covered across the entire document, organized by theme
+
+## Important Details
+- All key facts, definitions, formulas, and concepts with **bold** key terms
+- Group related concepts together logically
+- Be thorough and comprehensive — this is a study guide for exam preparation
+- Include specific numbers, dates, and formulas where mentioned
+
+## Likely Exam Focus
+- What questions or topics are most likely to appear on an exam based on the full document
+- Prioritize the most important and frequently mentioned concepts
+
+Keep it well-structured and thorough. Use bullet points and **bold** key terms throughout.
+
+CHUNK SUMMARIES TO COMBINE:
+"""
+${chunkSummaries.join("\n\n---\n\n")}
+"""`;
+    return await callAIMultimodal(combinedPrompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+  };
+
+  const buildSummaryPrompt = (text) => {
+    return `You are an expert study assistant. Summarize the text below for university exam preparation.
+
+Use this structure with Markdown headings:
+
+## Key Topics
+- List the main topics covered, organized by theme
+- Use **bold** for key topic names
+
+## Important Details
+- Key facts, definitions, formulas, and concepts
+- Use **bold** for all key terms, definitions, and formulas
+- Group related concepts together logically
+- Be thorough and comprehensive — include all significant points
+- Include specific numbers, dates, and formulas where mentioned
+
+## Likely Exam Focus
+- What questions or topics are most likely to appear on an exam
+- Prioritize the most important concepts
+- Use **bold** for topics likely to be tested
+
+Keep it thorough and well-structured. Use bullet points and **bold** key terms throughout.
+
+TEXT:
+"""
+${text}
+"""`;
   };
 
   const resolveRange = () => {
@@ -758,22 +870,27 @@ Rules:
         }
       } else {
         setStudyLoadingMsg("Summarizing page…");
-        const prompt = `You are an expert study assistant. Look at the page image provided and summarize it for university exam preparation.
+        const prompt = `You are an expert study assistant. Look at the page image provided and summarize it thoroughly for university exam preparation.
 
-${supplementaryText ? `The page also contains this text (use alongside the image):\n"""\n${supplementaryText.slice(0, 5000)}\n"""` : ""}
+${supplementaryText ? `The page also contains this text (use alongside the image):\n"""\n${supplementaryText.slice(0, 8000)}\n"""` : ""}
 
 Use this structure with Markdown headings:
 
 ## Key Topics
-- List the main topics covered
+- List the main topics covered, organized by theme
+- Use **bold** for key topic names
 
 ## Important Details
 - Key facts, definitions, formulas, and concepts
+- Use **bold** for all key terms, definitions, and formulas
+- Be thorough — include all significant points visible on the page
+- Include specific numbers, dates, and formulas where mentioned
 
 ## Likely Exam Focus
-- What questions or topics are most likely to appear on an exam based on this content
+- What questions or topics are most likely to appear on an exam
+- Use **bold** for topics likely to be tested
 
-Keep it concise but thorough. Use bullet points and bold key terms.`;
+Be thorough and comprehensive. Use bullet points and **bold** key terms throughout.`;
         try {
           const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
           if (!raw || raw.trim().length < 10) {
@@ -849,28 +966,8 @@ ${extractedText}
         setStudyStep("setup");
       }
     } else {
-      setStudyLoadingMsg("Summarizing…");
-      const prompt = `You are an expert study assistant. Summarize the text below for university exam preparation.
-
-Use this structure with Markdown headings:
-
-## Key Topics
-- List the main topics covered
-
-## Important Details
-- Key facts, definitions, formulas, and concepts
-
-## Likely Exam Focus
-- What questions or topics are most likely to appear on an exam based on this content
-
-Keep it concise but thorough. Use bullet points and bold key terms.
-
-TEXT:
-"""
-${extractedText}
-"""`;
       try {
-        const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        const raw = await summarizeLongText(extractedText, (msg) => setStudyLoadingMsg(msg));
         if (!raw || raw.trim().length < 10) {
           setStudyError("AI returned an empty response. Try again with a different page range.");
           setStudyStep("setup");
