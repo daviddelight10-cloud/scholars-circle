@@ -105,7 +105,7 @@ export function InstallPrompt() {
       padding: 12,
       borderRadius: 12,
       background: "linear-gradient(135deg, #0f172a, #1e293b)",
-      border: "1px solid rgba(99,102,241,0.4)",
+      border: "1px solid rgba(255,215,0,0.4)",
       boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
       color: "#fff",
       fontSize: 13,
@@ -124,7 +124,7 @@ export function InstallPrompt() {
           </div>
 
           {ios && (
-            <div style={{ marginTop: 8, padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.05)", fontSize: 11, color: "#a5b4fc" }}>
+            <div style={{ marginTop: 8, padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.05)", fontSize: 11, color: "#FFD700" }}>
               <b>How:</b> Open Safari → tap the <b>Share</b> button at the bottom → scroll down → tap <b>"Add to Home Screen"</b>.
             </div>
           )}
@@ -149,7 +149,7 @@ const primaryBtn = {
   padding: "8px 16px",
   borderRadius: 8,
   border: "none",
-  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+  background: "linear-gradient(135deg, #FFD700, #DAA520)",
   color: "#fff",
   fontWeight: 600,
   fontSize: 13,

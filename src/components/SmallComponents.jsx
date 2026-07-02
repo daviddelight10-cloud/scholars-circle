@@ -151,7 +151,7 @@ export function AIQuestionGen({ onImportQuestions }) {
           <option value="hard">hard</option>
         </select>
       </div>
-      <button onClick={generate} disabled={loading} style={{ marginTop: 8, borderColor: "#818cf8", color: "#818cf8" }}>
+      <button onClick={generate} disabled={loading} style={{ marginTop: 8, borderColor: "#FFD700", color: "#FFD700" }}>
         {loading ? "Generating…" : "✨ Generate Questions"}
       </button>
       {error && <p style={{ color: "#ff6b6b", fontSize: 13 }}>{error}</p>}
@@ -164,7 +164,7 @@ export function AIQuestionGen({ onImportQuestions }) {
               <span className="muted" style={{ fontSize: 12 }}>{q.options[q.answer]}</span>
             </div>
           ))}
-          <button onClick={importAll} style={{ marginTop: 8, borderColor: "#2dd4a0", color: "#2dd4a0" }}>
+          <button onClick={importAll} style={{ marginTop: 8, borderColor: "#FFD700", color: "#FFD700" }}>
             ✅ Import all {preview.length} to Question Bank
           </button>
         </>

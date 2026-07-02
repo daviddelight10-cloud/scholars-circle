@@ -117,7 +117,7 @@ export const DEMO_LIMITS = {
   allowedDifficulties: ["easy", "medium"],
   maxSpacedReviewCards: 5,
   maxCustomFlashcardDecks: 1,
-  allowedThemes: ["aurora", "paper"],
+  allowedThemes: ["aurora", "paper", "gold"],
   premiumThemes: ["neon"],
   leaderboardAccess: false,
   studyGroupsAccess: false,

@@ -58,7 +58,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
   const pill = (active) => ({
     display: "flex", alignItems: "center", gap: "12px",
     padding: "14px 16px", borderRadius: "12px", cursor: "pointer",
-    border: active ? "1.5px solid #3949ab" : "0.5px solid #1e2245",
+    border: active ? "1.5px solid #B8860B" : "0.5px solid #1e2245",
     background: active ? "#0f1535" : "#0a0b18",
     color: active ? "#e8eaf6" : "#7b82b8",
     marginBottom: "8px", transition: "all 0.15s",
@@ -90,7 +90,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
           {["dept", "year", "semester"].map((s) => (
             <div key={s} style={{
               flex: 1, height: "3px", borderRadius: "2px",
-              background: s === step || (s === "dept" && (step === "year" || step === "semester")) || (s === "year" && step === "semester") ? "#3949ab" : "#1e2245",
+              background: s === step || (s === "dept" && (step === "year" || step === "semester")) || (s === "year" && step === "semester") ? "#B8860B" : "#1e2245",
             }} />
           ))}
         </div>
@@ -105,7 +105,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                 <div style={{ fontSize: 36, marginBottom: 10 }}>⚠️</div>
                 <div style={{ fontWeight: 600, color: "#e8eaf6", marginBottom: 6 }}>Couldn't load departments</div>
                 <div style={{ fontSize: 12, color: "#7b82b8", marginBottom: 16 }}>Check your connection or ask your teacher to set up departments.</div>
-                <button onClick={handleSkip} style={{ width: "100%", padding: "13px", background: "#1a237e", color: "#e8eaf6", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={handleSkip} style={{ width: "100%", padding: "13px", background: "#1a1a1a", color: "#e8eaf6", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" }}>
                   Skip for now
                 </button>
               </div>
@@ -116,7 +116,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                 <div style={{ fontSize: 12, color: "#7b82b8", marginBottom: 20 }}>
                   Your teacher hasn't created any departments yet. You can skip this and set it up later from the Learn tab.
                 </div>
-                <button onClick={handleSkip} style={{ width: "100%", padding: "13px", background: "#1a237e", color: "#e8eaf6", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={handleSkip} style={{ width: "100%", padding: "13px", background: "#1a1a1a", color: "#e8eaf6", border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer" }}>
                   Skip for now
                 </button>
               </div>
@@ -131,7 +131,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                         {(() => { const c = liveCount(subjects, d.id); return c !== null ? c : (d._count?.subjects || 0); })()}{" "}courses
                       </div>
                     </div>
-                    {selectedDept?.id === d.id && <span style={{ marginLeft: "auto", color: "#3949ab", fontSize: "18px" }}>✓</span>}
+                    {selectedDept?.id === d.id && <span style={{ marginLeft: "auto", color: "#B8860B", fontSize: "18px" }}>✓</span>}
                   </div>
                 ))}
                 <button
@@ -139,7 +139,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                   disabled={!selectedDept}
                   style={{
                     width: "100%", marginTop: "16px", padding: "14px",
-                    background: selectedDept ? "#1a237e" : "#1e2245", color: selectedDept ? "#e8eaf6" : "#4a5080",
+                    background: selectedDept ? "#1a1a1a" : "#1e2245", color: selectedDept ? "#e8eaf6" : "#4a5080",
                     border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedDept ? "pointer" : "default",
                   }}
                 >
@@ -179,7 +179,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                 ← Back
               </button>
               <button onClick={() => setStep("semester")} style={{
-                flex: 2, padding: "14px", background: "#1a237e", color: "#e8eaf6",
+                flex: 2, padding: "14px", background: "#1a1a1a", color: "#e8eaf6",
                 border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: "pointer",
               }}>
                 Next →
@@ -195,7 +195,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
               {["First Semester", "Second Semester"].map((s) => (
                 <button key={s} onClick={() => setSelectedSemester(s)} style={{
                   padding: "22px 14px", borderRadius: "12px", cursor: "pointer",
-                  border: selectedSemester === s ? "1.5px solid #3949ab" : "0.5px solid #1e2245",
+                  border: selectedSemester === s ? "1.5px solid #B8860B" : "0.5px solid #1e2245",
                   background: selectedSemester === s ? "#0f1535" : "#0a0b18",
                   color: selectedSemester === s ? "#e8eaf6" : "#7b82b8",
                   fontWeight: 700, fontSize: "15px",
@@ -212,7 +212,7 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
                 ← Back
               </button>
               <button onClick={handleConfirm} disabled={saving || !selectedSemester} style={{
-                flex: 2, padding: "14px", background: selectedSemester ? "#1a237e" : "#1e2245", color: "#e8eaf6",
+                flex: 2, padding: "14px", background: selectedSemester ? "#1a1a1a" : "#1e2245", color: "#e8eaf6",
                 border: "none", borderRadius: "12px", fontSize: "15px", fontWeight: 600, cursor: selectedSemester ? "pointer" : "default",
               }}>
                 {saving ? "Saving…" : `Confirm — ${selectedDept?.icon || "🏛️"} ${selectedDept?.name}, Year ${selectedYear}, ${selectedSemester || ""}`}

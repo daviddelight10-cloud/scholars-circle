@@ -492,7 +492,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
         <button
           onClick={() => setShowCreateModal(true)}
           style={{
-            background: "#818cf8",
+            background: "#FFD700",
             color: "white",
             border: "none",
             padding: "8px 16px",
@@ -572,7 +572,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                     key={group.id}
                     className="lesson-block"
                     style={{
-                      borderLeft: "4px solid #818cf8",
+                      borderLeft: "4px solid #FFD700",
                       cursor: "pointer"
                     }}
                     onClick={() => setSelectedGroup(group)}
@@ -624,7 +624,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
             background: "linear-gradient(135deg, #1e3a5f 0%, #1f2937 100%)",
             borderRadius: 12,
             marginBottom: 12,
-            border: "1px solid #3b82f6"
+            border: "1px solid #FFD700"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div>
@@ -633,13 +633,13 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                   Code: <strong style={{ color: "#fbbf24", fontSize: 16 }}>{selectedGroup.joinCode}</strong>
                   <button
                     onClick={() => { navigator.clipboard?.writeText(selectedGroup.joinCode).then(() => alert("Copied!")); }}
-                    style={{ background: "#374151", color: "#93c5fd", border: "1px solid #4b5563", padding: "2px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
+                    style={{ background: "#374151", color: "#FFD700", border: "1px solid #4b5563", padding: "2px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
                   >
                     📋 Copy
                   </button>
                   <button
                     onClick={() => { const link = `${window.location.origin}${window.location.pathname}?join=${selectedGroup.joinCode}`; navigator.clipboard?.writeText(link).then(() => alert("Invite link copied!")); }}
-                    style={{ background: "#374151", color: "#93c5fd", border: "1px solid #4b5563", padding: "2px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
+                    style={{ background: "#374151", color: "#FFD700", border: "1px solid #4b5563", padding: "2px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
                   >
                     🔗 Link
                   </button>
@@ -723,7 +723,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   style={{
-                    background: activeTab === tab ? "#818cf8" : "#374151",
+                    background: activeTab === tab ? "#FFD700" : "#374151",
                     color: "white",
                     border: "none",
                     padding: "6px 12px",
@@ -750,7 +750,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                   padding: 8,
                   background: msg.username === (username || "Student") ? "#3730a3" : "#1f2937",
                   borderRadius: 8,
-                  border: msg.username === (username || "Student") ? "1px solid #818cf8" : "1px solid #374151",
+                  border: msg.username === (username || "Student") ? "1px solid #FFD700" : "1px solid #374151",
                   alignSelf: msg.username === (username || "Student") ? "flex-end" : "flex-start",
                   maxWidth: "80%"
                 }}>
@@ -767,7 +767,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                   placeholder="Type a message..."
                   style={{ flex: 1, padding: 8, background: "#374151", border: "1px solid #4b5563", borderRadius: 4, color: "white" }}
                 />
-                <button onClick={() => sendChat(selectedGroup.id, chatInput)} style={{ background: "#818cf8", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer" }}>
+                <button onClick={() => sendChat(selectedGroup.id, chatInput)} style={{ background: "#FFD700", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer" }}>
                   Send
                 </button>
               </div>
@@ -814,7 +814,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                 <p className="muted">No activity yet. Start interacting with the group!</p>
               )}
               {(groupActivity[selectedGroup.id] || []).map((a, i) => (
-                <div key={i} style={{ padding: 8, background: "#1f2937", borderRadius: 6, borderLeft: "3px solid #818cf8" }}>
+                <div key={i} style={{ padding: 8, background: "#1f2937", borderRadius: 6, borderLeft: "3px solid #FFD700" }}>
                   <p style={{ margin: 0, fontSize: 13, color: "#e5e7eb" }}>{a.text}</p>
                   <p className="muted" style={{ fontSize: 11, margin: "4px 0 0" }}>{new Date(a.timestamp).toLocaleString()}</p>
                 </div>
@@ -861,7 +861,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                     {groupChallenges[selectedGroup.id].current} / {groupChallenges[selectedGroup.id].target} completed
                     {groupChallenges[selectedGroup.id].current >= groupChallenges[selectedGroup.id].target && <span style={{ color: "#10b981", marginLeft: 8 }}>✅ Completed!</span>}
                   </p>
-                  <button onClick={() => incrementChallenge(selectedGroup.id)} style={{ background: "#3b82f6", color: "white", border: "none", padding: "6px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, marginTop: 8 }}>
+                  <button onClick={() => incrementChallenge(selectedGroup.id)} style={{ background: "#FFD700", color: "white", border: "none", padding: "6px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, marginTop: 8 }}>
                     + I did one!
                   </button>
                 </div>
@@ -887,7 +887,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                   onChange={(e) => setSessionTime(e.target.value)}
                   style={{ flex: 1, minWidth: 150, padding: 8, background: "#374151", border: "1px solid #4b5563", borderRadius: 4, color: "white", fontSize: 13 }}
                 />
-                <button onClick={() => scheduleSession(selectedGroup.id, sessionTitle, sessionTime)} style={{ background: "#818cf8", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 13 }}>
+                <button onClick={() => scheduleSession(selectedGroup.id, sessionTitle, sessionTime)} style={{ background: "#FFD700", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 13 }}>
                   Schedule
                 </button>
               </div>
@@ -926,7 +926,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                 <div style={{ textAlign: "center", padding: 20 }}>
                   <p className="muted">Start a live quiz for all group members to answer.</p>
                   {isModerator(selectedGroup.id, username) && (
-                    <button onClick={() => setQuizMode(true)} style={{ background: "#818cf8", color: "white", border: "none", padding: "10px 24px", borderRadius: 6, cursor: "pointer", fontSize: 14, marginTop: 8 }}>
+                    <button onClick={() => setQuizMode(true)} style={{ background: "#FFD700", color: "white", border: "none", padding: "10px 24px", borderRadius: 6, cursor: "pointer", fontSize: 14, marginTop: 8 }}>
                       🚀 Start Live Quiz
                     </button>
                   )}
@@ -943,12 +943,12 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                   ))}
                   <div className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
                     <button onClick={() => setQuizMode(false)} style={{ background: "#374151", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer" }}>Cancel</button>
-                    <button onClick={() => startLiveQuiz(selectedGroup.id, quizQuestion, quizOptions, quizAnswer)} style={{ background: "#818cf8", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer" }}>Launch Quiz</button>
+                    <button onClick={() => startLiveQuiz(selectedGroup.id, quizQuestion, quizOptions, quizAnswer)} style={{ background: "#FFD700", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer" }}>Launch Quiz</button>
                   </div>
                 </div>
               )}
               {liveQuiz && (
-                <div style={{ padding: 16, background: "#1e3a5f", borderRadius: 8, border: "1px solid #3b82f6" }}>
+                <div style={{ padding: 16, background: "#1e3a5f", borderRadius: 8, border: "1px solid #FFD700" }}>
                   <p style={{ margin: "0 0 12px", fontWeight: 600, fontSize: 15 }}>❓ {liveQuiz.question}</p>
                   {liveQuiz.options.map((opt, i) => (
                     <button
@@ -958,12 +958,12 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                       style={{
                         display: "block", width: "100%", marginBottom: 8, padding: 10,
                         background: liveQuiz.responses?.[username || "Student"] === i ? "#3730a3" : "#1f2937",
-                        border: liveQuiz.responses?.[username || "Student"] === i ? "2px solid #818cf8" : "1px solid #374151",
+                        border: liveQuiz.responses?.[username || "Student"] === i ? "2px solid #FFD700" : "1px solid #374151",
                         borderRadius: 6, color: "white", textAlign: "left", cursor: "pointer"
                       }}
                     >
                       {String.fromCharCode(65 + i)}. {opt}
-                      {liveQuiz.responses?.[username || "Student"] === i && <span style={{ float: "right", color: "#818cf8" }}>✓</span>}
+                      {liveQuiz.responses?.[username || "Student"] === i && <span style={{ float: "right", color: "#FFD700" }}>✓</span>}
                     </button>
                   ))}
                   <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
@@ -992,7 +992,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                   <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>Total XP</p>
                 </div>
                 <div style={{ flex: 1, minWidth: 120, padding: 12, background: "#1f2937", borderRadius: 8, textAlign: "center" }}>
-                  <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>{selectedGroup.totalSessions}</p>
+                  <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#FFD700" }}>{selectedGroup.totalSessions}</p>
                   <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>Sessions</p>
                 </div>
                 <div style={{ flex: 1, minWidth: 120, padding: 12, background: "#1f2937", borderRadius: 8, textAlign: "center" }}>
@@ -1039,7 +1039,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                       display: "flex",
                       alignItems: "center",
                       gap: 12,
-                      border: isCurrentUser ? "2px solid #818cf8" : "1px solid #374151"
+                      border: isCurrentUser ? "2px solid #FFD700" : "1px solid #374151"
                     }}
                   >
                     <span style={{ fontSize: 24, minWidth: 40 }}>{rankIcon}</span>
@@ -1059,7 +1059,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                     {isModerator(selectedGroup.id, username) && member.username !== (username || "Student") && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         {!member.isModerator && isCreator(selectedGroup.id, username) && (
-                          <button onClick={() => promoteMember(selectedGroup.id, member.username)} style={{ background: "#3b82f6", color: "white", border: "none", padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontSize: 10 }}>
+                          <button onClick={() => promoteMember(selectedGroup.id, member.username)} style={{ background: "#FFD700", color: "white", border: "none", padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontSize: 10 }}>
                             Promote
                           </button>
                         )}
@@ -1155,7 +1155,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                 onClick={createGroup}
                 disabled={!newGroupName.trim()}
                 style={{
-                  background: "#818cf8",
+                  background: "#FFD700",
                   color: "white",
                   border: "none",
                   padding: "8px 16px",

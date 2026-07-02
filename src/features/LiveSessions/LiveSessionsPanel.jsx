@@ -105,107 +105,57 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <h3 style={{ margin: 0 }}>📹 Live Sessions</h3>
+        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9" }}>📹 Live Sessions</h3>
         {isHost && (
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            style={{
-              padding: "8px 14px", borderRadius: 8, border: "none",
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              color: "#fff", fontWeight: 600, cursor: "pointer"
-            }}
-          >
+          <button className="cr-btn" onClick={() => setShowCreate(!showCreate)}>
             {showCreate ? "✕ Cancel" : "➕ Schedule Session"}
           </button>
         )}
       </div>
 
       {showCreate && isHost && (
-        <form onSubmit={handleCreate} className="card" style={{ marginBottom: 16 }}>
+        <form onSubmit={handleCreate} className="cr-glass" style={{ marginBottom: 16 }}>
           <div style={{ marginBottom: 10 }}>
-            <label style={lbl}>Title *</label>
-            <input
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Lecture 5: Cell Biology"
-              style={inp}
-            />
+            <label className="cr-field-label">Title *</label>
+            <input className="cr-input" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Lecture 5: Cell Biology" />
           </div>
           <div style={{ marginBottom: 10 }}>
-            <label style={lbl}>Description <span style={hint}>(optional)</span></label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Topic agenda, prerequisites, etc."
-              rows={2}
-              style={{ ...inp, resize: "vertical" }}
-            />
+            <label className="cr-field-label">Description <span style={{ color: "#6b7280", fontSize: 11 }}>(optional)</span></label>
+            <textarea className="cr-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Topic agenda, prerequisites, etc." rows={2} style={{ resize: "vertical" }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
             <div>
-              <label style={lbl}>Scheduled for *</label>
-              <input
-                required
-                type="datetime-local"
-                value={scheduledFor}
-                onChange={(e) => setScheduledFor(e.target.value)}
-                style={inp}
-              />
+              <label className="cr-field-label">Scheduled for *</label>
+              <input className="cr-input" required type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} />
             </div>
             <div>
-              <label style={lbl}>Duration (minutes)</label>
-              <input
-                type="number"
-                min="5"
-                max="480"
-                value={durationMins}
-                onChange={(e) => setDurationMins(e.target.value)}
-                style={inp}
-              />
+              <label className="cr-field-label">Duration (minutes)</label>
+              <input className="cr-input" type="number" min="5" max="480" value={durationMins} onChange={(e) => setDurationMins(e.target.value)} />
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={creating || !title.trim()}
-            style={{
-              padding: "10px 18px", borderRadius: 8, border: "none",
-              background: title.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)",
-              color: "#fff", fontWeight: 700, cursor: creating ? "wait" : "pointer"
-            }}
-          >
+          <button className="cr-btn" type="submit" disabled={creating || !title.trim()} style={(!title.trim() || creating) ? { opacity: 0.5 } : {}}>
             {creating ? "Scheduling..." : "📅 Schedule"}
           </button>
         </form>
       )}
 
-      {loading && <div style={{ padding: 20, color: "#9ca3af" }}>Loading sessions...</div>}
-      {error && <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading sessions…</div>}
+      {error && <div className="cr-glass" style={{ padding: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", marginBottom: 12 }}>{error}</div>}
 
       {!loading && sessions.length === 0 && (
-        <div className="card" style={{ textAlign: "center", padding: 30, color: "#9ca3af" }}>
-          {isHost
-            ? "No sessions yet. Click 'Schedule Session' to host your first live class."
-            : "No live sessions yet. Your lecturer will schedule one soon."}
+        <div className="cr-empty" style={{ padding: "32px 20px" }}>
+          <div className="cr-empty-icon">📹</div>
+          <div className="cr-empty-title">No sessions yet</div>
+          <div className="cr-empty-desc">{isHost ? "Click 'Schedule Session' to host your first live class." : "Your lecturer will schedule one soon."}</div>
         </div>
       )}
 
       {/* Live now */}
       {live.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#ef4444", marginBottom: 8, letterSpacing: 0.5 }}>
-            🔴 Live Now
-          </div>
+          <div className="cr-section-label" style={{ color: "#ef4444" }}>🔴 Live Now</div>
           {live.map((s) => (
-            <SessionCard
-              key={s.id}
-              session={s}
-              isHost={isHost}
-              accent="#ef4444"
-              actionLabel="🎥 Join Live"
-              onAction={() => handleJoin(s)}
-              onCancel={isHost ? () => handleCancel(s) : null}
-            />
+            <SessionCard key={s.id} session={s} isHost={isHost} accent="#ef4444" actionLabel="🎥 Join Live" onAction={() => handleJoin(s)} onCancel={isHost ? () => handleCancel(s) : null} />
           ))}
         </div>
       )}
@@ -213,20 +163,9 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
       {/* Upcoming */}
       {upcoming.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#a5b4fc", marginBottom: 8, letterSpacing: 0.5 }}>
-            📅 Upcoming
-          </div>
+          <div className="cr-section-label" style={{ color: "#FFD700" }}>📅 Upcoming</div>
           {upcoming.map((s) => (
-            <SessionCard
-              key={s.id}
-              session={s}
-              isHost={isHost}
-              accent="#6366f1"
-              actionLabel={isHost ? "▶️ Start Now" : "⏳ Waiting…"}
-              actionDisabled={!isHost}
-              onAction={isHost ? () => handleStart(s) : null}
-              onCancel={isHost ? () => handleCancel(s) : null}
-            />
+            <SessionCard key={s.id} session={s} isHost={isHost} accent="#FFD700" actionLabel={isHost ? "▶️ Start Now" : "⏳ Waiting…"} actionDisabled={!isHost} onAction={isHost ? () => handleStart(s) : null} onCancel={isHost ? () => handleCancel(s) : null} />
           ))}
         </div>
       )}
@@ -234,19 +173,9 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
       {/* Past */}
       {past.length > 0 && (
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748b", marginBottom: 8, letterSpacing: 0.5 }}>
-            📼 Past
-          </div>
+          <div className="cr-section-label" style={{ color: "#64748b" }}>📼 Past</div>
           {past.slice(0, 10).map((s) => (
-            <SessionCard
-              key={s.id}
-              session={s}
-              isHost={isHost}
-              accent="#64748b"
-              actionLabel={null}
-              onAction={null}
-              onCancel={null}
-            />
+            <SessionCard key={s.id} session={s} isHost={isHost} accent="#64748b" actionLabel={null} onAction={null} onCancel={null} />
           ))}
         </div>
       )}
@@ -258,12 +187,12 @@ function SessionCard({ session, isHost, accent, actionLabel, actionDisabled, onA
   const dt = new Date(session.scheduledFor);
   const attendCount = session._count?.attendances || 0;
   return (
-    <div className="card" style={{ marginBottom: 8, borderLeft: `3px solid ${accent}` }}>
+    <div className="cr-glass-flat" style={{ marginBottom: 8, borderLeft: `3px solid ${accent}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{session.title}</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", fontFamily: "Syne, sans-serif" }}>{session.title}</div>
           {session.description && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{session.description}</div>}
-          <div style={{ fontSize: 12, color: "#a5b4fc", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ fontSize: 11, color: "#FFD700", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
             <span>🕐 {dt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>
             <span>⏱ {session.durationMins} min</span>
             {(session.status === "live" || session.status === "ended") && (
@@ -274,27 +203,20 @@ function SessionCard({ session, isHost, accent, actionLabel, actionDisabled, onA
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           {actionLabel && (
             <button
+              className="cr-btn"
               onClick={onAction}
               disabled={actionDisabled}
-              style={{
-                padding: "8px 14px", borderRadius: 8, border: "none",
-                background: actionDisabled ? "rgba(99,102,241,0.3)" : `linear-gradient(135deg, ${accent}, ${accent}cc)`,
-                color: "#fff", fontWeight: 600,
-                cursor: actionDisabled ? "default" : "pointer",
-                fontSize: 13
-              }}
+              style={actionDisabled ? { opacity: 0.5, cursor: "default" } : { background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
             >
               {actionLabel}
             </button>
           )}
           {onCancel && session.status === "scheduled" && (
             <button
+              className="cr-btn-outline"
               onClick={onCancel}
               title="Cancel"
-              style={{
-                padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.4)",
-                background: "transparent", color: "#f87171", cursor: "pointer"
-              }}
+              style={{ borderColor: "rgba(239,68,68,0.4)", color: "#f87171", padding: "6px 10px" }}
             >
               🗑️
             </button>
@@ -305,15 +227,3 @@ function SessionCard({ session, isHost, accent, actionLabel, actionDisabled, onA
   );
 }
 
-const lbl = { display: "block", fontSize: 12, color: "#a5b4fc", marginBottom: 4, fontWeight: 600 };
-const hint = { color: "#9ca3af", fontSize: 11, fontWeight: 400 };
-const inp = {
-  width: "100%",
-  padding: 10,
-  borderRadius: 8,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(15,23,42,0.8)",
-  color: "#fff",
-  fontSize: 13,
-  boxSizing: "border-box"
-};

@@ -424,7 +424,7 @@ export default function CampusComm({ token, currentUser }) {
                 <div className="sc-analytics-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
                   <StatCard value={analytics.overall.totalAnnouncements} label="Sent"     color="#3D7EFF" icon="📣" />
                   <StatCard value={analytics.overall.totalReads}         label="Reads"    color="#10B981" icon="👁" />
-                  <StatCard value={analytics.overall.totalComments}      label="Comments" color="#8B5CF6" icon="💬" />
+                  <StatCard value={analytics.overall.totalComments}      label="Comments" color="#DAA520" icon="💬" />
                   <StatCard value={`${analytics.overall.avgReadRate}%`}  label="Read Rate" color="#F5A623" icon="📈" />
                 </div>
 

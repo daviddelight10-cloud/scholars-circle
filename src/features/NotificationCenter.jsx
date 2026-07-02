@@ -97,9 +97,9 @@ export function PushPermissionBanner({ token }) {
       zIndex: 1100,
       padding: 14,
       borderRadius: 14,
-      background: "linear-gradient(135deg, rgba(99,102,241,0.95), rgba(139,92,246,0.95))",
+      background: "linear-gradient(135deg, rgba(255,215,0,0.95), rgba(218,165,32,0.95))",
       color: "#fff",
-      boxShadow: "0 14px 40px rgba(15,23,42,0.45)",
+      boxShadow: "0 14px 40px rgba(10,10,10,0.45)",
       backdropFilter: "blur(10px)",
       fontSize: 14,
       lineHeight: 1.4
@@ -329,7 +329,7 @@ export function NotificationSettings({ token }) {
       </div>
 
       {subscribed && (
-        <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)", fontSize: 12, color: "#a5b4fc" }}>
+        <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", fontSize: 12, color: "#FFD700" }}>
           🌅 You'll receive a <b>daily morning motivation</b> and an <b>evening study reminder</b> automatically. Toggle "Study Reminders" below to opt out.
         </div>
       )}
@@ -337,7 +337,7 @@ export function NotificationSettings({ token }) {
       {/* Per-category preferences */}
       {prefs && subscribed && (
         <div style={{ marginTop: 18 }}>
-          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#a5b4fc" }}>What to notify me about</h4>
+          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#FFD700" }}>What to notify me about</h4>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {CATEGORIES.map((c) => (
               <label key={c.key} style={{
@@ -346,8 +346,8 @@ export function NotificationSettings({ token }) {
                 gap: 10,
                 padding: 10,
                 borderRadius: 8,
-                background: "rgba(15,23,42,0.5)",
-                border: "1px solid rgba(99,102,241,0.15)",
+                background: "rgba(10,10,10,0.5)",
+                border: "1px solid rgba(255,215,0,0.15)",
                 cursor: "pointer"
               }}>
                 <span style={{ fontSize: 20 }}>{c.icon}</span>
@@ -359,7 +359,7 @@ export function NotificationSettings({ token }) {
                   type="checkbox"
                   checked={!!prefs[c.key]}
                   onChange={() => togglePref(c.key)}
-                  style={{ width: 18, height: 18, accentColor: "#6366f1" }}
+                  style={{ width: 18, height: 18, accentColor: "#FFD700" }}
                 />
               </label>
             ))}
@@ -370,7 +370,7 @@ export function NotificationSettings({ token }) {
       {/* Devices list */}
       {devices.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#a5b4fc" }}>Your devices ({devices.length})</h4>
+          <h4 style={{ margin: "0 0 8px", fontSize: 14, color: "#FFD700" }}>Your devices ({devices.length})</h4>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {devices.map((d) => (
               <div key={d.id} style={{
@@ -379,8 +379,8 @@ export function NotificationSettings({ token }) {
                 gap: 10,
                 padding: 10,
                 borderRadius: 8,
-                background: "rgba(15,23,42,0.5)",
-                border: "1px solid rgba(99,102,241,0.15)",
+                background: "rgba(10,10,10,0.5)",
+                border: "1px solid rgba(255,215,0,0.15)",
                 fontSize: 12
               }}>
                 <span style={{ fontSize: 18 }}>{deviceIcon(d.userAgent)}</span>
@@ -432,7 +432,7 @@ const primaryBtn = {
   padding: "10px 16px",
   borderRadius: 8,
   border: "none",
-  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+  background: "linear-gradient(135deg, #FFD700, #DAA520)",
   color: "#fff",
   fontWeight: 600,
   fontSize: 13,

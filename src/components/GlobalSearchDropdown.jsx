@@ -84,7 +84,7 @@ export function GlobalSearchDropdown({ query, filter, subjects }) {
   }, [query, filter, allContent]);
 
   const typeIcons = { note: "📝", question: "❓", flashcard: "🃏", lecture: "🎓" };
-  const typeColors = { note: "#818cf8", question: "#facc15", flashcard: "#2dd4a0", lecture: "#ef4444" };
+  const typeColors = { note: "#FFD700", question: "#facc15", flashcard: "#FFD700", lecture: "#ef4444" };
 
   function highlightText(text, query) {
     if (!query) return text;

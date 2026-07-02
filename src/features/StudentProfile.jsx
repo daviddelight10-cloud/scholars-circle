@@ -114,8 +114,8 @@ export function StudentProfile({ profile, onSave, authUser }) {
         style={{
           padding: 24,
           borderRadius: 16,
-          background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15))",
-          border: "1px solid rgba(99,102,241,0.3)",
+          background: "linear-gradient(135deg, rgba(255,215,0,0.2), rgba(218,165,32,0.15))",
+          border: "1px solid rgba(255,215,0,0.3)",
           marginBottom: 20,
           display: "flex",
           alignItems: "center",
@@ -128,7 +128,7 @@ export function StudentProfile({ profile, onSave, authUser }) {
             width: 96,
             height: 96,
             borderRadius: "50%",
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            background: "linear-gradient(135deg, #FFD700, #DAA520)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -142,7 +142,7 @@ export function StudentProfile({ profile, onSave, authUser }) {
           <h2 style={{ margin: 0, fontSize: 22 }}>
             {draft.fullName || authUser?.username || "Your Profile"}
           </h2>
-          <div style={{ fontSize: 13, color: "#a5b4fc", marginTop: 4 }}>
+          <div style={{ fontSize: 13, color: "#FFD700", marginTop: 4 }}>
             {selectedDiscipline ? `${selectedDiscipline.icon} ${selectedDiscipline.label}` : "Set your discipline"}
             {draft.level && ` · ${ACADEMIC_LEVELS.find((l) => l.id === draft.level)?.label || draft.level}`}
           </div>
@@ -164,7 +164,7 @@ export function StudentProfile({ profile, onSave, authUser }) {
                 style={{
                   height: "100%",
                   width: `${completion}%`,
-                  background: completion === 100 ? "#10b981" : "linear-gradient(90deg, #6366f1, #8b5cf6)",
+                  background: completion === 100 ? "#10b981" : "linear-gradient(90deg, #FFD700, #DAA520)",
                   transition: "width 0.3s"
                 }}
               />
@@ -186,9 +186,9 @@ export function StudentProfile({ profile, onSave, authUser }) {
             style={{
               padding: "10px 16px",
               borderRadius: 10,
-              border: tab === t.id ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.2)",
-              background: tab === t.id ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(30,41,59,0.6)",
-              color: tab === t.id ? "#fff" : "#a5b4fc",
+              border: tab === t.id ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.2)",
+              background: tab === t.id ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(20,20,20,0.6)",
+              color: tab === t.id ? "#fff" : "#FFD700",
               cursor: "pointer",
               fontSize: 13,
               fontWeight: 600
@@ -222,8 +222,8 @@ export function StudentProfile({ profile, onSave, authUser }) {
                     width: 44,
                     height: 44,
                     borderRadius: 10,
-                    border: draft.avatar === emo ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.2)",
-                    background: draft.avatar === emo ? "rgba(99,102,241,0.2)" : "rgba(30,41,59,0.6)",
+                    border: draft.avatar === emo ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.2)",
+                    background: draft.avatar === emo ? "rgba(255,215,0,0.2)" : "rgba(20,20,20,0.6)",
                     fontSize: 22,
                     cursor: "pointer"
                   }}
@@ -259,8 +259,8 @@ export function StudentProfile({ profile, onSave, authUser }) {
                   style={{
                     padding: 12,
                     borderRadius: 10,
-                    border: draft.discipline === d.id ? `2px solid ${d.color}` : "1px solid rgba(99,102,241,0.2)",
-                    background: draft.discipline === d.id ? `${d.color}22` : "rgba(30,41,59,0.6)",
+                    border: draft.discipline === d.id ? `2px solid ${d.color}` : "1px solid rgba(255,215,0,0.2)",
+                    background: draft.discipline === d.id ? `${d.color}22` : "rgba(20,20,20,0.6)",
                     color: "#fff",
                     cursor: "pointer",
                     textAlign: "left"
@@ -285,8 +285,8 @@ export function StudentProfile({ profile, onSave, authUser }) {
                   style={{
                     padding: 10,
                     borderRadius: 8,
-                    border: draft.level === l.id ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.2)",
-                    background: draft.level === l.id ? "rgba(99,102,241,0.2)" : "rgba(30,41,59,0.6)",
+                    border: draft.level === l.id ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.2)",
+                    background: draft.level === l.id ? "rgba(255,215,0,0.2)" : "rgba(20,20,20,0.6)",
                     color: "#fff",
                     cursor: "pointer",
                     fontSize: 13,
@@ -353,8 +353,8 @@ export function StudentProfile({ profile, onSave, authUser }) {
                   style={{
                     padding: 12,
                     borderRadius: 10,
-                    border: draft.learningStyle === ls.id ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.2)",
-                    background: draft.learningStyle === ls.id ? "rgba(99,102,241,0.2)" : "rgba(30,41,59,0.6)",
+                    border: draft.learningStyle === ls.id ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.2)",
+                    background: draft.learningStyle === ls.id ? "rgba(255,215,0,0.2)" : "rgba(20,20,20,0.6)",
                     color: "#fff",
                     cursor: "pointer",
                     textAlign: "left"
@@ -379,7 +379,7 @@ export function StudentProfile({ profile, onSave, authUser }) {
                 onChange={(e) => set("studyHoursPerDay", parseFloat(e.target.value))}
                 style={{ flex: 1 }}
               />
-              <span style={{ fontWeight: 700, color: "#a5b4fc", minWidth: 60 }}>
+              <span style={{ fontWeight: 700, color: "#FFD700", minWidth: 60 }}>
                 {draft.studyHoursPerDay} hr
               </span>
             </div>
@@ -415,9 +415,9 @@ export function StudentProfile({ profile, onSave, authUser }) {
           padding: 16,
           marginTop: 20,
           borderRadius: 12,
-          background: "rgba(15,23,42,0.95)",
+          background: "rgba(10,10,10,0.95)",
           backdropFilter: "blur(8px)",
-          border: "1px solid rgba(99,102,241,0.3)",
+          border: "1px solid rgba(255,215,0,0.3)",
           display: "flex",
           alignItems: "center",
           gap: 12,
@@ -432,7 +432,7 @@ export function StudentProfile({ profile, onSave, authUser }) {
             padding: "12px 24px",
             borderRadius: 10,
             border: "none",
-            background: draft.fullName?.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)",
+            background: draft.fullName?.trim() ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(255,215,0,0.3)",
             color: "#fff",
             fontWeight: 700,
             cursor: draft.fullName?.trim() ? "pointer" : "not-allowed",
@@ -450,8 +450,8 @@ const inputStyle = {
   width: "100%",
   padding: 10,
   borderRadius: 8,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(30,41,59,0.8)",
+  border: "1px solid rgba(255,215,0,0.3)",
+  background: "rgba(20,20,20,0.8)",
   color: "#fff",
   fontSize: 14,
   boxSizing: "border-box"
@@ -460,7 +460,7 @@ const inputStyle = {
 function Field({ label, hint, children }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#e0e7ff", marginBottom: 4 }}>
+      <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#FFD700", marginBottom: 4 }}>
         {label}
       </label>
       {hint && <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6 }}>{hint}</div>}

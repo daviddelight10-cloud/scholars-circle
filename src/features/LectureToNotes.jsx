@@ -362,7 +362,7 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
           alignItems: "center", 
           gap: 8, 
           padding: "8px 16px", 
-          background: "#818cf8", 
+          background: "#FFD700", 
           color: "white", 
           borderRadius: 4, 
           cursor: "pointer",
@@ -385,7 +385,7 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
           color: "#60a5fa", 
           padding: "12px 16px", 
           borderRadius: 8,
-          border: "1px solid #3b82f6",
+          border: "1px solid #FFD700",
           fontSize: 14,
           fontWeight: 500,
           marginTop: 8,
@@ -396,7 +396,7 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
             display: "inline-block", 
             width: 18, 
             height: 18, 
-            border: "2px solid #3b82f6", 
+            border: "2px solid #FFD700", 
             borderTopColor: "transparent", 
             borderRadius: "50%", 
             animation: "spin 1s linear infinite" 
@@ -416,7 +416,7 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
       <button
         onClick={process}
         disabled={loading || pdfLoading}
-        style={{ marginTop: 8, borderColor: "#818cf8", color: "#818cf8" }}
+        style={{ marginTop: 8, borderColor: "#FFD700", color: "#FFD700" }}
       >
         {loading ? "Processing…" : "✨ Summarise + Make Flashcards"}
       </button>
@@ -468,7 +468,7 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
             </>
           )}
           <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
-            <button onClick={saveToLibrary} style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}>
+            <button onClick={saveToLibrary} style={{ borderColor: "#FFD700", color: "#FFD700" }}>
               💾 Save notes
             </button>
             <button onClick={importFlashcards} style={{ borderColor: "#facc15", color: "#facc15" }}>

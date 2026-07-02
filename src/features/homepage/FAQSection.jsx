@@ -66,7 +66,7 @@ export default function FAQSection() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {faqs.map((faq, index) => (
             <div key={index} style={{
-              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5))',
+              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
               border: '1px solid rgba(51, 65, 85, 0.5)',
               borderRadius: '12px',
               overflow: 'hidden'
@@ -85,7 +85,7 @@ export default function FAQSection() {
                   cursor: 'pointer',
                   transition: 'background 0.3s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(30, 41, 59, 0.3)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(20, 20, 20, 0.3)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <span style={{ color: '#fff', fontWeight: 600, fontSize: '14px' }}>

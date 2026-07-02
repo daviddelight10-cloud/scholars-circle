@@ -47,7 +47,7 @@ export default function SharedFolderView() {
         <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#7b82b8", marginBottom: 6 }}>Folder not accessible</div>
         <div style={{ fontSize: 13, color: "#4a5080", marginBottom: 16 }}>{error}</div>
-        <button onClick={() => navigate("/resources")} style={{ padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#c5cae9", cursor: "pointer" }}>
+        <button onClick={() => navigate("/resources")} style={{ padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer" }}>
           ← Back to Research Hub
         </button>
       </div>
@@ -91,7 +91,7 @@ export default function SharedFolderView() {
           cursor: "pointer",
           transition: "borderColor 0.15s",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#B8860B")}
         onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
@@ -128,7 +128,7 @@ export default function SharedFolderView() {
           </h1>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
             {folder?.courseCode && <span style={{ fontSize: 13, color: "#7b82b8" }}>{folder.courseCode}</span>}
-            {folder?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
+            {folder?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#DAA520", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
             {folder?.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folder.semester}</span>}
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function SharedFolderView() {
         {subTabs.map(([key, label, count]) => (
           <button key={key} onClick={() => setActiveTab(key)} style={{
             padding: "8px 16px", borderRadius: "10px", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer",
-            background: activeTab === key ? "#1a237e" : "none", color: activeTab === key ? "#c5cae9" : "#4a5080",
+            background: activeTab === key ? "#1a1a1a" : "none", color: activeTab === key ? "#FFD700" : "#4a5080",
             display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap",
           }}>
             {label}

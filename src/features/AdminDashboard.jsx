@@ -5,7 +5,7 @@ const D = {
   card:   "#0d0f1f",
   faint:  "#12142a",
   line:   "#1e2140",
-  border: "#3949ab",
+  border: "#B8860B",
   text:   "#e8eaf6",
   muted:  "#7b82b8",
   hint:   "#4a5080",
@@ -50,8 +50,8 @@ function ActivityChart({ logins }) {
                   width: "100%",
                   height: `${Math.max(6, pct * 0.6)}px`,
                   background: isToday
-                    ? "linear-gradient(180deg,#5c6bc0,#3949ab)"
-                    : h > 0 ? "#1a237e" : "#0d0f22",
+                    ? "linear-gradient(180deg,#5c6bc0,#B8860B)"
+                    : h > 0 ? "#1a1a1a" : "#0d0f22",
                   border: `0.5px solid ${isToday ? D.border : h > 0 ? "#2a2d5a" : D.line}`,
                   borderRadius: 4,
                 }}
@@ -130,7 +130,7 @@ export default function AdminDashboard({ adminUsers, adminLogins, adminLoading, 
   }
 
   const kpis = [
-    { icon: "👥", label: "Total Users",    value: adminUsers.length,               color: "#9fa8da" },
+    { icon: "👥", label: "Total Users",    value: adminUsers.length,               color: "#DAA520" },
     { icon: "🎓", label: "Students",       value: students.length,                 color: "#80cbc4" },
     { icon: "🧑‍🏫", label: "Teachers",    value: teachers.length,                 color: "#ffb74d" },
     { icon: "🏫", label: "Lecturers",      value: lecturers.length,                color: "#f48fb1" },
@@ -283,7 +283,7 @@ export default function AdminDashboard({ adminUsers, adminLogins, adminLoading, 
                   <div style={{ fontSize: 10, color: D.muted, alignSelf: "center" }}>
                     {lastLogin ? new Date(lastLogin).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: logins > 0 ? "#9fa8da" : D.hint, alignSelf: "center" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: logins > 0 ? "#DAA520" : D.hint, alignSelf: "center" }}>
                     {logins}
                   </div>
                   <div style={{ alignSelf: "center" }}>

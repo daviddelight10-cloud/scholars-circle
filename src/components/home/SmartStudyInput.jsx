@@ -4,8 +4,8 @@ import React, { useState, useRef, useEffect } from "react";
 const D = {
   bg:     "#07080F",
   card:   "#0d0f1f",
-  accent: "#1a237e",
-  border: "#3949ab",
+  accent: "#1a1a1a",
+  border: "#B8860B",
   line:   "#1e2140",
   text:   "#e8eaf6",
   muted:  "#7b82b8",
@@ -52,7 +52,7 @@ const CSS = `
 `;
 
 const ACTIONS = [
-  { mode: "auto-roadmap", icon: "📋", label: "Build Roadmap",  bg: D.accent,   border: D.border, color: "#c5cae9" },
+  { mode: "auto-roadmap", icon: "📋", label: "Build Roadmap",  bg: D.accent,   border: D.border, color: "#FFD700" },
   { mode: "explain",      icon: "📖", label: "Explain this",   bg: "#0b1e3a",  border: "#1e4a7a", color: "#90caf9" },
   { mode: "flashcards",   icon: "🃏", label: "Flashcards",     bg: "#1a100a",  border: "#4a2800", color: "#ffb74d" },
   { mode: "quiz",         icon: "🎯", label: "Quiz me",        bg: "#0a1f10",  border: "#1a4a25", color: "#81c784" },
@@ -71,11 +71,11 @@ function AIAvatar() {
     <div style={{ position: "relative", width: 44, height: 44, flexShrink: 0 }}>
       <div style={{
         width: 44, height: 44, borderRadius: "50%",
-        background: "#0f1240", border: "1.5px solid #3949ab",
+        background: "#0f1240", border: "1.5px solid #B8860B",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-          <circle cx="13" cy="14" r="9" fill="#1a237e" stroke="#3949ab" strokeWidth="1.2" />
+          <circle cx="13" cy="14" r="9" fill="#1a1a1a" stroke="#B8860B" strokeWidth="1.2" />
           <circle cx="10" cy="13.5" r="1.4" fill="#90caf9" />
           <circle cx="16" cy="13.5" r="1.4" fill="#90caf9" />
           <path d="M10 17.5 Q13 19.5 16 17.5" stroke="#90caf9" strokeWidth="1.3" strokeLinecap="round" fill="none" />
@@ -166,7 +166,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
         <div style={{
           position: "absolute", top: -50, right: -50,
           width: 200, height: 200, borderRadius: "50%",
-          background: "#1a237e", opacity: 0.1, pointerEvents: "none",
+          background: "#1a1a1a", opacity: 0.1, pointerEvents: "none",
         }} />
 
         {/* Header row */}
@@ -174,7 +174,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
           <AIAvatar />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 10, fontWeight: 600, color: "#3949ab",
+              fontSize: 10, fontWeight: 600, color: "#B8860B",
               letterSpacing: "0.08em", textTransform: "uppercase",
               fontFamily: "Syne, sans-serif", marginBottom: 3,
             }}>

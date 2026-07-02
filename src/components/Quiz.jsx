@@ -55,7 +55,7 @@ export default function Quiz({ subject, onExit, onComplete }) {
               disabled={showResult}
             >
               {String.fromCharCode(65 + i)}. {opt}
-              {isSelected && <span style={{ marginLeft: 8, fontWeight: 700, color: isCorrect ? "#065f46" : isWrong ? "#991b1b" : "#3b82f6" }}>✓</span>}
+              {isSelected && <span style={{ marginLeft: 8, fontWeight: 700, color: isCorrect ? "#065f46" : isWrong ? "#991b1b" : "#FFD700" }}>✓</span>}
             </button>
           );
         })}

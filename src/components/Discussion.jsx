@@ -33,7 +33,7 @@ export function DiscussionBoard({ subjects, discussion, setDiscussion, username,
       <div className="row" style={{ flexWrap: "wrap" }}>
         {subjects.map(s => (
           <button key={s.id} onClick={() => setActiveSubject(s.id)}
-            style={{ borderColor: activeSubject === s.id ? "#2dd4a0" : undefined, color: activeSubject === s.id ? "#2dd4a0" : undefined }}>
+            style={{ borderColor: activeSubject === s.id ? "#FFD700" : undefined, color: activeSubject === s.id ? "#FFD700" : undefined }}>
             {s.icon} {s.label} {(discussion[s.id] || []).length > 0 ? `(${(discussion[s.id] || []).length})` : ""}
           </button>
         ))}
@@ -41,7 +41,7 @@ export function DiscussionBoard({ subjects, discussion, setDiscussion, username,
       <div className="row" style={{ marginTop: 12, alignItems: "flex-start" }}>
         <textarea rows={3} style={{ flex: 1, resize: "vertical" }} value={text}
           onChange={e => setText(e.target.value)} placeholder="Ask a question or share a tip…" />
-        <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0", alignSelf: "flex-end" }} onClick={post}>Post</button>
+        <button style={{ borderColor: "#FFD700", color: "#FFD700", alignSelf: "flex-end" }} onClick={post}>Post</button>
       </div>
       {threads.length === 0 && <p className="muted">No posts yet. Be the first to ask a question!</p>}
       {threads.map(t => (
@@ -64,7 +64,7 @@ function DiscussionThread({ thread, onReply, username, isTeacher }) {
       </div>
       {thread.replies.map(r => (
         <div key={r.id} className="discussion-reply">
-          <span className="post-author" style={{ color: isTeacher || r.role === "Teacher" ? "#facc15" : "#818cf8" }}>
+          <span className="post-author" style={{ color: isTeacher || r.role === "Teacher" ? "#facc15" : "#FFD700" }}>
             {r.author} <span className="muted" style={{ fontSize: 11 }}>({r.role}) · {new Date(r.ts).toLocaleString()}</span>
           </span>
           <p style={{ margin: "2px 0" }}>{r.text}</p>
@@ -73,7 +73,7 @@ function DiscussionThread({ thread, onReply, username, isTeacher }) {
       {showReply && (
         <div className="row" style={{ marginTop: 4, paddingLeft: 16 }}>
           <input style={{ flex: 1 }} value={replyText} onChange={e => setReplyText(e.target.value)} placeholder="Write a reply…" />
-          <button style={{ borderColor: "#818cf8", color: "#818cf8" }} onClick={() => { onReply(replyText); setReplyText(""); setShowReply(false); }}>Send</button>
+          <button style={{ borderColor: "#FFD700", color: "#FFD700" }} onClick={() => { onReply(replyText); setReplyText(""); setShowReply(false); }}>Send</button>
         </div>
       )}
     </div>

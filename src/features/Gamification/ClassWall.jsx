@@ -81,7 +81,7 @@ export default function ClassWall({ token, userId, classroomId, username }) {
             disabled={!newContent.trim() || posting}
             style={{
               padding: "8px 16px", border: "none", borderRadius: 8,
-              background: newContent.trim() ? "var(--accent-color, #3b82f6)" : "var(--border-color, #334155)",
+              background: newContent.trim() ? "var(--accent-color, #FFD700)" : "var(--border-color, #334155)",
               color: "#fff", fontWeight: 600, fontSize: 12, cursor: newContent.trim() ? "pointer" : "not-allowed",
             }}
           >{posting ? "..." : "Post"}</button>
@@ -143,7 +143,7 @@ export default function ClassWall({ token, userId, classroomId, username }) {
                   onClick={() => handleReact(post.id, emoji)}
                   style={{
                     padding: "4px 8px", borderRadius: 12, border: users.includes(userId) ? "1px solid var(--accent-color)" : "1px solid var(--border-color, #334155)",
-                    background: users.includes(userId) ? "rgba(59,130,246,0.1)" : "transparent",
+                    background: users.includes(userId) ? "rgba(255,215,0,0.1)" : "transparent",
                     cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 4,
                   }}
                 >

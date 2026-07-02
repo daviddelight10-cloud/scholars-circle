@@ -333,7 +333,7 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                 <StatCard icon={<Trophy size={16} />} label="Percentile" value={`Top ${100 - percentile}%`} color="#66bb6a" />
               )}
               {rank != null && totalTakers != null && (
-                <StatCard icon={<Trophy size={16} />} label="Rank" value={`#${rank} / ${totalTakers}`} color="#9fa8da" />
+                <StatCard icon={<Trophy size={16} />} label="Rank" value={`#${rank} / ${totalTakers}`} color="#DAA520" />
               )}
               {streak != null && streak > 0 && (
                 <StatCard icon={<Flame size={16} />} label="Streak" value={`${streak} day${streak > 1 ? "s" : ""}`} color="#ff7043" />
@@ -355,8 +355,8 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                 {showReview ? "Hide Review" : "Review All Questions"}
               </button>
               <button onClick={handleRetake} style={{
-                flex: 1, padding: "12px", background: "#1a237e", border: "0.5px solid #3949ab",
-                borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#c5cae9", cursor: "pointer",
+                flex: 1, padding: "12px", background: "#1a1a1a", border: "0.5px solid #B8860B",
+                borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
               }}>
                 <RotateCcw size={16} /> Retake All
@@ -417,7 +417,7 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                           border: `0.5px solid ${isCorrectOpt ? "#2a6a3a" : isUserPick ? "#6a2a2a" : "#1e2245"}`,
                         }}>
                           <span style={{ fontSize: isMobile ? "11px" : "12px", fontWeight: 700, color: isCorrectOpt ? "#66bb6a" : isUserPick ? "#ef5350" : "#5a6090", minWidth: "18px" }}>{key}.</span>
-                          <span style={{ fontSize: isMobile ? "12px" : "13px", color: isCorrectOpt ? "#a5d6a7" : isUserPick ? "#ef9a9a" : "#9fa8da", flex: 1 }}>{val}</span>
+                          <span style={{ fontSize: isMobile ? "12px" : "13px", color: isCorrectOpt ? "#a5d6a7" : isUserPick ? "#ef9a9a" : "#DAA520", flex: 1 }}>{val}</span>
                           {isCorrectOpt && <CheckCircle2 size={isMobile ? 12 : 14} style={{ color: "#66bb6a" }} />}
                           {isUserPick && !isCorrectOpt && <XCircle size={isMobile ? 12 : 14} style={{ color: "#ef5350" }} />}
                         </div>
@@ -427,7 +427,7 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                       <div style={{
                         marginTop: "8px", padding: isMobile ? "8px 10px" : "10px 12px",
                         background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-                        fontSize: isMobile ? "11px" : "12px", color: "#9fa8da", lineHeight: 1.5,
+                        fontSize: isMobile ? "11px" : "12px", color: "#DAA520", lineHeight: 1.5,
                       }}>
                         <span style={{ fontWeight: 700, color: "#7986cb" }}>Explanation: </span>
                         {q.explanation}
@@ -480,7 +480,7 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
         background: "#0a0c1e", borderBottom: "0.5px solid #1e2245",
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: isMobile ? "11px" : "13px", fontWeight: 600, color: "#9fa8da", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: isMobile ? "11px" : "13px", fontWeight: 600, color: "#DAA520", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {resource.title}
         </span>
         <span style={{ fontSize: isMobile ? "10px" : "12px", color: "#5a6090", display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
@@ -501,7 +501,7 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
         <div style={{ height: "4px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
           <div style={{
             height: "100%", width: `${progressPct}%`,
-            background: "linear-gradient(90deg, #3949ab, #5c6bc0)",
+            background: "linear-gradient(90deg, #B8860B, #5c6bc0)",
             borderRadius: "4px", transition: "width 0.3s ease",
           }} />
         </div>
@@ -596,7 +596,7 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
             <div style={{
               marginTop: isMobile ? "12px" : "16px", padding: isMobile ? "10px 12px" : "14px",
               background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-              fontSize: isMobile ? "12px" : "13px", color: "#9fa8da", lineHeight: 1.6,
+              fontSize: isMobile ? "12px" : "13px", color: "#DAA520", lineHeight: 1.6,
             }}>
               <span style={{ fontWeight: 700, color: "#7986cb" }}>Explanation: </span>
               {q.explanation}
@@ -619,9 +619,9 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
               disabled={submitting}
               style={{
                 width: "100%", marginTop: isMobile ? "12px" : "16px", padding: isMobile ? "10px" : "12px",
-                background: submitting ? "#0f1128" : "#1a237e",
-                border: "0.5px solid #3949ab", borderRadius: "10px",
-                fontSize: isMobile ? "13px" : "14px", fontWeight: 700, color: "#c5cae9",
+                background: submitting ? "#0f1128" : "#1a1a1a",
+                border: "0.5px solid #B8860B", borderRadius: "10px",
+                fontSize: isMobile ? "13px" : "14px", fontWeight: 700, color: "#FFD700",
                 cursor: submitting ? "not-allowed" : "pointer",
                 opacity: submitting ? 0.5 : 1,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",

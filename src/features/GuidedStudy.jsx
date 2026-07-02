@@ -17,8 +17,8 @@ const D = {
   bg:     "#07080F",
   card:   "#0d0f1f",
   bar:    "#0a0b15",
-  accent: "#1a237e",
-  border: "#3949ab",
+  accent: "#1a1a1a",
+  border: "#B8860B",
   line:   "#1e2140",
   line2:  "#1a1d35",
   text:   "#e8eaf6",
@@ -118,7 +118,7 @@ function Btn({ children, onClick, variant = "primary", disabled, style: extra })
     ...extra,
   };
   const variants = {
-    primary:  { background: D.accent, border:`0.5px solid ${D.border}`, color:"#c5cae9" },
+    primary:  { background: D.accent, border:`0.5px solid ${D.border}`, color:"#FFD700" },
     ghost:    { background:"transparent", border:`0.5px solid ${D.line}`, color:D.muted },
     red:      { background:"#1a0808", border:"0.5px solid #4a1010", color:"#ef9a9a" },
     green:    { background:"#0a1f10", border:"0.5px solid #1a4a25", color:"#81c784" },
@@ -148,7 +148,7 @@ function SectionCard({ section, index, studied, onStudy }) {
         border:`0.5px solid ${studied ? D.border : "#2a2d4a"}`,
         display:"flex", alignItems:"center", justifyContent:"center",
         fontSize:11, fontWeight:700,
-        color: studied ? "#c5cae9" : D.muted,
+        color: studied ? "#FFD700" : D.muted,
         fontFamily:"Manrope,sans-serif",
       }}>
         {studied ? "✓" : index + 1}
@@ -184,7 +184,7 @@ function FlipCard({ card, flipped, onFlip }) {
           display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center",
         }}>
           <div style={{ fontSize:9, color:D.hint, marginBottom:10, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif" }}>QUESTION / TERM</div>
-          <div style={{ fontSize:14, fontWeight:600, color:"#c5cae9", lineHeight:1.55, fontFamily:"Manrope,sans-serif" }}>{card.front}</div>
+          <div style={{ fontSize:14, fontWeight:600, color:"#FFD700", lineHeight:1.55, fontFamily:"Manrope,sans-serif" }}>{card.front}</div>
           <div style={{ fontSize:9, color:D.hint, marginTop:14, fontFamily:"Manrope,sans-serif" }}>tap to reveal ↩</div>
         </div>
         {/* Back */}
@@ -630,7 +630,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
               <div className="gs-animate" style={{
                 background:D.card, border:`0.5px solid ${D.line}`,
                 borderRadius:16, padding:"16px",
-                fontSize:13, color:"#c5cae9", lineHeight:1.8,
+                fontSize:13, color:"#FFD700", lineHeight:1.8,
                 fontFamily:"Manrope,sans-serif", marginBottom:12, whiteSpace:"pre-wrap",
               }}>
                 <MarkdownText>{explanation}</MarkdownText>

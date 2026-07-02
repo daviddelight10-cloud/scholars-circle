@@ -52,7 +52,7 @@ export default function GamificationHub({ token, userId, username, classroomId: 
             onClick={() => setTab(t.key)}
             style={{
               flex: 1, padding: "10px 8px", border: "none", borderRadius: 8,
-              background: tab === t.key ? "var(--accent-color, #3b82f6)" : "transparent",
+              background: tab === t.key ? "var(--accent-color, #FFD700)" : "transparent",
               color: tab === t.key ? "#fff" : "var(--text-secondary, #94a3b8)",
               fontWeight: 600, fontSize: 12, cursor: "pointer", transition: "all 0.2s",
             }}

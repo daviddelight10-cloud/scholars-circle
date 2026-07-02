@@ -96,7 +96,7 @@ export default function DuelArena({ token, userId, leaderboard = [] }) {
               onClick={() => setTargetUser(u.userId)}
               style={{
                 display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, cursor: "pointer", marginBottom: 6,
-                background: targetUser === u.userId ? "rgba(59,130,246,0.15)" : "var(--card-bg, #1e293b)",
+                background: targetUser === u.userId ? "rgba(255,215,0,0.15)" : "var(--card-bg, #1e293b)",
                 border: targetUser === u.userId ? "1px solid var(--accent-color)" : "1px solid var(--border-color, #334155)",
               }}
             >
@@ -116,7 +116,7 @@ export default function DuelArena({ token, userId, leaderboard = [] }) {
           disabled={!targetUser}
           style={{
             width: "100%", padding: 12, border: "none", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: targetUser ? "pointer" : "not-allowed",
-            background: targetUser ? "var(--accent-color, #3b82f6)" : "var(--border-color, #334155)", color: "#fff",
+            background: targetUser ? "var(--accent-color, #FFD700)" : "var(--border-color, #334155)", color: "#fff",
           }}
         >⚔️ Send Challenge (10 Questions, 20 XP Stake)</button>
       </div>

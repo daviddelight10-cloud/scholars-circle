@@ -112,19 +112,19 @@ export default function AITutor({
     <div className="ai-tutor-card" style={{
       padding: 0,
       overflow: "hidden",
-      background: "linear-gradient(145deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9))",
-      border: "1px solid rgba(99,102,241,0.2)",
+      background: "linear-gradient(145deg, rgba(10,10,10,0.95), rgba(20,20,20,0.9))",
+      border: "1px solid rgba(255,215,0,0.2)",
       borderRadius: 16
     }}>
       {/* Header */}
       <div className="ai-tutor-header" style={{
         padding: 16,
-        background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
-        borderBottom: "1px solid rgba(99,102,241,0.2)"
+        background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(218,165,32,0.1))",
+        borderBottom: "1px solid rgba(255,215,0,0.2)"
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 20, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <h2 style={{ margin: 0, fontSize: 20, background: "linear-gradient(135deg, #fff, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               💬 Scholar's Circle AI
             </h2>
             <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
@@ -137,9 +137,9 @@ export default function AITutor({
             style={{
               padding: "8px 14px",
               borderRadius: 8,
-              border: "1px solid rgba(99,102,241,0.3)",
-              background: "rgba(30,41,59,0.8)",
-              color: "#a5b4fc",
+              border: "1px solid rgba(255,215,0,0.3)",
+              background: "rgba(20,20,20,0.8)",
+              color: "#FFD700",
               cursor: "pointer",
               fontSize: 13
             }}
@@ -150,14 +150,14 @@ export default function AITutor({
 
         {/* Settings Panel */}
         {showSettings && (
-          <div style={{ marginTop: 12, padding: 12, background: "rgba(15,23,42,0.6)", borderRadius: 10, display: "grid", gap: 10 }}>
+          <div style={{ marginTop: 12, padding: 12, background: "rgba(10,10,10,0.6)", borderRadius: 10, display: "grid", gap: 10 }}>
             {subjects.length > 0 && (
               <div>
-                <label style={{ display: "block", fontSize: 12, color: "#a5b4fc", marginBottom: 4 }}>Subject context</label>
+                <label style={{ display: "block", fontSize: 12, color: "#FFD700", marginBottom: 4 }}>Subject context</label>
                 <select
                   value={subjectId}
                   onChange={(e) => setSubjectId(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, background: "rgba(30,41,59,0.8)", color: "#fff", border: "1px solid rgba(99,102,241,0.3)" }}
+                  style={{ width: "100%", padding: 8, borderRadius: 6, background: "rgba(20,20,20,0.8)", color: "#fff", border: "1px solid rgba(255,215,0,0.3)" }}
                 >
                   <option value="">— No subject —</option>
                   {subjects.map(s => (
@@ -167,11 +167,11 @@ export default function AITutor({
               </div>
             )}
             <div>
-              <label style={{ display: "block", fontSize: 12, color: "#a5b4fc", marginBottom: 4 }}>Discipline (overrides auto-detect)</label>
+              <label style={{ display: "block", fontSize: 12, color: "#FFD700", marginBottom: 4 }}>Discipline (overrides auto-detect)</label>
               <select
                 value={disciplineId || ""}
                 onChange={(e) => setDisciplineId(e.target.value || null)}
-                style={{ width: "100%", padding: 8, borderRadius: 6, background: "rgba(30,41,59,0.8)", color: "#fff", border: "1px solid rgba(99,102,241,0.3)" }}
+                style={{ width: "100%", padding: 8, borderRadius: 6, background: "rgba(20,20,20,0.8)", color: "#fff", border: "1px solid rgba(255,215,0,0.3)" }}
               >
                 <option value="">Auto-detect from subject</option>
                 {DISCIPLINES.map(d => (
@@ -195,9 +195,9 @@ export default function AITutor({
                 flex: "0 0 auto",
                 padding: "8px 14px",
                 borderRadius: 8,
-                border: mode === m.id ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.2)",
-                background: mode === m.id ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(30,41,59,0.6)",
-                color: mode === m.id ? "#fff" : "#a5b4fc",
+                border: mode === m.id ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.2)",
+                background: mode === m.id ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(20,20,20,0.6)",
+                color: mode === m.id ? "#fff" : "#FFD700",
                 cursor: "pointer",
                 fontSize: 13,
                 fontWeight: 600,
@@ -236,10 +236,10 @@ export default function AITutor({
             justifyContent: "space-between",
             padding: "10px 14px",
             borderRadius: 10,
-            background: "rgba(99,102,241,0.1)",
-            border: "1px solid rgba(99,102,241,0.25)"
+            background: "rgba(255,215,0,0.1)",
+            border: "1px solid rgba(255,215,0,0.25)"
           }}>
-            <span style={{ fontSize: 13, color: "#a5b4fc", fontWeight: 600 }}>
+            <span style={{ fontSize: 13, color: "#FFD700", fontWeight: 600 }}>
               {MODES.find(m => m.id === mode)?.icon} {MODES.find(m => m.id === mode)?.label}
             </span>
             <button
@@ -247,9 +247,9 @@ export default function AITutor({
               style={{
                 padding: "4px 10px",
                 borderRadius: 6,
-                border: "1px solid rgba(99,102,241,0.3)",
-                background: "rgba(30,41,59,0.8)",
-                color: "#a5b4fc",
+                border: "1px solid rgba(255,215,0,0.3)",
+                background: "rgba(20,20,20,0.8)",
+                color: "#FFD700",
                 cursor: "pointer",
                 fontSize: 11
               }}

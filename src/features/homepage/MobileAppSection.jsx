@@ -63,7 +63,7 @@ export default function MobileAppSection() {
                 <div style={{
                   width: '48px',
                   height: '48px',
-                  background: 'linear-gradient(135deg, #a855f7, #ec4899)',
+                  background: 'linear-gradient(135deg, #DAA520, #ec4899)',
                   borderRadius: '12px',
                   display: 'flex',
                   alignItems: 'center',
@@ -111,7 +111,7 @@ export default function MobileAppSection() {
                 <div style={{
                   width: '48px',
                   height: '48px',
-                  background: 'linear-gradient(135deg, #22c55e, #3b82f6)',
+                  background: 'linear-gradient(135deg, #22c55e, #FFD700)',
                   borderRadius: '12px',
                   display: 'flex',
                   alignItems: 'center',
@@ -144,7 +144,7 @@ export default function MobileAppSection() {
                   height: '500px',
                   borderRadius: '48px',
                   border: '4px solid #334155',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.2)',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.2)',
                   objectFit: 'cover'
                 }}
               />
@@ -172,7 +172,7 @@ export default function MobileAppSection() {
                 left: '-16px',
                 width: '64px',
                 height: '64px',
-                background: 'linear-gradient(135deg, #a855f7, #ec4899)',
+                background: 'linear-gradient(135deg, #DAA520, #ec4899)',
                 borderRadius: '16px',
                 display: 'flex',
                 alignItems: 'center',

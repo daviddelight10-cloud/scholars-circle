@@ -686,7 +686,7 @@ function App() {
 
 
 
-  const [themePack, setThemePack] = useState("aurora");
+  const [themePack, setThemePack] = useState("gold");
 
 
 
@@ -1509,7 +1509,7 @@ function App() {
 
 
 
-        setThemePack(parsed.themePack ?? "aurora");
+        setThemePack(parsed.themePack ?? "gold");
 
 
 
@@ -1994,7 +1994,7 @@ function App() {
 
         if (parsed.discussion !== undefined) setDiscussion(parsed.discussion);
 
-        setThemePack(parsed.themePack ?? "aurora");
+        setThemePack(parsed.themePack ?? "gold");
 
         setDensity(parsed.density ?? "cozy");
 
@@ -5952,7 +5952,7 @@ function App() {
           .auth-float-card { animation: float 6s ease-in-out infinite; }
           .auth-pulse-dot { animation: pulse 2s ease-in-out infinite; }
           .auth-scan-sweep { animation: sweep 2.6s ease-out 1; }
-          .auth-cursor { animation: blink 1s steps(2) infinite; color: #4F8EF7; }
+          .auth-cursor { animation: blink 1s steps(2) infinite; color: #FFD700; }
 
           .auth-btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -5983,7 +5983,7 @@ function App() {
             transition: border-color 0.15s ease, box-shadow 0.15s ease; appearance: none; -webkit-appearance: none;
           }
           .auth-input::placeholder { color: #646E84; }
-          .auth-input:focus { border-color: #4F8EF7; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
+          .auth-input:focus { border-color: #FFD700; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
 
           .auth-select {
             width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
@@ -5992,7 +5992,7 @@ function App() {
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
             background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px;
           }
-          .auth-select:focus { border-color: #4F8EF7; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
+          .auth-select:focus { border-color: #FFD700; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
 
           @media (max-width: 900px) {
             .auth-shell { grid-template-columns: 1fr !important; }
@@ -6031,7 +6031,7 @@ function App() {
               onClick={() => {
                 if (updatePending) { applyUpdate(); } else { window.location.reload(); }
               }}
-              style={{ background: '#4F8EF7', color: 'white', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}
+              style={{ background: '#FFD700', color: 'white', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}
             >
               {updatePending ? 'Update Now' : 'Reload'}
             </button>
@@ -6092,7 +6092,7 @@ function App() {
                   <svg viewBox="0 0 190 190" width="190" height="190" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
                     <defs>
                       <linearGradient id="authRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#4F8EF7" />
+                        <stop offset="0%" stopColor="#FFD700" />
                         <stop offset="100%" stopColor="#F5A623" />
                       </linearGradient>
                     </defs>
@@ -6341,7 +6341,7 @@ function App() {
 
                     <label style={{ fontSize: '0.82rem', color: '#646E84', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
                       <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} />
-                      <span>I agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#4F8EF7', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#4F8EF7', fontWeight: 600 }}>Privacy Policy</a>.</span>
+                      <span>I agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Privacy Policy</a>.</span>
                     </label>
 
                     <button onClick={signup} disabled={loadingOverlay} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%', opacity: loadingOverlay ? 0.6 : 1, cursor: loadingOverlay ? 'not-allowed' : 'pointer' }}>
@@ -6382,7 +6382,7 @@ function App() {
                   </a>
                   <a
                     href="tel:09028617178"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#4F8EF7', color: 'white', textDecoration: 'none', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFD700', color: 'white', textDecoration: 'none', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
                   >
                     Call: 09028617178
                   </a>
@@ -6415,7 +6415,7 @@ function App() {
 
     return (
 
-      <main className={darkMode ? "app dark" : "app light"}>
+      <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack}`}>
 
         {/* PWA Update Toast */}
 
@@ -6453,7 +6453,7 @@ function App() {
 
             maxWidth: 400,
 
-            border: "1px solid rgba(59,130,246,0.3)"
+            border: "1px solid rgba(255,215,0,0.3)"
 
           }}>
 
@@ -6483,7 +6483,7 @@ function App() {
 
               style={{
 
-                background: "#3b82f6",
+                background: "#FFD700",
 
                 color: "white",
 
@@ -6581,7 +6581,7 @@ function App() {
 
 
 
-      <main className={darkMode ? "app dark" : "app light"}>
+      <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack}`}>
 
 
 
@@ -6645,7 +6645,7 @@ function App() {
 
             maxWidth: 400,
 
-            border: "1px solid rgba(59,130,246,0.3)"
+            border: "1px solid rgba(255,215,0,0.3)"
 
           }}>
 
@@ -6675,7 +6675,7 @@ function App() {
 
               style={{
 
-                background: "#3b82f6",
+                background: "#FFD700",
 
                 color: "white",
 
@@ -6805,7 +6805,7 @@ function App() {
 
   return (
 
-    <main className={darkMode ? "app dark" : "app light"}>
+    <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack}`}>
 
       {/* Offline Banner */}
       {isOffline && (
@@ -6864,7 +6864,7 @@ function App() {
 
           maxWidth: 400,
 
-          border: "1px solid rgba(59,130,246,0.3)"
+          border: "1px solid rgba(255,215,0,0.3)"
 
         }}>
 
@@ -6894,7 +6894,7 @@ function App() {
 
             style={{
 
-              background: "#3b82f6",
+              background: "#FFD700",
 
               color: "white",
 
@@ -7088,7 +7088,7 @@ function App() {
 
           maxWidth: 400,
 
-          border: "1px solid rgba(59,130,246,0.3)"
+          border: "1px solid rgba(255,215,0,0.3)"
 
         }}>
 
@@ -7118,7 +7118,7 @@ function App() {
 
             style={{
 
-              background: "#3b82f6",
+              background: "#FFD700",
 
               color: "white",
 
@@ -7256,9 +7256,9 @@ function App() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
 
-                <div style={{ background: "rgba(59,130,246,0.1)", padding: 12, borderRadius: 8 }}>
+                <div style={{ background: "rgba(255,215,0,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>{demoUsage.demoProgress.achievements.length}/{DEMO_ACHIEVEMENTS.length}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>{demoUsage.demoProgress.achievements.length}/{DEMO_ACHIEVEMENTS.length}</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Achievements</div>
 
@@ -7280,9 +7280,9 @@ function App() {
 
                 </div>
 
-                <div style={{ background: "rgba(168,85,247,0.1)", padding: 12, borderRadius: 8 }}>
+                <div style={{ background: "rgba(218,165,32,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#a855f7" }}>{demoUsage.sessionTimeMinutes}m</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#DAA520" }}>{demoUsage.sessionTimeMinutes}m</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Study Time</div>
 
@@ -7332,7 +7332,7 @@ function App() {
 
                 onClick={() => { setShowDemoSummary(false); setShowPaymentModal(true); }}
 
-                style={{ background: "#3b82f6", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                style={{ background: "#FFD700", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
 
               >
 
@@ -7374,11 +7374,11 @@ function App() {
                     style={{
                       flex: 1,
                       position: "relative",
-                      border: selectedPlan === p.id ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)",
+                      border: selectedPlan === p.id ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.15)",
                       borderRadius: 10,
                       padding: "12px 8px",
                       cursor: "pointer",
-                      background: selectedPlan === p.id ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.03)",
+                      background: selectedPlan === p.id ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.03)",
                       textAlign: "center",
                       transition: "all 0.2s",
                     }}
@@ -7387,9 +7387,9 @@ function App() {
                       <div style={{ position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)", background: "#10b981", color: "#fff", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 700, whiteSpace: "nowrap" }}>{p.badge}</div>
                     )}
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{p.label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6" }}>{p.price}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#FFD700" }}>{p.price}</div>
                     {selectedPlan === p.id && (
-                      <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>?</div>
+                      <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#FFD700", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>?</div>
                     )}
                   </div>
                 ))}
@@ -7401,15 +7401,15 @@ function App() {
                     <button
                       onClick={() => setPaymentMethod("paystack")}
                       style={{
-                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "paystack" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)",
-                        background: paymentMethod === "paystack" ? "rgba(59,130,246,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "paystack" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.15)",
+                        background: paymentMethod === "paystack" ? "rgba(255,215,0,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >💳 Pay Online</button>
                     <button
                       onClick={() => setPaymentMethod("transfer")}
                       style={{
-                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "transfer" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.15)",
-                        background: paymentMethod === "transfer" ? "rgba(59,130,246,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        flex: 1, padding: "10px", borderRadius: 8, border: paymentMethod === "transfer" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.15)",
+                        background: paymentMethod === "transfer" ? "rgba(255,215,0,0.1)" : "transparent", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >🏦 Bank Transfer</button>
                   </div>
@@ -7453,14 +7453,14 @@ function App() {
                       style={{
                         width: "100%", padding: "14px", borderRadius: 10, border: "none",
                         fontSize: 15, fontWeight: 700, cursor: "pointer",
-                        background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff",
+                        background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "#fff",
                       }}
                     >💳 Pay {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"} → Instant Activation</button>
                   )}
                   {/* Bank Transfer */}
                   {paymentMethod === "transfer" && (
                     <div>
-                      <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 10, padding: 12, marginBottom: 10, fontSize: 13, lineHeight: 1.7 }}>
+                      <div style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 10, padding: 12, marginBottom: 10, fontSize: 13, lineHeight: 1.7 }}>
                         <div><strong>Bank:</strong> Opay</div>
                         <div><strong>Account:</strong> 9069372522</div>
                         <div><strong>Name:</strong> Zibiri-David Delight Aluaye</div>
@@ -7540,7 +7540,7 @@ function App() {
 
                 }}
 
-                style={{ background: "var(--accent-color, #3b82f6)", color: "white", fontWeight: 600, padding: "12px 24px", fontSize: 14, border: "none", borderRadius: 6, cursor: "pointer" }}
+                style={{ background: "var(--accent-color, #FFD700)", color: "white", fontWeight: 600, padding: "12px 24px", fontSize: 14, border: "none", borderRadius: 6, cursor: "pointer" }}
 
               >
 
@@ -7614,9 +7614,9 @@ function App() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
 
-                <div style={{ background: "rgba(59,130,246,0.1)", padding: 12, borderRadius: 8 }}>
+                <div style={{ background: "rgba(255,215,0,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>{demoUsage.demoProgress.achievements.length}/{DEMO_ACHIEVEMENTS.length}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>{demoUsage.demoProgress.achievements.length}/{DEMO_ACHIEVEMENTS.length}</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Achievements</div>
 
@@ -7638,9 +7638,9 @@ function App() {
 
                 </div>
 
-                <div style={{ background: "rgba(168,85,247,0.1)", padding: 12, borderRadius: 8 }}>
+                <div style={{ background: "rgba(218,165,32,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#a855f7" }}>{demoUsage.sessionTimeMinutes}m</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#DAA520" }}>{demoUsage.sessionTimeMinutes}m</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Study Time</div>
 
@@ -7690,7 +7690,7 @@ function App() {
 
                 onClick={() => { setShowDemoSummary(false); setShowPaymentModal(true); }}
 
-                style={{ background: "#3b82f6", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                style={{ background: "#FFD700", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
 
               >
 
@@ -7724,7 +7724,7 @@ function App() {
 
             border: "2px solid rgba(239, 68, 68, 0.5)",
 
-            background: "linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(239, 68, 68, 0.15))",
+            background: "linear-gradient(135deg, rgba(20, 20, 20, 0.98), rgba(239, 68, 68, 0.15))",
 
             boxShadow: "0 25px 50px -12px rgba(239, 68, 68, 0.25)"
 
@@ -7912,7 +7912,7 @@ function App() {
 
             </p>
 
-            <div style={{ background: "rgba(59,130,246,0.1)", padding: 12, borderRadius: 8, marginBottom: 16 }}>
+            <div style={{ background: "rgba(255,215,0,0.1)", padding: 12, borderRadius: 8, marginBottom: 16 }}>
 
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Quick Tips:</div>
 
@@ -7934,7 +7934,7 @@ function App() {
 
               onClick={() => setShowDemoTour(false)}
 
-              style={{ width: "100%", background: "#3b82f6", color: "white", border: "none", padding: "12px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 14 }}
+              style={{ width: "100%", background: "#FFD700", color: "white", border: "none", padding: "12px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 14 }}
 
             >
 
@@ -7978,11 +7978,11 @@ function App() {
 
               borderRadius: '12px',
 
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))',
+              background: 'linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(218, 165, 32, 0.15))',
 
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              border: '1px solid rgba(255, 215, 0, 0.3)',
 
-              color: '#a5b4fc',
+              color: '#FFD700',
 
               fontSize: '12px',
 
@@ -8137,6 +8137,14 @@ function App() {
                   <div className="theme-preview neon"></div>
 
                   <span className="theme-name">🎉 Neon</span>
+
+                </div>
+
+                <div className={`theme-option ${themePack === 'gold' ? 'active' : ''}`} onClick={() => setThemePack('gold')}>
+
+                  <div className="theme-preview gold"></div>
+
+                  <span className="theme-name">👑 Gold</span>
 
                 </div>
 
@@ -8526,7 +8534,7 @@ function App() {
 
               {!isFaculty && (
 
-                <button className={tab === "premium" ? "active" : ""} onClick={() => { setTab("premium"); setShowMobileMenu(false); }} style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2))", border: "1px solid rgba(139,92,246,0.4)" }}>
+                <button className={tab === "premium" ? "active" : ""} onClick={() => { setTab("premium"); setShowMobileMenu(false); }} style={{ background: "linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,215,0,0.2))", border: "1px solid rgba(218,165,32,0.4)" }}>
 
                   <Gem size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Premium
 
@@ -9785,12 +9793,12 @@ function App() {
                 );
               })}
             </div>
-            <div style={{ marginTop: 14, padding: 10, background: "rgba(59,130,246,0.1)", borderRadius: 8, border: "1px solid rgba(59,130,246,0.3)" }}>
+            <div style={{ marginTop: 14, padding: 10, background: "rgba(255,215,0,0.1)", borderRadius: 8, border: "1px solid rgba(255,215,0,0.3)" }}>
               <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Completion: {Math.round((demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100)}%</div>
               <div style={{ height: 6, background: "rgba(148,163,184,0.3)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${(demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100}%`, background: "#3b82f6", transition: "width 0.3s" }} />
+                <div style={{ height: "100%", width: `${(demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100}%`, background: "#FFD700", transition: "width 0.3s" }} />
               </div>
-              <button onClick={() => setShowPaymentModal(true)} style={{ marginTop: 10, width: "100%", background: "#3b82f6", color: "white", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
+              <button onClick={() => setShowPaymentModal(true)} style={{ marginTop: 10, width: "100%", background: "#FFD700", color: "white", border: "none", padding: "10px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
                 Upgrade to Full Version
               </button>
             </div>
@@ -9798,13 +9806,13 @@ function App() {
         )}
 
         {/* 🎨 Appearance */}
-        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+        <div style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
             <span>🎨</span> Appearance
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 14 }}>Theme</span>
-            <button onClick={() => setDarkMode((v) => !v)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: darkMode ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.05)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={() => setDarkMode((v) => !v)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: darkMode ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.05)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
               {darkMode ? "🌙 Dark" : "☀️ Light"}
             </button>
           </div>
@@ -9814,7 +9822,7 @@ function App() {
         <NotificationSettings token={token} />
 
         {/* 🎟️ Support */}
-        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+        <div style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 15, fontWeight: 700 }}>
             <span>🎟️</span> Support
           </div>
@@ -9822,7 +9830,7 @@ function App() {
             <a href="https://wa.link/yj2em4" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, background: "#25D366", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}>
               <span style={{ fontSize: 18 }}>📞</span> Chat on WhatsApp
             </a>
-            <a href="tel:09028617178" style={{ display: "flex", alignItems: "center", gap: 10, background: "#3b82f6", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}>
+            <a href="tel:09028617178" style={{ display: "flex", alignItems: "center", gap: 10, background: "#FFD700", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 8, fontWeight: 600, fontSize: 14 }}>
               <span style={{ fontSize: 18 }}>📞</span> Call: 09028617178
             </a>
           </div>
@@ -9917,11 +9925,11 @@ function App() {
 
                 padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
 
-                border: aiTutorSubTab === "chat" ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.25)",
+                border: aiTutorSubTab === "chat" ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.25)",
 
-                background: aiTutorSubTab === "chat" ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(30,41,59,0.6)",
+                background: aiTutorSubTab === "chat" ? "linear-gradient(135deg,#FFD700,#DAA520)" : "rgba(20,20,20,0.6)",
 
-                color: aiTutorSubTab === "chat" ? "#fff" : "#a5b4fc",
+                color: aiTutorSubTab === "chat" ? "#fff" : "#FFD700",
 
               }}
 
@@ -9935,11 +9943,11 @@ function App() {
 
                 padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
 
-                border: aiTutorSubTab === "lectures" ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.25)",
+                border: aiTutorSubTab === "lectures" ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.25)",
 
-                background: aiTutorSubTab === "lectures" ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(30,41,59,0.6)",
+                background: aiTutorSubTab === "lectures" ? "linear-gradient(135deg,#FFD700,#DAA520)" : "rgba(20,20,20,0.6)",
 
-                color: aiTutorSubTab === "lectures" ? "#fff" : "#a5b4fc",
+                color: aiTutorSubTab === "lectures" ? "#fff" : "#FFD700",
 
               }}
 
@@ -10833,9 +10841,9 @@ ${isCorrect
 
     <div className="card" style={{ 
 
-      background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
+      background: "linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.9))",
 
-      border: "1px solid rgba(99, 102, 241, 0.2)",
+      border: "1px solid rgba(255, 215, 0, 0.2)",
 
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
 
@@ -10849,11 +10857,11 @@ ${isCorrect
 
       <div style={{ 
 
-        background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+        background: "linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(218, 165, 32, 0.1))",
 
         padding: "20px 24px",
 
-        borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
+        borderBottom: "1px solid rgba(255, 215, 0, 0.2)"
 
       }}>
 
@@ -10869,7 +10877,7 @@ ${isCorrect
 
               borderRadius: 12,
 
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)",
 
               display: "flex",
 
@@ -10879,7 +10887,7 @@ ${isCorrect
 
               fontSize: 24,
 
-              boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)"
+              boxShadow: "0 4px 15px rgba(255, 215, 0, 0.4)"
 
             }}>
 
@@ -10889,7 +10897,7 @@ ${isCorrect
 
             <div>
 
-              <h3 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{session.source.label}</h3>
+              <h3 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{session.source.label}</h3>
 
               <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{session.mode === "exam" ? "Exam Mode" : session.mode === "weak" ? "Weak Drill" : session.mode === "adaptive" ? "Adaptive" : "Practice"}</p>
 
@@ -10907,9 +10915,9 @@ ${isCorrect
 
               <div style={{
 
-                background: timeLeft < 60 ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(30, 41, 59, 0.8)",
+                background: timeLeft < 60 ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(20, 20, 20, 0.8)",
 
-                border: "1px solid " + (timeLeft < 60 ? "rgba(239, 68, 68, 0.5)" : "rgba(99, 102, 241, 0.3)"),
+                border: "1px solid " + (timeLeft < 60 ? "rgba(239, 68, 68, 0.5)" : "rgba(255, 215, 0, 0.3)"),
 
                 padding: "8px 16px",
 
@@ -10937,9 +10945,9 @@ ${isCorrect
 
             <div style={{
 
-              background: "rgba(30, 41, 59, 0.8)",
+              background: "rgba(20, 20, 20, 0.8)",
 
-              border: "1px solid rgba(99, 102, 241, 0.3)",
+              border: "1px solid rgba(255, 215, 0, 0.3)",
 
               padding: "8px 16px",
 
@@ -10949,7 +10957,7 @@ ${isCorrect
 
               fontWeight: 600,
 
-              color: "#e0e7ff"
+              color: "#FFD700"
 
             }}>
 
@@ -11097,7 +11105,7 @@ ${isCorrect
 
           height: 6, 
 
-          background: "rgba(30, 41, 59, 0.8)", 
+          background: "rgba(20, 20, 20, 0.8)", 
 
           borderRadius: 10, 
 
@@ -11113,13 +11121,13 @@ ${isCorrect
 
             width: `${((idx + 1) / session.questions.length) * 100}%`,
 
-            background: "linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)",
+            background: "linear-gradient(90deg, #FFD700, #DAA520, #DAA520)",
 
             borderRadius: 10,
 
             transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
 
-            boxShadow: "0 0 20px rgba(99, 102, 241, 0.5)"
+            boxShadow: "0 0 20px rgba(255, 215, 0, 0.5)"
 
           }} />
 
@@ -11137,7 +11145,7 @@ ${isCorrect
 
           <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>
 
-            Running score: <span style={{ color: "#e0e7ff" }}>{score}/{Math.max(1, idx + (showResult ? 1 : 0))}</span>
+            Running score: <span style={{ color: "#FFD700" }}>{score}/{Math.max(1, idx + (showResult ? 1 : 0))}</span>
 
             {perQuestionTarget && <span> → Pace: ~{perQuestionTarget}s/question</span>}
 
@@ -11155,7 +11163,7 @@ ${isCorrect
 
         <div style={{
 
-          background: "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
+          background: "linear-gradient(135deg, rgba(20, 20, 20, 0.6), rgba(10, 10, 10, 0.8))",
 
           borderRadius: 16,
 
@@ -11163,7 +11171,7 @@ ${isCorrect
 
           marginBottom: 20,
 
-          border: "1px solid rgba(99, 102, 241, 0.15)",
+          border: "1px solid rgba(255, 215, 0, 0.15)",
 
           boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
 
@@ -11185,9 +11193,9 @@ ${isCorrect
 
               right: 12,
 
-              background: flaggedQuestions.has(idx) ? "rgba(239, 68, 68, 0.2)" : "rgba(99, 102, 241, 0.1)",
+              background: flaggedQuestions.has(idx) ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 215, 0, 0.1)",
 
-              border: flaggedQuestions.has(idx) ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(99, 102, 241, 0.2)",
+              border: flaggedQuestions.has(idx) ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(255, 215, 0, 0.2)",
 
               padding: "8px 12px",
 
@@ -11197,7 +11205,7 @@ ${isCorrect
 
               fontSize: 14,
 
-              color: flaggedQuestions.has(idx) ? "#f87171" : "#a5b4fc"
+              color: flaggedQuestions.has(idx) ? "#f87171" : "#FFD700"
 
             }}
 
@@ -11249,15 +11257,15 @@ ${isCorrect
 
               style={{
 
-                background: "rgba(30, 41, 59, 0.8)",
+                background: "rgba(20, 20, 20, 0.8)",
 
-                border: "1px solid rgba(99, 102, 241, 0.3)",
+                border: "1px solid rgba(255, 215, 0, 0.3)",
 
                 borderRadius: 8,
 
                 padding: "8px 12px",
 
-                color: "#e0e7ff",
+                color: "#FFD700",
 
                 fontSize: 14
 
@@ -11281,15 +11289,15 @@ ${isCorrect
 
             style={{
 
-              background: "rgba(99, 102, 241, 0.2)",
+              background: "rgba(255, 215, 0, 0.2)",
 
-              border: "1px solid rgba(99, 102, 241, 0.3)",
+              border: "1px solid rgba(255, 215, 0, 0.3)",
 
               padding: "8px 16px",
 
               borderRadius: 8,
 
-              color: "#a5b4fc",
+              color: "#FFD700",
 
               fontSize: 14,
 
@@ -11321,9 +11329,9 @@ ${isCorrect
 
             
 
-            let bgGradient = "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))";
+            let bgGradient = "linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(10, 10, 10, 0.9))";
 
-            let borderColor = "rgba(99, 102, 241, 0.2)";
+            let borderColor = "rgba(255, 215, 0, 0.2)";
 
             let glowColor = "transparent";
 
@@ -11351,11 +11359,11 @@ ${isCorrect
 
             } else if (isSelected) {
 
-              bgGradient = "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.1))";
+              bgGradient = "linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(218, 165, 32, 0.1))";
 
-              borderColor = "rgba(99, 102, 241, 0.5)";
+              borderColor = "rgba(255, 215, 0, 0.5)";
 
-              glowColor = "rgba(99, 102, 241, 0.3)";
+              glowColor = "rgba(255, 215, 0, 0.3)";
 
             }
 
@@ -11415,9 +11423,9 @@ ${isCorrect
 
                                 : isWrong ? "linear-gradient(135deg, #ef4444, #dc2626)"
 
-                                : isSelected ? "linear-gradient(135deg, #6366f1, #8b5cf6)" 
+                                : isSelected ? "linear-gradient(135deg, #FFD700, #DAA520)" 
 
-                                : "rgba(99, 102, 241, 0.2)",
+                                : "rgba(255, 215, 0, 0.2)",
 
                       display: "flex",
 
@@ -11429,7 +11437,7 @@ ${isCorrect
 
                       fontSize: 14,
 
-                      color: isSelected || isCorrectOption ? "#fff" : "#a5b4fc"
+                      color: isSelected || isCorrectOption ? "#fff" : "#FFD700"
 
                     }}>
 
@@ -11483,17 +11491,17 @@ ${isCorrect
 
           <div style={{ 
 
-            background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))",
+            background: "linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(218, 165, 32, 0.05))",
 
             borderRadius: 16, 
 
             padding: 20,
 
-            border: "1px solid rgba(59, 130, 246, 0.2)"
+            border: "1px solid rgba(255, 215, 0, 0.2)"
 
           }}>
 
-            <p style={{ color: "#93c5fd", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+            <p style={{ color: "#FFD700", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
 
               💡 {current.explanation || "No explanation available."}
 
@@ -11513,7 +11521,7 @@ ${isCorrect
 
                 style={{ 
 
-                  background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                  background: "linear-gradient(135deg, #FFD700, #0a0a0a)",
 
                   border: "none",
 
@@ -11529,7 +11537,7 @@ ${isCorrect
 
                   cursor: aiLoading ? "wait" : "pointer",
 
-                  boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)"
+                  boxShadow: "0 4px 15px rgba(255, 215, 0, 0.4)"
 
                 }}
 
@@ -11547,9 +11555,9 @@ ${isCorrect
 
                   padding: 16, 
 
-                  background: "rgba(30, 41, 59, 0.6)", 
+                  background: "rgba(20, 20, 20, 0.6)", 
 
-                  border: "1px solid rgba(59, 130, 246, 0.3)", 
+                  border: "1px solid rgba(255, 215, 0, 0.3)", 
 
                   borderRadius: 12,
 
@@ -11557,11 +11565,11 @@ ${isCorrect
 
                   lineHeight: 1.6,
 
-                  color: "#93c5fd"
+                  color: "#FFD700"
 
                 }}>
 
-                  <strong style={{ color: "#60a5fa" }}>AI Explanation:</strong>
+                  <strong style={{ color: "#FFD700" }}>AI Explanation:</strong>
 
                   <p style={{ margin: "8px 0 0" }}>{aiExplanation}</p>
 
@@ -11593,7 +11601,7 @@ ${isCorrect
 
             style={{
 
-              background: selected == null ? "rgba(99, 102, 241, 0.3)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: selected == null ? "rgba(255, 215, 0, 0.3)" : "linear-gradient(135deg, #FFD700, #DAA520)",
 
               color: "white",
 
@@ -11609,7 +11617,7 @@ ${isCorrect
 
               fontWeight: 600,
 
-              boxShadow: selected == null ? "none" : "0 4px 20px rgba(99, 102, 241, 0.4)",
+              boxShadow: selected == null ? "none" : "0 4px 20px rgba(255, 215, 0, 0.4)",
 
               transition: "all 0.2s"
 
@@ -11629,7 +11637,7 @@ ${isCorrect
 
             style={{
 
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)",
 
               color: "white",
 
@@ -11645,7 +11653,7 @@ ${isCorrect
 
               fontWeight: 600,
 
-              boxShadow: "0 4px 20px rgba(99, 102, 241, 0.4)",
+              boxShadow: "0 4px 20px rgba(255, 215, 0, 0.4)",
 
               transition: "all 0.2s"
 
@@ -12137,10 +12145,10 @@ function _Classroom_REMOVED({ subjects, assignments, teacherMode, setTeacherMode
         <div className="modal-overlay" onClick={() => setPopupLink(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400, padding: 20 }}>
             <h3 style={{ margin: "0 0 12px 0", fontSize: 16 }}>👉 {popupLink.title}</h3>
-            <p style={{ wordBreak: "break-all", color: "#a5b4fc", marginBottom: 16, fontSize: 13 }}>{popupLink.url}</p>
+            <p style={{ wordBreak: "break-all", color: "#FFD700", marginBottom: 16, fontSize: 13 }}>{popupLink.url}</p>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setPopupLink(null)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Close</button>
-              <button onClick={() => { window.open(popupLink.url, "_blank"); setPopupLink(null); }} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Open Link</button>
+              <button onClick={() => { window.open(popupLink.url, "_blank"); setPopupLink(null); }} style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Open Link</button>
             </div>
           </div>
         </div>
@@ -12149,7 +12157,7 @@ function _Classroom_REMOVED({ subjects, assignments, teacherMode, setTeacherMode
       {/* Important Announcement Popup */}
       {showAnnouncementPopup && (
         <div className="modal-overlay" onClick={() => { markAnnouncementRead(showAnnouncementPopup.id); setShowAnnouncementPopup(null); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, padding: 20, border: "2px solid rgba(239,68,68,0.5)", background: "linear-gradient(135deg, rgba(30,41,59,0.95), rgba(239,68,68,0.1))" }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500, padding: 20, border: "2px solid rgba(239,68,68,0.5)", background: "linear-gradient(135deg, rgba(20,20,20,0.95), rgba(239,68,68,0.1))" }}>
             <div style={{ textAlign: "center", marginBottom: 14 }}>
               <span style={{ fontSize: 40 }}>🚨</span>
               <h3 style={{ color: "#fbbf24", margin: "4px 0 0 0" }}>Important Announcement</h3>
@@ -13754,9 +13762,9 @@ function _Leaderboard_REMOVED({ username, xp, sessions, streak, mastery, subject
 
   function getTier(xp) {
 
-    if (xp >= 1000) return { name: "Diamond", color: "#4F8EF7", icon: "💎" };
+    if (xp >= 1000) return { name: "Diamond", color: "#FFD700", icon: "💎" };
 
-    if (xp >= 500) return { name: "Platinum", color: "#a855f7", icon: "👑" };
+    if (xp >= 500) return { name: "Platinum", color: "#DAA520", icon: "👑" };
 
     if (xp >= 250) return { name: "Gold", color: "#facc15", icon: "🥇" };
 
@@ -13813,8 +13821,8 @@ function _Leaderboard_REMOVED({ username, xp, sessions, streak, mastery, subject
     { name: 'Bronze', min: 0, color: '#cd7f32' },
     { name: 'Silver', min: 100, color: '#94a3b8' },
     { name: 'Gold', min: 250, color: '#facc15' },
-    { name: 'Platinum', min: 500, color: '#a855f7' },
-    { name: 'Diamond', min: 1000, color: '#4F8EF7' },
+    { name: 'Platinum', min: 500, color: '#DAA520' },
+    { name: 'Diamond', min: 1000, color: '#FFD700' },
   ];
 
   const myXP = xp || 0;
@@ -14064,7 +14072,7 @@ function _Leaderboard_REMOVED({ username, xp, sessions, streak, mastery, subject
                   <div className="lb-profile-stats">
                     <div className="lb-profile-stat">
                       <div className="label">Total XP</div>
-                      <div className="value" style={{ color: '#a5b4fc' }}>{(userProfileData.xp || 0).toLocaleString()}</div>
+                      <div className="value" style={{ color: '#FFD700' }}>{(userProfileData.xp || 0).toLocaleString()}</div>
                     </div>
                     <div className="lb-profile-stat">
                       <div className="label">Sessions</div>
@@ -14084,7 +14092,7 @@ function _Leaderboard_REMOVED({ username, xp, sessions, streak, mastery, subject
                   <div className="lb-profile-mastery">
                     <div className="mlabel">
                       <span>Average Mastery</span>
-                      <span style={{ color: '#a5b4fc', fontWeight: 700 }}>{userProfileData.avgMastery || 0}%</span>
+                      <span style={{ color: '#FFD700', fontWeight: 700 }}>{userProfileData.avgMastery || 0}%</span>
                     </div>
                     <div className="bar">
                       <div className="fill" style={{ width: `${userProfileData.avgMastery || 0}%` }} />
@@ -14146,7 +14154,7 @@ function _PomodoroTimer_REMOVED({ onSessionDone }) {
 
 
 
-    { id: "short", label: "Short Break", duration: 5 * 60, color: "#818cf8" },
+    { id: "short", label: "Short Break", duration: 5 * 60, color: "#FFD700" },
 
 
 
@@ -15062,7 +15070,7 @@ function _TimetableBuilder_REMOVED({ timetable, setTimetable, subjects }) {
 
 
 
-  const COLORS = ["#2dd4a0","#818cf8","#fb923c","#facc15","#f472b6","#38bdf8","#a78bfa"];
+  const COLORS = ["#2dd4a0","#FFD700","#fb923c","#facc15","#f472b6","#38bdf8","#a78bfa"];
 
 
 
@@ -15420,7 +15428,7 @@ function _CheatSheet_REMOVED({ subjects, mastery }) {
 
 
 
-    <style>body{font-family:sans-serif;padding:24px;max-width:700px;margin:auto}h1{color:#2dd4a0}h3{color:#818cf8}li{margin-bottom:8px}</style></head>
+    <style>body{font-family:sans-serif;padding:24px;max-width:700px;margin:auto}h1{color:#2dd4a0}h3{color:#FFD700}li{margin-bottom:8px}</style></head>
 
 
 
@@ -15532,7 +15540,7 @@ function _CheatSheet_REMOVED({ subjects, mastery }) {
 
 
 
-              <strong style={{ color: "#818cf8" }}>{l.title}</strong>
+              <strong style={{ color: "#FFD700" }}>{l.title}</strong>
 
 
 
@@ -15870,7 +15878,7 @@ function _DiscussionThread_REMOVED({ thread, onReply, username, isTeacher }) {
 
 
 
-          <span className="post-author" style={{ color: isTeacher || r.role === "Teacher" ? "#facc15" : "#818cf8" }}>
+          <span className="post-author" style={{ color: isTeacher || r.role === "Teacher" ? "#facc15" : "#FFD700" }}>
 
 
 
@@ -15906,7 +15914,7 @@ function _DiscussionThread_REMOVED({ thread, onReply, username, isTeacher }) {
 
 
 
-          <button style={{ borderColor: "#818cf8", color: "#818cf8" }} onClick={() => { onReply(replyText); setReplyText(""); setShowReply(false); }}>Send</button>
+          <button style={{ borderColor: "#FFD700", color: "#FFD700" }} onClick={() => { onReply(replyText); setReplyText(""); setShowReply(false); }}>Send</button>
 
 
 
@@ -16088,7 +16096,7 @@ function _AIQuestionGen_REMOVED({ onImportQuestions }) {
 
 
 
-      <button onClick={generate} disabled={loading} style={{ marginTop: 8, borderColor: "#818cf8", color: "#818cf8" }}>
+      <button onClick={generate} disabled={loading} style={{ marginTop: 8, borderColor: "#FFD700", color: "#FFD700" }}>
 
 
 
@@ -16206,7 +16214,7 @@ function _ConfidenceHeatmap_REMOVED({ history }) {
 
 
 
-        const color = pct === 100 ? "#2dd4a0" : pct >= 80 ? "#818cf8" : pct >= 50 ? "#facc15" : "#ff6b6b";
+        const color = pct === 100 ? "#2dd4a0" : pct >= 80 ? "#FFD700" : pct >= 50 ? "#facc15" : "#ff6b6b";
 
 
 
@@ -16702,11 +16710,11 @@ function _AITutorChat_REMOVED({ aiConfig, chatHistory, setChatHistory, subjects,
 
                         style={{
 
-                          background: "#1e3a5f",
+                          background: "#1a1a1a",
 
-                          border: "1px solid #3b82f6",
+                          border: "1px solid #FFD700",
 
-                          color: "#60a5fa",
+                          color: "#FFD700",
 
                           padding: "8px 16px",
 
@@ -16744,11 +16752,11 @@ function _AITutorChat_REMOVED({ aiConfig, chatHistory, setChatHistory, subjects,
 
                         style={{
 
-                          background: "#1e3a5f",
+                          background: "#1a1a1a",
 
-                          border: "1px solid #3b82f6",
+                          border: "1px solid #FFD700",
 
-                          color: "#60a5fa",
+                          color: "#FFD700",
 
                           padding: "8px 16px",
 
@@ -16850,7 +16858,7 @@ function _AITutorChat_REMOVED({ aiConfig, chatHistory, setChatHistory, subjects,
 
         />
 
-        <button onClick={() => sendMessage()} disabled={loading || !message.trim()} style={{ borderColor: "#818cf8", color: "#818cf8" }}>
+        <button onClick={() => sendMessage()} disabled={loading || !message.trim()} style={{ borderColor: "#FFD700", color: "#FFD700" }}>
 
           Send
 
@@ -17856,7 +17864,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                 style={{
 
-                  border: selectedDuration === "week1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "week1" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
 
                   borderRadius: 12,
 
@@ -17864,7 +17872,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                   cursor: "pointer",
 
-                  background: selectedDuration === "week1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "week1" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
 
                   transition: "all 0.2s"
 
@@ -17882,7 +17890,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                   </div>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>7 days</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>7 days</div>
 
                 </div>
 
@@ -17896,7 +17904,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                 style={{
 
-                  border: selectedDuration === "week2" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "week2" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
 
                   borderRadius: 12,
 
@@ -17904,7 +17912,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                   cursor: "pointer",
 
-                  background: selectedDuration === "week2" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "week2" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
 
                   transition: "all 0.2s"
 
@@ -17922,7 +17930,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                   </div>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>14 days</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>14 days</div>
 
                 </div>
 
@@ -17936,7 +17944,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                 style={{
 
-                  border: selectedDuration === "month1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "month1" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
 
                   borderRadius: 12,
 
@@ -17944,7 +17952,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                   cursor: "pointer",
 
-                  background: selectedDuration === "month1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "month1" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
 
                   transition: "all 0.2s",
 
@@ -17966,7 +17974,7 @@ function _KeyManagement_REMOVED({ token }) {
 
                   </div>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>30 days</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>30 days</div>
 
                 </div>
 
@@ -18050,7 +18058,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
           </p>
 
-          <button onClick={onRefresh} style={{ padding: "12px 32px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
+          <button onClick={onRefresh} style={{ padding: "12px 32px", background: "#FFD700", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
 
             Continue to Dashboard
 
@@ -18070,7 +18078,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
   return (
 
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(139,92,246,0.05))" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(255,215,0,0.05), rgba(218,165,32,0.05))" }}>
 
       <div style={{ maxWidth: 900, width: "100%" }}>
 
@@ -18088,7 +18096,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                 padding: "10px 20px",
 
-                background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+                background: "linear-gradient(135deg, #DAA520, #FFD700)",
 
                 color: "#fff",
 
@@ -18108,7 +18116,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                 gap: 8,
 
-                boxShadow: "0 4px 12px rgba(139,92,246,0.3)"
+                boxShadow: "0 4px 12px rgba(218,165,32,0.3)"
 
               }}
 
@@ -18136,15 +18144,15 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
               padding: "10px 16px",
 
-              background: "rgba(139,92,246,0.1)",
+              background: "rgba(218,165,32,0.1)",
 
-              border: "1px solid rgba(139,92,246,0.3)",
+              border: "1px solid rgba(218,165,32,0.3)",
 
               borderRadius: 8,
 
               fontSize: 12,
 
-              color: "#8b5cf6",
+              color: "#DAA520",
 
               maxWidth: 200,
 
@@ -18190,15 +18198,15 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
             textAlign: "center", 
 
-            background: "linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))",
+            background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(218,165,32,0.1))",
 
-            border: "2px solid rgba(59,130,246,0.3)",
+            border: "2px solid rgba(255,215,0,0.3)",
 
             position: "relative"
 
           }}>
 
-            <div style={{ position: "absolute", top: 12, right: 12, background: "#3b82f6", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+            <div style={{ position: "absolute", top: 12, right: 12, background: "#FFD700", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
 
               MOST POPULAR
 
@@ -18218,7 +18226,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8, marginBottom: 8 }}>
 
-                <span style={{ fontSize: 36, fontWeight: 800, color: "#3b82f6" }}>₦700</span>
+                <span style={{ fontSize: 36, fontWeight: 800, color: "#FFD700" }}>₦700</span>
 
                 <span className="muted" style={{ fontSize: 14 }}>/week</span>
 
@@ -18262,7 +18270,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                 padding: "14px 24px", 
 
-                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", 
+                background: "linear-gradient(135deg, #FFD700, #DAA520)", 
 
                 color: "#fff", 
 
@@ -18276,7 +18284,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                 fontWeight: 700,
 
-                boxShadow: "0 4px 14px rgba(59,130,246,0.4)",
+                boxShadow: "0 4px 14px rgba(255,215,0,0.4)",
 
                 transition: "transform 0.2s, box-shadow 0.2s"
 
@@ -18286,7 +18294,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                 e.currentTarget.style.transform = "translateY(-2px)";
 
-                e.currentTarget.style.boxShadow = "0 6px 20px rgba(59,130,246,0.5)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(255,215,0,0.5)";
 
               }}
 
@@ -18294,7 +18302,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                 e.currentTarget.style.transform = "translateY(0)";
 
-                e.currentTarget.style.boxShadow = "0 4px 14px rgba(59,130,246,0.4)";
+                e.currentTarget.style.boxShadow = "0 4px 14px rgba(255,215,0,0.4)";
 
               }}
 
@@ -18492,9 +18500,9 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
               <div style={{ 
 
-                background: "rgba(59,130,246,0.1)", 
+                background: "rgba(255,215,0,0.1)", 
 
-                border: "1px solid rgba(59,130,246,0.3)", 
+                border: "1px solid rgba(255,215,0,0.3)", 
 
                 borderRadius: 8, 
 
@@ -18522,13 +18530,13 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                   borderRadius: "50%",
 
-                  background: isChecking ? "#3b82f6" : "#22c55e",
+                  background: isChecking ? "#FFD700" : "#22c55e",
 
                   animation: isChecking ? "pulse 1s infinite" : "none"
 
                 }}></span>
 
-                <span style={{ fontSize: 11, color: isChecking ? "#3b82f6" : "#22c55e" }}>
+                <span style={{ fontSize: 11, color: isChecking ? "#FFD700" : "#22c55e" }}>
 
                   {isChecking ? "Checking..." : "Auto-checking every 10s"}
 
@@ -18548,7 +18556,7 @@ function _LockedScreen_REMOVED({ activationKey, username, userRole, onLogout, on
 
                   padding: "8px 20px", 
 
-                  background: "#3b82f6", 
+                  background: "#FFD700", 
 
                   color: "#fff", 
 

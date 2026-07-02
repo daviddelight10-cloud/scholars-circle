@@ -6,7 +6,7 @@ const RATINGS = [
   { grade: 1, label: "Again", color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "#ef4444" },
   { grade: 2, label: "Hard", color: "#f59e0b", bg: "rgba(245,158,11,0.12)", border: "#f59e0b" },
   { grade: 3, label: "Good", color: "#22c55e", bg: "rgba(34,197,94,0.12)", border: "#22c55e" },
-  { grade: 4, label: "Easy", color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "#3b82f6" },
+  { grade: 4, label: "Easy", color: "#FFD700", bg: "rgba(255,215,0,0.12)", border: "#FFD700" },
 ];
 
 export default function FlashcardRunner({ flashcards: initialFlashcards, resourceId, onComplete, theme = "dark" }) {
@@ -108,7 +108,7 @@ export default function FlashcardRunner({ flashcards: initialFlashcards, resourc
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button onClick={restart} style={{ padding: "10px 20px", borderRadius: 10, background: "#0d0f1f", border: "0.5px solid #1e2245", color: "#7b82b8", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Review Again</button>
-          {onComplete && <button onClick={onComplete} style={{ padding: "10px 20px", borderRadius: 10, background: "linear-gradient(135deg,#3949ab,#5c6bc0)", border: "none", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Done</button>}
+          {onComplete && <button onClick={onComplete} style={{ padding: "10px 20px", borderRadius: 10, background: "linear-gradient(135deg,#B8860B,#5c6bc0)", border: "none", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Done</button>}
         </div>
       </div>
     );
@@ -129,7 +129,7 @@ export default function FlashcardRunner({ flashcards: initialFlashcards, resourc
       {/* Progress bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1, height: 6, background: "#0a0c1e", borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${Math.min(progress, 100)}%`, background: "linear-gradient(90deg,#3949ab,#5c6bc0)", borderRadius: 4, transition: "width 0.3s" }} />
+          <div style={{ height: "100%", width: `${Math.min(progress, 100)}%`, background: "linear-gradient(90deg,#B8860B,#5c6bc0)", borderRadius: 4, transition: "width 0.3s" }} />
         </div>
         <span style={{ fontSize: 11, color: "#4a5080", whiteSpace: "nowrap" }}>{index + 1} / {queue.length}</span>
       </div>
@@ -140,7 +140,7 @@ export default function FlashcardRunner({ flashcards: initialFlashcards, resourc
         style={{
           minHeight: 220,
           background: flipped ? "#0d0f20" : "#0d0f1f",
-          border: `0.5px solid ${flipped ? "#3949ab" : "#1e2245"}`,
+          border: `0.5px solid ${flipped ? "#B8860B" : "#1e2245"}`,
           borderRadius: 14,
           padding: "28px 24px",
           display: "flex",

@@ -98,7 +98,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
         {/* Inbox sidebar */}
         {showInboxPane && (
         <div className="card" style={{ padding: 0, overflow: "hidden", maxHeight: paneMaxHeight, minHeight: isMobile ? paneMinHeight : undefined }}>
-          <div style={{ padding: 12, borderBottom: "1px solid rgba(99,102,241,0.2)", fontWeight: 600 }}>Conversations</div>
+          <div style={{ padding: 12, borderBottom: "1px solid rgba(255,215,0,0.2)", fontWeight: 600 }}>Conversations</div>
           {loadingInbox && <div style={{ padding: 16, color: "#9ca3af" }}>Loading...</div>}
           {!loadingInbox && inbox.length === 0 && (
             <div style={{ padding: 20, color: "#9ca3af", fontSize: 13, textAlign: "center" }}>
@@ -117,9 +117,9 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                   style={{
                     width: "100%",
                     padding: 12,
-                    background: isActive ? "rgba(99,102,241,0.15)" : "transparent",
+                    background: isActive ? "rgba(255,215,0,0.15)" : "transparent",
                     border: "none",
-                    borderBottom: "1px solid rgba(99,102,241,0.1)",
+                    borderBottom: "1px solid rgba(255,215,0,0.1)",
                     color: "#fff",
                     cursor: "pointer",
                     textAlign: "left",
@@ -128,7 +128,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     gap: 10
                   }}
                 >
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #DAA520)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", flexShrink: 0 }}>
                     {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -158,7 +158,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
             </div>
           ) : (
             <>
-              <div style={{ padding: 10, borderBottom: "1px solid rgba(99,102,241,0.2)", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ padding: 10, borderBottom: "1px solid rgba(255,215,0,0.2)", display: "flex", alignItems: "center", gap: 10 }}>
                 {isMobile && (
                   <button
                     onClick={() => setActivePartner(null)}
@@ -166,9 +166,9 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     style={{
                       padding: "6px 10px",
                       borderRadius: 8,
-                      border: "1px solid rgba(99,102,241,0.3)",
-                      background: "rgba(30,41,59,0.7)",
-                      color: "#a5b4fc",
+                      border: "1px solid rgba(255,215,0,0.3)",
+                      background: "rgba(20,20,20,0.7)",
+                      color: "#FFD700",
                       cursor: "pointer",
                       fontSize: 16,
                       lineHeight: 1,
@@ -177,7 +177,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     ←
                   </button>
                 )}
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 14, flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #FFD700, #DAA520)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 14, flexShrink: 0 }}>
                   {(activePartner.displayName || activePartner.fullName || "?").charAt(0).toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -199,7 +199,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                         maxWidth: isMobile ? "85%" : "75%",
                         padding: "8px 12px",
                         borderRadius: 14,
-                        background: mine ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(30,41,59,0.9)",
+                        background: mine ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(20,20,20,0.9)",
                         color: "#fff",
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
@@ -215,7 +215,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                   );
                 })}
               </div>
-              <div style={{ padding: 10, borderTop: "1px solid rgba(99,102,241,0.2)", display: "flex", gap: 6, alignItems: "flex-end" }}>
+              <div style={{ padding: 10, borderTop: "1px solid rgba(255,215,0,0.2)", display: "flex", gap: 6, alignItems: "flex-end" }}>
                 <textarea
                   ref={inputRef}
                   value={draft}
@@ -229,9 +229,9 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     minWidth: 0,
                     padding: "10px 12px",
                     borderRadius: 18,
-                    background: "rgba(15,23,42,0.8)",
+                    background: "rgba(10,10,10,0.8)",
                     color: "#fff",
-                    border: "1px solid rgba(99,102,241,0.3)",
+                    border: "1px solid rgba(255,215,0,0.3)",
                     fontSize: 16,
                     fontFamily: "inherit",
                     resize: "none",
@@ -246,7 +246,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
                     padding: isMobile ? "10px 14px" : "10px 18px",
                     borderRadius: 18,
                     border: "none",
-                    background: draft.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)",
+                    background: draft.trim() ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(255,215,0,0.3)",
                     color: "#fff",
                     cursor: sending ? "wait" : "pointer",
                     fontWeight: 600,
@@ -269,8 +269,8 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
 const ghostBtn = {
   padding: "8px 14px",
   borderRadius: 8,
-  background: "rgba(30,41,59,0.6)",
-  color: "#a5b4fc",
-  border: "1px solid rgba(99,102,241,0.3)",
+  background: "rgba(20,20,20,0.6)",
+  color: "#FFD700",
+  border: "1px solid rgba(255,215,0,0.3)",
   cursor: "pointer"
 };

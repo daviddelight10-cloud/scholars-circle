@@ -61,7 +61,7 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
 
   return (
     <div style={styles.card}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#B8860B")}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
         <div style={{
@@ -173,7 +173,7 @@ function FilterSheet({ open, onClose, filters, setFilters, resources }) {
           <button onClick={clearAll} style={{ flex: 1, padding: "10px", background: "#0f1128", border: "0.5px solid #252860", borderRadius: "10px", fontSize: "13px", fontWeight: 600, color: "#7986cb", cursor: "pointer" }}>
             Clear all{activeCount > 0 && ` (${activeCount})`}
           </button>
-          <button onClick={onClose} style={{ flex: 1, padding: "10px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#c5cae9", cursor: "pointer" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer" }}>
             Apply
           </button>
         </div>
@@ -216,7 +216,7 @@ function ProgressDashboard({ progressData, reviewCount, reviewStats }) {
           <div style={{ fontSize: "11px", color: "#7b82b8" }}>SM-2 Mastered</div>
         </div>
         <div style={styles.statPill}>
-          <div style={{ fontSize: "24px", fontWeight: 800, color: "#9fa8da" }}>{avgEF}</div>
+          <div style={{ fontSize: "24px", fontWeight: 800, color: "#DAA520" }}>{avgEF}</div>
           <div style={{ fontSize: "11px", color: "#7b82b8" }}>Avg Easiness</div>
         </div>
       </div>
@@ -376,7 +376,7 @@ function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {group.pages.map((p) => (
                   <button key={p.id} onClick={() => onOpenPdf(group.resource?.shareToken, p.pageIndex)}
-                    style={{ padding: "5px 12px", borderRadius: 8, background: "#1a237e", border: "0.5px solid #3949ab", color: "#c5cae9", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    style={{ padding: "5px 12px", borderRadius: 8, background: "#1a1a1a", border: "0.5px solid #B8860B", color: "#FFD700", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                     p.{p.pageIndex}
                   </button>
                 ))}
@@ -401,7 +401,7 @@ function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
                 const first = fsrsDue.flashcards[0];
                 if (first?.resource?.shareToken) onOpenPdf(first.resource.shareToken);
               }}
-                style={{ padding: "8px 16px", borderRadius: 8, background: "#1a237e", border: "0.5px solid #3949ab", color: "#c5cae9", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a1a", border: "0.5px solid #B8860B", color: "#FFD700", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                 Start Review →
               </button>
             </div>
@@ -1107,7 +1107,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
               onDragLeave={handleDragLeave}
               style={{
                 ...styles.dropzone,
-                borderColor: dragOver ? "#3949ab" : uploadFile ? "#2a6a3a" : "#252860",
+                borderColor: dragOver ? "#B8860B" : uploadFile ? "#2a6a3a" : "#252860",
                 background: dragOver ? "#0f1240" : "#0a0c1e",
               }}
             >
@@ -1129,7 +1129,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             {uploading && (
               <div style={{ marginBottom: "14px" }}>
                 <div style={{ height: "6px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #3949ab, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
+                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #B8860B, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
                 </div>
                 <div style={{ fontSize: "11px", color: "#7986cb", textAlign: "center", marginTop: "4px" }}>{uploadProgress}%</div>
               </div>
@@ -1150,7 +1150,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                 <input value={row.question} onChange={(e) => updateMcqRow(i, { question: e.target.value })} placeholder="Question text" style={{ ...styles.input, marginBottom: "8px" }} />
                 {Object.entries(row.options).map(([key, value]) => (
                   <div key={key} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                    <input type="radio" name={`correct-${i}`} checked={row.correct === key} onChange={() => updateMcqRow(i, { correct: key })} title="Mark as correct" style={{ accentColor: "#3949ab" }} />
+                    <input type="radio" name={`correct-${i}`} checked={row.correct === key} onChange={() => updateMcqRow(i, { correct: key })} title="Mark as correct" style={{ accentColor: "#B8860B" }} />
                     <span style={{ fontSize: "11px", fontWeight: 700, color: row.correct === key ? "#66bb6a" : "#4a5080", width: "16px" }}>{key}</span>
                     <input value={value} onChange={(e) => updateMcqOption(i, key, e.target.value)} placeholder={`Option ${key}`} style={{ ...styles.input, flex: 1 }} />
                   </div>
@@ -1163,7 +1163,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             {uploading && (
               <div style={{ marginBottom: "14px" }}>
                 <div style={{ height: "6px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #3949ab, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
+                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #B8860B, #5c6bc0)", borderRadius: "4px", transition: "width 0.2s" }} />
                 </div>
               </div>
             )}
@@ -1260,7 +1260,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             <div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
               {folderDetail?.courseCode && <span style={{ fontSize: 11, color: "#7b82b8" }}>{folderDetail.courseCode}</span>}
-              {folderDetail?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folderDetail.level}</span>}
+              {folderDetail?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#DAA520", border: "0.5px solid #2a3080" }}>{folderDetail.level}</span>}
               {folderDetail?.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folderDetail.semester}</span>}
             </div>
           </div>
@@ -1279,10 +1279,10 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         {/* In-folder actions */}
         {folderDetail && (
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            <button onClick={() => openUploadInFolder(folderDetail.id, "pdf")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+            <button onClick={() => openUploadInFolder(folderDetail.id, "pdf")} style={{ ...styles.chip, background: "#1a1a1a", borderColor: "#B8860B", color: "#FFD700" }}>
               📎 Upload to folder
             </button>
-            <button onClick={() => openUploadInFolder(folderDetail.id, "mcq")} style={{ ...styles.chip, background: "#1a237e", borderColor: "#3949ab", color: "#c5cae9" }}>
+            <button onClick={() => openUploadInFolder(folderDetail.id, "mcq")} style={{ ...styles.chip, background: "#1a1a1a", borderColor: "#B8860B", color: "#FFD700" }}>
               ✎ Create MCQ set
             </button>
           </div>
@@ -1361,9 +1361,9 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             {xpInfo && (
               <span style={{
                 padding: "4px 12px", borderRadius: "12px",
-                background: "linear-gradient(135deg, #1a237e, #283593)",
-                border: "0.5px solid #3949ab", fontSize: "12px", fontWeight: 700,
-                color: "#c5cae9", display: "flex", alignItems: "center", gap: "6px",
+                background: "linear-gradient(135deg, #1a1a1a, #283593)",
+                border: "0.5px solid #B8860B", fontSize: "12px", fontWeight: 700,
+                color: "#FFD700", display: "flex", alignItems: "center", gap: "6px",
               }}>
                 ⭐ Lv {xpInfo.level} <span style={{ color: "#7986cb", fontSize: "11px" }}>{xpInfo.totalXp} XP</span>
               </span>
@@ -1464,13 +1464,13 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                 <div style={styles.folderGrid}>
                   {folders.own.filter((f) => !folderSearch || f.name.toLowerCase().includes(folderSearch.toLowerCase())).map((folder) => (
                     <div key={folder.id} style={styles.folderCard} onClick={() => openFolder(folder.id)}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#B8860B")}
                       onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}>
                       <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
                       {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
-                        {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
+                        {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#DAA520", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
                         {folder.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folder.semester}</span>}
                       </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -1492,13 +1492,13 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
                 <div style={styles.folderGrid}>
                   {folders.shared.filter((f) => !folderSearch || f.name.toLowerCase().includes(folderSearch.toLowerCase())).map((folder) => (
                     <div key={folder.id} style={styles.folderCard} onClick={() => openFolder(folder.id)}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#B8860B")}
                       onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}>
                       <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
                       {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
-                        {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
+                        {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#DAA520", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
                         {folder.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folder.semester}</span>}
                       </div>
                       <div style={{ fontSize: 10, color: "#4a5080" }}>by {folder.owner?.username || "Unknown"}</div>
@@ -1530,9 +1530,9 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             </div>
             <button onClick={() => setShowFilterSheet(true)} style={{
               ...styles.select, display: "flex", alignItems: "center", gap: "6px",
-              background: activeFilterCount > 0 ? "#1a237e" : "#0f1128",
-              border: activeFilterCount > 0 ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
-              color: activeFilterCount > 0 ? "#c5cae9" : "#9fa8da",
+              background: activeFilterCount > 0 ? "#1a1a1a" : "#0f1128",
+              border: activeFilterCount > 0 ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
+              color: activeFilterCount > 0 ? "#FFD700" : "#DAA520",
             }}>
               <span>🔧 Filters</span>
               {activeFilterCount > 0 && <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: "999px", fontSize: "10px", padding: "1px 6px" }}>{activeFilterCount}</span>}
@@ -1618,18 +1618,18 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
 const styles = {
   backBtn: { display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "13px", color: "#7b82b8", cursor: "pointer", marginBottom: "20px" },
-  addBtn: { padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#c5cae9", cursor: "pointer" },
+  addBtn: { padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#FFD700", cursor: "pointer" },
   tabRow: { display: "flex", gap: "4px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "999px", padding: "4px", marginBottom: "16px", width: "100%", alignItems: "center", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" },
   addDropdown: { position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#0d0f20", border: "0.5px solid #2a2d4a", borderRadius: "10px", overflow: "hidden", zIndex: 10, minWidth: "210px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" },
   addDropdownItem: { width: "100%", padding: "12px 16px", background: "none", border: "none", color: "#c5c9e8", fontSize: "13px", fontWeight: 600, cursor: "pointer", textAlign: "left", display: "block" },
   tab: { padding: "8px 16px", borderRadius: "999px", background: "none", border: "none", fontSize: "13px", fontWeight: 600, color: "#4a5080", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" },
-  tabActive: { padding: "8px 16px", borderRadius: "999px", background: "#1a237e", border: "none", fontSize: "13px", fontWeight: 700, color: "#c5cae9", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" },
+  tabActive: { padding: "8px 16px", borderRadius: "999px", background: "#1a1a1a", border: "none", fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" },
   tabCount: { background: "rgba(26,35,126,0.4)", borderRadius: "999px", fontSize: "11px", padding: "1px 7px" },
   searchWrap: { display: "flex", alignItems: "center", gap: "10px", background: "#0f1128", border: "0.5px solid #1e2245", borderRadius: "22px", padding: "10px 16px" },
-  searchInput: { flex: 1, background: "none", border: "none", outline: "none", fontSize: "14px", color: "#9fa8da" },
-  select: { background: "#0f1128", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", cursor: "pointer", outline: "none" },
+  searchInput: { flex: 1, background: "none", border: "none", outline: "none", fontSize: "14px", color: "#DAA520" },
+  select: { background: "#0f1128", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", cursor: "pointer", outline: "none" },
   chip: { padding: "6px 14px", borderRadius: "20px", background: "#0f1128", border: "0.5px solid #252860", fontSize: "12px", fontWeight: 600, color: "#5a6090", cursor: "pointer", whiteSpace: "nowrap" },
-  chipActive: { padding: "6px 14px", borderRadius: "20px", background: "#1a237e", border: "0.5px solid #3949ab", fontSize: "12px", fontWeight: 600, color: "#c5cae9", cursor: "pointer", whiteSpace: "nowrap" },
+  chipActive: { padding: "6px 14px", borderRadius: "20px", background: "#1a1a1a", border: "0.5px solid #B8860B", fontSize: "12px", fontWeight: 600, color: "#FFD700", cursor: "pointer", whiteSpace: "nowrap" },
   sectionLabel: { fontSize: "12px", fontWeight: 700, color: "#3a3d60", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "12px" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" },
   skeleton: { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "16px", height: "140px" },
@@ -1638,7 +1638,7 @@ const styles = {
   pendingTag: { fontSize: "9px", fontWeight: 700, padding: "3px 7px", borderRadius: "8px", background: "rgba(255,84,112,0.14)", color: "#ff5470", whiteSpace: "nowrap" },
   premiumTag: { fontSize: "9px", fontWeight: 700, padding: "3px 7px", borderRadius: "8px", background: "rgba(245,166,35,0.14)", color: "#f5a623", whiteSpace: "nowrap" },
   cardTitle: { fontSize: "13.5px", fontWeight: 700, color: "#c5c9e8", lineHeight: 1.35, marginBottom: "8px", minHeight: "36px" },
-  openBtn: { flex: 1, padding: "8px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "7px", fontSize: "11px", fontWeight: 600, color: "#9fa8da", cursor: "pointer", textAlign: "center" },
+  openBtn: { flex: 1, padding: "8px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "7px", fontSize: "11px", fontWeight: 600, color: "#DAA520", cursor: "pointer", textAlign: "center" },
   iconActionBtn: { width: "32px", height: "32px", background: "#0f1128", border: "0.5px solid #252860", borderRadius: "7px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "14px" },
   statPill: { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "16px 20px", textAlign: "center", minWidth: "100px" },
   toast: { position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)", background: "#0f2a1a", border: "0.5px solid #2a6a3a", color: "#a5d6a7", padding: "10px 20px", borderRadius: "20px", fontSize: "13px", fontWeight: 600, zIndex: 999, display: "flex", alignItems: "center", gap: "8px", animation: "fadeup 0.2s ease" },
@@ -1648,11 +1648,11 @@ const styles = {
   closeBtn: { background: "none", border: "none", color: "#4a5080", fontSize: "16px", cursor: "pointer", padding: "4px" },
   segmentRow: { display: "flex", gap: "6px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "4px", marginBottom: "16px" },
   fieldLabel: { fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" },
-  input: { width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none", fontFamily: "inherit" },
+  input: { width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none", fontFamily: "inherit" },
   seg: { flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "none", fontSize: "13px", fontWeight: 600, color: "#4a5080", cursor: "pointer" },
-  segActive: { flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a237e", fontSize: "13px", fontWeight: 700, color: "#c5cae9", cursor: "pointer" },
+  segActive: { flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "#1a1a1a", fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer" },
   dropzone: { display: "block", textAlign: "center", padding: "26px 14px", border: "1.5px dashed #252860", borderRadius: "12px", cursor: "pointer", marginBottom: "14px", transition: "all 0.15s" },
-  submit: { width: "100%", padding: "12px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#c5cae9" },
+  submit: { width: "100%", padding: "12px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#FFD700" },
   modalFootnote: { fontSize: "11px", color: "#4a5080", marginTop: "14px", lineHeight: 1.4 },
   folderGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "14px" },
   folderCard: { background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "16px", cursor: "pointer", transition: "borderColor 0.15s" },

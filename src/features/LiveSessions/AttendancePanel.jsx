@@ -31,20 +31,16 @@ export function AttendancePanel({ classroomId, isHost, token }) {
 
   return (
     <div style={{ minHeight: 240 }}>
-      {/* Refresh button */}
       {!loading && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <button
-            onClick={fetchData}
-            style={{ background: "none", border: "1px solid var(--border-color, #334155)", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "var(--text-secondary, #9ca3af)", cursor: "pointer" }}
-          >🔄 Refresh</button>
+          <button className="cr-btn-outline" onClick={fetchData} style={{ padding: "4px 10px", fontSize: 11 }}>🔄 Refresh</button>
         </div>
       )}
-      {loading && <div style={{ padding: 12, color: "#9ca3af" }}>Loading attendance…</div>}
+      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading attendance…</div>}
       {error && (
-        <div style={{ padding: 12, color: "#f87171" }}>
+        <div className="cr-glass" style={{ padding: 12, color: "#f87171", marginBottom: 8 }}>
           Failed: {error}
-          <button onClick={fetchData} style={{ marginLeft: 8, background: "none", border: "1px solid #f87171", borderRadius: 4, padding: "2px 8px", fontSize: 11, color: "#f87171", cursor: "pointer" }}>Retry</button>
+          <button className="cr-btn-outline" onClick={fetchData} style={{ marginLeft: 8, padding: "2px 8px", fontSize: 11, borderColor: "rgba(239,68,68,0.4)", color: "#f87171" }}>Retry</button>
         </div>
       )}
       {!loading && !error && data && (isHost ? <FacultyView data={data} /> : <StudentView data={data} />)}
@@ -54,7 +50,7 @@ export function AttendancePanel({ classroomId, isHost, token }) {
 
 function FacultyView({ data }) {
   if (data.totalSessions === 0) {
-    return <p style={{ color: "#9ca3af" }}>No live sessions held yet — attendance will appear here once you host your first class.</p>;
+    return <div className="cr-empty" style={{ padding: "32px 20px" }}><div className="cr-empty-icon">📋</div><div className="cr-empty-title">No sessions held yet</div><div className="cr-empty-desc">Attendance will appear here once you host your first class.</div></div>;
   }
 
   function exportCSV() {
@@ -80,33 +76,33 @@ function FacultyView({ data }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 12, color: "#a5b4fc" }}>
+        <div style={{ fontSize: 12, color: "#FFD700" }}>
           {data.rows.length} students × {data.totalSessions} sessions
         </div>
-        <button onClick={exportCSV} style={btnPrimary}>📥 Export CSV</button>
+        <button className="cr-btn" onClick={exportCSV}>📥 Export CSV</button>
       </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+      <div className="cr-glass" style={{ overflowX: "auto" }}>
+        <table className="cr-table">
           <thead>
-            <tr style={{ background: "rgba(99,102,241,0.1)" }}>
-              <th style={th}>Student</th>
+            <tr>
+              <th className="cr-th">Student</th>
               {data.sessions.map((s) => (
-                <th key={s.id} style={th} title={s.title}>
+                <th key={s.id} className="cr-th" title={s.title}>
                   {s.title.length > 14 ? s.title.slice(0, 12) + "…" : s.title}
                   <br />
-                  <span style={{ fontSize: 10, color: "#9ca3af" }}>{new Date(s.scheduledFor).toLocaleDateString()}</span>
+                  <span style={{ fontSize: 10, color: "#6b7280" }}>{new Date(s.scheduledFor).toLocaleDateString()}</span>
                 </th>
               ))}
-              <th style={th}>Rate</th>
-              <th style={th}>Min</th>
+              <th className="cr-th">Rate</th>
+              <th className="cr-th">Min</th>
             </tr>
           </thead>
           <tbody>
             {data.rows.map((r) => (
-              <tr key={r.student.id} style={{ borderTop: "1px solid rgba(99,102,241,0.1)" }}>
-                <td style={td}><b>{r.student.username}</b></td>
+              <tr key={r.student.id} className="cr-tr">
+                <td className="cr-td"><b style={{ color: "#f1f5f9" }}>{r.student.username}</b></td>
                 {r.cells.map((c, i) => (
-                  <td key={i} style={td}>
+                  <td key={i} className="cr-td">
                     {c.attended ? (
                       <span title={`${Math.round((c.durationS || 0) / 60)} min`} style={{ color: "#10b981", fontSize: 16 }}>✓</span>
                     ) : (
@@ -114,12 +110,12 @@ function FacultyView({ data }) {
                     )}
                   </td>
                 ))}
-                <td style={td}>
+                <td className="cr-td">
                   <b style={{ color: r.attendanceRate >= 75 ? "#10b981" : r.attendanceRate >= 50 ? "#f59e0b" : "#f87171" }}>
                     {r.attendanceRate}%
                   </b>
                 </td>
-                <td style={td}>{r.totalMinutes}</td>
+                <td className="cr-td">{r.totalMinutes}</td>
               </tr>
             ))}
           </tbody>
@@ -131,26 +127,26 @@ function FacultyView({ data }) {
 
 function StudentView({ data }) {
   if (data.totalSessions === 0) {
-    return <p style={{ color: "#9ca3af" }}>No live sessions yet for this classroom.</p>;
+    return <div className="cr-empty" style={{ padding: "32px 20px" }}><div className="cr-empty-icon">📋</div><div className="cr-empty-title">No sessions yet</div><div className="cr-empty-desc">No live sessions have been held for this classroom.</div></div>;
   }
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginBottom: 12 }}>
-        <Stat label="Sessions Attended" value={`${data.attendedCount}/${data.totalSessions}`} color="#a5b4fc" />
-        <Stat label="Attendance Rate" value={`${data.attendanceRate}%`} color={data.attendanceRate >= 75 ? "#10b981" : data.attendanceRate >= 50 ? "#f59e0b" : "#f87171"} />
+      <div className="cr-stats" style={{ marginBottom: 12 }}>
+        <div className="cr-stat"><div className="cr-stat-icon">✓</div><div className="cr-stat-value">{data.attendedCount}/{data.totalSessions}</div><div className="cr-stat-label">Attended</div></div>
+        <div className="cr-stat"><div className="cr-stat-icon">📊</div><div className="cr-stat-value" style={{ color: data.attendanceRate >= 75 ? "#10b981" : data.attendanceRate >= 50 ? "#f59e0b" : "#f87171" }}>{data.attendanceRate}%</div><div className="cr-stat-label">Rate</div></div>
       </div>
       {data.records.map((r) => (
-        <div key={r.id} className="card" style={{ marginBottom: 6, borderLeft: `3px solid ${r.attended ? "#10b981" : "#64748b"}` }}>
+        <div key={r.id} className="cr-glass-flat" style={{ marginBottom: 6, borderLeft: `3px solid ${r.attended ? "#10b981" : "#64748b"}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
             <div>
-              <b>{r.title}</b>
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>{new Date(r.scheduledFor).toLocaleString()}</div>
+              <b style={{ color: "#f1f5f9", fontSize: 13, fontFamily: "Syne, sans-serif" }}>{r.title}</b>
+              <div style={{ fontSize: 11, color: "#6b7280" }}>{new Date(r.scheduledFor).toLocaleString()}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               {r.attended ? (
                 <>
-                  <span style={{ color: "#10b981", fontSize: 14, fontWeight: 700 }}>✓ Attended</span>
-                  <div style={{ fontSize: 11, color: "#9ca3af" }}>{Math.round((r.durationS || 0) / 60)} min</div>
+                  <span style={{ color: "#10b981", fontSize: 13, fontWeight: 700 }}>✓ Attended</span>
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>{Math.round((r.durationS || 0) / 60)} min</div>
                 </>
               ) : (
                 <span style={{ color: "#f87171" }}>✗ Absent</span>
@@ -163,15 +159,3 @@ function StudentView({ data }) {
   );
 }
 
-function Stat({ label, value, color }) {
-  return (
-    <div className="card" style={{ textAlign: "center", padding: 14 }}>
-      <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, color, marginTop: 4 }}>{value}</div>
-    </div>
-  );
-}
-
-const th = { padding: 8, textAlign: "left", borderBottom: "2px solid rgba(99,102,241,0.3)", color: "#a5b4fc", fontSize: 12 };
-const td = { padding: 8 };
-const btnPrimary = { padding: "8px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 };

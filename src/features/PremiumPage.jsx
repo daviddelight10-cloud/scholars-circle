@@ -8,8 +8,8 @@ const WHATSAPP_LINK = "https://wa.link/yj2em4";
 const WHATSAPP_NUMBER = "09028617178";
 
 const PLANS = [
-  { id: "week1", label: "1 Week", price: 700,  desc: "Perfect for trying out",    color: "#3b82f6", icon: "⚡" },
-  { id: "week2", label: "2 Weeks", price: 1300, desc: "Save ₦100",                color: "#8b5cf6", icon: "🔥" },
+  { id: "week1", label: "1 Week", price: 700,  desc: "Perfect for trying out",    color: "#FFD700", icon: "⚡" },
+  { id: "week2", label: "2 Weeks", price: 1300, desc: "Save ₦100",                color: "#DAA520", icon: "🔥" },
   { id: "month1", label: "1 Month", price: 2400, desc: "Save ₦400 — Best Value",  color: "#10b981", icon: "💎", best: true },
 ];
 
@@ -119,7 +119,7 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onC
   const btnPrimary = (disabled) => ({
     width: "100%", padding: "14px", borderRadius: "12px", border: "none",
     fontSize: "15px", fontWeight: 700, cursor: disabled ? "default" : "pointer",
-    background: disabled ? "#1e2245" : "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+    background: disabled ? "#1e2245" : "linear-gradient(135deg, #FFD700, #DAA520)",
     color: disabled ? "#4a5080" : "#fff",
     transition: "all 0.2s",
   });
@@ -269,8 +269,8 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onC
               onClick={() => setPaymentMethod("paystack")}
               style={{
                 padding: "16px", borderRadius: "12px", cursor: "pointer", textAlign: "center",
-                border: paymentMethod === "paystack" ? "2px solid #3b82f6" : "0.5px solid #1e2245",
-                background: paymentMethod === "paystack" ? "rgba(59,130,246,0.1)" : "#0a0b18",
+                border: paymentMethod === "paystack" ? "2px solid #FFD700" : "0.5px solid #1e2245",
+                background: paymentMethod === "paystack" ? "rgba(255,215,0,0.1)" : "#0a0b18",
                 transition: "all 0.15s",
               }}
             >

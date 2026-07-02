@@ -71,7 +71,7 @@ export class ErrorBoundary extends Component {
           <button
             onClick={this.handleRetry}
             style={{
-              background: "var(--accent-color, #3b82f6)",
+              background: "var(--accent-color, #FFD700)",
               color: "white",
               padding: "12px 24px",
               borderRadius: "8px",

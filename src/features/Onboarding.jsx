@@ -70,7 +70,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                 Skip
               </button>
               <button
-                style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}
+                style={{ borderColor: "#FFD700", color: "#FFD700" }}
                 onClick={() => setStep(1)}
               >
                 Get Started →
@@ -103,7 +103,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                 Back
               </button>
               <button
-                style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}
+                style={{ borderColor: "#FFD700", color: "#FFD700" }}
                 onClick={() => setStep(2)}
                 disabled={selectedSubjects.length === 0}
               >
@@ -133,7 +133,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                   onClick={() => setDailyMinutes(m)}
                   style={
                     dailyMinutes === m
-                      ? { borderColor: "#2dd4a0", color: "#2dd4a0" }
+                      ? { borderColor: "#FFD700", color: "#FFD700" }
                       : undefined
                   }
                 >
@@ -146,7 +146,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                 Back
               </button>
               <button
-                style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}
+                style={{ borderColor: "#FFD700", color: "#FFD700" }}
                 onClick={() => setStep(3)}
               >
                 Next →
@@ -172,7 +172,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                   onClick={() => setConfidence(c.v)}
                   style={
                     confidence === c.v
-                      ? { borderColor: "#2dd4a0", color: "#2dd4a0" }
+                      ? { borderColor: "#FFD700", color: "#FFD700" }
                       : undefined
                   }
                 >
@@ -185,7 +185,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                 Back
               </button>
               <button
-                style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}
+                style={{ borderColor: "#FFD700", color: "#FFD700" }}
                 onClick={finish}
               >
                 ✨ Start Studying

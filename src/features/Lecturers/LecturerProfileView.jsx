@@ -65,7 +65,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
   if (loading) {
     return (
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
-        <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(30,41,59,0.6)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)", cursor: "pointer" }}>
+        <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(20,20,20,0.6)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.3)", cursor: "pointer" }}>
           ← Back to Directory
         </button>
         <div className="card" style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
@@ -78,7 +78,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
   if (error || !lecturer) {
     return (
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
-        <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(30,41,59,0.6)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)", cursor: "pointer" }}>
+        <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(20,20,20,0.6)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.3)", cursor: "pointer" }}>
           ← Back to Directory
         </button>
         <div className="card" style={{ padding: 24, textAlign: "center" }}>
@@ -99,19 +99,19 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(30,41,59,0.6)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)", cursor: "pointer" }}>
+      <button onClick={onBack} style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(20,20,20,0.6)", color: "#FFD700", border: "1px solid rgba(255,215,0,0.3)", cursor: "pointer" }}>
         ← Back to Directory
       </button>
 
       {/* Hero */}
-      <div className="card" style={{ padding: 24, marginBottom: 16, background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))" }}>
+      <div className="card" style={{ padding: 24, marginBottom: 16, background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(218,165,32,0.1))" }}>
         <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
           <div
             style={{
               width: 110,
               height: 110,
               borderRadius: "50%",
-              background: lecturer.avatarUrl ? `url(${lecturer.avatarUrl}) center/cover` : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: lecturer.avatarUrl ? `url(${lecturer.avatarUrl}) center/cover` : "linear-gradient(135deg, #FFD700, #DAA520)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -128,7 +128,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
               {lecturer.title ? `${lecturer.title} ` : ""}{lecturer.fullName}
               {lecturer.isVerified && <span title="Verified" style={{ fontSize: 18 }}>✅</span>}
             </h2>
-            <div style={{ color: "#a5b4fc", marginTop: 4 }}>
+            <div style={{ color: "#FFD700", marginTop: 4 }}>
               {lecturer.department}{lecturer.institution && ` · ${lecturer.institution}`}
             </div>
             {lecturer.yearsExperience && (
@@ -156,7 +156,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
 
       {/* Rate Modal */}
       {showRate && (
-        <div className="card" style={{ padding: 16, marginBottom: 16, background: "rgba(30,41,59,0.95)" }}>
+        <div className="card" style={{ padding: 16, marginBottom: 16, background: "rgba(20,20,20,0.95)" }}>
           <h3 style={{ marginTop: 0 }}>Rate this lecturer</h3>
           <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
             {[1, 2, 3, 4, 5].map((n) => (
@@ -178,7 +178,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
             onChange={(e) => setComment(e.target.value)}
             placeholder="Optional comment..."
             rows={3}
-            style={{ width: "100%", padding: 10, borderRadius: 8, background: "rgba(15,23,42,0.8)", color: "#fff", border: "1px solid rgba(99,102,241,0.3)", marginBottom: 12, boxSizing: "border-box" }}
+            style={{ width: "100%", padding: 10, borderRadius: 8, background: "rgba(10,10,10,0.8)", color: "#fff", border: "1px solid rgba(255,215,0,0.3)", marginBottom: 12, boxSizing: "border-box" }}
           />
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button onClick={() => setShowRate(false)} style={ghostBtn}>Cancel</button>
@@ -201,7 +201,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
           <Section title="🔬 Research Areas">
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {lecturer.researchAreas.map((r) => (
-                <span key={r} style={{ padding: "4px 10px", background: "rgba(99,102,241,0.2)", color: "#a5b4fc", borderRadius: 99, fontSize: 12 }}>{r}</span>
+                <span key={r} style={{ padding: "4px 10px", background: "rgba(255,215,0,0.2)", color: "#FFD700", borderRadius: 99, fontSize: 12 }}>{r}</span>
               ))}
             </div>
           </Section>
@@ -213,7 +213,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
               <tbody>
                 {Object.entries(lecturer.officeHours).map(([day, time]) => (
                   <tr key={day}>
-                    <td style={{ padding: 6, color: "#a5b4fc", textTransform: "capitalize" }}>{day}</td>
+                    <td style={{ padding: 6, color: "#FFD700", textTransform: "capitalize" }}>{day}</td>
                     <td style={{ padding: 6 }}>{typeof time === "string" || typeof time === "number" ? time : "—"}</td>
                   </tr>
                 ))}
@@ -226,10 +226,10 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
         {(lecturer.contactEmail || lecturer.phone || lecturer.websiteUrl || lecturer.linkedinUrl) && (
           <Section title="📞 Contact">
             <div style={{ display: "grid", gap: 8 }}>
-              {lecturer.contactEmail && <div>📧 <a href={`mailto:${lecturer.contactEmail}`} style={{ color: "#a5b4fc" }}>{lecturer.contactEmail}</a></div>}
+              {lecturer.contactEmail && <div>📧 <a href={`mailto:${lecturer.contactEmail}`} style={{ color: "#FFD700" }}>{lecturer.contactEmail}</a></div>}
               {lecturer.phone && <div>📱 {lecturer.phone}</div>}
-              {lecturer.websiteUrl && <div>🌐 <a href={lecturer.websiteUrl} target="_blank" rel="noreferrer" style={{ color: "#a5b4fc" }}>{lecturer.websiteUrl}</a></div>}
-              {lecturer.linkedinUrl && <div>💼 <a href={lecturer.linkedinUrl} target="_blank" rel="noreferrer" style={{ color: "#a5b4fc" }}>LinkedIn</a></div>}
+              {lecturer.websiteUrl && <div>🌐 <a href={lecturer.websiteUrl} target="_blank" rel="noreferrer" style={{ color: "#FFD700" }}>{lecturer.websiteUrl}</a></div>}
+              {lecturer.linkedinUrl && <div>💼 <a href={lecturer.linkedinUrl} target="_blank" rel="noreferrer" style={{ color: "#FFD700" }}>LinkedIn</a></div>}
             </div>
           </Section>
         )}
@@ -238,7 +238,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
           <Section title="📝 Recent Posts">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {lecturer.posts.map((p) => (
-                <div key={p.id} style={{ padding: 12, background: "rgba(15,23,42,0.6)", borderRadius: 8 }}>
+                <div key={p.id} style={{ padding: 12, background: "rgba(10,10,10,0.6)", borderRadius: 8 }}>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.title}</div>
                   <div style={{ fontSize: 13, color: "#cbd5e1", whiteSpace: "pre-wrap" }}>{p.content}</div>
                   <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}>{new Date(p.createdAt).toLocaleDateString()}</div>
@@ -252,7 +252,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
           <Section title="💬 Recent Reviews">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {lecturer.ratings.map((r) => (
-                <div key={r.id} style={{ padding: 10, background: "rgba(15,23,42,0.6)", borderRadius: 8 }}>
+                <div key={r.id} style={{ padding: 10, background: "rgba(10,10,10,0.6)", borderRadius: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                     <span style={{ color: "#fbbf24" }}>{"★".repeat(Math.max(0, Math.min(5, Number(r.score) || 0)))}{"☆".repeat(Math.max(0, 5 - Math.min(5, Number(r.score) || 0)))}</span>
                     <span style={{ fontSize: 11, color: "#9ca3af" }}>by {r.student?.username || "Anonymous"}</span>
@@ -281,7 +281,7 @@ const primaryBtn = {
   padding: "8px 16px",
   borderRadius: 8,
   border: "none",
-  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+  background: "linear-gradient(135deg, #FFD700, #DAA520)",
   color: "#fff",
   cursor: "pointer",
   fontWeight: 600,
@@ -291,9 +291,9 @@ const primaryBtn = {
 const ghostBtn = {
   padding: "8px 16px",
   borderRadius: 8,
-  border: "1px solid rgba(99,102,241,0.4)",
+  border: "1px solid rgba(255,215,0,0.4)",
   background: "transparent",
-  color: "#a5b4fc",
+  color: "#FFD700",
   cursor: "pointer",
   fontSize: 13
 };

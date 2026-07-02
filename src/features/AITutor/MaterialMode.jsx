@@ -98,9 +98,9 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
       {/* Upload zone */}
       <div style={{
         padding: 18,
-        border: "2px dashed rgba(99,102,241,0.4)",
+        border: "2px dashed rgba(255,215,0,0.4)",
         borderRadius: 12,
-        background: "rgba(15,23,42,0.5)",
+        background: "rgba(10,10,10,0.5)",
         textAlign: "center"
       }}>
         <div style={{ fontSize: 32 }}>📎</div>
@@ -113,7 +113,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
         <label style={{
           display: "inline-block",
           padding: "10px 20px",
-          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          background: "linear-gradient(135deg, #FFD700, #DAA520)",
           color: "#fff",
           borderRadius: 8,
           cursor: "pointer",
@@ -124,7 +124,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
           <input type="file" accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,.gif,.bmp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,image/*" onChange={handleFile} style={{ display: "none" }} />
         </label>
         {file && (
-          <div style={{ marginTop: 10, color: "#a5b4fc", fontSize: 12 }}>
+          <div style={{ marginTop: 10, color: "#FFD700", fontSize: 12 }}>
             <b>{file.name}</b> {pages ? `· ${pages} page${pages > 1 ? "s" : ""}` : ""} · {Math.round(file.size / 1024)} KB
             <button onClick={clearFile} style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.4)", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 11 }}>
               ✕ Clear
@@ -135,7 +135,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
         {images.length > 0 && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", marginTop: 10 }}>
             {images.slice(0, 3).map((img, i) => (
-              <img key={i} src={img} alt={`Page ${i + 1}`} style={{ width: 70, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(99,102,241,0.4)" }} />
+              <img key={i} src={img} alt={`Page ${i + 1}`} style={{ width: 70, height: 90, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(255,215,0,0.4)" }} />
             ))}
             {images.length > 3 && (
               <span style={{ fontSize: 11, color: "#9ca3af", alignSelf: "center" }}>+{images.length - 3} more</span>
@@ -147,21 +147,21 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
 
       {/* Text preview / paste fallback */}
       {(text || file) && (
-        <details style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 8, padding: 10 }}>
-          <summary style={{ cursor: "pointer", color: "#a5b4fc", fontSize: 13 }}>
+        <details style={{ background: "rgba(10,10,10,0.6)", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 8, padding: 10 }}>
+          <summary style={{ cursor: "pointer", color: "#FFD700", fontSize: 13 }}>
             📄 Extracted text preview ({text.length.toLocaleString()} chars) — click to view/edit
           </summary>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={8}
-            style={{ width: "100%", marginTop: 8, padding: 8, borderRadius: 6, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(0,0,0,0.3)", color: "#e0e7ff", fontSize: 12, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }}
+            style={{ width: "100%", marginTop: 8, padding: 8, borderRadius: 6, border: "1px solid rgba(255,215,0,0.3)", background: "rgba(0,0,0,0.3)", color: "#FFD700", fontSize: 12, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }}
           />
         </details>
       )}
       {!file && (
-        <details style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 8, padding: 10 }}>
-          <summary style={{ cursor: "pointer", color: "#a5b4fc", fontSize: 13 }}>
+        <details style={{ background: "rgba(10,10,10,0.6)", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 8, padding: 10 }}>
+          <summary style={{ cursor: "pointer", color: "#FFD700", fontSize: 13 }}>
             ✏️ Or paste text directly
           </summary>
           <textarea
@@ -169,7 +169,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
             onChange={(e) => setText(e.target.value)}
             rows={8}
             placeholder="Paste lecture notes, chapter text, transcripts…"
-            style={{ width: "100%", marginTop: 8, padding: 8, borderRadius: 6, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(0,0,0,0.3)", color: "#e0e7ff", fontSize: 13, resize: "vertical", boxSizing: "border-box" }}
+            style={{ width: "100%", marginTop: 8, padding: 8, borderRadius: 6, border: "1px solid rgba(255,215,0,0.3)", background: "rgba(0,0,0,0.3)", color: "#FFD700", fontSize: 13, resize: "vertical", boxSizing: "border-box" }}
           />
         </details>
       )}
@@ -189,7 +189,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
       </div>
 
       {/* Saved Materials Section */}
-      <div style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 8, padding: 12 }}>
+      <div style={{ background: "rgba(10,10,10,0.6)", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 8, padding: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <h3 style={{ margin: 0, fontSize: 14 }}>💾 Saved Materials</h3>
           <button
@@ -209,12 +209,12 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {savedMaterials.map((item) => (
-                  <div key={item.id} style={{ background: "rgba(30,41,59,0.6)", borderRadius: 6, padding: 10, border: "1px solid rgba(99,102,241,0.2)" }}>
+                  <div key={item.id} style={{ background: "rgba(20,20,20,0.6)", borderRadius: 6, padding: 10, border: "1px solid rgba(255,215,0,0.2)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <div>
                         <span style={{ fontSize: 18, marginRight: 6 }}>{item.kind === "mcq" ? "❓" : "🃏"}</span>
                         <span style={{ fontWeight: 600, fontSize: 13 }}>{item.kind === "mcq" ? `${item.data.length} Questions` : `${item.data.length} Flashcards`}</span>
-                        {item.subject && <span style={{ fontSize: 11, color: "#a5b4fc", marginLeft: 8 }}>· {item.subject.label}</span>}
+                        {item.subject && <span style={{ fontSize: 11, color: "#FFD700", marginLeft: 8 }}>· {item.subject.label}</span>}
                       </div>
                       <button
                         onClick={() => {
@@ -303,8 +303,8 @@ function ActionBtn({ icon, label, desc, onClick, loading, disabled }) {
       style={{
         padding: "10px 12px",
         borderRadius: 10,
-        border: "1px solid rgba(99,102,241,0.4)",
-        background: disabled ? "rgba(99,102,241,0.15)" : "linear-gradient(145deg, rgba(99,102,241,0.25), rgba(139,92,246,0.15))",
+        border: "1px solid rgba(255,215,0,0.4)",
+        background: disabled ? "rgba(255,215,0,0.15)" : "linear-gradient(145deg, rgba(255,215,0,0.25), rgba(218,165,32,0.15))",
         color: disabled ? "#9ca3af" : "#fff",
         cursor: disabled ? "not-allowed" : "pointer",
         textAlign: "left",
@@ -315,7 +315,7 @@ function ActionBtn({ icon, label, desc, onClick, loading, disabled }) {
       <div style={{ fontWeight: 700, fontSize: 13, marginTop: 2 }}>
         {loading ? "Working…" : label}
       </div>
-      <div style={{ fontSize: 11, color: "#a5b4fc", marginTop: 2 }}>{desc}</div>
+      <div style={{ fontSize: 11, color: "#FFD700", marginTop: 2 }}>{desc}</div>
     </button>
   );
 }
@@ -323,11 +323,11 @@ function ActionBtn({ icon, label, desc, onClick, loading, disabled }) {
 function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave }) {
   if (output.kind === "summary" || output.kind === "teach") {
     return (
-      <div className="card" style={{ padding: 14, background: "rgba(15,23,42,0.7)", border: "1px solid rgba(99,102,241,0.3)" }}>
+      <div className="card" style={{ padding: 14, background: "rgba(10,10,10,0.7)", border: "1px solid rgba(255,215,0,0.3)" }}>
         <h3 style={{ marginTop: 0, fontSize: 15 }}>
           {output.kind === "summary" ? "📑 Summary" : "🎓 Lesson"}
         </h3>
-        <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "#e0e7ff" }}>
+        <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "#FFD700" }}>
           {output.text}
         </div>
         <button
@@ -345,7 +345,7 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave
       return (
         <div className="card" style={{ padding: 12, color: "#f87171" }}>
           ⚠️ AI returned non-JSON output. Raw response below:
-          <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, marginTop: 8, color: "#e0e7ff" }}>{output.text}</pre>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, marginTop: 8, color: "#FFD700" }}>{output.text}</pre>
         </div>
       );
     }
@@ -385,7 +385,7 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave
           </div>
         </div>
         {output.parsed.map((q, i) => (
-          <details key={i} style={{ marginTop: 10, padding: 10, background: "rgba(15,23,42,0.6)", borderRadius: 8 }}>
+          <details key={i} style={{ marginTop: 10, padding: 10, background: "rgba(10,10,10,0.6)", borderRadius: 8 }}>
             <summary style={{ cursor: "pointer", fontSize: 13 }}><b>Q{i + 1}:</b> {q.q}</summary>
             <ol type="A" style={{ marginTop: 8, paddingLeft: 22 }}>
               {q.options?.map((opt, j) => (
@@ -399,7 +399,7 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave
                 </li>
               ))}
             </ol>
-            {q.explanation && <div style={{ fontSize: 12, color: "#a5b4fc", marginTop: 6 }}>💡 {q.explanation}</div>}
+            {q.explanation && <div style={{ fontSize: 12, color: "#FFD700", marginTop: 6 }}>💡 {q.explanation}</div>}
           </details>
         ))}
       </div>
@@ -411,7 +411,7 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave
       return (
         <div className="card" style={{ padding: 12, color: "#f87171" }}>
           ⚠️ AI returned non-JSON output. Raw response below:
-          <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, marginTop: 8, color: "#e0e7ff" }}>{output.text}</pre>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, marginTop: 8, color: "#FFD700" }}>{output.text}</pre>
         </div>
       );
     }
@@ -470,7 +470,7 @@ function FlashcardViewer({ cards, subject, onImport }) {
           alignItems: "center",
           justifyContent: "center",
           textAlign: "center",
-          background: flipped ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          background: flipped ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #FFD700, #DAA520)",
           color: "#fff",
           borderRadius: 12,
           cursor: "pointer",
@@ -527,8 +527,8 @@ function deleteMaterial(id) {
 const smallBtn = {
   padding: "6px 12px",
   borderRadius: 6,
-  border: "1px solid rgba(99,102,241,0.4)",
-  background: "rgba(30,41,59,0.6)",
+  border: "1px solid rgba(255,215,0,0.4)",
+  background: "rgba(20,20,20,0.6)",
   color: "#fff",
   cursor: "pointer",
   fontSize: 12,
@@ -539,8 +539,8 @@ const smallInp = {
   width: "100%",
   padding: 4,
   borderRadius: 4,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(15,23,42,0.7)",
+  border: "1px solid rgba(255,215,0,0.3)",
+  background: "rgba(10,10,10,0.7)",
   color: "#fff",
   fontSize: 11,
   textAlign: "center",

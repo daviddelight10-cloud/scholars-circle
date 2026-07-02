@@ -147,7 +147,7 @@ export function ChatMode({ tutor }) {
           display: "flex",
           flexDirection: "column",
           gap: 10,
-          background: "rgba(15, 23, 42, 0.5)",
+          background: "rgba(10, 10, 10, 0.5)",
           borderRadius: 12,
           marginBottom: 10,
           minHeight: 0
@@ -156,7 +156,7 @@ export function ChatMode({ tutor }) {
         {messages.length === 0 && (
           <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
-            <p style={{ fontSize: 16, fontWeight: 600, color: "#a5b4fc" }}>Chat with Scholar's Circle AI</p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: "#FFD700" }}>Chat with Scholar's Circle AI</p>
             <p style={{ fontSize: 13, marginTop: 4 }}>Your academic chat assistant — ask me anything about your studies.</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 20, maxWidth: 480, margin: "20px auto 0" }}>
               {[
@@ -173,9 +173,9 @@ export function ChatMode({ tutor }) {
                   style={{
                     padding: "8px 14px",
                     borderRadius: 20,
-                    border: "1px solid rgba(99, 102, 241, 0.3)",
-                    background: "rgba(30, 41, 59, 0.6)",
-                    color: "#a5b4fc",
+                    border: "1px solid rgba(255, 215, 0, 0.3)",
+                    background: "rgba(20, 20, 20, 0.6)",
+                    color: "#FFD700",
                     fontSize: 12,
                     cursor: "pointer",
                     fontWeight: 500,
@@ -197,14 +197,14 @@ export function ChatMode({ tutor }) {
               maxWidth: m.role === "user" ? "92%" : "100%",
               padding: "10px 14px",
               borderRadius: 12,
-              background: m.role === "user" ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(30, 41, 59, 0.9)",
+              background: m.role === "user" ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(20, 20, 20, 0.9)",
               color: m.role === "user" ? "#fff" : "#e5e7eb",
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
               overflowWrap: "anywhere",
               fontSize: 14,
               lineHeight: 1.6,
-              border: m.role === "assistant" ? "1px solid rgba(99, 102, 241, 0.2)" : "none"
+              border: m.role === "assistant" ? "1px solid rgba(255, 215, 0, 0.2)" : "none"
             }}
           >
             {m.role === "assistant" ? <MarkdownText>{m.content}</MarkdownText> : m.content}
@@ -217,9 +217,9 @@ export function ChatMode({ tutor }) {
                   style={{
                     padding: "4px 10px",
                     borderRadius: 6,
-                    border: "1px solid rgba(99, 102, 241, 0.3)",
-                    background: speakingIdx === i ? "rgba(99, 102, 241, 0.3)" : "transparent",
-                    color: speakingIdx === i ? "#c4b5fd" : "#a5b4fc",
+                    border: "1px solid rgba(255, 215, 0, 0.3)",
+                    background: speakingIdx === i ? "rgba(255, 215, 0, 0.3)" : "transparent",
+                    color: speakingIdx === i ? "#c4b5fd" : "#FFD700",
                     fontSize: 11,
                     cursor: "pointer",
                     transition: "all 0.2s"
@@ -266,7 +266,7 @@ export function ChatMode({ tutor }) {
           style={{
             padding: "6px 10px",
             borderRadius: 6,
-            border: `1px solid ${autoSpeak ? "rgba(34, 197, 94, 0.4)" : "rgba(99, 102, 241, 0.2)"}`,
+            border: `1px solid ${autoSpeak ? "rgba(34, 197, 94, 0.4)" : "rgba(255, 215, 0, 0.2)"}`,
             background: autoSpeak ? "rgba(34, 197, 94, 0.15)" : "transparent",
             color: autoSpeak ? "#4ade80" : "#64748b",
             fontSize: 11,
@@ -290,9 +290,9 @@ export function ChatMode({ tutor }) {
           style={{
             padding: "12px 14px",
             borderRadius: 10,
-            border: listening ? "2px solid #ef4444" : "1px solid rgba(99, 102, 241, 0.3)",
-            background: listening ? "rgba(239, 68, 68, 0.15)" : "rgba(30, 41, 59, 0.8)",
-            color: listening ? "#f87171" : "#a5b4fc",
+            border: listening ? "2px solid #ef4444" : "1px solid rgba(255, 215, 0, 0.3)",
+            background: listening ? "rgba(239, 68, 68, 0.15)" : "rgba(20, 20, 20, 0.8)",
+            color: listening ? "#f87171" : "#FFD700",
             cursor: "pointer",
             fontSize: 16,
             animation: listening ? "pulse 1.5s infinite" : "none",
@@ -312,8 +312,8 @@ export function ChatMode({ tutor }) {
             flex: 1,
             padding: "12px 14px",
             borderRadius: 10,
-            border: listening ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(99, 102, 241, 0.3)",
-            background: "rgba(30, 41, 59, 0.8)",
+            border: listening ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(255, 215, 0, 0.3)",
+            background: "rgba(20, 20, 20, 0.8)",
             color: "#fff",
             fontSize: 14
           }}
@@ -325,7 +325,7 @@ export function ChatMode({ tutor }) {
             padding: "12px 20px",
             borderRadius: 10,
             border: "none",
-            background: loading ? "rgba(99, 102, 241, 0.5)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            background: loading ? "rgba(255, 215, 0, 0.5)" : "linear-gradient(135deg, #FFD700, #DAA520)",
             color: "#fff",
             fontWeight: 600,
             cursor: loading ? "wait" : "pointer"

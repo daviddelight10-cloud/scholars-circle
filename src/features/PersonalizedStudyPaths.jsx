@@ -138,7 +138,7 @@ export function PersonalizedStudyPaths({ subjects, mastery, history, stats, onSt
         <button
           onClick={() => setShowCreateModal(true)}
           style={{
-            background: "#818cf8",
+            background: "#FFD700",
             color: "white",
             border: "none",
             padding: "8px 16px",
@@ -201,7 +201,7 @@ export function PersonalizedStudyPaths({ subjects, mastery, history, stats, onSt
                 key={path.id}
                 className="lesson-block"
                 style={{
-                  borderLeft: "4px solid #818cf8"
+                  borderLeft: "4px solid #FFD700"
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -230,7 +230,7 @@ export function PersonalizedStudyPaths({ subjects, mastery, history, stats, onSt
                   <button
                     onClick={() => startPath(path)}
                     style={{
-                      background: "#818cf8",
+                      background: "#FFD700",
                       color: "white",
                       border: "none",
                       padding: "4px 12px",
@@ -332,7 +332,7 @@ export function PersonalizedStudyPaths({ subjects, mastery, history, stats, onSt
                 onClick={createCustomPath}
                 disabled={!newPathName.trim() || selectedSubjects.length === 0}
                 style={{
-                  background: "#818cf8",
+                  background: "#FFD700",
                   color: "white",
                   border: "none",
                   padding: "8px 16px",

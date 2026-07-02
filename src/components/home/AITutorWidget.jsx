@@ -57,7 +57,7 @@ function AIAvatar() {
       <div style={{
         width: 58, height: 58, borderRadius: "50%",
         background: "#0f1240",
-        border: "1.5px solid #3949ab",
+        border: "1.5px solid #B8860B",
         display: "flex", alignItems: "center", justifyContent: "center",
         overflow: "hidden",
       }}>
@@ -148,7 +148,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
           top: -40, right: -40,
           width: 170, height: 170,
           borderRadius: "50%",
-          background: "#1a237e",
+          background: "#1a1a1a",
           opacity: 0.12,
           pointerEvents: "none",
         }} />
@@ -164,7 +164,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
             {/* Label */}
             <div style={{
               fontSize: 10, fontWeight: 600,
-              color: "#3949ab", letterSpacing: "0.08em",
+              color: "#B8860B", letterSpacing: "0.08em",
               textTransform: "uppercase",
               fontFamily: "Syne, sans-serif",
               marginBottom: 5,
@@ -197,7 +197,7 @@ export default function AITutorWidget({ userName = "there", onOpen, onOpenLearn,
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "6px 14px", borderRadius: 20,
-                  background: "linear-gradient(135deg, #3949ab, #5c6bc0)",
+                  background: "linear-gradient(135deg, #B8860B, #5c6bc0)",
                   border: "0.5px solid #5c6bc0",
                   fontSize: 12, fontWeight: 600,
                   color: "#e8eaf6", cursor: "pointer",

@@ -80,9 +80,9 @@ export default function Lecturers({ token, currentUser, isTeacher }) {
 const tab = {
   padding: "10px 16px",
   borderRadius: 10,
-  border: "1px solid rgba(99,102,241,0.2)",
-  background: "rgba(30,41,59,0.6)",
-  color: "#a5b4fc",
+  border: "1px solid rgba(255,215,0,0.2)",
+  background: "rgba(20,20,20,0.6)",
+  color: "#FFD700",
   cursor: "pointer",
   fontSize: 13,
   fontWeight: 600
@@ -90,7 +90,7 @@ const tab = {
 
 const activeTab = {
   ...tab,
-  border: "2px solid #818cf8",
-  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+  border: "2px solid #FFD700",
+  background: "linear-gradient(135deg, #FFD700, #DAA520)",
   color: "#fff"
 };

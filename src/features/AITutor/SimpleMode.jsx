@@ -38,8 +38,8 @@ export function SimpleMode({ tutor, mode, config }) {
           width: "100%",
           padding: 12,
           borderRadius: 10,
-          border: "1px solid rgba(99,102,241,0.3)",
-          background: "rgba(30,41,59,0.8)",
+          border: "1px solid rgba(255,215,0,0.3)",
+          background: "rgba(20,20,20,0.8)",
           color: "#fff",
           fontSize: 14,
           resize: "vertical",
@@ -57,8 +57,8 @@ export function SimpleMode({ tutor, mode, config }) {
             width: "100%",
             padding: 10,
             borderRadius: 8,
-            border: "1px solid rgba(99,102,241,0.3)",
-            background: "rgba(30,41,59,0.8)",
+            border: "1px solid rgba(255,215,0,0.3)",
+            background: "rgba(20,20,20,0.8)",
             color: "#fff",
             marginBottom: 12
           }}
@@ -73,7 +73,7 @@ export function SimpleMode({ tutor, mode, config }) {
           padding: 14,
           borderRadius: 10,
           border: "none",
-          background: loading ? "rgba(99,102,241,0.5)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          background: loading ? "rgba(255,215,0,0.5)" : "linear-gradient(135deg, #FFD700, #DAA520)",
           color: "#fff",
           fontWeight: 700,
           cursor: loading ? "wait" : "pointer",
@@ -93,7 +93,7 @@ export function SimpleMode({ tutor, mode, config }) {
         <div style={{
           marginTop: 16,
           padding: 16,
-          background: "rgba(30,41,59,0.8)",
+          background: "rgba(20,20,20,0.8)",
           borderRadius: 10,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
@@ -105,7 +105,7 @@ export function SimpleMode({ tutor, mode, config }) {
           minHeight: 200,
           overflowY: "auto",
           WebkitOverflowScrolling: "touch",
-          border: "1px solid rgba(99,102,241,0.2)"
+          border: "1px solid rgba(255,215,0,0.2)"
         }}>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
             <button
@@ -113,9 +113,9 @@ export function SimpleMode({ tutor, mode, config }) {
               style={{
                 padding: "4px 10px",
                 borderRadius: 6,
-                border: "1px solid rgba(99,102,241,0.4)",
-                background: "rgba(15,23,42,0.6)",
-                color: "#a5b4fc",
+                border: "1px solid rgba(255,215,0,0.4)",
+                background: "rgba(10,10,10,0.6)",
+                color: "#FFD700",
                 cursor: "pointer",
                 fontSize: 11
               }}

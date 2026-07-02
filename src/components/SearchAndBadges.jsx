@@ -99,7 +99,7 @@ export function ConfidenceHeatmap({ history }) {
     <div className="heatmap">
       {recent.map((h, i) => {
         const pct = Math.round((h.score / Math.max(1, h.total)) * 100);
-        const color = pct === 100 ? "#2dd4a0" : pct >= 80 ? "#818cf8" : pct >= 50 ? "#facc15" : "#ff6b6b";
+        const color = pct === 100 ? "#FFD700" : pct >= 80 ? "#FFD700" : pct >= 50 ? "#facc15" : "#ff6b6b";
         return (
           <div
             key={i}

@@ -53,7 +53,7 @@ export function PollsOverlay({ sessionId, isHost, token }) {
           padding: "12px 16px",
           borderRadius: 999,
           border: "none",
-          background: activePoll && !isHost ? "#ef4444" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          background: activePoll && !isHost ? "#ef4444" : "linear-gradient(135deg, #FFD700, #DAA520)",
           color: "#fff",
           fontWeight: 700,
           fontSize: 13,
@@ -77,7 +77,7 @@ export function PollsOverlay({ sessionId, isHost, token }) {
           overflowY: "auto",
           zIndex: 10000,
           background: "#1e293b",
-          border: "1px solid rgba(99,102,241,0.4)",
+          border: "1px solid rgba(255,215,0,0.4)",
           borderRadius: 12,
           padding: 14,
           boxShadow: "0 8px 32px rgba(0,0,0,0.6)"
@@ -144,7 +144,7 @@ function CreatePollForm({ sessionId, token, onCreated }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ marginBottom: 12, padding: 10, background: "rgba(15,23,42,0.6)", borderRadius: 8 }}>
+    <form onSubmit={submit} style={{ marginBottom: 12, padding: 10, background: "rgba(10,10,10,0.6)", borderRadius: 8 }}>
       <input
         required
         value={question}
@@ -168,7 +168,7 @@ function CreatePollForm({ sessionId, token, onCreated }) {
       {options.length < 6 && (
         <button type="button" onClick={() => setOptions([...options, ""])} style={{ ...btnSm, marginBottom: 6 }}>+ Add option</button>
       )}
-      <button type="submit" disabled={busy || !question.trim()} style={{ ...btnSm, width: "100%", background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
+      <button type="submit" disabled={busy || !question.trim()} style={{ ...btnSm, width: "100%", background: "linear-gradient(135deg, #FFD700, #DAA520)" }}>
         {busy ? "Creating..." : "🚀 Launch Poll"}
       </button>
     </form>
@@ -226,8 +226,8 @@ function PollCard({ poll, isHost, token, onChange }) {
     <div style={{
       marginBottom: 10,
       padding: 10,
-      background: poll.status === "active" ? "rgba(99,102,241,0.15)" : "rgba(15,23,42,0.6)",
-      border: `1px solid ${poll.status === "active" ? "rgba(99,102,241,0.4)" : "rgba(99,102,241,0.15)"}`,
+      background: poll.status === "active" ? "rgba(255,215,0,0.15)" : "rgba(10,10,10,0.6)",
+      border: `1px solid ${poll.status === "active" ? "rgba(255,215,0,0.4)" : "rgba(255,215,0,0.15)"}`,
       borderRadius: 8
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
@@ -249,10 +249,10 @@ function PollCard({ poll, isHost, token, onChange }) {
               <div key={i} style={{ marginBottom: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
                   <span>{voted && "✓ "}{opt}</span>
-                  <span style={{ color: "#a5b4fc" }}>{pct}% ({count})</span>
+                  <span style={{ color: "#FFD700" }}>{pct}% ({count})</span>
                 </div>
-                <div style={{ height: 6, background: "rgba(15,23,42,0.6)", borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ width: `${pct}%`, height: "100%", background: voted ? "#10b981" : "#6366f1", transition: "width 0.5s" }} />
+                <div style={{ height: 6, background: "rgba(10,10,10,0.6)", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: voted ? "#10b981" : "#FFD700", transition: "width 0.5s" }} />
                 </div>
               </div>
             );
@@ -265,8 +265,8 @@ function PollCard({ poll, isHost, token, onChange }) {
               style={{
                 display: "block", width: "100%", marginBottom: 4,
                 padding: "8px 10px", borderRadius: 6, fontSize: 12,
-                border: "1px solid rgba(99,102,241,0.4)",
-                background: "rgba(30,41,59,0.6)",
+                border: "1px solid rgba(255,215,0,0.4)",
+                background: "rgba(20,20,20,0.6)",
                 color: "#fff", textAlign: "left", cursor: "pointer"
               }}
             >
@@ -289,8 +289,8 @@ const inp = {
   width: "100%",
   padding: 6,
   borderRadius: 6,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(15,23,42,0.7)",
+  border: "1px solid rgba(255,215,0,0.3)",
+  background: "rgba(10,10,10,0.7)",
   color: "#fff",
   fontSize: 13,
   boxSizing: "border-box"
@@ -299,7 +299,7 @@ const btnSm = {
   padding: "4px 10px",
   borderRadius: 6,
   border: "none",
-  background: "rgba(99,102,241,0.3)",
+  background: "rgba(255,215,0,0.3)",
   color: "#fff",
   cursor: "pointer",
   fontSize: 11,

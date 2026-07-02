@@ -114,9 +114,9 @@ export function TeacherInvitesPanel({ token }) {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
-        <StatCard label="Total" value={stats.total} color="#a5b4fc" onClick={() => setFilter("all")} active={filter === "all"} />
+        <StatCard label="Total" value={stats.total} color="#FFD700" onClick={() => setFilter("all")} active={filter === "all"} />
         <StatCard label="Available" value={stats.unused} color="#10b981" onClick={() => setFilter("unused")} active={filter === "unused"} />
-        <StatCard label="Used" value={stats.used} color="#6366f1" onClick={() => setFilter("used")} active={filter === "used"} />
+        <StatCard label="Used" value={stats.used} color="#FFD700" onClick={() => setFilter("used")} active={filter === "used"} />
         <StatCard label="Expired" value={stats.expired} color="#f87171" onClick={() => setFilter("expired")} active={filter === "expired"} />
       </div>
 
@@ -178,7 +178,7 @@ export function TeacherInvitesPanel({ token }) {
               padding: "10px 18px",
               borderRadius: 8,
               border: "none",
-              background: creating ? "rgba(99,102,241,0.5)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: creating ? "rgba(255,215,0,0.5)" : "linear-gradient(135deg, #FFD700, #DAA520)",
               color: "#fff",
               fontWeight: 700,
               cursor: creating ? "wait" : "pointer"
@@ -199,11 +199,11 @@ export function TeacherInvitesPanel({ token }) {
         {refreshing && (
           <div style={{
             position: "absolute", top: 8, right: 8, zIndex: 2,
-            padding: "3px 10px", background: "rgba(99,102,241,0.2)",
-            border: "1px solid rgba(99,102,241,0.4)", color: "#a5b4fc",
+            padding: "3px 10px", background: "rgba(255,215,0,0.2)",
+            border: "1px solid rgba(255,215,0,0.4)", color: "#FFD700",
             borderRadius: 99, fontSize: 11, display: "flex", alignItems: "center", gap: 6
           }}>
-            <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#6366f1", animation: "pulse 1s infinite" }} />
+            <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#FFD700", animation: "pulse 1s infinite" }} />
             Refreshing…
           </div>
         )}
@@ -217,7 +217,7 @@ export function TeacherInvitesPanel({ token }) {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ background: "rgba(99,102,241,0.1)", textAlign: "left", fontSize: 12, color: "#a5b4fc" }}>
+                <tr style={{ background: "rgba(255,215,0,0.1)", textAlign: "left", fontSize: 12, color: "#FFD700" }}>
                   <th style={thStyle}>Code</th>
                   <th style={thStyle}>Role</th>
                   <th style={thStyle}>Status</th>
@@ -230,20 +230,20 @@ export function TeacherInvitesPanel({ token }) {
               </thead>
               <tbody>
                 {filtered.map((i) => (
-                  <tr key={i.id} style={{ borderTop: "1px solid rgba(99,102,241,0.1)" }}>
+                  <tr key={i.id} style={{ borderTop: "1px solid rgba(255,215,0,0.1)" }}>
                     <td style={tdStyle}>
-                      <code style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc" }}>{i.code}</code>
+                      <code style={{ fontSize: 13, fontWeight: 700, color: "#FFD700" }}>{i.code}</code>
                     </td>
                     <td style={tdStyle}>
                       {i.assignedRole === "TEACHER" ? (
                         <span style={badgeStyle("#f59e0b")} title="Full admin">👑 Teacher</span>
                       ) : (
-                        <span style={badgeStyle("#8b5cf6")} title="Faculty (no admin)">👨‍🏫 Lecturer</span>
+                        <span style={badgeStyle("#DAA520")} title="Faculty (no admin)">👨‍🏫 Lecturer</span>
                       )}
                     </td>
                     <td style={tdStyle}>
                       {i.isUsed ? (
-                        <span style={badgeStyle("#6366f1")}>✓ Used</span>
+                        <span style={badgeStyle("#FFD700")}>✓ Used</span>
                       ) : i.isExpired ? (
                         <span style={badgeStyle("#f87171")}>⌛ Expired</span>
                       ) : (
@@ -313,8 +313,8 @@ function StatCard({ label, value, color, onClick, active }) {
       style={{
         padding: 14,
         borderRadius: 10,
-        border: active ? `2px solid ${color}` : "1px solid rgba(99,102,241,0.2)",
-        background: active ? `${color}22` : "rgba(30,41,59,0.6)",
+        border: active ? `2px solid ${color}` : "1px solid rgba(255,215,0,0.2)",
+        background: active ? `${color}22` : "rgba(20,20,20,0.6)",
         color: "#fff",
         cursor: "pointer",
         textAlign: "left"
@@ -326,13 +326,13 @@ function StatCard({ label, value, color, onClick, active }) {
   );
 }
 
-const labelStyle = { display: "block", fontSize: 12, color: "#a5b4fc", marginBottom: 4, fontWeight: 600 };
+const labelStyle = { display: "block", fontSize: 12, color: "#FFD700", marginBottom: 4, fontWeight: 600 };
 const inputStyle = {
   width: "100%",
   padding: 10,
   borderRadius: 8,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(15,23,42,0.8)",
+  border: "1px solid rgba(255,215,0,0.3)",
+  background: "rgba(10,10,10,0.8)",
   color: "#fff",
   fontSize: 13,
   boxSizing: "border-box"
@@ -346,7 +346,7 @@ const iconBtn = {
   fontSize: 16,
   padding: 4,
   marginLeft: 4,
-  color: "#a5b4fc"
+  color: "#FFD700"
 };
 const badgeStyle = (color) => ({
   display: "inline-block",

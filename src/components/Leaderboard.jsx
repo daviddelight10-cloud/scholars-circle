@@ -70,8 +70,8 @@ export function Leaderboard({ username, xp, sessions, streak, mastery, subjects,
   }
 
   function getTier(xp) {
-    if (xp >= 1000) return { name: "Diamond", color: "#4F8EF7", icon: "💎" };
-    if (xp >= 500) return { name: "Platinum", color: "#a855f7", icon: "💠" };
+    if (xp >= 1000) return { name: "Diamond", color: "#FFD700", icon: "💎" };
+    if (xp >= 500) return { name: "Platinum", color: "#DAA520", icon: "💠" };
     if (xp >= 250) return { name: "Gold", color: "#facc15", icon: "🥇" };
     if (xp >= 100) return { name: "Silver", color: "#94a3b8", icon: "🥈" };
     return { name: "Bronze", color: "#cd7f32", icon: "🥉" };
@@ -97,8 +97,8 @@ export function Leaderboard({ username, xp, sessions, streak, mastery, subjects,
     { name: 'Bronze', min: 0, color: '#cd7f32' },
     { name: 'Silver', min: 100, color: '#94a3b8' },
     { name: 'Gold', min: 250, color: '#facc15' },
-    { name: 'Platinum', min: 500, color: '#a855f7' },
-    { name: 'Diamond', min: 1000, color: '#4F8EF7' },
+    { name: 'Platinum', min: 500, color: '#DAA520' },
+    { name: 'Diamond', min: 1000, color: '#FFD700' },
   ];
 
   const myXP = xp || 0;
@@ -347,7 +347,7 @@ export function Leaderboard({ username, xp, sessions, streak, mastery, subjects,
                   <div className="lb-profile-stats">
                     <div className="lb-profile-stat">
                       <div className="label">Total XP</div>
-                      <div className="value" style={{ color: '#a5b4fc' }}>{(userProfileData.xp || 0).toLocaleString()}</div>
+                      <div className="value" style={{ color: '#FFD700' }}>{(userProfileData.xp || 0).toLocaleString()}</div>
                     </div>
                     <div className="lb-profile-stat">
                       <div className="label">Sessions</div>
@@ -367,7 +367,7 @@ export function Leaderboard({ username, xp, sessions, streak, mastery, subjects,
                   <div className="lb-profile-mastery">
                     <div className="mlabel">
                       <span>Average Mastery</span>
-                      <span style={{ color: '#a5b4fc', fontWeight: 700 }}>{userProfileData.avgMastery || 0}%</span>
+                      <span style={{ color: '#FFD700', fontWeight: 700 }}>{userProfileData.avgMastery || 0}%</span>
                     </div>
                     <div className="bar">
                       <div className="fill" style={{ width: `${userProfileData.avgMastery || 0}%` }} />

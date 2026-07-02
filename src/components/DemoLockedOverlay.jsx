@@ -25,8 +25,8 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
       <p style={{ marginBottom: 20, lineHeight: 1.5, fontSize: 13, color: "var(--text-secondary, #cbd5e1)" }}>{description}</p>
 
       {features.length > 0 && (
-        <div style={{ background: "var(--success-bg, rgba(45,212,160,0.1))", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--success-border, rgba(45,212,160,0.3))" }}>
-          <strong style={{ color: "var(--success-text, #2dd4a0)", display: "block", marginBottom: 10, fontSize: 13 }}>✨ What you'll unlock:</strong>
+        <div style={{ background: "var(--success-bg, rgba(255,215,0,0.1))", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--success-border, rgba(255,215,0,0.3))" }}>
+          <strong style={{ color: "var(--success-text, #FFD700)", display: "block", marginBottom: 10, fontSize: 13 }}>✨ What you'll unlock:</strong>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12, color: "var(--text-primary, #f1f5f9)" }}>
             {features.map((f, i) => <li key={i}>{f}</li>)}
           </ul>
@@ -42,11 +42,11 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
                 style={{
-                  border: selectedPlan === plan.id ? "2px solid var(--accent-color, #3b82f6)" : "1px solid var(--border-color, #334155)",
+                  border: selectedPlan === plan.id ? "2px solid var(--accent-color, #FFD700)" : "1px solid var(--border-color, #334155)",
                   borderRadius: 10,
                   padding: 14,
                   cursor: "pointer",
-                  background: selectedPlan === plan.id ? "var(--selected-bg, rgba(59,130,246,0.1))" : "var(--item-bg, rgba(255,255,255,0.05))",
+                  background: selectedPlan === plan.id ? "var(--selected-bg, rgba(255,215,0,0.1))" : "var(--item-bg, rgba(255,255,255,0.05))",
                   transition: "all 0.2s",
                   position: "relative"
                 }}
@@ -59,7 +59,7 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
                     <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary, #f1f5f9)" }}>{plan.name}</div>
                     <div style={{ fontSize: 11, color: "var(--text-muted, #94a3b8)" }}>{plan.savings}</div>
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "var(--accent-color, #3b82f6)" }}>{plan.price}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "var(--accent-color, #FFD700)" }}>{plan.price}</div>
                 </div>
               </div>
             ))}
@@ -68,7 +68,7 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
       )}
 
       {showPlans && selectedPlan && (
-        <div style={{ background: "var(--selected-bg, rgba(59,130,246,0.1))", border: "1px solid var(--accent-color, rgba(59,130,246,0.3))", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ background: "var(--selected-bg, rgba(255,215,0,0.1))", border: "1px solid var(--accent-color, rgba(255,215,0,0.3))", borderRadius: 10, padding: 14, marginBottom: 16 }}>
           <h4 style={{ margin: "0 0 10px 0", fontSize: 13, color: "var(--text-primary, #f1f5f9)" }}>🏦 Payment Details</h4>
           <div style={{ fontSize: 12, lineHeight: 1.7, color: "var(--text-secondary, #cbd5e1)" }}>
             <div><strong>Bank:</strong> {bankDetails.bank}</div>
@@ -118,7 +118,7 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
             }
           }}
           style={{
-            background: "var(--accent-color, #3b82f6)",
+            background: "var(--accent-color, #FFD700)",
             color: "white",
             fontWeight: 600,
             padding: "12px 24px",

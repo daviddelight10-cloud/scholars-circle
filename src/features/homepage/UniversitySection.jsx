@@ -34,8 +34,8 @@ export default function UniversitySection() {
           marginBottom: '64px'
         }}>
           <div style={{
-            background: 'linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(13, 14, 24, 0.5))',
-            border: '1px solid rgba(59, 130, 246, 0.2)',
+            background: 'linear-gradient(145deg, rgba(255, 215, 0, 0.1), rgba(13, 14, 24, 0.5))',
+            border: '1px solid rgba(255, 215, 0, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
@@ -50,8 +50,8 @@ export default function UniversitySection() {
           </div>
 
           <div style={{
-            background: 'linear-gradient(145deg, rgba(168, 85, 247, 0.1), rgba(13, 14, 24, 0.5))',
-            border: '1px solid rgba(168, 85, 247, 0.2)',
+            background: 'linear-gradient(145deg, rgba(218, 165, 32, 0.1), rgba(13, 14, 24, 0.5))',
+            border: '1px solid rgba(218, 165, 32, 0.2)',
             borderRadius: '16px',
             padding: '24px'
           }}>
@@ -131,8 +131,8 @@ export default function UniversitySection() {
         </div>
 
         <div style={{
-          background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.2), rgba(168, 85, 247, 0.2))',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
+          background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.2), rgba(218, 165, 32, 0.2))',
+          border: '1px solid rgba(255, 215, 0, 0.3)',
           borderRadius: '16px',
           padding: '32px 48px',
           textAlign: 'center'

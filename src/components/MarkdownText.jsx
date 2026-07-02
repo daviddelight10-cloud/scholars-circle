@@ -2,14 +2,14 @@ import React from "react";
 
 const PALETTES = {
   dark: {
-    text: "#c5cae9",
+    text: "#FFD700",
     muted: "#9e9e9e",
     accent: "#7986cb",
     codeBg: "#0d0f1f",
     codeBorder: "#1e2140",
     heading: "#e8eaf6",
     mathColor: "#e8eaf6",
-    blockquoteBorder: "#3949ab",
+    blockquoteBorder: "#B8860B",
     codeText: "#b0bec5",
   },
   light: {

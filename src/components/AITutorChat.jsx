@@ -175,7 +175,7 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
                         disabled={loading}
                         style={{
                           background: "#1e3a5f",
-                          border: "1px solid #3b82f6",
+                          border: "1px solid #FFD700",
                           color: "#60a5fa",
                           padding: "8px 16px",
                           borderRadius: 6,
@@ -195,7 +195,7 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
                         disabled={loading}
                         style={{
                           background: "#1e3a5f",
-                          border: "1px solid #3b82f6",
+                          border: "1px solid #FFD700",
                           color: "#60a5fa",
                           padding: "8px 16px",
                           borderRadius: 6,
@@ -233,7 +233,7 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
           placeholder="Ask me anything about your studies..."
           onKeyPress={(e) => e.key === "Enter" && sendMessage()}
         />
-        <button onClick={() => sendMessage()} disabled={loading || !message.trim()} style={{ borderColor: "#818cf8", color: "#818cf8" }}>
+        <button onClick={() => sendMessage()} disabled={loading || !message.trim()} style={{ borderColor: "#FFD700", color: "#FFD700" }}>
           Send
         </button>
       </div>

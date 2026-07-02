@@ -80,7 +80,7 @@ export function FlashcardDeck({ subjects, srData, customFlashcards, setCustomFla
         </select>
       </div>
       {dueCards.length > 0 && subjectFilter === "all" && cardTypeFilter === "all" && (
-        <p className="muted" style={{ color: "#2dd4a0" }}>Showing {dueCards.length} due spaced-review cards.</p>
+        <p className="muted" style={{ color: "#FFD700" }}>Showing {dueCards.length} due spaced-review cards.</p>
       )}
       {finished ? (
         <div style={{ textAlign: "center", padding: 32 }}>
@@ -105,7 +105,7 @@ export function FlashcardDeck({ subjects, srData, customFlashcards, setCustomFla
           {flipped && (
             <div className="row" style={{ marginTop: 16 }}>
               <button style={{ borderColor: "#ff6b6b", color: "#ff6b6b" }} onClick={next}>Got it wrong</button>
-              <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }} onClick={next}>Got it right ✓</button>
+              <button style={{ borderColor: "#FFD700", color: "#FFD700" }} onClick={next}>Got it right ✓</button>
             </div>
           )}
         </>

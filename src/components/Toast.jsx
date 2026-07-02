@@ -81,7 +81,7 @@ const ICONS = {
 const COLORS = {
   success: { bg: "rgba(16, 185, 129, 0.95)", border: "#34d399" },
   error: { bg: "rgba(239, 68, 68, 0.95)", border: "#f87171" },
-  info: { bg: "rgba(99, 102, 241, 0.95)", border: "#a5b4fc" },
+  info: { bg: "rgba(255, 215, 0, 0.95)", border: "#FFD700" },
   warning: { bg: "rgba(245, 158, 11, 0.95)", border: "#fbbf24" },
 };
 

@@ -3,7 +3,7 @@ export const SUBJECTS = [
     id: "bio111",
     label: "BIO 111",
     icon: "🐟",
-    accent: "#2dd4a0",
+    accent: "#FFD700",
     image:
       "https://images.unsplash.com/photo-1524704654690-b56c05c78a00?auto=format&fit=crop&w=1200&q=80",
     courseOutlines: {
@@ -1056,7 +1056,7 @@ export const SUBJECTS = [
     id: "bio112",
     label: "BIO 112",
     icon: "🧬",
-    accent: "#818cf8",
+    accent: "#FFD700",
     image:
       "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=1200&q=80",
     lessons: [
@@ -1646,7 +1646,7 @@ export const SUBJECTS = [
     id: "phy111",
     label: "PHY 111",
     icon: "⚡",
-    accent: "#3b82f6",
+    accent: "#FFD700",
     image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=1200&q=80",
     courseOutlines: {
       sem1: [

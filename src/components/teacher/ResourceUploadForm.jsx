@@ -250,7 +250,7 @@ export default function ResourceUploadForm() {
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
-              color: "#9fa8da",
+              color: "#DAA520",
               outline: "none",
             }}
           />
@@ -272,7 +272,7 @@ export default function ResourceUploadForm() {
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
-              color: "#9fa8da",
+              color: "#DAA520",
               outline: "none",
             }}
           >
@@ -301,7 +301,7 @@ export default function ResourceUploadForm() {
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
-              color: "#9fa8da",
+              color: "#DAA520",
               outline: "none",
             }}
           >
@@ -330,9 +330,9 @@ export default function ResourceUploadForm() {
                     onClick={() => setSelectedDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])}
                     style={{
                       padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                      background: selected ? "#1a237e" : "#0a0c1e",
-                      border: selected ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
-                      color: selected ? "#c5cae9" : "#7b82b8",
+                      background: selected ? "#1a1a1a" : "#0a0c1e",
+                      border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
+                      color: selected ? "#FFD700" : "#7b82b8",
                     }}
                   >
                     {d.icon || "🏛️"} {d.name}
@@ -349,7 +349,7 @@ export default function ResourceUploadForm() {
               name="level"
               value={formData.level}
               onChange={handleInputChange}
-              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#9fa8da", outline: "none" }}
+              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
             >
               <option value="">Select level…</option>
               {levels.map((l) => <option key={l} value={l}>{l}</option>)}
@@ -363,7 +363,7 @@ export default function ResourceUploadForm() {
               name="semester"
               value={formData.semester}
               onChange={handleInputChange}
-              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#9fa8da", outline: "none" }}
+              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
             >
               <option value="">Select semester…</option>
               {semesters.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -387,7 +387,7 @@ export default function ResourceUploadForm() {
                 cursor: "pointer",
                 transition: "borderColor 0.15s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#B8860B")}
               onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2a2d4a")}
             >
               <input
@@ -422,11 +422,11 @@ export default function ResourceUploadForm() {
                   flex: 1,
                   padding: "10px",
                   borderRadius: "10px",
-                  background: mcqMode === "manual" ? "#1a237e" : "#0f1128",
-                  border: mcqMode === "manual" ? "0.5px solid #3949ab" : "0.5px solid #252860",
+                  background: mcqMode === "manual" ? "#1a1a1a" : "#0f1128",
+                  border: mcqMode === "manual" ? "0.5px solid #B8860B" : "0.5px solid #252860",
                   fontSize: "12px",
                   fontWeight: 600,
-                  color: mcqMode === "manual" ? "#c5cae9" : "#5a6090",
+                  color: mcqMode === "manual" ? "#FFD700" : "#5a6090",
                   cursor: "pointer",
                 }}
               >
@@ -439,11 +439,11 @@ export default function ResourceUploadForm() {
                   flex: 1,
                   padding: "10px",
                   borderRadius: "10px",
-                  background: mcqMode === "ai" ? "#1a237e" : "#0f1128",
-                  border: mcqMode === "ai" ? "0.5px solid #3949ab" : "0.5px solid #252860",
+                  background: mcqMode === "ai" ? "#1a1a1a" : "#0f1128",
+                  border: mcqMode === "ai" ? "0.5px solid #B8860B" : "0.5px solid #252860",
                   fontSize: "12px",
                   fontWeight: 600,
-                  color: mcqMode === "ai" ? "#c5cae9" : "#5a6090",
+                  color: mcqMode === "ai" ? "#FFD700" : "#5a6090",
                   cursor: "pointer",
                 }}
               >
@@ -468,7 +468,7 @@ export default function ResourceUploadForm() {
                       borderRadius: "8px",
                       padding: "8px 12px",
                       fontSize: "12px",
-                      color: "#9fa8da",
+                      color: "#DAA520",
                       outline: "none",
                       resize: "none",
                     }}
@@ -507,7 +507,7 @@ export default function ResourceUploadForm() {
                           borderRadius: "7px",
                           padding: "6px 10px",
                           fontSize: "11px",
-                          color: "#9fa8da",
+                          color: "#DAA520",
                           outline: "none",
                         }}
                       />
@@ -535,7 +535,7 @@ export default function ResourceUploadForm() {
                       borderRadius: "8px",
                       padding: "8px 12px",
                       fontSize: "12px",
-                      color: "#9fa8da",
+                      color: "#DAA520",
                       outline: "none",
                       resize: "none",
                     }}
@@ -578,7 +578,7 @@ export default function ResourceUploadForm() {
                       borderRadius: "8px",
                       padding: "8px 12px",
                       fontSize: "12px",
-                      color: "#9fa8da",
+                      color: "#DAA520",
                       outline: "none",
                       resize: "none",
                     }}
@@ -649,12 +649,12 @@ export default function ResourceUploadForm() {
                   style={{
                     width: "100%",
                     padding: "10px",
-                    background: "linear-gradient(135deg, #1a237e, #0d1340)",
-                    border: "0.5px solid #3949ab",
+                    background: "linear-gradient(135deg, #1a1a1a, #0a0a0a)",
+                    border: "0.5px solid #B8860B",
                     borderRadius: "8px",
                     fontSize: "12px",
                     fontWeight: 700,
-                    color: "#c5cae9",
+                    color: "#FFD700",
                     cursor: aiGenerating ? "not-allowed" : "pointer",
                     opacity: aiGenerating ? 0.4 : 1,
                   }}
@@ -769,7 +769,7 @@ export default function ResourceUploadForm() {
               borderRadius: "8px",
               padding: "10px 14px",
               fontSize: "14px",
-              color: "#9fa8da",
+              color: "#DAA520",
               outline: "none",
               resize: "none",
             }}
@@ -794,7 +794,7 @@ export default function ResourceUploadForm() {
             style={{
               width: "34px",
               height: "18px",
-              background: formData.isPremium ? "#1a237e" : "#1e2245",
+              background: formData.isPremium ? "#1a1a1a" : "#1e2245",
               borderRadius: "9px",
               position: "relative",
               cursor: "pointer",
@@ -809,7 +809,7 @@ export default function ResourceUploadForm() {
                 width: "14px",
                 height: "14px",
                 borderRadius: "50%",
-                background: formData.isPremium ? "#9fa8da" : "#4a5080",
+                background: formData.isPremium ? "#DAA520" : "#4a5080",
                 transition: "all 0.2s",
               }}
             />
@@ -827,7 +827,7 @@ export default function ResourceUploadForm() {
         {uploading && (
           <div>
             <div style={{ height: "4px", background: "#1a1d35", borderRadius: "2px", marginBottom: "8px", overflow: "hidden" }}>
-              <div style={{ height: "100%", background: "#3949ab", borderRadius: "2px", width: `${uploadProgress}%`, transition: "width 0.3s" }} />
+              <div style={{ height: "100%", background: "#B8860B", borderRadius: "2px", width: `${uploadProgress}%`, transition: "width 0.3s" }} />
             </div>
             <p style={{ fontSize: "12px", color: "#7b82b8", textAlign: "center" }}>Uploading… {uploadProgress}%</p>
           </div>
@@ -840,12 +840,12 @@ export default function ResourceUploadForm() {
           style={{
             width: "100%",
             padding: "12px",
-            background: "#1a237e",
-            border: "0.5px solid #3949ab",
+            background: "#1a1a1a",
+            border: "0.5px solid #B8860B",
             borderRadius: "8px",
             fontSize: "14px",
             fontWeight: 700,
-            color: "#c5cae9",
+            color: "#FFD700",
             cursor: uploading ? "not-allowed" : "pointer",
             opacity: uploading ? 0.4 : 1,
           }}

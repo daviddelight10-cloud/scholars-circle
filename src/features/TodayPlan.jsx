@@ -159,7 +159,7 @@ Build exactly ${days} days. Front-load weak topics. Add at least one past-paper 
       <button
         onClick={generate}
         disabled={loading}
-        style={{ marginTop: 8, borderColor: "#2dd4a0", color: "#2dd4a0" }}
+        style={{ marginTop: 8, borderColor: "#FFD700", color: "#FFD700" }}
       >
         {loading ? "Building plan…" : "✨ Generate Plan"}
       </button>
@@ -501,7 +501,7 @@ All text must be plain English. No special characters or symbols.`;
           <button
             onClick={generateMaterials}
             disabled={loading}
-            style={{ borderColor: "#818cf8", color: "#818cf8" }}
+            style={{ borderColor: "#FFD700", color: "#FFD700" }}
           >
             {loading ? "..." : "✨"}
           </button>
@@ -581,7 +581,7 @@ All text must be plain English. No special characters or symbols.`;
                     else if (isSelected) { bg = "var(--wrong-bg, #fee2e2)"; border = "var(--wrong-border, #ef4444)"; textColor = "var(--wrong-text, #991b1b)"; }
                   } else if (isSelected) {
                     bg = "var(--selected-bg, #e0f2fe)";
-                    border = "var(--selected-border, #0ea5e9)";
+                    border = "var(--selected-border, #FFD700)";
                   }
                   return (
                     <button
@@ -815,7 +815,7 @@ export function TodayScreen({
     { icon:"🔥", label:"Streak",   value:`${stats?.streak ?? 0}d`,   color:"#ff7043", bg:"#1a0a00", border:"#4a1800" },
     { icon:"⚡", label:"XP",       value:stats?.xp ?? 0,             color:"#ffd54f", bg:"#1a1500", border:"#4a3a00" },
     { icon:"🧠", label:"Due",      value:dueCards?.length ?? 0,      color:"#80cbc4", bg:"#001a18", border:"#004a44" },
-    { icon:"📚", label:"Sessions", value:stats?.sessions ?? 0,       color:"#9fa8da", bg:"#080d2a", border:"#1a2a6a" },
+    { icon:"📚", label:"Sessions", value:stats?.sessions ?? 0,       color:"#DAA520", bg:"#080d2a", border:"#1a2a6a" },
   ];
 
   return (
@@ -826,8 +826,8 @@ export function TodayScreen({
         border:"0.5px solid #1e2140", borderRadius:16,
         padding:"16px 18px 14px", marginBottom:14, position:"relative", overflow:"hidden",
       }}>
-        <div style={{ position:"absolute",top:-30,right:-20,width:140,height:140,borderRadius:"50%",background:"#1a237e",opacity:0.12,pointerEvents:"none" }} />
-        <div style={{ fontSize:11,fontWeight:600,color:"#3949ab",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4,fontFamily:"Syne,sans-serif" }}>
+        <div style={{ position:"absolute",top:-30,right:-20,width:140,height:140,borderRadius:"50%",background:"#1a1a1a",opacity:0.12,pointerEvents:"none" }} />
+        <div style={{ fontSize:11,fontWeight:600,color:"#B8860B",letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:4,fontFamily:"Syne,sans-serif" }}>
           {new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}
         </div>
         <div style={{ fontSize:20,fontWeight:800,color:"#e8eaf6",fontFamily:"Syne,sans-serif",lineHeight:1.2 }}>
@@ -859,7 +859,7 @@ export function TodayScreen({
         } else if (weakest?.m !== undefined && weakest.m < 50 && weakest.s) {
           action = { icon:"🎯", color:"#ffd54f", bg:"#1a1500", border:"#4a3a00", label:`Boost ${weakest.s.label}`, desc:`Only ${weakest.m}% mastery — needs your attention`, onClick: () => onStartSubject?.(weakest.s.id) };
         } else if (firstIncomplete) {
-          action = { icon:"📅", color:"#9fa8da", bg:"#080d2a", border:"#1a2a6a", label:firstIncomplete.title, desc:`${firstIncomplete.type} · ${firstIncomplete.minutes} min · ${firstIncomplete.subjectLabel}`, onClick: () => onOpenTab?.("plan") };
+          action = { icon:"📅", color:"#DAA520", bg:"#080d2a", border:"#1a2a6a", label:firstIncomplete.title, desc:`${firstIncomplete.type} · ${firstIncomplete.minutes} min · ${firstIncomplete.subjectLabel}`, onClick: () => onOpenTab?.("plan") };
         } else {
           action = { icon:"✨", color:"#ce93d8", bg:"#120a1a", border:"#3a1a4a", label:"Start a study session", desc:"Pick a subject or use Guided Study", onClick: () => onOpenStudy?.("") };
         }
@@ -887,7 +887,7 @@ export function TodayScreen({
 
       {/* ── Quick actions ── */}
       <div style={{ marginTop:14,marginBottom:4 }}>
-        <div style={{ fontSize:11,fontWeight:700,color:"#3949ab",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:9,fontFamily:"Syne,sans-serif" }}>Quick Actions</div>
+        <div style={{ fontSize:11,fontWeight:700,color:"#B8860B",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:9,fontFamily:"Syne,sans-serif" }}>Quick Actions</div>
         <div style={{ display:"flex",gap:7,flexWrap:"wrap" }}>
           {dueCards?.length > 0 && (
             <button onClick={onStartSpaced} style={{
@@ -905,12 +905,12 @@ export function TodayScreen({
           )}
           <button onClick={() => onOpenTab("bank")} style={{
             display:"inline-flex",alignItems:"center",gap:6,padding:"7px 13px",borderRadius:20,
-            background:"#0a0c1e",border:"0.5px solid #2a2d4a",color:"#9fa8da",
+            background:"#0a0c1e",border:"0.5px solid #2a2d4a",color:"#DAA520",
             fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"Manrope,sans-serif",
           }}>📝 Past papers</button>
           <button onClick={() => onOpenTab("lectures")} style={{
             display:"inline-flex",alignItems:"center",gap:6,padding:"7px 13px",borderRadius:20,
-            background:"#0a0c1e",border:"0.5px solid #2a2d4a",color:"#9fa8da",
+            background:"#0a0c1e",border:"0.5px solid #2a2d4a",color:"#DAA520",
             fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"Manrope,sans-serif",
           }}>🎧 Lecture notes</button>
         </div>
@@ -985,8 +985,8 @@ export function TodayScreen({
                   <strong style={{ color: "var(--text-primary, #111)" }}>
                     {subject?.icon} {subject?.label} — exam {fmtDate(plan.examDate)}
                     {plan.isWeekly && <span style={{ 
-                      color: "var(--accent-color, #6366f1)", 
-                      background: "var(--accent-bg, rgba(99, 102, 241, 0.1))",
+                      color: "var(--accent-color, #FFD700)", 
+                      background: "var(--accent-bg, rgba(255, 215, 0, 0.1))",
                       padding: "2px 8px",
                       borderRadius: 4,
                       marginLeft: 8,
@@ -1034,7 +1034,7 @@ export function TodayScreen({
                           color: "var(--text-primary, #111)",
                           marginBottom: 4
                         }}>
-                          Week {w.week}: <span style={{ color: "var(--accent-color, #6366f1)" }}>{w.focus || "General review"}</span>
+                          Week {w.week}: <span style={{ color: "var(--accent-color, #FFD700)" }}>{w.focus || "General review"}</span>
                         </div>
                         <div style={{ fontSize: 11, color: "var(--text-secondary, #374151)" }}>
                           Goals: {(w.goals || []).join(" · ") || "—"}

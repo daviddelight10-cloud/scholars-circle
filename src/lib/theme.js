@@ -8,7 +8,7 @@ export const T = {
   text: "#EDEFF5",
   textDim: "#9AA3B5",
   textFaint: "#646E84",
-  blue: "#4F8EF7",
+  blue: "#FFD700",
   blueDim: "rgba(79,142,247,0.14)",
   gold: "#F5A623",
   goldDim: "rgba(245,166,35,0.14)",
@@ -29,7 +29,7 @@ export const RADIUS = {
   sm: "12px",
 };
 
-const SUBJECT_COLORS = ["#4F8EF7", "#F5A623", "#3DD68C", "#FF5470"];
+const SUBJECT_COLORS = ["#FFD700", "#F5A623", "#3DD68C", "#FF5470"];
 
 export function subjectColor(subject) {
   if (!subject) return SUBJECT_COLORS[0];

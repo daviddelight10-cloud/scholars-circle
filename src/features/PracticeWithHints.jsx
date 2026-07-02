@@ -205,8 +205,8 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
     
     return (
       <div className="card" style={{ 
-        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
-        border: "1px solid rgba(99, 102, 241, 0.2)",
+        background: "linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.9))",
+        border: "1px solid rgba(255, 215, 0, 0.2)",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
         borderRadius: 16,
         overflow: "hidden",
@@ -218,26 +218,26 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       }}>
         {/* Header */}
         <div style={{ 
-          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+          background: "linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(218, 165, 32, 0.1))",
           padding: "16px",
-          borderBottom: "1px solid rgba(99, 102, 241, 0.2)",
+          borderBottom: "1px solid rgba(255, 215, 0, 0.2)",
           textAlign: "center"
         }}>
           <div style={{
             width: 48,
             height: 48,
             borderRadius: 12,
-            background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            background: "linear-gradient(135deg, #FFD700, #DAA520)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 24,
             margin: "0 auto 12px",
-            boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)"
+            boxShadow: "0 4px 15px rgba(255, 215, 0, 0.4)"
           }}>
             💡
           </div>
-          <h2 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice with Hints</h2>
+          <h2 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice with Hints</h2>
           <p style={{ margin: "4px 0 0", color: "#9ca3af", fontSize: 12 }}>{subject?.label || "Subject"} · {maxQuestions} questions</p>
         </div>
         
@@ -252,7 +252,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
             <>
               {/* Question Count Selector */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#e0e7ff", fontSize: 13, marginBottom: 10, fontWeight: 600 }}>
+                <label style={{ display: "block", color: "#FFD700", fontSize: 13, marginBottom: 10, fontWeight: 600 }}>
                   Number of Questions
                 </label>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -269,13 +269,13 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                         minWidth: 50,
                         padding: "10px 8px",
                         background: questionCount === displayNum 
-                          ? "linear-gradient(135deg, #6366f1, #8b5cf6)" 
-                          : "rgba(30, 41, 59, 0.8)",
+                          ? "linear-gradient(135deg, #FFD700, #DAA520)" 
+                          : "rgba(20, 20, 20, 0.8)",
                         border: questionCount === displayNum
-                          ? "2px solid rgba(99, 102, 241, 0.5)"
-                          : "1px solid rgba(99, 102, 241, 0.2)",
+                          ? "2px solid rgba(255, 215, 0, 0.5)"
+                          : "1px solid rgba(255, 215, 0, 0.2)",
                         borderRadius: 10,
-                        color: questionCount === displayNum ? "#fff" : "#a5b4fc",
+                        color: questionCount === displayNum ? "#fff" : "#FFD700",
                         fontSize: 14,
                         fontWeight: 700,
                         cursor: "pointer",
@@ -291,11 +291,11 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
               
               {/* Features Preview */}
               <div style={{ 
-                background: "rgba(30, 41, 59, 0.6)", 
+                background: "rgba(20, 20, 20, 0.6)", 
                 borderRadius: 10, 
                 padding: 12, 
                 marginBottom: 16,
-                border: "1px solid rgba(99, 102, 241, 0.15)"
+                border: "1px solid rgba(255, 215, 0, 0.15)"
               }}>
                 <p style={{ color: "#9ca3af", fontSize: 12, margin: 0, lineHeight: 1.6 }}>
                   ✨ Progressive hints · Instant feedback · XP & streaks
@@ -324,7 +324,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                   onClick={startPractice}
                   style={{
                     flex: 2,
-                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    background: "linear-gradient(135deg, #FFD700, #DAA520)",
                     border: "none",
                     padding: "12px 16px",
                     borderRadius: 10,
@@ -332,7 +332,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                     fontSize: 14,
                     fontWeight: 700,
                     cursor: "pointer",
-                    boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)"
+                    boxShadow: "0 4px 15px rgba(255, 215, 0, 0.4)"
                   }}
                 >
                   🚀 Start
@@ -348,8 +348,8 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
   if (!currentQuestion) {
     return (
       <div className="card" style={{ 
-        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
-        border: "1px solid rgba(99, 102, 241, 0.2)",
+        background: "linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.9))",
+        border: "1px solid rgba(255, 215, 0, 0.2)",
         borderRadius: 20,
         padding: 24,
         textAlign: "center"
@@ -370,8 +370,8 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
     return (
       <div className="card" style={{ 
         textAlign: "center",
-        background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
-        border: "1px solid rgba(99, 102, 241, 0.2)",
+        background: "linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.9))",
+        border: "1px solid rgba(255, 215, 0, 0.2)",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
         borderRadius: 20
       }}>
@@ -379,18 +379,18 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         <div style={{ 
           background: pct >= 80 
             ? "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))"
-            : "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+            : "linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(218, 165, 32, 0.1))",
           padding: "32px 24px",
           borderRadius: "20px 20px 0 0",
-          borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
+          borderBottom: "1px solid rgba(255, 215, 0, 0.2)"
         }}>
           <div style={{ fontSize: 64, marginBottom: 16, animation: "bounce 1s" }}>{emoji}</div>
-          <h2 style={{ margin: 0, fontSize: 28, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice Complete!</h2>
+          <h2 style={{ margin: 0, fontSize: 28, background: "linear-gradient(135deg, #fff, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice Complete!</h2>
           <div style={{ 
             fontSize: "4rem", 
             fontWeight: 800, 
             margin: "16px 0",
-            background: pct >= 80 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #3b82f6)",
+            background: pct >= 80 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #FFD700)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent"
           }}>
@@ -417,7 +417,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
             <div style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                 <span>Base XP</span>
-                <span style={{ color: "#e0e7ff" }}>{baseXP} ({score} × {XP_PER_CORRECT})</span>
+                <span style={{ color: "#FFD700" }}>{baseXP} ({score} × {XP_PER_CORRECT})</span>
               </div>
               {totalStreakBonus > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", color: "#fbbf24" }}>
@@ -453,7 +453,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
         
         {/* Review all answers */}
         <div style={{ textAlign: "left", padding: "0 24px 24px", maxHeight: 400, overflowY: "auto" }}>
-          <h3 style={{ textAlign: "center", marginBottom: 16, color: "#e0e7ff" }}>📝 Review All Answers</h3>
+          <h3 style={{ textAlign: "center", marginBottom: 16, color: "#FFD700" }}>📝 Review All Answers</h3>
           {results.map((r, i) => {
             const q = practiceQuestions[i];
             if (!q) return null;
@@ -513,17 +513,17 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
 
   return (
     <div className="card" style={{ 
-      background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
-      border: "1px solid rgba(99, 102, 241, 0.2)",
+      background: "linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.9))",
+      border: "1px solid rgba(255, 215, 0, 0.2)",
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
       borderRadius: 20,
       overflow: "hidden"
     }}>
       {/* Animated Header */}
       <div style={{ 
-        background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+        background: "linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(218, 165, 32, 0.1))",
         padding: "12px 16px",
-        borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
+        borderBottom: "1px solid rgba(255, 215, 0, 0.2)"
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -531,17 +531,17 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 18,
-              boxShadow: "0 2px 10px rgba(99, 102, 241, 0.4)"
+              boxShadow: "0 2px 10px rgba(255, 215, 0, 0.4)"
             }}>
               💡
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: 15, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice with Hints</h3>
+              <h3 style={{ margin: 0, fontSize: 15, background: "linear-gradient(135deg, #fff, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Practice with Hints</h3>
               <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>{subject?.label || "Subject"}</p>
             </div>
           </div>
@@ -549,13 +549,13 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {/* Question Counter */}
             <div style={{
-              background: "rgba(30, 41, 59, 0.8)",
-              border: "1px solid rgba(99, 102, 241, 0.3)",
+              background: "rgba(20, 20, 20, 0.8)",
+              border: "1px solid rgba(255, 215, 0, 0.3)",
               padding: "4px 10px",
               borderRadius: 20,
               fontSize: 12,
               fontWeight: 600,
-              color: "#e0e7ff"
+              color: "#FFD700"
             }}>
               Q{currentIndex + 1}<span style={{ color: "#6b7280" }}>/{practiceQuestions.length}</span>
             </div>
@@ -627,7 +627,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       <div style={{ padding: "0 16px", marginTop: 12 }}>
         <div style={{ 
           height: 4, 
-          background: "rgba(30, 41, 59, 0.8)", 
+          background: "rgba(20, 20, 20, 0.8)", 
           borderRadius: 10, 
           overflow: "hidden",
           boxShadow: "inset 0 1px 3px rgba(0,0,0,0.3)"
@@ -635,10 +635,10 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
           <div style={{
             height: "100%",
             width: `${((currentIndex + 1) / practiceQuestions.length) * 100}%`,
-            background: "linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)",
+            background: "linear-gradient(90deg, #FFD700, #DAA520, #DAA520)",
             borderRadius: 10,
             transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: "0 0 10px rgba(99, 102, 241, 0.5)"
+            boxShadow: "0 0 10px rgba(255, 215, 0, 0.5)"
           }} />
         </div>
       </div>
@@ -646,11 +646,11 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       {/* Question */}
       <div style={{ padding: "16px" }}>
         <div style={{
-          background: "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
+          background: "linear-gradient(135deg, rgba(20, 20, 20, 0.6), rgba(10, 10, 10, 0.8))",
           borderRadius: 12,
           padding: "14px",
           marginBottom: 16,
-          border: "1px solid rgba(99, 102, 241, 0.15)",
+          border: "1px solid rgba(255, 215, 0, 0.15)",
           boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)"
         }}>
           <p style={{ 
@@ -670,8 +670,8 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
             const isSelected = selectedAnswer === i;
             const isCorrectOption = i === currentQuestion.answer;
             
-            let bgGradient = "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))";
-            let borderColor = "rgba(99, 102, 241, 0.2)";
+            let bgGradient = "linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(10, 10, 10, 0.9))";
+            let borderColor = "rgba(255, 215, 0, 0.2)";
             let glowColor = "transparent";
             
             if (showResult) {
@@ -685,9 +685,9 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                 glowColor = "rgba(239, 68, 68, 0.3)";
               }
             } else if (isSelected) {
-              bgGradient = "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.1))";
-              borderColor = "rgba(99, 102, 241, 0.5)";
-              glowColor = "rgba(99, 102, 241, 0.3)";
+              bgGradient = "linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(218, 165, 32, 0.1))";
+              borderColor = "rgba(255, 215, 0, 0.5)";
+              glowColor = "rgba(255, 215, 0, 0.3)";
             }
 
             return (
@@ -719,14 +719,14 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                       borderRadius: 8,
                       background: showResult && isCorrectOption ? "linear-gradient(135deg, #22c55e, #16a34a)" 
                                 : showResult && isSelected && !isCorrectOption ? "linear-gradient(135deg, #ef4444, #dc2626)"
-                                : isSelected ? "linear-gradient(135deg, #6366f1, #8b5cf6)" 
-                                : "rgba(99, 102, 241, 0.2)",
+                                : isSelected ? "linear-gradient(135deg, #FFD700, #DAA520)" 
+                                : "rgba(255, 215, 0, 0.2)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       fontWeight: 700,
                       fontSize: 13,
-                      color: isSelected || (showResult && isCorrectOption) ? "#fff" : "#a5b4fc"
+                      color: isSelected || (showResult && isCorrectOption) ? "#fff" : "#FFD700"
                     }}>
                       {showResult && isCorrectOption ? "✓" : showResult && isSelected && !isCorrectOption ? "✗" : letter}
                     </span>
@@ -753,10 +753,10 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
       {/* Hints Section */}
       <div style={{ padding: "0 16px 16px" }}>
         <div style={{ 
-          background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))",
+          background: "linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(37, 99, 235, 0.05))",
           borderRadius: 12, 
           padding: 12,
-          border: "1px solid rgba(59, 130, 246, 0.2)"
+          border: "1px solid rgba(255, 215, 0, 0.2)"
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -769,8 +769,8 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background: level <= hintLevel ? "linear-gradient(135deg, #3b82f6, #2563eb)" : "rgba(59, 130, 246, 0.2)",
-                  boxShadow: level <= hintLevel ? "0 0 8px rgba(59, 130, 246, 0.5)" : "none",
+                  background: level <= hintLevel ? "linear-gradient(135deg, #FFD700, #2563eb)" : "rgba(255, 215, 0, 0.2)",
+                  boxShadow: level <= hintLevel ? "0 0 8px rgba(255, 215, 0, 0.5)" : "none",
                   transition: "all 0.3s"
                 }} />
               ))}
@@ -778,7 +778,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                 <button
                   onClick={requestHint}
                   style={{
-                    background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                    background: "linear-gradient(135deg, #FFD700, #2563eb)",
                     color: "white",
                     border: "none",
                     padding: "8px 14px",
@@ -787,7 +787,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
                     fontSize: 12,
                     fontWeight: 600,
                     marginLeft: 4,
-                    boxShadow: "0 2px 10px rgba(59, 130, 246, 0.4)"
+                    boxShadow: "0 2px 10px rgba(255, 215, 0, 0.4)"
                   }}
                 >
                   +Hint
@@ -801,11 +801,11 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
               {currentHints.map((hint, i) => (
                 <div key={i} style={{ 
                   padding: 10, 
-                  background: "rgba(30, 41, 59, 0.6)", 
+                  background: "rgba(20, 20, 20, 0.6)", 
                   borderRadius: 8,
                   fontSize: 13,
-                  color: "#93c5fd",
-                  borderLeft: "2px solid #3b82f6",
+                  color: "#FFD700",
+                  borderLeft: "2px solid #FFD700",
                   animation: `fadeIn 0.3s ease-out ${i * 0.1}s both`
                 }}>
                   {hint}
@@ -868,7 +868,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
           <button
             onClick={handleNext}
             style={{
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)",
               color: "white",
               border: "none",
               padding: "12px 20px",
@@ -876,7 +876,7 @@ export function PracticeWithHints({ questions, subject, onComplete }) {
               cursor: "pointer",
               fontSize: 14,
               fontWeight: 600,
-              boxShadow: "0 2px 15px rgba(99, 102, 241, 0.4)"
+              boxShadow: "0 2px 15px rgba(255, 215, 0, 0.4)"
             }}
           >
             {currentIndex < practiceQuestions.length - 1 ? "Next →" : "Finish 🎉"}

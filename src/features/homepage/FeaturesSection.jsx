@@ -81,7 +81,7 @@ export default function FeaturesSection() {
         }}>
           {features.map((feature, index) => (
             <div key={index} style={{
-              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5))',
+              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
               border: '1px solid rgba(51, 65, 85, 0.5)',
               borderRadius: '16px',
               padding: '24px',

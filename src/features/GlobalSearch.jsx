@@ -116,9 +116,9 @@ export function GlobalSearch({ subjects }) {
   };
 
   const typeColors = {
-    note: "#818cf8",
+    note: "#FFD700",
     question: "#facc15",
-    flashcard: "#2dd4a0",
+    flashcard: "#FFD700",
     lecture: "#ef4444"
   };
 
@@ -166,7 +166,7 @@ export function GlobalSearch({ subjects }) {
             key={filter}
             onClick={() => setActiveFilter(filter)}
             style={{
-              background: activeFilter === filter ? "#818cf8" : "#374151",
+              background: activeFilter === filter ? "#FFD700" : "#374151",
               color: "white",
               padding: "6px 12px",
               fontSize: 12,

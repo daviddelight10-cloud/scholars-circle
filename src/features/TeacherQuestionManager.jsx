@@ -390,8 +390,8 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
 
   const tabStyle = (id) => ({
     padding: "7px 13px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 600,
-    fontFamily: "Manrope,sans-serif", border: `0.5px solid ${tab === id ? "#3949ab" : "#1e2140"}`,
-    background: tab === id ? "#1a237e" : "#0d0f1f", color: tab === id ? "#c5cae9" : "#4a5080",
+    fontFamily: "Manrope,sans-serif", border: `0.5px solid ${tab === id ? "#B8860B" : "#1e2140"}`,
+    background: tab === id ? "#1a1a1a" : "#0d0f1f", color: tab === id ? "#FFD700" : "#4a5080",
   });
 
   const TABS = [
@@ -435,7 +435,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
         </select>
         <button
           onClick={() => setShowNewSubject(true)}
-          style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 9, padding: "8px 13px", fontSize: 11, color: "#3949ab", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}
+          style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 9, padding: "8px 13px", fontSize: 11, color: "#B8860B", cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap" }}
         >
           + Subject
         </button>
@@ -451,51 +451,51 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
         <div>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             {[["manual", "✍️ Manual Entry"], ["ai", "🤖 AI from Content"]].map(([id, label]) => (
-              <button key={id} onClick={() => setMode(id)} style={{ ...tabStyle(id), borderRadius: 8, border: `0.5px solid ${mode === id ? "#3949ab" : "#1e2140"}`, background: mode === id ? "#1a237e" : "#0d0f1f", color: mode === id ? "#c5cae9" : "#4a5080" }}>{label}</button>
+              <button key={id} onClick={() => setMode(id)} style={{ ...tabStyle(id), borderRadius: 8, border: `0.5px solid ${mode === id ? "#B8860B" : "#1e2140"}`, background: mode === id ? "#1a1a1a" : "#0d0f1f", color: mode === id ? "#FFD700" : "#4a5080" }}>{label}</button>
             ))}
           </div>
 
           {mode === "manual" && (
             <div style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 14, padding: 16, display: "grid", gap: 10 }}>
               <div>
-                <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Question *</label>
+                <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Question *</label>
                 <textarea value={manualForm.question} onChange={e => setManualForm(f => ({ ...f, question: e.target.value }))} rows={2} placeholder="Enter the question…" style={{ ...inp, resize: "vertical" }} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {["A", "B", "C", "D"].map(l => (
                   <div key={l}>
-                    <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Option {l}{l <= "B" ? " *" : ""}</label>
+                    <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Option {l}{l <= "B" ? " *" : ""}</label>
                     <input value={manualForm[`option${l}`]} onChange={e => setManualForm(f => ({ ...f, [`option${l}`]: e.target.value }))} placeholder={`Option ${l}…`} style={inp} />
                   </div>
                 ))}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 <div>
-                  <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Correct Answer</label>
+                  <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Correct Answer</label>
                   <select value={manualForm.answerIndex} onChange={e => setManualForm(f => ({ ...f, answerIndex: parseInt(e.target.value) }))} style={inp}>
                     {["A", "B", "C", "D"].map((l, i) => <option key={l} value={i}>{l}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Difficulty</label>
+                  <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Difficulty</label>
                   <select value={manualForm.difficulty} onChange={e => setManualForm(f => ({ ...f, difficulty: e.target.value }))} style={inp}>
                     {["easy", "medium", "hard"].map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Year</label>
+                  <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Year</label>
                   <input type="number" value={manualForm.year} onChange={e => setManualForm(f => ({ ...f, year: parseInt(e.target.value) }))} style={inp} />
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Topic</label>
+                <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Topic</label>
                 <input value={manualForm.topic} onChange={e => setManualForm(f => ({ ...f, topic: e.target.value }))} placeholder="e.g. Integration, Cell Biology…" style={inp} />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Explanation</label>
+                <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Explanation</label>
                 <textarea value={manualForm.explanation} onChange={e => setManualForm(f => ({ ...f, explanation: e.target.value }))} rows={2} placeholder="Why is the answer correct?" style={{ ...inp, resize: "vertical" }} />
               </div>
-              <button onClick={addManualDraft} style={{ background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#c5cae9", cursor: "pointer", fontWeight: 700 }}>
+              <button onClick={addManualDraft} style={{ background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: "#FFD700", cursor: "pointer", fontWeight: 700 }}>
                 Add to Queue →
               </button>
             </div>
@@ -504,21 +504,21 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
           {mode === "ai" && (
             <div style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 14, padding: 16, display: "grid", gap: 12 }}>
               <div>
-                <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 6, fontWeight: 600 }}>Upload File (PDF, DOCX, TXT, MD)</label>
+                <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 6, fontWeight: 600 }}>Upload File (PDF, DOCX, TXT, MD)</label>
                 <input type="file" accept=".pdf,.docx,.txt,.md,.markdown" onChange={e => setAiFile(e.target.files[0])} style={{ fontSize: 12, color: "#7b82b8" }} />
                 {aiFile && <div style={{ fontSize: 11, color: "#7b82b8", marginTop: 5 }}>📎 {aiFile.name}</div>}
               </div>
               <div style={{ textAlign: "center", fontSize: 11, color: "#4a5080" }}>— OR —</div>
               <div>
-                <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Paste Text / Lecture Notes</label>
+                <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Paste Text / Lecture Notes</label>
                 <textarea value={aiText} onChange={e => setAiText(e.target.value)} rows={8} placeholder="Paste lecture notes, textbook content, slides…" style={{ ...inp, resize: "vertical" }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <label style={{ fontSize: 11, color: "#3949ab", fontWeight: 600, whiteSpace: "nowrap" }}>Number of Questions:</label>
+                <label style={{ fontSize: 11, color: "#B8860B", fontWeight: 600, whiteSpace: "nowrap" }}>Number of Questions:</label>
                 <input type="number" min={0} max={150} value={aiCount} onChange={e => setAiCount(Math.max(0, Math.min(150, parseInt(e.target.value) || 0)))} style={{ ...inp, width: 70, textAlign: "center" }} />
                 <span style={{ fontSize: 10, color: "#4a5080" }}>0 = Auto (AI decides)</span>
               </div>
-              <button onClick={generateFromAI} disabled={aiGenerating} style={{ background: aiGenerating ? "#12142a" : "#1a237e", border: "0.5px solid #3949ab", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: aiGenerating ? "#4a5080" : "#c5cae9", cursor: aiGenerating ? "not-allowed" : "pointer", fontWeight: 700 }}>
+              <button onClick={generateFromAI} disabled={aiGenerating} style={{ background: aiGenerating ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: aiGenerating ? "#4a5080" : "#FFD700", cursor: aiGenerating ? "not-allowed" : "pointer", fontWeight: 700 }}>
                 {aiGenerating ? "⏳ Generating…" : `🤖 Generate ${aiCount > 0 ? aiCount : "Auto"} Questions`}
               </button>
             </div>
@@ -561,7 +561,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
               </div>
               <div style={{ display: "grid", gap: 10, maxHeight: 540, overflowY: "auto", paddingRight: 4 }}>
                 {drafts.map((q, i) => (
-                  <div key={q.id} style={{ background: selectedIds.has(q.id) ? "#0d1030" : "#0d0f1f", border: `0.5px solid ${selectedIds.has(q.id) ? "#3949ab" : "#1e2140"}`, borderRadius: 12, padding: "12px 14px" }}>
+                  <div key={q.id} style={{ background: selectedIds.has(q.id) ? "#0d1030" : "#0d0f1f", border: `0.5px solid ${selectedIds.has(q.id) ? "#B8860B" : "#1e2140"}`, borderRadius: 12, padding: "12px 14px" }}>
                     <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "flex-start" }}>
                       <input type="checkbox" checked={selectedIds.has(q.id)} onChange={e => { const n = new Set(selectedIds); e.target.checked ? n.add(q.id) : n.delete(q.id); setSelectedIds(n); }} style={{ marginTop: 3, flexShrink: 0 }} />
                       <span style={{ fontSize: 10, color: "#4a5080", flexShrink: 0, marginTop: 3 }}>#{i + 1}</span>
@@ -627,7 +627,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                       <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 7 }}>
                         <span style={{ fontSize: 10, color: "#4a5080", flexShrink: 0, marginTop: 2 }}>#{i + 1}</span>
                         <div style={{ flex: 1, fontSize: 12, color: "#e8eaf6", lineHeight: 1.6 }}>{q.question}</div>
-                        <button onClick={() => setEditingQ({ ...q })} style={{ background: "#080d2a", border: "0.5px solid #1e2a5a", borderRadius: 7, padding: "4px 10px", fontSize: 11, color: "#9fa8da", cursor: "pointer", flexShrink: 0 }}>Edit</button>
+                        <button onClick={() => setEditingQ({ ...q })} style={{ background: "#080d2a", border: "0.5px solid #1e2a5a", borderRadius: 7, padding: "4px 10px", fontSize: 11, color: "#DAA520", cursor: "pointer", flexShrink: 0 }}>Edit</button>
                         <button onClick={() => deleteQuestion(q.id)} style={{ background: "#140808", border: "0.5px solid #4a1414", borderRadius: 7, padding: "4px 8px", fontSize: 11, color: "#ef9a9a", cursor: "pointer", flexShrink: 0 }}>✕</button>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -653,11 +653,11 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
           ) : (
             <>
               <div style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 14, padding: "12px 14px", marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#3949ab", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Add Topic</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#B8860B", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Add Topic</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 70px auto", gap: 8, marginBottom: 8 }}>
                   <input value={newTopic.title} onChange={e => setNewTopic(t => ({ ...t, title: e.target.value }))} placeholder="Topic title…" style={inp} />
                   <input value={newTopic.week} onChange={e => setNewTopic(t => ({ ...t, week: e.target.value }))} placeholder="Wk #" style={{ ...inp, padding: "8px 8px" }} />
-                  <button onClick={addTopic} style={{ background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: "#c5cae9", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                  <button onClick={addTopic} style={{ background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 700 }}>Add</button>
                 </div>
                 <input value={newTopic.description} onChange={e => setNewTopic(t => ({ ...t, description: e.target.value }))} placeholder="Description (optional)…" style={inp} />
               </div>
@@ -697,7 +697,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
           ) : (
             <>
               <div style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 14, padding: "12px 14px", marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#3949ab", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>New Note</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#B8860B", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>New Note</div>
                 <input value={newNote.title} onChange={e => setNewNote(n => ({ ...n, title: e.target.value }))} placeholder="Note title…" style={{ ...inp, marginBottom: 8 }} />
                 <textarea value={newNote.body} onChange={e => setNewNote(n => ({ ...n, body: e.target.value }))} rows={4} placeholder="Write your note…" style={{ ...inp, resize: "vertical", marginBottom: 8 }} />
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -705,7 +705,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                     <input type="checkbox" checked={newNote.isShared} onChange={e => setNewNote(n => ({ ...n, isShared: e.target.checked }))} />
                     👥 Share with students
                   </label>
-                  <button onClick={createNote} style={{ marginLeft: "auto", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#c5cae9", cursor: "pointer", fontWeight: 600 }}>Save Note</button>
+                  <button onClick={createNote} style={{ marginLeft: "auto", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 600 }}>Save Note</button>
                 </div>
               </div>
               {notesLoading ? (
@@ -722,7 +722,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                           <div style={{ fontSize: 12, color: "#7b82b8", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{n.body}</div>
                         </div>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                          <button onClick={() => setEditingNote({ ...n })} style={{ background: "#080d2a", border: "0.5px solid #1e2a5a", borderRadius: 7, padding: "4px 10px", fontSize: 11, color: "#9fa8da", cursor: "pointer" }}>Edit</button>
+                          <button onClick={() => setEditingNote({ ...n })} style={{ background: "#080d2a", border: "0.5px solid #1e2a5a", borderRadius: 7, padding: "4px 10px", fontSize: 11, color: "#DAA520", cursor: "pointer" }}>Edit</button>
                           <button onClick={() => deleteNote(n.id)} style={{ background: "#140808", border: "0.5px solid #4a1414", borderRadius: 7, padding: "4px 8px", fontSize: 11, color: "#ef9a9a", cursor: "pointer" }}>✕</button>
                         </div>
                       </div>
@@ -747,49 +747,49 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
       {/* ── EDIT QUESTION MODAL ───────────────────────────────────────── */}
       {editingQ && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", zIndex: 2000, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={e => e.target === e.currentTarget && setEditingQ(null)}>
-          <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2140", borderTop: "2px solid #3949ab", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 640, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
+          <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2140", borderTop: "2px solid #B8860B", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 640, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
             <div style={{ padding: "14px 18px 10px", borderBottom: "0.5px solid #1e2140", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#e8eaf6", flex: 1, fontFamily: "Syne,sans-serif" }}>Edit Question</div>
               <button onClick={() => setEditingQ(null)} style={{ background: "none", border: "none", color: "#4a5080", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
             </div>
             <div style={{ overflowY: "auto", padding: "14px 18px 24px", display: "grid", gap: 10 }}>
               <div>
-                <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Question</label>
+                <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Question</label>
                 <textarea value={editingQ.question} onChange={e => setEditingQ(q => ({ ...q, question: e.target.value }))} rows={3} style={{ ...inp, resize: "vertical" }} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {["A", "B", "C", "D"].map(l => (
                   <div key={l}>
-                    <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Option {l}</label>
+                    <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Option {l}</label>
                     <input value={editingQ[`option${l}`] || ""} onChange={e => setEditingQ(q => ({ ...q, [`option${l}`]: e.target.value }))} style={inp} />
                   </div>
                 ))}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                 <div>
-                  <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Correct Answer</label>
+                  <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Correct Answer</label>
                   <select value={editingQ.answerIndex} onChange={e => setEditingQ(q => ({ ...q, answerIndex: parseInt(e.target.value) }))} style={inp}>
                     {["A", "B", "C", "D"].map((l, i) => <option key={l} value={i}>{l}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Difficulty</label>
+                  <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Difficulty</label>
                   <select value={editingQ.difficulty} onChange={e => setEditingQ(q => ({ ...q, difficulty: e.target.value }))} style={inp}>
                     {["easy", "medium", "hard"].map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Year</label>
+                  <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Year</label>
                   <input type="number" value={editingQ.year} onChange={e => setEditingQ(q => ({ ...q, year: parseInt(e.target.value) }))} style={inp} />
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: "#3949ab", display: "block", marginBottom: 4, fontWeight: 600 }}>Topic</label>
+                <label style={{ fontSize: 11, color: "#B8860B", display: "block", marginBottom: 4, fontWeight: 600 }}>Topic</label>
                 <input value={editingQ.topic || ""} onChange={e => setEditingQ(q => ({ ...q, topic: e.target.value }))} style={inp} />
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <label style={{ fontSize: 11, color: "#3949ab", fontWeight: 600 }}>Explanation</label>
+                  <label style={{ fontSize: 11, color: "#B8860B", fontWeight: 600 }}>Explanation</label>
                   {!editingQ.explanation && (
                     <button
                       onClick={async () => {
@@ -797,7 +797,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                         if (exp) setEditingQ(q => ({ ...q, explanation: exp }));
                         else notify("AI couldn't generate an explanation", true);
                       }}
-                      style={{ background: "#080d2a", border: "0.5px solid #1e2a5a", borderRadius: 6, padding: "2px 9px", fontSize: 10, color: "#9fa8da", cursor: "pointer" }}
+                      style={{ background: "#080d2a", border: "0.5px solid #1e2a5a", borderRadius: 6, padding: "2px 9px", fontSize: 10, color: "#DAA520", cursor: "pointer" }}
                     >
                       🤖 AI Generate
                     </button>
@@ -805,7 +805,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 </div>
                 <textarea value={editingQ.explanation || ""} onChange={e => setEditingQ(q => ({ ...q, explanation: e.target.value }))} rows={3} placeholder="Why is the answer correct?" style={{ ...inp, resize: "vertical" }} />
               </div>
-              <button onClick={saveEditedQuestion} disabled={loading} style={{ background: loading ? "#12142a" : "#1a237e", border: "0.5px solid #3949ab", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: loading ? "#4a5080" : "#c5cae9", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}>
+              <button onClick={saveEditedQuestion} disabled={loading} style={{ background: loading ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "10px 16px", fontSize: 13, color: loading ? "#4a5080" : "#FFD700", cursor: loading ? "not-allowed" : "pointer", fontWeight: 700 }}>
                 {loading ? "Saving…" : "Save Changes"}
               </button>
             </div>
@@ -828,7 +828,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
                 <input type="checkbox" checked={editingNote.isShared} onChange={e => setEditingNote(n => ({ ...n, isShared: e.target.checked }))} />
                 👥 Share with students
               </label>
-              <button onClick={saveNote} style={{ marginLeft: "auto", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#c5cae9", cursor: "pointer", fontWeight: 600 }}>Save</button>
+              <button onClick={saveNote} style={{ marginLeft: "auto", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "7px 16px", fontSize: 12, color: "#FFD700", cursor: "pointer", fontWeight: 600 }}>Save</button>
             </div>
           </div>
         </div>
@@ -843,7 +843,7 @@ export default function TeacherQuestionManager({ token, subjects, onSubjectsRefr
             <textarea value={newSubjectForm.description} onChange={e => setNewSubjectForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Description (optional)…" style={{ ...inp, resize: "vertical", marginBottom: 14 }} />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button onClick={() => setShowNewSubject(false)} style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 9, padding: "8px 14px", fontSize: 12, color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
-              <button onClick={handleCreateSubject} disabled={loading} style={{ background: loading ? "#12142a" : "#1a237e", border: "0.5px solid #3949ab", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: loading ? "#4a5080" : "#c5cae9", cursor: loading ? "not-allowed" : "pointer", fontWeight: 600 }}>
+              <button onClick={handleCreateSubject} disabled={loading} style={{ background: loading ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 9, padding: "8px 16px", fontSize: 12, color: loading ? "#4a5080" : "#FFD700", cursor: loading ? "not-allowed" : "pointer", fontWeight: 600 }}>
                 {loading ? "Creating…" : "Create Subject"}
               </button>
             </div>

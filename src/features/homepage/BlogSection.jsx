@@ -82,7 +82,7 @@ export default function BlogSection() {
               key={article.id}
               className="hover-lift hover-border"
               style={{
-                background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5))',
+                background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '20px',
                 padding: '28px',

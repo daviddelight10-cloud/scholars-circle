@@ -9,8 +9,8 @@ const D = {
   bg:     "#07080F",
   card:   "#0d0f1f",
   line:   "#1e2140",
-  accent: "#1a237e",
-  border: "#3949ab",
+  accent: "#1a1a1a",
+  border: "#B8860B",
   text:   "#e8eaf6",
   muted:  "#7b82b8",
   hint:   "#4a5080",
@@ -58,7 +58,7 @@ function WeeklyChart({ history }) {
               <div style={{ fontSize: 10, color: h > 0 ? D.muted : D.hint }}>{h > 0 ? h : ""}</div>
               <div style={{
                 width: "100%", height: `${Math.max(6, pct * 0.55)}px`,
-                background: isToday ? `linear-gradient(180deg, #5c6bc0, #3949ab)` : h > 0 ? "#1a237e" : "#0d0f22",
+                background: isToday ? `linear-gradient(180deg, #5c6bc0, #B8860B)` : h > 0 ? "#1a1a1a" : "#0d0f22",
                 border: `0.5px solid ${isToday ? D.border : h > 0 ? "#2a2d5a" : D.line}`,
                 borderRadius: 5, transition: "height 0.3s ease",
               }} title={`${h} session${h !== 1 ? "s" : ""}`} />
@@ -130,9 +130,9 @@ Give a clear, concise explanation (3-5 sentences) of why the correct answer is r
             <button
               onClick={() => { onRePractice(missed); onClose(); }}
               style={{
-                background: "#1a237e", border: `0.5px solid ${D.border}`,
+                background: "#1a1a1a", border: `0.5px solid ${D.border}`,
                 borderRadius: 10, padding: "7px 14px", fontSize: 11,
-                color: "#c5cae9", cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600,
+                color: "#FFD700", cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600,
               }}
             >🔁 Re-Practice Missed</button>
           )}
@@ -236,7 +236,7 @@ export default function StatsPanel({ history, stats, subjects, mastery, aiConfig
 
   const summaryCards = [
     { icon: "📊", label: "Avg Score",     value: `${avgScore}%`,           color: avgScore >= 70 ? "#81c784" : avgScore >= 50 ? "#ffd54f" : "#ef9a9a" },
-    { icon: "📚", label: "Sessions",      value: stats?.sessions ?? 0,     color: "#9fa8da" },
+    { icon: "📚", label: "Sessions",      value: stats?.sessions ?? 0,     color: "#DAA520" },
     { icon: "🔥", label: "Streak",        value: `${stats?.streak ?? 0}d`, color: "#ff7043" },
     { icon: "🎯", label: "Weekly Goal",   value: `${Math.min(stats?.sessions ?? 0, stats?.weeklyGoal ?? 5)}/${stats?.weeklyGoal ?? 5}`, color: "#80cbc4" },
   ];

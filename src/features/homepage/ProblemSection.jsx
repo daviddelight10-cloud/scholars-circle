@@ -83,8 +83,8 @@ export default function ProblemSection() {
         </div>
 
         <div style={{
-          background: 'linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(168, 85, 247, 0.1))',
-          border: '1px solid rgba(59, 130, 246, 0.2)',
+          background: 'linear-gradient(145deg, rgba(255, 215, 0, 0.1), rgba(218, 165, 32, 0.1))',
+          border: '1px solid rgba(255, 215, 0, 0.2)',
           borderRadius: '16px',
           padding: '32px 48px'
         }}>
@@ -127,7 +127,7 @@ export default function ProblemSection() {
               gap: '16px'
             }}>
               <div style={{
-                background: 'rgba(30, 41, 59, 0.5)',
+                background: 'rgba(20, 20, 20, 0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'
@@ -136,7 +136,7 @@ export default function ProblemSection() {
                 <div style={{ color: '#94a3b8', fontSize: '14px' }}>Faster Learning</div>
               </div>
               <div style={{
-                background: 'rgba(30, 41, 59, 0.5)',
+                background: 'rgba(20, 20, 20, 0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'
@@ -145,7 +145,7 @@ export default function ProblemSection() {
                 <div style={{ color: '#94a3b8', fontSize: '14px' }}>Better Retention</div>
               </div>
               <div style={{
-                background: 'rgba(30, 41, 59, 0.5)',
+                background: 'rgba(20, 20, 20, 0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'
@@ -154,7 +154,7 @@ export default function ProblemSection() {
                 <div style={{ color: '#94a3b8', fontSize: '14px' }}>Subjects</div>
               </div>
               <div style={{
-                background: 'rgba(30, 41, 59, 0.5)',
+                background: 'rgba(20, 20, 20, 0.5)',
                 borderRadius: '12px',
                 padding: '24px',
                 textAlign: 'center'

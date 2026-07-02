@@ -423,7 +423,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     const currentList = folderCategorized[activeFolderTab] || [];
     const tabBtnStyle = (active) => ({
       padding: "8px 16px", borderRadius: "10px", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer",
-      background: active ? "#1a237e" : "none", color: active ? "#c5cae9" : "#4a5080", display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap",
+      background: active ? "#1a1a1a" : "none", color: active ? "#FFD700" : "#4a5080", display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap",
     });
 
     return (
@@ -435,7 +435,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             <div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf6" }}>{folderDetail?.name || "Loading…"}</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
               {folderDetail?.courseCode && <span style={{ fontSize: 11, color: "#7b82b8" }}>{folderDetail.courseCode}</span>}
-              {folderDetail?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folderDetail.level}</span>}
+              {folderDetail?.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#DAA520", border: "0.5px solid #2a3080" }}>{folderDetail.level}</span>}
               {folderDetail?.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folderDetail.semester}</span>}
             </div>
           </div>
@@ -546,7 +546,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
             }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#9fa8da"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#DAA520"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
             >📝</button>
           )}
@@ -554,7 +554,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
           }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#9fa8da"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#DAA520"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
           >✏️</button>
           <button onClick={() => setDeleteConfirm(resource.id)} title="Delete" style={{
@@ -578,7 +578,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
           <p style={{ fontSize: "14px", color: "#7b82b8" }}>Manage your uploaded resources</p>
         </div>
         <button onClick={() => navigate("/teacher/resources/upload")} style={{
-          padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#c5cae9", cursor: "pointer",
+          padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#FFD700", cursor: "pointer",
         }}>+ Upload New</button>
       </div>
 
@@ -595,9 +595,9 @@ export default function TeacherResourcesHub({ onBack } = {}) {
         </button>
         <button onClick={() => setShowFilterSheet(true)} style={{
           ...filterBtnStyle,
-          background: activeFilterCount > 0 ? "#1a237e" : "#0f1128",
-          border: activeFilterCount > 0 ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
-          color: activeFilterCount > 0 ? "#c5cae9" : "#9fa8da",
+          background: activeFilterCount > 0 ? "#1a1a1a" : "#0f1128",
+          border: activeFilterCount > 0 ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
+          color: activeFilterCount > 0 ? "#FFD700" : "#DAA520",
         }}>
           <span>🔧 Filters</span>
           {activeFilterCount > 0 && <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: "999px", fontSize: "10px", padding: "1px 6px" }}>{activeFilterCount}</span>}
@@ -610,9 +610,9 @@ export default function TeacherResourcesHub({ onBack } = {}) {
           onClick={() => setFilters((p) => ({ ...p, department: "all" }))}
           style={{
             padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer",
-            background: filters.department === "all" ? "#1a237e" : "#0f1128",
-            border: filters.department === "all" ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
-            color: filters.department === "all" ? "#c5cae9" : "#7b82b8",
+            background: filters.department === "all" ? "#1a1a1a" : "#0f1128",
+            border: filters.department === "all" ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
+            color: filters.department === "all" ? "#FFD700" : "#7b82b8",
           }}
         >
           All
@@ -623,9 +623,9 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             onClick={() => setFilters((p) => ({ ...p, department: d.name }))}
             style={{
               padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap", cursor: "pointer",
-              background: filters.department === d.name ? "#1a237e" : "#0f1128",
-              border: filters.department === d.name ? "0.5px solid #3949ab" : "0.5px solid #1e2245",
-              color: filters.department === d.name ? "#c5cae9" : "#7b82b8",
+              background: filters.department === d.name ? "#1a1a1a" : "#0f1128",
+              border: filters.department === d.name ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
+              color: filters.department === d.name ? "#FFD700" : "#7b82b8",
             }}
           >
             {d.icon || "🏛️"} {d.name}
@@ -657,7 +657,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ fontSize: 14, color: "#7b82b8" }}>Create shared folders for your departments. Students can contribute materials for your approval.</div>
-              <button onClick={() => setShowCreateFolder(true)} style={{ padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#c5cae9", cursor: "pointer", flexShrink: 0 }}>+ New folder</button>
+              <button onClick={() => setShowCreateFolder(true)} style={{ padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer", flexShrink: 0 }}>+ New folder</button>
             </div>
 
             {folders.length === 0 ? (
@@ -667,20 +667,20 @@ export default function TeacherResourcesHub({ onBack } = {}) {
                 <div style={{ fontSize: 13, color: "#4a5080", maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
                   Create shared folders to organize materials by course or department. Students can upload into your folders for approval.
                 </div>
-                <button onClick={() => setShowCreateFolder(true)} style={{ marginTop: 16, padding: "10px 20px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#c5cae9", cursor: "pointer" }}>+ Create your first folder</button>
+                <button onClick={() => setShowCreateFolder(true)} style={{ marginTop: 16, padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer" }}>+ Create your first folder</button>
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "14px" }}>
                 {folders.map((folder) => (
                   <div key={folder.id} style={{ background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "12px", padding: "16px", cursor: "pointer", transition: "borderColor 0.15s" }}
                     onClick={() => openFolder(folder.id)}
-                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#3949ab")}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#B8860B")}
                     onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#1e2245")}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#c5c9e8", marginBottom: 4 }}>{folder.name}</div>
                     {folder.courseCode && <div style={{ fontSize: 11, color: "#7b82b8", marginBottom: 6 }}>{folder.courseCode}</div>}
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
-                      {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#9fa8da", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
+                      {folder.level && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f1440", color: "#DAA520", border: "0.5px solid #2a3080" }}>{folder.level}</span>}
                       {folder.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folder.semester}</span>}
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -742,7 +742,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
                   <select
                     value={filters[key]}
                     onChange={(e) => setFilters((p) => ({ ...p, [key]: e.target.value }))}
-                    style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}
+                    style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}
                   >
                     <option value="all">All {label.toLowerCase()}s</option>
                     {options.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -760,7 +760,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               </button>
               <button
                 onClick={() => setShowFilterSheet(false)}
-                style={{ flex: 1, padding: "10px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#c5cae9", cursor: "pointer" }}
+                style={{ flex: 1, padding: "10px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer" }}
               >
                 Apply
               </button>
@@ -785,30 +785,30 @@ export default function TeacherResourcesHub({ onBack } = {}) {
 
             <div style={{ marginBottom: "14px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Title</label>
-              <input value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+              <input value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }} />
             </div>
 
             <div style={{ marginBottom: "14px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Subject</label>
-              <input value={editForm.subject} onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+              <input value={editForm.subject} onChange={(e) => setEditForm((p) => ({ ...p, subject: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }} />
             </div>
 
             <div style={{ marginBottom: "14px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Description</label>
-              <textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none", resize: "vertical" }} />
+              <textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={3} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none", resize: "vertical" }} />
             </div>
 
             <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Level</label>
-                <select value={editForm.level} onChange={(e) => setEditForm((p) => ({ ...p, level: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}>
+                <select value={editForm.level} onChange={(e) => setEditForm((p) => ({ ...p, level: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}>
                   <option value="">None</option>
                   {levels.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Semester</label>
-                <select value={editForm.semester} onChange={(e) => setEditForm((p) => ({ ...p, semester: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}>
+                <select value={editForm.semester} onChange={(e) => setEditForm((p) => ({ ...p, semester: e.target.value }))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}>
                   <option value="">None</option>
                   {semesters.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -823,7 +823,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
                   return (
                     <button key={d.id} type="button" onClick={() => setEditDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])} style={{
                       padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                      background: selected ? "#1a237e" : "#0a0c1e", border: selected ? "0.5px solid #3949ab" : "0.5px solid #1e2245", color: selected ? "#c5cae9" : "#7b82b8",
+                      background: selected ? "#1a1a1a" : "#0a0c1e", border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245", color: selected ? "#FFD700" : "#7b82b8",
                     }}>
                       {d.icon || "🏛️"} {d.name}
                     </button>
@@ -833,15 +833,15 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             </div>
 
             <div style={{ marginBottom: "18px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#9fa8da", cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#DAA520", cursor: "pointer" }}>
                 <input type="checkbox" checked={editForm.isPremium} onChange={(e) => setEditForm((p) => ({ ...p, isPremium: e.target.checked }))} />
                 Premium resource
               </label>
             </div>
 
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => setEditResource(null)} style={{ flex: 1, padding: "10px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#9fa8da", cursor: "pointer" }}>Cancel</button>
-              <button onClick={submitEdit} disabled={editSaving} style={{ flex: 1, padding: "10px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: "14px", fontWeight: 700, color: "#c5cae9", cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.5 : 1 }}>
+              <button onClick={() => setEditResource(null)} style={{ flex: 1, padding: "10px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#DAA520", cursor: "pointer" }}>Cancel</button>
+              <button onClick={submitEdit} disabled={editSaving} style={{ flex: 1, padding: "10px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? 0.5 : 1 }}>
                 {editSaving ? "Saving…" : "Save Changes"}
               </button>
             </div>
@@ -856,7 +856,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             <div style={{ fontSize: "18px", fontWeight: 700, color: "#e8eaf6", marginBottom: "8px" }}>Delete Resource?</div>
             <div style={{ fontSize: "14px", color: "#7b82b8", marginBottom: "20px", lineHeight: 1.5 }}>This action cannot be undone. Are you sure you want to delete this resource?</div>
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: "10px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#9fa8da", cursor: "pointer" }}>Cancel</button>
+              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: "10px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#DAA520", cursor: "pointer" }}>Cancel</button>
               <button onClick={() => handleDelete(deleteConfirm)} style={{ flex: 1, padding: "10px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "8px", fontSize: "14px", fontWeight: 600, color: "#ef9a9a", cursor: "pointer" }}>Delete</button>
             </div>
           </div>
@@ -866,7 +866,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
       {/* MCQ Editor Modal */}
       {editingMcq && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", zIndex: 2000, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={(e) => e.target === e.currentTarget && setEditingMcq(null)}>
-          <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2140", borderTop: "2px solid #3949ab", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 720, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
+          <div style={{ background: "#0a0c1e", border: "0.5px solid #1e2140", borderTop: "2px solid #B8860B", borderRadius: "18px 18px 0 0", width: "100%", maxWidth: 720, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
             <div style={{ padding: "14px 18px 10px", borderBottom: "0.5px solid #1e2140", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#e8eaf6", flex: 1, fontFamily: "Syne,sans-serif" }}>Edit MCQ Questions — {editingMcq.title}</div>
               <button onClick={() => setEditingMcq(null)} style={{ background: "none", border: "none", color: "#4a5080", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
@@ -875,31 +875,31 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               {mcqDrafts.map((q, qi) => (
                 <div key={qi} style={{ background: "#0d0f1f", border: "0.5px solid #1e2140", borderRadius: 12, padding: "12px 14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#3949ab" }}>Q{qi + 1}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#B8860B" }}>Q{qi + 1}</span>
                     <div style={{ flex: 1 }} />
                     <button onClick={() => setMcqDrafts((prev) => prev.filter((_, i) => i !== qi))} style={{ background: "#140808", border: "0.5px solid #4a1414", borderRadius: 7, padding: "3px 8px", fontSize: 11, color: "#ef9a9a", cursor: "pointer" }}>✕</button>
                   </div>
-                  <textarea value={q.question} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, question: e.target.value } : x))} rows={2} placeholder="Question text…" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#9fa8da", outline: "none", resize: "vertical", marginBottom: 8 }} />
+                  <textarea value={q.question} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, question: e.target.value } : x))} rows={2} placeholder="Question text…" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 8, padding: "8px 10px", fontSize: 12, color: "#DAA520", outline: "none", resize: "vertical", marginBottom: 8 }} />
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
                     {["A", "B", "C", "D"].map((l) => (
                       <div key={l} style={{ display: "flex", gap: 5, alignItems: "center" }}>
                         <span style={{ fontSize: 11, color: q.correct === l ? "#81c784" : "#4a5080", fontWeight: q.correct === l ? 700 : 400, flexShrink: 0, width: 14 }}>{l}:</span>
-                        <input value={q.options?.[l] || ""} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, options: { ...x.options, [l]: e.target.value } } : x))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 7, padding: "5px 8px", fontSize: 11, color: "#9fa8da", outline: "none" }} />
+                        <input value={q.options?.[l] || ""} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, options: { ...x.options, [l]: e.target.value } } : x))} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 7, padding: "5px 8px", fontSize: 11, color: "#DAA520", outline: "none" }} />
                       </div>
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                    <select value={q.correct} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, correct: e.target.value } : x))} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 7, padding: "4px 8px", fontSize: 11, color: "#9fa8da", outline: "none" }}>
+                    <select value={q.correct} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, correct: e.target.value } : x))} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 7, padding: "4px 8px", fontSize: 11, color: "#DAA520", outline: "none" }}>
                       {["A", "B", "C", "D"].map((l) => <option key={l} value={l}>✓ {l}</option>)}
                     </select>
                   </div>
-                  <textarea value={q.explanation || ""} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, explanation: e.target.value } : x))} rows={2} placeholder="Explanation (optional)…" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 8, padding: "8px 10px", fontSize: 11, color: "#9fa8da", outline: "none", resize: "vertical" }} />
+                  <textarea value={q.explanation || ""} onChange={(e) => setMcqDrafts((prev) => prev.map((x, i) => i === qi ? { ...x, explanation: e.target.value } : x))} rows={2} placeholder="Explanation (optional)…" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: 8, padding: "8px 10px", fontSize: 11, color: "#DAA520", outline: "none", resize: "vertical" }} />
                 </div>
               ))}
-              <button onClick={() => setMcqDrafts((prev) => [...prev, { question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" }])} style={{ background: "#0d0f1f", border: "0.5px dashed #2a3080", borderRadius: 10, padding: "10px", fontSize: 12, color: "#9fa8da", cursor: "pointer", fontWeight: 600 }}>
+              <button onClick={() => setMcqDrafts((prev) => [...prev, { question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" }])} style={{ background: "#0d0f1f", border: "0.5px dashed #2a3080", borderRadius: 10, padding: "10px", fontSize: 12, color: "#DAA520", cursor: "pointer", fontWeight: 600 }}>
                 + Add Question
               </button>
-              <button onClick={saveMcq} disabled={mcqSaving} style={{ background: mcqSaving ? "#12142a" : "#1a237e", border: "0.5px solid #3949ab", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: mcqSaving ? "#4a5080" : "#c5cae9", cursor: mcqSaving ? "not-allowed" : "pointer", fontWeight: 700, marginTop: 4 }}>
+              <button onClick={saveMcq} disabled={mcqSaving} style={{ background: mcqSaving ? "#12142a" : "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: mcqSaving ? "#4a5080" : "#FFD700", cursor: mcqSaving ? "not-allowed" : "pointer", fontWeight: 700, marginTop: 4 }}>
                 {mcqSaving ? "Saving…" : `Save ${mcqDrafts.length} Question${mcqDrafts.length !== 1 ? "s" : ""}`}
               </button>
             </div>
@@ -925,25 +925,25 @@ export default function TeacherResourcesHub({ onBack } = {}) {
 
             <div style={{ marginBottom: "14px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Folder name</label>
-              <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g. Anatomy — Year 1" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+              <input value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)} placeholder="e.g. Anatomy — Year 1" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }} />
             </div>
 
             <div style={{ marginBottom: "14px" }}>
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Course code (optional)</label>
-              <input value={newFolderCourseCode} onChange={(e) => setNewFolderCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }} />
+              <input value={newFolderCourseCode} onChange={(e) => setNewFolderCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }} />
             </div>
 
             <div style={{ display: "flex", gap: "12px", marginBottom: "14px" }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Level</label>
-                <select value={newFolderLevel} onChange={(e) => setNewFolderLevel(e.target.value)} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}>
+                <select value={newFolderLevel} onChange={(e) => setNewFolderLevel(e.target.value)} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}>
                   <option value="">Any level</option>
                   {levels.map((l) => (<option key={l} value={l}>{l}</option>))}
                 </select>
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Semester</label>
-                <select value={newFolderSemester} onChange={(e) => setNewFolderSemester(e.target.value)} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}>
+                <select value={newFolderSemester} onChange={(e) => setNewFolderSemester(e.target.value)} style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}>
                   <option value="">Any semester</option>
                   {semesters.map((s) => (<option key={s} value={s}>{s}</option>))}
                 </select>
@@ -958,7 +958,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
                   return (
                     <button key={d.id} type="button" onClick={() => setNewFolderDeptIds((prev) => selected ? prev.filter((id) => id !== d.id) : [...prev, d.id])} style={{
                       padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                      background: selected ? "#1a237e" : "#0a0c1e", border: selected ? "0.5px solid #3949ab" : "0.5px solid #1e2245", color: selected ? "#c5cae9" : "#7b82b8",
+                      background: selected ? "#1a1a1a" : "#0a0c1e", border: selected ? "0.5px solid #B8860B" : "0.5px solid #1e2245", color: selected ? "#FFD700" : "#7b82b8",
                     }}>
                       {d.icon || "🏛️"} {d.name}
                     </button>
@@ -972,12 +972,12 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               <label style={{ fontSize: "12px", fontWeight: 600, color: "#7b82b8", marginBottom: "4px", display: "block" }}>Visibility</label>
               <div style={{ display: "flex", gap: "6px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "4px" }}>
                 {[["shared", "👥 Department"], ["link", "🔗 Link share"], ["private", "🔒 Private"]].map(([key, label]) => (
-                  <button key={key} onClick={() => setNewFolderVisibility(key)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: newFolderVisibility === key ? "#1a237e" : "none", fontSize: "13px", fontWeight: 700, color: newFolderVisibility === key ? "#c5cae9" : "#4a5080", cursor: "pointer" }}>{label}</button>
+                  <button key={key} onClick={() => setNewFolderVisibility(key)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: newFolderVisibility === key ? "#1a1a1a" : "none", fontSize: "13px", fontWeight: 700, color: newFolderVisibility === key ? "#FFD700" : "#4a5080", cursor: "pointer" }}>{label}</button>
                 ))}
               </div>
             </div>
 
-            <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ width: "100%", padding: "12px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#c5cae9", cursor: !newFolderName.trim() ? "not-allowed" : "pointer", opacity: !newFolderName.trim() ? 0.5 : 1 }}>
+            <button onClick={handleCreateFolder} disabled={!newFolderName.trim()} style={{ width: "100%", padding: "12px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: !newFolderName.trim() ? "not-allowed" : "pointer", opacity: !newFolderName.trim() ? 0.5 : 1 }}>
               Create folder
             </button>
           </div>
@@ -1006,6 +1006,6 @@ const tabStyle = {
 };
 
 const tabActiveStyle = {
-  padding: "8px 16px", borderRadius: "999px", background: "#1a237e", border: "none",
-  fontSize: "13px", fontWeight: 700, color: "#c5cae9", cursor: "pointer",
+  padding: "8px 16px", borderRadius: "999px", background: "#1a1a1a", border: "none",
+  fontSize: "13px", fontWeight: 700, color: "#FFD700", cursor: "pointer",
 };

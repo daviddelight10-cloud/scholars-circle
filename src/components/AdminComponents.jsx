@@ -211,11 +211,11 @@ export function KeyManagement({ token }) {
               <div
                 onClick={() => setSelectedDuration("week1")}
                 style={{
-                  border: selectedDuration === "week1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "week1" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
                   borderRadius: 12,
                   padding: 16,
                   cursor: "pointer",
-                  background: selectedDuration === "week1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "week1" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
                   transition: "all 0.2s"
                 }}
               >
@@ -224,17 +224,17 @@ export function KeyManagement({ token }) {
                     <div style={{ fontWeight: 600, fontSize: 16 }}>1 Week</div>
                     <div className="muted" style={{ fontSize: 12 }}>₦700</div>
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>7 days</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>7 days</div>
                 </div>
               </div>
               <div
                 onClick={() => setSelectedDuration("week2")}
                 style={{
-                  border: selectedDuration === "week2" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "week2" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
                   borderRadius: 12,
                   padding: 16,
                   cursor: "pointer",
-                  background: selectedDuration === "week2" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "week2" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
                   transition: "all 0.2s"
                 }}
               >
@@ -243,17 +243,17 @@ export function KeyManagement({ token }) {
                     <div style={{ fontWeight: 600, fontSize: 16 }}>2 Weeks</div>
                     <div className="muted" style={{ fontSize: 12 }}>₦1,300</div>
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>14 days</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>14 days</div>
                 </div>
               </div>
               <div
                 onClick={() => setSelectedDuration("month1")}
                 style={{
-                  border: selectedDuration === "month1" ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.2)",
+                  border: selectedDuration === "month1" ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.2)",
                   borderRadius: 12,
                   padding: 16,
                   cursor: "pointer",
-                  background: selectedDuration === "month1" ? "rgba(59,130,246,0.1)" : "rgba(255,255,255,0.05)",
+                  background: selectedDuration === "month1" ? "rgba(255,215,0,0.1)" : "rgba(255,255,255,0.05)",
                   transition: "all 0.2s",
                   position: "relative"
                 }}
@@ -264,7 +264,7 @@ export function KeyManagement({ token }) {
                     <div style={{ fontWeight: 600, fontSize: 16 }}>1 Month</div>
                     <div className="muted" style={{ fontSize: 12 }}>₦2,400</div>
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>30 days</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>30 days</div>
                 </div>
               </div>
             </div>
@@ -303,7 +303,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
           <p className="muted" style={{ marginBottom: 24 }}>
             Welcome, <strong>{username}</strong>! Your {userRole?.toLowerCase()} account is ready to use.
           </p>
-          <button onClick={onRefresh} style={{ padding: "12px 32px", background: "#3b82f6", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
+          <button onClick={onRefresh} style={{ padding: "12px 32px", background: "#FFD700", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 16, fontWeight: 600 }}>
             Continue to Dashboard
           </button>
         </div>
@@ -312,7 +312,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(59,130,246,0.05), rgba(139,92,246,0.05))" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(255,215,0,0.05), rgba(218,165,32,0.05))" }}>
       <div style={{ maxWidth: 900, width: "100%" }}>
         {/* Install App Button - Top Right */}
         {deferredPrompt && !isIOS && (
@@ -321,7 +321,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
               onClick={onInstall}
               style={{
                 padding: "10px 20px",
-                background: "linear-gradient(135deg, #8b5cf6, #6366f1)",
+                background: "linear-gradient(135deg, #DAA520, #FFD700)",
                 color: "#fff",
                 border: "none",
                 borderRadius: 8,
@@ -331,7 +331,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                boxShadow: "0 4px 12px rgba(139,92,246,0.3)"
+                boxShadow: "0 4px 12px rgba(218,165,32,0.3)"
               }}
             >
               <span>📱</span>
@@ -344,11 +344,11 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
           <div style={{ position: "absolute", top: 16, right: 16 }}>
             <div style={{
               padding: "10px 16px",
-              background: "rgba(139,92,246,0.1)",
-              border: "1px solid rgba(139,92,246,0.3)",
+              background: "rgba(218,165,32,0.1)",
+              border: "1px solid rgba(218,165,32,0.3)",
               borderRadius: 8,
               fontSize: 12,
-              color: "#8b5cf6",
+              color: "#DAA520",
               maxWidth: 200,
               textAlign: "center"
             }}>
@@ -368,11 +368,11 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
           <div className="card" style={{
             padding: 24,
             textAlign: "center",
-            background: "linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1))",
-            border: "2px solid rgba(59,130,246,0.3)",
+            background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(218,165,32,0.1))",
+            border: "2px solid rgba(255,215,0,0.3)",
             position: "relative"
           }}>
-            <div style={{ position: "absolute", top: 12, right: 12, background: "#3b82f6", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
+            <div style={{ position: "absolute", top: 12, right: 12, background: "#FFD700", color: "#fff", padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>
               MOST POPULAR
             </div>
             <div style={{ fontSize: 48, marginBottom: 12 }}>⭐</div>
@@ -381,7 +381,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
             {/* Pricing */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 36, fontWeight: 800, color: "#3b82f6" }}>₦700</span>
+                <span style={{ fontSize: 36, fontWeight: 800, color: "#FFD700" }}>₦700</span>
                 <span className="muted" style={{ fontSize: 14 }}>/week</span>
               </div>
               <div className="muted" style={{ fontSize: 12 }}>
@@ -401,23 +401,23 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
               style={{
                 width: "100%",
                 padding: "14px 24px",
-                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                background: "linear-gradient(135deg, #FFD700, #DAA520)",
                 color: "#fff",
                 border: "none",
                 borderRadius: 10,
                 cursor: "pointer",
                 fontSize: 16,
                 fontWeight: 700,
-                boxShadow: "0 4px 14px rgba(59,130,246,0.4)",
+                boxShadow: "0 4px 14px rgba(255,215,0,0.4)",
                 transition: "transform 0.2s, box-shadow 0.2s"
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 6px 20px rgba(59,130,246,0.5)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(255,215,0,0.5)";
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 4px 14px rgba(59,130,246,0.4)";
+                e.currentTarget.style.boxShadow = "0 4px 14px rgba(255,215,0,0.4)";
               }}
             >
               Get Premium Access
@@ -509,8 +509,8 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
                 <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>Share this key with your teacher to get activated</p>
               </div>
               <div style={{
-                background: "rgba(59,130,246,0.1)",
-                border: "1px solid rgba(59,130,246,0.3)",
+                background: "rgba(255,215,0,0.1)",
+                border: "1px solid rgba(255,215,0,0.3)",
                 borderRadius: 8,
                 padding: 10,
                 marginBottom: 12,
@@ -524,10 +524,10 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
                   width: 6,
                   height: 6,
                   borderRadius: "50%",
-                  background: isChecking ? "#3b82f6" : "#22c55e",
+                  background: isChecking ? "#FFD700" : "#22c55e",
                   animation: isChecking ? "pulse 1s infinite" : "none"
                 }}></span>
-                <span style={{ fontSize: 11, color: isChecking ? "#3b82f6" : "#22c55e" }}>
+                <span style={{ fontSize: 11, color: isChecking ? "#FFD700" : "#22c55e" }}>
                   {isChecking ? "Checking..." : "Auto-checking every 10s"}
                 </span>
               </div>
@@ -536,7 +536,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
                 disabled={isChecking}
                 style={{
                   padding: "8px 20px",
-                  background: "#3b82f6",
+                  background: "#FFD700",
                   color: "#fff",
                   border: "none",
                   borderRadius: 6,

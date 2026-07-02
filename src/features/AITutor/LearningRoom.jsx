@@ -438,7 +438,7 @@ Transcript: "${fullText}"`;
               ← Back to search
             </button>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#e0e7ff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#FFD700", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {video.title}
               </div>
               <div style={{ fontSize: 11, color: "#94a3b8" }}>
@@ -468,7 +468,7 @@ Transcript: "${fullText}"`;
                 borderRadius: 12,
                 overflow: "hidden",
                 background: "#000",
-                border: "1px solid rgba(99,102,241,0.2)",
+                border: "1px solid rgba(255,215,0,0.2)",
               }}>
                 <div ref={containerRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
               </div>
@@ -509,8 +509,8 @@ Transcript: "${fullText}"`;
             <div className="tutor-panel" style={{
               display: "flex",
               flexDirection: "column",
-              background: "rgba(15,23,42,0.7)",
-              border: "1px solid rgba(99,102,241,0.25)",
+              background: "rgba(10,10,10,0.7)",
+              border: "1px solid rgba(255,215,0,0.25)",
               borderRadius: 12,
               padding: 12,
               gap: 10,
@@ -518,15 +518,15 @@ Transcript: "${fullText}"`;
               maxHeight: 700,
             }}>
               {/* Tutor avatar + status */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 8, borderBottom: "1px solid rgba(99,102,241,0.15)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 8, borderBottom: "1px solid rgba(255,215,0,0.15)" }}>
                 <div style={{
                   width: 36, height: 36, borderRadius: "50%",
-                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  background: "linear-gradient(135deg, #FFD700, #DAA520)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 20,
                 }}>🎓</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#e0e7ff" }}>Tunde the Tutor</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#FFD700" }}>Tunde the Tutor</div>
                   <div style={{ fontSize: 11, color: "#9ca3af" }}>
                     {asking ? "💭 thinking..." : playerState === "playing" ? "👀 watching with you" : "⏸️ paused — ask anything"}
                   </div>
@@ -550,9 +550,9 @@ Transcript: "${fullText}"`;
                     style={{
                       padding: "6px 10px",
                       borderRadius: 16,
-                      border: "1px solid rgba(99,102,241,0.3)",
-                      background: "rgba(30,41,59,0.7)",
-                      color: "#a5b4fc",
+                      border: "1px solid rgba(255,215,0,0.3)",
+                      background: "rgba(20,20,20,0.7)",
+                      color: "#FFD700",
                       fontSize: 11,
                       cursor: asking ? "wait" : "pointer",
                       whiteSpace: "nowrap",
@@ -579,13 +579,13 @@ Transcript: "${fullText}"`;
                       maxWidth: "92%",
                       padding: "8px 12px",
                       borderRadius: 12,
-                      background: m.role === "user" ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(30,41,59,0.9)",
+                      background: m.role === "user" ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(20,20,20,0.9)",
                       color: m.role === "user" ? "#fff" : "#e5e7eb",
                       fontSize: 13,
                       lineHeight: 1.5,
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
-                      border: m.role === "assistant" ? "1px solid rgba(99,102,241,0.2)" : "none",
+                      border: m.role === "assistant" ? "1px solid rgba(255,215,0,0.2)" : "none",
                     }}
                   >
                     {m.role === "assistant" ? <MarkdownText>{m.content}</MarkdownText> : m.content}
@@ -596,9 +596,9 @@ Transcript: "${fullText}"`;
                           style={{
                             padding: "3px 8px",
                             borderRadius: 6,
-                            border: "1px solid rgba(99,102,241,0.3)",
-                            background: speakingMsgIdx === i ? "rgba(99,102,241,0.3)" : "transparent",
-                            color: "#a5b4fc",
+                            border: "1px solid rgba(255,215,0,0.3)",
+                            background: speakingMsgIdx === i ? "rgba(255,215,0,0.3)" : "transparent",
+                            color: "#FFD700",
                             fontSize: 10,
                             cursor: "pointer",
                           }}
@@ -625,9 +625,9 @@ Transcript: "${fullText}"`;
                   style={{
                     padding: "8px 10px",
                     borderRadius: 8,
-                    border: listening ? "2px solid #ef4444" : "1px solid rgba(99,102,241,0.3)",
-                    background: listening ? "rgba(239,68,68,0.15)" : "rgba(30,41,59,0.7)",
-                    color: listening ? "#f87171" : "#a5b4fc",
+                    border: listening ? "2px solid #ef4444" : "1px solid rgba(255,215,0,0.3)",
+                    background: listening ? "rgba(239,68,68,0.15)" : "rgba(20,20,20,0.7)",
+                    color: listening ? "#f87171" : "#FFD700",
                     fontSize: 14,
                     cursor: "pointer",
                   }}
@@ -646,8 +646,8 @@ Transcript: "${fullText}"`;
                     minWidth: 0,
                     padding: "10px 12px",
                     borderRadius: 8,
-                    border: "1px solid rgba(99,102,241,0.3)",
-                    background: "rgba(30,41,59,0.7)",
+                    border: "1px solid rgba(255,215,0,0.3)",
+                    background: "rgba(20,20,20,0.7)",
                     color: "#fff",
                     fontSize: 14,
                   }}
@@ -737,7 +737,7 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 4 }}>🎬</div>
-        <h3 style={{ margin: 0, color: "#e0e7ff" }}>Learn from any topic</h3>
+        <h3 style={{ margin: 0, color: "#FFD700" }}>Learn from any topic</h3>
         <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>
           Search a topic or paste a YouTube URL → watch the lesson → pause anytime to ask the AI tutor
         </p>
@@ -753,8 +753,8 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
             flex: 1,
             padding: "12px 14px",
             borderRadius: 10,
-            border: `1px solid ${isUrl ? "rgba(34,197,94,0.5)" : "rgba(99,102,241,0.3)"}`,
-            background: "rgba(30,41,59,0.8)",
+            border: `1px solid ${isUrl ? "rgba(34,197,94,0.5)" : "rgba(255,215,0,0.3)"}`,
+            background: "rgba(20,20,20,0.8)",
             color: "#fff",
             fontSize: 14,
           }}
@@ -767,7 +767,7 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
         <div style={{ fontSize: 11, color: "#34d399", marginTop: -8 }}>🔗 YouTube URL detected — click Load to play</div>
       )}
 
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#a5b4fc", cursor: "pointer" }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#FFD700", cursor: "pointer" }}>
         <input type="checkbox" checked={ngBoost} onChange={(e) => setNgBoost(e.target.checked)} />
         🇳🇬 Boost results for Nigerian university context
       </label>
@@ -789,9 +789,9 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
                 style={{
                   padding: "6px 10px",
                   borderRadius: 16,
-                  border: "1px solid rgba(99,102,241,0.3)",
-                  background: "rgba(30,41,59,0.6)",
-                  color: "#a5b4fc",
+                  border: "1px solid rgba(255,215,0,0.3)",
+                  background: "rgba(20,20,20,0.6)",
+                  color: "#FFD700",
                   fontSize: 11,
                   cursor: "pointer",
                 }}
@@ -811,8 +811,8 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
               onClick={() => onSelect(v)}
               style={{
                 textAlign: "left",
-                background: "rgba(30,41,59,0.7)",
-                border: "1px solid rgba(99,102,241,0.2)",
+                background: "rgba(20,20,20,0.7)",
+                border: "1px solid rgba(255,215,0,0.2)",
                 borderRadius: 10,
                 padding: 0,
                 cursor: "pointer",
@@ -830,7 +830,7 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
                 />
               )}
               <div style={{ padding: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#e0e7ff", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.3 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#FFD700", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.3 }}>
                   {v.title}
                 </div>
                 <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
@@ -849,16 +849,16 @@ function SearchPanel({ query, setQuery, ngBoost, setNgBoost, searching, searchEr
 function LessonSummary({ summary, concepts, loading }) {
   return (
     <div style={{
-      background: "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05))",
-      border: "1px solid rgba(99,102,241,0.2)",
+      background: "linear-gradient(135deg, rgba(255,215,0,0.08), rgba(218,165,32,0.05))",
+      border: "1px solid rgba(255,215,0,0.2)",
       borderRadius: 10,
       padding: 12,
     }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 6 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#FFD700", marginBottom: 6 }}>
         📖 Lesson Companion {loading && "(generating...)"}
       </div>
       {summary && (
-        <div style={{ fontSize: 13, color: "#e0e7ff", lineHeight: 1.5, marginBottom: 8 }}>
+        <div style={{ fontSize: 13, color: "#FFD700", lineHeight: 1.5, marginBottom: 8 }}>
           {summary}
         </div>
       )}
@@ -868,7 +868,7 @@ function LessonSummary({ summary, concepts, loading }) {
             <span key={i} style={{
               padding: "3px 8px",
               borderRadius: 12,
-              background: "rgba(99,102,241,0.15)",
+              background: "rgba(255,215,0,0.15)",
               color: "#c4b5fd",
               fontSize: 11,
             }}>
@@ -884,7 +884,7 @@ function LessonSummary({ summary, concepts, loading }) {
 function EndQuiz({ quiz, loading, onAnswer, onRestart }) {
   if (loading || !quiz) {
     return (
-      <div style={{ padding: 12, background: "rgba(30,41,59,0.6)", borderRadius: 10, fontSize: 13, color: "#a5b4fc" }}>
+      <div style={{ padding: 12, background: "rgba(20,20,20,0.6)", borderRadius: 10, fontSize: 13, color: "#FFD700" }}>
         🧠 Generating end-of-lesson quiz...
       </div>
     );
@@ -892,10 +892,10 @@ function EndQuiz({ quiz, loading, onAnswer, onRestart }) {
   if (quiz.done) {
     const pct = Math.round((quiz.score / quiz.questions.length) * 100);
     return (
-      <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(30,41,59,0.8)" }}>
+      <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(255,215,0,0.3)", background: "rgba(20,20,20,0.8)" }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 32 }}>{pct >= 80 ? "🏆" : pct >= 50 ? "👍" : "📚"}</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#e0e7ff" }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#FFD700" }}>
             {quiz.score} / {quiz.questions.length} ({pct}%)
           </div>
           <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>End-of-lesson quiz</div>
@@ -904,7 +904,7 @@ function EndQuiz({ quiz, loading, onAnswer, onRestart }) {
           {quiz.questions.map((q, i) => {
             const a = quiz.answers[i];
             return (
-              <div key={i} style={{ padding: 8, borderRadius: 8, background: "rgba(15,23,42,0.6)", fontSize: 12 }}>
+              <div key={i} style={{ padding: 8, borderRadius: 8, background: "rgba(10,10,10,0.6)", fontSize: 12 }}>
                 <div style={{ color: "#e5e7eb", fontWeight: 600, marginBottom: 4 }}>{i + 1}. {q.q}</div>
                 <div style={{ color: a.correct ? "#4ade80" : "#f87171" }}>
                   {a.correct ? "✓" : "✗"} Your answer: {q.options[a.selected]}
@@ -925,11 +925,11 @@ function EndQuiz({ quiz, loading, onAnswer, onRestart }) {
   }
   const q = quiz.questions[quiz.current];
   return (
-    <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(30,41,59,0.8)" }}>
-      <div style={{ fontSize: 11, color: "#a5b4fc", marginBottom: 6 }}>
+    <div style={{ padding: 14, borderRadius: 10, border: "1px solid rgba(255,215,0,0.3)", background: "rgba(20,20,20,0.8)" }}>
+      <div style={{ fontSize: 11, color: "#FFD700", marginBottom: 6 }}>
         🧠 Quiz · {quiz.current + 1} / {quiz.questions.length}
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: "#e0e7ff", marginBottom: 10 }}>{q.q}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: "#FFD700", marginBottom: 10 }}>{q.q}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {q.options.map((opt, i) => (
           <button
@@ -938,8 +938,8 @@ function EndQuiz({ quiz, loading, onAnswer, onRestart }) {
             style={{
               padding: "10px 12px",
               borderRadius: 8,
-              border: "1px solid rgba(99,102,241,0.3)",
-              background: "rgba(15,23,42,0.6)",
+              border: "1px solid rgba(255,215,0,0.3)",
+              background: "rgba(10,10,10,0.6)",
               color: "#e5e7eb",
               fontSize: 13,
               textAlign: "left",
@@ -959,7 +959,7 @@ const btnPrimary = {
   padding: "10px 16px",
   borderRadius: 10,
   border: "none",
-  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+  background: "linear-gradient(135deg, #FFD700, #DAA520)",
   color: "#fff",
   fontWeight: 600,
   fontSize: 13,
@@ -969,9 +969,9 @@ const btnPrimary = {
 const btnSecondary = {
   padding: "8px 12px",
   borderRadius: 8,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(30,41,59,0.7)",
-  color: "#a5b4fc",
+  border: "1px solid rgba(255,215,0,0.3)",
+  background: "rgba(20,20,20,0.7)",
+  color: "#FFD700",
   fontSize: 12,
   cursor: "pointer",
 };

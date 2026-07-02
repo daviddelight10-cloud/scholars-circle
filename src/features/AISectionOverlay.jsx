@@ -9,8 +9,8 @@ const D = {
   bg:      "#07080F",
   card:    "#0d0f1f",
   bar:     "#0a0b15",
-  accent:  "#1a237e",
-  border:  "#3949ab",
+  accent:  "#1a1a1a",
+  border:  "#B8860B",
   line:    "#1e2140",
   line2:   "#1a1d35",
   text:    "#e8eaf6",
@@ -128,7 +128,7 @@ function CollapseSection({ icon, iconBg, iconBdr, label, defaultOpen = false, ch
           background: iconBg, border: `0.5px solid ${iconBdr}`,
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
         }}>{icon}</span>
-        <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#9fa8da", fontFamily: "Manrope,sans-serif" }}>{label}</span>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#DAA520", fontFamily: "Manrope,sans-serif" }}>{label}</span>
         <span style={{
           fontSize: 13, color: D.faint, display: "inline-block",
           transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s",
@@ -218,7 +218,7 @@ function ResponseCard({ data, onStartPractice }) {
           width: 24, height: 24, borderRadius: 7,
           background: D.accent, border: `0.5px solid ${D.border}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 12, color: "#c5cae9", flexShrink: 0,
+          fontSize: 12, color: "#FFD700", flexShrink: 0,
         }}>✦</span>
         <span style={{ fontSize: 10, color: D.hint, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontFamily: "Manrope,sans-serif" }}>
           Scholar's Circle AI
@@ -257,8 +257,8 @@ function ResponseCard({ data, onStartPractice }) {
         {data.source === "bank" ? (
           <>
             <p style={{ margin: "0 0 9px", fontSize: 11, color: "#5a6090" }}>
-              Your <strong style={{ color: "#c5cae9" }}>{data.subjectLabel}</strong> bank has{" "}
-              <strong style={{ color: "#c5cae9" }}>{data.bankCount} MCQs</strong> on this topic.
+              Your <strong style={{ color: "#FFD700" }}>{data.subjectLabel}</strong> bank has{" "}
+              <strong style={{ color: "#FFD700" }}>{data.bankCount} MCQs</strong> on this topic.
             </p>
             <button
               onClick={onStartPractice}
@@ -269,7 +269,7 @@ function ResponseCard({ data, onStartPractice }) {
                 fontSize: 11, fontWeight: 600, color: "#7986cb", cursor: "pointer",
                 fontFamily: "Manrope,sans-serif",
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = D.accent; e.currentTarget.style.color = "#c5cae9"; }}
+              onMouseEnter={e => { e.currentTarget.style.background = D.accent; e.currentTarget.style.color = "#FFD700"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.color = "#7986cb"; }}
             >
               ▶ Start Practice Mode — {data.bankCount} questions
@@ -321,7 +321,7 @@ function PracticeView({ data, onBack }) {
         <button onClick={onBack} style={{
           padding: "8px 20px", borderRadius: 20,
           background: D.accent, border: `0.5px solid ${D.border}`,
-          color: "#c5cae9", cursor: "pointer", fontSize: 12, fontFamily: "Manrope,sans-serif",
+          color: "#FFD700", cursor: "pointer", fontSize: 12, fontFamily: "Manrope,sans-serif",
         }}>← Back to explanation</button>
       </div>
     );
@@ -387,7 +387,7 @@ function PracticeView({ data, onBack }) {
                       fontSize: 12, fontFamily: "Manrope,sans-serif", textAlign: "left",
                       transition: "all 0.15s",
                     }}
-                    onMouseEnter={e => { if (!isAnswered) { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = "#9fa8da"; e.currentTarget.style.background = "#0f1240"; }}}
+                    onMouseEnter={e => { if (!isAnswered) { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = "#DAA520"; e.currentTarget.style.background = "#0f1240"; }}}
                     onMouseLeave={e => { if (!isAnswered) { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.muted; e.currentTarget.style.background = "transparent"; }}}
                   >
                     <span style={{
@@ -519,7 +519,7 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
             style={{
               padding: "5px 11px", borderRadius: 8,
               background: D.accent, border: `0.5px solid ${D.border}`,
-              fontSize: 11, fontWeight: 600, color: "#c5cae9",
+              fontSize: 11, fontWeight: 600, color: "#FFD700",
               cursor: "pointer", fontFamily: "Manrope,sans-serif",
             }}
           >+ New</button>
@@ -730,7 +730,7 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
             flex: 1, background: "#0f1128",
             border: voice.listening ? "0.5px solid #ef4444" : `0.5px solid ${D.line}`,
             borderRadius: 20, padding: "9px 14px", fontSize: 12,
-            color: voice.listening ? "#fca5a5" : "#9fa8da",
+            color: voice.listening ? "#fca5a5" : "#DAA520",
             fontFamily: "Manrope,sans-serif",
             outline: "none", transition: "border-color 0.2s, color 0.2s",
           }}
@@ -767,7 +767,7 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
             border: `0.5px solid ${canSend ? D.border : "#1a1d35"}`,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: canSend ? "pointer" : "default",
-            color: canSend ? "#9fa8da" : "#2a2d50",
+            color: canSend ? "#DAA520" : "#2a2d50",
             fontSize: 16, flexShrink: 0, transition: "all 0.15s",
           }}
         >→</button>
@@ -979,7 +979,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               border: showHistory ? `0.5px solid ${D.border}` : "0.5px solid #2a2d4a",
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", flexShrink: 0,
-              fontSize: 14, color: showHistory ? "#c5cae9" : D.muted,
+              fontSize: 14, color: showHistory ? "#FFD700" : D.muted,
               letterSpacing: 1, transition: "all 0.2s",
             }}
           >⋯</button>
@@ -1029,7 +1029,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           fontSize: 11, color: D.muted, cursor: "pointer",
                           fontFamily: "Manrope,sans-serif",
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#1a1d3a"; e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = "#9fa8da"; }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#1a1d3a"; e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = "#DAA520"; }}
                         onMouseLeave={e => { e.currentTarget.style.background = "#0f1128"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = D.muted; }}
                       >{c}</button>
                     ))}
@@ -1057,7 +1057,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                         <div style={{
                           background: D.accent, border: `0.5px solid ${D.border}`,
                           borderRadius: "16px 16px 4px 16px",
-                          padding: "9px 13px", fontSize: 13, color: "#c5cae9",
+                          padding: "9px 13px", fontSize: 13, color: "#FFD700",
                           fontFamily: "Manrope,sans-serif",
                           animation: "scSlideIn 0.25s ease",
                         }}><MarkdownText>{m.text}</MarkdownText></div>
@@ -1102,7 +1102,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                   alignSelf: "flex-end",
                   background: D.accent, border: `0.5px solid ${D.border}`,
                   borderRadius: "16px 16px 4px 16px",
-                  padding: "9px 13px", fontSize: 13, color: "#c5cae9",
+                  padding: "9px 13px", fontSize: 13, color: "#FFD700",
                   maxWidth: "78%", fontFamily: "Manrope,sans-serif",
                 }}>{m.text}</div>
               ))}

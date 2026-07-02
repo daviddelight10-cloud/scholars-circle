@@ -10,7 +10,7 @@ const FOUNDERS = [
     role: 'Co-Founder & Product Lead',
     roleShort: 'Product Lead',
     bio: 'Delight leads the vision and development of Scholar\'s Circle, focusing on creating an intuitive learning experience that addresses the real needs of students.',
-    color: '#4F8EF7',
+    color: '#FFD700',
     bg: 'rgba(79,142,247,0.07)',
     border: 'rgba(79,142,247,0.2)',
     tag: 'Product · UX · Strategy',
@@ -154,7 +154,7 @@ export default function HomePage() {
   const text = '#EDEFF5';
   const textDim = '#9AA3B5';
   const textFaint = '#646E84';
-  const blue = '#4F8EF7';
+  const blue = '#FFD700';
   const gold = '#F5A623';
   const coral = '#FF5470';
   const green = '#3DD68C';
@@ -509,7 +509,7 @@ export default function HomePage() {
               ) : isIOS ? (
                 <p style={{ fontSize: 11, color: textFaint }}>Use the Safari steps on the right →</p>
               ) : (
-                <button onClick={handleInstall} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(135deg, #3DD68C, #4F8EF7)', border: 'none', borderRadius: 999, padding: isMobile ? '8px 14px' : '9px 18px', fontSize: isMobile ? 12 : 13, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
+                <button onClick={handleInstall} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'linear-gradient(135deg, #3DD68C, #FFD700)', border: 'none', borderRadius: 999, padding: isMobile ? '8px 14px' : '9px 18px', fontSize: isMobile ? 12 : 13, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Install Now
                 </button>

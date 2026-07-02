@@ -586,20 +586,20 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
       <div className="row" style={{ gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <button 
           onClick={() => setActiveTab("upload")}
-          style={{ background: activeTab === "upload" ? "#818cf8" : "#374151", color: "white" }}
+          style={{ background: activeTab === "upload" ? "#FFD700" : "#374151", color: "white" }}
         >
           📤 Upload & Process
         </button>
         <button 
           onClick={() => setActiveTab("results")}
-          style={{ background: activeTab === "results" ? "#818cf8" : "#374151", color: "white" }}
+          style={{ background: activeTab === "results" ? "#FFD700" : "#374151", color: "white" }}
           disabled={!result}
         >
           📊 Results
         </button>
         <button 
           onClick={() => setActiveTab("saved")}
-          style={{ background: activeTab === "saved" ? "#818cf8" : "#374151", color: "white" }}
+          style={{ background: activeTab === "saved" ? "#FFD700" : "#374151", color: "white" }}
         >
           💾 Saved ({savedDocuments.length})
         </button>
@@ -615,7 +615,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
 
       {/* ===== PRACTICE MODE TAKES OVER ===== */}
       {practiceMode === "mcq" && practiceDoc && (
-        <div className="lesson-block" style={{ background: "#000000", border: "2px solid #3b82f6", marginBottom: 16, color: "white" }}>
+        <div className="lesson-block" style={{ background: "#000000", border: "2px solid #FFD700", marginBottom: 16, color: "white" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h3 style={{ color: "white" }}>📝 MCQ Practice</h3>
             <span style={{ color: "#9ca3af" }}>
@@ -627,7 +627,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
             <div style={{
               height: "100%",
               width: `${((mcqIndex + 1) / (practiceDoc.mcqQuestions || practiceDoc.mcq_questions || []).length) * 100}%`,
-              background: "#3b82f6",
+              background: "#FFD700",
               borderRadius: 3,
               transition: "width 0.3s"
             }} />
@@ -655,7 +655,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                       if (isCorrect) { bg = "#064e3b"; border = "2px solid #10b981"; }
                       else if (isSelected && !isCorrect) { bg = "#7f1d1d"; border = "2px solid #ef4444"; }
                     } else if (isSelected) {
-                      bg = "#1e3a5f"; border = "2px solid #3b82f6";
+                      bg = "#1e3a5f"; border = "2px solid #FFD700";
                     }
                     
                     return (
@@ -706,7 +706,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                     <button
                       onClick={nextMcq}
                       style={{
-                        background: "#3b82f6",
+                        background: "#FFD700",
                         color: "white",
                         border: "none",
                         padding: "10px 24px",
@@ -757,7 +757,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                     padding: 40,
                     background: flashcardFlipped ? "#064e3b" : "#1e3a5f",
                     borderRadius: 12,
-                    border: `2px solid ${flashcardFlipped ? "#10b981" : "#3b82f6"}`,
+                    border: `2px solid ${flashcardFlipped ? "#10b981" : "#FFD700"}`,
                     cursor: "pointer",
                     minHeight: 180,
                     display: "flex",
@@ -812,7 +812,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                   <button
                     onClick={() => setFlashcardFlipped(!flashcardFlipped)}
                     style={{
-                      background: "#818cf8",
+                      background: "#FFD700",
                       color: "white",
                       border: "none",
                       padding: "8px 20px",
@@ -938,7 +938,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                 alignItems: "center", 
                 gap: 8, 
                 padding: "10px 20px", 
-                background: "#818cf8", 
+                background: "#FFD700", 
                 color: "white", 
                 borderRadius: 4, 
                 cursor: "pointer",
@@ -960,7 +960,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
               {extractedImages.length > 0 && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
                   {extractedImages.slice(0, 3).map((img, i) => (
-                    <img key={i} src={img} alt={`Page ${i + 1}`} style={{ width: 80, height: 100, objectFit: "cover", borderRadius: 6, border: "1px solid #3b82f6" }} />
+                    <img key={i} src={img} alt={`Page ${i + 1}`} style={{ width: 80, height: 100, objectFit: "cover", borderRadius: 6, border: "1px solid #FFD700" }} />
                   ))}
                   {extractedImages.length > 3 && (
                     <span style={{ fontSize: 12, color: "#60a5fa", alignSelf: "center" }}>+{extractedImages.length - 3} more</span>
@@ -976,7 +976,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                 color: "#60a5fa", 
                 padding: "10px 16px", 
                 borderRadius: 8,
-                border: "1px solid #3b82f6",
+                border: "1px solid #FFD700",
                 fontSize: 14,
                 fontWeight: 500,
                 marginTop: 8,
@@ -986,7 +986,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                   display: "inline-block", 
                   width: 16, 
                   height: 16, 
-                  border: "2px solid #3b82f6", 
+                  border: "2px solid #FFD700", 
                   borderTopColor: "transparent", 
                   borderRadius: "50%", 
                   animation: "spin 1s linear infinite" 
@@ -1048,8 +1048,8 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
             disabled={isProcessing || isExtracting || !extractedText}
             style={{ 
               marginTop: 8, 
-              borderColor: "#818cf8", 
-              color: "#818cf8",
+              borderColor: "#FFD700", 
+              color: "#FFD700",
               padding: "12px 24px",
               fontSize: 14
             }}
@@ -1083,7 +1083,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
               {result.key_concepts.map((concept, i) => (
                 <div key={i} style={{ 
                   padding: 8, 
-                  background: concept.importance === "high" ? "#fef3c7" : concept.importance === "medium" ? "#e0e7ff" : "#f3f4f6",
+                  background: concept.importance === "high" ? "#fef3c7" : concept.importance === "medium" ? "#FFD700" : "#f3f4f6",
                   borderRadius: 4,
                   marginBottom: 8
                 }}>
@@ -1168,7 +1168,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
           
           {/* Action Buttons */}
           <div className="row" style={{ marginTop: 16, gap: 8, flexWrap: "wrap" }}>
-            <button onClick={saveDocument} style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}>
+            <button onClick={saveDocument} style={{ borderColor: "#FFD700", color: "#FFD700" }}>
               💾 Save to Library
             </button>
             <button onClick={importMCQs} style={{ borderColor: "#facc15", color: "#facc15" }}>
@@ -1181,15 +1181,15 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
           
           {/* Practice Buttons */}
           {(result.mcq_questions?.length > 0 || result.flashcards?.length > 0) && (
-            <div style={{ marginTop: 12, padding: 12, background: "#1e3a5f", borderRadius: 8, border: "1px solid #3b82f6" }}>
-              <p style={{ fontSize: 13, color: "#93c5fd", marginBottom: 8, fontWeight: 600 }}>
+            <div style={{ marginTop: 12, padding: 12, background: "#1e3a5f", borderRadius: 8, border: "1px solid #FFD700" }}>
+              <p style={{ fontSize: 13, color: "#FFD700", marginBottom: 8, fontWeight: 600 }}>
                 🎮 Practice Mode
               </p>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 {result.mcq_questions?.length > 0 && (
                   <button 
                     onClick={() => startMcqPractice(result)}
-                    style={{ background: "#3b82f6", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer" }}
+                    style={{ background: "#FFD700", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer" }}
                   >
                     📝 Practice {result.mcq_questions.length} MCQs
                   </button>
@@ -1237,7 +1237,7 @@ Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text c
                     {doc.mcqQuestions?.length > 0 && (
                       <button 
                         onClick={() => startMcqPractice(doc)}
-                        style={{ fontSize: 12, background: "#3b82f6", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer" }}
+                        style={{ fontSize: 12, background: "#FFD700", color: "white", border: "none", padding: "6px 12px", borderRadius: 4, cursor: "pointer" }}
                       >
                         📝 Practice {doc.mcqQuestions.length} MCQs
                       </button>

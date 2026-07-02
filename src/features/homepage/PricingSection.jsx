@@ -141,15 +141,15 @@ export default function PricingSection() {
           {plans.map((plan, index) => (
             <div key={index} style={{
               position: 'relative',
-              background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5))',
+              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
               border: plan.highlight 
-                ? '1px solid rgba(59, 130, 246, 0.5)' 
+                ? '1px solid rgba(255, 215, 0, 0.5)' 
                 : '1px solid rgba(51, 65, 85, 0.5)',
               borderRadius: '16px',
               padding: '32px',
               transition: 'all 0.3s',
               boxShadow: plan.highlight 
-                ? '0 10px 40px rgba(59, 130, 246, 0.2)' 
+                ? '0 10px 40px rgba(255, 215, 0, 0.2)' 
                 : 'none'
             }}>
               {plan.highlight && (

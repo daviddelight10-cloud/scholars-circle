@@ -79,8 +79,8 @@ export function LecturerProfileEditor({ token, onSaved }) {
     <div style={{ maxWidth: 900, margin: "0 auto", paddingBottom: 100 }}>
       {/* Header preview card */}
       <div style={{
-        background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
-        border: "1px solid rgba(99,102,241,0.3)",
+        background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(218,165,32,0.15))",
+        border: "1px solid rgba(255,215,0,0.3)",
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,
@@ -91,7 +91,7 @@ export function LecturerProfileEditor({ token, onSaved }) {
       }}>
         <div style={{
           width: 72, height: 72, borderRadius: "50%",
-          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          background: "linear-gradient(135deg, #FFD700, #DAA520)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 28, fontWeight: 700, color: "#fff",
           flexShrink: 0
@@ -100,7 +100,7 @@ export function LecturerProfileEditor({ token, onSaved }) {
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h2 style={{ margin: 0, fontSize: 22 }}>{displayTitle}</h2>
-          <div style={{ color: "#a5b4fc", fontSize: 13, marginTop: 4 }}>
+          <div style={{ color: "#FFD700", fontSize: 13, marginTop: 4 }}>
             {[draft.department, draft.institution].filter(Boolean).join(" • ") || "Build your profile so students can find you"}
           </div>
           <div style={{ marginTop: 6, fontSize: 12, color: draft.isPublic ? "#10b981" : "#f59e0b" }}>
@@ -192,8 +192,8 @@ export function LecturerProfileEditor({ token, onSaved }) {
         <Field label="Office Hours" hint="Leave a day blank if you're not available">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
             {DAYS.map((day) => (
-              <div key={day} style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, background: "rgba(15,23,42,0.5)", borderRadius: 8 }}>
-                <div style={{ width: 70, textTransform: "capitalize", color: "#a5b4fc", fontSize: 12, fontWeight: 600 }}>{day.slice(0, 3)}</div>
+              <div key={day} style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, background: "rgba(10,10,10,0.5)", borderRadius: 8 }}>
+                <div style={{ width: 70, textTransform: "capitalize", color: "#FFD700", fontSize: 12, fontWeight: 600 }}>{day.slice(0, 3)}</div>
                 <input
                   value={(draft.officeHours || {})[day] || ""}
                   onChange={(e) => setOfficeHour(day, e.target.value)}
@@ -230,11 +230,11 @@ export function LecturerProfileEditor({ token, onSaved }) {
       <Section icon="👁️" title="Visibility" subtitle="Control who can see your profile">
         <label style={{
           display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer",
-          padding: 12, background: "rgba(15,23,42,0.5)", borderRadius: 8
+          padding: 12, background: "rgba(10,10,10,0.5)", borderRadius: 8
         }}>
           <input type="checkbox" checked={draft.isPublic} onChange={(e) => set("isPublic", e.target.checked)} style={{ marginTop: 4 }} />
           <div>
-            <div style={{ fontWeight: 600, color: "#e0e7ff" }}>Show my profile publicly to students</div>
+            <div style={{ fontWeight: 600, color: "#FFD700" }}>Show my profile publicly to students</div>
             <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
               When enabled, students can find you in the directory and message you directly.
             </div>
@@ -246,9 +246,9 @@ export function LecturerProfileEditor({ token, onSaved }) {
 
       <div style={{
         position: "sticky", bottom: 12, padding: 14, marginTop: 16,
-        borderRadius: 12, background: "rgba(15,23,42,0.96)",
+        borderRadius: 12, background: "rgba(10,10,10,0.96)",
         backdropFilter: "blur(8px)",
-        border: "1px solid rgba(99,102,241,0.4)",
+        border: "1px solid rgba(255,215,0,0.4)",
         boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
         gap: 12, flexWrap: "wrap"
@@ -258,7 +258,7 @@ export function LecturerProfileEditor({ token, onSaved }) {
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           {saved && <span style={{ color: "#10b981", fontWeight: 600 }}>✓ Saved!</span>}
-          <button onClick={save} disabled={saving || !draft.fullName?.trim()} style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: draft.fullName?.trim() ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(99,102,241,0.3)", color: "#fff", fontWeight: 700, cursor: saving ? "wait" : "pointer", fontSize: 14 }}>
+          <button onClick={save} disabled={saving || !draft.fullName?.trim()} style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: draft.fullName?.trim() ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(255,215,0,0.3)", color: "#fff", fontWeight: 700, cursor: saving ? "wait" : "pointer", fontSize: 14 }}>
             {saving ? "Saving..." : "💾 Save Profile"}
           </button>
         </div>
@@ -270,8 +270,8 @@ export function LecturerProfileEditor({ token, onSaved }) {
 function Section({ icon, title, subtitle, children }) {
   return (
     <div className="card" style={{ marginBottom: 14 }}>
-      <div style={{ marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid rgba(99,102,241,0.15)" }}>
-        <h3 style={{ margin: 0, fontSize: 16, color: "#e0e7ff" }}>
+      <div style={{ marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid rgba(255,215,0,0.15)" }}>
+        <h3 style={{ margin: 0, fontSize: 16, color: "#FFD700" }}>
           <span style={{ marginRight: 8 }}>{icon}</span>{title}
         </h3>
         {subtitle && <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#9ca3af" }}>{subtitle}</p>}
@@ -305,7 +305,7 @@ function ChipList({ items, onRemove }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
       {items.map((item, i) => (
-        <span key={i} style={{ padding: "4px 10px 4px 12px", background: "rgba(99,102,241,0.2)", color: "#a5b4fc", borderRadius: 99, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span key={i} style={{ padding: "4px 10px 4px 12px", background: "rgba(255,215,0,0.2)", color: "#FFD700", borderRadius: 99, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}>
           {item}
           <button onClick={() => onRemove(i)} style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", padding: 0, fontSize: 14 }}>×</button>
         </span>
@@ -318,8 +318,8 @@ const inputStyle = {
   width: "100%",
   padding: 10,
   borderRadius: 8,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(30,41,59,0.8)",
+  border: "1px solid rgba(255,215,0,0.3)",
+  background: "rgba(20,20,20,0.8)",
   color: "#fff",
   fontSize: 14,
   boxSizing: "border-box"

@@ -62,8 +62,8 @@ export default function PostSessionInsights({ analytics, session, results, quest
 
   return (
     <div style={{
-      background: "linear-gradient(145deg, rgba(15, 23, 42, 0.97), rgba(30, 41, 59, 0.95))",
-      border: "1px solid rgba(99, 102, 241, 0.2)",
+      background: "linear-gradient(145deg, rgba(10, 10, 10, 0.97), rgba(20, 20, 20, 0.95))",
+      border: "1px solid rgba(255, 215, 0, 0.2)",
       borderRadius: 20,
       overflow: "hidden",
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
@@ -72,19 +72,19 @@ export default function PostSessionInsights({ analytics, session, results, quest
       <div style={{
         background: pct >= 70
           ? "linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.1))"
-          : "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+          : "linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(218, 165, 32, 0.1))",
         padding: "28px 24px",
         textAlign: "center",
-        borderBottom: "1px solid rgba(99, 102, 241, 0.15)",
+        borderBottom: "1px solid rgba(255, 215, 0, 0.15)",
       }}>
         <div style={{ fontSize: 56, marginBottom: 8 }}>{emoji}</div>
         <div style={{
           fontSize: 52, fontWeight: 800,
-          background: pct >= 70 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #3b82f6)",
+          background: pct >= 70 ? "linear-gradient(135deg, #4ade80, #22c55e)" : "linear-gradient(135deg, #60a5fa, #FFD700)",
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
         }}>{pct}%</div>
         <div style={{ fontSize: 14, color: "#9ca3af", marginTop: 4 }}>
-          {analytics.score}/{analytics.total} correct · Grade: <strong style={{ color: "#e0e7ff" }}>{grade}</strong> · {Math.floor(analytics.duration / 60)}m {analytics.duration % 60}s
+          {analytics.score}/{analytics.total} correct · Grade: <strong style={{ color: "#FFD700" }}>{grade}</strong> · {Math.floor(analytics.duration / 60)}m {analytics.duration % 60}s
         </div>
 
         {/* Improvement indicator */}
@@ -104,23 +104,23 @@ export default function PostSessionInsights({ analytics, session, results, quest
       </div>
 
       {/* Quick Stats Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 1, background: "rgba(99, 102, 241, 0.1)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 1, background: "rgba(255, 215, 0, 0.1)" }}>
         {[
           { icon: "⏱️", value: `${analytics.avgTimePerQuestion}s`, label: "Avg/Q" },
           { icon: "🔥", value: analytics.longestStreak, label: "Best Streak" },
           { icon: "🎯", value: analytics.weakTopics.length, label: "Weak Areas" },
           { icon: "💪", value: analytics.strongTopics.length, label: "Strong" },
         ].map((s, i) => (
-          <div key={i} style={{ padding: "14px 8px", textAlign: "center", background: "rgba(15, 23, 42, 0.9)" }}>
+          <div key={i} style={{ padding: "14px 8px", textAlign: "center", background: "rgba(10, 10, 10, 0.9)" }}>
             <div style={{ fontSize: 16 }}>{s.icon}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#e0e7ff" }}>{s.value}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#FFD700" }}>{s.value}</div>
             <div style={{ fontSize: 10, color: "#64748b" }}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Tab Navigation */}
-      <div style={{ display: "flex", borderBottom: "1px solid rgba(99, 102, 241, 0.15)", padding: "0 8px" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid rgba(255, 215, 0, 0.15)", padding: "0 8px" }}>
         {tabs.map(t => (
           <button
             key={t.key}
@@ -128,8 +128,8 @@ export default function PostSessionInsights({ analytics, session, results, quest
             style={{
               flex: 1, padding: "12px 4px", border: "none", cursor: "pointer",
               background: "transparent", fontSize: 11, fontWeight: 600, transition: "all 0.2s",
-              color: activeTab === t.key ? "#a5b4fc" : "#64748b",
-              borderBottom: activeTab === t.key ? "2px solid #6366f1" : "2px solid transparent",
+              color: activeTab === t.key ? "#FFD700" : "#64748b",
+              borderBottom: activeTab === t.key ? "2px solid #FFD700" : "2px solid transparent",
             }}
           >{t.label}</button>
         ))}
@@ -147,7 +147,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
                 <span>Score Progress</span>
                 <span>{analytics.score}/{analytics.total}</span>
               </div>
-              <div style={{ height: 10, background: "rgba(30, 41, 59, 0.8)", borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ height: 10, background: "rgba(20, 20, 20, 0.8)", borderRadius: 10, overflow: "hidden" }}>
                 <div style={{
                   height: "100%", borderRadius: 10, transition: "width 1s ease-out",
                   width: `${pct}%`,
@@ -180,11 +180,11 @@ export default function PostSessionInsights({ analytics, session, results, quest
                     const isLatest = i === subjectHistory.length;
                     return (
                       <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                        <div style={{ fontSize: 9, color: isLatest ? "#a5b4fc" : "#64748b" }}>{score}%</div>
+                        <div style={{ fontSize: 9, color: isLatest ? "#FFD700" : "#64748b" }}>{score}%</div>
                         <div style={{
                           width: "100%", borderRadius: 4,
                           height: `${Math.max(10, score * 0.7)}px`,
-                          background: isLatest ? "linear-gradient(180deg, #6366f1, #8b5cf6)" : "rgba(99, 102, 241, 0.3)",
+                          background: isLatest ? "linear-gradient(180deg, #FFD700, #DAA520)" : "rgba(255, 215, 0, 0.3)",
                           transition: "height 0.5s",
                         }} />
                         <div style={{ fontSize: 8, color: "#64748b" }}>{isLatest ? "Now" : `#${i + 1}`}</div>
@@ -196,7 +196,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
             )}
 
             {/* Confidence Calibration */}
-            <div style={{ background: "rgba(30, 41, 59, 0.5)", borderRadius: 12, padding: 14, border: "1px solid rgba(99, 102, 241, 0.15)" }}>
+            <div style={{ background: "rgba(20, 20, 20, 0.5)", borderRadius: 12, padding: 14, border: "1px solid rgba(255, 215, 0, 0.15)" }}>
               <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 4 }}>🎯 Confidence Calibration</div>
               {(() => {
                 const confMap = { unsure: 40, okay: 60, sure: 80 };
@@ -225,7 +225,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
             {analytics.topicBreakdown.map(topic => (
               <div key={topic.id} style={{
                 display: "flex", alignItems: "center", gap: 12, padding: "12px 0",
-                borderBottom: "1px solid rgba(99, 102, 241, 0.1)",
+                borderBottom: "1px solid rgba(255, 215, 0, 0.1)",
               }}>
                 <div style={{
                   width: 36, height: 36, borderRadius: 8,
@@ -236,8 +236,8 @@ export default function PostSessionInsights({ analytics, session, results, quest
                   {topic.pct >= 70 ? "✅" : topic.pct >= 50 ? "⚠️" : "❌"}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#e0e7ff" }}>{topic.label}</div>
-                  <div style={{ height: 4, background: "rgba(30, 41, 59, 0.8)", borderRadius: 4, marginTop: 4, overflow: "hidden" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#FFD700" }}>{topic.label}</div>
+                  <div style={{ height: 4, background: "rgba(20, 20, 20, 0.8)", borderRadius: 4, marginTop: 4, overflow: "hidden" }}>
                     <div style={{
                       height: "100%", borderRadius: 4,
                       width: `${topic.pct}%`,
@@ -299,16 +299,16 @@ export default function PostSessionInsights({ analytics, session, results, quest
                   <div key={i} style={{
                     display: "flex", gap: 12, alignItems: "flex-start",
                     padding: 14, borderRadius: 12,
-                    background: "rgba(59, 130, 246, 0.08)",
-                    border: "1px solid rgba(59, 130, 246, 0.15)",
+                    background: "rgba(255, 215, 0, 0.08)",
+                    border: "1px solid rgba(255, 215, 0, 0.15)",
                   }}>
                     <div style={{
                       width: 28, height: 28, borderRadius: 8,
-                      background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                      background: "linear-gradient(135deg, #FFD700, #2563eb)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 12, color: "#fff", fontWeight: 700, flexShrink: 0,
                     }}>{i + 1}</div>
-                    <div style={{ fontSize: 13, color: "#93c5fd", lineHeight: 1.5 }}>{tip}</div>
+                    <div style={{ fontSize: 13, color: "#FFD700", lineHeight: 1.5 }}>{tip}</div>
                   </div>
                 ))}
               </div>
@@ -323,7 +323,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
       </div>
 
       {/* Action Footer */}
-      <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(99, 102, 241, 0.15)", display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+      <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(255, 215, 0, 0.15)", display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
         <button
           onClick={() => {
             if (onSave) onSave();
@@ -344,8 +344,8 @@ export default function PostSessionInsights({ analytics, session, results, quest
             else navigator.clipboard?.writeText(text).then(() => alert("Copied!"));
           }}
           style={{
-            background: "rgba(99, 102, 241, 0.2)", border: "1px solid rgba(99, 102, 241, 0.3)",
-            padding: "12px 24px", borderRadius: 10, color: "#a5b4fc",
+            background: "rgba(255, 215, 0, 0.2)", border: "1px solid rgba(255, 215, 0, 0.3)",
+            padding: "12px 24px", borderRadius: 10, color: "#FFD700",
             fontWeight: 600, fontSize: 14, cursor: "pointer",
           }}
         >📤 Share</button>

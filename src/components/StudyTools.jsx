@@ -3,8 +3,8 @@ import { toast } from "./Toast";
 
 export function PomodoroTimer({ onSessionDone }) {
   const MODES = [
-    { id: "work", label: "Focus", duration: 25 * 60, color: "#2dd4a0" },
-    { id: "short", label: "Short Break", duration: 5 * 60, color: "#818cf8" },
+    { id: "work", label: "Focus", duration: 25 * 60, color: "#FFD700" },
+    { id: "short", label: "Short Break", duration: 5 * 60, color: "#FFD700" },
     { id: "long", label: "Long Break", duration: 15 * 60, color: "#fb923c" },
   ];
 
@@ -108,7 +108,7 @@ export function NotesEditor({ subjects, notes, setNotes }) {
       <div className="row" style={{ flexWrap: "wrap" }}>
         {subjects.map((s) => (
           <button key={s.id} onClick={() => setActiveSubject(s.id)}
-            style={{ borderColor: activeSubject === s.id ? "#2dd4a0" : undefined, color: activeSubject === s.id ? "#2dd4a0" : undefined }}>
+            style={{ borderColor: activeSubject === s.id ? "#FFD700" : undefined, color: activeSubject === s.id ? "#FFD700" : undefined }}>
             {s.icon} {s.label}
           </button>
         ))}
@@ -138,7 +138,7 @@ export function NotesEditor({ subjects, notes, setNotes }) {
 export function TimetableBuilder({ timetable, setTimetable, subjects }) {
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const HOURS = ["8am","9am","10am","11am","12pm","1pm","2pm","3pm","4pm","5pm","6pm","7pm","8pm","9pm"];
-  const COLORS = ["#2dd4a0","#818cf8","#fb923c","#facc15","#f472b6","#38bdf8","#a78bfa"];
+  const COLORS = ["#FFD700","#FFD700","#fb923c","#facc15","#f472b6","#FFD700","#a78bfa"];
 
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState({ subject: "", color: COLORS[0] });
@@ -205,7 +205,7 @@ export function TimetableBuilder({ timetable, setTimetable, subjects }) {
               ))}
             </div>
             <div className="row" style={{ marginTop: 12 }}>
-              <button style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }} onClick={save}>Save</button>
+              <button style={{ borderColor: "#FFD700", color: "#FFD700" }} onClick={save}>Save</button>
               <button className="danger" onClick={() => { clear(editing); setEditing(null); }}>Clear</button>
               <button onClick={() => setEditing(null)}>Cancel</button>
             </div>
@@ -227,7 +227,7 @@ export function CheatSheet({ subjects, mastery }) {
       `<li><strong>Q:</strong> ${q.q}<br/><strong>A:</strong> ${q.options[q.answer]} — ${q.explanation}</li>`
     ).join("");
     win.document.write(`<html><head><title>${subject.label} Cheat Sheet</title>
-    <style>body{font-family:sans-serif;padding:24px;max-width:700px;margin:auto}h1{color:#2dd4a0}h3{color:#818cf8}li{margin-bottom:8px}</style></head>
+    <style>body{font-family:sans-serif;padding:24px;max-width:700px;margin:auto}h1{color:#FFD700}h3{color:#FFD700}li{margin-bottom:8px}</style></head>
     <body><h1>${subject.icon} ${subject.label} — Quick Reference Sheet</h1>${content}<h2>Key Facts</h2><ul>${keyFacts}</ul></body></html>`);
     win.document.close(); win.print();
   }
@@ -242,7 +242,7 @@ export function CheatSheet({ subjects, mastery }) {
       <div className="row" style={{ flexWrap: "wrap" }}>
         {subjects.map(s => (
           <button key={s.id} onClick={() => setActive(s.id)}
-            style={{ borderColor: active === s.id ? "#2dd4a0" : undefined, color: active === s.id ? "#2dd4a0" : undefined }}>
+            style={{ borderColor: active === s.id ? "#FFD700" : undefined, color: active === s.id ? "#FFD700" : undefined }}>
             {s.icon} {s.label}
           </button>
         ))}
@@ -255,7 +255,7 @@ export function CheatSheet({ subjects, mastery }) {
           </div>
           {subject.lessons.map(l => (
             <div key={l.title} className="lesson-block">
-              <strong style={{ color: "#818cf8" }}>{l.title}</strong>
+              <strong style={{ color: "#FFD700" }}>{l.title}</strong>
               <p className="muted" style={{ marginTop: 6, lineHeight: 1.7 }}>{l.content}</p>
             </div>
           ))}
@@ -263,7 +263,7 @@ export function CheatSheet({ subjects, mastery }) {
           {subject.questions.slice(0, 6).map((q, i) => (
             <div key={i} className="cheat-qa">
               <p style={{ margin: "0 0 4px" }}><strong>Q{i+1}:</strong> {q.q}</p>
-              <p style={{ margin: 0, color: "#2dd4a0", fontSize: 14 }}><strong>A:</strong> {q.options[q.answer]} — <span className="muted">{q.explanation}</span></p>
+              <p style={{ margin: 0, color: "#FFD700", fontSize: 14 }}><strong>A:</strong> {q.options[q.answer]} — <span className="muted">{q.explanation}</span></p>
             </div>
           ))}
         </>

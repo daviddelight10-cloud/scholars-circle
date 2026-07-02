@@ -69,16 +69,16 @@ export function LecturerDirectory({ token, onSelect, onMessage }) {
             top: -32,
             right: 0,
             padding: "4px 10px",
-            background: "rgba(99,102,241,0.2)",
-            border: "1px solid rgba(99,102,241,0.4)",
-            color: "#a5b4fc",
+            background: "rgba(255,215,0,0.2)",
+            border: "1px solid rgba(255,215,0,0.4)",
+            color: "#FFD700",
             borderRadius: 99,
             fontSize: 11,
             display: "flex",
             alignItems: "center",
             gap: 6
           }}>
-            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#6366f1", animation: "pulse 1s infinite" }} />
+            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#FFD700", animation: "pulse 1s infinite" }} />
             Refreshing…
           </div>
         )}
@@ -115,10 +115,10 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
         padding: 16,
         cursor: "pointer",
         transition: "transform 0.15s, border-color 0.15s",
-        border: "1px solid rgba(99,102,241,0.2)"
+        border: "1px solid rgba(255,215,0,0.2)"
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "rgba(99,102,241,0.6)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = "rgba(99,102,241,0.2)"; }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "rgba(255,215,0,0.6)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = "rgba(255,215,0,0.2)"; }}
       onClick={() => onSelect?.(lecturer)}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
@@ -127,7 +127,7 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
             width: 56,
             height: 56,
             borderRadius: "50%",
-            background: lecturer.avatarUrl ? `url(${lecturer.avatarUrl}) center/cover` : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+            background: lecturer.avatarUrl ? `url(${lecturer.avatarUrl}) center/cover` : "linear-gradient(135deg, #FFD700, #DAA520)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -144,7 +144,7 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
             {lecturer.title ? `${lecturer.title} ` : ""}{lecturer.fullName}
             {lecturer.isVerified && <span title="Verified">✅</span>}
           </div>
-          <div style={{ fontSize: 12, color: "#a5b4fc" }}>{lecturer.department || "—"}</div>
+          <div style={{ fontSize: 12, color: "#FFD700" }}>{lecturer.department || "—"}</div>
           {lecturer.institution && <div style={{ fontSize: 11, color: "#9ca3af" }}>🏛️ {lecturer.institution}</div>}
         </div>
       </div>
@@ -158,12 +158,12 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
       {lecturer.researchAreas?.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
           {lecturer.researchAreas.slice(0, 3).map((r) => (
-            <span key={r} style={{ fontSize: 10, padding: "2px 8px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", borderRadius: 99 }}>{r}</span>
+            <span key={r} style={{ fontSize: 10, padding: "2px 8px", background: "rgba(255,215,0,0.15)", color: "#FFD700", borderRadius: 99 }}>{r}</span>
           ))}
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid rgba(99,102,241,0.15)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid rgba(255,215,0,0.15)" }}>
         <div style={{ fontSize: 12, color: "#fbbf24" }}>
           ⭐ {(lecturer.rating || 0).toFixed(1)} <span style={{ color: "#9ca3af", fontSize: 11 }}>({lecturer.totalRatings || 0})</span>
         </div>
@@ -172,9 +172,9 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
           style={{
             padding: "6px 12px",
             borderRadius: 6,
-            border: "1px solid #818cf8",
+            border: "1px solid #FFD700",
             background: "transparent",
-            color: "#a5b4fc",
+            color: "#FFD700",
             cursor: "pointer",
             fontSize: 12
           }}
@@ -189,8 +189,8 @@ function LecturerCard({ lecturer, onSelect, onMessage }) {
 const inputStyle = {
   padding: 10,
   borderRadius: 8,
-  border: "1px solid rgba(99,102,241,0.3)",
-  background: "rgba(30,41,59,0.8)",
+  border: "1px solid rgba(255,215,0,0.3)",
+  background: "rgba(20,20,20,0.8)",
   color: "#fff",
   fontSize: 13
 };

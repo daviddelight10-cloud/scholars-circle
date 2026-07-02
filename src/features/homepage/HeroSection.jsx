@@ -113,7 +113,7 @@ export default function HeroSection() {
               to="/login"
               style={{
                 padding: '16px 32px',
-                background: 'rgba(30, 41, 59, 0.8)',
+                background: 'rgba(20, 20, 20, 0.8)',
                 color: '#fff',
                 fontWeight: 600,
                 borderRadius: '12px',

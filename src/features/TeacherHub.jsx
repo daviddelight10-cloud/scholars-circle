@@ -6,8 +6,8 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 const SUBJECTS = ["Biology","Chemistry","Physics","Mathematics","Anatomy","Physiology","Pharmacology","GST","Other"];
 const SUB_COLOR = {
-  Biology:"#22C55E", Chemistry:"#F5A623", Physics:"#4F8EF7", Mathematics:"#6C63FF",
-  Anatomy:"#14B8A6", Physiology:"#F97316", Pharmacology:"#8B5CF6", GST:"#EC4899", Other:"#6B7280"
+  Biology:"#22C55E", Chemistry:"#F5A623", Physics:"#FFD700", Mathematics:"#6C63FF",
+  Anatomy:"#14B8A6", Physiology:"#F97316", Pharmacology:"#DAA520", GST:"#EC4899", Other:"#6B7280"
 };
 const OPTS = ["A","B","C","D"];
 
@@ -72,7 +72,7 @@ function QuizModal({ q, onClose, onShare, shared }) {
             if (revealed) {
               if (isCorrect)        { bg="rgba(34,197,94,0.09)"; border="rgba(34,197,94,0.4)"; color="#22C55E"; dotBorder="#22C55E"; dotColor="#22C55E"; }
               else if (isSelected)  { bg="rgba(239,68,68,0.07)"; border="rgba(239,68,68,0.35)"; color="#EF4444"; dotBorder="#EF4444"; dotColor="#EF4444"; }
-            } else if (isSelected)  { bg="rgba(79,142,247,0.1)"; border="rgba(79,142,247,0.4)"; color="#E8E9F0"; dotBorder="#4F8EF7"; dotColor="#4F8EF7"; }
+            } else if (isSelected)  { bg="rgba(79,142,247,0.1)"; border="rgba(79,142,247,0.4)"; color="#E8E9F0"; dotBorder="#FFD700"; dotColor="#FFD700"; }
             return (
               <button key={i} disabled={revealed} onClick={() => setSel(i)}
                 style={{ width:"100%", textAlign:"left", background:bg, border:`1px solid ${border}`, borderRadius:10, padding:"12px 14px", color, fontFamily:"'Manrope',sans-serif", fontSize:13.5, cursor:revealed?"default":"pointer", display:"flex", gap:12, alignItems:"center", transition:"all 0.18s" }}>
@@ -346,18 +346,18 @@ export default function TeacherHub({ token, auth }) {
     .man { font-family:'Manrope',sans-serif; }
 
     .mtab { background:transparent; border:none; color:#555; cursor:pointer; padding:9px 20px; font-family:'Syne',sans-serif; font-size:12px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; border-bottom:2px solid transparent; transition:all 0.18s; }
-    .mtab.on { color:#4F8EF7; border-bottom-color:#4F8EF7; }
+    .mtab.on { color:#FFD700; border-bottom-color:#FFD700; }
     .mtab.gold.on { color:#F5A623; border-bottom-color:#F5A623; }
     .mtab:hover:not(.on) { color:#aaa; }
 
-    .btn { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.05em; text-transform:uppercase; border:none; cursor:pointer; padding:9px 20px; border-radius:9px; background:linear-gradient(135deg,#4F8EF7,#6C63FF); color:#fff; transition:all 0.18s; }
+    .btn { font-family:'Syne',sans-serif; font-weight:700; font-size:12px; letter-spacing:0.05em; text-transform:uppercase; border:none; cursor:pointer; padding:9px 20px; border-radius:9px; background:linear-gradient(135deg,#FFD700,#6C63FF); color:#fff; transition:all 0.18s; }
     .btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 5px 18px rgba(79,142,247,0.3); }
     .btn:disabled { opacity:0.4; cursor:not-allowed; transform:none !important; }
     .btn-sm { padding:7px 16px; }
     .btn-xs { padding:5px 12px; font-size:11px; }
     .btn-gold { background:linear-gradient(135deg,#F5A623,#F7C948); color:#07080F; }
     .btn-gold:hover:not(:disabled) { box-shadow:0 5px 18px rgba(245,166,35,0.3); }
-    .btn-ghost { background:transparent; border:1px solid rgba(79,142,247,0.3); color:#4F8EF7; }
+    .btn-ghost { background:transparent; border:1px solid rgba(79,142,247,0.3); color:#FFD700; }
     .btn-red { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; }
 
     .card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:14px; transition:border-color 0.2s; }
@@ -375,7 +375,7 @@ export default function TeacherHub({ token, auth }) {
     .modal { background:#0D0E1A; border:1px solid rgba(255,255,255,0.1); border-radius:20px; width:100%; max-width:500px; max-height:88vh; overflow-y:auto; padding:26px 22px; }
 
     .filter-btn { background:transparent; border:1px solid rgba(255,255,255,0.08); color:#555; border-radius:20px; padding:5px 13px; font-size:11px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.06em; cursor:pointer; transition:all 0.18s; }
-    .filter-btn.on { background:rgba(79,142,247,0.12); border-color:rgba(79,142,247,0.3); color:#4F8EF7; }
+    .filter-btn.on { background:rgba(79,142,247,0.12); border-color:rgba(79,142,247,0.3); color:#FFD700; }
 
     .q-card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:14px; padding:16px 18px; transition:all 0.22s; cursor:default; }
     .q-card:hover { border-color:rgba(79,142,247,0.2); transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.3); }
@@ -404,7 +404,7 @@ export default function TeacherHub({ token, auth }) {
       <div style={{ borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ maxWidth:940, margin:"0 auto", padding:"0 20px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:12, padding:"18px 0 0" }}>
-            <div style={{ width:38,height:38,background:"linear-gradient(135deg,#4F8EF7,#6C63FF)",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0 }}>📚</div>
+            <div style={{ width:38,height:38,background:"linear-gradient(135deg,#FFD700,#6C63FF)",borderRadius:11,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0 }}>📚</div>
             <div>
               <div className="syne" style={{ fontWeight:800, fontSize:16 }}>Teacher Hub</div>
               <div style={{ fontSize:11, color:"#444", marginTop:1 }}>
@@ -441,7 +441,7 @@ export default function TeacherHub({ token, auth }) {
             {/* Share CTA banner */}
             <div style={{ background:"linear-gradient(135deg,rgba(79,142,247,0.07),rgba(108,99,255,0.07))", border:"1px solid rgba(79,142,247,0.15)", borderRadius:14, padding:"14px 20px", marginBottom:24, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
               <div>
-                <div className="syne" style={{ fontWeight:700, fontSize:13, color:"#4F8EF7" }}>Share Scholar's Circle</div>
+                <div className="syne" style={{ fontWeight:700, fontSize:13, color:"#FFD700" }}>Share Scholar's Circle</div>
                 <div style={{ fontSize:12, color:"#555", marginTop:2 }}>Invite classmates to study together — it's free to start.</div>
               </div>
               <div style={{ display:"flex", gap:8 }}>
@@ -460,7 +460,7 @@ export default function TeacherHub({ token, auth }) {
               <div style={{ display:"flex", background:"rgba(255,255,255,0.03)", borderRadius:10, padding:3, gap:2 }}>
                 {[{id:"mcq",label:"⚡ MCQ Questions"},{id:"notes",label:"📄 Study Notes"}].map(t => (
                   <button key={t.id} onClick={() => setResTab(t.id)} style={{
-                    background:resTab===t.id?"linear-gradient(135deg,#4F8EF7,#6C63FF)":"transparent",
+                    background:resTab===t.id?"linear-gradient(135deg,#FFD700,#6C63FF)":"transparent",
                     color:resTab===t.id?"#fff":"#555",
                     border:"none", borderRadius:8, padding:"8px 18px", fontSize:12,
                     fontFamily:"'Syne',sans-serif", fontWeight:700, letterSpacing:"0.05em", cursor:"pointer", transition:"all 0.18s"
@@ -544,7 +544,7 @@ export default function TeacherHub({ token, auth }) {
             <div style={{ display:"flex", background:"rgba(255,255,255,0.03)", borderRadius:10, padding:3, width:"fit-content", gap:2, marginBottom:26 }}>
               {[{id:"questions",label:"⚡ Add Question"},{id:"ai",label:"🤖 AI Generate"},{id:"notes",label:"📄 Add Note"},{id:"manage",label:"🗂 Manage All"}].map(t => (
                 <button key={t.id} onClick={() => setAdminSub(t.id)} style={{
-                  background:adminSub===t.id?"linear-gradient(135deg,#4F8EF7,#6C63FF)":"transparent",
+                  background:adminSub===t.id?"linear-gradient(135deg,#FFD700,#6C63FF)":"transparent",
                   color:adminSub===t.id?"#fff":"#555", border:"none", borderRadius:8,
                   padding:"8px 16px", fontSize:11, fontFamily:"'Syne',sans-serif", fontWeight:700,
                   letterSpacing:"0.05em", cursor:"pointer", transition:"all 0.18s"
@@ -608,7 +608,7 @@ export default function TeacherHub({ token, auth }) {
                 <div style={{ marginBottom:14 }}>
                   <div className="tag" style={{ color:"#555", marginBottom:6 }}>Or Upload File (PDF, DOCX, TXT)</div>
                   <input type="file" accept=".pdf,.docx,.txt" onChange={e => setAiFile(e.target.files[0])} />
-                  {aiFile && <div style={{ fontSize:12, color:"#4F8EF7", marginTop:6 }}>Selected: {aiFile.name}</div>}
+                  {aiFile && <div style={{ fontSize:12, color:"#FFD700", marginTop:6 }}>Selected: {aiFile.name}</div>}
                 </div>
                 <div style={{ marginBottom:18, display:"flex", alignItems:"center", gap:10 }}>
                   <div className="tag" style={{ color:"#555", whiteSpace:"nowrap" }}>Number of Questions:</div>
@@ -685,12 +685,12 @@ export default function TeacherHub({ token, auth }) {
           <div className="fade">
             {/* Hero */}
             <div style={{ textAlign:"center", padding:"8px 20px 44px" }}>
-              <div style={{ display:"inline-block", background:"rgba(79,142,247,0.1)", border:"1px solid rgba(79,142,247,0.18)", borderRadius:20, padding:"5px 16px", fontSize:11, color:"#4F8EF7", fontFamily:"'Syne',sans-serif", fontWeight:700, letterSpacing:"0.1em", marginBottom:18 }}>
+              <div style={{ display:"inline-block", background:"rgba(79,142,247,0.1)", border:"1px solid rgba(79,142,247,0.18)", borderRadius:20, padding:"5px 16px", fontSize:11, color:"#FFD700", fontFamily:"'Syne',sans-serif", fontWeight:700, letterSpacing:"0.1em", marginBottom:18 }}>
                 🚀 SCHOLAR'S CIRCLE · IBADAN
               </div>
               <div className="syne" style={{ fontWeight:800, fontSize:32, letterSpacing:"-0.03em", lineHeight:1.2, marginBottom:14 }}>
                 Study Smarter.<br />
-                <span style={{ background:"linear-gradient(135deg,#4F8EF7,#6C63FF)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
+                <span style={{ background:"linear-gradient(135deg,#FFD700,#6C63FF)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
                   Score Higher.
                 </span>
               </div>
@@ -707,7 +707,7 @@ export default function TeacherHub({ token, auth }) {
             <div style={{ display:"flex", justifyContent:"center", gap:36, marginBottom:44, flexWrap:"wrap" }}>
               {[["500+","Questions"],["AI Tutor","24/7"],["Free","Forever Plan"],["5 min","To Set Up"]].map(([v,l]) => (
                 <div key={l} style={{ textAlign:"center" }}>
-                  <div className="syne" style={{ fontWeight:800, fontSize:24, color:"#4F8EF7" }}>{v}</div>
+                  <div className="syne" style={{ fontWeight:800, fontSize:24, color:"#FFD700" }}>{v}</div>
                   <div style={{ fontSize:12, color:"#555", marginTop:3 }}>{l}</div>
                 </div>
               ))}
@@ -730,18 +730,18 @@ export default function TeacherHub({ token, auth }) {
 
               {/* Pro — Featured */}
               <div className="pricing-card pricing-featured" style={{ position:"relative" }}>
-                <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:"linear-gradient(135deg,#4F8EF7,#6C63FF)", borderRadius:20, padding:"4px 16px", fontSize:11, fontFamily:"'Syne',sans-serif", fontWeight:700, whiteSpace:"nowrap", color:"#fff" }}>
+                <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:"linear-gradient(135deg,#FFD700,#6C63FF)", borderRadius:20, padding:"4px 16px", fontSize:11, fontFamily:"'Syne',sans-serif", fontWeight:700, whiteSpace:"nowrap", color:"#fff" }}>
                   MOST POPULAR
                 </div>
                 <div className="syne" style={{ fontWeight:800, fontSize:18, marginBottom:4 }}>Student Pro</div>
                 <div style={{ display:"flex", alignItems:"baseline", gap:5, marginBottom:4 }}>
-                  <div className="syne" style={{ fontWeight:800, fontSize:30, color:"#4F8EF7" }}>₦1,500</div>
+                  <div className="syne" style={{ fontWeight:800, fontSize:30, color:"#FFD700" }}>₦1,500</div>
                   <div style={{ color:"#555", fontSize:12 }}>/month</div>
                 </div>
                 <div style={{ color:"#555", fontSize:12, marginBottom:22 }}>≈ ₦50/day · Cancel anytime</div>
                 {["Unlimited AI tutor","Generate flashcards from notes","Full MCQ question bank","Spaced repetition quiz","Progress analytics dashboard","Priority support"].map(f => (
                   <div key={f} style={{ display:"flex", gap:9, alignItems:"center", marginBottom:10, fontSize:13, color:"#C0C1CC" }}>
-                    <span style={{ color:"#4F8EF7" }}>✓</span>{f}
+                    <span style={{ color:"#FFD700" }}>✓</span>{f}
                   </div>
                 ))}
                 <button className="btn" style={{ width:"100%", marginTop:18 }}>Upgrade to Pro</button>

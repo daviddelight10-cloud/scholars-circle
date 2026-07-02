@@ -63,8 +63,8 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
               flex: "1 1 150px",
               padding: 12,
               borderRadius: 10,
-              border: subMode === m.id ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.2)",
-              background: subMode === m.id ? "rgba(99,102,241,0.15)" : "rgba(30,41,59,0.8)",
+              border: subMode === m.id ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.2)",
+              background: subMode === m.id ? "rgba(255,215,0,0.15)" : "rgba(20,20,20,0.8)",
               color: "#fff",
               cursor: "pointer",
               textAlign: "left"
@@ -78,7 +78,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
 
       {/* Input */}
       <div style={{ marginBottom: 12 }}>
-        <label style={{ display: "block", marginBottom: 6, fontSize: 13, color: "#e0e7ff" }}>Topic or content</label>
+        <label style={{ display: "block", marginBottom: 6, fontSize: 13, color: "#FFD700" }}>Topic or content</label>
         <textarea
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
@@ -88,8 +88,8 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
             width: "100%",
             padding: 12,
             borderRadius: 10,
-            border: "1px solid rgba(99,102,241,0.3)",
-            background: "rgba(30,41,59,0.8)",
+            border: "1px solid rgba(255,215,0,0.3)",
+            background: "rgba(20,20,20,0.8)",
             color: "#fff",
             fontSize: 14,
             resize: "vertical"
@@ -99,7 +99,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
 
       {(subMode === "generate_flashcards" || subMode === "generate_quiz") && (
         <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "block", marginBottom: 6, fontSize: 13, color: "#e0e7ff" }}>How many?</label>
+          <label style={{ display: "block", marginBottom: 6, fontSize: 13, color: "#FFD700" }}>How many?</label>
           <input
             type="number"
             min={3}
@@ -110,8 +110,8 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
               width: 100,
               padding: 8,
               borderRadius: 8,
-              border: "1px solid rgba(99,102,241,0.3)",
-              background: "rgba(30,41,59,0.8)",
+              border: "1px solid rgba(255,215,0,0.3)",
+              background: "rgba(20,20,20,0.8)",
               color: "#fff"
             }}
           />
@@ -126,7 +126,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
           padding: 14,
           borderRadius: 10,
           border: "none",
-          background: loading ? "rgba(99,102,241,0.5)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          background: loading ? "rgba(255,215,0,0.5)" : "linear-gradient(135deg, #FFD700, #DAA520)",
           color: "#fff",
           fontWeight: 700,
           cursor: loading ? "wait" : "pointer",
@@ -166,7 +166,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
                 {result.parsed.map((item, i) => (
-                  <div key={i} style={{ padding: 12, background: "rgba(30,41,59,0.8)", borderRadius: 8, border: "1px solid rgba(99,102,241,0.2)" }}>
+                  <div key={i} style={{ padding: 12, background: "rgba(20,20,20,0.8)", borderRadius: 8, border: "1px solid rgba(255,215,0,0.2)" }}>
                     {subMode === "generate_flashcards" ? (
                       <>
                         <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.front}</div>
@@ -180,7 +180,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
                             {String.fromCharCode(65 + j)}. {opt} {j === item.answer && "✓"}
                           </div>
                         ))}
-                        {item.explanation && <div style={{ fontSize: 12, color: "#a5b4fc", marginTop: 6, fontStyle: "italic" }}>{item.explanation}</div>}
+                        {item.explanation && <div style={{ fontSize: 12, color: "#FFD700", marginTop: 6, fontStyle: "italic" }}>{item.explanation}</div>}
                       </>
                     )}
                   </div>
@@ -188,7 +188,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
               </div>
             </>
           ) : (
-            <div style={{ padding: 16, background: "rgba(30,41,59,0.8)", borderRadius: 10, whiteSpace: "pre-wrap", color: "#e5e7eb", fontSize: 14, lineHeight: 1.7, maxHeight: 600, overflowY: "auto" }}>
+            <div style={{ padding: 16, background: "rgba(20,20,20,0.8)", borderRadius: 10, whiteSpace: "pre-wrap", color: "#e5e7eb", fontSize: 14, lineHeight: 1.7, maxHeight: 600, overflowY: "auto" }}>
               {result.text}
             </div>
           )}

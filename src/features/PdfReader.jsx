@@ -1137,7 +1137,7 @@ ${extractedText}
     if (p.isDue) return { color: "#ef4444", title: "Due for review" };
     if (p.state === 1 || p.state === 3) return { color: "#f59e0b", title: "Learning" };
     if (p.state === 0) return { color: "#94a3b8", title: "New" };
-    return { color: theme === "light" ? "#2563EB" : "#3b82f6", title: "Review" };
+    return { color: theme === "light" ? "#2563EB" : "#FFD700", title: "Review" };
   };
 
   // ---- Chat popup ----
@@ -3710,7 +3710,7 @@ ${extractedText}
               boxShadow: `0 4px 20px ${T.shadow}`, maxWidth: isMobile ? "92%" : "auto",
             }}>
               <span style={{ fontSize: 12, color: T.text, fontWeight: 600, whiteSpace: "nowrap" }}>Rate p.{currentPage}:</span>
-              {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#3b82f6" }].map((r) => (
+              {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#FFD700" }].map((r) => (
                 <button key={r.g} disabled={fsrsRatingBusy} onClick={() => ratePage(r.g)}
                   style={{
                     padding: "6px 12px", borderRadius: 8, border: `1px solid ${r.c}40`, background: `${r.c}15`,
@@ -3735,7 +3735,7 @@ ${extractedText}
             }}>
               <span style={{ fontSize: 13, color: T.text, fontWeight: 700, textAlign: "center" }}>How well did you understand this PDF?</span>
               <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#3b82f6" }].map((r) => (
+                {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#FFD700" }].map((r) => (
                   <button key={r.g} disabled={fsrsRatingBusy} onClick={() => rateWholePdf(r.g)}
                     style={{
                       padding: "8px 16px", borderRadius: 10, border: `1px solid ${r.c}40`, background: `${r.c}15`,

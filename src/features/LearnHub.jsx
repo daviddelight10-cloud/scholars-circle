@@ -9,7 +9,7 @@ import CourseCustomizer, { loadUserCourses } from "../components/learn/CourseCus
 // ─────────────────────────────────────────────────────────────────────────────
 function masteryLevel(pct) {
   if (pct >= 81) return { label: "Mastered", color: "#10b981", icon: "🏆" };
-  if (pct >= 51) return { label: "Practiced", color: "#3b82f6", icon: "💪" };
+  if (pct >= 51) return { label: "Practiced", color: "#FFD700", icon: "💪" };
   if (pct >= 21) return { label: "Learning", color: "#f59e0b", icon: "📖" };
   return { label: "Beginner", color: "#6b7280", icon: "🌱" };
 }
@@ -67,7 +67,7 @@ function SubjectCard({ s, mastery, srData, history, onSelect, isSelected }) {
       style={{
         background: isSelected
           ? `linear-gradient(135deg, ${accent}20, ${accent}0a)`
-          : "rgba(15,23,42,0.7)",
+          : "rgba(10,10,10,0.7)",
         border: isSelected ? `2px solid ${accent}` : "1px solid rgba(255,255,255,0.07)",
         borderRadius: 16, padding: "18px 16px", cursor: "pointer",
         textAlign: "left", width: "100%", display: "flex", flexDirection: "column",
@@ -143,7 +143,7 @@ function HubOverview({ s, mastery, history, srData, wrongCounts, onTab }) {
       </div>
 
       <div style={{
-        background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)",
+        background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)",
         borderRadius: 10, padding: 14,
       }}>
         <div style={{ fontWeight: 600, fontSize: 12, color: "#7dd3fc", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>💡 Next step</div>
@@ -153,9 +153,9 @@ function HubOverview({ s, mastery, history, srData, wrongCounts, onTab }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         {[
           { icon: "📝", label: "Practice", tab: "practice", color: "#10b981" },
-          { icon: "🎓", label: "Exam", tab: "exam", color: "#3b82f6" },
+          { icon: "🎓", label: "Exam", tab: "exam", color: "#FFD700" },
           { icon: "🔄", label: `Flashcards${due > 0 ? ` (${due})` : ""}`, tab: "flashcards", color: "#f59e0b" },
-          { icon: "📑", label: "Outline", tab: "outline", color: "#8b5cf6" },
+          { icon: "📑", label: "Outline", tab: "outline", color: "#DAA520" },
         ].map(({ icon, label, tab, color }) => (
           <button key={tab} onClick={() => onTab(tab)} style={{
             background: `${color}12`, border: `1px solid ${color}30`,
@@ -207,7 +207,7 @@ function HubLessons({ s }) {
       <p style={{ margin: "0 0 8px", color: "#64748b", fontSize: 13 }}>Read each lesson, then practice to lock it in.</p>
       {s.lessons.map((lesson, i) => (
         <div key={i} style={{
-          background: "rgba(15,23,42,0.6)", borderRadius: 12,
+          background: "rgba(10,10,10,0.6)", borderRadius: 12,
           border: "1px solid rgba(255,255,255,0.06)", overflow: "hidden",
         }}>
           <button
@@ -555,7 +555,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
                 padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
                 background: selectedTopic ? "rgba(57,73,171,0.18)" : "rgba(255,255,255,0.04)",
                 border: selectedTopic ? "1px solid rgba(57,73,171,0.5)" : "1px solid rgba(255,255,255,0.08)",
-                color: selectedTopic ? "#a5b4fc" : "#94a3b8",
+                color: selectedTopic ? "#FFD700" : "#94a3b8",
               }}
             >
               <span>📖 {selectedTopic || "All topics"}</span>
@@ -581,7 +581,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
                         padding: "11px 16px", background: active ? "rgba(57,73,171,0.22)" : "transparent",
                         border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
                         cursor: "pointer", fontSize: 13, fontWeight: active ? 700 : 500,
-                        color: active ? "#a5b4fc" : "#94a3b8", textAlign: "left",
+                        color: active ? "#FFD700" : "#94a3b8", textAlign: "left",
                       }}
                     >
                       <span>{t.name ? `📖 ${t.name}` : "📚 All topics"}</span>
@@ -710,8 +710,8 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
           <div style={{ fontSize: 11, color: "#334155", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Or launch a full session</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
-              { id: "adaptive",      label: "🎯 Adaptive", color: "#3b82f6" },
-              { id: "spaced",        label: "🧠 Spaced",   color: "#8b5cf6" },
+              { id: "adaptive",      label: "🎯 Adaptive", color: "#FFD700" },
+              { id: "spaced",        label: "🧠 Spaced",   color: "#DAA520" },
               { id: "practicehints", label: "💡 Hints",    color: "#f59e0b" },
             ].map(m => (
               <button key={m.id} onClick={() => startSubjectPractice(s.id, m.id)} style={{
@@ -754,7 +754,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
         <style>{`@keyframes xpPop { 0%{opacity:1;transform:translateY(0) scale(1)} 50%{transform:translateY(-6px) scale(1.1)} 100%{opacity:0;transform:translateY(-14px)} }`}</style>
 
         {/* Difficulty + question */}
-        <div style={{ background: "rgba(15,23,42,0.7)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ background: "rgba(10,10,10,0.7)", borderRadius: 12, padding: 16, border: "1px solid rgba(255,255,255,0.07)" }}>
           {q.difficulty && (
             <div style={{ fontSize: 11, color: "#334155", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
               {q.difficulty}
@@ -766,14 +766,14 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
         {/* Options */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {q.options.map((opt, idx) => {
-            let bg = "rgba(15,23,42,0.5)";
+            let bg = "rgba(10,10,10,0.5)";
             let border = "1px solid rgba(255,255,255,0.07)";
             let color = "#e2e8f0";
             let trailIcon = null;
             if (answered) {
               if (idx === q.answer)        { bg = "rgba(16,185,129,0.15)";  border = "1px solid #10b981"; color = "#6ee7b7"; trailIcon = "✓"; }
               else if (idx === selected)   { bg = "rgba(239,68,68,0.15)";   border = "1px solid #ef4444"; color = "#fca5a5"; trailIcon = "✕"; }
-              else                         { bg = "rgba(15,23,42,0.25)";   color = "#334155"; }
+              else                         { bg = "rgba(10,10,10,0.25)";   color = "#334155"; }
             }
             return (
               <button key={idx} onClick={() => handleAnswer(idx)} disabled={answered} style={{
@@ -824,7 +824,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
             <button onClick={getAIExplain} disabled={aiLoading} style={{
               alignSelf: "flex-start", padding: "8px 16px", borderRadius: 8,
               cursor: aiLoading ? "wait" : "pointer",
-              background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)",
+              background: "rgba(218,165,32,0.12)", border: "1px solid rgba(218,165,32,0.3)",
               color: "#c4b5fd", fontSize: 12, fontWeight: 700, opacity: aiLoading ? 0.7 : 1,
             }}>
               {aiLoading ? "⏳ Thinking…" : "🤖 AI Explain"}
@@ -832,7 +832,7 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
 
             {aiExpl && (
               <div style={{
-                background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)",
+                background: "rgba(218,165,32,0.08)", border: "1px solid rgba(218,165,32,0.2)",
                 borderRadius: 10, padding: "12px 14px",
                 fontSize: 13, color: "#ddd6fe", lineHeight: 1.7,
               }}>
@@ -916,8 +916,8 @@ function HubPractice({ s, mastery, token, completeSession, startSubjectPractice,
           padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer",
         }}>🔄 Practice Again</button>
         <button onClick={() => startSubjectPractice(s.id, "exam")} style={{
-          flex: 1, background: "rgba(59,130,246,0.1)",
-          border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd",
+          flex: 1, background: "rgba(255,215,0,0.1)",
+          border: "1px solid rgba(255,215,0,0.3)", color: "#FFD700",
           borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, cursor: "pointer",
         }}>🎓 Take Exam</button>
       </div>
@@ -941,10 +941,10 @@ function HubExam({ s, startSubjectPractice, demoMode }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{
-        background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)",
+        background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.2)",
         borderRadius: 12, padding: 16,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 16, color: "#93c5fd", marginBottom: 4 }}>🎓 {s.label} Exam</div>
+        <div style={{ fontWeight: 700, fontSize: 16, color: "#FFD700", marginBottom: 4 }}>🎓 {s.label} Exam</div>
         <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
           Full timed exam. Tests your complete understanding of this subject.
         </div>
@@ -974,7 +974,7 @@ function HubExam({ s, startSubjectPractice, demoMode }) {
       <button
         onClick={() => startSubjectPractice(s.id, "exam", qCount, minutes || null)}
         style={{
-          background: "linear-gradient(135deg, #1d4ed8, #3b82f6)",
+          background: "linear-gradient(135deg, #1d4ed8, #FFD700)",
           color: "#fff", border: "none", borderRadius: 12,
           padding: "15px", fontSize: 15, fontWeight: 700,
           cursor: "pointer", letterSpacing: "0.01em",
@@ -1052,7 +1052,7 @@ function HubFlashcards({ s, srData, customFlashcards, setCustomFlashcards, demoM
               <div
                 key={card.id}
                 style={{
-                  background: "rgba(15,23,42,0.6)", borderRadius: 10,
+                  background: "rgba(10,10,10,0.6)", borderRadius: 10,
                   border: "1px solid rgba(255,255,255,0.05)", padding: "10px 12px",
                   cursor: "pointer",
                 }}
@@ -1128,7 +1128,7 @@ function HubOutline({ s, outlineProgress, setOutlineProgress }) {
         background: "rgba(255,255,255,0.02)", borderRadius: 12,
         padding: "12px 16px", border: "1px solid rgba(255,255,255,0.05)",
       }}>
-        <ProgressRing pct={pct} size={52} stroke={5} color="#8b5cf6" />
+        <ProgressRing pct={pct} size={52} stroke={5} color="#DAA520" />
         <div>
           <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9" }}>{completed}/{outlines.length} weeks covered</div>
           <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Tick each week as you cover it</div>
@@ -1138,8 +1138,8 @@ function HubOutline({ s, outlineProgress, setOutlineProgress }) {
             {["sem1", "sem2"].map(s2 => (
               <button key={s2} onClick={() => setSem(s2)} style={{
                 padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12,
-                background: sem === s2 ? "#8b5cf6" : "transparent",
-                border: `1px solid ${sem === s2 ? "#8b5cf6" : "#334155"}`,
+                background: sem === s2 ? "#DAA520" : "transparent",
+                border: `1px solid ${sem === s2 ? "#DAA520" : "#334155"}`,
                 color: sem === s2 ? "#fff" : "#64748b",
               }}>{s2.toUpperCase()}</button>
             ))}
@@ -1155,8 +1155,8 @@ function HubOutline({ s, outlineProgress, setOutlineProgress }) {
             <div
               key={i} onClick={() => toggle(key)}
               style={{
-                background: done ? "rgba(139,92,246,0.1)" : "rgba(15,23,42,0.5)",
-                border: done ? "1px solid rgba(139,92,246,0.35)" : "1px solid rgba(255,255,255,0.05)",
+                background: done ? "rgba(218,165,32,0.1)" : "rgba(10,10,10,0.5)",
+                border: done ? "1px solid rgba(218,165,32,0.35)" : "1px solid rgba(255,255,255,0.05)",
                 borderRadius: 10, padding: "12px 14px",
                 display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer",
               }}
@@ -1164,7 +1164,7 @@ function HubOutline({ s, outlineProgress, setOutlineProgress }) {
               <div style={{
                 width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1,
                 border: done ? "none" : "2px solid #334155",
-                background: done ? "#8b5cf6" : "transparent",
+                background: done ? "#DAA520" : "transparent",
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
                 {done && <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</span>}
@@ -1399,7 +1399,7 @@ export default function LearnHub({
             style={{
               display: "flex", alignItems: "center", gap: "6px",
               padding: "8px 14px", borderRadius: "20px", cursor: "pointer",
-              border: activeDept ? "1.5px solid #3949ab" : "0.5px solid #1e2245",
+              border: activeDept ? "1.5px solid #B8860B" : "0.5px solid #1e2245",
               background: activeDept ? "#0f1535" : "#0a0b18",
               color: activeDept ? "#7986cb" : "#7b82b8", fontSize: "13px", fontWeight: 600,
             }}
@@ -1438,13 +1438,13 @@ export default function LearnHub({
       <div style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap" }}>
         <button
           onClick={startAdaptive}
-          style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(59,130,246,0.3)", background: "rgba(59,130,246,0.08)", color: "#93c5fd", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+          style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(255,215,0,0.3)", background: "rgba(255,215,0,0.08)", color: "#FFD700", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
         >
           🎯 Adaptive (all subjects)
         </button>
         <button
           onClick={startSpacedReview}
-          style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.08)", color: "#c4b5fd", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+          style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(218,165,32,0.3)", background: "rgba(218,165,32,0.08)", color: "#c4b5fd", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
         >
           🧠 Spaced Review
         </button>
@@ -1471,7 +1471,7 @@ export default function LearnHub({
           </div>
           <button
             onClick={() => onOpenDeptSwitcher?.()}
-            style={{ padding: "10px 20px", background: "#1a237e", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}
+            style={{ padding: "10px 20px", background: "#1a1a1a", border: "none", borderRadius: "10px", color: "#e8eaf6", fontWeight: 600, cursor: "pointer" }}
           >
             Change Department
           </button>

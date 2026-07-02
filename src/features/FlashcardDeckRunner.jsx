@@ -143,7 +143,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate }
 
       {/* Progress bar */}
       <div style={{ height: 4, background: "#0a0c1e", borderRadius: 4, overflow: "hidden", marginBottom: 24 }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #3949ab, #5c6bc0)", borderRadius: 4, transition: "width 0.3s" }} />
+        <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, #B8860B, #5c6bc0)", borderRadius: 4, transition: "width 0.3s" }} />
       </div>
 
       {/* Card */}
@@ -191,7 +191,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate }
               <span style={{ fontSize: 18 }}>😊</span>
               <span>Good</span>
             </button>
-            <button onClick={() => handleRate(4)} style={{ ...styles.rateBtn, background: "#0f1440", borderColor: "#7986cb", color: "#c5cae9" }}>
+            <button onClick={() => handleRate(4)} style={{ ...styles.rateBtn, background: "#0f1440", borderColor: "#7986cb", color: "#FFD700" }}>
               <span style={{ fontSize: 18 }}>🎉</span>
               <span>Easy</span>
             </button>

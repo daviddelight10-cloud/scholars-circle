@@ -33,7 +33,7 @@ export default function PeerComparison({ subjectId }) {
   }
 
   const bars = [
-    { label: "You", pct: data.yourPct, color: "#3949ab", bg: "#0f1535" },
+    { label: "You", pct: data.yourPct, color: "#B8860B", bg: "#0f1535" },
     { label: "Class avg", pct: data.classAvg, color: "#7b82b8", bg: "#0a0b18" },
     { label: "Top", pct: data.topPct, color: "#10b981", bg: "#0f2a1a" },
   ];

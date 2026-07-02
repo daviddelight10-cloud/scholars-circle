@@ -350,7 +350,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                     borderRadius: "8px",
                     padding: "10px 14px",
                     fontSize: "13px",
-                    color: "#9fa8da",
+                    color: "#DAA520",
                     outline: "none",
                   }}
                 />
@@ -367,7 +367,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                     borderRadius: "8px",
                     padding: "10px 14px",
                     fontSize: "13px",
-                    color: "#9fa8da",
+                    color: "#DAA520",
                     outline: "none",
                   }}
                 />
@@ -377,12 +377,12 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                   style={{
                     width: "100%",
                     padding: "10px",
-                    background: "#1a237e",
-                    border: "0.5px solid #3949ab",
+                    background: "#1a1a1a",
+                    border: "0.5px solid #B8860B",
                     borderRadius: "8px",
                     fontSize: "13px",
                     fontWeight: 700,
-                    color: "#c5cae9",
+                    color: "#FFD700",
                     cursor: authLoading ? "not-allowed" : "pointer",
                     opacity: authLoading ? 0.4 : 1,
                   }}
@@ -418,7 +418,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                     borderRadius: "8px",
                     padding: "10px 14px",
                     fontSize: "13px",
-                    color: "#9fa8da",
+                    color: "#DAA520",
                     outline: "none",
                   }}
                 />
@@ -435,7 +435,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                     borderRadius: "8px",
                     padding: "10px 14px",
                     fontSize: "13px",
-                    color: "#9fa8da",
+                    color: "#DAA520",
                     outline: "none",
                   }}
                 />
@@ -452,7 +452,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                     borderRadius: "8px",
                     padding: "10px 14px",
                     fontSize: "13px",
-                    color: "#9fa8da",
+                    color: "#DAA520",
                     outline: "none",
                   }}
                 />
@@ -462,12 +462,12 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
                   style={{
                     width: "100%",
                     padding: "10px",
-                    background: "#1a237e",
-                    border: "0.5px solid #3949ab",
+                    background: "#1a1a1a",
+                    border: "0.5px solid #B8860B",
                     borderRadius: "8px",
                     fontSize: "13px",
                     fontWeight: 700,
-                    color: "#c5cae9",
+                    color: "#FFD700",
                     cursor: authLoading ? "not-allowed" : "pointer",
                     opacity: authLoading ? 0.4 : 1,
                   }}
@@ -504,12 +504,12 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           onClick={handleBack}
           style={{
             padding: "10px 20px",
-            background: "#1a237e",
-            border: "0.5px solid #3949ab",
+            background: "#1a1a1a",
+            border: "0.5px solid #B8860B",
             borderRadius: "8px",
             fontSize: "13px",
             fontWeight: 600,
-            color: "#9fa8da",
+            color: "#DAA520",
             cursor: "pointer",
           }}
         >
@@ -608,13 +608,13 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         <div style={{ background: "linear-gradient(135deg,#0d0820,#1a0828)", border: "0.5px solid #5c35a0", borderRadius: "14px", padding: "28px 24px", marginBottom: "16px", textAlign: "center" }}>
           <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔒</div>
           <div style={{ fontSize: "18px", fontWeight: 700, color: "#e8eaf6", marginBottom: "8px" }}>Premium Resource</div>
-          <div style={{ fontSize: "13px", color: "#9fa8da", marginBottom: "8px", lineHeight: 1.6 }}>
+          <div style={{ fontSize: "13px", color: "#DAA520", marginBottom: "8px", lineHeight: 1.6 }}>
             This is a <strong>premium resource</strong> — upgrade to access all premium notes, PDFs & MCQs.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center", marginTop: "20px" }}>
             <button
               onClick={() => { window.dispatchEvent(new CustomEvent("sc-open-premium")); if (onBack) onBack(); navigate("/app#upgrade"); }}
-              style={{ padding: "12px 32px", background: "linear-gradient(135deg,#5c35a0,#1a237e)", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", maxWidth: "280px" }}
+              style={{ padding: "12px 32px", background: "linear-gradient(135deg,#5c35a0,#1a1a1a)", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", maxWidth: "280px" }}
             >
               💎 Upgrade to Premium
             </button>

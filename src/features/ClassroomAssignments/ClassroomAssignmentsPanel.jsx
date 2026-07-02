@@ -39,13 +39,13 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
 
   return (
     <div>
-      <div style={hdr}>
-        <h3 style={{ margin: 0 }}>📝 Assignments</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9" }}>📝 Assignments</h3>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {isHost && (
             <>
-              <button onClick={() => setView("gradebook")} style={btnSecondary}>📊 Gradebook</button>
-              <button onClick={() => setShowCreate(!showCreate)} style={btnPrimary}>
+              <button className="cr-btn-outline" onClick={() => setView("gradebook")}>📊 Gradebook</button>
+              <button className="cr-btn" onClick={() => setShowCreate(!showCreate)}>
                 {showCreate ? "✕ Cancel" : "➕ New Assignment"}
               </button>
             </>
@@ -61,11 +61,13 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
         />
       )}
 
-      {loading && <div style={{ padding: 20, color: "#9ca3af" }}>Loading...</div>}
+      {loading && <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading…</div>}
 
       {!loading && assignments.length === 0 && (
-        <div className="card" style={{ textAlign: "center", padding: 24, color: "#9ca3af" }}>
-          {isHost ? "No assignments yet. Create one above." : "No assignments yet."}
+        <div className="cr-empty" style={{ padding: "32px 20px" }}>
+          <div className="cr-empty-icon">📝</div>
+          <div className="cr-empty-title">No assignments yet</div>
+          <div className="cr-empty-desc">{isHost ? "Create one above to get started." : "Check back later."}</div>
         </div>
       )}
 
@@ -76,16 +78,16 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
         return (
           <div
             key={a.id}
-            className="card"
-            style={{ marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${isOverdue ? "#ef4444" : "#6366f1"}` }}
+            className="cr-glass-flat"
+            style={{ marginBottom: 8, cursor: "pointer", borderLeft: `3px solid ${isOverdue ? "#ef4444" : "#FFD700"}` }}
             onClick={() => { setSelected(a.id); setView("detail"); }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{a.title}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", fontFamily: "Syne, sans-serif" }}>{a.title}</div>
                 {a.description && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2, maxHeight: 36, overflow: "hidden" }}>{a.description}</div>}
-                <div style={{ fontSize: 12, color: "#a5b4fc", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
-                  {due && <span style={{ color: isOverdue ? "#f87171" : "#a5b4fc" }}>📅 Due {due.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>}
+                <div style={{ fontSize: 11, color: "#FFD700", marginTop: 6, display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  {due && <span style={{ color: isOverdue ? "#f87171" : "#FFD700" }}>📅 Due {due.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>}
                   <span>🎯 {a.points} pts</span>
                   <span>📎 {a.type}</span>
                   {isHost && <span>📥 {a._count?.submissions || 0} submissions</span>}
@@ -94,15 +96,15 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                 {!isHost && mySubmission && (
                   mySubmission.grade !== null && mySubmission.grade !== undefined ? (
-                    <span style={{ ...badge, background: "#10b981" }}>
+                    <span className="cr-badge" style={{ background: "rgba(16,185,129,0.2)", color: "#10b981" }}>
                       Graded: {mySubmission.grade}/{a.points}
                     </span>
                   ) : (
-                    <span style={{ ...badge, background: "#6366f1" }}>✓ Submitted</span>
+                    <span className="cr-badge" style={{ background: "rgba(255,215,0,0.15)", color: "#FFD700" }}>✓ Submitted</span>
                   )
                 )}
-                {!isHost && !mySubmission && isOverdue && <span style={{ ...badge, background: "#ef4444" }}>Overdue</span>}
-                {!isHost && !mySubmission && !isOverdue && <span style={{ ...badge, background: "#f59e0b" }}>Pending</span>}
+                {!isHost && !mySubmission && isOverdue && <span className="cr-badge" style={{ background: "rgba(239,68,68,0.2)", color: "#ef4444" }}>Overdue</span>}
+                {!isHost && !mySubmission && !isOverdue && <span className="cr-badge" style={{ background: "rgba(245,158,11,0.2)", color: "#f59e0b" }}>Pending</span>}
               </div>
             </div>
           </div>
@@ -140,32 +142,33 @@ function CreateAssignmentForm({ classroomId, token, onCreated }) {
   }
 
   return (
-    <form onSubmit={submit} className="card" style={{ marginBottom: 12 }}>
-      <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Assignment title *" style={{ ...inp, marginBottom: 8 }} />
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Instructions / description" rows={3} style={{ ...inp, marginBottom: 8, resize: "vertical" }} />
+    <form onSubmit={submit} className="cr-glass" style={{ marginBottom: 12 }}>
+      <input className="cr-input" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Assignment title *" style={{ marginBottom: 8 }} />
+      <textarea className="cr-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Instructions / description" rows={3} style={{ marginBottom: 8, resize: "vertical" }} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 8 }}>
         <div>
-          <label style={lbl}>Due date/time</label>
-          <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} style={inp} />
+          <label className="cr-field-label">Due date/time</label>
+          <input className="cr-input" type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
         </div>
         <div>
-          <label style={lbl}>Points</label>
-          <input type="number" min="1" max="1000" value={points} onChange={(e) => setPoints(e.target.value)} style={inp} />
+          <label className="cr-field-label">Points</label>
+          <input className="cr-input" type="number" min="1" max="1000" value={points} onChange={(e) => setPoints(e.target.value)} />
         </div>
         <div>
-          <label style={lbl}>Submission type</label>
-          <select value={type} onChange={(e) => setType(e.target.value)} style={inp}>
+          <label className="cr-field-label">Submission type</label>
+          <select className="cr-input" value={type} onChange={(e) => setType(e.target.value)}>
             <option value="text">Text only</option>
             <option value="file">File only</option>
             <option value="both">Text + file</option>
           </select>
         </div>
       </div>
-      <button type="submit" disabled={busy || !title.trim()} style={btnPrimary}>
+      <button className="cr-btn" type="submit" disabled={busy || !title.trim()} style={(busy || !title.trim()) ? { opacity: 0.5 } : {}}>
         {busy ? "Creating..." : "📝 Create Assignment"}
       </button>
     </form>
   );
+
 }
 
 function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
@@ -185,17 +188,17 @@ function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
   }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [assignmentId]);
 
-  if (loading || !data) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (loading || !data) return <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading…</div>;
 
   const mySub = !data.isHost ? data.submissions?.[0] : null;
 
   return (
     <div>
-      <button onClick={onBack} style={{ ...btnSecondary, marginBottom: 12 }}>← Back</button>
-      <div className="card">
-        <h3 style={{ margin: 0 }}>{data.title}</h3>
-        {data.description && <p style={{ color: "#cbd5e1", whiteSpace: "pre-wrap" }}>{data.description}</p>}
-        <div style={{ display: "flex", gap: 16, fontSize: 12, color: "#a5b4fc", flexWrap: "wrap" }}>
+      <button className="cr-btn-outline" onClick={onBack} style={{ marginBottom: 12 }}>← Back</button>
+      <div className="cr-glass">
+        <h3 style={{ margin: 0, fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9" }}>{data.title}</h3>
+        {data.description && <p style={{ color: "#cbd5e1", whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>{data.description}</p>}
+        <div style={{ display: "flex", gap: 16, fontSize: 11, color: "#FFD700", flexWrap: "wrap" }}>
           {data.dueAt && <span>📅 Due {new Date(data.dueAt).toLocaleString()}</span>}
           <span>🎯 {data.points} pts</span>
         </div>
@@ -207,8 +210,8 @@ function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
 
       {data.isHost && (
         <div style={{ marginTop: 12 }}>
-          <h4>Submissions ({data.submissions.length})</h4>
-          {data.submissions.length === 0 && <p style={{ color: "#9ca3af" }}>No submissions yet.</p>}
+          <h4 style={{ fontFamily: "Syne, sans-serif", fontSize: 14, color: "#f1f5f9" }}>Submissions ({data.submissions.length})</h4>
+          {data.submissions.length === 0 && <p style={{ color: "#6b7280", fontSize: 12 }}>No submissions yet.</p>}
           {data.submissions.map((s) => (
             <SubmissionRow key={s.id} submission={s} maxPoints={data.points} token={token} onGraded={load} />
           ))}
@@ -242,8 +245,8 @@ function SubmissionForm({ assignment, mySubmission, token, onSubmitted }) {
   const showFile = assignment.type === "file" || assignment.type === "both";
 
   return (
-    <form onSubmit={submit} className="card" style={{ marginTop: 12 }}>
-      <h4 style={{ marginTop: 0 }}>{mySubmission ? "📤 Update Submission" : "📤 Submit Your Work"}</h4>
+    <form onSubmit={submit} className="cr-glass" style={{ marginTop: 12 }}>
+      <h4 style={{ marginTop: 0, fontFamily: "Syne, sans-serif", fontSize: 14, color: "#f1f5f9" }}>{mySubmission ? "📤 Update Submission" : "📤 Submit Your Work"}</h4>
       {mySubmission?.grade !== null && mySubmission?.grade !== undefined && (
         <div style={{ padding: 12, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 8, marginBottom: 12 }}>
           <div style={{ fontWeight: 700, color: "#10b981" }}>
@@ -254,24 +257,26 @@ function SubmissionForm({ assignment, mySubmission, token, onSubmitted }) {
       )}
       {showText && (
         <textarea
+          className="cr-input"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Type your answer..."
           rows={6}
-          style={{ ...inp, resize: "vertical", marginBottom: 8 }}
+          style={{ resize: "vertical", marginBottom: 8 }}
         />
       )}
       {showFile && (
         <div style={{ marginBottom: 8 }}>
           <input type="file" onChange={(e) => setFile(e.target.files[0])} style={{ color: "#cbd5e1" }} />
-          {mySubmission?.fileName && <div style={{ fontSize: 12, color: "#a5b4fc", marginTop: 4 }}>Current: {mySubmission.fileName}</div>}
+          {mySubmission?.fileName && <div style={{ fontSize: 12, color: "#FFD700", marginTop: 4 }}>Current: {mySubmission.fileName}</div>}
         </div>
       )}
-      <button type="submit" disabled={busy || (!content.trim() && !file)} style={btnPrimary}>
+      <button className="cr-btn" type="submit" disabled={busy || (!content.trim() && !file)} style={(busy || (!content.trim() && !file)) ? { opacity: 0.5 } : {}}>
         {busy ? "Submitting..." : mySubmission ? "Update Submission" : "Submit"}
       </button>
     </form>
   );
+
 }
 
 function SubmissionRow({ submission, maxPoints, token, onGraded }) {
@@ -297,33 +302,33 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
   }
 
   return (
-    <div className="card" style={{ marginBottom: 6, padding: 10 }}>
+    <div className="cr-glass-flat" style={{ marginBottom: 6, padding: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <div>
-          <b>{submission.student?.username || "Unknown"}</b>
-          <span style={{ color: "#9ca3af", fontSize: 12, marginLeft: 8 }}>
+          <b style={{ color: "#f1f5f9", fontSize: 13 }}>{submission.student?.username || "Unknown"}</b>
+          <span style={{ color: "#6b7280", fontSize: 11, marginLeft: 8 }}>
             Submitted {new Date(submission.submittedAt).toLocaleString()}
           </span>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {submission.grade !== null && submission.grade !== undefined ? (
-            <span style={{ ...badge, background: "#10b981" }}>
+            <span className="cr-badge" style={{ background: "rgba(16,185,129,0.2)", color: "#10b981" }}>
               {submission.grade}/{maxPoints}
             </span>
           ) : (
-            <span style={{ ...badge, background: "#f59e0b" }}>Ungraded</span>
+            <span className="cr-badge" style={{ background: "rgba(245,158,11,0.2)", color: "#f59e0b" }}>Ungraded</span>
           )}
-          <button onClick={() => setExpanded(!expanded)} style={btnSecondary}>
+          <button className="cr-btn-outline" onClick={() => setExpanded(!expanded)}>
             {expanded ? "Close" : "Review"}
           </button>
         </div>
       </div>
       {expanded && (
-        <div style={{ marginTop: 12, padding: 12, background: "rgba(15,23,42,0.5)", borderRadius: 8 }}>
+        <div style={{ marginTop: 12, padding: 12, background: "rgba(10,10,10,0.5)", borderRadius: 8 }}>
           {submission.content && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4 }}>TEXT SUBMISSION</div>
-              <div style={{ whiteSpace: "pre-wrap", color: "#e0e7ff" }}>{submission.content}</div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>TEXT SUBMISSION</div>
+              <div style={{ whiteSpace: "pre-wrap", color: "#FFD700", fontSize: 12 }}>{submission.content}</div>
             </div>
           )}
           {submission.fileUrl && (
@@ -334,7 +339,6 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
                 rel="noreferrer"
                 onClick={async (e) => {
                   e.preventDefault();
-                  // Auth-fetched download
                   try {
                     const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000"}/classroom-assignments/submissions/${submission.id}/download`, {
                       headers: { Authorization: `Bearer ${token}` }
@@ -350,7 +354,7 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
                     alert("Download failed: " + err.message);
                   }
                 }}
-                style={{ color: "#a5b4fc" }}
+                style={{ color: "#FFD700", fontSize: 12 }}
               >
                 📎 {submission.fileName || "Download attachment"}
               </a>
@@ -358,21 +362,22 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
           )}
           <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 8, marginBottom: 8 }}>
             <div>
-              <label style={lbl}>Grade (out of {maxPoints})</label>
-              <input type="number" min="0" max={maxPoints} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="—" style={inp} />
+              <label className="cr-field-label">Grade (out of {maxPoints})</label>
+              <input className="cr-input" type="number" min="0" max={maxPoints} value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="—" />
             </div>
             <div>
-              <label style={lbl}>Feedback</label>
-              <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} rows={2} style={{ ...inp, resize: "vertical" }} />
+              <label className="cr-field-label">Feedback</label>
+              <textarea className="cr-input" value={feedback} onChange={(e) => setFeedback(e.target.value)} rows={2} style={{ resize: "vertical" }} />
             </div>
           </div>
-          <button onClick={save} disabled={busy} style={btnPrimary}>
+          <button className="cr-btn" onClick={save} disabled={busy} style={busy ? { opacity: 0.5 } : {}}>
             {busy ? "Saving..." : "💾 Save Grade"}
           </button>
         </div>
       )}
     </div>
   );
+
 }
 
 function Gradebook({ classroomId, token, onBack }) {
@@ -387,7 +392,7 @@ function Gradebook({ classroomId, token, onBack }) {
       .finally(() => setLoading(false));
   }, [classroomId, token]);
 
-  if (loading || !data) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (loading || !data) return <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading…</div>;
 
   function exportCSV() {
     const headers = ["Student", "Email", ...data.assignments.map((a) => `${a.title} (${a.points})`), "Average %"];
@@ -410,30 +415,30 @@ function Gradebook({ classroomId, token, onBack }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <button onClick={onBack} style={btnSecondary}>← Back</button>
-        <button onClick={exportCSV} style={btnPrimary}>📥 Export CSV</button>
+        <button className="cr-btn-outline" onClick={onBack}>← Back</button>
+        <button className="cr-btn" onClick={exportCSV}>📥 Export CSV</button>
       </div>
-      <h3>📊 Gradebook</h3>
+      <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: 16, color: "#f1f5f9", marginBottom: 12 }}>📊 Gradebook</h3>
       {data.assignments.length === 0 ? (
-        <p style={{ color: "#9ca3af" }}>No assignments yet.</p>
+        <p style={{ color: "#6b7280", fontSize: 12 }}>No assignments yet.</p>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+        <div className="cr-glass" style={{ overflowX: "auto" }}>
+          <table className="cr-table">
             <thead>
-              <tr style={{ background: "rgba(99,102,241,0.1)" }}>
-                <th style={th}>Student</th>
+              <tr>
+                <th className="cr-th">Student</th>
                 {data.assignments.map((a) => (
-                  <th key={a.id} style={th} title={a.title}>{a.title.length > 16 ? a.title.slice(0, 14) + "…" : a.title}<br /><span style={{ fontSize: 10, color: "#9ca3af" }}>({a.points})</span></th>
+                  <th key={a.id} className="cr-th" title={a.title}>{a.title.length > 16 ? a.title.slice(0, 14) + "…" : a.title}<br /><span style={{ fontSize: 10, color: "#6b7280" }}>({a.points})</span></th>
                 ))}
-                <th style={th}>Avg %</th>
+                <th className="cr-th">Avg %</th>
               </tr>
             </thead>
             <tbody>
               {data.rows.map((r) => (
-                <tr key={r.student.id} style={{ borderTop: "1px solid rgba(99,102,241,0.1)" }}>
-                  <td style={td}><b>{r.student.username}</b></td>
+                <tr key={r.student.id} className="cr-tr">
+                  <td className="cr-td"><b style={{ color: "#f1f5f9" }}>{r.student.username}</b></td>
                   {r.cells.map((c, i) => (
-                    <td key={i} style={td}>
+                    <td key={i} className="cr-td">
                       {c.grade !== null && c.grade !== undefined ? (
                         <span style={{ color: c.grade / c.points >= 0.5 ? "#10b981" : "#f87171" }}>{c.grade}</span>
                       ) : c.submitted ? (
@@ -443,7 +448,7 @@ function Gradebook({ classroomId, token, onBack }) {
                       )}
                     </td>
                   ))}
-                  <td style={td}>
+                  <td className="cr-td">
                     {r.avgPct !== null ? (
                       <b style={{ color: r.avgPct >= 50 ? "#10b981" : "#f87171" }}>{r.avgPct}%</b>
                     ) : "—"}
@@ -458,11 +463,3 @@ function Gradebook({ classroomId, token, onBack }) {
   );
 }
 
-const hdr = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 };
-const lbl = { display: "block", fontSize: 11, color: "#a5b4fc", marginBottom: 4, fontWeight: 600 };
-const inp = { width: "100%", padding: 8, borderRadius: 6, border: "1px solid rgba(99,102,241,0.3)", background: "rgba(15,23,42,0.7)", color: "#fff", fontSize: 13, boxSizing: "border-box" };
-const btnPrimary = { padding: "8px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13 };
-const btnSecondary = { padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(99,102,241,0.4)", background: "rgba(30,41,59,0.6)", color: "#fff", cursor: "pointer", fontSize: 13 };
-const badge = { padding: "3px 10px", borderRadius: 99, color: "#fff", fontSize: 11, fontWeight: 600 };
-const th = { padding: 8, textAlign: "left", borderBottom: "2px solid rgba(99,102,241,0.3)", color: "#a5b4fc", fontSize: 12 };
-const td = { padding: 8, textAlign: "left" };

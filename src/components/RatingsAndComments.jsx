@@ -112,13 +112,13 @@ export default function RatingsAndComments({ resourceId }) {
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
           placeholder="Write a comment..."
-          style={{ flex: 1, background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#9fa8da", outline: "none" }}
+          style={{ flex: 1, background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#DAA520", outline: "none" }}
           onKeyDown={(e) => { if (e.key === "Enter" && !submitting) submitComment(); }}
         />
         <button
           onClick={submitComment}
           disabled={submitting || !commentText.trim()}
-          style={{ padding: "10px 16px", background: "#1a237e", border: "0.5px solid #3949ab", borderRadius: "8px", fontSize: "13px", fontWeight: 600, color: "#c5cae9", cursor: "pointer", opacity: submitting || !commentText.trim() ? 0.5 : 1 }}
+          style={{ padding: "10px 16px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: "13px", fontWeight: 600, color: "#FFD700", cursor: "pointer", opacity: submitting || !commentText.trim() ? 0.5 : 1 }}
         >Post</button>
       </div>
 
@@ -136,7 +136,7 @@ export default function RatingsAndComments({ resourceId }) {
             value={flagText}
             onChange={(e) => setFlagText(e.target.value)}
             placeholder="What's wrong with this resource?"
-            style={{ width: "100%", background: "#0d0f20", border: "0.5px solid #2a2d4a", borderRadius: "6px", padding: "8px", fontSize: "12px", color: "#9fa8da", outline: "none", resize: "vertical", minHeight: "50px", marginBottom: "8px" }}
+            style={{ width: "100%", background: "#0d0f20", border: "0.5px solid #2a2d4a", borderRadius: "6px", padding: "8px", fontSize: "12px", color: "#DAA520", outline: "none", resize: "vertical", minHeight: "50px", marginBottom: "8px" }}
           />
           <div style={{ display: "flex", gap: "8px" }}>
             <button onClick={() => { setShowFlagBox(false); setFlagText(""); }} style={{ flex: 1, padding: "8px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "6px", fontSize: "12px", color: "#7986cb", cursor: "pointer" }}>Cancel</button>

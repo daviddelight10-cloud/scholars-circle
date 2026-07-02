@@ -4,7 +4,7 @@ const BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
 
 function masteryLevel(pct) {
   if (pct >= 81) return { label: "Mastered", color: "#10b981", bg: "#0f2a1a" };
-  if (pct >= 51) return { label: "Practiced", color: "#3b82f6", bg: "#0f1535" };
+  if (pct >= 51) return { label: "Practiced", color: "#FFD700", bg: "#0f1535" };
   if (pct >= 21) return { label: "Learning", color: "#f59e0b", bg: "#1a1000" };
   return { label: "Beginner", color: "#6b7280", bg: "#0a0b18" };
 }
@@ -93,7 +93,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
                   title="Open full study hub"
                   style={{
                     padding: "7px 14px", background: "#0f1535",
-                    border: "0.5px solid #3949ab", borderRadius: "10px",
+                    border: "0.5px solid #B8860B", borderRadius: "10px",
                     color: "#7986cb", fontSize: "12px", fontWeight: 600, cursor: "pointer",
                   }}
                 >
@@ -129,7 +129,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
             <button
               onClick={() => openPicker(null, "All Topics", subject.questions?.length || 0)}
               style={{
-                marginLeft: "auto", padding: "10px 18px", background: "#1a237e",
+                marginLeft: "auto", padding: "10px 18px", background: "#1a1a1a",
                 border: "none", borderRadius: "10px", color: "#e8eaf6",
                 fontWeight: 600, fontSize: "14px", cursor: "pointer",
               }}
@@ -167,7 +167,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
                 <div style={{ color: "#e8eaf6", fontWeight: 600, fontSize: "14px" }}>{t.name}</div>
                 <div style={{ color: "#4a5080", fontSize: "12px" }}>{t.questionCount} question{t.questionCount !== 1 ? "s" : ""}</div>
               </div>
-              <span style={{ color: "#3949ab", fontSize: "18px" }}>›</span>
+              <span style={{ color: "#B8860B", fontSize: "18px" }}>›</span>
             </div>
           ))}
         </div>
@@ -230,7 +230,7 @@ export function QuestionCountPicker({ subjectLabel, topicName, maxCount, onClose
               onClick={() => { setSelected(n); setUseCustom(false); }}
               style={{
                 padding: "10px 18px", borderRadius: "10px", cursor: "pointer",
-                border: (!useCustom && selected === n) ? "1.5px solid #3949ab" : "0.5px solid #1e2245",
+                border: (!useCustom && selected === n) ? "1.5px solid #B8860B" : "0.5px solid #1e2245",
                 background: (!useCustom && selected === n) ? "#0f1535" : "#0a0b18",
                 color: (!useCustom && selected === n) ? "#7986cb" : "#7b82b8",
                 fontWeight: 700, fontSize: "15px",
@@ -254,7 +254,7 @@ export function QuestionCountPicker({ subjectLabel, topicName, maxCount, onClose
             style={{
               width: "100%", padding: "10px 14px", borderRadius: "10px",
               background: useCustom ? "#0f1535" : "#0a0b18",
-              border: useCustom ? "1.5px solid #3949ab" : "0.5px solid #1e2245",
+              border: useCustom ? "1.5px solid #B8860B" : "0.5px solid #1e2245",
               color: "#e8eaf6", fontSize: "15px", outline: "none", boxSizing: "border-box",
             }}
           />
@@ -271,7 +271,7 @@ export function QuestionCountPicker({ subjectLabel, topicName, maxCount, onClose
             onClick={() => finalCount > 0 && onStart(finalCount)}
             disabled={finalCount <= 0 || finalCount > maxCount}
             style={{
-              flex: 2, padding: "13px", background: "#1a237e", color: "#e8eaf6",
+              flex: 2, padding: "13px", background: "#1a1a1a", color: "#e8eaf6",
               border: "none", borderRadius: "12px", fontWeight: 700, fontSize: "15px",
               cursor: finalCount > 0 ? "pointer" : "default",
             }}

@@ -184,17 +184,17 @@ ${isCorrect
 
   return (
     <div className="card" style={{
-      background: "linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9))",
-      border: "1px solid rgba(99, 102, 241, 0.2)",
+      background: "linear-gradient(145deg, rgba(10, 10, 10, 0.95), rgba(20, 20, 20, 0.9))",
+      border: "1px solid rgba(255, 215, 0, 0.2)",
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
       borderRadius: 20,
       overflow: "hidden"
     }}>
       {/* Animated Header */}
       <div style={{
-        background: "linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))",
+        background: "linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(218, 165, 32, 0.1))",
         padding: "20px 24px",
-        borderBottom: "1px solid rgba(99, 102, 241, 0.2)"
+        borderBottom: "1px solid rgba(255, 215, 0, 0.2)"
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -202,17 +202,17 @@ ${isCorrect
               width: 48,
               height: 48,
               borderRadius: 12,
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 24,
-              boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)"
+              boxShadow: "0 4px 15px rgba(255, 215, 0, 0.4)"
             }}>
               {session.source.icon}
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #a5b4fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{session.source.label}</h3>
+              <h3 style={{ margin: 0, fontSize: 18, background: "linear-gradient(135deg, #fff, #FFD700)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{session.source.label}</h3>
               <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>{session.mode === "exam" ? "Exam Mode" : session.mode === "weak" ? "Weak Drill" : session.mode === "adaptive" ? "Adaptive" : "Practice"}</p>
             </div>
           </div>
@@ -220,8 +220,8 @@ ${isCorrect
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             {timeLeft != null && (
               <div style={{
-                background: timeLeft < 60 ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(30, 41, 59, 0.8)",
-                border: "1px solid " + (timeLeft < 60 ? "rgba(239, 68, 68, 0.5)" : "rgba(99, 102, 241, 0.3)"),
+                background: timeLeft < 60 ? "linear-gradient(135deg, #ef4444, #dc2626)" : "rgba(20, 20, 20, 0.8)",
+                border: "1px solid " + (timeLeft < 60 ? "rgba(239, 68, 68, 0.5)" : "rgba(255, 215, 0, 0.3)"),
                 padding: "8px 16px",
                 borderRadius: 30,
                 fontSize: 14,
@@ -234,13 +234,13 @@ ${isCorrect
             )}
 
             <div style={{
-              background: "rgba(30, 41, 59, 0.8)",
-              border: "1px solid rgba(99, 102, 241, 0.3)",
+              background: "rgba(20, 20, 20, 0.8)",
+              border: "1px solid rgba(255, 215, 0, 0.3)",
               padding: "8px 16px",
               borderRadius: 30,
               fontSize: 13,
               fontWeight: 600,
-              color: "#e0e7ff"
+              color: "#FFD700"
             }}>
               Q{idx + 1}<span style={{ color: "#6b7280" }}>/{session.questions.length}</span>
             </div>
@@ -311,7 +311,7 @@ ${isCorrect
       <div style={{ padding: "0 24px", marginTop: 20 }}>
         <div style={{
           height: 6,
-          background: "rgba(30, 41, 59, 0.8)",
+          background: "rgba(20, 20, 20, 0.8)",
           borderRadius: 10,
           overflow: "hidden",
           boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)"
@@ -319,10 +319,10 @@ ${isCorrect
           <div style={{
             height: "100%",
             width: `${((idx + 1) / session.questions.length) * 100}%`,
-            background: "linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7)",
+            background: "linear-gradient(90deg, #FFD700, #DAA520, #DAA520)",
             borderRadius: 10,
             transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: "0 0 20px rgba(99, 102, 241, 0.5)"
+            boxShadow: "0 0 20px rgba(255, 215, 0, 0.5)"
           }} />
         </div>
       </div>
@@ -330,7 +330,7 @@ ${isCorrect
       {isExamLike && (
         <div style={{ padding: "12px 24px 0" }}>
           <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>
-            Running score: <span style={{ color: "#e0e7ff" }}>{score}/{Math.max(1, idx + (showResult ? 1 : 0))}</span>
+            Running score: <span style={{ color: "#FFD700" }}>{score}/{Math.max(1, idx + (showResult ? 1 : 0))}</span>
             {perQuestionTarget && <span> · Pace: ~{perQuestionTarget}s/question</span>}
           </p>
         </div>
@@ -339,11 +339,11 @@ ${isCorrect
       {/* Question */}
       <div style={{ padding: "24px" }}>
         <div style={{
-          background: "linear-gradient(135deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))",
+          background: "linear-gradient(135deg, rgba(20, 20, 20, 0.6), rgba(10, 10, 10, 0.8))",
           borderRadius: 16,
           padding: 20,
           marginBottom: 20,
-          border: "1px solid rgba(99, 102, 241, 0.15)",
+          border: "1px solid rgba(255, 215, 0, 0.15)",
           boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
           position: "relative"
         }}>
@@ -353,13 +353,13 @@ ${isCorrect
               position: "absolute",
               top: 12,
               right: 12,
-              background: flaggedQuestions.has(idx) ? "rgba(239, 68, 68, 0.2)" : "rgba(99, 102, 241, 0.1)",
-              border: flaggedQuestions.has(idx) ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(99, 102, 241, 0.2)",
+              background: flaggedQuestions.has(idx) ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 215, 0, 0.1)",
+              border: flaggedQuestions.has(idx) ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(255, 215, 0, 0.2)",
               padding: "8px 12px",
               borderRadius: 8,
               cursor: "pointer",
               fontSize: 14,
-              color: flaggedQuestions.has(idx) ? "#f87171" : "#a5b4fc"
+              color: flaggedQuestions.has(idx) ? "#f87171" : "#FFD700"
             }}
             title="Flag for review"
           >
@@ -385,11 +385,11 @@ ${isCorrect
               value={confidence}
               onChange={(e) => setConfidence(e.target.value)}
               style={{
-                background: "rgba(30, 41, 59, 0.8)",
-                border: "1px solid rgba(99, 102, 241, 0.3)",
+                background: "rgba(20, 20, 20, 0.8)",
+                border: "1px solid rgba(255, 215, 0, 0.3)",
                 borderRadius: 8,
                 padding: "8px 12px",
-                color: "#e0e7ff",
+                color: "#FFD700",
                 fontSize: 14
               }}
             >
@@ -401,11 +401,11 @@ ${isCorrect
           <button
             onClick={() => window.speechSynthesis?.speak(new SpeechSynthesisUtterance(current.q))}
             style={{
-              background: "rgba(99, 102, 241, 0.2)",
-              border: "1px solid rgba(99, 102, 241, 0.3)",
+              background: "rgba(255, 215, 0, 0.2)",
+              border: "1px solid rgba(255, 215, 0, 0.3)",
               padding: "8px 16px",
               borderRadius: 8,
-              color: "#a5b4fc",
+              color: "#FFD700",
               fontSize: 14,
               cursor: "pointer"
             }}
@@ -421,8 +421,8 @@ ${isCorrect
             const isCorrectOption = showResult && i === current.answer;
             const isWrong = showResult && i === selected && i !== current.answer;
 
-            let bgGradient = "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))";
-            let borderColor = "rgba(99, 102, 241, 0.2)";
+            let bgGradient = "linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(10, 10, 10, 0.9))";
+            let borderColor = "rgba(255, 215, 0, 0.2)";
             let glowColor = "transparent";
 
             if (showResult) {
@@ -436,9 +436,9 @@ ${isCorrect
                 glowColor = "rgba(239, 68, 68, 0.3)";
               }
             } else if (isSelected) {
-              bgGradient = "linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.1))";
-              borderColor = "rgba(99, 102, 241, 0.5)";
-              glowColor = "rgba(99, 102, 241, 0.3)";
+              bgGradient = "linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(218, 165, 32, 0.1))";
+              borderColor = "rgba(255, 215, 0, 0.5)";
+              glowColor = "rgba(255, 215, 0, 0.3)";
             }
 
             return (
@@ -468,14 +468,14 @@ ${isCorrect
                       borderRadius: 10,
                       background: isCorrectOption ? "linear-gradient(135deg, #22c55e, #16a34a)"
                                 : isWrong ? "linear-gradient(135deg, #ef4444, #dc2626)"
-                                : isSelected ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
-                                : "rgba(99, 102, 241, 0.2)",
+                                : isSelected ? "linear-gradient(135deg, #FFD700, #DAA520)"
+                                : "rgba(255, 215, 0, 0.2)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       fontWeight: 700,
                       fontSize: 14,
-                      color: isSelected || isCorrectOption ? "#fff" : "#a5b4fc"
+                      color: isSelected || isCorrectOption ? "#fff" : "#FFD700"
                     }}>
                       {isCorrectOption ? "✓" : isWrong ? "✗" : String.fromCharCode(65 + i)}
                     </span>
@@ -502,12 +502,12 @@ ${isCorrect
       {showResult && !isExamLike && (
         <div style={{ padding: "0 24px 24px" }}>
           <div style={{
-            background: "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05))",
+            background: "linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(37, 99, 235, 0.05))",
             borderRadius: 16,
             padding: 20,
-            border: "1px solid rgba(59, 130, 246, 0.2)"
+            border: "1px solid rgba(255, 215, 0, 0.2)"
           }}>
-            <p style={{ color: "#93c5fd", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+            <p style={{ color: "#FFD700", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
               💡 {current.explanation || "No explanation available."}
             </p>
 
@@ -516,7 +516,7 @@ ${isCorrect
                 onClick={askAIForExplanation}
                 disabled={aiLoading}
                 style={{
-                  background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                  background: "linear-gradient(135deg, #FFD700, #2563eb)",
                   border: "none",
                   padding: "10px 20px",
                   borderRadius: 10,
@@ -524,7 +524,7 @@ ${isCorrect
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: aiLoading ? "wait" : "pointer",
-                  boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)"
+                  boxShadow: "0 4px 15px rgba(255, 215, 0, 0.4)"
                 }}
               >
                 {aiLoading ? "🤖 Thinking..." : "🤖 Ask AI to explain"}
@@ -533,12 +533,12 @@ ${isCorrect
                 <div style={{
                   marginTop: 12,
                   padding: 16,
-                  background: "rgba(30, 41, 59, 0.6)",
-                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                  background: "rgba(20, 20, 20, 0.6)",
+                  border: "1px solid rgba(255, 215, 0, 0.3)",
                   borderRadius: 12,
                   fontSize: 14,
                   lineHeight: 1.6,
-                  color: "#93c5fd"
+                  color: "#FFD700"
                 }}>
                   <strong style={{ color: "#60a5fa" }}>AI Explanation:</strong>
                   <p style={{ margin: "8px 0 0" }}>{aiExplanation}</p>
@@ -556,7 +556,7 @@ ${isCorrect
             onClick={submit}
             disabled={selected == null}
             style={{
-              background: selected == null ? "rgba(99, 102, 241, 0.3)" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: selected == null ? "rgba(255, 215, 0, 0.3)" : "linear-gradient(135deg, #FFD700, #DAA520)",
               color: "white",
               border: "none",
               padding: "14px 28px",
@@ -564,7 +564,7 @@ ${isCorrect
               cursor: selected == null ? "not-allowed" : "pointer",
               fontSize: 15,
               fontWeight: 600,
-              boxShadow: selected == null ? "none" : "0 4px 20px rgba(99, 102, 241, 0.4)",
+              boxShadow: selected == null ? "none" : "0 4px 20px rgba(255, 215, 0, 0.4)",
               transition: "all 0.2s"
             }}
           >
@@ -574,7 +574,7 @@ ${isCorrect
           <button
             onClick={next}
             style={{
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)",
               color: "white",
               border: "none",
               padding: "14px 28px",
@@ -582,7 +582,7 @@ ${isCorrect
               cursor: "pointer",
               fontSize: 15,
               fontWeight: 600,
-              boxShadow: "0 4px 20px rgba(99, 102, 241, 0.4)",
+              boxShadow: "0 4px 20px rgba(255, 215, 0, 0.4)",
               transition: "all 0.2s"
             }}
           >

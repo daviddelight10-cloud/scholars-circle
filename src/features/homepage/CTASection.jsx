@@ -9,8 +9,8 @@ export default function CTASection() {
     }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <div style={{
-          background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.2), rgba(168, 85, 247, 0.2), rgba(236, 72, 153, 0.2))',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
+          background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.2), rgba(218, 165, 32, 0.2), rgba(236, 72, 153, 0.2))',
+          border: '1px solid rgba(255, 215, 0, 0.3)',
           borderRadius: '24px',
           padding: '48px 32px',
           textAlign: 'center',
@@ -29,7 +29,7 @@ export default function CTASection() {
               left: 0,
               width: '384px',
               height: '384px',
-              background: 'rgba(59, 130, 246, 0.2)',
+              background: 'rgba(255, 215, 0, 0.2)',
               borderRadius: '50%',
               filter: 'blur(96px)',
               animation: 'orbFloat 9s ease-in-out infinite'
@@ -40,7 +40,7 @@ export default function CTASection() {
               right: 0,
               width: '384px',
               height: '384px',
-              background: 'rgba(168, 85, 247, 0.2)',
+              background: 'rgba(218, 165, 32, 0.2)',
               borderRadius: '50%',
               filter: 'blur(96px)',
               animation: 'orbFloat 9s ease-in-out infinite',
@@ -96,7 +96,7 @@ export default function CTASection() {
                 to="/features"
                 style={{
                   padding: '16px 32px',
-                  background: 'rgba(30, 41, 59, 0.5)',
+                  background: 'rgba(20, 20, 20, 0.5)',
                   color: '#fff',
                   fontWeight: 600,
                   borderRadius: '12px',

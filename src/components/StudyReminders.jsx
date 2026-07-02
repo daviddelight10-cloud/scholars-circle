@@ -93,7 +93,7 @@ export function StudyReminders({ reminders, setReminders, timetable, notificatio
           <option value="">No Subject</option>
           {SUBJECTS.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
         </select>
-        <button onClick={addReminder} style={{ borderColor: "#2dd4a0", color: "#2dd4a0" }}>+ Add</button>
+        <button onClick={addReminder} style={{ borderColor: "#FFD700", color: "#FFD700" }}>+ Add</button>
       </div>
       {timetableReminders.length > 0 && (
         <div style={{ marginTop: 16 }}>

@@ -132,7 +132,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
       <div style={{
         padding: "10px 16px",
         background: "linear-gradient(135deg, #1e293b, #0f172a)",
-        borderBottom: "1px solid rgba(99,102,241,0.3)",
+        borderBottom: "1px solid rgba(255,215,0,0.3)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
         flexWrap: "wrap", gap: 8
       }}>
@@ -143,7 +143,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
               background: "#ef4444", animation: "pulse 1.5s infinite"
             }} />
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{session.title}</span>
-            <span style={{ color: "#a5b4fc", fontSize: 12 }}>LIVE</span>
+            <span style={{ color: "#FFD700", fontSize: 12 }}>LIVE</span>
           </div>
           {session.classroom?.name && (
             <div style={{ color: "#9ca3af", fontSize: 11, marginTop: 2 }}>
@@ -162,8 +162,8 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
             </button>
           )}
           <button onClick={handleLeave} style={{
-            padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(99,102,241,0.4)",
-            background: "rgba(30,41,59,0.6)", color: "#fff", cursor: "pointer"
+            padding: "8px 16px", borderRadius: 8, border: "1px solid rgba(255,215,0,0.4)",
+            background: "rgba(20,20,20,0.6)", color: "#fff", cursor: "pointer"
           }}>
             ← Leave
           </button>
@@ -192,9 +192,9 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
       {!isHost && (
         <div style={{
           padding: "10px 16px",
-          background: "rgba(99, 102, 241, 0.1)",
-          borderBottom: "1px solid rgba(99, 102, 241, 0.3)",
-          color: "#a5b4fc",
+          background: "rgba(255, 215, 0, 0.1)",
+          borderBottom: "1px solid rgba(255, 215, 0, 0.3)",
+          color: "#FFD700",
           fontSize: 12,
           display: "flex",
           gap: 8,
@@ -208,7 +208,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
       )}
 
       {loading && (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#a5b4fc" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#FFD700" }}>
           Connecting to live session…
         </div>
       )}

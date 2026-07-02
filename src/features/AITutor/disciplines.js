@@ -22,7 +22,7 @@ export const DISCIPLINES = [
     id: "mathematics",
     label: "Mathematics & Statistics",
     icon: "📐",
-    color: "#6366f1",
+    color: "#FFD700",
     examples: ["Calculus", "Linear Algebra", "Statistics", "Discrete Math", "Probability"],
     style: "Use rigorous proofs. Show all steps. Use LaTeX-style notation in plain text (e.g., x^2, sqrt(x), integral). State assumptions and theorems used."
   },
@@ -38,7 +38,7 @@ export const DISCIPLINES = [
     id: "law",
     label: "Law & Legal Studies",
     icon: "⚖️",
-    color: "#8b5cf6",
+    color: "#DAA520",
     examples: ["Constitutional Law", "Criminal Law", "Contract Law", "Tort Law", "International Law"],
     style: "Use IRAC structure (Issue, Rule, Application, Conclusion). Cite case names and statutes when teaching. Acknowledge jurisdictional differences."
   },
@@ -46,7 +46,7 @@ export const DISCIPLINES = [
     id: "business",
     label: "Business & Economics",
     icon: "💼",
-    color: "#0ea5e9",
+    color: "#FFD700",
     examples: ["Accounting", "Finance", "Marketing", "Management", "Microeconomics"],
     style: "Use case-study framing. Show financial calculations. Include real-world examples. Use frameworks (SWOT, Porter's Five Forces, 4Ps)."
   },

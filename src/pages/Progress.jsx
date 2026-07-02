@@ -60,9 +60,9 @@ function Progress({
             onClick={() => setProgressSubTab(id)}
             style={{
               padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-              border: progressSubTab === id ? "2px solid #818cf8" : "1px solid rgba(99,102,241,0.25)",
-              background: progressSubTab === id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "rgba(30,41,59,0.6)",
-              color: progressSubTab === id ? "#fff" : "#a5b4fc",
+              border: progressSubTab === id ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.25)",
+              background: progressSubTab === id ? "linear-gradient(135deg,#FFD700,#DAA520)" : "rgba(20,20,20,0.6)",
+              color: progressSubTab === id ? "#fff" : "#FFD700",
             }}
           >{label}</button>
         ))}
