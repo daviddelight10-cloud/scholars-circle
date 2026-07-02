@@ -1057,7 +1057,7 @@ router.post("/pdf-review/flashcards/generate", requireAuth, aiRateLimit, async (
     const combinedText = pages.map((p) => p.text).join("\n\n").slice(0, 20000);
 
     // Server-side AI call — use the proxy endpoint directly
-    const aiRes = await fetch(`${process.env.API_BASE || "http://localhost:3000"}/ai-proxy/generate-multimodal`, {
+    const aiRes = await fetch(`${process.env.API_BASE || "http://localhost:4000"}/ai-proxy/generate-multimodal`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

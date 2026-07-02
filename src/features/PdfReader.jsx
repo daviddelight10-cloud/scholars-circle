@@ -907,11 +907,88 @@ ${extractedText}
     const maxWidth = pageWidth - margin * 2;
     let y = margin;
 
+    const GOLD = [184, 134, 11]; // #B8860B
+    const DARK = [30, 30, 40];
+    const MUTED = [120, 120, 140];
+    const LIGHT_BG = [245, 243, 238];
+
     const ensureSpace = (lineHeight) => {
       if (y + lineHeight > pageHeight - margin) {
         doc.addPage();
         y = margin;
       }
+    };
+
+    // Render a single line with inline **bold** and *italic* markdown
+    // Handles mixed bold/italic within a line by splitting into segments
+    const addRichText = (text, fontSize, baseStyle, indent = 0) => {
+      doc.setFontSize(fontSize);
+      const availWidth = maxWidth - indent;
+
+      // Parse inline markdown into segments: { text, bold, italic }
+      const segments = [];
+      let remaining = text;
+      while (remaining.length > 0) {
+        // Match **bold** first
+        const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+        // Match *italic*
+        const italicMatch = remaining.match(/\*(.+?)\*/);
+
+        if (boldMatch && (!italicMatch || boldMatch.index <= italicMatch.index)) {
+          if (boldMatch.index > 0) {
+            segments.push({ text: remaining.slice(0, boldMatch.index), bold: false, italic: false });
+          }
+          segments.push({ text: boldMatch[1], bold: true, italic: false });
+          remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+        } else if (italicMatch) {
+          if (italicMatch.index > 0) {
+            segments.push({ text: remaining.slice(0, italicMatch.index), bold: false, italic: false });
+          }
+          segments.push({ text: italicMatch[1], bold: false, italic: true });
+          remaining = remaining.slice(italicMatch.index + italicMatch[0].length);
+        } else {
+          segments.push({ text: remaining, bold: false, italic: false });
+          remaining = "";
+        }
+      }
+
+      // Word-wrap the rich text manually
+      const words = [];
+      for (const seg of segments) {
+        const segWords = seg.text.split(/(\s+)/);
+        for (const w of segWords) {
+          if (w.length > 0) words.push({ text: w, bold: seg.bold, italic: seg.italic });
+        }
+      }
+
+      let currentLine = [];
+      let currentLineWidth = 0;
+      const flushLine = () => {
+        if (currentLine.length === 0) return;
+        ensureSpace(fontSize * 1.5);
+        let x = margin + indent;
+        for (const word of currentLine) {
+          const style = word.bold ? "bold" : word.italic ? "italic" : baseStyle;
+          doc.setFont("helvetica", style);
+          doc.text(word.text, x, y);
+          x += doc.getTextWidth(word.text);
+        }
+        y += fontSize * 1.5;
+        currentLine = [];
+        currentLineWidth = 0;
+      };
+
+      for (const word of words) {
+        const style = word.bold ? "bold" : word.italic ? "italic" : baseStyle;
+        doc.setFont("helvetica", style);
+        const ww = doc.getTextWidth(word.text);
+        if (currentLineWidth + ww > availWidth && currentLine.length > 0) {
+          flushLine();
+        }
+        currentLine.push(word);
+        currentLineWidth += ww;
+      }
+      flushLine();
     };
 
     const addWrappedText = (text, fontSize, fontStyle, indent = 0) => {
@@ -925,34 +1002,93 @@ ${extractedText}
       }
     };
 
-    // Title
-    addWrappedText(docTitle, 16, "bold");
-    y += 6;
-    addWrappedText(`AI Summary — ${rangeLabel}`, 11, "normal");
-    y += 12;
+    // ── Header bar ──
+    doc.setFillColor(...DARK);
+    doc.rect(0, 0, pageWidth, 70, "F");
+    doc.setFillColor(...GOLD);
+    doc.rect(0, 70, pageWidth, 3, "F");
+
+    // Title in header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 215, 0);
+    const titleLines = doc.splitTextToSize(docTitle, maxWidth);
+    doc.text(titleLines[0], margin, 35);
+
+    // Subtitle
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(180, 180, 200);
+    doc.text(`AI Summary — ${rangeLabel}`, margin, 52);
+
+    doc.setTextColor(0, 0, 0);
+    y = 95;
+
+    // ── Decorative divider ──
+    const addDivider = () => {
+      ensureSpace(20);
+      doc.setDrawColor(...GOLD);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 14;
+    };
 
     const lines = markdownText.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) { y += 6; continue; }
 
-      if (trimmed.startsWith("## ")) {
-        y += 8;
-        addWrappedText(trimmed.replace(/^##\s+/, ""), 14, "bold");
+      if (trimmed.startsWith("### ")) {
+        y += 6;
+        addRichText(trimmed.replace(/^###\s+/, ""), 12, "bold");
         y += 4;
+      } else if (trimmed.startsWith("## ")) {
+        y += 10;
+        addDivider();
+        addRichText(trimmed.replace(/^##\s+/, ""), 14, "bold");
+        y += 6;
       } else if (trimmed.startsWith("# ")) {
-        y += 8;
-        addWrappedText(trimmed.replace(/^#\s+/, ""), 15, "bold");
-        y += 4;
+        y += 10;
+        addDivider();
+        addRichText(trimmed.replace(/^#\s+/, ""), 15, "bold");
+        y += 6;
       } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-        addWrappedText("• " + trimmed.replace(/^[-*]\s+/, ""), 12, "normal", 12);
+        // Bullet point with rich text
+        const bulletContent = trimmed.replace(/^[-*]\s+/, "");
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...GOLD);
+        ensureSpace(12 * 1.5);
+        doc.text("•", margin + 4, y);
+        doc.setTextColor(0, 0, 0);
+        addRichText(bulletContent, 12, "normal", 18);
       } else if (/^\d+\.\s/.test(trimmed)) {
-        addWrappedText(trimmed, 12, "normal", 12);
+        const numContent = trimmed.replace(/^(\d+\.)\s+/, "");
+        const numPrefix = trimmed.match(/^(\d+\.)\s*/)[1];
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...GOLD);
+        ensureSpace(12 * 1.5);
+        doc.text(numPrefix, margin + 4, y);
+        doc.setTextColor(0, 0, 0);
+        addRichText(numContent, 12, "normal", 18);
       } else {
-        // Strip markdown bold markers for PDF
-        const clean = trimmed.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
-        addWrappedText(clean, 12, "normal");
+        addRichText(trimmed, 12, "normal");
       }
+    }
+
+    // ── Footer on each page ──
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...MUTED);
+      doc.text(
+        `Scholar's Circle · AI-generated summary · Page ${p} of ${pageCount}`,
+        margin,
+        pageHeight - 20
+      );
     }
 
     return doc.output("datauristring").split(",")[1];
