@@ -1911,7 +1911,6 @@ ${extractedText}
   };
 
   const onTouchStartViewer = (e) => {
-    if (tool !== "none") return;
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -1925,7 +1924,8 @@ ${extractedText}
       setPinchActive(true);
     } else if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      if (panZoomRef.current.scale > 1) {
+      // Allow panning when zoomed in, regardless of tool (tool draws go to SVG overlay)
+      if (panZoomRef.current.scale > 1 && tool === "none") {
         panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         panStartOffsetRef.current = { x: panZoomRef.current.x, y: panZoomRef.current.y };
         setIsPanning(true);
@@ -1934,7 +1934,6 @@ ${extractedText}
   };
 
   const onTouchMoveViewer = (e) => {
-    if (tool !== "none") return;
     if (e.touches.length === 2 && pinchActiveRef.current && pinchStartDistRef.current > 0) {
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -1971,7 +1970,6 @@ ${extractedText}
   };
 
   const onTouchEndViewer = (e) => {
-    if (tool !== "none") return;
     if (pinchActiveRef.current) {
       pinchActiveRef.current = false;
       setPinchActive(false);
@@ -1992,9 +1990,9 @@ ${extractedText}
       const dx = t.clientX - touchStartRef.current.x;
       const dy = t.clientY - touchStartRef.current.y;
       const dist = Math.hypot(dx, dy);
-      // Double-tap: reset zoom or zoom in
+      // Double-tap: reset zoom or zoom in (only when no tool active)
       const now = Date.now();
-      if (dist < 10 && now - lastTapRef.current < 300) {
+      if (dist < 10 && now - lastTapRef.current < 300 && tool === "none") {
         lastTapRef.current = 0;
         if (panZoomRef.current.scale > 1.01) {
           resetPanZoom();
@@ -2006,10 +2004,15 @@ ${extractedText}
         return;
       }
       lastTapRef.current = now;
-      // Swipe navigation (only in single page mode, only when not zoomed)
-      if (scrollMode === "single" && panZoomRef.current.scale <= 1.01 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
-        if (dx > 0) goToPage(currentPage - 1);
-        else goToPage(currentPage + 1);
+      // Swipe navigation (only in single page mode)
+      if (scrollMode === "single" && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+        if (panZoomRef.current.scale > 1.01) {
+          // When zoomed in, first swipe resets zoom instead of navigating
+          resetPanZoom();
+        } else {
+          if (dx > 0) goToPage(currentPage - 1);
+          else goToPage(currentPage + 1);
+        }
       }
     }
   };
@@ -2118,16 +2121,20 @@ ${extractedText}
 
   // ---- Resume reading — auto-navigate to last page ----
   useEffect(() => {
+    if (loading) return;
     const saved = loadStored(`sc_pdf_lastpage_${docKey}`, null);
-    if (saved && saved > 1 && pdfDocRef.current) {
-      const clamped = Math.min(saved, pdfDocRef.current.numPages);
-      setCurrentPage(clamped);
-      if (scrollMode !== "single") {
-        setTimeout(() => {
-          const el = pageItemRefs.current[clamped - 1];
-          if (el) el.scrollIntoView({ behavior: "auto", block: "start" });
-        }, 100);
-      }
+    if (!saved || saved <= 1 || !pdfDocRef.current) return;
+    const clamped = Math.min(saved, pdfDocRef.current.numPages);
+    if (clamped === currentPage) return;
+    setCurrentPage(clamped);
+    if (scrollMode === "single") {
+      renderPage(clamped);
+    } else {
+      // In continuous mode, wait for page placeholders to render, then scroll
+      setTimeout(() => {
+        const el = pageItemRefs.current[clamped - 1];
+        if (el) el.scrollIntoView({ behavior: "auto", block: "start" });
+      }, 300);
     }
   }, [docKey, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2315,22 +2322,12 @@ ${extractedText}
       flex: 1,
       overflowY: "auto",
       overflowX: "hidden",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: isMobile ? 8 : 16,
-      padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
       position: "relative",
       touchAction: "pan-y",
     } : {
       flex: 1,
       overflowX: "auto",
       overflowY: "hidden",
-      display: "flex",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: isMobile ? 8 : 24,
-      padding: isMobile ? "8px 4px 40px" : "24px 24px 40px",
       position: "relative",
       scrollSnapType: "x mandatory",
       touchAction: "pan-x",
@@ -3813,12 +3810,30 @@ ${extractedText}
               transformOrigin: "center center",
               transition: pinchActive || isPanning ? "none" : "transform 0.2s ease-out",
               willChange: "transform",
-              flex: 1,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "flex-start",
-              width: "100%",
-              height: "100%",
+              ...(scrollMode === "single" ? {
+                flex: 1,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                width: "100%",
+                height: "100%",
+              } : scrollMode === "vertical" ? {
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: isMobile ? 8 : 16,
+                width: "100%",
+                minHeight: "100%",
+                padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
+              } : {
+                display: "flex",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: isMobile ? 8 : 24,
+                height: "100%",
+                minWidth: "100%",
+                padding: isMobile ? "8px 4px 40px" : "24px 24px 40px",
+              }),
             }}
           >
           {scrollMode === "single" ? (
@@ -3840,7 +3855,7 @@ ${extractedText}
                 ref={canvasRef}
                 style={{
                   display: "block",
-                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none",
+                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none",
                 }}
               />
               {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -3857,7 +3872,7 @@ ${extractedText}
               )}
               <svg
                 ref={lassoSvgRef}
-                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none" }}
+                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none" }}
                 onPointerDown={onOverlayDown}
                 onPointerMove={onOverlayMove}
                 onPointerUp={onOverlayUp}
@@ -3915,7 +3930,7 @@ ${extractedText}
                         ref={(el) => { pageCanvasRefs.current[pg - 1] = el; }}
                         style={{
                           display: "block",
-                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none",
+                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none",
                         }}
                       />
                       {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -3936,7 +3951,7 @@ ${extractedText}
                           ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
                           style={{
                             ...s.lassoOverlay,
-                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none",
+                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none",
                             pointerEvents: pg === currentPage && tool !== "none" ? "auto" : "none",
                           }}
                           onPointerDown={pg === currentPage ? onOverlayDown : undefined}
