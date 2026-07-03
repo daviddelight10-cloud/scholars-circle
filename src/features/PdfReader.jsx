@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import FlashcardRunner from "../components/FlashcardRunner.jsx";
@@ -185,6 +185,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const chatScrollRef = useRef(null);
   const inputRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
+  const pageDimsRef = useRef({}); // { pageNum: { width, height } } for virtualization placeholders
+  const renderTasksRef = useRef({}); // { pageNum: renderTask } for per-canvas cancellation
+  const pinchStartDistRef = useRef(0);
+  const pinchStartScaleRef = useRef(1);
+  const lastTapRef = useRef(0);
+  const thumbObserverRef = useRef(null);
+  const thumbRenderedRef = useRef(new Set());
+  const debounceScaleRef = useRef(null);
 
   // Page sorter filter
   const [pageFilter, setPageFilter] = useState("all");
@@ -231,6 +239,20 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pageCanvasRefs = useRef([]);
   const observerRef = useRef(null);
   const [visiblePages, setVisiblePages] = useState(new Set([1]));
+  const [showZoomIndicator, setShowZoomIndicator] = useState(false);
+  const zoomIndicatorTimerRef = useRef(null);
+
+  // Virtual window: visible pages + buffer for pre-rendering
+  const RENDER_BUFFER = 2;
+  const virtualPages = useMemo(() => {
+    const vp = new Set();
+    visiblePages.forEach((pg) => {
+      for (let i = Math.max(1, pg - RENDER_BUFFER); i <= Math.min(numPages, pg + RENDER_BUFFER); i++) {
+        vp.add(i);
+      }
+    });
+    return vp;
+  }, [visiblePages, numPages]);
 
   // Load PDF document
   useEffect(() => {
@@ -252,6 +274,12 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         setNumPages(pdf.numPages);
         const startPage = initialPage ? Math.max(1, Math.min(initialPage, pdf.numPages)) : 1;
         setCurrentPage(startPage);
+        // Store first page dimensions for virtualization placeholders
+        try {
+          const p1 = await pdf.getPage(1);
+          const vp1 = p1.getViewport({ scale: 1 });
+          pageDimsRef.current[1] = { width: vp1.width, height: vp1.height };
+        } catch (e) {}
         // Initialize FSRS tracking for this PDF
         if (propResourceId) initFsrs(pdf.numPages);
         // Defer fitToWidth so fullscreen layout is painted before measuring container width
@@ -327,20 +355,28 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Re-render on scale change (single mode only)
   useEffect(() => {
-    if (pdfDocRef.current && !loading && scrollMode === "single") {
-      renderPage(currentPage);
+    if (scrollMode === "single") {
+      if (pdfDocRef.current && !loading) {
+        renderPage(currentPage);
+      }
+      return;
     }
-    // In continuous mode, clear rendered flags so pages re-render at new scale
-    if (scrollMode !== "single" && pdfDocRef.current && !loading) {
+    // In continuous mode, debounce re-render to prevent thrashing
+    if (!pdfDocRef.current || loading) return;
+    if (debounceScaleRef.current) clearTimeout(debounceScaleRef.current);
+    debounceScaleRef.current = setTimeout(() => {
       pageCanvasRefs.current.forEach((c) => { if (c) delete c.dataset.rendered; });
-    }
+    }, 150);
+    return () => {
+      if (debounceScaleRef.current) clearTimeout(debounceScaleRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scale]);
 
   // Render visible pages in continuous scroll mode
   useEffect(() => {
     if (scrollMode === "single" || !pdfDocRef.current || loading) return;
-    visiblePages.forEach((pg) => {
+    virtualPages.forEach((pg) => {
       const canvas = pageCanvasRefs.current[pg - 1];
       if (canvas && !canvas.dataset.rendered) {
         canvas.dataset.rendered = "true";
@@ -348,7 +384,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visiblePages, scrollMode, loading, scale]);
+  }, [virtualPages, scrollMode, loading, scale]);
 
   // Re-fit width when fullscreen toggles
   useEffect(() => {
@@ -406,14 +442,32 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     canvasEl.height = Math.floor(viewport.height * dpr);
     canvasEl.style.width = viewport.width + "px";
     canvasEl.style.height = viewport.height + "px";
+    // Store dimensions for virtualization placeholders
+    pageDimsRef.current[n] = { width: viewport.width, height: viewport.height };
     const ctx = canvasEl.getContext("2d");
+    // Cancel any previous render task for this page
+    if (renderTasksRef.current[n]) {
+      try { renderTasksRef.current[n].cancel(); } catch (e) {}
+    }
     const task = page.render({ canvasContext: ctx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
+    renderTasksRef.current[n] = task;
     try {
       await task.promise;
     } catch (err) {
       if (!err || err.name !== "RenderingCancelledException") console.error(err);
+    } finally {
+      if (renderTasksRef.current[n] === task) delete renderTasksRef.current[n];
     }
   }, [scale]);
+
+  // Get placeholder dimensions for virtualized pages
+  const getPlaceholderDims = (pg) => {
+    const dims = pageDimsRef.current[pg];
+    if (dims) return dims;
+    const base = pageDimsRef.current[1];
+    if (base) return { width: base.width * scale, height: base.height * scale };
+    return { width: 0, height: 0 };
+  };
 
   const goToPage = useCallback(async (n) => {
     if (!pdfDocRef.current) return;
@@ -450,11 +504,22 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   };
 
   const getPageText = useCallback(async (n) => {
-    if (textCacheRef.current[n]) return textCacheRef.current[n];
+    if (textCacheRef.current[n]) {
+      // LRU: move accessed key to end by re-inserting
+      const val = textCacheRef.current[n];
+      delete textCacheRef.current[n];
+      textCacheRef.current[n] = val;
+      return val;
+    }
     if (!pdfDocRef.current) return "";
     const page = await pdfDocRef.current.getPage(n);
     const tc = await page.getTextContent();
     const text = tc.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim();
+    // LRU eviction: cap at 50 cached pages
+    const keys = Object.keys(textCacheRef.current);
+    if (keys.length >= 50) {
+      delete textCacheRef.current[keys[0]];
+    }
     textCacheRef.current[n] = text;
     return text;
   }, []);
@@ -1479,26 +1544,55 @@ ${extractedText}
     }
   };
 
-  // ---- Thumbnails ----
+  // ---- Thumbnails (lazy via IntersectionObserver) ----
   const [thumbs, setThumbs] = useState([]);
+  const thumbItemRefs = useRef([]);
+  const thumbRenderQueueRef = useRef([]);
+  const thumbRenderingRef = useRef(0);
+
+  // Initialize placeholder thumb entries when panel opens
   useEffect(() => {
-    if (!showThumbs || !pdfDocRef.current || thumbs.length > 0) return;
-    let cancelled = false;
-    (async () => {
-      const arr = [];
-      for (let n = 1; n <= pdfDocRef.current.numPages; n++) {
-        if (cancelled) return;
-        const page = await pdfDocRef.current.getPage(n);
+    if (!showThumbs || !pdfDocRef.current) return;
+    if (thumbs.length > 0) return;
+    const arr = Array.from({ length: pdfDocRef.current.numPages }, (_, i) => ({ page: i + 1, dataUrl: null }));
+    setThumbs(arr);
+  }, [showThumbs, thumbs.length]);
+
+  // Lazy render thumbnails when they scroll into view
+  useEffect(() => {
+    if (!showThumbs || thumbs.length === 0 || !pdfDocRef.current) return;
+    if (thumbObserverRef.current) thumbObserverRef.current.disconnect();
+
+    const renderThumb = async (pg) => {
+      if (thumbRenderedRef.current.has(pg)) return;
+      thumbRenderedRef.current.add(pg);
+      try {
+        const page = await pdfDocRef.current.getPage(pg);
         const vp = page.getViewport({ scale: 0.24 });
         const c = document.createElement("canvas");
         c.width = vp.width;
         c.height = vp.height;
         await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-        arr.push({ page: n, dataUrl: c.toDataURL() });
+        const dataUrl = c.toDataURL();
+        setThumbs((prev) => prev.map((t) => t.page === pg ? { ...t, dataUrl } : t));
+      } catch (e) {
+        thumbRenderedRef.current.delete(pg);
       }
-      if (!cancelled) setThumbs(arr);
-    })();
-    return () => { cancelled = true; };
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const pg = parseInt(entry.target.dataset.page, 10);
+          renderThumb(pg);
+        }
+      });
+    }, { rootMargin: "100px" });
+
+    thumbObserverRef.current = observer;
+    thumbItemRefs.current.forEach((el) => { if (el) observer.observe(el); });
+
+    return () => observer.disconnect();
   }, [showThumbs, thumbs.length]);
 
   // ---- Highlighter / Eraser ----
@@ -1644,27 +1738,82 @@ ${extractedText}
     );
   };
 
-  // ---- Swipe navigation ----
+  // ---- Touch: pinch-to-zoom + swipe navigation + double-tap ----
+  const showZoomBadge = () => {
+    setShowZoomIndicator(true);
+    if (zoomIndicatorTimerRef.current) clearTimeout(zoomIndicatorTimerRef.current);
+    zoomIndicatorTimerRef.current = setTimeout(() => setShowZoomIndicator(false), 1200);
+  };
+
   const onTouchStartViewer = (e) => {
     if (tool !== "none") return;
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDistRef.current = Math.hypot(dx, dy);
+      pinchStartScaleRef.current = scale;
+    } else if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
   };
 
-  const onTouchMoveViewer = () => {};
+  const onTouchMoveViewer = (e) => {
+    if (tool !== "none") return;
+    if (e.touches.length === 2 && pinchStartDistRef.current > 0) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist / pinchStartDistRef.current;
+      const newScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * ratio));
+      setUserZoomed(true);
+      setScale(newScale);
+      showZoomBadge();
+    }
+  };
 
   const onTouchEndViewer = (e) => {
     if (tool !== "none") return;
+    if (e.changedTouches.length === 2) {
+      pinchStartDistRef.current = 0;
+      return;
+    }
     if (e.changedTouches.length === 1) {
       const t = e.changedTouches[0];
       const dx = t.clientX - touchStartRef.current.x;
       const dy = t.clientY - touchStartRef.current.y;
-      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      const dist = Math.hypot(dx, dy);
+      // Double-tap detection: toggle between fit-width and 100%
+      const now = Date.now();
+      if (dist < 10 && now - lastTapRef.current < 300) {
+        lastTapRef.current = 0;
+        if (userZoomed) {
+          setUserZoomed(false);
+          fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+        } else {
+          setUserZoomed(true);
+          setScale(1);
+        }
+        showZoomBadge();
+        return;
+      }
+      lastTapRef.current = now;
+      // Swipe navigation (only in single page mode, not during pinch)
+      if (scrollMode === "single" && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         if (dx > 0) goToPage(currentPage - 1);
         else goToPage(currentPage + 1);
       }
     }
+  };
+
+  // ---- Ctrl+wheel zoom (desktop) ----
+  const onWheelViewer = (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    setUserZoomed(true);
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setScale((s) => Math.max(0.5, Math.min(2.6, s * delta)));
+    showZoomBadge();
   };
 
   // ---- Tool toggle helper ----
@@ -3289,6 +3438,8 @@ ${extractedText}
                 return (
                 <button
                   key={t.page}
+                  data-page={t.page}
+                  ref={(el) => { thumbItemRefs.current[t.page - 1] = el; }}
                   style={{
                     ...s.thumb,
                     borderColor: t.page === currentPage ? T.accent : "transparent",
@@ -3296,7 +3447,11 @@ ${extractedText}
                   }}
                   onClick={() => goToPage(t.page)}
                 >
-                  <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
+                  {t.dataUrl ? (
+                    <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
+                  ) : (
+                    <div style={{ width: 84, height: 110, background: T.inputBg, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: T.muted }}>…</div>
+                  )}
                   <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
                   {dot && <span title={dot.title} style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: dot.color, border: "1px solid rgba(0,0,0,0.2)" }} />}
                 </button>
@@ -3346,6 +3501,8 @@ ${extractedText}
                 return (
                 <button
                   key={t.page}
+                  data-page={t.page}
+                  ref={(el) => { thumbItemRefs.current[t.page - 1] = el; }}
                   style={{
                     ...s.thumb,
                     borderColor: t.page === currentPage ? T.accent : "transparent",
@@ -3353,7 +3510,11 @@ ${extractedText}
                   }}
                   onClick={() => { goToPage(t.page); setShowThumbs(false); }}
                 >
-                  <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
+                  {t.dataUrl ? (
+                    <img src={t.dataUrl} alt={`Page ${t.page}`} style={{ boxShadow: `0 1px 4px ${T.shadow}`, display: "block" }} />
+                  ) : (
+                    <div style={{ width: 84, height: 110, background: T.inputBg, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: T.muted }}>…</div>
+                  )}
                   <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
                   {dot && <span title={dot.title} style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: dot.color, border: "1px solid rgba(0,0,0,0.2)" }} />}
                 </button>
@@ -3370,7 +3531,19 @@ ${extractedText}
           onTouchStart={onTouchStartViewer}
           onTouchMove={onTouchMoveViewer}
           onTouchEnd={onTouchEndViewer}
+          onWheel={onWheelViewer}
         >
+          {/* Zoom indicator badge */}
+          {showZoomIndicator && (
+            <div style={{
+              position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+              background: "rgba(0,0,0,0.7)", color: "white", borderRadius: 20,
+              padding: "4px 16px", fontSize: 13, fontWeight: 600, zIndex: 50,
+              pointerEvents: "none", transition: "opacity 0.3s ease",
+            }}>
+              {Math.round(scale * 100)}%
+            </div>
+          )}
           {/* Resume toast */}
           {resumePage && !loading && (
             <div style={s.resumeToast}>
@@ -3439,63 +3612,80 @@ ${extractedText}
               </svg>
             </div>
           ) : (
-            // Continuous scroll mode — render all pages
-            Array.from({ length: numPages }, (_, i) => i + 1).map((pg) => (
-              <div
-                key={pg}
-                data-page={pg}
-                ref={(el) => { pageItemRefs.current[pg - 1] = el; }}
-                style={s.continuousPageItem}
-              >
-                <canvas
-                  ref={(el) => { pageCanvasRefs.current[pg - 1] = el; }}
+            // Continuous scroll mode — virtualized: only render canvases for pages in virtual window
+            Array.from({ length: numPages }, (_, i) => i + 1).map((pg) => {
+              const isInVirtual = virtualPages.has(pg);
+              const dims = getPlaceholderDims(pg);
+              return (
+                <div
+                  key={pg}
+                  data-page={pg}
+                  ref={(el) => { pageItemRefs.current[pg - 1] = el; }}
                   style={{
-                    display: "block",
-                    filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                    ...s.continuousPageItem,
+                    ...(!isInVirtual && dims.height > 0 ? {
+                      width: dims.width,
+                      height: dims.height,
+                    } : {}),
                   }}
-                />
-                {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
-                {visiblePages.has(pg) && (
-                  <svg
-                    ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
-                    style={{
-                      ...s.lassoOverlay,
-                      filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
-                      pointerEvents: pg === currentPage && tool !== "none" ? "auto" : "none",
-                    }}
-                    onPointerDown={pg === currentPage ? onOverlayDown : undefined}
-                    onPointerMove={pg === currentPage ? onOverlayMove : undefined}
-                    onPointerUp={pg === currentPage ? onOverlayUp : undefined}
-                  >
-                    {/* Saved annotations */}
-                    {(annotations[pg] || []).map((stroke, si) => {
-                      const d = "M " + stroke.points.map((p) => `${p.x * scale},${p.y * scale}`).join(" L ");
-                      return (
-                        <path
-                          key={`p${pg}a${si}`}
-                          d={d}
-                          stroke={stroke.color}
-                          strokeWidth={stroke.width * scale}
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{ mixBlendMode: "multiply" }}
-                        />
-                      );
-                    })}
-                    {/* Active highlight stroke (current page only) */}
-                    {pg === currentPage && renderStrokes && tool === "highlight" && (
-                      <path d={renderStrokes} stroke={penColor} strokeWidth={12} fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ mixBlendMode: "multiply" }} />
-                    )}
-                    {/* Lasso path for circle-to-ask (current page only) */}
-                    {pg === currentPage && lassoPath && tool === "circle" && (
-                      <path d={lassoPath} style={s.lassoPath} />
-                    )}
-                  </svg>
-                )}
-                <span style={s.pageLabel}>{pg}</span>
-              </div>
-            ))
+                >
+                  {isInVirtual ? (
+                    <>
+                      <canvas
+                        ref={(el) => { pageCanvasRefs.current[pg - 1] = el; }}
+                        style={{
+                          display: "block",
+                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                        }}
+                      />
+                      {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
+                      {visiblePages.has(pg) && (
+                        <svg
+                          ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
+                          style={{
+                            ...s.lassoOverlay,
+                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                            pointerEvents: pg === currentPage && tool !== "none" ? "auto" : "none",
+                          }}
+                          onPointerDown={pg === currentPage ? onOverlayDown : undefined}
+                          onPointerMove={pg === currentPage ? onOverlayMove : undefined}
+                          onPointerUp={pg === currentPage ? onOverlayUp : undefined}
+                        >
+                          {/* Saved annotations */}
+                          {(annotations[pg] || []).map((stroke, si) => {
+                            const d = "M " + stroke.points.map((p) => `${p.x * scale},${p.y * scale}`).join(" L ");
+                            return (
+                              <path
+                                key={`p${pg}a${si}`}
+                                d={d}
+                                stroke={stroke.color}
+                                strokeWidth={stroke.width * scale}
+                                fill="none"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                style={{ mixBlendMode: "multiply" }}
+                              />
+                            );
+                          })}
+                          {/* Active highlight stroke (current page only) */}
+                          {pg === currentPage && renderStrokes && tool === "highlight" && (
+                            <path d={renderStrokes} stroke={penColor} strokeWidth={12} fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ mixBlendMode: "multiply" }} />
+                          )}
+                          {/* Lasso path for circle-to-ask (current page only) */}
+                          {pg === currentPage && lassoPath && tool === "circle" && (
+                            <path d={lassoPath} style={s.lassoPath} />
+                          )}
+                        </svg>
+                      )}
+                    </>
+                  ) : (
+                    // Placeholder for off-screen page — maintains scroll dimensions
+                    <div style={{ width: dims.width || "100%", height: dims.height || 200, background: theme === "dark" ? "#1e1e28" : "#f0f0f0" }} />
+                  )}
+                  <span style={s.pageLabel}>{pg}</span>
+                </div>
+              );
+            })
           )}
 
           {/* AI Study Tools floating button */}
