@@ -156,7 +156,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // Bookmarks
   const [bookmarks, setBookmarks] = useState(() => loadStored(`sc_pdf_bookmarks_${docKey}`, []));
   const [showBookmarks, setShowBookmarks] = useState(false);
-  const [resumePage, setResumePage] = useState(null);
 
   // TTS
   const [speaking, setSpeaking] = useState(false);
@@ -199,6 +198,13 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pinchActiveRef = useRef(false);
   const cssScaleRef = useRef(1); // live CSS scale during pinch (no re-render)
   const lastTapRef = useRef(0);
+  // Gallery-style pan-zoom state
+  const [panZoom, setPanZoom] = useState({ scale: 1, x: 0, y: 0 });
+  const panZoomRef = useRef({ scale: 1, x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const panStartOffsetRef = useRef({ x: 0, y: 0 });
+  const pinchStartPanZoomRef = useRef({ scale: 1, x: 0, y: 0 });
+  const panZoomContentRef = useRef(null); // ref to the zoomable content wrapper
   const thumbObserverRef = useRef(null);
   const thumbRenderedRef = useRef(new Set());
   const debounceScaleRef = useRef(null);
@@ -252,6 +258,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const zoomIndicatorTimerRef = useRef(null);
   const [pinchActive, setPinchActive] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
 
   // Virtual window: visible pages + buffer for pre-rendering
   const RENDER_BUFFER = 2;
@@ -528,6 +535,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     n = Math.max(1, Math.min(pdfDocRef.current.numPages, n));
     if (n === currentPage) return;
     closeChat();
+    resetPanZoom();
 
     if (scrollMode !== "single") {
       const el = pageItemRefs.current[n - 1];
@@ -1883,38 +1891,23 @@ ${extractedText}
     return () => clearInterval(interval);
   }, [currentPage, docKey]);
 
-  // ---- Touch: pinch-to-zoom + swipe navigation + double-tap ----
-  // Strategy: during pinch, use CSS transform for instant visual feedback (no re-render).
-  // On touchend, commit the final scale to setScale() for a real PDF re-render.
-  const showZoomBadge = (pct) => {
+  // ---- Touch: gallery-style pinch-zoom + pan + swipe navigation + double-tap ----
+  // Strategy: persistent CSS transform on the zoomable content wrapper.
+  // Pinch zooms in/out, single-finger drag pans when zoomed. No PDF re-render.
+  const showZoomBadge = () => {
     setShowZoomIndicator(true);
     if (zoomIndicatorTimerRef.current) clearTimeout(zoomIndicatorTimerRef.current);
     zoomIndicatorTimerRef.current = setTimeout(() => setShowZoomIndicator(false), 1200);
   };
 
-  // Apply CSS transform to the page container for instant pinch feedback
-  const applyPinchTransform = (cssScale, focalX, focalY) => {
-    const container = scrollMode === "single"
-      ? canvasRef.current?.parentElement
-      : viewerRef.current;
-    if (!container) return;
-    // Use transform-origin at the pinch focal point for natural zoom feel
-    if (focalX !== undefined && focalY !== undefined) {
-      const rect = container.getBoundingClientRect();
-      const originX = ((focalX - rect.left) / rect.width) * 100;
-      const originY = ((focalY - rect.top) / rect.height) * 100;
-      container.style.transformOrigin = `${originX}% ${originY}%`;
-    }
-    container.style.transform = `scale(${cssScale})`;
+  const resetPanZoom = () => {
+    setPanZoom({ scale: 1, x: 0, y: 0 });
+    panZoomRef.current = { scale: 1, x: 0, y: 0 };
   };
 
-  const clearPinchTransform = () => {
-    const container = scrollMode === "single"
-      ? canvasRef.current?.parentElement
-      : viewerRef.current;
-    if (!container) return;
-    container.style.transform = "";
-    container.style.transformOrigin = "";
+  const applyPanZoom = (pz) => {
+    panZoomRef.current = pz;
+    setPanZoom(pz);
   };
 
   const onTouchStartViewer = (e) => {
@@ -1923,16 +1916,20 @@ ${extractedText}
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchStartDistRef.current = Math.hypot(dx, dy);
-      pinchStartScaleRef.current = scale;
+      pinchStartPanZoomRef.current = { ...panZoomRef.current };
       pinchMidRef.current = {
         x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
         y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
       };
       pinchActiveRef.current = true;
       setPinchActive(true);
-      cssScaleRef.current = 1;
     } else if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      if (panZoomRef.current.scale > 1) {
+        panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        panStartOffsetRef.current = { x: panZoomRef.current.x, y: panZoomRef.current.y };
+        setIsPanning(true);
+      }
     }
   };
 
@@ -1944,33 +1941,50 @@ ${extractedText}
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const ratio = dist / pinchStartDistRef.current;
-      // Clamp the CSS scale so we don't go beyond the real scale limits
-      const targetScale = pinchStartScaleRef.current * ratio;
-      const clampedTarget = Math.max(0.5, Math.min(2.6, targetScale));
-      // CSS scale is relative to current rendered scale
-      cssScaleRef.current = clampedTarget / scale;
+      const startPz = pinchStartPanZoomRef.current;
+      const newScale = Math.max(1, Math.min(5, startPz.scale * ratio));
+      // Adjust pan so the focal point stays under the pinch midpoint
       const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      applyPinchTransform(cssScaleRef.current, midX, midY);
+      const container = viewerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const focalX = midX - rect.left - rect.width / 2;
+        const focalY = midY - rect.top - rect.height / 2;
+        // Scale the pan offset relative to the focal point
+        const scaleDelta = newScale / startPz.scale;
+        const newX = startPz.x * scaleDelta + focalX * (1 - scaleDelta);
+        const newY = startPz.y * scaleDelta + focalY * (1 - scaleDelta);
+        applyPanZoom({ scale: newScale, x: newX, y: newY });
+      }
       showZoomBadge();
+    } else if (e.touches.length === 1 && isPanning && panZoomRef.current.scale > 1) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - panStartRef.current.x;
+      const dy = e.touches[0].clientY - panStartRef.current.y;
+      applyPanZoom({
+        scale: panZoomRef.current.scale,
+        x: panStartOffsetRef.current.x + dx,
+        y: panStartOffsetRef.current.y + dy,
+      });
     }
   };
 
   const onTouchEndViewer = (e) => {
     if (tool !== "none") return;
-    // Pinch ended — commit the final scale
     if (pinchActiveRef.current) {
-      const committed = Math.max(0.5, Math.min(2.6, scale * cssScaleRef.current));
       pinchActiveRef.current = false;
       setPinchActive(false);
-      clearPinchTransform();
-      if (Math.abs(cssScaleRef.current - 1) > 0.01) {
-        setUserZoomed(true);
-        setScale(committed);
-      }
-      cssScaleRef.current = 1;
       pinchStartDistRef.current = 0;
+      // If zoomed back to 1, reset pan too
+      if (panZoomRef.current.scale <= 1.01) {
+        resetPanZoom();
+      }
       showZoomBadge();
+      return;
+    }
+    if (isPanning) {
+      setIsPanning(false);
       return;
     }
     if (e.changedTouches.length === 1) {
@@ -1978,23 +1992,22 @@ ${extractedText}
       const dx = t.clientX - touchStartRef.current.x;
       const dy = t.clientY - touchStartRef.current.y;
       const dist = Math.hypot(dx, dy);
-      // Double-tap detection: toggle between fit-width and 100%
+      // Double-tap: reset zoom or zoom in
       const now = Date.now();
       if (dist < 10 && now - lastTapRef.current < 300) {
         lastTapRef.current = 0;
-        if (userZoomed) {
-          setUserZoomed(false);
-          fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+        if (panZoomRef.current.scale > 1.01) {
+          resetPanZoom();
         } else {
-          setUserZoomed(true);
-          setScale(1);
+          // Zoom in to 2x centered
+          applyPanZoom({ scale: 2, x: 0, y: 0 });
         }
         showZoomBadge();
         return;
       }
       lastTapRef.current = now;
-      // Swipe navigation (only in single page mode)
-      if (scrollMode === "single" && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      // Swipe navigation (only in single page mode, only when not zoomed)
+      if (scrollMode === "single" && panZoomRef.current.scale <= 1.01 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         if (dx > 0) goToPage(currentPage - 1);
         else goToPage(currentPage + 1);
       }
@@ -2025,14 +2038,6 @@ ${extractedText}
       if (next !== "highlight") setShowColorPicker(false);
       return next;
     });
-  };
-
-  // ---- Resume ----
-  const doResume = () => {
-    if (resumePage) {
-      goToPage(resumePage);
-      setResumePage(null);
-    }
   };
 
   // ---- Theme persistence ----
@@ -2111,11 +2116,20 @@ ${extractedText}
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // ---- Resume reading ----
+  // ---- Resume reading — auto-navigate to last page ----
   useEffect(() => {
     const saved = loadStored(`sc_pdf_lastpage_${docKey}`, null);
-    if (saved && saved > 1) setResumePage(saved);
-  }, [docKey]);
+    if (saved && saved > 1 && pdfDocRef.current) {
+      const clamped = Math.min(saved, pdfDocRef.current.numPages);
+      setCurrentPage(clamped);
+      if (scrollMode !== "single") {
+        setTimeout(() => {
+          const el = pageItemRefs.current[clamped - 1];
+          if (el) el.scrollIntoView({ behavior: "auto", block: "start" });
+        }, 100);
+      }
+    }
+  }, [docKey, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (currentPage > 1) saveStored(`sc_pdf_lastpage_${docKey}`, currentPage);
@@ -2296,7 +2310,7 @@ ${extractedText}
       alignItems: "flex-start",
       padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
       position: "relative",
-      touchAction: "pan-x pan-y",
+      touchAction: "none",
     } : scrollMode === "vertical" ? {
       flex: 1,
       overflowY: "auto",
@@ -2327,8 +2341,6 @@ ${extractedText}
       boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
       flexShrink: 0,
-      willChange: "transform",
-      transition: pinchActive ? "none" : "transform 0.15s ease-out",
     },
     continuousPageItem: {
       position: "relative",
@@ -3789,20 +3801,26 @@ ${extractedText}
               padding: "4px 16px", fontSize: 13, fontWeight: 600, zIndex: 50,
               pointerEvents: "none", transition: "opacity 0.3s ease",
             }}>
-              {pinchActive
-                ? `${Math.round(Math.max(0.5, Math.min(2.6, scale * cssScaleRef.current)) * 100)}%`
-                : `${Math.round(scale * 100)}%`}
-            </div>
-          )}
-          {/* Resume toast */}
-          {resumePage && !loading && (
-            <div style={s.resumeToast}>
-              <span>📖 Resume p.{resumePage}?</span>
-              <button style={s.resumeBtn} onClick={doResume}>Go</button>
-              <button style={{ ...s.resumeBtn, background: "transparent", color: T.muted, border: `1px solid ${T.border}` }} onClick={() => setResumePage(null)}>×</button>
+              {Math.round(scale * panZoom.scale * 100)}%
             </div>
           )}
 
+          {/* Zoomable content wrapper — gallery-style pan/zoom */}
+          <div
+            ref={panZoomContentRef}
+            style={{
+              transform: `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})`,
+              transformOrigin: "center center",
+              transition: pinchActive || isPanning ? "none" : "transform 0.2s ease-out",
+              willChange: "transform",
+              flex: 1,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              width: "100%",
+              height: "100%",
+            }}
+          >
           {scrollMode === "single" ? (
             <div
               style={s.pageShadow}
@@ -3822,7 +3840,7 @@ ${extractedText}
                 ref={canvasRef}
                 style={{
                   display: "block",
-                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none",
                 }}
               />
               {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -3839,7 +3857,7 @@ ${extractedText}
               )}
               <svg
                 ref={lassoSvgRef}
-                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}
+                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none" }}
                 onPointerDown={onOverlayDown}
                 onPointerMove={onOverlayMove}
                 onPointerUp={onOverlayUp}
@@ -3897,7 +3915,7 @@ ${extractedText}
                         ref={(el) => { pageCanvasRefs.current[pg - 1] = el; }}
                         style={{
                           display: "block",
-                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none",
                         }}
                       />
                       {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -3918,7 +3936,7 @@ ${extractedText}
                           ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
                           style={{
                             ...s.lassoOverlay,
-                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
+                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.92)" : "none",
                             pointerEvents: pg === currentPage && tool !== "none" ? "auto" : "none",
                           }}
                           onPointerDown={pg === currentPage ? onOverlayDown : undefined}
@@ -3961,6 +3979,7 @@ ${extractedText}
               );
             })
           )}
+          </div>{/* end zoomable content wrapper */}
 
           {/* AI Study Tools floating button */}
           {!chatOpen && !loading && !loadError && (
@@ -4473,7 +4492,7 @@ ${extractedText}
             <div
               onClick={() => setShowShortcuts(false)}
               style={{
-                position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100,
+                position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
@@ -4516,7 +4535,7 @@ ${extractedText}
             <div
               onClick={() => setShowStats(false)}
               style={{
-                position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100,
+                position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
