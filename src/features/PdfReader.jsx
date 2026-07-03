@@ -22,6 +22,12 @@ const THEMES = {
     inputBg: "#0f1626", chatBot: "#16213e", thumbBg: "#16213e",
     shadow: "rgba(0,0,0,0.40)", chipBg: "#1a1a2e",
   },
+  sepia: {
+    bg: "#F4E8D0", toolbar: "#EFE0C6", border: "#D4C19C", text: "#5B4636",
+    muted: "#8C7355", accent: "#A0522D", hover: "rgba(160,82,45,0.10)",
+    inputBg: "#EAD9BC", chatBot: "#EFE0C6", thumbBg: "#F8EFD9",
+    shadow: "rgba(91,70,54,0.12)", chipBg: "#E8D5B0",
+  },
 };
 
 // ── Highlighter pen colors ────────────────────────────────────────────────────
@@ -189,10 +195,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const renderTasksRef = useRef({}); // { pageNum: renderTask } for per-canvas cancellation
   const pinchStartDistRef = useRef(0);
   const pinchStartScaleRef = useRef(1);
+  const pinchMidRef = useRef({ x: 0, y: 0 });
+  const pinchActiveRef = useRef(false);
+  const cssScaleRef = useRef(1); // live CSS scale during pinch (no re-render)
   const lastTapRef = useRef(0);
   const thumbObserverRef = useRef(null);
   const thumbRenderedRef = useRef(new Set());
   const debounceScaleRef = useRef(null);
+  const textLayerRefs = useRef({}); // { pageNum: textLayerContainer }
 
   // Page sorter filter
   const [pageFilter, setPageFilter] = useState("all");
@@ -241,6 +251,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [visiblePages, setVisiblePages] = useState(new Set([1]));
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const zoomIndicatorTimerRef = useRef(null);
+  const [pinchActive, setPinchActive] = useState(false);
 
   // Virtual window: visible pages + buffer for pre-rendering
   const RENDER_BUFFER = 2;
@@ -458,7 +469,50 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     } finally {
       if (renderTasksRef.current[n] === task) delete renderTasksRef.current[n];
     }
+    // Render text layer for selection/copy
+    renderTextLayer(n, page, viewport, canvasEl);
   }, [scale]);
+
+  // Render a transparent text layer overlay for text selection + copy
+  const renderTextLayer = async (pageNum, page, viewport, canvasEl) => {
+    try {
+      const container = canvasEl.parentElement?.querySelector(`[data-text-layer="${pageNum}"]`);
+      if (!container) return;
+      container.innerHTML = "";
+      container.style.width = viewport.width + "px";
+      container.style.height = viewport.height + "px";
+      const textContent = await page.getTextContent();
+      const items = [];
+      for (const item of textContent.items) {
+        if (!item.str) continue;
+        const tx = window.pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const fontHeight = Math.hypot(tx[2], tx[3]);
+        const style = {
+          left: tx[4] + "px",
+          top: (tx[5] - fontHeight) + "px",
+          fontSize: fontHeight + "px",
+          fontFamily: item.fontName || "sans-serif",
+          color: "transparent",
+          position: "absolute",
+          whiteSpace: "pre",
+          cursor: "text",
+          transformOrigin: "0 0",
+        };
+        const span = document.createElement("span");
+        Object.assign(span.style, style);
+        span.textContent = item.str;
+        if (item.width > 0) {
+          span.style.width = item.width * viewport.scale + "px";
+        }
+        container.appendChild(span);
+        items.push(span);
+      }
+      // Store text layer ref for copy operations
+      textLayerRefs.current[pageNum] = container;
+    } catch (e) {
+      // Non-critical — text layer is optional
+    }
+  };
 
   // Get placeholder dimensions for virtualized pages
   const getPlaceholderDims = (pg) => {
@@ -524,13 +578,22 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     return text;
   }, []);
 
-  // Keyboard nav
+  // Keyboard nav + shortcuts
+  const [showShortcuts, setShowShortcuts] = useState(false);
   useEffect(() => {
     const handler = (e) => {
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "ArrowRight") goToPage(currentPage + 1);
       if (e.key === "ArrowLeft") goToPage(currentPage - 1);
+      if (e.key === "?" || (e.shiftKey && e.key === "/")) { e.preventDefault(); setShowShortcuts((v) => !v); }
+      if (e.key === "Escape") setShowShortcuts(false);
+      if (e.key === "+" || e.key === "=") { handleZoomIn(); }
+      if (e.key === "-" || e.key === "_") { handleZoomOut(); }
+      if (e.key === "b") toggleBookmark();
+      if (e.key === "t") setTheme((t) => t === "light" ? "dark" : t === "dark" ? "sepia" : "light");
+      if (e.key === "f") setFullscreen((v) => !v);
+      if (e.key === "h") toggleTool("highlight");
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -1738,11 +1801,120 @@ ${extractedText}
     );
   };
 
+  // ---- Annotation export ----
+  const exportAnnotations = () => {
+    const lines = [];
+    lines.push(`Study Notes — ${title || "PDF Document"}`);
+    lines.push(`Exported: ${new Date().toLocaleString()}`);
+    lines.push("");
+    if (bookmarks.length > 0) {
+      lines.push("=== BOOKMARKS ===");
+      bookmarks.forEach((pg) => lines.push(`  • Page ${pg}`));
+      lines.push("");
+    }
+    const annotatedPages = Object.keys(annotations).map(Number).sort((a, b) => a - b);
+    if (annotatedPages.length > 0) {
+      lines.push("=== HIGHLIGHTS ===");
+      annotatedPages.forEach((pg) => {
+        const strokes = annotations[pg] || [];
+        if (strokes.length > 0) {
+          lines.push(`\n  Page ${pg} (${strokes.length} highlight${strokes.length > 1 ? "s" : ""}):`);
+          strokes.forEach((s, i) => {
+            lines.push(`    ${i + 1}. [${s.color}]`);
+          });
+        }
+      });
+    }
+    if (bookmarks.length === 0 && annotatedPages.length === 0) {
+      lines.push("No bookmarks or highlights to export.");
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(title || "pdf").replace(/[^a-z0-9]/gi, "_")}_notes.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ---- Reading analytics ----
+  const [readingStats, setReadingStats] = useState(() => loadStored(`sc_pdf_stats_${docKey}`, {
+    pageTimes: {}, // { pageNum: seconds }
+    pagesRead: [], // [pageNum, ...]
+    sessionStart: Date.now(),
+    totalSeconds: 0,
+  }));
+  const [showStats, setShowStats] = useState(false);
+
+  // Track time on page change
+  useEffect(() => {
+    const now = Date.now();
+    const elapsed = Math.round((now - pageEnterTimeRef.current) / 1000);
+    if (elapsed > 0 && elapsed < 600) {
+      setReadingStats((prev) => {
+        const pt = { ...prev.pageTimes };
+        pt[currentPage] = (pt[currentPage] || 0) + elapsed;
+        const pr = prev.pagesRead.includes(currentPage) ? prev.pagesRead : [...prev.pagesRead, currentPage];
+        const updated = { ...prev, pageTimes: pt, pagesRead: pr, totalSeconds: prev.totalSeconds + elapsed };
+        saveStored(`sc_pdf_stats_${docKey}`, updated);
+        return updated;
+      });
+    }
+    pageEnterTimeRef.current = now;
+  }, [currentPage, docKey]);
+
+  // Save analytics periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = Math.round((now - pageEnterTimeRef.current) / 1000);
+      if (elapsed > 0 && elapsed < 600) {
+        setReadingStats((prev) => {
+          const pt = { ...prev.pageTimes };
+          pt[currentPage] = (pt[currentPage] || 0) + elapsed;
+          const pr = prev.pagesRead.includes(currentPage) ? prev.pagesRead : [...prev.pagesRead, currentPage];
+          const updated = { ...prev, pageTimes: pt, pagesRead: pr, totalSeconds: prev.totalSeconds + elapsed };
+          saveStored(`sc_pdf_stats_${docKey}`, updated);
+          return updated;
+        });
+        pageEnterTimeRef.current = now;
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [currentPage, docKey]);
+
   // ---- Touch: pinch-to-zoom + swipe navigation + double-tap ----
-  const showZoomBadge = () => {
+  // Strategy: during pinch, use CSS transform for instant visual feedback (no re-render).
+  // On touchend, commit the final scale to setScale() for a real PDF re-render.
+  const showZoomBadge = (pct) => {
     setShowZoomIndicator(true);
     if (zoomIndicatorTimerRef.current) clearTimeout(zoomIndicatorTimerRef.current);
     zoomIndicatorTimerRef.current = setTimeout(() => setShowZoomIndicator(false), 1200);
+  };
+
+  // Apply CSS transform to the page container for instant pinch feedback
+  const applyPinchTransform = (cssScale, focalX, focalY) => {
+    const container = scrollMode === "single"
+      ? canvasRef.current?.parentElement
+      : viewerRef.current;
+    if (!container) return;
+    // Use transform-origin at the pinch focal point for natural zoom feel
+    if (focalX !== undefined && focalY !== undefined) {
+      const rect = container.getBoundingClientRect();
+      const originX = ((focalX - rect.left) / rect.width) * 100;
+      const originY = ((focalY - rect.top) / rect.height) * 100;
+      container.style.transformOrigin = `${originX}% ${originY}%`;
+    }
+    container.style.transform = `scale(${cssScale})`;
+  };
+
+  const clearPinchTransform = () => {
+    const container = scrollMode === "single"
+      ? canvasRef.current?.parentElement
+      : viewerRef.current;
+    if (!container) return;
+    container.style.transform = "";
+    container.style.transformOrigin = "";
   };
 
   const onTouchStartViewer = (e) => {
@@ -1752,6 +1924,13 @@ ${extractedText}
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchStartDistRef.current = Math.hypot(dx, dy);
       pinchStartScaleRef.current = scale;
+      pinchMidRef.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+      pinchActiveRef.current = true;
+      setPinchActive(true);
+      cssScaleRef.current = 1;
     } else if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
@@ -1759,23 +1938,39 @@ ${extractedText}
 
   const onTouchMoveViewer = (e) => {
     if (tool !== "none") return;
-    if (e.touches.length === 2 && pinchStartDistRef.current > 0) {
+    if (e.touches.length === 2 && pinchActiveRef.current && pinchStartDistRef.current > 0) {
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const ratio = dist / pinchStartDistRef.current;
-      const newScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * ratio));
-      setUserZoomed(true);
-      setScale(newScale);
+      // Clamp the CSS scale so we don't go beyond the real scale limits
+      const targetScale = pinchStartScaleRef.current * ratio;
+      const clampedTarget = Math.max(0.5, Math.min(2.6, targetScale));
+      // CSS scale is relative to current rendered scale
+      cssScaleRef.current = clampedTarget / scale;
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      applyPinchTransform(cssScaleRef.current, midX, midY);
       showZoomBadge();
     }
   };
 
   const onTouchEndViewer = (e) => {
     if (tool !== "none") return;
-    if (e.changedTouches.length === 2) {
+    // Pinch ended — commit the final scale
+    if (pinchActiveRef.current) {
+      const committed = Math.max(0.5, Math.min(2.6, scale * cssScaleRef.current));
+      pinchActiveRef.current = false;
+      setPinchActive(false);
+      clearPinchTransform();
+      if (Math.abs(cssScaleRef.current - 1) > 0.01) {
+        setUserZoomed(true);
+        setScale(committed);
+      }
+      cssScaleRef.current = 1;
       pinchStartDistRef.current = 0;
+      showZoomBadge();
       return;
     }
     if (e.changedTouches.length === 1) {
@@ -1798,7 +1993,7 @@ ${extractedText}
         return;
       }
       lastTapRef.current = now;
-      // Swipe navigation (only in single page mode, not during pinch)
+      // Swipe navigation (only in single page mode)
       if (scrollMode === "single" && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         if (dx > 0) goToPage(currentPage - 1);
         else goToPage(currentPage + 1);
@@ -2101,6 +2296,7 @@ ${extractedText}
       alignItems: "flex-start",
       padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
       position: "relative",
+      touchAction: "pan-x pan-y",
     } : scrollMode === "vertical" ? {
       flex: 1,
       overflowY: "auto",
@@ -2111,6 +2307,7 @@ ${extractedText}
       gap: isMobile ? 8 : 16,
       padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
       position: "relative",
+      touchAction: "pan-y",
     } : {
       flex: 1,
       overflowX: "auto",
@@ -2122,6 +2319,7 @@ ${extractedText}
       padding: isMobile ? "8px 4px 40px" : "24px 24px 40px",
       position: "relative",
       scrollSnapType: "x mandatory",
+      touchAction: "pan-x",
     },
     pageShadow: {
       position: "relative",
@@ -2129,6 +2327,8 @@ ${extractedText}
       boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
       flexShrink: 0,
+      willChange: "transform",
+      transition: pinchActive ? "none" : "transform 0.15s ease-out",
     },
     continuousPageItem: {
       position: "relative",
@@ -2959,6 +3159,8 @@ ${extractedText}
         .page-anim-enter-prev { animation: slideEnterLeft 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
         .page-anim-fade-exit { animation: fadeExit 0.15s ease forwards; }
         .page-anim-fade-enter { animation: fadeEnter 0.2s ease forwards; }
+        [data-text-layer] ::selection { background: rgba(194,59,59,0.3); }
+        [data-text-layer] span { line-height: 1; }
       `}</style>
 
       {/* Toolbar */}
@@ -3039,8 +3241,8 @@ ${extractedText}
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
                       {speaking ? "Stop reading" : "Read aloud"}
                     </button>
-                    <button style={s.overflowItem} onClick={() => { setTheme((t) => t === "light" ? "dark" : "light"); setShowOverflow(false); }}>
-                      {theme === "light" ? "🌙" : "☀️"} {theme === "light" ? "Dark mode" : "Light mode"}
+                    <button style={s.overflowItem} onClick={() => { setTheme((t) => t === "light" ? "dark" : t === "dark" ? "sepia" : "light"); setShowOverflow(false); }}>
+                      {theme === "light" ? "🌙 Dark mode" : theme === "dark" ? "📜 Sepia mode" : "☀️ Light mode"}
                     </button>
                     <button style={s.overflowItem} onClick={() => { setShowThumbs((v) => !v); setShowOverflow(false); }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
@@ -3049,6 +3251,18 @@ ${extractedText}
                     <button style={s.overflowItem} onClick={() => { setShowSearch((v) => !v); setShowOverflow(false); }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
                       Search
+                    </button>
+                    <button style={s.overflowItem} onClick={() => { exportAnnotations(); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                      Export notes
+                    </button>
+                    <button style={s.overflowItem} onClick={() => { setShowStats(true); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
+                      Reading stats
+                    </button>
+                    <button style={s.overflowItem} onClick={() => { setShowShortcuts(true); setShowOverflow(false); }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
+                      Shortcuts (?)
                     </button>
                     <button style={s.overflowItem} onClick={() => { setFullscreen((v) => !v); setShowOverflow(false); }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
@@ -3228,11 +3442,16 @@ ${extractedText}
               </button>
               {showBookmarks && bookmarks.length > 0 && (
                 <div style={s.bookmarkPanel}>
-                  <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4 }}>Bookmarks</div>
+                  <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Bookmarks ({bookmarks.length})</span>
+                    <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: 0 }} onClick={() => { setBookmarks([]); saveStored(`sc_pdf_bookmarks_${docKey}`, []); }}>Clear all</button>
+                  </div>
                   {bookmarks.map((pg) => (
-                    <button key={pg} style={s.bookmarkItem} onClick={() => { goToPage(pg); setShowBookmarks(false); }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                      Page {pg}
+                    <button key={pg} style={{ ...s.bookmarkItem, flexDirection: "column", alignItems: "flex-start", gap: 2 }} onClick={() => { goToPage(pg); setShowBookmarks(false); }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                        Page {pg}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -3252,14 +3471,16 @@ ${extractedText}
               )}
             </button>
 
-            {/* Theme toggle */}
+            {/* Theme toggle — cycles light → dark → sepia */}
             <button
               style={s.iconBtn}
-              onClick={() => setTheme((t) => t === "light" ? "dark" : "light")}
-              title={theme === "light" ? "Dark mode" : "Light mode"}
+              onClick={() => setTheme((t) => t === "light" ? "dark" : t === "dark" ? "sepia" : "light")}
+              title={theme === "light" ? "Dark mode" : theme === "dark" ? "Sepia mode" : "Light mode"}
             >
               {theme === "light" ? (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              ) : theme === "dark" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2C8 2 5 5 5 9c0 2 1 4 3 5l-1 4h10l-1-4c2-1 3-3 3-5 0-4-3-7-7-7z"/><path d="M9 22h6"/></svg>
               ) : (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
               )}
@@ -3336,6 +3557,33 @@ ${extractedText}
                 </div>
               </div>
             </div>
+
+            {/* Export notes */}
+            <button
+              style={s.iconBtn}
+              onClick={exportAnnotations}
+              title="Export notes (highlights + bookmarks)"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </button>
+
+            {/* Reading stats */}
+            <button
+              style={s.iconBtn}
+              onClick={() => setShowStats(true)}
+              title="Reading stats"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
+            </button>
+
+            {/* Keyboard shortcuts */}
+            <button
+              style={s.iconBtn}
+              onClick={() => setShowShortcuts(true)}
+              title="Keyboard shortcuts (?)"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
+            </button>
 
             {/* Fullscreen */}
             <button
@@ -3541,7 +3789,9 @@ ${extractedText}
               padding: "4px 16px", fontSize: 13, fontWeight: 600, zIndex: 50,
               pointerEvents: "none", transition: "opacity 0.3s ease",
             }}>
-              {Math.round(scale * 100)}%
+              {pinchActive
+                ? `${Math.round(Math.max(0.5, Math.min(2.6, scale * cssScaleRef.current)) * 100)}%`
+                : `${Math.round(scale * 100)}%`}
             </div>
           )}
           {/* Resume toast */}
@@ -3575,6 +3825,18 @@ ${extractedText}
                   filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
                 }}
               />
+              {/* Text layer for selection/copy (only when no drawing tool active) */}
+              {tool === "none" && (
+                <div
+                  data-text-layer={currentPage}
+                  ref={(el) => { textLayerRefs.current[currentPage] = el; }}
+                  style={{
+                    position: "absolute", top: 0, left: 0, overflow: "hidden",
+                    pointerEvents: "auto", userSelect: "text", zIndex: 5,
+                    mixBlendMode: theme === "dark" ? "difference" : "normal",
+                  }}
+                />
+              )}
               <svg
                 ref={lassoSvgRef}
                 style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none" }}
@@ -3638,6 +3900,18 @@ ${extractedText}
                           filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : "none",
                         }}
                       />
+                      {/* Text layer for selection/copy (only when no drawing tool active) */}
+                      {tool === "none" && (
+                        <div
+                          data-text-layer={pg}
+                          ref={(el) => { textLayerRefs.current[pg] = el; }}
+                          style={{
+                            position: "absolute", top: 0, left: 0, overflow: "hidden",
+                            pointerEvents: "auto", userSelect: "text", zIndex: 5,
+                            mixBlendMode: theme === "dark" ? "difference" : "normal",
+                          }}
+                        />
+                      )}
                       {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
                       {visiblePages.has(pg) && (
                         <svg
@@ -4192,6 +4466,131 @@ ${extractedText}
           )}
           {loadError && (
             <div style={{ ...s.loadingOverlay, color: T.accent }}>{loadError}</div>
+          )}
+
+          {/* Keyboard shortcuts overlay */}
+          {showShortcuts && (
+            <div
+              onClick={() => setShowShortcuts(false)}
+              style={{
+                position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: T.toolbar, borderRadius: 16, padding: 24, maxWidth: 380, width: "90%",
+                  boxShadow: `0 8px 32px ${T.shadow}`, border: `0.5px solid ${T.border}`,
+                }}
+              >
+                <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  Keyboard Shortcuts
+                  <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setShowShortcuts(false)}>✕</button>
+                </div>
+                {[
+                  { key: "← / →", action: "Previous / Next page" },
+                  { key: "+ / -", action: "Zoom in / out" },
+                  { key: "B", action: "Bookmark current page" },
+                  { key: "T", action: "Cycle theme (light → dark → sepia)" },
+                  { key: "F", action: "Toggle fullscreen" },
+                  { key: "H", action: "Toggle highlighter tool" },
+                  { key: "?", action: "Show this shortcuts overlay" },
+                  { key: "Esc", action: "Close overlays / exit fullscreen" },
+                ].map((sc) => (
+                  <div key={sc.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `0.5px solid ${T.border}` }}>
+                    <span style={{ fontSize: 13, color: T.text }}>{sc.action}</span>
+                    <kbd style={{
+                      background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 6,
+                      padding: "2px 10px", fontSize: 12, fontWeight: 600, color: T.muted,
+                      fontFamily: "monospace",
+                    }}>{sc.key}</kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reading stats overlay */}
+          {showStats && (
+            <div
+              onClick={() => setShowStats(false)}
+              style={{
+                position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: T.toolbar, borderRadius: 16, padding: 24, maxWidth: 420, width: "90%",
+                  boxShadow: `0 8px 32px ${T.shadow}`, border: `0.5px solid ${T.border}`,
+                }}
+              >
+                <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  Reading Analytics
+                  <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setShowStats(false)}>✕</button>
+                </div>
+
+                {/* Summary stats */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
+                      {Math.floor(readingStats.totalSeconds / 60)}m {readingStats.totalSeconds % 60}s
+                    </div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Total reading time</div>
+                  </div>
+                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
+                      {readingStats.pagesRead.length}<span style={{ fontSize: 14, color: T.muted }}>/{numPages}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Pages read</div>
+                  </div>
+                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
+                      {numPages > 0 ? Math.round((readingStats.pagesRead.length / numPages) * 100) : 0}%
+                    </div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Progress</div>
+                  </div>
+                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
+                      {Object.values(annotations).reduce((sum, strokes) => sum + (strokes?.length || 0), 0)}
+                    </div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Highlights made</div>
+                  </div>
+                </div>
+
+                {/* Most-read pages */}
+                {Object.keys(readingStats.pageTimes).length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 8 }}>Most time spent</div>
+                    {Object.entries(readingStats.pageTimes)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 5)
+                      .map(([pg, secs]) => (
+                        <div key={pg} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, color: T.text, width: 60 }}>Page {pg}</span>
+                          <div style={{ flex: 1, height: 8, background: T.inputBg, borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{
+                              width: `${Math.min(100, (secs / Math.max(...Object.values(readingStats.pageTimes))) * 100)}%`,
+                              height: "100%", background: T.accent, borderRadius: 4,
+                            }} />
+                          </div>
+                          <span style={{ fontSize: 11, color: T.muted, width: 40, textAlign: "right" }}>
+                            {Math.floor(secs / 60)}m {secs % 60}s
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
+                {readingStats.pagesRead.length === 0 && (
+                  <div style={{ fontSize: 13, color: T.muted, textAlign: "center", padding: 20 }}>
+                    Start reading to see your analytics here.
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </main>
       </div>
