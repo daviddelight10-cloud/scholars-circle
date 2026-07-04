@@ -409,6 +409,78 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     return { materials, summaries, flashcards, mcqs };
   }, [folderDetail]);
 
+  const renderResourceRow = (resource, showApproveReject = false) => {
+    const badgeColor = getSubjectBadgeColor(resource.subject);
+    const icon = getContentTypeIcon(resource.contentType);
+    const iconClass = getContentTypeIconClass(resource.contentType);
+
+    return (
+      <div key={resource.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 14px", background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px" }}>
+        <div style={{
+          width: "36px", height: "36px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0,
+          background: iconClass === "icon-pdf" ? "#2a0a0a" : iconClass === "icon-mcq" ? "#0f1440" : iconClass === "icon-note" ? "#0f2a1a" : "#1a1000",
+          border: iconClass === "icon-pdf" ? "0.5px solid #4a1010" : iconClass === "icon-mcq" ? "0.5px solid #2a3080" : iconClass === "icon-note" ? "0.5px solid #1a4a2a" : "0.5px solid #3a2800",
+        }}>{icon}</div>
+
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "#c5c9e8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: "2px" }}>
+            {resource.title}
+          </div>
+          <div style={{ fontSize: "11px", color: "#4a5080", display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ padding: "2px 6px", borderRadius: "6px", background: badgeColor.bg, color: badgeColor.text, border: `0.5px solid ${badgeColor.border}` }}>{resource.subject}</span>
+            <span>·</span>
+            <span>{formatViewCount(resource.viewCount)} views</span>
+            {resource.isPremium && <span>· ⭐ Premium</span>}
+            {resource.uploader && <span>· by {resource.uploader.username}</span>}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+          {showApproveReject ? (
+            <>
+              <button onClick={() => handleApprove(resource.id)} title="Approve" style={{
+                width: "32px", height: "32px", background: "#0f2a1a", border: "0.5px solid #2a6a3a", borderRadius: "7px",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#66bb6a", fontSize: "14px",
+              }}>✓</button>
+              <button onClick={() => handleReject(resource.id)} title="Reject" style={{
+                width: "32px", height: "32px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "7px",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#ef9a9a", fontSize: "14px",
+              }}>✗</button>
+            </>
+          ) : (
+            <button onClick={() => setViewerToken(resource.shareToken)} title="View" style={{
+              width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+            }}>👁️</button>
+          )}
+          {resource.contentType === "mcq" && (
+            <button onClick={() => openMcqEditor(resource)} title="Edit Questions" style={{
+              width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+            }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#DAA520"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
+            >📝</button>
+          )}
+          <button onClick={() => openEdit(resource)} title="Edit" style={{
+            width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#DAA520"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
+          >✏️</button>
+          <button onClick={() => setDeleteConfirm(resource.id)} title="Delete" style={{
+            width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+          }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#2a0a0a"; e.currentTarget.style.borderColor = "#4a1010"; e.currentTarget.style.color = "#ef9a9a"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
+          >🗑️</button>
+        </div>
+      </div>
+    );
+  };
+
   if (viewerToken) {
     return <ResourceViewer token={viewerToken} onBack={() => setViewerToken(null)} />;
   }
@@ -496,78 +568,6 @@ export default function TeacherResourcesHub({ onBack } = {}) {
       </div>
     );
   }
-
-  const renderResourceRow = (resource, showApproveReject = false) => {
-    const badgeColor = getSubjectBadgeColor(resource.subject);
-    const icon = getContentTypeIcon(resource.contentType);
-    const iconClass = getContentTypeIconClass(resource.contentType);
-
-    return (
-      <div key={resource.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 14px", background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px" }}>
-        <div style={{
-          width: "36px", height: "36px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0,
-          background: iconClass === "icon-pdf" ? "#2a0a0a" : iconClass === "icon-mcq" ? "#0f1440" : iconClass === "icon-note" ? "#0f2a1a" : "#1a1000",
-          border: iconClass === "icon-pdf" ? "0.5px solid #4a1010" : iconClass === "icon-mcq" ? "0.5px solid #2a3080" : iconClass === "icon-note" ? "0.5px solid #1a4a2a" : "0.5px solid #3a2800",
-        }}>{icon}</div>
-
-        <div style={{ flex: 1, overflow: "hidden" }}>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "#c5c9e8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: "2px" }}>
-            {resource.title}
-          </div>
-          <div style={{ fontSize: "11px", color: "#4a5080", display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ padding: "2px 6px", borderRadius: "6px", background: badgeColor.bg, color: badgeColor.text, border: `0.5px solid ${badgeColor.border}` }}>{resource.subject}</span>
-            <span>·</span>
-            <span>{formatViewCount(resource.viewCount)} views</span>
-            {resource.isPremium && <span>· ⭐ Premium</span>}
-            {resource.uploader && <span>· by {resource.uploader.username}</span>}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
-          {showApproveReject ? (
-            <>
-              <button onClick={() => handleApprove(resource.id)} title="Approve" style={{
-                width: "32px", height: "32px", background: "#0f2a1a", border: "0.5px solid #2a6a3a", borderRadius: "7px",
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#66bb6a", fontSize: "14px",
-              }}>✓</button>
-              <button onClick={() => handleReject(resource.id)} title="Reject" style={{
-                width: "32px", height: "32px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "7px",
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#ef9a9a", fontSize: "14px",
-              }}>✗</button>
-            </>
-          ) : (
-            <button onClick={() => setViewerToken(resource.shareToken)} title="View" style={{
-              width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
-              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
-            }}>👁️</button>
-          )}
-          {resource.contentType === "mcq" && (
-            <button onClick={() => openMcqEditor(resource)} title="Edit Questions" style={{
-              width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
-              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
-            }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#DAA520"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
-            >📝</button>
-          )}
-          <button onClick={() => openEdit(resource)} title="Edit" style={{
-            width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
-            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#2a3080"; e.currentTarget.style.color = "#DAA520"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
-          >✏️</button>
-          <button onClick={() => setDeleteConfirm(resource.id)} title="Delete" style={{
-            width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
-            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "#2a0a0a"; e.currentTarget.style.borderColor = "#4a1010"; e.currentTarget.style.color = "#ef9a9a"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
-          >🗑️</button>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div style={{ padding: "20px", maxWidth: "1000px", margin: "0 auto" }}>
