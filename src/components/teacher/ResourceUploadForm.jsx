@@ -69,8 +69,8 @@ export default function ResourceUploadForm() {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      if (selectedFile.size > 20 * 1024 * 1024) {
-        setError("File exceeds 20MB limit");
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        setError("File exceeds 50MB limit");
         setFile(null);
         return;
       }

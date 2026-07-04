@@ -27,7 +27,7 @@ export default function UploadModal({
 
   const handleFileSelected = (file) => {
     if (!file) return;
-    if (file.size > 20 * 1024 * 1024) { alert("File too large — 20MB max"); return; }
+    if (file.size > 50 * 1024 * 1024) { alert("File too large — 50MB max"); return; }
     setUploadFile(file);
     const ext = file.name.split(".").pop()?.toLowerCase();
     const detected = extToContentType(file.name);
