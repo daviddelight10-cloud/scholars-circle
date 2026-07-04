@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { callAI, callAIMultimodal } from "../lib/aiClient.js";
+import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { X } from "lucide-react";
 
@@ -264,12 +264,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
 
     setStudyLoading(true);
     try {
-      let raw;
-      if (imageToSend) {
-        raw = await callAIMultimodal(promptText, imageToSend, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
-      } else {
-        raw = await callAI(promptText, { provider: "openrouter", model: "google/gemini-2.5-flash" });
-      }
+      const raw = await callAIMultimodal(promptText, imageToSend, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
       if (!raw || raw.trim().length < 10) {
         setStudyError("AI returned an empty response. Try again.");
         return;
@@ -280,6 +275,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
         setParsedMcqs(mcqs);
       }
     } catch (err) {
+      console.error("DocumentReader study generate error:", err);
       setStudyError(err.message || "Failed to generate. Please try again.");
     } finally {
       setStudyLoading(false);
@@ -305,19 +301,16 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
         contextText = `The user is reading a document with this content:\n"""\n${extractedText.slice(0, 8000)}\n"""`;
       }
 
-      let raw;
-      if (imageToSend) {
-        const systemMsg = { role: "system", content: contextText };
-        const history = [systemMsg, ...newMessages.slice(-6)];
-        raw = await callAIMultimodal(chatInput.trim(), imageToSend, history, { provider: "openrouter", model: "google/gemini-2.5-flash" });
-      } else {
-        const fullPrompt = `${contextText}\n\nUser question: ${chatInput.trim()}`;
-        raw = await callAI(fullPrompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
-      }
+      const systemMsg = { role: "system", content: contextText };
+      const history = [systemMsg, ...chatMessages.slice(-6)];
+      const raw = await callAIMultimodal(chatInput.trim(), imageToSend, history, { provider: "openrouter", model: "google/gemini-2.5-flash" });
       if (raw) {
         setChatMessages((prev) => [...prev, { role: "assistant", content: raw }]);
+      } else {
+        setChatMessages((prev) => [...prev, { role: "assistant", content: "No response from AI. Please try again." }]);
       }
     } catch (err) {
+      console.error("DocumentReader chat error:", err);
       setChatMessages((prev) => [...prev, { role: "assistant", content: "Sorry, I couldn't process that. Please try again." }]);
     } finally {
       setChatLoading(false);
