@@ -133,6 +133,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [showThumbs, setShowThumbs] = useState(false);
+  const [chromeHidden, setChromeHidden] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -2004,6 +2005,11 @@ ${extractedText}
         return;
       }
       lastTapRef.current = now;
+      // Tap to toggle chrome (header) — quick tap, no movement, not zoomed, no tool
+      if (dist < 10 && tool === "none" && panZoomRef.current.scale <= 1.01) {
+        setChromeHidden((v) => !v);
+        return;
+      }
       // Swipe navigation (only in single page mode)
       if (scrollMode === "single" && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         if (panZoomRef.current.scale > 1.01) {
@@ -3173,6 +3179,7 @@ ${extractedText}
       `}</style>
 
       {/* Toolbar */}
+      {!chromeHidden && (
       <div style={s.toolbar}>
         {isMobile ? (
           <>
@@ -3609,11 +3616,14 @@ ${extractedText}
         </div>
       )}
     </div>
+      )}
 
       {/* Progress bar */}
+      {!chromeHidden && (
       <div style={s.progressBar}>
         <div style={{ ...s.progressFill, width: numPages ? `${(currentPage / numPages) * 100}%` : "0%" }} />
       </div>
+      )}
 
       {/* Mobile search panel (rendered outside toolbar when mobile) */}
       {isMobile && showSearch && (
@@ -3656,6 +3666,24 @@ ${extractedText}
               Page {pg}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Floating show-header hint when chrome hidden */}
+      {chromeHidden && (
+        <div
+          onClick={() => setChromeHidden(false)}
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 40,
+            zIndex: 60, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.15), transparent)",
+            pointerEvents: "auto",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" style={{ opacity: 0.6 }}>
+            <path d="M6 15l6-6 6 6" />
+          </svg>
         </div>
       )}
 
