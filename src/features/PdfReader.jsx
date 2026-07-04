@@ -531,6 +531,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     return { width: 0, height: 0 };
   };
 
+  // ---- Pan-zoom helpers (must be defined before goToPage which calls resetPanZoom) ----
+  const resetPanZoom = () => {
+    setPanZoom({ scale: 1, x: 0, y: 0 });
+    panZoomRef.current = { scale: 1, x: 0, y: 0 };
+  };
+
+  const applyPanZoom = (pz) => {
+    panZoomRef.current = pz;
+    setPanZoom(pz);
+  };
+
   const goToPage = useCallback(async (n) => {
     if (!pdfDocRef.current) return;
     n = Math.max(1, Math.min(pdfDocRef.current.numPages, n));
@@ -1899,16 +1910,6 @@ ${extractedText}
     setShowZoomIndicator(true);
     if (zoomIndicatorTimerRef.current) clearTimeout(zoomIndicatorTimerRef.current);
     zoomIndicatorTimerRef.current = setTimeout(() => setShowZoomIndicator(false), 1200);
-  };
-
-  const resetPanZoom = () => {
-    setPanZoom({ scale: 1, x: 0, y: 0 });
-    panZoomRef.current = { scale: 1, x: 0, y: 0 };
-  };
-
-  const applyPanZoom = (pz) => {
-    panZoomRef.current = pz;
-    setPanZoom(pz);
   };
 
   const onTouchStartViewer = (e) => {
