@@ -631,7 +631,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
 
                 {studyMode === "summary" && studyResult && !studyLoading && (
                   <div style={{ fontSize: "13px", lineHeight: 1.7 }}>
-                    <MarkdownText content={studyResult} />
+                    <MarkdownText>{studyResult}</MarkdownText>
                   </div>
                 )}
 
@@ -704,7 +704,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                       marginLeft: msg.role === "user" ? "auto" : 0,
                       fontSize: "13px", lineHeight: 1.6,
                     }}>
-                      {msg.role === "assistant" ? <MarkdownText content={msg.content} /> : msg.content}
+                      {msg.role === "assistant" ? <MarkdownText>{msg.content}</MarkdownText> : msg.content}
                     </div>
                   ))}
                   {chatLoading && (
