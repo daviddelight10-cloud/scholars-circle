@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
-import { X } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -491,24 +490,8 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", background: t.bg }}>
-      {/* Small exit button */}
-      <button
-        onClick={onBack}
-        title="Exit (Esc)"
-        style={{
-          position: "fixed", top: 12, right: 12, zIndex: 10000,
-          width: 36, height: 36, borderRadius: "50%",
-          background: "rgba(0,0,0,0.5)", border: "none",
-          color: "#fff", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          backdropFilter: "blur(4px)",
-        }}
-      >
-        <X size={18} />
-      </button>
-
       {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: t.toolbar, borderBottom: `0.5px solid ${t.border}`, flexShrink: 0, paddingRight: 52 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: t.toolbar, borderBottom: `0.5px solid ${t.border}`, flexShrink: 0 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: t.muted, fontSize: "18px", cursor: "pointer", padding: "4px 8px" }}>←</button>
         <span style={{ fontSize: "13px", fontWeight: 600, color: t.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</span>
         <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} style={{ background: "none", border: "none", color: t.muted, fontSize: "16px", cursor: "pointer", padding: "4px 8px" }}>{theme === "dark" ? "☀️" : "🌙"}</button>
