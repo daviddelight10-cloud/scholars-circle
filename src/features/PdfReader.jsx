@@ -461,8 +461,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     canvasEl.height = Math.floor(viewport.height * dpr);
     canvasEl.style.width = viewport.width + "px";
     canvasEl.style.height = viewport.height + "px";
-    // Store dimensions for virtualization placeholders
-    pageDimsRef.current[n] = { width: viewport.width, height: viewport.height };
+    // Store base dimensions (at scale 1) for virtualization placeholders
+    if (!pageDimsRef.current[n]) {
+      const baseVp = page.getViewport({ scale: 1 });
+      pageDimsRef.current[n] = { width: baseVp.width, height: baseVp.height };
+    }
     const ctx = canvasEl.getContext("2d");
     // Cancel any previous render task for this page
     if (renderTasksRef.current[n]) {
@@ -524,9 +527,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Get placeholder dimensions for virtualized pages
   const getPlaceholderDims = (pg) => {
-    const dims = pageDimsRef.current[pg];
-    if (dims) return dims;
-    const base = pageDimsRef.current[1];
+    const base = pageDimsRef.current[pg] || pageDimsRef.current[1];
     if (base) return { width: base.width * scale, height: base.height * scale };
     return { width: 0, height: 0 };
   };
@@ -1918,6 +1919,7 @@ ${extractedText}
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchStartDistRef.current = Math.hypot(dx, dy);
       pinchStartPanZoomRef.current = { ...panZoomRef.current };
+      pinchStartScaleRef.current = scale;
       pinchMidRef.current = {
         x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
         y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
@@ -1926,8 +1928,8 @@ ${extractedText}
       setPinchActive(true);
     } else if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      // Allow panning when zoomed in, regardless of tool (tool draws go to SVG overlay)
-      if (panZoomRef.current.scale > 1 && tool === "none") {
+      // Allow panning when zoomed in (single mode only; continuous mode uses native scroll)
+      if (panZoomRef.current.scale > 1 && tool === "none" && scrollMode === "single") {
         panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         panStartOffsetRef.current = { x: panZoomRef.current.x, y: panZoomRef.current.y };
         setIsPanning(true);
@@ -1942,21 +1944,27 @@ ${extractedText}
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const ratio = dist / pinchStartDistRef.current;
-      const startPz = pinchStartPanZoomRef.current;
-      const newScale = Math.max(1, Math.min(5, startPz.scale * ratio));
-      // Adjust pan so the focal point stays under the pinch midpoint
-      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      const container = viewerRef.current;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        const focalX = midX - rect.left - rect.width / 2;
-        const focalY = midY - rect.top - rect.height / 2;
-        // Scale the pan offset relative to the focal point
-        const scaleDelta = newScale / startPz.scale;
-        const newX = startPz.x * scaleDelta + focalX * (1 - scaleDelta);
-        const newY = startPz.y * scaleDelta + focalY * (1 - scaleDelta);
-        applyPanZoom({ scale: newScale, x: newX, y: newY });
+      if (scrollMode !== "single") {
+        // Continuous mode: visual feedback via CSS transform, commit on pinch end
+        const visualScale = Math.max(0.5, Math.min(3, ratio));
+        applyPanZoom({ scale: visualScale, x: 0, y: 0 });
+      } else {
+        const startPz = pinchStartPanZoomRef.current;
+        const newScale = Math.max(1, Math.min(5, startPz.scale * ratio));
+        // Adjust pan so the focal point stays under the pinch midpoint
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const container = viewerRef.current;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const focalX = midX - rect.left - rect.width / 2;
+          const focalY = midY - rect.top - rect.height / 2;
+          // Scale the pan offset relative to the focal point
+          const scaleDelta = newScale / startPz.scale;
+          const newX = startPz.x * scaleDelta + focalX * (1 - scaleDelta);
+          const newY = startPz.y * scaleDelta + focalY * (1 - scaleDelta);
+          applyPanZoom({ scale: newScale, x: newX, y: newY });
+        }
       }
       showZoomBadge();
     } else if (e.touches.length === 1 && isPanning && panZoomRef.current.scale > 1) {
@@ -1976,8 +1984,14 @@ ${extractedText}
       pinchActiveRef.current = false;
       setPinchActive(false);
       pinchStartDistRef.current = 0;
-      // If zoomed back to 1, reset pan too
-      if (panZoomRef.current.scale <= 1.01) {
+      if (scrollMode !== "single") {
+        // Continuous mode: commit pinch zoom to scale state, reset CSS transform
+        const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
+        setUserZoomed(true);
+        setScale(commitScale);
+        resetPanZoom();
+      } else if (panZoomRef.current.scale <= 1.01) {
+        // If zoomed back to 1, reset pan too
         resetPanZoom();
       }
       showZoomBadge();
@@ -1996,7 +2010,16 @@ ${extractedText}
       const now = Date.now();
       if (dist < 10 && now - lastTapRef.current < 300 && tool === "none") {
         lastTapRef.current = 0;
-        if (panZoomRef.current.scale > 1.01) {
+        if (scrollMode !== "single") {
+          // Continuous mode: toggle scale between fit and 2x
+          if (userZoomed) {
+            setUserZoomed(false);
+            fitToWidth();
+          } else {
+            setUserZoomed(true);
+            setScale((s) => Math.min(2.6, s * 2));
+          }
+        } else if (panZoomRef.current.scale > 1.01) {
           resetPanZoom();
         } else {
           // Zoom in to 2x centered
@@ -2068,6 +2091,7 @@ ${extractedText}
   // ---- Re-render when scrollMode changes ----
   useEffect(() => {
     if (!pdfDocRef.current || loading) return;
+    resetPanZoom();
     if (scrollMode === "single") {
       fitToWidth().then(() => renderPage(currentPage));
     } else {
@@ -2185,7 +2209,7 @@ ${extractedText}
         inset: 0,
         zIndex: 9999,
         borderRadius: 0,
-        height: "100vh",
+        height: "100dvh",
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
         paddingLeft: "env(safe-area-inset-left)",
@@ -2526,7 +2550,7 @@ ${extractedText}
       bottom: 0,
       left: 0,
       right: 0,
-      height: "72vh",
+      height: "72dvh",
       background: T.toolbar,
       borderTopLeftRadius: 16,
       borderTopRightRadius: 16,
@@ -2535,14 +2559,16 @@ ${extractedText}
       display: "flex",
       flexDirection: "column",
       animation: "slideUp 0.2s ease",
+      touchAction: "auto",
+      WebkitOverflowScrolling: "touch",
     } : {
       position: "fixed",
       top: "50%",
       right: 16,
-      transform: "translateY(-50%)",
+      transform: "translate3d(0, -50%, 0)",
       width: 420,
       maxWidth: "calc(100vw - 32px)",
-      maxHeight: "calc(100vh - 100px)",
+      maxHeight: "calc(100dvh - 100px)",
       background: T.toolbar,
       border: `1px solid ${T.border}`,
       borderRadius: 12,
@@ -2550,6 +2576,7 @@ ${extractedText}
       zIndex: 100,
       display: "flex",
       flexDirection: "column",
+      touchAction: "auto",
     },
     sheetHandle: {
       width: 40,
@@ -2584,6 +2611,8 @@ ${extractedText}
     },
     chatThread: {
       overflowY: "auto",
+      WebkitOverflowScrolling: "touch",
+      touchAction: "pan-y",
       padding: isMobile ? 12 : 14,
       display: "flex",
       flexDirection: "column",
@@ -2676,13 +2705,14 @@ ${extractedText}
       padding: isMobile ? "8px 12px 12px" : "8px 14px 10px",
       borderTop: `1px solid ${T.border}`,
       flexShrink: 0,
+      touchAction: "auto",
     },
     chatTextarea: {
       flex: 1,
       border: `1px solid ${T.border}`,
       borderRadius: 8,
       padding: isMobile ? "8px 10px" : "6px 8px",
-      fontSize: isMobile ? 14 : 13,
+      fontSize: isMobile ? 16 : 13,
       color: T.text,
       background: T.inputBg,
       outline: "none",
@@ -2862,8 +2892,10 @@ ${extractedText}
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      zIndex: 30,
+      zIndex: 80,
       transition: "transform 0.15s ease, opacity 0.15s ease",
+      touchAction: "manipulation",
+      WebkitTapHighlightColor: "transparent",
     },
     studyBackdrop: {
       position: "fixed",
@@ -2876,7 +2908,7 @@ ${extractedText}
       bottom: 0,
       left: 0,
       right: 0,
-      height: "80vh",
+      height: "80dvh",
       background: T.toolbar,
       borderTopLeftRadius: 16,
       borderTopRightRadius: 16,
@@ -2885,14 +2917,16 @@ ${extractedText}
       display: "flex",
       flexDirection: "column",
       animation: "slideUp 0.2s ease",
+      touchAction: "auto",
+      WebkitOverflowScrolling: "touch",
     } : {
       position: "fixed",
       top: "50%",
       right: 16,
-      transform: "translateY(-50%)",
+      transform: "translate3d(0, -50%, 0)",
       width: 440,
       maxWidth: "calc(100vw - 32px)",
-      maxHeight: "calc(100vh - 100px)",
+      maxHeight: "calc(100dvh - 100px)",
       background: T.toolbar,
       border: `1px solid ${T.border}`,
       borderRadius: 12,
@@ -2900,6 +2934,7 @@ ${extractedText}
       zIndex: 100,
       display: "flex",
       flexDirection: "column",
+      touchAction: "auto",
     },
     studyHead: {
       display: "flex",
@@ -2926,6 +2961,8 @@ ${extractedText}
     },
     studyBody: {
       overflowY: "auto",
+      WebkitOverflowScrolling: "touch",
+      touchAction: "pan-y",
       padding: isMobile ? 14 : 16,
       flex: 1,
       display: "flex",
@@ -3162,7 +3199,7 @@ ${extractedText}
     <div style={s.container}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes slideUp { from { transform: translate3d(0, 100%, 0); } to { transform: translate3d(0, 0, 0); } }
         @keyframes slideExitLeft { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-60px); opacity: 0; } }
         @keyframes slideExitRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(60px); opacity: 0; } }
         @keyframes slideEnterRight { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -3835,7 +3872,7 @@ ${extractedText}
           <div
             ref={panZoomContentRef}
             style={{
-              transform: `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})`,
+              transform: (scrollMode === "single" || pinchActive) ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
               transformOrigin: "center center",
               transition: pinchActive || isPanning ? "none" : "transform 0.2s ease-out",
               willChange: "transform",
