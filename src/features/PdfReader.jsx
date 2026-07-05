@@ -2544,6 +2544,7 @@ ${extractedText}
       inset: 0,
       background: "rgba(0,0,0,0.45)",
       zIndex: 90,
+      touchAction: "manipulation",
     },
     chatPopup: isMobile ? {
       position: "fixed",
@@ -2902,6 +2903,7 @@ ${extractedText}
       inset: 0,
       background: "rgba(0,0,0,0.45)",
       zIndex: 90,
+      touchAction: "manipulation",
     },
     studyPanel: isMobile ? {
       position: "fixed",
@@ -4061,6 +4063,8 @@ ${extractedText}
             })
           )}
           </div>{/* end zoomable content wrapper */}
+        </main>
+      </div>{/* end workspace */}
 
           {/* AI Study Tools floating button */}
           {!chatOpen && !loading && !loadError && (
@@ -4071,6 +4075,8 @@ ${extractedText}
                 pointerEvents: studyToolsOpen ? "none" : "auto",
               }}
               onClick={openStudyTools}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => { e.stopPropagation(); }}
               title="AI Study Tools"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -4082,8 +4088,8 @@ ${extractedText}
           {/* Chat popup — mobile bottom sheet / desktop side panel */}
           {chatOpen && (
             <>
-              {isMobile && <div style={s.chatBackdrop} onClick={closeChat} />}
-              <div style={s.chatPopup}>
+              {isMobile && <div style={s.chatBackdrop} onClick={closeChat} onTouchStart={(e) => e.stopPropagation()} />}
+              <div style={s.chatPopup} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                 {isMobile && <div style={s.sheetHandle} />}
                 <div style={s.chatHead}>
                   <span style={s.chatTag}>
@@ -4156,8 +4162,8 @@ ${extractedText}
           {/* AI Study Tools panel — mobile bottom sheet / desktop side panel */}
           {studyToolsOpen && (
             <>
-              {isMobile && <div style={s.studyBackdrop} onClick={closeStudyTools} />}
-              <div style={s.studyPanel}>
+              {isMobile && <div style={s.studyBackdrop} onClick={closeStudyTools} onTouchStart={(e) => e.stopPropagation()} />}
+              <div style={s.studyPanel} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
                 {isMobile && <div style={s.sheetHandle} />}
                 <div style={s.studyHead}>
                   <span style={s.studyTitle}>
@@ -4692,8 +4698,6 @@ ${extractedText}
               </div>
             </div>
           )}
-        </main>
-      </div>
     </div>
   );
 }
