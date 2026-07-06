@@ -1,5 +1,8 @@
 import { colors, spacing, fontSize, fontWeight, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
+const TYPE_ICON = { whole_pdf: "📄", page: "📖", flashcard: "🃏", mcq: "❓", legacy_mcq: "❓" };
+const TYPE_LABEL = { whole_pdf: "PDF Review", page: "Page Review", flashcard: "Flashcard", mcq: "MCQ", legacy_mcq: "MCQ" };
+
 export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
   if (!fsrsStats) return <div style={sharedStyles.emptyState}>Loading FSRS review data...</div>;
 
@@ -10,21 +13,26 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
     return (
       <div style={{ textAlign: "center", padding: "60px 20px" }}>
         <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
-        <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>No PDF review items yet</div>
+        <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>No review items yet</div>
         <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
-          Open any PDF in the Research Hub and rate your understanding after reading. The FSRS algorithm will schedule when to revisit each page and the whole document.
+          Open any PDF, practice MCQs, or study flashcards in the Research Hub. The FSRS algorithm will schedule when to revisit each item for optimal retention.
         </div>
       </div>
     );
   }
 
+  const items = fsrsDue?.items || [];
+
+  const wholePdfs = items.filter((i) => i.itemType === "whole_pdf");
+  const pages = items.filter((i) => i.itemType === "page");
+  const flashcards = items.filter((i) => i.itemType === "flashcard");
+  const mcqs = items.filter((i) => i.itemType === "mcq" || i.itemType === "legacy_mcq");
+
   const duePagesByResource = new Map();
-  if (fsrsDue?.pages) {
-    for (const p of fsrsDue.pages) {
-      const key = p.resourceId;
-      if (!duePagesByResource.has(key)) duePagesByResource.set(key, { resource: p.resource, pages: [] });
-      duePagesByResource.get(key).pages.push(p);
-    }
+  for (const p of pages) {
+    const key = p.resource?.id || "unknown";
+    if (!duePagesByResource.has(key)) duePagesByResource.set(key, { resource: p.resource, pages: [] });
+    duePagesByResource.get(key).pages.push(p);
   }
 
   return (
@@ -64,11 +72,11 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
         </div>
       </div>
 
-      {fsrsDue?.wholePdfs?.length > 0 && (
+      {wholePdfs.length > 0 && (
         <div style={{ marginBottom: spacing.xl }}>
           <div style={sharedStyles.sectionLabel}>PDFs to Re-read</div>
           <div style={sharedStyles.grid}>
-            {fsrsDue.wholePdfs.map((item) => (
+            {wholePdfs.map((item) => (
               <div key={item.id} style={sharedStyles.card} onClick={() => onOpenPdf(item.resource?.shareToken)}>
                 <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: "6px" }}>{item.resource?.title}</div>
                 <div style={{ fontSize: fontSize.sm, color: colors.textDim }}>{item.resource?.subject}</div>
@@ -101,23 +109,46 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
         </div>
       )}
 
-      {fsrsDue?.flashcards?.length > 0 && (
+      {flashcards.length > 0 && (
         <div style={{ marginBottom: spacing.xl }}>
           <div style={sharedStyles.sectionLabel}>Flashcards Due</div>
           <div style={{ ...sharedStyles.card, cursor: "default" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8" }}>{fsrsDue.flashcards.length} flashcard{fsrsDue.flashcards.length > 1 ? "s" : ""} due</div>
+                <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8" }}>{flashcards.length} flashcard{flashcards.length > 1 ? "s" : ""} due</div>
                 <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginTop: spacing.xs }}>
-                  Across {new Set(fsrsDue.flashcards.map((f) => f.resourceId)).size} PDF{new Set(fsrsDue.flashcards.map((f) => f.resourceId)).size > 1 ? "s" : ""}
+                  Across {new Set(flashcards.map((f) => f.resource?.id)).size} resource{new Set(flashcards.map((f) => f.resource?.id)).size > 1 ? "s" : ""}
                 </div>
               </div>
               <button onClick={() => {
-                const first = fsrsDue.flashcards[0];
+                const first = flashcards[0];
                 if (first?.resource?.shareToken) onOpenPdf(first.resource.shareToken);
               }}
                 style={{ padding: "8px 16px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, fontSize: fontSize.sm, fontWeight: fontWeight.bold, cursor: "pointer" }}>
                 Start Review →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mcqs.length > 0 && (
+        <div style={{ marginBottom: spacing.xl }}>
+          <div style={sharedStyles.sectionLabel}>MCQs Due</div>
+          <div style={{ ...sharedStyles.card, cursor: "default" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8" }}>{mcqs.length} MCQ{mcqs.length > 1 ? "s" : ""} due</div>
+                <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginTop: spacing.xs }}>
+                  Across {new Set(mcqs.map((m) => m.resource?.id)).size} resource{new Set(mcqs.map((m) => m.resource?.id)).size > 1 ? "s" : ""}
+                </div>
+              </div>
+              <button onClick={() => {
+                const first = mcqs[0];
+                if (first?.resource?.shareToken) onOpenPdf(first.resource.shareToken);
+              }}
+                style={{ padding: "8px 16px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, fontSize: fontSize.sm, fontWeight: fontWeight.bold, cursor: "pointer" }}>
+                Practice →
               </button>
             </div>
           </div>

@@ -798,43 +798,73 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
   }
 });
 
-// ============ FSRS SPACED REPETITION (PDF) ============
+// ============ FSRS SPACED REPETITION (Unified) ============
 
-// POST /api/resources/pdf-review/init — Initialize FSRS tracking for a PDF resource
-router.post("/pdf-review/init", requireAuth, async (req, res) => {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+async function getUserFsrsWeights(userId) {
+  const profile = await prisma.userFsrsProfile.findUnique({ where: { userId } }).catch(() => null);
+  if (profile?.weights && Array.isArray(profile.weights) && profile.weights.length === 18) {
+    return { weights: profile.weights, targetRetention: profile.targetRetention || 0.9, dailyGoal: profile.dailyGoal || 20 };
+  }
+  return { weights: null, targetRetention: 0.9, dailyGoal: 20 };
+}
+
+// ── POST /api/resources/fsrs/init — Initialize FSRS tracking for any resource ──
+router.post("/fsrs/init", requireAuth, async (req, res) => {
   try {
-    const { resourceId, totalPages } = req.body;
+    const { resourceId, totalPages, topic, subject } = req.body;
     if (!resourceId) return res.status(400).json({ error: "resourceId is required" });
 
     const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
     if (!resource) return res.status(404).json({ error: "Resource not found" });
-    if (resource.contentType !== "pdf") return res.status(400).json({ error: "FSRS tracking is for PDF resources only" });
 
-    const pages = Math.max(1, Math.min(totalPages || 1, 500));
+    const subj = subject || resource.subject || null;
+    const top = topic || resource.title || null;
     let created = 0;
 
-    // Create whole_pdf item if not exists
+    // Create whole_pdf item
     const existingWhole = await prisma.pdfReviewItem.findUnique({
       where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId, itemType: "whole_pdf", pageIndex: -1, flashcardId: "none" } },
     }).catch(() => null);
-
     if (!existingWhole) {
       await prisma.pdfReviewItem.create({
-        data: { userId: req.user.sub, resourceId, itemType: "whole_pdf", pageIndex: -1, flashcardId: "none" },
+        data: { userId: req.user.sub, resourceId, itemType: "whole_pdf", pageIndex: -1, flashcardId: "none", topic: top, subject: subj },
       }).catch(() => {});
       created++;
     }
 
-    // Create per-page items if not exists
-    for (let p = 1; p <= pages; p++) {
-      const exists = await prisma.pdfReviewItem.findUnique({
-        where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId, itemType: "page", pageIndex: p, flashcardId: "none" } },
-      }).catch(() => null);
-      if (!exists) {
-        await prisma.pdfReviewItem.create({
-          data: { userId: req.user.sub, resourceId, itemType: "page", pageIndex: p, flashcardId: "none" },
-        }).catch(() => {});
-        created++;
+    // Create per-page items for PDFs
+    if (resource.contentType === "pdf" && totalPages) {
+      const pages = Math.max(1, Math.min(totalPages || 1, 500));
+      for (let p = 1; p <= pages; p++) {
+        const exists = await prisma.pdfReviewItem.findUnique({
+          where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId, itemType: "page", pageIndex: p, flashcardId: "none" } },
+        }).catch(() => null);
+        if (!exists) {
+          await prisma.pdfReviewItem.create({
+            data: { userId: req.user.sub, resourceId, itemType: "page", pageIndex: p, flashcardId: "none", topic: top, subject: subj },
+          }).catch(() => {});
+          created++;
+        }
+      }
+    }
+
+    // Create MCQ items for MCQ resources
+    if (resource.contentType === "mcq" && resource.mcqData) {
+      const mcqData = typeof resource.mcqData === "string" ? JSON.parse(resource.mcqData) : resource.mcqData;
+      if (Array.isArray(mcqData)) {
+        for (let i = 0; i < mcqData.length; i++) {
+          const exists = await prisma.pdfReviewItem.findUnique({
+            where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId, itemType: "mcq", pageIndex: i, flashcardId: "none" } },
+          }).catch(() => null);
+          if (!exists) {
+            await prisma.pdfReviewItem.create({
+              data: { userId: req.user.sub, resourceId, itemType: "mcq", pageIndex: i, flashcardId: "none", topic: top, subject: subj },
+            }).catch(() => {});
+            created++;
+          }
+        }
       }
     }
 
@@ -845,38 +875,50 @@ router.post("/pdf-review/init", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/resources/pdf-review/rate — Rate a PDF review item (Again/Hard/Good/Easy)
-router.post("/pdf-review/rate", requireAuth, async (req, res) => {
+// ── POST /api/resources/fsrs/rate — Rate any review item ──
+router.post("/fsrs/rate", requireAuth, async (req, res) => {
   try {
-    const { resourceId, itemType, pageIndex, flashcardId, grade } = req.body;
+    const { resourceId, itemType, pageIndex, flashcardId, grade, topic, subject } = req.body;
     if (!resourceId || !itemType || grade === undefined) {
       return res.status(400).json({ error: "resourceId, itemType, and grade are required" });
     }
     const g = Math.max(1, Math.min(4, Math.round(grade)));
-    const pIdx = (itemType === "page" || itemType === "mcq") ? (pageIndex ?? -1) : -1;
+    const pIdx = (itemType === "page" || itemType === "mcq" || itemType === "legacy_mcq") ? (pageIndex ?? -1) : -1;
     const fId = itemType === "flashcard" ? (flashcardId || "none") : "none";
 
     const existing = await prisma.pdfReviewItem.findUnique({
       where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId, itemType, pageIndex: pIdx, flashcardId: fId } },
     });
 
+    let item;
     if (!existing) {
-      return res.status(404).json({ error: "Review item not found. Initialize tracking first." });
+      // Auto-create if not exists
+      const resource = await prisma.resource.findUnique({ where: { id: resourceId }, select: { subject: true, title: true } }).catch(() => null);
+      item = await prisma.pdfReviewItem.create({
+        data: {
+          userId: req.user.sub, resourceId, itemType, pageIndex: pIdx, flashcardId: fId,
+          topic: topic || resource?.title || null,
+          subject: subject || resource?.subject || null,
+        },
+      });
+    } else {
+      item = existing;
     }
 
     const card = {
-      state: existing.state,
-      stability: existing.stability,
-      difficulty: existing.difficulty,
-      reps: existing.reps,
-      lapses: existing.lapses,
-      lastReviewAt: existing.lastReviewAt,
+      state: item.state,
+      stability: item.stability,
+      difficulty: item.difficulty,
+      reps: item.reps,
+      lapses: item.lapses,
+      lastReviewAt: item.lastReviewAt,
     };
 
-    const result = fsrsRate(card, g);
+    const { weights } = await getUserFsrsWeights(req.user.sub);
+    const result = fsrsRate(card, g, new Date(), weights || undefined);
 
     await prisma.pdfReviewItem.update({
-      where: { id: existing.id },
+      where: { id: item.id },
       data: {
         state: result.state,
         stability: result.stability,
@@ -886,10 +928,18 @@ router.post("/pdf-review/rate", requireAuth, async (req, res) => {
         lastReviewAt: result.lastReviewAt,
         nextReviewAt: result.nextReviewDate,
         dueAt: result.nextReviewDate,
+        topic: topic || item.topic || undefined,
+        subject: subject || item.subject || undefined,
       },
     });
 
-    // Update streak
+    // Increment review count for weight optimization
+    await prisma.userFsrsProfile.upsert({
+      where: { userId: req.user.sub },
+      create: { userId: req.user.sub, totalReviews: 1 },
+      update: { totalReviews: { increment: 1 } },
+    }).catch(() => {});
+
     const streakInfo = await updateUniversalStreak(req.user.sub, prisma).catch(() => null);
 
     res.json({
@@ -901,44 +951,92 @@ router.post("/pdf-review/rate", requireAuth, async (req, res) => {
       stability: result.stability,
       difficulty: result.difficulty,
       reps: result.reps,
+      retrievability: result.retrievability,
       streak: streakInfo?.streak ?? 0,
     });
   } catch (error) {
-    console.error("Error rating PDF review item:", error);
+    console.error("Error rating review item:", error);
     res.status(500).json({ error: "Failed to rate review item" });
   }
 });
 
-// GET /api/resources/pdf-review/due — Get all due FSRS items for the user
-router.get("/pdf-review/due", requireAuth, async (req, res) => {
+// ── GET /api/resources/fsrs/due — All due items, interleaved ──
+router.get("/fsrs/due", requireAuth, async (req, res) => {
   try {
     const now = new Date();
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 50));
+    const subjectFilter = req.query.subject || null;
+
+    const where = { userId: req.user.sub, dueAt: { lte: now } };
+    if (subjectFilter) where.subject = subjectFilter;
+
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, dueAt: { lte: now } },
+      where,
       include: {
-        resource: { select: { id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true } },
+        resource: { select: { id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true, mcqData: true } },
       },
-      orderBy: { dueAt: "asc" },
+      orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
+      take: limit,
     });
 
-    const wholePdfs = items.filter((i) => i.itemType === "whole_pdf");
-    const pages = items.filter((i) => i.itemType === "page");
-    const flashcards = items.filter((i) => i.itemType === "flashcard");
-    const mcqs = items.filter((i) => i.itemType === "mcq");
-
-    // For flashcards, fetch the flashcard data
-    const flashcardIds = flashcards.map((f) => f.flashcardId).filter(Boolean);
-    const fcData = await prisma.pdfFlashcard.findMany({
-      where: { id: { in: flashcardIds } },
+    // Interleave: sort by priority (lapsed first, then by due date), then rotate item types
+    const priorityOrder = { whole_pdf: 0, page: 1, mcq: 2, legacy_mcq: 2, flashcard: 3 };
+    items.sort((a, b) => {
+      const pa = (a.lapses > 0 ? 0 : 1);
+      const pb = (b.lapses > 0 ? 0 : 1);
+      if (pa !== pb) return pa - pb;
+      return new Date(a.dueAt) - new Date(b.dueAt);
     });
+
+    // Fetch flashcard data
+    const flashcardIds = items.filter((i) => i.itemType === "flashcard").map((f) => f.flashcardId).filter(Boolean);
+    const fcData = await prisma.pdfFlashcard.findMany({ where: { id: { in: flashcardIds } } });
     const fcMap = new Map(fcData.map((f) => [f.id, f]));
 
+    // Enrich items
+    const enriched = items.map((i) => {
+      const base = {
+        id: i.id,
+        itemType: i.itemType,
+        pageIndex: i.pageIndex,
+        state: i.state,
+        stability: i.stability,
+        difficulty: i.difficulty,
+        reps: i.reps,
+        lapses: i.lapses,
+        dueAt: i.dueAt,
+        topic: i.topic,
+        subject: i.subject,
+        resource: i.resource,
+      };
+      if (i.itemType === "flashcard") {
+        base.flashcard = fcMap.get(i.flashcardId) || null;
+      }
+      if (i.itemType === "mcq" && i.resource?.mcqData) {
+        const mcqData = typeof i.resource.mcqData === "string" ? JSON.parse(i.resource.mcqData) : i.resource.mcqData;
+        if (Array.isArray(mcqData) && mcqData[i.pageIndex]) {
+          base.mcq = mcqData[i.pageIndex];
+        }
+      }
+      return base;
+    });
+
+    // Group by topic for the response
+    const byTopic = {};
+    for (const item of enriched) {
+      const key = item.topic || item.subject || "General";
+      if (!byTopic[key]) byTopic[key] = [];
+      byTopic[key].push(item);
+    }
+
+    const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
+
     res.json({
-      wholePdfs: wholePdfs.map((i) => ({ ...i, resource: i.resource })),
-      pages: pages.map((i) => ({ ...i, resource: i.resource })),
-      flashcards: flashcards.map((i) => ({ ...i, flashcard: fcMap.get(i.flashcardId) || null, resource: i.resource })),
-      mcqs: mcqs.map((i) => ({ ...i, resource: i.resource })),
+      items: enriched,
+      byTopic,
       totalDue: items.length,
+      dailyGoal,
+      dailyProgress: Math.min(items.length, dailyGoal),
     });
   } catch (error) {
     console.error("Error fetching FSRS due items:", error);
@@ -946,13 +1044,13 @@ router.get("/pdf-review/due", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/resources/pdf-review/stats — FSRS summary stats
-router.get("/pdf-review/stats", requireAuth, async (req, res) => {
+// ── GET /api/resources/fsrs/stats — Enhanced FSRS stats ──
+router.get("/fsrs/stats", requireAuth, async (req, res) => {
   try {
     const now = new Date();
     const items = await prisma.pdfReviewItem.findMany({
       where: { userId: req.user.sub },
-      select: { state: true, stability: true, dueAt: true, itemType: true, reps: true },
+      select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
     });
 
     const dueCount = items.filter((i) => new Date(i.dueAt) <= now).length;
@@ -960,6 +1058,29 @@ router.get("/pdf-review/stats", requireAuth, async (req, res) => {
     const masteredCount = items.filter((i) => isMastered(i)).length;
     const newCount = items.filter((i) => i.state === 0).length;
     const reviewCount = items.filter((i) => i.state === 2 && !isMastered(i)).length;
+
+    // By subject
+    const bySubject = {};
+    for (const i of items) {
+      const s = i.subject || "General";
+      if (!bySubject[s]) bySubject[s] = { total: 0, due: 0, mastered: 0, learning: 0 };
+      bySubject[s].total++;
+      if (new Date(i.dueAt) <= now) bySubject[s].due++;
+      if (isMastered(i)) bySubject[s].mastered++;
+      if (i.state === 1 || i.state === 3) bySubject[s].learning++;
+    }
+
+    // Average retrievability for review-state items
+    const reviewItems = items.filter((i) => i.state === 2 && i.stability > 0 && i.lastReviewAt);
+    let avgRetrievability = 1;
+    if (reviewItems.length > 0) {
+      const totalR = reviewItems.reduce((sum, i) => {
+        const elapsedDays = Math.max(0, Math.round((now - new Date(i.lastReviewAt)) / 86400000));
+        const R = Math.pow(1 + elapsedDays / (9 * i.stability), -1);
+        return sum + R;
+      }, 0);
+      avgRetrievability = Math.round((totalR / reviewItems.length) * 1000) / 1000;
+    }
 
     const nextDue = items.length > 0
       ? items.sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))[0].dueAt
@@ -970,6 +1091,8 @@ router.get("/pdf-review/stats", requireAuth, async (req, res) => {
       select: { streak: true, longestStreak: true, lastStudied: true },
     }).catch(() => null);
 
+    const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
+
     res.json({
       totalItems: items.length,
       dueCount,
@@ -977,9 +1100,12 @@ router.get("/pdf-review/stats", requireAuth, async (req, res) => {
       masteredCount,
       newCount,
       reviewCount,
-      mcqCount: items.filter((i) => i.itemType === "mcq").length,
+      mcqCount: items.filter((i) => i.itemType === "mcq" || i.itemType === "legacy_mcq").length,
       flashcardCount: items.filter((i) => i.itemType === "flashcard").length,
       pdfCount: items.filter((i) => i.itemType === "whole_pdf" || i.itemType === "page").length,
+      bySubject,
+      avgRetrievability,
+      dailyGoal,
       nextDueAt: nextDue,
       streak: up?.streak ?? 0,
       longestStreak: up?.longestStreak ?? 0,
@@ -990,8 +1116,77 @@ router.get("/pdf-review/stats", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/resources/pdf-review/status/:resourceId — Get FSRS status for a specific resource
-router.get("/pdf-review/status/:resourceId", requireAuth, async (req, res) => {
+// ── GET /api/resources/fsrs/analytics — Retention analytics ──
+router.get("/fsrs/analytics", requireAuth, async (req, res) => {
+  try {
+    const days = Math.max(7, Math.min(90, parseInt(req.query.days) || 30));
+    const now = new Date();
+    const since = new Date(now);
+    since.setDate(since.getDate() - days);
+
+    const items = await prisma.pdfReviewItem.findMany({
+      where: { userId: req.user.sub },
+      select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true },
+    });
+
+    // Daily review counts for heatmap
+    const dailyReviews = {};
+    for (let d = 0; d < days; d++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - d);
+      const key = date.toISOString().slice(0, 10);
+      dailyReviews[key] = 0;
+    }
+    for (const i of items) {
+      if (i.lastReviewAt && new Date(i.lastReviewAt) >= since) {
+        const key = new Date(i.lastReviewAt).toISOString().slice(0, 10);
+        if (dailyReviews[key] !== undefined) dailyReviews[key]++;
+      }
+    }
+
+    // Items mastered this period
+    const masteredThisPeriod = items.filter((i) => isMastered(i) && i.lastReviewAt && new Date(i.lastReviewAt) >= since).length;
+
+    // Average difficulty by subject
+    const difficultyBySubject = {};
+    for (const i of items) {
+      const s = i.subject || "General";
+      if (!difficultyBySubject[s]) difficultyBySubject[s] = { total: 0, count: 0 };
+      if (i.difficulty > 0) {
+        difficultyBySubject[s].total += i.difficulty;
+        difficultyBySubject[s].count++;
+      }
+    }
+    for (const s of Object.keys(difficultyBySubject)) {
+      const d = difficultyBySubject[s];
+      d.avg = d.count > 0 ? Math.round((d.total / d.count) * 100) / 100 : 0;
+    }
+
+    // Lapse rate by subject
+    const lapseBySubject = {};
+    for (const i of items) {
+      const s = i.subject || "General";
+      if (!lapseBySubject[s]) lapseBySubject[s] = { total: 0, lapsed: 0 };
+      lapseBySubject[s].total++;
+      if (i.lapses > 0) lapseBySubject[s].lapsed++;
+    }
+
+    res.json({
+      dailyReviews,
+      totalItems: items.length,
+      masteredThisPeriod,
+      difficultyBySubject,
+      lapseBySubject,
+      days,
+    });
+  } catch (error) {
+    console.error("Error fetching FSRS analytics:", error);
+    res.status(500).json({ error: "Failed to fetch analytics" });
+  }
+});
+
+// ── GET /api/resources/fsrs/status/:resourceId ──
+router.get("/fsrs/status/:resourceId", requireAuth, async (req, res) => {
   try {
     const { resourceId } = req.params;
     const items = await prisma.pdfReviewItem.findMany({
@@ -1002,18 +1197,11 @@ router.get("/pdf-review/status/:resourceId", requireAuth, async (req, res) => {
     const wholePdf = items.find((i) => i.itemType === "whole_pdf") || null;
     const pages = items.filter((i) => i.itemType === "page").sort((a, b) => a.pageIndex - b.pageIndex);
     const flashcardItems = items.filter((i) => i.itemType === "flashcard");
+    const mcqItems = items.filter((i) => i.itemType === "mcq" || i.itemType === "legacy_mcq");
 
-    // Fetch flashcard data
     const flashcardIds = flashcardItems.map((f) => f.flashcardId).filter(Boolean);
-    const fcData = await prisma.pdfFlashcard.findMany({
-      where: { id: { in: flashcardIds } },
-    });
+    const fcData = await prisma.pdfFlashcard.findMany({ where: { id: { in: flashcardIds } } });
     const fcMap = new Map(fcData.map((f) => [f.id, f]));
-
-    const flashcards = flashcardItems.map((i) => ({
-      ...i,
-      flashcard: fcMap.get(i.flashcardId) || null,
-    }));
 
     const now = new Date();
     const dueCount = items.filter((i) => new Date(i.dueAt) <= now).length;
@@ -1022,17 +1210,12 @@ router.get("/pdf-review/status/:resourceId", requireAuth, async (req, res) => {
       wholePdf,
       pages: pages.map((p) => ({
         pageIndex: p.pageIndex,
-        state: p.state,
-        stability: p.stability,
-        difficulty: p.difficulty,
-        reps: p.reps,
-        lapses: p.lapses,
-        dueAt: p.dueAt,
-        lastReviewAt: p.lastReviewAt,
-        isDue: new Date(p.dueAt) <= now,
-        isMastered: isMastered(p),
+        state: p.state, stability: p.stability, difficulty: p.difficulty,
+        reps: p.reps, lapses: p.lapses, dueAt: p.dueAt, lastReviewAt: p.lastReviewAt,
+        isDue: new Date(p.dueAt) <= now, isMastered: isMastered(p),
       })),
-      flashcards,
+      flashcards: flashcardItems.map((i) => ({ ...i, flashcard: fcMap.get(i.flashcardId) || null })),
+      mcqs: mcqItems.map((i) => ({ ...i, isDue: new Date(i.dueAt) <= now, isMastered: isMastered(i) })),
       totalItems: items.length,
       dueCount,
     });
@@ -1042,56 +1225,33 @@ router.get("/pdf-review/status/:resourceId", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/resources/pdf-review/flashcards/generate — Generate AI flashcards from PDF text
-router.post("/pdf-review/flashcards/generate", requireAuth, aiRateLimit, async (req, res) => {
+// ── POST /api/resources/fsrs/flashcards/generate ──
+router.post("/fsrs/flashcards/generate", requireAuth, aiRateLimit, async (req, res) => {
   try {
     const { resourceId, pages, count } = req.body;
     if (!resourceId || !pages || !Array.isArray(pages) || pages.length === 0) {
       return res.status(400).json({ error: "resourceId and pages array are required" });
     }
-
     const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
     if (!resource) return res.status(404).json({ error: "Resource not found" });
 
     const numCards = Math.max(3, Math.min(30, count || 10));
     const combinedText = pages.map((p) => p.text).join("\n\n").slice(0, 20000);
 
-    // Server-side AI call — use the proxy endpoint directly
     const aiRes = await fetch(`${process.env.API_BASE || "http://localhost:4000"}/ai-proxy/generate-multimodal`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: req.headers.authorization || "",
-      },
+      headers: { "Content-Type": "application/json", Authorization: req.headers.authorization || "" },
       body: JSON.stringify({
-        prompt: `You are an expert flashcard creator for university students. Generate exactly ${numCards} flashcards from the text below.
-
-FORMAT — return as a JSON array:
-[{"front": "question or prompt", "back": "concise answer"}]
-
-Rules:
-- Front should be a clear question, definition prompt, or concept name
-- Back should be a concise but complete answer (1-3 sentences)
-- Cover the most important concepts from the text
-- Return ONLY the JSON array, no markdown or explanation
-
-TEXT:
-"""
-${combinedText}
-"""`,
+        prompt: `You are an expert flashcard creator for university students. Generate exactly ${numCards} flashcards from the text below.\n\nFORMAT — return as a JSON array:\n[{"front": "question or prompt", "back": "concise answer"}]\n\nRules:\n- Front should be a clear question, definition prompt, or concept name\n- Back should be a concise but complete answer (1-3 sentences)\n- Cover the most important concepts from the text\n- Return ONLY the JSON array, no markdown or explanation\n\nTEXT:\n"""\n${combinedText}\n"""`,
         provider: "openrouter",
         model: "google/gemini-2.5-flash",
       }),
     }).catch(() => null);
 
-    if (!aiRes || !aiRes.ok) {
-      return res.status(500).json({ error: "AI generation failed. Please try again." });
-    }
+    if (!aiRes || !aiRes.ok) return res.status(500).json({ error: "AI generation failed. Please try again." });
 
     const aiData = await aiRes.json();
     const rawText = aiData.text || "";
-
-    // Parse JSON from AI response
     let flashcards = [];
     try {
       const jsonMatch = rawText.match(/\[[\s\S]*\]/);
@@ -1099,39 +1259,21 @@ ${combinedText}
     } catch {
       return res.status(500).json({ error: "Failed to parse AI flashcard response" });
     }
-
     if (!Array.isArray(flashcards) || flashcards.length === 0) {
       return res.status(500).json({ error: "AI returned no valid flashcards" });
     }
 
-    // Save flashcards and create FSRS review items
     const created = [];
     for (const fc of flashcards) {
       if (!fc.front || !fc.back) continue;
-      const sourcePage = pages[0]?.page || null;
       const flashcard = await prisma.pdfFlashcard.create({
-        data: {
-          userId: req.user.sub,
-          resourceId,
-          front: fc.front,
-          back: fc.back,
-          sourcePage,
-        },
+        data: { userId: req.user.sub, resourceId, front: fc.front, back: fc.back, sourcePage: pages[0]?.page || null },
       });
-
       await prisma.pdfReviewItem.create({
-        data: {
-          userId: req.user.sub,
-          resourceId,
-          itemType: "flashcard",
-          pageIndex: -1,
-          flashcardId: flashcard.id,
-        },
+        data: { userId: req.user.sub, resourceId, itemType: "flashcard", pageIndex: -1, flashcardId: flashcard.id, topic: resource.title, subject: resource.subject },
       }).catch(() => {});
-
       created.push(flashcard);
     }
-
     res.status(201).json({ flashcards: created, count: created.length });
   } catch (error) {
     console.error("Error generating flashcards:", error);
@@ -1139,45 +1281,117 @@ ${combinedText}
   }
 });
 
-// GET /api/resources/pdf-review/flashcards/:resourceId — Get all flashcards for a resource
-router.get("/pdf-review/flashcards/:resourceId", requireAuth, async (req, res) => {
+// ── GET /api/resources/fsrs/flashcards/:resourceId ──
+router.get("/fsrs/flashcards/:resourceId", requireAuth, async (req, res) => {
   try {
     const { resourceId } = req.params;
     const flashcards = await prisma.pdfFlashcard.findMany({
       where: { userId: req.user.sub, resourceId },
       orderBy: { createdAt: "desc" },
     });
-
-    // Also fetch FSRS status for each flashcard
     const reviewItems = await prisma.pdfReviewItem.findMany({
       where: { userId: req.user.sub, resourceId, itemType: "flashcard" },
     });
     const reviewMap = new Map(reviewItems.map((r) => [r.flashcardId, r]));
-
     const now = new Date();
     const result = flashcards.map((fc) => {
       const review = reviewMap.get(fc.id);
       return {
         ...fc,
         fsrs: review ? {
-          state: review.state,
-          stability: review.stability,
-          difficulty: review.difficulty,
-          reps: review.reps,
-          lapses: review.lapses,
-          dueAt: review.dueAt,
-          isDue: new Date(review.dueAt) <= now,
-          isMastered: isMastered(review),
+          state: review.state, stability: review.stability, difficulty: review.difficulty,
+          reps: review.reps, lapses: review.lapses, dueAt: review.dueAt,
+          isDue: new Date(review.dueAt) <= now, isMastered: isMastered(review),
         } : null,
       };
     });
-
     res.json({ flashcards: result });
   } catch (error) {
     console.error("Error fetching flashcards:", error);
     res.status(500).json({ error: "Failed to fetch flashcards" });
   }
 });
+
+// ── GET/PUT /api/resources/fsrs/daily-goal ──
+router.get("/fsrs/daily-goal", requireAuth, async (req, res) => {
+  try {
+    const profile = await prisma.userFsrsProfile.findUnique({ where: { userId: req.user.sub } });
+    res.json({ dailyGoal: profile?.dailyGoal || 20 });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch daily goal" });
+  }
+});
+
+router.put("/fsrs/daily-goal", requireAuth, async (req, res) => {
+  try {
+    const { dailyGoal } = req.body;
+    const goal = Math.max(5, Math.min(100, parseInt(dailyGoal) || 20));
+    const profile = await prisma.userFsrsProfile.upsert({
+      where: { userId: req.user.sub },
+      create: { userId: req.user.sub, dailyGoal: goal },
+      update: { dailyGoal: goal },
+    });
+    res.json({ dailyGoal: profile.dailyGoal });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update daily goal" });
+  }
+});
+
+// ── POST /api/resources/fsrs/migrate-sm2 — Migrate legacy SM-2 data to FSRS ──
+router.post("/fsrs/migrate-sm2", requireAuth, async (req, res) => {
+  try {
+    const oldItems = await prisma.reviewQueueItem.findMany({
+      where: { userId: req.user.sub },
+      include: { resource: { select: { subject: true, title: true } } },
+    });
+
+    let migrated = 0;
+    for (const old of oldItems) {
+      const exists = await prisma.pdfReviewItem.findUnique({
+        where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId: old.resourceId, itemType: "legacy_mcq", pageIndex: old.questionIndex, flashcardId: "none" } },
+      }).catch(() => null);
+      if (!exists) {
+        // Convert SM-2 to approximate FSRS state
+        const isMasteredSM2 = old.repetitions >= 3 && old.intervalDays >= 21;
+        await prisma.pdfReviewItem.create({
+          data: {
+            userId: req.user.sub,
+            resourceId: old.resourceId,
+            itemType: "legacy_mcq",
+            pageIndex: old.questionIndex,
+            flashcardId: "none",
+            state: isMasteredSM2 ? 2 : (old.repetitions > 0 ? 2 : 0),
+            stability: Math.max(0.1, old.intervalDays || 1),
+            difficulty: Math.min(10, Math.max(1, (old.easinessFactor || 2.5) * 2)),
+            reps: old.repetitions || 0,
+            lapses: 0,
+            lastReviewAt: old.lastReviewed,
+            dueAt: old.dueAt,
+            nextReviewAt: old.dueAt,
+            topic: old.resource?.title || null,
+            subject: old.resource?.subject || null,
+          },
+        });
+        migrated++;
+      }
+    }
+
+    res.json({ migrated, totalOldItems: oldItems.length });
+  } catch (error) {
+    console.error("Error migrating SM-2 data:", error);
+    res.status(500).json({ error: "Failed to migrate SM-2 data" });
+  }
+});
+
+// ── Backward-compatible aliases for old /pdf-review/* routes ──
+// These re-dispatch to the /fsrs/* handlers by re-entering the router
+router.post("/pdf-review/init", requireAuth, (req, res) => { req.url = "/fsrs/init"; router.handle(req, res, () => {}); });
+router.post("/pdf-review/rate", requireAuth, (req, res) => { req.url = "/fsrs/rate"; router.handle(req, res, () => {}); });
+router.get("/pdf-review/due", requireAuth, (req, res) => { req.url = "/fsrs/due"; router.handle(req, res, () => {}); });
+router.get("/pdf-review/stats", requireAuth, (req, res) => { req.url = "/fsrs/stats"; router.handle(req, res, () => {}); });
+router.get("/pdf-review/status/:resourceId", requireAuth, (req, res) => { req.url = req.url.replace("/pdf-review/", "/fsrs/"); router.handle(req, res, () => {}); });
+router.post("/pdf-review/flashcards/generate", requireAuth, aiRateLimit, (req, res) => { req.url = "/fsrs/flashcards/generate"; router.handle(req, res, () => {}); });
+router.get("/pdf-review/flashcards/:resourceId", requireAuth, (req, res) => { req.url = req.url.replace("/pdf-review/", "/fsrs/"); router.handle(req, res, () => {}); });
 
 // POST /api/resources - Create new resource (any authenticated user)
 router.post("/", requireAuth, upload.single("file"), async (req, res) => {

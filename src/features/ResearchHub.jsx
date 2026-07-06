@@ -4,6 +4,8 @@ import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, form
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, updateFolder } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
 import { useUserData } from "../contexts/UserDataContext";
+import DailyReview from "./research-hub/DailyReview.jsx";
+import RetentionDashboard from "./research-hub/RetentionDashboard.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const CACHE_TTL = 5 * 60 * 1000;
@@ -249,11 +251,10 @@ function ProgressDashboard({ progressData, reviewCount, reviewStats }) {
 }
 
 // ============ REVIEW BANNER ============
-function ReviewBanner({ reviewData, reviewStats, onReview }) {
-  if (!reviewData || reviewData.total === 0) return null;
-  const dueCount = reviewData.due.length;
-  const avgEF = reviewStats?.avgEasinessFactor;
-  const mastered = reviewStats?.masteredCount;
+function ReviewBanner({ fsrsStats, onReview }) {
+  if (!fsrsStats || fsrsStats.totalItems === 0) return null;
+  const dueCount = fsrsStats.dueCount || 0;
+  const mastered = fsrsStats.masteredCount || 0;
 
   return (
     <div style={{
@@ -264,12 +265,11 @@ function ReviewBanner({ reviewData, reviewStats, onReview }) {
     }}>
       <div>
         <div style={{ fontSize: "14px", fontWeight: 700, color: dueCount > 0 ? "#b39ddb" : "#7b82b8" }}>
-          {dueCount > 0 ? `📚 ${dueCount} question${dueCount > 1 ? "s" : ""} due for review` : `📅 ${reviewData.total} question${reviewData.total > 1 ? "s" : ""} in review queue`}
+          {dueCount > 0 ? `� ${dueCount} item${dueCount > 1 ? "s" : ""} due for review` : `📅 ${fsrsStats.totalItems} item${fsrsStats.totalItems > 1 ? "s" : ""} in review queue`}
         </div>
         <div style={{ fontSize: "11px", color: "#4a5080", marginTop: "2px" }}>
-          {dueCount > 0 ? "SM-2 spaced repetition — review now while it's fresh" : "Upcoming reviews — we'll remind you when they're due"}
-          {avgEF != null && <span style={{ marginLeft: 8, color: "#5a6090" }}>EF: {avgEF}</span>}
-          {mastered != null && mastered > 0 && <span style={{ marginLeft: 8, color: "#4caf50" }}>✓ {mastered} mastered</span>}
+          {dueCount > 0 ? "FSRS spaced repetition — review now while it's fresh" : "Upcoming reviews — we'll remind you when they're due"}
+          {mastered > 0 && <span style={{ marginLeft: 8, color: "#4caf50" }}>✓ {mastered} mastered</span>}
         </div>
       </div>
       <button onClick={onReview} style={{
@@ -278,8 +278,47 @@ function ReviewBanner({ reviewData, reviewStats, onReview }) {
         border: dueCount > 0 ? "0.5px solid #7c55c0" : "0.5px solid #252860",
         fontSize: "12px", fontWeight: 700, color: dueCount > 0 ? "#e8eaf6" : "#7986cb", cursor: "pointer",
       }}>
-        {dueCount > 0 ? "Review now →" : "Practice early"}
+        {dueCount > 0 ? "Start Daily Review →" : "Practice early"}
       </button>
+    </div>
+  );
+}
+
+// ============ FSRS TAB CONTENT (sub-tabs: Review, Daily Review, Analytics) ============
+function FsrsTabContent({ fsrsDue, fsrsStats, fsrsAnalytics, onOpenPdf, onRefresh }) {
+  const [subTab, setSubTab] = useState("review");
+
+  if (subTab === "daily") {
+    return <DailyReview onBack={() => { setSubTab("review"); onRefresh(); }} onComplete={onRefresh} />;
+  }
+
+  if (subTab === "analytics") {
+    return <RetentionDashboard fsrsStats={fsrsStats} fsrsAnalytics={fsrsAnalytics} onBack={() => setSubTab("review")} />;
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setSubTab("review")} style={{
+          padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+          background: subTab === "review" ? "#1a1a1a" : "transparent",
+          border: `0.5px solid ${subTab === "review" ? "#B8860B" : "#1e2245"}`,
+          color: subTab === "review" ? "#FFD700" : "#4a5080",
+        }}>📋 Due Items</button>
+        <button onClick={() => setSubTab("daily")} style={{
+          padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+          background: subTab === "daily" ? "#1a1a1a" : "transparent",
+          border: `0.5px solid ${subTab === "daily" ? "#B8860B" : "#1e2245"}`,
+          color: subTab === "daily" ? "#FFD700" : "#4a5080",
+        }}>🔄 Daily Review</button>
+        <button onClick={() => setSubTab("analytics")} style={{
+          padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 600,
+          background: subTab === "analytics" ? "#1a1a1a" : "transparent",
+          border: `0.5px solid ${subTab === "analytics" ? "#B8860B" : "#1e2245"}`,
+          color: subTab === "analytics" ? "#FFD700" : "#4a5080",
+        }}>📊 Analytics</button>
+      </div>
+      <FsrsReviewDashboard fsrsDue={fsrsDue} fsrsStats={fsrsStats} onOpenPdf={onOpenPdf} />
     </div>
   );
 }
@@ -440,11 +479,10 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [userDept, setUserDept] = useState(null);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [filters, setFilters] = useState({ department: "all", level: "all", semester: "all", subject: "all" });
-  const [reviewData, setReviewData] = useState(null);
-  const [reviewStats, setReviewStats] = useState(null);
   const [progressData, setProgressData] = useState(null);
   const [fsrsDue, setFsrsDue] = useState(null);
   const [fsrsStats, setFsrsStats] = useState(null);
+  const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -485,10 +523,9 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     fetchResources();
     fetchUserInfo();
     fetchUserDept();
-    fetchReviewQueue();
-    fetchReviewStats();
     fetchFsrsDue();
     fetchFsrsStats();
+    fetchFsrsAnalytics();
     fetchFolders();
     fetchMcqProgress();
   }, []);
@@ -580,31 +617,24 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     } catch {}
   };
 
-  const fetchReviewQueue = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/review-queue`, { headers: getAuthHeaders() });
-      if (res.ok) setReviewData(await res.json());
-    } catch {}
-  };
-
-  const fetchReviewStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/review-queue/stats`, { headers: getAuthHeaders() });
-      if (res.ok) setReviewStats(await res.json());
-    } catch {}
-  };
-
   const fetchFsrsDue = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/due`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/due`, { headers: getAuthHeaders() });
       if (res.ok) setFsrsDue(await res.json());
     } catch {}
   };
 
   const fetchFsrsStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/stats`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/stats`, { headers: getAuthHeaders() });
       if (res.ok) setFsrsStats(await res.json());
+    } catch {}
+  };
+
+  const fetchFsrsAnalytics = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/analytics?days=30`, { headers: getAuthHeaders() });
+      if (res.ok) setFsrsAnalytics(await res.json());
     } catch {}
   };
 
@@ -737,11 +767,10 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   }, [folderDetail]);
 
   const handleQuizComplete = useCallback((data) => {
-    // Refresh review queue, stats, and XP badge after quiz submission
-    fetchReviewQueue();
-    fetchReviewStats();
+    // Refresh FSRS data and XP badge after quiz submission
     fetchFsrsDue();
     fetchFsrsStats();
+    fetchFsrsAnalytics();
     fetchUserInfo();
     fetchMcqProgress();
     // Notify parent (App.jsx) of streak update for universal sync
@@ -1344,10 +1373,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   }[activeTab];
 
   const handleReview = () => {
-    if (reviewData && reviewData.due.length > 0) {
-      const firstDue = reviewData.due[0];
-      if (firstDue.resource?.shareToken) setViewerToken(firstDue.resource.shareToken);
-    }
+    setActiveTab("fsrs");
   };
 
   return (
@@ -1413,7 +1439,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       </div>
 
       {/* Review Banner */}
-      <ReviewBanner reviewData={reviewData} reviewStats={reviewStats} onReview={handleReview} />
+      <ReviewBanner fsrsStats={fsrsStats} onReview={handleReview} />
 
       {/* Tabs — horizontally scrollable on mobile */}
       <div className="sc-tabrow" style={styles.tabRow}>
@@ -1439,12 +1465,18 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       {activeTab === "progress" ? (
         <ProgressDashboard progressData={progressData} reviewCount={reviewData?.total || 0} reviewStats={reviewStats} />
       ) : activeTab === "fsrs" ? (
-        <FsrsReviewDashboard fsrsDue={fsrsDue} fsrsStats={fsrsStats} onOpenPdf={(token, page) => {
-          const res = resources.find((r) => r.shareToken === token);
-          if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
-          setViewerInitialPage(page || null);
-          setViewerToken(token);
-        }} />
+        <FsrsTabContent
+          fsrsDue={fsrsDue}
+          fsrsStats={fsrsStats}
+          fsrsAnalytics={fsrsAnalytics}
+          onOpenPdf={(token, page) => {
+            const res = resources.find((r) => r.shareToken === token);
+            if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
+            setViewerInitialPage(page || null);
+            setViewerToken(token);
+          }}
+          onRefresh={() => { fetchFsrsDue(); fetchFsrsStats(); fetchFsrsAnalytics(); }}
+        />
       ) : activeTab === "folders" ? (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>

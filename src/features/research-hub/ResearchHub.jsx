@@ -12,8 +12,9 @@ import FolderDetailView from "./FolderDetailView";
 import UploadModal from "./UploadModal";
 import CreateFolderModal from "./CreateFolderModal";
 import ProgressDashboard from "./ProgressDashboard";
-import ReviewBanner from "./ReviewBanner";
 import FsrsReviewDashboard from "./FsrsReviewDashboard";
+import DailyReview from "./DailyReview.jsx";
+import RetentionDashboard from "./RetentionDashboard.jsx";
 import { colors, spacing, fontSize, fontWeight, sharedStyles, gold, goldDim, goldBorder, goldText } from "./constants";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -36,6 +37,36 @@ const emptyMessages = {
   "space.folders": "No folders yet — create one to organize your materials.",
   "public": "No resources found. Try a different search or clear filters.",
 };
+
+function FsrsTabContent({ fsrsDue, fsrsStats, fsrsAnalytics, onOpenPdf, onRefresh }) {
+  const [subTab, setSubTab] = useState("review");
+
+  if (subTab === "daily") {
+    return <DailyReview onBack={() => { setSubTab("review"); onRefresh(); }} onComplete={onRefresh} />;
+  }
+
+  if (subTab === "analytics") {
+    return <RetentionDashboard fsrsStats={fsrsStats} fsrsAnalytics={fsrsAnalytics} onBack={() => setSubTab("review")} />;
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg }}>
+        <button onClick={() => setSubTab("review")} style={subTab === "review" ? sharedStyles.chipActive : sharedStyles.chip}>
+          📖 Review
+        </button>
+        <button onClick={() => setSubTab("daily")} style={subTab === "daily" ? sharedStyles.chipActive : sharedStyles.chip}>
+          🧠 Daily Review
+          {fsrsStats && fsrsStats.dueCount > 0 && <span style={{ marginLeft: spacing.xs, fontSize: fontSize.xs, color: goldText }}>{fsrsStats.dueCount}</span>}
+        </button>
+        <button onClick={() => setSubTab("analytics")} style={subTab === "analytics" ? sharedStyles.chipActive : sharedStyles.chip}>
+          📊 Analytics
+        </button>
+      </div>
+      <FsrsReviewDashboard fsrsDue={fsrsDue} fsrsStats={fsrsStats} onOpenPdf={onOpenPdf} />
+    </div>
+  );
+}
 
 export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate, activeSemester } = {}) {
   const navigate = useNavigate();
@@ -63,6 +94,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [progressData, setProgressData] = useState(null);
   const [fsrsDue, setFsrsDue] = useState(null);
   const [fsrsStats, setFsrsStats] = useState(null);
+  const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -103,6 +135,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     fetchReviewStats();
     fetchFsrsDue();
     fetchFsrsStats();
+    fetchFsrsAnalytics();
     fetchFolders();
     fetchMcqProgress();
   }, []);
@@ -219,15 +252,22 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
   const fetchFsrsDue = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/due`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/due`, { headers: getAuthHeaders() });
       if (res.ok) setFsrsDue(await res.json());
     } catch {}
   };
 
   const fetchFsrsStats = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/stats`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/stats`, { headers: getAuthHeaders() });
       if (res.ok) setFsrsStats(await res.json());
+    } catch {}
+  };
+
+  const fetchFsrsAnalytics = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/analytics?days=30`, { headers: getAuthHeaders() });
+      if (res.ok) setFsrsAnalytics(await res.json());
     } catch {}
   };
 
@@ -359,7 +399,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   }, [folderDetail]);
 
   const handleQuizComplete = useCallback((data) => {
-    fetchReviewQueue(); fetchReviewStats(); fetchFsrsDue(); fetchFsrsStats();
+    fetchReviewQueue(); fetchReviewStats(); fetchFsrsDue(); fetchFsrsStats(); fetchFsrsAnalytics();
     fetchUserInfo(); fetchMcqProgress();
     if (onStreakUpdate && data.streak != null) onStreakUpdate(data.streak, data.longestStreak);
   }, [onStreakUpdate]);
@@ -676,10 +716,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     : emptyMessages[emptyKey] || "Nothing here yet.";
 
   const handleReview = () => {
-    if (reviewData && reviewData.due.length > 0) {
-      const firstDue = reviewData.due[0];
-      if (firstDue.resource?.shareToken) setViewerToken(firstDue.resource.shareToken);
-    }
+    setActiveTab("fsrs");
   };
 
   return (
@@ -695,6 +732,11 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
           </button>
         ))}
         <div style={{ width: "1px", background: colors.border, margin: "6px 4px", flexShrink: 0 }} />
+        <button title="Review" onClick={() => setActiveTab("fsrs")}
+          style={activeTab === "fsrs" ? sharedStyles.tabActive : { ...sharedStyles.tab, color: colors.textDim, padding: "8px 12px" }}>
+          🔄
+          {fsrsStats && fsrsStats.dueCount > 0 && <span style={sharedStyles.tabCount}>{fsrsStats.dueCount}</span>}
+        </button>
         <button title="Progress" onClick={() => setActiveTab("progress")}
           style={activeTab === "progress" ? sharedStyles.tabActive : { ...sharedStyles.tab, color: colors.textDim, padding: "8px 12px" }}>
           📊
@@ -740,17 +782,18 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       {activeTab === "progress" ? (
         <ProgressDashboard progressData={progressData} reviewCount={reviewData?.total || 0} reviewStats={reviewStats} />
       ) : activeTab === "fsrs" ? (
-        <div>
-          <button onClick={() => setActiveTab("department")} style={{ ...sharedStyles.backBtn, marginBottom: spacing.lg }}>
-            ← Back
-          </button>
-          <FsrsReviewDashboard fsrsDue={fsrsDue} fsrsStats={fsrsStats} onOpenPdf={(token, page) => {
+        <FsrsTabContent
+          fsrsDue={fsrsDue}
+          fsrsStats={fsrsStats}
+          fsrsAnalytics={fsrsAnalytics}
+          onOpenPdf={(token, page) => {
             const res = resources.find((r) => r.shareToken === token);
             if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
             setViewerInitialPage(page || null);
             setViewerToken(token);
-          }} />
-        </div>
+          }}
+          onRefresh={() => { fetchFsrsDue(); fetchFsrsStats(); fetchFsrsAnalytics(); }}
+        />
       ) : activeTab === "space" && activeSubTab === "folders" ? (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg }}>

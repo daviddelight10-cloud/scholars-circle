@@ -35,7 +35,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate }
     if (!resource?.id || !cards[currentIndex]) return;
     try {
       const res = await fetch(
-        `${API_BASE}/api/resources/pdf-review/status/${resource.id}`,
+        `${API_BASE}/api/resources/fsrs/status/${resource.id}`,
         { headers: getAuthHeaders() }
       );
       if (res.ok) {
@@ -58,7 +58,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate }
     if (!resource?.id) return;
     setRating(grade);
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/rate`, {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/rate`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({

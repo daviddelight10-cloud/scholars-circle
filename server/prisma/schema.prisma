@@ -1491,9 +1491,11 @@ model PdfReviewItem {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   resourceId    String
   resource      Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  itemType      String   // "whole_pdf" | "page" | "flashcard"
-  pageIndex     Int?     // null for whole_pdf, page number for page type
+  itemType      String   // "whole_pdf" | "page" | "flashcard" | "mcq" | "legacy_mcq"
+  pageIndex     Int?     // null for whole_pdf, page number for page type, question index for mcq
   flashcardId   String?  // references PdfFlashcard.id for flashcard type
+  topic         String?  // topic label for cross-resource grouping (e.g. "Cell Division")
+  subject       String?  // subject label (e.g. "Biology")
 
   // FSRS fields
   state         Int      @default(0)  // 0=new, 1=learning, 2=review, 3=relearning
@@ -1511,6 +1513,21 @@ model PdfReviewItem {
   @@unique([userId, resourceId, itemType, pageIndex, flashcardId])
   @@index([userId, dueAt])
   @@index([userId, resourceId])
+  @@index([userId, subject])
+}
+
+// Per-user FSRS weight personalization
+model UserFsrsProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weights       Json     @default("[]")  // 18-element FSRS weight array, empty = use defaults
+  targetRetention Float  @default(0.9)   // desired retention rate (0.8-0.95)
+  dailyGoal     Int      @default(20)    // target items per day
+  totalReviews  Int      @default(0)     // lifetime review count for optimization threshold
+  lastOptimized DateTime?                // when weights were last recomputed
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model PdfFlashcard {

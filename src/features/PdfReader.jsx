@@ -1413,7 +1413,7 @@ ${extractedText}
   const initFsrs = async (totalPages) => {
     if (!propResourceId) return;
     try {
-      await fetch(`${API_BASE}/api/resources/pdf-review/init`, {
+      await fetch(`${API_BASE}/api/resources/fsrs/init`, {
         method: "POST",
         headers: getFsrsAuthHeaders(),
         body: JSON.stringify({ resourceId: propResourceId, totalPages }),
@@ -1425,7 +1425,7 @@ ${extractedText}
   const fetchFsrsStatus = async () => {
     if (!propResourceId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/status/${propResourceId}`, {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/status/${propResourceId}`, {
         headers: getFsrsAuthHeaders(),
       });
       if (res.ok) setFsrsStatus(await res.json());
@@ -1437,7 +1437,7 @@ ${extractedText}
     setFsrsRatingBusy(true);
     setFsrsLastResult(null);
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/rate`, {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/rate`, {
         method: "POST",
         headers: getFsrsAuthHeaders(),
         body: JSON.stringify({ resourceId: propResourceId, itemType, grade, pageIndex, flashcardId }),
@@ -1464,7 +1464,7 @@ ${extractedText}
   const fetchFlashcards = async () => {
     if (!propResourceId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/flashcards/${propResourceId}`, {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/flashcards/${propResourceId}`, {
         headers: getFsrsAuthHeaders(),
       });
       if (res.ok) {
@@ -1490,7 +1490,7 @@ ${extractedText}
         setFsrsFlashcardLoading(false);
         return;
       }
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/flashcards/generate`, {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/flashcards/generate`, {
         method: "POST",
         headers: getFsrsAuthHeaders(),
         body: JSON.stringify({ resourceId: propResourceId, pages, count: fsrsFlashcardCount }),

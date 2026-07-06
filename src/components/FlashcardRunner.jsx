@@ -31,7 +31,7 @@ export default function FlashcardRunner({ flashcards: initialFlashcards, resourc
     const token = authData.authToken;
 
     try {
-      const res = await fetch(`${API_BASE}/api/resources/pdf-review/rate`, {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/rate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({

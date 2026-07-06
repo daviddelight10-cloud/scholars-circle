@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { T, FONTS, RADIUS, subjectColor } from "../lib/theme";
 import { useUserData } from "../contexts/UserDataContext";
 import NotificationBellImproved from "../features/NotificationBellImproved";
+import DailyReview from "../features/research-hub/DailyReview.jsx";
+import RetentionDashboard from "../features/research-hub/RetentionDashboard.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -218,6 +220,7 @@ function ResumeCard({ lastActivity, mastery, subjects, onResume, hasHistory }) {
 }
 
 function DueCard({ sm2DueCount, fsrsDueCount, onReviewQuestions, onReviewReadings }) {
+  const totalDue = sm2DueCount + fsrsDueCount;
   const qLabel = `${sm2DueCount} question${sm2DueCount !== 1 ? "s" : ""}`;
   const rLabel = `${fsrsDueCount} reading${fsrsDueCount !== 1 ? "s" : ""}`;
 
@@ -234,10 +237,10 @@ function DueCard({ sm2DueCount, fsrsDueCount, onReviewQuestions, onReviewReading
           </span>
         </div>
         <h2 style={{ fontFamily: FONTS.display, fontSize: "1.3rem", fontWeight: 800, marginTop: 10, lineHeight: 1.3, color: T.text }}>
-          {qLabel} · {rLabel} due
+          {totalDue > 0 ? `${totalDue} item${totalDue !== 1 ? "s" : ""} due` : "Nothing due right now"}
         </h2>
         <span style={{ display: "block", fontFamily: FONTS.mono, fontSize: "0.72rem", color: T.textFaint, marginTop: 6 }}>
-          Questions use SM-2 · readings use FSRS
+          {totalDue > 0 ? `${qLabel} · ${rLabel}` : "All caught up — great job!"}
         </span>
       </div>
       <div style={{ marginTop: 18 }}>
@@ -547,9 +550,10 @@ function AssignmentsCard({ onOpenTab, token }) {
 }
 
 function StudyBitesRow({ sm2DueCount, fsrsDueCount, weakest, onReviewQuestions, onReviewReadings, onBoostSubject, onBrowseDept, onAskAI }) {
+  const totalDue = sm2DueCount + fsrsDueCount;
   const bites = [];
-  if (sm2DueCount > 0) {
-    bites.push({ icon: "🧠", label: `Review ${sm2DueCount} card${sm2DueCount !== 1 ? "s" : ""}`, subtitle: "Spaced repetition", color: T.green, bg: T.greenDim, onClick: onReviewQuestions });
+  if (totalDue > 0) {
+    bites.push({ icon: "🧠", label: `Review ${totalDue} item${totalDue !== 1 ? "s" : ""}`, subtitle: "Spaced repetition", color: T.green, bg: T.greenDim, onClick: onReviewQuestions });
   }
   if (fsrsDueCount > 0) {
     bites.push({ icon: "📄", label: `Review ${fsrsDueCount} reading${fsrsDueCount !== 1 ? "s" : ""}`, subtitle: "FSRS due", color: T.gold, bg: T.goldDim, onClick: onReviewReadings });
@@ -635,6 +639,223 @@ function ForYouPreview({ items, onOpenAll, onOpenItem }) {
   );
 }
 
+function DailyReviewCard({ fsrsStats, onStart }) {
+  const dueCount = fsrsStats?.dueCount || 0;
+  const dailyGoal = fsrsStats?.dailyGoal || 20;
+  const learningCount = fsrsStats?.learningCount || 0;
+  const masteredCount = fsrsStats?.masteredCount || 0;
+  const totalItems = fsrsStats?.totalItems || 0;
+  const streak = fsrsStats?.streak || 0;
+  const goalPct = dailyGoal > 0 ? Math.min(100, Math.round((Math.min(dueCount, dailyGoal) / dailyGoal) * 100)) : 0;
+
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, ${T.inkCard}, ${T.inkCard2})`,
+      border: `1px solid ${T.line}`, borderRadius: RADIUS.lg,
+      padding: 28, display: "flex", flexDirection: "column", gap: 18,
+      position: "relative", overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute", top: 0, right: 0, width: 180, height: 180,
+        background: "radial-gradient(circle at 100% 0%, rgba(79,142,247,0.10), transparent 70%)",
+        pointerEvents: "none",
+      }} />
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <span style={{ fontSize: 20 }}>🧠</span>
+          <span style={{
+            fontFamily: FONTS.mono, fontSize: "0.72rem", color: T.textFaint,
+            textTransform: "uppercase", letterSpacing: "0.05em",
+          }}>
+            FSRS Daily Review
+          </span>
+        </div>
+        <h2 style={{
+          fontFamily: FONTS.display, fontSize: "1.3rem", fontWeight: 800,
+          margin: "6px 0 4px", color: dueCount > 0 ? T.text : T.textDim,
+        }}>
+          {dueCount > 0 ? `${dueCount} item${dueCount !== 1 ? "s" : ""} due` : "All caught up!"}
+        </h2>
+        <p style={{ fontSize: "0.84rem", color: T.textDim, margin: 0 }}>
+          {dueCount > 0
+            ? `Interleaved pages, flashcards & MCQs — goal: ${dailyGoal}/day`
+            : "Come back later or study new material to build your queue."}
+        </p>
+      </div>
+
+      {/* Progress bar toward daily goal */}
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontFamily: FONTS.mono, fontSize: "0.72rem", color: T.textFaint }}>
+            Daily goal progress
+          </span>
+          <span style={{ fontFamily: FONTS.mono, fontSize: "0.72rem", color: dueCount > 0 ? T.blue : T.textFaint }}>
+            {Math.min(dueCount, dailyGoal)}/{dailyGoal}
+          </span>
+        </div>
+        <div style={{ height: 8, background: T.inkSoft, borderRadius: 4, overflow: "hidden" }}>
+          <div style={{
+            height: "100%", width: `${goalPct}%`,
+            background: dueCount > 0
+              ? `linear-gradient(90deg, ${T.blue}, ${T.gold})`
+              : `linear-gradient(90deg, #22c55e, #4caf50)`,
+            borderRadius: 4, transition: "width 0.5s ease",
+          }} />
+        </div>
+      </div>
+
+      {/* Mini stats row */}
+      <div style={{ display: "flex", gap: 16, position: "relative", zIndex: 1 }}>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1.1rem", fontWeight: 800, color: "#f59e0b" }}>{learningCount}</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Learning</div>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1.1rem", fontWeight: 800, color: "#22c55e" }}>{masteredCount}</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Mastered</div>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1.1rem", fontWeight: 800, color: T.gold }}>{totalItems}</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Total</div>
+        </div>
+        {streak > 0 && (
+          <div style={{ textAlign: "center", flex: 1 }}>
+            <div style={{ fontFamily: FONTS.display, fontSize: "1.1rem", fontWeight: 800, color: T.coral }}>{streak}</div>
+            <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Streak</div>
+          </div>
+        )}
+      </div>
+
+      {/* Start button */}
+      <button
+        onClick={onStart}
+        disabled={dueCount === 0}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          padding: "13px 24px", borderRadius: 999, fontWeight: 700, fontSize: "0.92rem",
+          background: dueCount > 0 ? T.gold : T.inkSoft,
+          color: dueCount > 0 ? "#1A1300" : T.textFaint,
+          border: "none", cursor: dueCount > 0 ? "pointer" : "default",
+          transition: "transform 0.15s", position: "relative", zIndex: 1,
+          opacity: dueCount === 0 ? 0.5 : 1,
+        }}
+        onMouseEnter={(e) => { if (dueCount > 0) e.currentTarget.style.transform = "translateY(-1px)"; }}
+        onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+      >
+        {dueCount > 0 ? "Start Daily Review →" : "No items due now"}
+      </button>
+    </div>
+  );
+}
+
+function RetentionSummaryCard({ fsrsStats, fsrsAnalytics, onViewAnalytics }) {
+  const totalItems = fsrsStats?.totalItems || 0;
+  const masteredCount = fsrsStats?.masteredCount || 0;
+  const avgRetrievability = fsrsStats?.avgRetrievability || 0;
+  const streak = fsrsStats?.streak || 0;
+  const longestStreak = fsrsStats?.longestStreak || 0;
+  const masteryPct = totalItems > 0 ? Math.round((masteredCount / totalItems) * 100) : 0;
+  const retentionPct = Math.round(avgRetrievability * 100);
+
+  const dailyReviews = fsrsAnalytics?.dailyReviews || {};
+  const maxDaily = Math.max(1, ...Object.values(dailyReviews));
+  const heatmapDays = Object.entries(dailyReviews).sort((a, b) => a[0].localeCompare(b[0])).slice(-30);
+
+  function heatColor(count) {
+    if (count === 0) return T.inkSoft;
+    const intensity = count / maxDaily;
+    if (intensity < 0.25) return "#0f2a1a";
+    if (intensity < 0.5) return "#1a4a1a";
+    if (intensity < 0.75) return "#2a6a2a";
+    return "#22c55e";
+  }
+
+  return (
+    <div style={{
+      background: T.inkCard, border: `1px solid ${T.line}`, borderRadius: RADIUS.lg,
+      padding: 28, display: "flex", flexDirection: "column", gap: 16,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 20 }}>📊</span>
+        <span style={{
+          fontFamily: FONTS.mono, fontSize: "0.72rem", color: T.textFaint,
+          textTransform: "uppercase", letterSpacing: "0.05em",
+        }}>
+          Retention Analytics
+        </span>
+      </div>
+
+      {/* Key metrics */}
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ textAlign: "center", minWidth: 60 }}>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1.15rem", fontWeight: 800, color: "#7986cb" }}>{retentionPct}%</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Retention</div>
+        </div>
+        <div style={{ textAlign: "center", minWidth: 60 }}>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1.15rem", fontWeight: 800, color: "#22c55e" }}>{masteryPct}%</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Mastery</div>
+        </div>
+        <div style={{ textAlign: "center", minWidth: 60 }}>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1.15rem", fontWeight: 800, color: T.coral }}>{streak}</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Streak</div>
+        </div>
+        <div style={{ textAlign: "center", minWidth: 60 }}>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1.15rem", fontWeight: 800, color: T.gold }}>{longestStreak}</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginTop: 2 }}>Best</div>
+        </div>
+      </div>
+
+      {/* Mastery progress bar */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+          <span style={{ fontFamily: FONTS.mono, fontSize: "0.72rem", color: T.textFaint }}>Overall mastery</span>
+          <span style={{ fontFamily: FONTS.mono, fontSize: "0.72rem", color: "#22c55e" }}>{masteredCount}/{totalItems}</span>
+        </div>
+        <div style={{ height: 8, background: T.inkSoft, borderRadius: 4, overflow: "hidden" }}>
+          <div style={{
+            height: "100%", width: `${masteryPct}%`,
+            background: "linear-gradient(90deg, #22c55e, #4caf50)",
+            borderRadius: 4, transition: "width 0.5s ease",
+          }} />
+        </div>
+      </div>
+
+      {/* Mini heatmap */}
+      {heatmapDays.length > 0 && (
+        <div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.68rem", color: T.textFaint, marginBottom: 6 }}>
+            Study activity (30 days)
+          </div>
+          <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+            {heatmapDays.map(([date, count]) => (
+              <div key={date} title={`${date}: ${count} reviews`} style={{
+                width: 11, height: 11, borderRadius: 2,
+                background: heatColor(count),
+                border: count > 0 ? "none" : `0.5px solid ${T.line}`,
+              }} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* View analytics button */}
+      <button
+        onClick={onViewAnalytics}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          padding: "11px 20px", borderRadius: 999, fontWeight: 700, fontSize: "0.86rem",
+          background: "transparent", border: `1px solid ${T.lineStrong}`, color: T.text,
+          cursor: "pointer", transition: "border-color 0.15s", marginTop: "auto",
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.borderColor = T.textDim}
+        onMouseLeave={(e) => e.currentTarget.style.borderColor = T.lineStrong}
+      >
+        View full analytics →
+      </button>
+    </div>
+  );
+}
+
 export default function Dashboard({
   userName,
   stats,
@@ -654,22 +875,29 @@ export default function Dashboard({
   authUser,
 }) {
   const { lastActivity, srData } = useUserData();
-  const [fsrsDueCount, setFsrsDueCount] = useState(0);
+  const [fsrsStats, setFsrsStats] = useState(null);
+  const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
+  const [showDailyReview, setShowDailyReview] = useState(false);
+  const [showRetention, setShowRetention] = useState(false);
+
+  const fetchFsrsStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/stats`, { headers: getAuthHeaders() });
+      if (res.ok) setFsrsStats(await res.json());
+    } catch {}
+  }, []);
+
+  const fetchFsrsAnalytics = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/analytics?days=30`, { headers: getAuthHeaders() });
+      if (res.ok) setFsrsAnalytics(await res.json());
+    } catch {}
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    async function fetchFsrsStats() {
-      try {
-        const res = await fetch(`${API_BASE}/api/resources/pdf-review/stats`, { headers: getAuthHeaders() });
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          setFsrsDueCount(data.dueCount || 0);
-        }
-      } catch {}
-    }
     fetchFsrsStats();
-    return () => { cancelled = true; };
-  }, []);
+    fetchFsrsAnalytics();
+  }, [fetchFsrsStats, fetchFsrsAnalytics]);
 
   const [resourceCounts, setResourceCounts] = useState({ dept: 0, public: 0, saved: 0, uploads: 0 });
   const [forYouPreview, setForYouPreview] = useState([]);
@@ -720,6 +948,7 @@ export default function Dashboard({
   }, []);
 
   const subjectMastery = useMemo(() => computeSubjectMastery(subjects || [], srData || {}), [subjects, srData]);
+  const fsrsDueCount = fsrsStats?.dueCount || 0;
   const sm2DueCount = dueCards?.length || 0;
 
   const weakest = useMemo(() => {
@@ -741,17 +970,12 @@ export default function Dashboard({
   const handleReviewReadings = useCallback(async () => {
     if (onOpenResource) {
       try {
-        const res = await fetch(`${API_BASE}/api/resources/pdf-review/due`, { headers: getAuthHeaders() });
+        const res = await fetch(`${API_BASE}/api/resources/fsrs/due?limit=1`, { headers: getAuthHeaders() });
         if (res.ok) {
-          const due = await res.json();
-          const firstPdf = due?.wholePdfs?.[0];
-          const firstPage = due?.pages?.[0];
-          if (firstPdf?.resource?.shareToken) {
-            onOpenResource(firstPdf.resource.shareToken);
-            return;
-          }
-          if (firstPage?.resource?.shareToken) {
-            onOpenResource(firstPage.resource.shareToken, firstPage.pageIndex);
+          const data = await res.json();
+          const firstItem = data.items?.[0];
+          if (firstItem?.resource?.shareToken) {
+            onOpenResource(firstItem.resource.shareToken, firstItem.pageIndex);
             return;
           }
         }
@@ -781,6 +1005,7 @@ export default function Dashboard({
           .dash-hero-row { grid-template-columns: 1fr !important; }
           .dash-ring-wall { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
           .dash-lower-grid { grid-template-columns: 1fr !important; }
+          .dash-fsrs-grid { grid-template-columns: 1fr !important; }
           .dash-resume-card { flex-direction: column !important; gap: 16px !important; text-align: center !important; padding: 22px 16px !important; }
           .dash-resume-ring { width: 80px !important; height: 80px !important; }
           .dash-topbar-actions { gap: 8px !important; }
@@ -897,11 +1122,11 @@ export default function Dashboard({
         onOpenPublic={() => openResearchHub("public")}
       />
 
-      {/* Your circles — ring wall */}
+      {/* FSRS Daily Review + Retention Analytics */}
       <div style={{ marginTop: 46 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
           <h3 style={{ fontFamily: FONTS.display, fontSize: "1.15rem", fontWeight: 800, color: T.text }}>
-            Your circles
+            Your review system
           </h3>
           <button
             onClick={() => onOpenTab?.("research-hub")}
@@ -909,27 +1134,72 @@ export default function Dashboard({
               fontSize: "0.84rem", color: T.blue, fontWeight: 600, background: "none", border: "none", cursor: "pointer",
             }}
           >
-            View all courses →
+            Open Research Hub →
           </button>
         </div>
-        {subjectMastery.length === 0 ? (
+
+        <div className="dash-fsrs-grid" style={{
+          display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 20,
+        }}>
+          {/* Daily Review Card */}
+          <DailyReviewCard
+            fsrsStats={fsrsStats}
+            onStart={() => setShowDailyReview(true)}
+          />
+
+          {/* Retention Summary Card */}
+          <RetentionSummaryCard
+            fsrsStats={fsrsStats}
+            fsrsAnalytics={fsrsAnalytics}
+            onViewAnalytics={() => setShowRetention(true)}
+          />
+        </div>
+
+        {/* Subject breakdown from FSRS */}
+        {fsrsStats?.bySubject && Object.keys(fsrsStats.bySubject).length > 0 && (
           <div style={{
-            textAlign: "center", padding: "40px 18px", fontSize: "13.5px", color: T.textFaint,
-            background: T.inkCard, border: `1px dashed ${T.lineStrong}`, borderRadius: 14,
+            marginTop: 20, padding: 22, background: T.inkCard,
+            border: `1px solid ${T.line}`, borderRadius: RADIUS.lg,
           }}>
-            Take a quiz in Research Hub and your subject mastery will show up here.
-          </div>
-        ) : (
-          <div className="dash-ring-wall" style={{
-            display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16,
-          }}>
-            {subjectMastery.map((entry) => (
-              <RingCard
-                key={entry.subjectId}
-                entry={entry}
-                onClick={() => onStartSubject?.(entry.subjectId)}
-              />
-            ))}
+            <div style={{
+              fontSize: "0.78rem", fontFamily: FONTS.mono, color: T.textFaint,
+              textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 14,
+            }}>
+              Subject mastery (FSRS)
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {Object.entries(fsrsStats.bySubject)
+                .sort((a, b) => b[1].total - a[1].total)
+                .slice(0, 6)
+                .map(([subject, s]) => {
+                  const pct = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
+                  return (
+                    <div key={subject} style={{
+                      display: "flex", alignItems: "center", gap: 14,
+                    }}>
+                      <span style={{
+                        fontSize: "0.86rem", fontWeight: 600, color: T.text,
+                        minWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      }}>{subject}</span>
+                      <div style={{
+                        flex: 1, height: 8, background: T.inkSoft, borderRadius: 4, overflow: "hidden",
+                      }}>
+                        <div style={{
+                          height: "100%", width: `${pct}%`,
+                          background: pct >= 70 ? "linear-gradient(90deg, #22c55e, #4caf50)"
+                            : pct >= 40 ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
+                            : "linear-gradient(90deg, #ef4444, #f87171)",
+                          borderRadius: 4, transition: "width 0.4s ease",
+                        }} />
+                      </div>
+                      <span style={{
+                        fontFamily: FONTS.mono, fontSize: "0.76rem", color: T.textFaint,
+                        minWidth: 70, textAlign: "right",
+                      }}>{s.mastered}/{s.total} · {s.due} due</span>
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         )}
       </div>
@@ -946,6 +1216,36 @@ export default function Dashboard({
         <LeaderboardCard userXp={stats?.xp || 0} userName={userName} onOpenTab={onOpenTab} onOpenLeaderboard={onOpenLeaderboard} token={token} />
         <AssignmentsCard onOpenTab={onOpenTab} token={token} />
       </div>
+
+      {/* Daily Review full-screen overlay */}
+      {showDailyReview && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "#0a0a0a",
+          display: "flex", flexDirection: "column",
+        }}>
+          <DailyReview
+            onBack={() => { setShowDailyReview(false); fetchFsrsStats(); fetchFsrsAnalytics(); }}
+            onComplete={() => { fetchFsrsStats(); fetchFsrsAnalytics(); }}
+          />
+        </div>
+      )}
+
+      {/* Retention Dashboard full-screen overlay */}
+      {showRetention && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "#0a0a0a",
+          display: "flex", flexDirection: "column",
+          overflow: "hidden",
+        }}>
+          <RetentionDashboard
+            fsrsStats={fsrsStats}
+            fsrsAnalytics={fsrsAnalytics}
+            onBack={() => setShowRetention(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
