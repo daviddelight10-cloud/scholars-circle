@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { DISCIPLINES } from "./AITutor/disciplines.js";
-import { getUniversities, getUniversityDepartments } from "../lib/universities.js";
+import { getUniversities, getUniversityDepartments, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
 
 const PROFILE_KEY = "sc_student_profile_v1";
@@ -164,7 +164,17 @@ export function StudentProfile({ profile, onSave, authUser }) {
 
   // Load universities for dropdown
   useEffect(() => {
-    getUniversities().then(setUniversities).catch(() => {});
+    getUniversities()
+      .then((rows) => {
+        if (rows && rows.length > 0) {
+          setUniversities(rows);
+        } else {
+          setUniversities(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
+        }
+      })
+      .catch(() => {
+        setUniversities(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
+      });
   }, []);
 
   // Load departments when university changes

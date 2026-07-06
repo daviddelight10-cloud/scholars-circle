@@ -47,6 +47,8 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const [newFolderLevel, setNewFolderLevel] = useState("");
   const [newFolderSemester, setNewFolderSemester] = useState("");
   const [activeFolderTab, setActiveFolderTab] = useState("materials");
+  const [groupByUniversity, setGroupByUniversity] = useState(true);
+  const [collapsedUnis, setCollapsedUnis] = useState({});
 
   useEffect(() => {
     fetchMyResources();
@@ -387,6 +389,20 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     });
   }, [resources, filters]);
 
+  const groupedByUniversity = useMemo(() => {
+    const groups = {};
+    for (const r of filteredResources) {
+      const uniName = r.university?.name || "Unassigned";
+      if (!groups[uniName]) groups[uniName] = [];
+      groups[uniName].push(r);
+    }
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === "Unassigned") return 1;
+      if (b === "Unassigned") return -1;
+      return a.localeCompare(b);
+    });
+  }, [filteredResources]);
+
   const filteredPending = useMemo(() => {
     return pendingResources.filter((r) => {
       const matchesUni = filters.university === "all" || r.university?.name === filters.university;
@@ -669,9 +685,63 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               <div style={{ fontSize: "14px", color: "#7b82b8" }}>{activeFilterCount > 0 ? "No resources match your filters" : "No resources uploaded yet"}</div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {filteredResources.map((r) => renderResourceRow(r, false))}
-            </div>
+            <>
+              {/* Group toggle */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+                <button
+                  onClick={() => setGroupByUniversity((v) => !v)}
+                  style={{
+                    padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                    background: groupByUniversity ? "#1a1a1a" : "#0f1128",
+                    border: groupByUniversity ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
+                    color: groupByUniversity ? "#FFD700" : "#7b82b8",
+                  }}
+                >
+                  🎓 Group by University
+                </button>
+                <span style={{ fontSize: "12px", color: "#4a5080" }}>{filteredResources.length} resource{filteredResources.length !== 1 ? "s" : ""}</span>
+              </div>
+
+              {groupByUniversity ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {groupedByUniversity.map(([uniName, uniResources]) => {
+                    const isCollapsed = collapsedUnis[uniName];
+                    return (
+                      <div key={uniName} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "12px", overflow: "hidden" }}>
+                        <div
+                          onClick={() => setCollapsedUnis((p) => ({ ...p, [uniName]: !p[uniName] }))}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px",
+                            cursor: "pointer", userSelect: "none",
+                            background: uniName === "Unassigned" ? "#0d0f20" : "#0f1028",
+                            borderBottom: isCollapsed ? "none" : "0.5px solid #1e2245",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontSize: "16px" }}>{isCollapsed ? "▶" : "▼"}</span>
+                            <span style={{ fontSize: "14px", fontWeight: 700, color: uniName === "Unassigned" ? "#7b82b8" : "#DAA520" }}>
+                              {uniName === "Unassigned" ? "📋 Unassigned" : `🎓 ${uniName}`}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: "12px", color: "#4a5080", background: "#0d0f20", padding: "2px 10px", borderRadius: "999px", border: "0.5px solid #1e2245" }}>
+                            {uniResources.length}
+                          </span>
+                        </div>
+                        {!isCollapsed && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "12px" }}>
+                            {uniResources.map((r) => renderResourceRow(r, false))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {filteredResources.map((r) => renderResourceRow(r, false))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

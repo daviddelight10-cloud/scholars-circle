@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { saveMyProfile } from "../lib/profileApi.js";
+import { getUniversities, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 
 const STORE_KEY = "sc_onboarded_v1";
 
@@ -30,7 +31,35 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
 
   const [isUniStudent, setIsUniStudent] = useState(true);
   const [uniName, setUniName] = useState("");
+  const [uniId, setUniId] = useState(null);
   const [uniQuery, setUniQuery] = useState("");
+  const [uniResults, setUniResults] = useState([]);
+  const [showUniDropdown, setShowUniDropdown] = useState(false);
+
+  useEffect(() => {
+    getUniversities()
+      .then((rows) => {
+        if (rows && rows.length > 0) {
+          setUniResults(rows);
+        } else {
+          setUniResults(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
+        }
+      })
+      .catch(() => {
+        setUniResults(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
+      });
+  }, []);
+
+  const filteredUnis = uniResults.filter((u) =>
+    !uniQuery || u.name.toLowerCase().includes(uniQuery.toLowerCase())
+  );
+
+  function selectUni(u) {
+    setUniName(u.name);
+    setUniId(u.id);
+    setShowUniDropdown(false);
+    setUniQuery("");
+  }
 
   function toggleSubject(id) {
     setSelectedSubjects((prev) =>
@@ -44,6 +73,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
     saveMyProfile({
       isUniversityStudent: isUniStudent,
       institution: uniName || null,
+      universityId: uniId || null,
       learningStyle: "visual",
       goals: confidence <= 2 ? "Catch up and build confidence" : confidence >= 4 ? "Maintain and excel" : "Improve steadily",
       targetGrade: "A",
@@ -56,6 +86,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
       confidence,
       isUniStudent,
       institution: uniName,
+      universityId: uniId,
     });
   }
 
@@ -139,14 +170,48 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
             <p className="muted">
               {isUniStudent ? "Search for your university. We'll connect you with coursemates." : "Type your school name to get started."}
             </p>
-            <input
-              type="text"
-              placeholder={isUniStudent ? "e.g. University of Lagos" : "e.g. King's College, Lagos"}
-              value={uniName}
-              onChange={(e) => setUniName(e.target.value)}
-              style={{ fontSize: 16, padding: "10px 12px", width: "100%", marginTop: "12px" }}
-              autoFocus
-            />
+            <div style={{ position: "relative", marginTop: "12px" }}>
+              <input
+                type="text"
+                placeholder={isUniStudent ? "Search e.g. University of Lagos" : "e.g. King's College, Lagos"}
+                value={showUniDropdown ? uniQuery : (uniName || "")}
+                onChange={(e) => { setUniQuery(e.target.value); setShowUniDropdown(true); if (isUniStudent) setUniId(null); }}
+                onFocus={() => { setShowUniDropdown(true); setUniQuery(""); }}
+                style={{ fontSize: 16, padding: "10px 12px", width: "100%" }}
+                autoFocus
+              />
+              {isUniStudent && showUniDropdown && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 1000, maxHeight: "240px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "0 0 8px 8px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                  {filteredUnis.length === 0 ? (
+                    <div style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af" }}>
+                      {uniResults.length === 0 ? "Loading…" : `No results for "${uniQuery}"`}
+                    </div>
+                  ) : (
+                    filteredUnis.slice(0, 20).map((u) => (
+                      <div
+                        key={u.id}
+                        onClick={() => selectUni(u)}
+                        style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid rgba(255,215,0,0.1)", display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#e8eaf6" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,215,0,0.1)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <span style={{ fontSize: 18 }}>{u.type === "polytechnic" ? "🏛️" : "🎓"}</span>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{u.name}</div>
+                          {u.city && <div style={{ fontSize: 11, color: "#7b82b8" }}>{u.city}</div>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              {isUniStudent && showUniDropdown && (
+                <div onClick={() => setShowUniDropdown(false)} style={{ position: "fixed", inset: 0, zIndex: 999 }} />
+              )}
+            </div>
+            {uniName && (
+              <div style={{ marginTop: 8, fontSize: 12, color: "#10b981" }}>✓ {uniName}</div>
+            )}
             <div className="onboarding-actions">
               <button onClick={() => setStep(1)} className="ghost">
                 Back
