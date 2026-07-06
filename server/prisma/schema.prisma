@@ -186,6 +186,7 @@ model User {
   reviewQueueItems  ReviewQueueItem[]
   pdfReviewItems    PdfReviewItem[]
   pdfFlashcards     PdfFlashcard[]
+  fsrsProfile       UserFsrsProfile?
 
   folders           Folder[] @relation("FolderOwner")
 
