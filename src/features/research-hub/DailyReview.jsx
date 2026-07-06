@@ -21,7 +21,7 @@ const GRADE_LABELS = {
 
 const STATE_LABELS = { 0: "🆕 New", 1: "📖 Learning", 2: "🔄 Review", 3: "🔁 Relearning" };
 
-export default function DailyReview({ onBack, onComplete }) {
+export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
   const [items, setItems] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -202,6 +202,11 @@ export default function DailyReview({ onBack, onComplete }) {
 
           {currentItem.itemType === "flashcard" ? (
             <>
+              {(currentItem.subject || currentItem.resource?.title) && (
+                <div style={{ marginBottom: spacing.sm, fontSize: fontSize.xs, color: colors.textDim }}>
+                  {currentItem.resource?.title}{currentItem.subject && currentItem.resource?.title ? " · " : ""}{currentItem.subject}
+                </div>
+              )}
               <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: spacing.md }}>
                 {currentItem.flashcard?.front || "No front text"}
               </div>
@@ -263,12 +268,22 @@ export default function DailyReview({ onBack, onComplete }) {
               <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: spacing.sm }}>
                 {currentItem.resource?.title || "Review this content"}
               </div>
-              <div style={{ fontSize: fontSize.sm, color: colors.textDim }}>
+              <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginBottom: spacing.md }}>
                 {currentItem.itemType === "page" ? `Page ${currentItem.pageIndex}` : "Full document review"}
+                {currentItem.subject ? ` · ${currentItem.subject}` : ""}
               </div>
+              {onOpenPdf && currentItem.resource?.shareToken && (
+                <button onClick={() => onOpenPdf(currentItem.resource.shareToken, currentItem.itemType === "page" ? currentItem.pageIndex : null)} style={{
+                  marginBottom: spacing.md, padding: "8px 20px", borderRadius: 8,
+                  background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText,
+                  cursor: "pointer", fontSize: fontSize.sm, fontWeight: fontWeight.bold,
+                }}>
+                  {currentItem.itemType === "page" ? `📖 Open Page ${currentItem.pageIndex}` : "📄 Open Document"}
+                </button>
+              )}
               {showAnswer && (
                 <div style={{ marginTop: spacing.md, fontSize: fontSize.sm, color: colors.textMuted, lineHeight: 1.5 }}>
-                  Try to recall the key concepts from this {currentItem.itemType === "page" ? "page" : "document"}.
+                  How well did you remember the key concepts from this {currentItem.itemType === "page" ? "page" : "document"}?
                   Rate your recall below.
                 </div>
               )}
@@ -281,7 +296,7 @@ export default function DailyReview({ onBack, onComplete }) {
               background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText,
               cursor: "pointer", fontSize: fontSize.sm, fontWeight: fontWeight.bold,
             }}>
-              Show Answer
+              {currentItem.itemType === "flashcard" || currentItem.itemType === "mcq" || currentItem.itemType === "legacy_mcq" ? "Show Answer" : "Reveal & Rate"}
             </button>
           )}
         </div>

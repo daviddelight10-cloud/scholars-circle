@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { copyShareToken } from "../../lib/researchUtils";
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder } from "../../lib/foldersApi";
 import ResourceViewer from "../ResourceViewer";
@@ -7,14 +6,10 @@ import { useUserData } from "../../contexts/UserDataContext";
 
 import ResourceCard from "./ResourceCard";
 import FilterBar from "./FilterBar";
-import FolderGrid from "./FolderGrid";
 import FolderDetailView from "./FolderDetailView";
 import UploadModal from "./UploadModal";
 import CreateFolderModal from "./CreateFolderModal";
-import ProgressDashboard from "./ProgressDashboard";
-import FsrsReviewDashboard from "./FsrsReviewDashboard";
-import DailyReview from "./DailyReview.jsx";
-import RetentionDashboard from "./RetentionDashboard.jsx";
+import LibraryView from "./LibraryView.jsx";
 import { colors, spacing, fontSize, fontWeight, sharedStyles, gold, goldDim, goldBorder, goldText } from "./constants";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -25,74 +20,23 @@ const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: ""
 const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
 const filterLabels = { all: "All", note: "Notes", pdf: "PDF", mcq: "MCQ", tutorial_question: "Tutorial Q" };
 
-const tabLabelMap = { department: "My Department", space: "My Space", public: "Public", progress: "Progress", fsrs: "Review" };
-
 const emptyMessages = {
-  "department.foryou": "No materials match your department and level yet — check 'All' for everything in your department.",
-  "department.foryouNoDept": "Set your department to see materials curated for you.",
-  "department.all": "No materials in your department yet. Check 'Public' for materials from other departments.",
-  "department.allNoDept": "Set your department to see materials from your department.",
-  "space.saved": "Nothing saved yet — tap the ☆ on any resource to add it to your space.",
-  "space.uploads": "You haven't uploaded anything yet — tap + to share your first note, PDF, or MCQ set.",
-  "space.folders": "No folders yet — create one to organize your materials.",
   "public": "No resources found. Try a different search or clear filters.",
 };
 
-function FsrsTabContent({ fsrsDue, fsrsStats, fsrsAnalytics, onOpenPdf, onRefresh }) {
-  const [subTab, setSubTab] = useState("review");
-
-  if (subTab === "daily") {
-    return <DailyReview onBack={() => { setSubTab("review"); onRefresh(); }} onComplete={onRefresh} />;
-  }
-
-  if (subTab === "analytics") {
-    return <RetentionDashboard fsrsStats={fsrsStats} fsrsAnalytics={fsrsAnalytics} onBack={() => setSubTab("review")} />;
-  }
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg }}>
-        <button onClick={() => setSubTab("review")} style={subTab === "review" ? sharedStyles.chipActive : sharedStyles.chip}>
-          📖 Review
-        </button>
-        <button onClick={() => setSubTab("daily")} style={subTab === "daily" ? sharedStyles.chipActive : sharedStyles.chip}>
-          🧠 Daily Review
-          {fsrsStats && fsrsStats.dueCount > 0 && <span style={{ marginLeft: spacing.xs, fontSize: fontSize.xs, color: goldText }}>{fsrsStats.dueCount}</span>}
-        </button>
-        <button onClick={() => setSubTab("analytics")} style={subTab === "analytics" ? sharedStyles.chipActive : sharedStyles.chip}>
-          📊 Analytics
-        </button>
-      </div>
-      <FsrsReviewDashboard fsrsDue={fsrsDue} fsrsStats={fsrsStats} onOpenPdf={onOpenPdf} />
-    </div>
-  );
-}
-
-export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate, activeSemester } = {}) {
-  const navigate = useNavigate();
+export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   const { setLastActivity } = useUserData();
 
   const [resources, setResources] = useState([]);
-  const [bookmarkedResources, setBookmarkedResources] = useState([]);
-  const [myUploads, setMyUploads] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
-  const [activeTab, setActiveTab] = useState("department");
-  const [activeSubTab, setActiveSubTab] = useState("foryou");
+  const [activeTab, setActiveTab] = useState("library");
   const [toast, setToast] = useState(null);
   const [viewerToken, setViewerToken] = useState(null);
-  const [trialInfo, setTrialInfo] = useState(null);
-  const [xpInfo, setXpInfo] = useState(null);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
-  const [userDept, setUserDept] = useState(null);
   const [filters, setFilters] = useState({ department: "all", level: "all", semester: "all", subject: "all" });
-  const [reviewData, setReviewData] = useState(null);
-  const [reviewStats, setReviewStats] = useState(null);
-  const [progressData, setProgressData] = useState(null);
-  const [fsrsDue, setFsrsDue] = useState(null);
   const [fsrsStats, setFsrsStats] = useState(null);
   const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
@@ -110,7 +54,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [dragOver, setDragOver] = useState(false);
   const [mcqRows, setMcqRows] = useState([emptyMcqRow()]);
   const fileInputRef = useRef(null);
-  const foryouFallenBack = useRef(false);
 
   const [folders, setFolders] = useState({ own: [], shared: [] });
   const [activeFolder, setActiveFolder] = useState(null);
@@ -124,16 +67,10 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [newFolderSemester, setNewFolderSemester] = useState("");
   const [activeFolderTab, setActiveFolderTab] = useState("materials");
   const [uploadFolderId, setUploadFolderId] = useState(null);
-  const [folderSearch, setFolderSearch] = useState("");
   const [mcqProgress, setMcqProgress] = useState({});
 
   useEffect(() => {
     fetchResources();
-    fetchUserInfo();
-    fetchUserDept();
-    fetchReviewQueue();
-    fetchReviewStats();
-    fetchFsrsDue();
     fetchFsrsStats();
     fetchFsrsAnalytics();
     fetchFolders();
@@ -142,8 +79,12 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
   useEffect(() => {
     const handler = (e) => {
-      if (e.detail?.tab) setActiveTab(e.detail.tab);
-      if (e.detail?.subTab) setActiveSubTab(e.detail.subTab);
+      const tab = e.detail?.tab;
+      if (tab === "department" || tab === "space" || tab === "fsrs" || tab === "progress") {
+        setActiveTab("library");
+      } else if (tab) {
+        setActiveTab(tab);
+      }
     };
     window.addEventListener("sc-open-research-hub", handler);
     return () => window.removeEventListener("sc-open-research-hub", handler);
@@ -152,17 +93,20 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   useEffect(() => {
     if (window.__sc_pending_hub_tab) {
       const { tab, subTab } = window.__sc_pending_hub_tab;
-      if (tab) setActiveTab(tab);
-      if (subTab) setActiveSubTab(subTab);
+      if (tab === "department" || tab === "space" || tab === "fsrs" || tab === "progress") {
+        setActiveTab("library");
+      } else if (tab) {
+        setActiveTab(tab);
+      }
       window.__sc_pending_hub_tab = null;
     }
   }, []);
 
   useEffect(() => {
-    if (activeTab === "space" && activeSubTab === "saved") fetchBookmarks();
-    if (activeTab === "space" && activeSubTab === "uploads") fetchMyUploads();
-    if (activeTab === "progress") fetchProgress();
-  }, [activeTab, activeSubTab]);
+    if (activeTab === "library") {
+      fetchBookmarks();
+    }
+  }, [activeTab]);
 
   const getAuthHeaders = () => {
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
@@ -170,13 +114,12 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   };
 
   const fetchResources = async () => {
-    setLoading(true);
     const cacheKey = "sc_resources_list";
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { data, ts } = JSON.parse(raw);
-        if (Date.now() - ts < CACHE_TTL) { setResources(data); setLoading(false); return; }
+        if (Date.now() - ts < CACHE_TTL) { setResources(data); return; }
       }
     } catch {}
     try {
@@ -188,34 +131,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       }
     } catch (err) {
       console.error("Failed to fetch resources:", err);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const fetchUserInfo = async () => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      const token = parsed.authToken;
-      if (!token) return;
-      const res = await fetch(`${API_BASE}/auth/refresh`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        const u = data.user;
-        if (u) {
-          setTrialInfo({ freeTrialViews: u.freeTrialViews ?? 0, freeTrialLimit: u.freeTrialLimit ?? 3, isActivated: u.isActivated ?? false });
-          const totalXp = u.totalXp ?? 0;
-          setXpInfo({ totalXp, level: Math.floor(totalXp / 100) + 1 });
-        }
-      }
-    } catch {}
-  };
-
-  const fetchUserDept = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/users/me/department`, { headers: getAuthHeaders() });
-      if (res.ok) setUserDept(await res.json());
-    } catch {}
   };
 
   const fetchBookmarks = async () => {
@@ -223,37 +139,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       const res = await fetch(`${API_BASE}/api/resources/bookmarks`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
-        setBookmarkedResources(data);
         setBookmarkedIds(new Set(data.map((r) => r.id)));
       }
-    } catch {}
-  };
-
-  const fetchMyUploads = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/teacher/my`, { headers: getAuthHeaders() });
-      if (res.ok) setMyUploads(await res.json());
-    } catch {}
-  };
-
-  const fetchReviewQueue = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/review-queue`, { headers: getAuthHeaders() });
-      if (res.ok) setReviewData(await res.json());
-    } catch {}
-  };
-
-  const fetchReviewStats = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/review-queue/stats`, { headers: getAuthHeaders() });
-      if (res.ok) setReviewStats(await res.json());
-    } catch {}
-  };
-
-  const fetchFsrsDue = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/due`, { headers: getAuthHeaders() });
-      if (res.ok) setFsrsDue(await res.json());
     } catch {}
   };
 
@@ -293,13 +180,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     } finally {
       setFolderLoading(false);
     }
-  };
-
-  const fetchProgress = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/progress`, { headers: getAuthHeaders() });
-      if (res.ok) setProgressData(await res.json());
-    } catch {}
   };
 
   const showToast = (message) => {
@@ -399,8 +279,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   }, [folderDetail]);
 
   const handleQuizComplete = useCallback((data) => {
-    fetchReviewQueue(); fetchReviewStats(); fetchFsrsDue(); fetchFsrsStats(); fetchFsrsAnalytics();
-    fetchUserInfo(); fetchMcqProgress();
+    fetchFsrsStats(); fetchFsrsAnalytics();
+    fetchMcqProgress();
     if (onStreakUpdate && data.streak != null) onStreakUpdate(data.streak, data.longestStreak);
   }, [onStreakUpdate]);
 
@@ -431,11 +311,6 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
       });
       if (res.ok) {
         showToast(isBookmarked ? "Removed from your space" : "Added to your space ✓");
-        if (isBookmarked) {
-          setBookmarkedResources((prev) => prev.filter((r) => r.id !== resource.id));
-        } else {
-          setBookmarkedResources((prev) => [resource, ...prev]);
-        }
       } else {
         setBookmarkedIds(prevIds);
         showToast("Failed to update bookmark");
@@ -505,7 +380,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         setUploadPreview(null);
         showToast("Uploaded ✓");
         if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
-        else { setActiveTab("space"); setActiveSubTab("uploads"); fetchMyUploads(); }
+        else { fetchResources(); }
       } else {
         showToast("Upload failed");
       }
@@ -556,7 +431,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         setShowUploadModal(false);
         showToast("MCQs submitted ✓");
         if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
-        else { setActiveTab("space"); setActiveSubTab("uploads"); fetchMyUploads(); }
+        else { fetchResources(); }
       } else {
         showToast("Submission failed");
       }
@@ -575,56 +450,13 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     return Array.from(set).sort();
   }, [resources]);
 
-  const forYouResources = useMemo(() => {
-    if (!userDept || !userDept.department) return [];
-    const levelMap = { 1: "100 Level", 2: "200 Level", 3: "300 Level", 4: "400 Level" };
-    const userLevel = levelMap[userDept.yearLevel] || null;
-    const userSem = userDept.semester || activeSemester || null;
-    return resources.filter((r) => {
-      if (r.uploader?.role === "STUDENT") return false;
-      const deptMatches = r.department === userDept.department ||
-        (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === userDept.department));
-      if (!deptMatches) return false;
-      if (userLevel && r.level && r.level !== userLevel) return false;
-      if (userSem && r.semester && r.semester !== userSem) return false;
-      return true;
-    });
-  }, [resources, userDept, activeSemester]);
-
-  const deptAllResources = useMemo(() => {
-    if (!userDept || !userDept.department) return [];
-    return resources.filter((r) => {
-      const deptMatches = r.department === userDept.department ||
-        (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === userDept.department));
-      return deptMatches;
-    });
-  }, [resources, userDept]);
-
-  useEffect(() => {
-    if (activeTab !== "department" || activeSubTab !== "foryou" || loading) return;
-    if (forYouResources.length === 0 && !foryouFallenBack.current) {
-      foryouFallenBack.current = true;
-      setActiveSubTab("all");
-    }
-  }, [activeTab, activeSubTab, loading, forYouResources]);
-
   const tabResources = useMemo(() => {
-    if (activeTab === "department") {
-      if (activeSubTab === "foryou") return forYouResources;
-      if (activeSubTab === "all") return deptAllResources;
-    }
-    if (activeTab === "space") {
-      if (activeSubTab === "saved") return bookmarkedResources;
-      if (activeSubTab === "uploads") return myUploads;
-    }
-    if (activeTab === "public") return resources;
+    if (activeTab === "community") return resources;
     return [];
-  }, [activeTab, activeSubTab, resources, forYouResources, deptAllResources, bookmarkedResources, myUploads]);
-
-  const activeFilterCount = ["department", "level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
+  }, [activeTab, resources]);
 
   const visibleResources = useMemo(() => {
-    let list = tabResources.filter((r) => {
+    let list = (tabResources || []).filter((r) => {
       const matchesSearch = search === "" || r.title.toLowerCase().includes(search.toLowerCase()) || r.subject.toLowerCase().includes(search.toLowerCase());
       const matchesType = activeFilter === "all" || r.contentType === activeFilter;
       const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
@@ -678,7 +510,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} />;
   }
 
-  if (activeTab === "space" && activeSubTab === "folders" && activeFolder) {
+  if (activeFolder) {
     return (
       <FolderDetailView
         folderDetail={folderDetail}
@@ -704,115 +536,42 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     );
   }
 
-  const tabLabel = tabLabelMap[activeTab];
-  const emptyKey = activeTab === "department"
-    ? (activeSubTab === "foryou" ? "department.foryou" : "department.all")
-    : activeTab === "space"
-    ? `space.${activeSubTab}`
-    : activeTab;
-  const noDept = activeTab === "department" && (!userDept || !userDept.department);
-  const emptyMessage = noDept
-    ? (activeSubTab === "foryou" ? emptyMessages["department.foryouNoDept"] : emptyMessages["department.allNoDept"])
-    : emptyMessages[emptyKey] || "Nothing here yet.";
-
-  const handleReview = () => {
-    setActiveTab("fsrs");
-  };
+  const communityResources = useMemo(() => resources, [resources]);
 
   return (
     <div style={{ padding: spacing.xl, maxWidth: "1200px", margin: "0 auto" }}>
       <div className="sc-tabrow" style={sharedStyles.tabRow}>
-        {[["department", "🎓 My Department"], ["space", "📁 My Space"], ["public", "🌐 Public"]].map(([key, label]) => (
-          <button key={key} onClick={() => {
-            setActiveTab(key);
-            if (key === "department") setActiveSubTab("foryou");
-            if (key === "space") setActiveSubTab("saved");
-          }} style={activeTab === key ? sharedStyles.tabActive : sharedStyles.tab}>
+        {[["library", "� Library"], ["community", "🌐 Community"]].map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)} style={activeTab === key ? sharedStyles.tabActive : sharedStyles.tab}>
             {label}
+            {key === "library" && fsrsStats && fsrsStats.dueCount > 0 && <span style={sharedStyles.tabCount}>{fsrsStats.dueCount}</span>}
           </button>
         ))}
-        <div style={{ width: "1px", background: colors.border, margin: "6px 4px", flexShrink: 0 }} />
-        <button title="Review" onClick={() => setActiveTab("fsrs")}
-          style={activeTab === "fsrs" ? sharedStyles.tabActive : { ...sharedStyles.tab, color: colors.textDim, padding: "8px 12px" }}>
-          🔄
-          {fsrsStats && fsrsStats.dueCount > 0 && <span style={sharedStyles.tabCount}>{fsrsStats.dueCount}</span>}
-        </button>
-        <button title="Progress" onClick={() => setActiveTab("progress")}
-          style={activeTab === "progress" ? sharedStyles.tabActive : { ...sharedStyles.tab, color: colors.textDim, padding: "8px 12px" }}>
-          📊
-          {reviewData && reviewData.total > 0 && <span style={sharedStyles.tabCount}>{reviewData.total}</span>}
-        </button>
       </div>
 
-      {activeTab === "department" && (
-        <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg }}>
-          {[["foryou", "For You"], ["all", "All"]].map(([key, label]) => (
-            <button key={key} onClick={() => setActiveSubTab(key)} style={activeSubTab === key ? sharedStyles.chipActive : sharedStyles.chip}>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-      {activeTab === "space" && (
-        <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg }}>
-          {[["saved", "Saved"], ["uploads", "My Uploads"], ["folders", "Folders"]].map(([key, label]) => (
-            <button key={key} onClick={() => setActiveSubTab(key)} style={activeSubTab === key ? sharedStyles.chipActive : sharedStyles.chip}>
-              {label}
-              {key === "saved" && bookmarkedIds.size > 0 && <span style={sharedStyles.tabCount}>{bookmarkedIds.size}</span>}
-              {key === "uploads" && myUploads.length > 0 && <span style={sharedStyles.tabCount}>{myUploads.length}</span>}
-              {key === "folders" && folders.own.length > 0 && <span style={sharedStyles.tabCount}>{folders.own.length}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activeTab !== "fsrs" && fsrsStats && fsrsStats.dueCount > 0 && (
-        <button onClick={() => setActiveTab("fsrs")} style={{
-          display: "flex", alignItems: "center", gap: spacing.sm,
-          padding: "10px 18px", marginBottom: spacing.lg,
-          background: "rgba(245,166,35,0.12)", border: `0.5px solid ${goldBorder}`,
-          borderRadius: "24px", cursor: "pointer",
-          fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: goldText,
-          animation: "fadeup 0.2s ease",
-        }}>
-          🔁 {fsrsStats.dueCount} card{fsrsStats.dueCount !== 1 ? "s" : ""} due — Review now
-        </button>
-      )}
-
-      {activeTab === "progress" ? (
-        <ProgressDashboard progressData={progressData} reviewCount={reviewData?.total || 0} reviewStats={reviewStats} />
-      ) : activeTab === "fsrs" ? (
-        <FsrsTabContent
-          fsrsDue={fsrsDue}
+      {activeTab === "library" ? (
+        <LibraryView
+          resources={resources}
+          currentUserId={getCurrentUserId()}
           fsrsStats={fsrsStats}
           fsrsAnalytics={fsrsAnalytics}
+          folders={folders}
+          bookmarkedIds={bookmarkedIds}
+          bookmarkBusyId={bookmarkBusyId}
+          mcqProgress={mcqProgress}
+          onOpen={handleOpen}
+          onToggleBookmark={toggleBookmark}
+          onShare={handleShare}
           onOpenPdf={(token, page) => {
             const res = resources.find((r) => r.shareToken === token);
             if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
             setViewerInitialPage(page || null);
             setViewerToken(token);
           }}
-          onRefresh={() => { fetchFsrsDue(); fetchFsrsStats(); fetchFsrsAnalytics(); }}
+          onRefresh={() => { fetchFsrsStats(); fetchFsrsAnalytics(); fetchResources(); }}
+          onCreateFolder={() => setShowCreateFolder(true)}
+          onOpenFolder={openFolder}
         />
-      ) : activeTab === "space" && activeSubTab === "folders" ? (
-        <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg }}>
-            <div style={{ ...sharedStyles.searchWrap, flex: "1 1 240px" }}>
-              <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
-              <input type="text" value={folderSearch} onChange={(e) => setFolderSearch(e.target.value)} placeholder="Search folders…" style={sharedStyles.searchInput} />
-            </div>
-            <button onClick={() => setShowCreateFolder(true)} style={{ ...sharedStyles.addBtn, marginLeft: 10 }}>
-              + New folder
-            </button>
-          </div>
-          <FolderGrid
-            folders={folders.own}
-            sharedFolders={folders.shared}
-            search={folderSearch}
-            onOpenFolder={openFolder}
-            onCreateFolder={() => setShowCreateFolder(true)}
-          />
-        </div>
       ) : (
         <>
           <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.md, flexWrap: "wrap" }}>
@@ -827,7 +586,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             </select>
           </div>
 
-          {activeTab === "public" && <FilterBar filters={filters} setFilters={setFilters} resources={tabResources} />}
+          <FilterBar filters={filters} setFilters={setFilters} resources={communityResources} />
 
           <div style={{ display: "flex", gap: spacing.sm, overflowX: "auto", marginBottom: spacing.xl, paddingBottom: spacing.xs }}>
             {filterTypes.map((type) => (
@@ -837,22 +596,16 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             ))}
           </div>
 
-          <div style={sharedStyles.sectionLabel}>{tabLabel.toUpperCase()}</div>
+          <div style={sharedStyles.sectionLabel}>COMMUNITY</div>
 
-          {loading && activeTab === "department" ? (
-            <div style={sharedStyles.grid}>
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} style={sharedStyles.skeleton} />
-              ))}
-            </div>
-          ) : visibleResources.length === 0 ? (
+          {visibleResources.length === 0 ? (
             <div style={sharedStyles.emptyState}>
               <div style={{ fontSize: 36, marginBottom: spacing.sm }}>📭</div>
               <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-                {activeTab === "space" && activeSubTab === "saved" ? "Nothing saved yet" : activeTab === "space" && activeSubTab === "uploads" ? "No uploads yet" : "No results"}
+                No results
               </div>
               <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
-                {emptyMessage}
+                {emptyMessages["public"]}
               </div>
             </div>
           ) : (

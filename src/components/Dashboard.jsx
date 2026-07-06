@@ -1227,6 +1227,7 @@ export default function Dashboard({
           <DailyReview
             onBack={() => { setShowDailyReview(false); fetchFsrsStats(); fetchFsrsAnalytics(); }}
             onComplete={() => { fetchFsrsStats(); fetchFsrsAnalytics(); }}
+            onOpenPdf={onOpenResource}
           />
         </div>
       )}
