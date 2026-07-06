@@ -144,7 +144,7 @@ export const DEMO_ACHIEVEMENTS = [
   { id: "demo_complete", icon: "🎯", label: "Demo Complete", desc: "Earn all demo achievements", check: (p, u, a) => a.length >= 7 },
 ];
 
-export const PRIMARY_TABS = ["today", "practice", "aitutor", "analytics", "premium"];
+export const PRIMARY_TABS = ["today", "practice", "aitutor", "analytics", "premium", "research-hub"];
 
 export const TAB_LABELS = {
   today: "🏠 Home", dashboard: "🏠 Home", practice: "📚 Learn", aitutor: "🤖 AI Tutor",

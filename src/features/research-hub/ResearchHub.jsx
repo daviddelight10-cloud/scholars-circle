@@ -24,14 +24,17 @@ const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: ""
 const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
 const filterLabels = { all: "All", note: "Notes", pdf: "PDF", mcq: "MCQ", tutorial_question: "Tutorial Q" };
 
-const tabLabelMap = { foryou: "For You", all: "All Materials", space: "My Space", uploads: "My Uploads", progress: "Progress", fsrs: "Review" };
+const tabLabelMap = { department: "My Department", space: "My Space", public: "Public", progress: "Progress", fsrs: "Review" };
 
 const emptyMessages = {
-  foryou: "No materials match your department and level yet — check All Materials for everything.",
-  foryouNoDept: "Set your department to see materials curated for you.",
-  all: "No resources found. Try a different search or clear filters.",
-  space: "Nothing saved yet — tap the ☆ on any resource to add it to your space.",
-  uploads: "You haven't uploaded anything yet — tap + Add material to share your first note, PDF, or MCQ set.",
+  "department.foryou": "No materials match your department and level yet — check 'All' for everything in your department.",
+  "department.foryouNoDept": "Set your department to see materials curated for you.",
+  "department.all": "No materials in your department yet. Check 'Public' for materials from other departments.",
+  "department.allNoDept": "Set your department to see materials from your department.",
+  "space.saved": "Nothing saved yet — tap the ☆ on any resource to add it to your space.",
+  "space.uploads": "You haven't uploaded anything yet — tap + to share your first note, PDF, or MCQ set.",
+  "space.folders": "No folders yet — create one to organize your materials.",
+  "public": "No resources found. Try a different search or clear filters.",
 };
 
 export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate, activeSemester } = {}) {
@@ -45,7 +48,8 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
-  const [activeTab, setActiveTab] = useState("foryou");
+  const [activeTab, setActiveTab] = useState("department");
+  const [activeSubTab, setActiveSubTab] = useState("foryou");
   const [toast, setToast] = useState(null);
   const [viewerToken, setViewerToken] = useState(null);
   const [trialInfo, setTrialInfo] = useState(null);
@@ -104,10 +108,28 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   }, []);
 
   useEffect(() => {
-    if (activeTab === "space") fetchBookmarks();
-    if (activeTab === "uploads") fetchMyUploads();
+    const handler = (e) => {
+      if (e.detail?.tab) setActiveTab(e.detail.tab);
+      if (e.detail?.subTab) setActiveSubTab(e.detail.subTab);
+    };
+    window.addEventListener("sc-open-research-hub", handler);
+    return () => window.removeEventListener("sc-open-research-hub", handler);
+  }, []);
+
+  useEffect(() => {
+    if (window.__sc_pending_hub_tab) {
+      const { tab, subTab } = window.__sc_pending_hub_tab;
+      if (tab) setActiveTab(tab);
+      if (subTab) setActiveSubTab(subTab);
+      window.__sc_pending_hub_tab = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "space" && activeSubTab === "saved") fetchBookmarks();
+    if (activeTab === "space" && activeSubTab === "uploads") fetchMyUploads();
     if (activeTab === "progress") fetchProgress();
-  }, [activeTab]);
+  }, [activeTab, activeSubTab]);
 
   const getAuthHeaders = () => {
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
@@ -443,7 +465,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         setUploadPreview(null);
         showToast("Uploaded ✓");
         if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
-        else { setActiveTab("uploads"); fetchMyUploads(); }
+        else { setActiveTab("space"); setActiveSubTab("uploads"); fetchMyUploads(); }
       } else {
         showToast("Upload failed");
       }
@@ -494,7 +516,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
         setShowUploadModal(false);
         showToast("MCQs submitted ✓");
         if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
-        else { setActiveTab("uploads"); fetchMyUploads(); }
+        else { setActiveTab("space"); setActiveSubTab("uploads"); fetchMyUploads(); }
       } else {
         showToast("Submission failed");
       }
@@ -529,20 +551,35 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     });
   }, [resources, userDept, activeSemester]);
 
+  const deptAllResources = useMemo(() => {
+    if (!userDept || !userDept.department) return [];
+    return resources.filter((r) => {
+      const deptMatches = r.department === userDept.department ||
+        (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === userDept.department));
+      return deptMatches;
+    });
+  }, [resources, userDept]);
+
   useEffect(() => {
-    if (activeTab !== "foryou" || loading) return;
+    if (activeTab !== "department" || activeSubTab !== "foryou" || loading) return;
     if (forYouResources.length === 0 && !foryouFallenBack.current) {
       foryouFallenBack.current = true;
-      setActiveTab("all");
+      setActiveSubTab("all");
     }
-  }, [activeTab, loading, forYouResources]);
+  }, [activeTab, activeSubTab, loading, forYouResources]);
 
   const tabResources = useMemo(() => {
-    if (activeTab === "foryou") return forYouResources;
-    if (activeTab === "space") return bookmarkedResources;
-    if (activeTab === "uploads") return myUploads;
-    return resources;
-  }, [activeTab, resources, forYouResources, bookmarkedResources, myUploads]);
+    if (activeTab === "department") {
+      if (activeSubTab === "foryou") return forYouResources;
+      if (activeSubTab === "all") return deptAllResources;
+    }
+    if (activeTab === "space") {
+      if (activeSubTab === "saved") return bookmarkedResources;
+      if (activeSubTab === "uploads") return myUploads;
+    }
+    if (activeTab === "public") return resources;
+    return [];
+  }, [activeTab, activeSubTab, resources, forYouResources, deptAllResources, bookmarkedResources, myUploads]);
 
   const activeFilterCount = ["department", "level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
 
@@ -601,7 +638,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
     return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} />;
   }
 
-  if (activeTab === "folders" && activeFolder) {
+  if (activeTab === "space" && activeSubTab === "folders" && activeFolder) {
     return (
       <FolderDetailView
         folderDetail={folderDetail}
@@ -628,9 +665,15 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
   }
 
   const tabLabel = tabLabelMap[activeTab];
-  const emptyMessage = activeTab === "foryou" && (!userDept || !userDept.department)
-    ? emptyMessages.foryouNoDept
-    : emptyMessages[activeTab] || "Nothing here yet.";
+  const emptyKey = activeTab === "department"
+    ? (activeSubTab === "foryou" ? "department.foryou" : "department.all")
+    : activeTab === "space"
+    ? `space.${activeSubTab}`
+    : activeTab;
+  const noDept = activeTab === "department" && (!userDept || !userDept.department);
+  const emptyMessage = noDept
+    ? (activeSubTab === "foryou" ? emptyMessages["department.foryouNoDept"] : emptyMessages["department.allNoDept"])
+    : emptyMessages[emptyKey] || "Nothing here yet.";
 
   const handleReview = () => {
     if (reviewData && reviewData.due.length > 0) {
@@ -641,76 +684,74 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
   return (
     <div style={{ padding: spacing.xl, maxWidth: "1200px", margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: spacing.md, marginBottom: spacing.xl }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.md, marginBottom: spacing.sm }}>
-            <h1 style={{ fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.textBright, margin: 0 }}>Research Hub</h1>
-            {xpInfo && (
-              <span style={{
-                padding: "4px 12px", borderRadius: "12px",
-                background: goldDim,
-                border: `0.5px solid ${goldBorder}`, fontSize: fontSize.sm, fontWeight: fontWeight.bold,
-                color: goldText, display: "flex", alignItems: "center", gap: "6px",
-              }}>
-                ⭐ Lv {xpInfo.level} <span style={{ color: goldText, fontSize: fontSize.xs, opacity: 0.7 }}>{xpInfo.totalXp} XP</span>
-              </span>
-            )}
-            {(propStreak != null ? propStreak : reviewStats?.streak) > 0 && (
-              <span style={{
-                padding: "4px 12px", borderRadius: "12px",
-                background: "#1a1000", border: "0.5px solid #3a2800", fontSize: fontSize.sm, fontWeight: fontWeight.bold,
-                color: "#ffb74d", display: "flex", alignItems: "center", gap: spacing.xs,
-              }}>
-                🔥 {(propStreak ?? reviewStats?.streak) ?? 0} day streak
-                {reviewStats?.longestStreak > (propStreak ?? reviewStats?.streak) && (
-                  <span style={{ color: "#ffcc80", fontSize: fontSize.xs }}>best: {reviewStats.longestStreak}</span>
-                )}
-              </span>
-            )}
-          </div>
-          <p style={{ fontSize: fontSize.md, color: colors.textMuted }}>Find, save, and share study materials</p>
-          {trialInfo && !trialInfo.isActivated && (
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: "6px", marginTop: spacing.sm,
-              padding: "6px 14px", background: goldDim, border: `0.5px solid ${goldBorder}`,
-              borderRadius: "20px", fontSize: fontSize.sm, color: goldText,
-            }}>
-              ⭐ Premium resources require upgrade — <span style={{ textDecoration: "underline", cursor: "pointer", color: goldText }} onClick={() => navigate("/app#upgrade")}>Upgrade now →</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <ReviewBanner reviewData={reviewData} reviewStats={reviewStats} onReview={handleReview} />
-
       <div className="sc-tabrow" style={sharedStyles.tabRow}>
-        {[["foryou", "For You"], ["all", "All"], ["folders", "Folders"], ["space", "My Space"], ["uploads", "Uploads"]].map(([key, label]) => (
-          <button key={key} onClick={() => setActiveTab(key)} style={activeTab === key ? sharedStyles.tabActive : sharedStyles.tab}>
+        {[["department", "🎓 My Department"], ["space", "📁 My Space"], ["public", "🌐 Public"]].map(([key, label]) => (
+          <button key={key} onClick={() => {
+            setActiveTab(key);
+            if (key === "department") setActiveSubTab("foryou");
+            if (key === "space") setActiveSubTab("saved");
+          }} style={activeTab === key ? sharedStyles.tabActive : sharedStyles.tab}>
             {label}
-            {key === "space" && bookmarkedIds.size > 0 && <span style={sharedStyles.tabCount}>{bookmarkedIds.size}</span>}
           </button>
         ))}
         <div style={{ width: "1px", background: colors.border, margin: "6px 4px", flexShrink: 0 }} />
-        {[["progress", "📊"], ["fsrs", "🔁"]].map(([key, icon]) => (
-          <button key={key} title={key === "progress" ? "Progress" : "Review"} onClick={() => setActiveTab(key)}
-            style={activeTab === key ? sharedStyles.tabActive : { ...sharedStyles.tab, color: colors.textDim, padding: "8px 12px" }}>
-            {icon}
-            {key === "progress" && reviewData && reviewData.total > 0 && <span style={sharedStyles.tabCount}>{reviewData.total}</span>}
-            {key === "fsrs" && fsrsStats && fsrsStats.dueCount > 0 && <span style={sharedStyles.tabCount}>{fsrsStats.dueCount}</span>}
-          </button>
-        ))}
+        <button title="Progress" onClick={() => setActiveTab("progress")}
+          style={activeTab === "progress" ? sharedStyles.tabActive : { ...sharedStyles.tab, color: colors.textDim, padding: "8px 12px" }}>
+          📊
+          {reviewData && reviewData.total > 0 && <span style={sharedStyles.tabCount}>{reviewData.total}</span>}
+        </button>
       </div>
+
+      {activeTab === "department" && (
+        <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg }}>
+          {[["foryou", "For You"], ["all", "All"]].map(([key, label]) => (
+            <button key={key} onClick={() => setActiveSubTab(key)} style={activeSubTab === key ? sharedStyles.chipActive : sharedStyles.chip}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {activeTab === "space" && (
+        <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg }}>
+          {[["saved", "Saved"], ["uploads", "My Uploads"], ["folders", "Folders"]].map(([key, label]) => (
+            <button key={key} onClick={() => setActiveSubTab(key)} style={activeSubTab === key ? sharedStyles.chipActive : sharedStyles.chip}>
+              {label}
+              {key === "saved" && bookmarkedIds.size > 0 && <span style={sharedStyles.tabCount}>{bookmarkedIds.size}</span>}
+              {key === "uploads" && myUploads.length > 0 && <span style={sharedStyles.tabCount}>{myUploads.length}</span>}
+              {key === "folders" && folders.own.length > 0 && <span style={sharedStyles.tabCount}>{folders.own.length}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeTab !== "fsrs" && fsrsStats && fsrsStats.dueCount > 0 && (
+        <button onClick={() => setActiveTab("fsrs")} style={{
+          display: "flex", alignItems: "center", gap: spacing.sm,
+          padding: "10px 18px", marginBottom: spacing.lg,
+          background: "rgba(245,166,35,0.12)", border: `0.5px solid ${goldBorder}`,
+          borderRadius: "24px", cursor: "pointer",
+          fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: goldText,
+          animation: "fadeup 0.2s ease",
+        }}>
+          🔁 {fsrsStats.dueCount} card{fsrsStats.dueCount !== 1 ? "s" : ""} due — Review now
+        </button>
+      )}
 
       {activeTab === "progress" ? (
         <ProgressDashboard progressData={progressData} reviewCount={reviewData?.total || 0} reviewStats={reviewStats} />
       ) : activeTab === "fsrs" ? (
-        <FsrsReviewDashboard fsrsDue={fsrsDue} fsrsStats={fsrsStats} onOpenPdf={(token, page) => {
-          const res = resources.find((r) => r.shareToken === token);
-          if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
-          setViewerInitialPage(page || null);
-          setViewerToken(token);
-        }} />
-      ) : activeTab === "folders" ? (
+        <div>
+          <button onClick={() => setActiveTab("department")} style={{ ...sharedStyles.backBtn, marginBottom: spacing.lg }}>
+            ← Back
+          </button>
+          <FsrsReviewDashboard fsrsDue={fsrsDue} fsrsStats={fsrsStats} onOpenPdf={(token, page) => {
+            const res = resources.find((r) => r.shareToken === token);
+            if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
+            setViewerInitialPage(page || null);
+            setViewerToken(token);
+          }} />
+        </div>
+      ) : activeTab === "space" && activeSubTab === "folders" ? (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.lg }}>
             <div style={{ ...sharedStyles.searchWrap, flex: "1 1 240px" }}>
@@ -743,7 +784,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             </select>
           </div>
 
-          <FilterBar filters={filters} setFilters={setFilters} resources={resources} />
+          {activeTab === "public" && <FilterBar filters={filters} setFilters={setFilters} resources={tabResources} />}
 
           <div style={{ display: "flex", gap: spacing.sm, overflowX: "auto", marginBottom: spacing.xl, paddingBottom: spacing.xs }}>
             {filterTypes.map((type) => (
@@ -755,7 +796,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
 
           <div style={sharedStyles.sectionLabel}>{tabLabel.toUpperCase()}</div>
 
-          {loading && (activeTab === "all" || activeTab === "foryou") ? (
+          {loading && activeTab === "department" ? (
             <div style={sharedStyles.grid}>
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} style={sharedStyles.skeleton} />
@@ -765,7 +806,7 @@ export default function ResearchHub({ onBack, streak: propStreak, onStreakUpdate
             <div style={sharedStyles.emptyState}>
               <div style={{ fontSize: 36, marginBottom: spacing.sm }}>📭</div>
               <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-                {activeTab === "space" ? "Nothing saved yet" : activeTab === "uploads" ? "No uploads yet" : "No results"}
+                {activeTab === "space" && activeSubTab === "saved" ? "Nothing saved yet" : activeTab === "space" && activeSubTab === "uploads" ? "No uploads yet" : "No results"}
               </div>
               <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
                 {emptyMessage}

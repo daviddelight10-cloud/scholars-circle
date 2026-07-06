@@ -546,6 +546,95 @@ function AssignmentsCard({ onOpenTab, token }) {
   );
 }
 
+function StudyBitesRow({ sm2DueCount, fsrsDueCount, weakest, onReviewQuestions, onReviewReadings, onBoostSubject, onBrowseDept, onAskAI }) {
+  const bites = [];
+  if (sm2DueCount > 0) {
+    bites.push({ icon: "🧠", label: `Review ${sm2DueCount} card${sm2DueCount !== 1 ? "s" : ""}`, subtitle: "Spaced repetition", color: T.green, bg: T.greenDim, onClick: onReviewQuestions });
+  }
+  if (fsrsDueCount > 0) {
+    bites.push({ icon: "📄", label: `Review ${fsrsDueCount} reading${fsrsDueCount !== 1 ? "s" : ""}`, subtitle: "FSRS due", color: T.gold, bg: T.goldDim, onClick: onReviewReadings });
+  }
+  if (weakest && weakest.mastery < 50) {
+    bites.push({ icon: "🎯", label: `Boost ${weakest.label}`, subtitle: `${weakest.mastery}% mastery`, color: T.coral, bg: T.coralDim, onClick: onBoostSubject });
+  }
+  bites.push({ icon: "🎓", label: "My Department", subtitle: "Browse materials", color: T.gold, bg: T.goldDim, onClick: onBrowseDept });
+  bites.push({ icon: "✨", label: "Ask AI", subtitle: "Get help now", color: T.blue, bg: T.blueDim, onClick: onAskAI });
+  if (bites.length === 0) return null;
+  return (
+    <div className="dash-bites-row" style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 6, marginTop: 4, scrollbarWidth: "none" }}>
+      {bites.map((bite, i) => (
+        <div key={i} className="dash-bite-card" onClick={bite.onClick} style={{
+          flexShrink: 0, minWidth: 160, background: bite.bg, border: `1px solid ${T.line}`,
+          borderRadius: RADIUS.lg, padding: "14px 16px", cursor: "pointer", transition: "border-color 0.15s",
+          display: "flex", alignItems: "center", gap: 12,
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.borderColor = T.lineStrong}
+        onMouseLeave={(e) => e.currentTarget.style.borderColor = T.line}>
+          <div style={{ fontSize: 22, flexShrink: 0 }}>{bite.icon}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "0.88rem", fontWeight: 700, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{bite.label}</div>
+            <div style={{ fontSize: "0.76rem", color: T.textFaint, marginTop: 2 }}>{bite.subtitle}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QuickAccessGrid({ deptCount, savedCount, uploadCount, publicCount, onOpenDept, onOpenSpace, onOpenPublic }) {
+  const cards = [
+    { icon: "🎓", label: "My Department", subtitle: `${deptCount} material${deptCount !== 1 ? "s" : ""}`, onClick: onOpenDept, color: T.gold },
+    { icon: "📁", label: "My Space", subtitle: `${savedCount} saved · ${uploadCount} uploads`, onClick: onOpenSpace, color: T.blue },
+    { icon: "🌐", label: "Public", subtitle: `${publicCount} resources`, onClick: onOpenPublic, color: T.green },
+  ];
+  return (
+    <div className="dash-quick-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 32 }}>
+      {cards.map((c) => (
+        <div key={c.label} onClick={c.onClick} style={{
+          background: T.inkCard, border: `1px solid ${T.line}`, borderRadius: RADIUS.lg,
+          padding: "22px 18px", cursor: "pointer", transition: "border-color 0.2s, transform 0.2s",
+          display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = T.lineStrong; e.currentTarget.style.transform = "translateY(-2px)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = T.line; e.currentTarget.style.transform = "translateY(0)"; }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>{c.icon}</div>
+          <div style={{ fontFamily: FONTS.display, fontSize: "1rem", fontWeight: 800, color: T.text }}>{c.label}</div>
+          <div style={{ fontFamily: FONTS.mono, fontSize: "0.76rem", color: c.color, marginTop: 6 }}>{c.subtitle}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ForYouPreview({ items, onOpenAll, onOpenItem }) {
+  if (!items || items.length === 0) return null;
+  const typeIcon = (t) => t === "pdf" ? "📄" : t === "mcq" ? "📝" : t === "note" ? "🗒️" : t === "tutorial_question" ? "❓" : "📎";
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
+        <h3 style={{ fontFamily: FONTS.display, fontSize: "1.05rem", fontWeight: 800, color: T.text, margin: 0 }}>For you</h3>
+        <button onClick={onOpenAll} style={{ fontSize: "0.84rem", color: T.blue, fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}>View all →</button>
+      </div>
+      <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 6, scrollbarWidth: "none" }}>
+        {items.map((r) => (
+          <div key={r.id} onClick={() => onOpenItem?.(r.shareToken)} style={{
+            flexShrink: 0, width: 200, background: T.inkCard, border: `1px solid ${T.line}`,
+            borderRadius: RADIUS.md, padding: "14px 16px", cursor: "pointer", transition: "border-color 0.15s",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = T.lineStrong}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = T.line}>
+            <div style={{ fontSize: "0.82rem", fontWeight: 700, color: T.text, lineHeight: 1.3, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.74rem", color: T.textFaint }}>
+              <span>{typeIcon(r.contentType)}</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.subject}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({
   userName,
   stats,
@@ -582,12 +671,72 @@ export default function Dashboard({
     return () => { cancelled = true; };
   }, []);
 
+  const [resourceCounts, setResourceCounts] = useState({ dept: 0, public: 0, saved: 0, uploads: 0 });
+  const [forYouPreview, setForYouPreview] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchHubData() {
+      try {
+        const headers = getAuthHeaders();
+        let resources = [];
+        try {
+          const cached = localStorage.getItem("sc_resources_list");
+          if (cached) resources = JSON.parse(cached).data || [];
+        } catch {}
+        if (resources.length === 0) {
+          const res = await fetch(`${API_BASE}/api/resources`, { headers });
+          if (res.ok) resources = await res.json();
+        }
+        let dept = null;
+        try {
+          const deptRes = await fetch(`${API_BASE}/users/me/department`, { headers });
+          if (deptRes.ok) dept = await deptRes.json();
+        } catch {}
+        let saved = 0;
+        try {
+          const bmRes = await fetch(`${API_BASE}/api/resources/bookmarks`, { headers });
+          if (bmRes.ok) saved = (await bmRes.json()).length;
+        } catch {}
+        let uploads = 0;
+        try {
+          const upRes = await fetch(`${API_BASE}/api/resources/teacher/my`, { headers });
+          if (upRes.ok) uploads = (await upRes.json()).length;
+        } catch {}
+        if (cancelled) return;
+        const deptResources = dept?.department
+          ? resources.filter((r) => r.department === dept.department || (r.resourceDepts?.some((rd) => rd.department.name === dept.department)))
+          : [];
+        const forYou = deptResources
+          .filter((r) => r.uploader?.role !== "STUDENT")
+          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          .slice(0, 4);
+        setResourceCounts({ dept: deptResources.length, public: resources.length, saved, uploads });
+        setForYouPreview(forYou);
+      } catch {}
+    }
+    fetchHubData();
+    return () => { cancelled = true; };
+  }, []);
+
   const subjectMastery = useMemo(() => computeSubjectMastery(subjects || [], srData || {}), [subjects, srData]);
   const sm2DueCount = dueCards?.length || 0;
+
+  const weakest = useMemo(() => {
+    if (!subjectMastery.length) return null;
+    return subjectMastery.reduce((min, s) => {
+      const m = s.total > 0 ? Math.round((s.mastered / s.total) * 100) : 0;
+      return !min || m < min.mastery ? { label: s.subjectLabel, icon: s.icon, id: s.subjectId, mastery: m } : min;
+    }, null);
+  }, [subjectMastery]);
 
   const handleResume = useCallback(() => {
     onOpenTab?.("research-hub");
   }, [onOpenTab]);
+
+  const openResearchHub = useCallback((tab, subTab) => {
+    window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { tab, subTab } }));
+  }, []);
 
   const handleReviewReadings = useCallback(async () => {
     if (onOpenResource) {
@@ -640,10 +789,15 @@ export default function Dashboard({
           .dash-ring-wall { grid-template-columns: 1fr !important; }
           .dash-topbar-actions .dash-pill { padding: 5px 9px !important; font-size: 0.72rem !important; }
         }
+        .dash-bites-row::-webkit-scrollbar { display: none; }
+        .dash-bite-card { flexShrink: 0; min-width: 160px; }
+        .dash-quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         @media (max-width: 768px) {
           .dash-ask-card { padding: 20px 16px !important; }
           .dash-due-card { padding: 18px 16px !important; }
           .dash-ring-card { padding: 16px 12px !important; }
+          .dash-quick-grid { grid-template-columns: 1fr !important; }
+          .dash-bite-card { min-width: 140px !important; }
         }
       `}</style>
 
@@ -696,6 +850,18 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* Study Bites */}
+      <StudyBitesRow
+        sm2DueCount={sm2DueCount}
+        fsrsDueCount={fsrsDueCount}
+        weakest={weakest}
+        onReviewQuestions={onStartSpaced}
+        onReviewReadings={handleReviewReadings}
+        onBoostSubject={() => weakest && onStartSubject?.(weakest.id)}
+        onBrowseDept={() => openResearchHub("department", "foryou")}
+        onAskAI={() => handleOpenAI("")}
+      />
+
       {/* Hero row */}
       <div className="dash-hero-row" style={{ marginTop: 8 }}>
         <ResumeCard
@@ -712,6 +878,24 @@ export default function Dashboard({
           onReviewReadings={handleReviewReadings}
         />
       </div>
+
+      {/* For You preview */}
+      <ForYouPreview
+        items={forYouPreview}
+        onOpenAll={() => openResearchHub("department", "foryou")}
+        onOpenItem={(token) => onOpenResource?.(token)}
+      />
+
+      {/* Quick Access — mirrors Research Hub tabs */}
+      <QuickAccessGrid
+        deptCount={resourceCounts.dept}
+        savedCount={resourceCounts.saved}
+        uploadCount={resourceCounts.uploads}
+        publicCount={resourceCounts.public}
+        onOpenDept={() => openResearchHub("department", "foryou")}
+        onOpenSpace={() => openResearchHub("space", "saved")}
+        onOpenPublic={() => openResearchHub("public")}
+      />
 
       {/* Your circles — ring wall */}
       <div style={{ marginTop: 46 }}>

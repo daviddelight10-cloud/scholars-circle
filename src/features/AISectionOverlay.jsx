@@ -1,22 +1,29 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { callAI } from "../lib/aiClient";
+import { callAI, extractJSON } from "../lib/aiClient";
+import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
+import { detectDiscipline } from "./AITutor/disciplines.js";
 import LearningRoom from "./AITutor/LearningRoom";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
-  bg:      "#07080F",
-  card:    "#0d0f1f",
-  bar:     "#0a0b15",
-  accent:  "#1a1a1a",
-  border:  "#B8860B",
-  line:    "#1e2140",
-  line2:   "#1a1d35",
-  text:    "#e8eaf6",
-  muted:   "#7b82b8",
-  hint:    "#4a5080",
-  faint:   "#333760",
+  bg:      "#0B0E1A",
+  card:    "#141829",
+  bar:     "#0E1120",
+  accent:  "#1C1F3A",
+  border:  "#6366F1",
+  line:    "#1E2238",
+  line2:   "#161A2E",
+  text:    "#E2E8F0",
+  muted:   "#94A3B8",
+  hint:    "#64748B",
+  faint:   "#334155",
+  userBg:  "#1E1B4B",
+  userBdr: "#6366F1",
+  userTxt: "#A5B4FC",
+  aiBdr:   "#252A45",
+  accent2: "#818CF8",
 };
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&display=swap');`;
@@ -79,18 +86,50 @@ async function fetchYouTubeVideo(ytQuery) {
   return null;
 }
 
-async function generateAIResponse(query, aiConfig) {
+async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null) {
+  const disciplineId = detectDiscipline(subject?.label);
+  const system = buildSystemPrompt({ mode: "chat", disciplineId, subject });
+  const convo = buildConversationContext(conversationHistory, 8);
   const prompt =
-    `You are Scholar's Circle AI Tutor. A student asked: "${query}"\n\n` +
+    `${system}${convo}\n\n` +
+    `The student asked: "${query}"\n\n` +
     `Reply ONLY with valid JSON (no markdown, no code fences):\n` +
-    `{"definition":"1-2 sentence clear definition","explanation":"3-4 sentence educational explanation with examples","ytQuery":"6-8 word YouTube search query"}`;
+    `{"definition":"1-2 sentence clear definition","explanation":"3-4 sentence educational explanation with examples","ytQuery":"6-8 word YouTube search query","followUps":["follow-up question 1","follow-up question 2","follow-up question 3"]}\n\n` +
+    `The followUps should be natural student questions that go deeper into the topic, progressively from basic to advanced. Max 60 chars each.`;
   const raw = await callAI(prompt, aiConfig);
   try {
     const s = raw.indexOf("{"), e = raw.lastIndexOf("}") + 1;
-    return JSON.parse(raw.slice(s, e));
+    const parsed = JSON.parse(raw.slice(s, e));
+    if (!parsed.followUps || !Array.isArray(parsed.followUps)) parsed.followUps = [];
+    return parsed;
   } catch {
-    return { definition: raw.slice(0, 220), explanation: raw, ytQuery: `${query} explained` };
+    return { definition: raw.slice(0, 220), explanation: raw, ytQuery: `${query} explained`, followUps: [] };
   }
+}
+
+async function generateAIQuestions(topic, aiConfig, subject = null) {
+  const disciplineId = detectDiscipline(subject?.label);
+  const system = buildSystemPrompt({ mode: "generate_quiz", disciplineId, subject });
+  const prompt =
+    `${system}\n\n` +
+    `Generate a practice quiz about: "${topic}"\n\n` +
+    `Output STRICTLY a JSON array. NO prose before or after.\n` +
+    `Each item: {"q": "question", "options": ["A","B","C","D"], "answer": 0, "explanation": "why correct"}\n` +
+    `- "answer" is the 0-indexed correct option.\n` +
+    `- Generate 5-10 well-distributed questions.\n` +
+    `- Mix recall, application, and analysis levels.\n` +
+    `- Avoid trick questions.`;
+  const raw = await callAI(prompt, aiConfig);
+  const questions = extractJSON(raw, "array");
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw new Error("AI did not return valid questions.");
+  }
+  return questions.map(q => ({
+    q: q.q || q.question || "",
+    options: q.options || [],
+    answer: q.answer ?? q.correctIndex ?? 0,
+    explanation: q.explanation || q.explain || "",
+  })).filter(q => q.q && q.options.length >= 2);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -100,7 +139,7 @@ function TypingDots() {
     <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "13px 14px" }}>
       {[0, 1, 2].map(i => (
         <span key={i} style={{
-          width: 6, height: 6, borderRadius: "50%", background: D.border, display: "inline-block",
+          width: 6, height: 6, borderRadius: "50%", background: D.accent2, display: "inline-block",
           animation: `scBounce 1.2s ${i * 0.2}s infinite ease-in-out`,
         }} />
       ))}
@@ -120,7 +159,7 @@ function CollapseSection({ icon, iconBg, iconBdr, label, defaultOpen = false, ch
           display: "flex", alignItems: "center", gap: 9, padding: "10px 12px",
           textAlign: "left",
         }}
-        onMouseEnter={e => e.currentTarget.style.background = "#11132a"}
+        onMouseEnter={e => e.currentTarget.style.background = D.accent}
         onMouseLeave={e => e.currentTarget.style.background = "none"}
       >
         <span style={{
@@ -128,7 +167,7 @@ function CollapseSection({ icon, iconBg, iconBdr, label, defaultOpen = false, ch
           background: iconBg, border: `0.5px solid ${iconBdr}`,
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
         }}>{icon}</span>
-        <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#DAA520", fontFamily: "Manrope,sans-serif" }}>{label}</span>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: D.accent2, fontFamily: "Manrope,sans-serif" }}>{label}</span>
         <span style={{
           fontSize: 13, color: D.faint, display: "inline-block",
           transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s",
@@ -198,110 +237,195 @@ function VideoLesson({ video }) {
   );
 }
 
-function ResponseCard({ data, onStartPractice }) {
-  const bankBadge = { color: "#4caf50", background: "#0f2a1a", border: "0.5px solid #1a4a2a" };
-  const aiBadge   = { color: "#ffb74d", background: "#2a1a00", border: "0.5px solid #4a3000" };
-  const badge     = data.source === "bank" ? bankBadge : aiBadge;
+function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
+  const [copied, setCopied] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const followUps = data.followUps || [];
+  const quickActions = [
+    { icon: "🔍", label: "Simpler", action: () => onQuickAction?.("explain_simpler", data.topic) },
+    { icon: "📝", label: "Test me", action: () => onQuickAction?.("test_me", data.topic) },
+    { icon: "🃏", label: "Flashcards", action: () => onQuickAction?.("flashcards", data.topic) },
+    { icon: "📖", label: "Example", action: () => onQuickAction?.("example", data.topic) },
+  ];
+
+  function copyAnswer() {
+    const text = `${data.definition || ""}\n\n${data.explanation || ""}`.trim();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   return (
     <div style={{
       alignSelf: "flex-start", width: "100%",
-      background: D.card, border: `0.5px solid ${D.line}`,
-      borderRadius: "4px 16px 16px 16px", overflow: "hidden",
       animation: "scSlideIn 0.3s ease",
     }}>
       <style>{`@keyframes scSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px 9px", borderBottom: `0.5px solid ${D.line2}` }}>
-        <span style={{
-          width: 24, height: 24, borderRadius: 7,
+      {/* AI avatar + bubble */}
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 9, flexShrink: 0,
           background: D.accent, border: `0.5px solid ${D.border}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 12, color: "#FFD700", flexShrink: 0,
-        }}>✦</span>
-        <span style={{ fontSize: 10, color: D.hint, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontFamily: "Manrope,sans-serif" }}>
-          Scholar's Circle AI
-        </span>
-        <span style={{ marginLeft: "auto", fontSize: 10, padding: "2px 9px", borderRadius: 10, fontWeight: 600, fontFamily: "Manrope,sans-serif", ...badge }}>
-          {data.source === "bank" ? "From question bank" : "AI generated"}
-        </span>
+          fontSize: 13, color: D.accent2,
+        }}>✦</div>
+
+        <div style={{
+          flex: 1, background: D.card,
+          border: `0.5px solid ${D.aiBdr}`,
+          borderRadius: "4px 16px 16px 16px",
+          overflow: "hidden",
+        }}>
+          {/* Main content — definition + explanation as flowing text */}
+          <div style={{ padding: "12px 14px" }}>
+            {data.definition && (
+              <div style={{
+                fontSize: 13, fontWeight: 600, color: D.accent2,
+                marginBottom: data.explanation ? 8 : 0,
+                fontFamily: "Manrope,sans-serif", lineHeight: 1.5,
+              }}>
+                <MarkdownText>{data.definition}</MarkdownText>
+              </div>
+            )}
+            {data.explanation && (
+              <div style={{
+                fontSize: 13, color: D.text, lineHeight: 1.65,
+                fontFamily: "Manrope,sans-serif",
+              }}>
+                <MarkdownText>{data.explanation}</MarkdownText>
+              </div>
+            )}
+          </div>
+
+          {/* Video toggle — inline, compact */}
+          {data.video && (
+            <div style={{ borderTop: `0.5px solid ${D.line2}` }}>
+              <button
+                onClick={() => setShowVideo(o => !o)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 7,
+                  padding: "8px 14px", background: "none", border: "none",
+                  cursor: "pointer", fontSize: 11, color: D.muted,
+                  fontFamily: "Manrope,sans-serif",
+                }}
+              >
+                <span style={{ fontSize: 13 }}>▶️</span>
+                <span>{showVideo ? "Hide video" : "Watch video lesson"}</span>
+                <span style={{ marginLeft: "auto", fontSize: 10, color: D.faint }}>
+                  {showVideo ? "▲" : "▼"}
+                </span>
+              </button>
+              {showVideo && (
+                <div style={{ padding: "0 14px 12px" }}>
+                  <VideoLesson video={data.video} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Practice button — inline */}
+          <div style={{
+            borderTop: `0.5px solid ${D.line2}`,
+            padding: "8px 14px",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <button
+              onClick={onStartPractice}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "5px 12px", borderRadius: 16,
+                background: D.accent, border: `0.5px solid ${D.border}`,
+                fontSize: 11, fontWeight: 600, color: D.accent2, cursor: "pointer",
+                fontFamily: "Manrope,sans-serif",
+              }}
+            >
+              {data.source === "bank" && data.bankCount
+                ? `▶ Practice — ${data.bankCount} questions`
+                : "✦ Generate Practice"}
+            </button>
+            <button
+              onClick={copyAnswer}
+              title="Copy answer"
+              style={{
+                marginLeft: "auto", width: 26, height: 26, borderRadius: 7,
+                background: "transparent", border: `0.5px solid ${D.line}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", fontSize: 12, color: copied ? "#4caf50" : D.hint,
+                transition: "all 0.15s",
+              }}
+            >{copied ? "✓" : "⧉"}</button>
+          </div>
+
+          {/* Quick action chips */}
+          <div style={{
+            display: "flex", gap: 6, flexWrap: "wrap",
+            padding: "8px 14px", borderTop: `0.5px solid ${D.line2}`,
+          }}>
+            {quickActions.map((qa) => (
+              <button
+                key={qa.label}
+                onClick={qa.action}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  padding: "4px 10px", borderRadius: 14,
+                  background: "transparent", border: `0.5px solid ${D.line}`,
+                  fontSize: 10, fontWeight: 600, color: D.muted, cursor: "pointer",
+                  fontFamily: "Manrope,sans-serif", transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = D.accent2; e.currentTarget.style.background = D.accent; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.muted; e.currentTarget.style.background = "transparent"; }}
+              >
+                <span style={{ fontSize: 11 }}>{qa.icon}</span>{qa.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Follow-up suggestions */}
+          {followUps.length > 0 && (
+            <div style={{ padding: "8px 14px 12px", borderTop: `0.5px solid ${D.line2}` }}>
+              <div style={{ fontSize: 10, color: D.faint, fontWeight: 600, marginBottom: 7, fontFamily: "Manrope,sans-serif" }}>
+                💡 Suggested follow-up questions
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                {followUps.map((fu, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onFollowUp?.(fu)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 7, width: "100%",
+                      padding: "7px 10px", borderRadius: 9,
+                      background: "transparent", border: `0.5px solid ${D.line}`,
+                      fontSize: 12, color: D.text, cursor: "pointer",
+                      fontFamily: "Manrope,sans-serif", textAlign: "left",
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.background = D.accent; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <span style={{ fontSize: 10, color: D.faint, flexShrink: 0 }}>{i + 1}.</span>
+                    <span>{fu}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 11, color: D.faint }}>→</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* Definition */}
-      <CollapseSection icon="📖" iconBg="#0f2a1a" iconBdr="#1a4a2a" label="Short Definition" defaultOpen>
-        <MarkdownText>{data.definition}</MarkdownText>
-      </CollapseSection>
-
-      {/* Explanation */}
-      <CollapseSection icon="🔬" iconBg="#1a1a40" iconBdr="#2a2a70" label="Detailed Explanation">
-        <MarkdownText>{data.explanation}</MarkdownText>
-      </CollapseSection>
-
-      {/* Video */}
-      <CollapseSection icon="▶️" iconBg="#2a0a0a" iconBdr="#4a1010" label="Video Lesson">
-        <p style={{ margin: "0 0 8px", fontSize: 10, color: D.faint }}>
-          YouTube search: <span style={{ color: D.border }}>"{ data.ytQuery}"</span>
-        </p>
-        {data.video ? (
-          <VideoLesson video={data.video} />
-        ) : (
-          <p style={{ margin: 0, fontSize: 11, color: D.hint }}>
-            Video search unavailable — make sure the backend server is running.
-          </p>
-        )}
-      </CollapseSection>
-
-      {/* Practice */}
-      <CollapseSection icon="📝" iconBg="#1a1000" iconBdr="#3a2800" label="Practice Questions">
-        {data.source === "bank" ? (
-          <>
-            <p style={{ margin: "0 0 9px", fontSize: 11, color: "#5a6090" }}>
-              Your <strong style={{ color: "#FFD700" }}>{data.subjectLabel}</strong> bank has{" "}
-              <strong style={{ color: "#FFD700" }}>{data.bankCount} MCQs</strong> on this topic.
-            </p>
-            <button
-              onClick={onStartPractice}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                padding: "6px 13px", borderRadius: 20,
-                background: "#0f1440", border: `0.5px solid ${D.border}`,
-                fontSize: 11, fontWeight: 600, color: "#7986cb", cursor: "pointer",
-                fontFamily: "Manrope,sans-serif",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = D.accent; e.currentTarget.style.color = "#FFD700"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.color = "#7986cb"; }}
-            >
-              ▶ Start Practice Mode — {data.bankCount} questions
-            </button>
-          </>
-        ) : (
-          <>
-            <p style={{ margin: "0 0 9px", fontSize: 11, color: "#5a6090" }}>
-              This topic isn't in the question bank yet. Questions will be AI-generated on the fly.
-            </p>
-            <button
-              onClick={onStartPractice}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
-                padding: "6px 13px", borderRadius: 20,
-                background: "#2a1a00", border: "0.5px solid #4a3000",
-                fontSize: 11, fontWeight: 600, color: "#ffb74d", cursor: "pointer",
-                fontFamily: "Manrope,sans-serif",
-              }}
-            >
-              ✦ Generate Practice Questions
-            </button>
-          </>
-        )}
-      </CollapseSection>
     </div>
   );
 }
 
-function PracticeView({ data, onBack }) {
+function PracticeView({ data, onBack, aiConfig }) {
   const [answered, setAnswered] = useState({});
-  const questions = (data.questions || []).slice(0, 10);
+  const [extraQuestions, setExtraQuestions] = useState(null);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState(null);
+
+  const bankQuestions = (data.questions || []).slice(0, 10);
+  const questions = bankQuestions.length > 0 ? bankQuestions : (extraQuestions || []);
   const total = questions.length;
   const done  = Object.keys(answered).length;
   const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -311,7 +435,61 @@ function PracticeView({ data, onBack }) {
     setAnswered(p => ({ ...p, [qi]: oi }));
   }
 
+  const topic = data.topic || data.ytQuery || "";
+
+  useEffect(() => {
+    if (bankQuestions.length === 0 && !extraQuestions && !genLoading && !genError && aiConfig && topic) {
+      setGenLoading(true);
+      generateAIQuestions(topic, aiConfig, data.subjectLabel ? { label: data.subjectLabel } : null)
+        .then(qs => {
+          if (qs && qs.length > 0) {
+            setExtraQuestions(qs);
+          } else {
+            setGenError("No questions could be generated. Try rephrasing your topic.");
+          }
+        })
+        .catch(err => {
+          setGenError(err?.message || "Failed to generate questions. Check your AI settings.");
+        })
+        .finally(() => setGenLoading(false));
+    }
+  }, [bankQuestions.length, extraQuestions, genLoading, genError, aiConfig, topic, data.subjectLabel]);
+
   if (!total) {
+    if (genLoading) {
+      return (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, gap: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", border: `2px solid ${D.line}`, borderTopColor: D.border, animation: "scSpin 0.8s linear infinite" }} />
+          <style>{`@keyframes scSpin{to{transform:rotate(360deg)}}`}</style>
+          <div style={{ color: D.muted, fontSize: 13, textAlign: "center", fontFamily: "Manrope,sans-serif", lineHeight: 1.6 }}>
+            Generating practice questions with AI…<br />
+            <span style={{ fontSize: 11, color: D.hint }}>This may take a few seconds</span>
+          </div>
+        </div>
+      );
+    }
+    if (genError) {
+      return (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, gap: 14 }}>
+          <div style={{ fontSize: 40 }}>📝</div>
+          <div style={{ color: D.muted, fontSize: 13, textAlign: "center", fontFamily: "Manrope,sans-serif", lineHeight: 1.6 }}>
+            {genError}<br />
+            <span style={{ fontSize: 11, color: D.hint }}>No questions in the bank for this topic yet.</span>
+          </div>
+          <button onClick={() => { setGenError(null); setGenLoading(false); }}
+            style={{
+              padding: "7px 16px", borderRadius: 20,
+              background: D.accent, border: `0.5px solid ${D.border}`,
+              color: D.accent2, cursor: "pointer", fontSize: 12, fontFamily: "Manrope,sans-serif",
+            }}>↻ Retry generation</button>
+          <button onClick={onBack} style={{
+            padding: "8px 20px", borderRadius: 20,
+            background: "transparent", border: `0.5px solid ${D.line}`,
+            color: D.muted, cursor: "pointer", fontSize: 12, fontFamily: "Manrope,sans-serif",
+          }}>← Back to chat</button>
+        </div>
+      );
+    }
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, gap: 14 }}>
         <div style={{ fontSize: 40 }}>📝</div>
@@ -321,8 +499,8 @@ function PracticeView({ data, onBack }) {
         <button onClick={onBack} style={{
           padding: "8px 20px", borderRadius: 20,
           background: D.accent, border: `0.5px solid ${D.border}`,
-          color: "#FFD700", cursor: "pointer", fontSize: 12, fontFamily: "Manrope,sans-serif",
-        }}>← Back to explanation</button>
+          color: D.accent2, cursor: "pointer", fontSize: 12, fontFamily: "Manrope,sans-serif",
+        }}>← Back to chat</button>
       </div>
     );
   }
@@ -335,7 +513,7 @@ function PracticeView({ data, onBack }) {
           {data.topic}
         </div>
         <div style={{ fontSize: 10, color: D.hint, fontFamily: "Manrope,sans-serif" }}>
-          {data.subjectLabel} · {total} questions · {done} answered
+          {data.subjectLabel || "AI-generated"} · {total} questions · {done} answered
         </div>
         <div style={{ height: 3, background: "#1a1d35", borderRadius: 2, marginTop: 7, overflow: "hidden" }}>
           <div style={{ height: "100%", background: D.border, borderRadius: 2, width: `${pct}%`, transition: "width 0.35s" }} />
@@ -347,7 +525,7 @@ function PracticeView({ data, onBack }) {
         <button
           onClick={onBack}
           style={{
-            display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#5a6090",
+            display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: D.hint,
             background: "none", border: "none", cursor: "pointer",
             padding: "2px 0 12px", fontFamily: "Manrope,sans-serif",
           }}
@@ -366,7 +544,7 @@ function PracticeView({ data, onBack }) {
               <div style={{ fontSize: 10, color: D.faint, fontWeight: 600, marginBottom: 6, fontFamily: "Manrope,sans-serif" }}>
                 Q{qi + 1} of {total}
               </div>
-              <div style={{ fontSize: 13, color: "#c5c9e8", lineHeight: 1.55, marginBottom: 12, fontFamily: "Manrope,sans-serif" }}>
+              <div style={{ fontSize: 13, color: D.text, lineHeight: 1.55, marginBottom: 12, fontFamily: "Manrope,sans-serif" }}>
                 {q.q || q.question}
               </div>
 
@@ -387,13 +565,13 @@ function PracticeView({ data, onBack }) {
                       fontSize: 12, fontFamily: "Manrope,sans-serif", textAlign: "left",
                       transition: "all 0.15s",
                     }}
-                    onMouseEnter={e => { if (!isAnswered) { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = "#DAA520"; e.currentTarget.style.background = "#0f1240"; }}}
+                    onMouseEnter={e => { if (!isAnswered) { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = D.accent2; e.currentTarget.style.background = D.accent; }}}
                     onMouseLeave={e => { if (!isAnswered) { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.muted; e.currentTarget.style.background = "transparent"; }}}
                   >
                     <span style={{
                       width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                      background: "#12142a", display: "flex", alignItems: "center",
-                      justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#5a6090",
+                      background: D.accent, display: "flex", alignItems: "center",
+                      justifyContent: "center", fontSize: 10, fontWeight: 700, color: D.muted,
                     }}>{String.fromCharCode(65 + oi)}</span>
                     {opt}
                   </button>
@@ -402,7 +580,7 @@ function PracticeView({ data, onBack }) {
 
               {isAnswered && (q.explanation || q.explain) && (
                 <div style={{
-                  background: "#111428", border: `0.5px solid #2a2d4a`,
+                  background: D.accent, border: `0.5px solid ${D.line}`,
                   borderRadius: 8, padding: "9px 11px", marginTop: 8,
                   fontSize: 11, color: D.muted, lineHeight: 1.55, fontFamily: "Manrope,sans-serif",
                 }}>
@@ -428,7 +606,7 @@ function UploadMenu({ open, onClose, onSelectDoc, onSelectImg }) {
   return (
     <div style={{
       position: "absolute", bottom: 46, left: 0,
-      background: D.card, border: `0.5px solid #2a2d4a`,
+      background: D.card, border: `0.5px solid ${D.line}`,
       borderRadius: 12, padding: 6, width: 172, zIndex: 20,
       boxShadow: "0 8px 32px #00000066",
     }}>
@@ -441,7 +619,7 @@ function UploadMenu({ open, onClose, onSelectDoc, onSelectImg }) {
             background: "none", cursor: "pointer",
             fontSize: 12, color: D.muted, fontFamily: "Manrope,sans-serif",
           }}
-          onMouseEnter={e => e.currentTarget.style.background = "#12142a"}
+          onMouseEnter={e => e.currentTarget.style.background = D.accent}
           onMouseLeave={e => e.currentTarget.style.background = "none"}
         >
           <span>{o.icon}</span>{o.label}
@@ -519,7 +697,7 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
             style={{
               padding: "5px 11px", borderRadius: 8,
               background: D.accent, border: `0.5px solid ${D.border}`,
-              fontSize: 11, fontWeight: 600, color: "#FFD700",
+              fontSize: 11, fontWeight: 600, color: D.accent2,
               cursor: "pointer", fontFamily: "Manrope,sans-serif",
             }}
           >+ New</button>
@@ -527,7 +705,7 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
             onClick={onClose}
             style={{
               width: 28, height: 28, borderRadius: "50%",
-              background: "#12142a", border: "0.5px solid #2a2d4a",
+              background: D.accent, border: `0.5px solid ${D.line}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", color: D.muted, fontSize: 14, flexShrink: 0,
             }}
@@ -552,23 +730,23 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
                 style={{
                   display: "flex", alignItems: "flex-start", gap: 10,
                   padding: "12px 14px", cursor: "pointer",
-                  borderBottom: `0.5px solid #0f1020`,
+                  borderBottom: `0.5px solid ${D.line2}`,
                   transition: "background 0.15s",
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = "#0f1028"}
+                onMouseEnter={e => e.currentTarget.style.background = D.accent}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
               >
                 {/* Icon */}
                 <div style={{
                   width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                  background: "#1a1d40", border: `0.5px solid ${D.border}`,
+                  background: D.accent, border: `0.5px solid ${D.border}`,
                   display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
                 }}>💬</div>
 
                 {/* Text */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 12, fontWeight: 600, color: "#c5c9e8",
+                    fontSize: 12, fontWeight: 600, color: D.text,
                     fontFamily: "Manrope,sans-serif",
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                     marginBottom: 3,
@@ -677,7 +855,7 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
           ) : (
             <div style={{
               display: "flex", alignItems: "center", gap: 7,
-              background: "#0f1128", border: `0.5px solid ${D.line}`,
+              background: D.bar, border: `0.5px solid ${D.line}`,
               borderRadius: 8, padding: "6px 10px",
             }}>
               <span style={{ fontSize: 18 }}>📄</span>
@@ -709,9 +887,9 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
               onClick={() => setUploadOpen(o => !o)}
               style={{
                 width: 36, height: 36, borderRadius: 10,
-                background: "#0f1128", border: "0.5px solid #2a2d4a",
+                background: D.bar, border: `0.5px solid ${D.line}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", color: "#5a6090", fontSize: 20, flexShrink: 0,
+                cursor: "pointer", color: D.muted, fontSize: 20, flexShrink: 0,
               }}
             >+</button>
             <UploadMenu
@@ -727,10 +905,10 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
           onKeyDown={e => e.key === "Enter" && canSend && onSend()}
           placeholder={voice.listening ? "🎤 Listening…" : placeholder}
           style={{
-            flex: 1, background: "#0f1128",
+            flex: 1, background: D.bar,
             border: voice.listening ? "0.5px solid #ef4444" : `0.5px solid ${D.line}`,
             borderRadius: 20, padding: "9px 14px", fontSize: 12,
-            color: voice.listening ? "#fca5a5" : "#DAA520",
+            color: voice.listening ? "#fca5a5" : D.accent2,
             fontFamily: "Manrope,sans-serif",
             outline: "none", transition: "border-color 0.2s, color 0.2s",
           }}
@@ -750,10 +928,10 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
               className={voice.listening ? "sc-mic-active" : ""}
               style={{
                 width: 36, height: 36, borderRadius: 10,
-                background: "#0f1128", border: "0.5px solid #2a2d4a",
+                background: D.bar, border: `0.5px solid ${D.line}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", fontSize: 15, flexShrink: 0,
-                color: "#5a6090", transition: "all 0.2s",
+                color: D.muted, transition: "all 0.2s",
               }}
             >{voice.listening ? "⏹" : "🎤"}</button>
           </>
@@ -767,7 +945,7 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
             border: `0.5px solid ${canSend ? D.border : "#1a1d35"}`,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: canSend ? "pointer" : "default",
-            color: canSend ? "#DAA520" : "#2a2d50",
+            color: canSend ? D.accent2 : D.faint,
             fontSize: 16, flexShrink: 0, transition: "all 0.15s",
           }}
         >→</button>
@@ -822,8 +1000,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     if (showHistory) { setShowHistory(false); return; }
     if (view === "learn")    { setView("chat"); return; }
     if (view === "study")    { setView("chat"); return; }
-    if (view === "practice") { setView("response"); return; }
-    if (view === "response") { setView("chat"); return; }
+    if (view === "practice") { setView("chat"); return; }
     onExit?.();
   }
 
@@ -838,7 +1015,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   function loadConvo(c) {
     setMsgs(c.messages);
     setData(c.lastData || null);
-    setView(c.lastData ? "response" : "chat");
+    setView("chat");
     setCurrentId(c.id);
   }
 
@@ -883,8 +1060,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
     try {
       const bankRes = searchQuestionBank(q, subjects);
-      let aiRes = { definition: "", explanation: "", ytQuery: `${q} explained` };
-      try { aiRes = await generateAIResponse(aiQuery, aiConfig); } catch {}
+      let aiRes = { definition: "", explanation: "", ytQuery: `${q} explained`, followUps: [] };
+      try { aiRes = await generateAIResponse(aiQuery, aiConfig, messages, null); } catch {}
       const ytQuery = aiRes.ytQuery || `${q} explained`;
       const video   = await fetchYouTubeVideo(ytQuery);
 
@@ -895,7 +1072,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       const finalMsgs = [...messages, userMsg].filter(m => m.type !== "loading").concat({ type: "ai", data: result });
       setData(result);
       setMsgs(finalMsgs);
-      setView("response");
+      setView("chat");
       persistConvo(finalMsgs, result, q);
     } catch (e) {
       setMsgs(p => p.filter(m => m.type !== "loading").concat({
@@ -907,10 +1084,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     }
   }
 
-  const topTitle = { chat: "AI Tutor", response: "AI Response", practice: "Practice Mode", learn: "Video Lessons", study: "Guided Study" }[view] || "AI Tutor";
+  const topTitle = { chat: "AI Tutor", practice: "Practice Mode", learn: "Video Lessons", study: "Guided Study" }[view] || "AI Tutor";
   const topSub   = {
     chat:     "Scholar's Circle · Ask anything",
-    response: data ? `${data.topic}` : "Scholar's Circle",
     practice: data ? `${data.subjectLabel || "AI"} · ${data.bankCount || 0} questions` : "",
     learn:    "Watch a video · Ask AI questions as you go",
     study:    "Roadmap → Explain → Questions → Flashcards",
@@ -933,16 +1109,16 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
           padding: "14px 16px 11px",
-          borderBottom: `0.5px solid #1e2035`,
+          borderBottom: `0.5px solid ${D.line}`,
           background: D.bar, flexShrink: 0,
         }}>
           <button
             onClick={handleBack}
             style={{
               width: 32, height: 32, borderRadius: "50%",
-              background: "#12142a", border: "0.5px solid #2a2d4a",
+              background: D.accent, border: `0.5px solid ${D.line}`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: "#8b90b8", fontSize: 17, flexShrink: 0,
+              cursor: "pointer", color: D.muted, fontSize: 17, flexShrink: 0,
             }}
           >←</button>
 
@@ -961,8 +1137,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             title="Guided Study"
             style={{
               width: 32, height: 32, borderRadius: "50%",
-              background: view === "study" ? D.accent : "#12142a",
-              border: view === "study" ? `0.5px solid ${D.border}` : "0.5px solid #2a2d4a",
+              background: view === "study" ? D.accent : "transparent",
+              border: view === "study" ? `0.5px solid ${D.border}` : `0.5px solid ${D.line}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", flexShrink: 0,
               fontSize: 14, transition: "all 0.2s",
@@ -975,11 +1151,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             title="Chat history"
             style={{
               width: 32, height: 32, borderRadius: "50%",
-              background: showHistory ? D.accent : "#12142a",
-              border: showHistory ? `0.5px solid ${D.border}` : "0.5px solid #2a2d4a",
+              background: showHistory ? D.accent : "transparent",
+              border: showHistory ? `0.5px solid ${D.border}` : `0.5px solid ${D.line}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", flexShrink: 0,
-              fontSize: 14, color: showHistory ? "#FFD700" : D.muted,
+              fontSize: 14, color: showHistory ? D.accent2 : D.muted,
               letterSpacing: 1, transition: "all 0.2s",
             }}
           >⋯</button>
@@ -997,25 +1173,25 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           onNewChat={startNewChat}
         />
 
-        {/* ══ VIEW: CHAT ══ */}
+        {/* ══ VIEW: CHAT (unified — includes AI responses inline) ══ */}
         {view === "chat" && (
           <>
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 12, scrollbarWidth: "none" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 14, scrollbarWidth: "none" }}>
 
               {messages.length === 0 ? (
                 <>
-                  <div style={{ textAlign: "center", padding: "24px 8px 10px" }}>
+                  <div style={{ textAlign: "center", padding: "28px 8px 12px" }}>
                     <div style={{
-                      width: 52, height: 52, borderRadius: 16,
-                      background: "#1a1d40", border: `1px solid ${D.border}`,
+                      width: 56, height: 56, borderRadius: 18,
+                      background: D.accent, border: `1px solid ${D.border}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      margin: "0 auto 12px", fontSize: 24,
+                      margin: "0 auto 14px", fontSize: 26,
                     }}>🎓</div>
-                    <div style={{ fontFamily: "Syne,sans-serif", fontSize: 16, fontWeight: 700, color: "#c5c9e8", marginBottom: 6 }}>
+                    <div style={{ fontFamily: "Syne,sans-serif", fontSize: 17, fontWeight: 700, color: D.text, marginBottom: 6 }}>
                       What do you want to learn?
                     </div>
                     <div style={{ fontSize: 12, color: D.hint, lineHeight: 1.65 }}>
-                      Ask any question — get a definition,<br />deep explanation, and a video lesson.
+                      Ask any question — get a clear answer,<br />follow-up suggestions, and a video lesson.
                     </div>
                   </div>
 
@@ -1024,56 +1200,84 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                       <button
                         key={c} onClick={() => ask(c)}
                         style={{
-                          padding: "6px 12px", borderRadius: 20,
-                          background: "#0f1128", border: "0.5px solid #2a2d4a",
+                          padding: "7px 13px", borderRadius: 20,
+                          background: D.accent, border: `0.5px solid ${D.line}`,
                           fontSize: 11, color: D.muted, cursor: "pointer",
-                          fontFamily: "Manrope,sans-serif",
+                          fontFamily: "Manrope,sans-serif", transition: "all 0.15s",
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#1a1d3a"; e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = "#DAA520"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "#0f1128"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = D.muted; }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = D.accent2; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.muted; }}
                       >{c}</button>
                     ))}
                   </div>
                 </>
               ) : (
-                messages.map((m, i) => (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {m.type === "user" && (
-                      <div style={{ alignSelf: "flex-end", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, maxWidth: "82%" }}>
-                        {m.attachment?.type === "img" && (
-                          <img src={m.attachment.dataUrl} alt={m.attachment.name}
-                            style={{ width: 160, borderRadius: 10, border: `0.5px solid ${D.line}`, objectFit: "cover" }} />
-                        )}
-                        {m.attachment?.type === "doc" && (
+                <>
+                  {/* Context indicator */}
+                  {messages.filter(m => m.type === "user").length >= 2 && (
+                    <div style={{
+                      alignSelf: "center", fontSize: 10, color: D.faint,
+                      padding: "3px 11px", borderRadius: 12,
+                      background: D.bar, border: `0.5px solid ${D.line2}`,
+                      fontFamily: "Manrope,sans-serif",
+                    }}>🧠 AI remembers this conversation</div>
+                  )}
+
+                  {messages.map((m, i) => (
+                    <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {m.type === "user" && (
+                        <div style={{ alignSelf: "flex-end", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, maxWidth: "82%" }}>
+                          {m.attachment?.type === "img" && (
+                            <img src={m.attachment.dataUrl} alt={m.attachment.name}
+                              style={{ width: 160, borderRadius: 10, border: `0.5px solid ${D.line}`, objectFit: "cover" }} />
+                          )}
+                          {m.attachment?.type === "doc" && (
+                            <div style={{
+                              display: "flex", alignItems: "center", gap: 7,
+                              background: D.bar, border: `0.5px solid ${D.line}`,
+                              borderRadius: 10, padding: "7px 12px",
+                            }}>
+                              <span style={{ fontSize: 18 }}>📄</span>
+                              <span style={{ fontSize: 11, color: D.muted, fontFamily: "Manrope,sans-serif", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.attachment.name}</span>
+                            </div>
+                          )}
                           <div style={{
-                            display: "flex", alignItems: "center", gap: 7,
-                            background: "#0f1128", border: `0.5px solid ${D.line}`,
-                            borderRadius: 10, padding: "7px 12px",
-                          }}>
-                            <span style={{ fontSize: 18 }}>📄</span>
-                            <span style={{ fontSize: 11, color: D.muted, fontFamily: "Manrope,sans-serif", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.attachment.name}</span>
-                          </div>
-                        )}
+                            background: D.userBg, border: `0.5px solid ${D.userBdr}`,
+                            borderRadius: "16px 16px 4px 16px",
+                            padding: "10px 14px", fontSize: 13, color: D.userTxt,
+                            fontFamily: "Manrope,sans-serif",
+                            animation: "scSlideIn 0.25s ease",
+                          }}><MarkdownText>{m.text}</MarkdownText></div>
+                        </div>
+                      )}
+                      {m.type === "loading" && (
                         <div style={{
-                          background: D.accent, border: `0.5px solid ${D.border}`,
-                          borderRadius: "16px 16px 4px 16px",
-                          padding: "9px 13px", fontSize: 13, color: "#FFD700",
-                          fontFamily: "Manrope,sans-serif",
-                          animation: "scSlideIn 0.25s ease",
-                        }}><MarkdownText>{m.text}</MarkdownText></div>
-                      </div>
-                    )}
-                    {m.type === "loading" && (
-                      <div style={{
-                        alignSelf: "flex-start",
-                        background: D.card, border: `0.5px solid ${D.line}`,
-                        borderRadius: "4px 16px 16px 16px", width: 80,
-                      }}>
-                        <TypingDots />
-                      </div>
-                    )}
-                  </div>
-                ))
+                          alignSelf: "flex-start",
+                          background: D.card, border: `0.5px solid ${D.aiBdr}`,
+                          borderRadius: "4px 16px 16px 16px", width: 80,
+                        }}>
+                          <TypingDots />
+                        </div>
+                      )}
+                      {m.type === "ai" && m.data && (
+                        <AIMessageBubble
+                          data={m.data}
+                          onStartPractice={() => { setData(m.data); setView("practice"); }}
+                          onFollowUp={(q) => ask(q)}
+                          onQuickAction={(action, topic) => {
+                            const prompts = {
+                              explain_simpler: `Explain ${topic} in simpler terms, as if for a beginner`,
+                              test_me: `Generate 3 multiple-choice questions about ${topic} to test my understanding`,
+                              flashcards: `Generate 5 flashcards about ${topic}`,
+                              example: `Give me a concrete real-world example of ${topic}`,
+                            };
+                            ask(prompts[action] || topic);
+                          }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </>
               )}
               <div ref={bottomRef} />
             </div>
@@ -1092,39 +1296,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           </>
         )}
 
-        {/* ══ VIEW: RESPONSE ══ */}
-        {view === "response" && data && (
-          <>
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 12, scrollbarWidth: "none" }}>
-              {/* Last user bubble */}
-              {messages.filter(m => m.type === "user").slice(-1).map((m, i) => (
-                <div key={i} style={{
-                  alignSelf: "flex-end",
-                  background: D.accent, border: `0.5px solid ${D.border}`,
-                  borderRadius: "16px 16px 4px 16px",
-                  padding: "9px 13px", fontSize: 13, color: "#FFD700",
-                  maxWidth: "78%", fontFamily: "Manrope,sans-serif",
-                }}>{m.text}</div>
-              ))}
-
-              <ResponseCard data={data} onStartPractice={() => setView("practice")} />
-              <div ref={bottomRef} />
-            </div>
-
-            <InputBar
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onSend={() => ask(input)}
-              loading={loading}
-              placeholder="Follow-up question…"
-              showUpload={false}
-            />
-          </>
-        )}
-
         {/* ══ VIEW: PRACTICE ══ */}
         {view === "practice" && data && (
-          <PracticeView data={data} onBack={() => setView("response")} />
+          <PracticeView data={data} onBack={() => setView("chat")} aiConfig={aiConfig} />
         )}
 
         {/* ══ VIEW: LEARN (Video Lessons) ══ */}

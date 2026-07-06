@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { callAI } from "../lib/aiClient";
 import { api } from "../lib/appUtils";
 import { DEMO_LIMITS } from "../lib/constants";
+import { buildSystemPrompt, buildConversationContext } from "../features/AITutor/prompts.js";
+import { detectDiscipline } from "../features/AITutor/disciplines.js";
 
 export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, demoMode, demoUsage, setDemoUsage }) {
   const [message, setMessage] = useState("");
@@ -57,15 +59,15 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
     }
 
     try {
-      const context = selectedSubject
-        ? `You are a helpful tutor for ${selectedSubject}. The user is studying this subject. Keep answers concise and educational. After explaining, always ask if the user wants you to: break the concept down more, or explain it like they're 6 years old.`
-        : "You are a friendly, knowledgeable academic chat assistant for university students. Be conversational and helpful. Focus on academics but can also help with study tips, planning, and motivation. Keep answers clear and concise.";
-
-      let systemPrompt = context + "\n\nSubjects available: " + subjects.map(s => s.label).join(", ");
+      const subject = selectedSubject ? { id: selectedSubject, label: selectedSubject } : null;
+      const disciplineId = detectDiscipline(selectedSubject);
+      const systemPrompt = buildSystemPrompt({ mode: "chat", disciplineId, subject });
+      const convoHistory = newHistory.filter(m => m.role === "user" || m.role === "assistant").slice(-8);
+      const convoCtx = buildConversationContext(convoHistory, 8);
       let responseText = "";
 
       try {
-        responseText = await callAI(`${systemPrompt}\n\nUser: ${userMsg}`, aiConfig);
+        responseText = await callAI(`${systemPrompt}${convoCtx}\n\nSTUDENT: ${userMsg}\n\nTUTOR:`, aiConfig);
       } catch (proxyError) {
         console.log("Backend proxy failed, trying direct call:", proxyError);
 
@@ -93,7 +95,7 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
             body: JSON.stringify({
               model: aiConfig.model,
               messages: [
-                { role: "system", content: systemPrompt },
+                { role: "system", content: systemPrompt + convoCtx },
                 { role: "user", content: userMsg }
               ],
               max_tokens: 500,
@@ -114,7 +116,8 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
         finalResponse = responseText + "\n\n[FollowUpButtons]";
       }
 
-      setChatHistory([...newHistory, { role: "assistant", content: finalResponse, timestamp: Date.now() }]);
+      const aiMsg = { role: "assistant", content: finalResponse, timestamp: Date.now() };
+      setChatHistory([...newHistory, aiMsg]);
 
       if (token) {
         api("/user-data/chat", { token, method: "POST", body: { role: "assistant", content: finalResponse } }).catch(console.error);
@@ -139,6 +142,22 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
     }
   }
 
+  function copyMessage(content, i) {
+    const text = content.replace("[FollowUpButtons]", "").trim();
+    navigator.clipboard.writeText(text);
+    setCopiedIdx(i);
+    setTimeout(() => setCopiedIdx(null), 2000);
+  }
+
+  const [copiedIdx, setCopiedIdx] = useState(null);
+  const userMsgCount = chatHistory.filter(m => m.role === "user").length;
+  const quickActions = [
+    { icon: "🔍", label: "Explain simpler", getPrompt: (q) => `Explain ${q} in simpler terms, as if for a beginner` },
+    { icon: "📝", label: "Test me", getPrompt: (q) => `Generate 3 multiple-choice questions about ${q} to test my understanding` },
+    { icon: "🃏", label: "Flashcards", getPrompt: (q) => `Generate 5 flashcards about ${q}` },
+    { icon: "📖", label: "Example", getPrompt: (q) => `Give me a concrete real-world example of ${q}` },
+  ];
+
   return (
     <div className="card">
       <div className="row">
@@ -151,6 +170,11 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
           {subjects.map((s) => <option key={s.id} value={s.label}>{s.label}</option>)}
         </select>
       </div>
+      {userMsgCount >= 2 && (
+        <div style={{ textAlign: "center", fontSize: 11, color: "#646E84", padding: "4px 0" }}>
+          🧠 AI remembers this conversation
+        </div>
+      )}
       <div className="ai-chat-container" ref={chatContainerRef} style={{ maxHeight: "400px", overflowY: "auto" }}>
         {chatHistory.map((msg, i) => (
           <div key={i} style={{ marginBottom: 12 }}>
@@ -160,52 +184,33 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
                 {msg.content.includes("[FollowUpButtons]") ? (
                   <>
                     <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{msg.content.replace("[FollowUpButtons]", "")}</p>
-                    <div style={{
-                      display: "flex",
-                      gap: 8,
-                      marginTop: 12,
-                      flexWrap: "wrap"
-                    }}>
+                    {/* Quick action chips */}
+                    <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                      {quickActions.map((qa) => {
+                        const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
+                        const originalQ = lastUserMsg?.content || "the previous topic";
+                        return (
+                          <button
+                            key={qa.label}
+                            onClick={() => sendMessage(qa.getPrompt(originalQ))}
+                            disabled={loading}
+                            style={{
+                              background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.2)",
+                              color: "#7b82b8", padding: "5px 11px", borderRadius: 14,
+                              cursor: "pointer", fontSize: 11, fontWeight: 600,
+                            }}
+                          >{qa.icon} {qa.label}</button>
+                        );
+                      })}
                       <button
-                        onClick={() => {
-                          const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
-                          const originalQ = lastUserMsg?.content || "the previous topic";
-                          sendMessage(`Break down ${originalQ} in more detail for me`);
-                        }}
-                        disabled={loading}
+                        onClick={() => copyMessage(msg.content, i)}
+                        title="Copy answer"
                         style={{
-                          background: "#1e3a5f",
-                          border: "1px solid #FFD700",
-                          color: "#60a5fa",
-                          padding: "8px 16px",
-                          borderRadius: 6,
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontWeight: 500
+                          background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.2)",
+                          color: copiedIdx === i ? "#4caf50" : "#7b82b8", padding: "5px 11px", borderRadius: 14,
+                          cursor: "pointer", fontSize: 11, fontWeight: 600,
                         }}
-                      >
-                        🔍 Break it down more
-                      </button>
-                      <button
-                        onClick={() => {
-                          const lastUserMsg = chatHistory.slice(0, i).reverse().find(m => m.role === "user");
-                          const originalQ = lastUserMsg?.content || "the previous topic";
-                          sendMessage(`Explain ${originalQ} like I'm 6 years old to me`);
-                        }}
-                        disabled={loading}
-                        style={{
-                          background: "#1e3a5f",
-                          border: "1px solid #FFD700",
-                          color: "#60a5fa",
-                          padding: "8px 16px",
-                          borderRadius: 6,
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontWeight: 500
-                        }}
-                      >
-                        👶 Explain like I'm 6
-                      </button>
+                      >{copiedIdx === i ? "✓ Copied" : "⧉ Copy"}</button>
                     </div>
                   </>
                 ) : (

@@ -546,7 +546,10 @@ function App() {
 
   // Listen for custom event from ResourceViewer to navigate to Research Hub
   useEffect(() => {
-    const handleOpenResearchHub = () => setTab("research-hub");
+    const handleOpenResearchHub = (e) => {
+      if (e.detail) window.__sc_pending_hub_tab = e.detail;
+      setTab("research-hub");
+    };
     window.addEventListener("sc-open-research-hub", handleOpenResearchHub);
     return () => window.removeEventListener("sc-open-research-hub", handleOpenResearchHub);
   }, []);
