@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { callAI, extractJSON } from "../lib/aiClient";
+import { callAI, callAIMultimodal, extractJSON } from "../lib/aiClient";
 import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
 import { detectDiscipline } from "./AITutor/disciplines.js";
+import { extractTextFromFile } from "./AITutor/fileExtract.js";
 import LearningRoom from "./AITutor/LearningRoom";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
@@ -86,7 +87,7 @@ async function fetchYouTubeVideo(ytQuery) {
   return null;
 }
 
-async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null) {
+async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null, images = null) {
   const disciplineId = detectDiscipline(subject?.label);
   const system = buildSystemPrompt({ mode: "chat", disciplineId, subject });
   const convo = buildConversationContext(conversationHistory, 8);
@@ -96,7 +97,9 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
     `Reply ONLY with valid JSON (no markdown, no code fences):\n` +
     `{"definition":"1-2 sentence clear definition","explanation":"3-4 sentence educational explanation with examples","ytQuery":"6-8 word YouTube search query","followUps":["follow-up question 1","follow-up question 2","follow-up question 3"]}\n\n` +
     `The followUps should be natural student questions that go deeper into the topic, progressively from basic to advanced. Max 60 chars each.`;
-  const raw = await callAI(prompt, aiConfig);
+  const raw = images && images.length > 0
+    ? await callAIMultimodal(prompt, images, [], aiConfig)
+    : await callAI(prompt, aiConfig);
   try {
     const s = raw.indexOf("{"), e = raw.lastIndexOf("}") + 1;
     const parsed = JSON.parse(raw.slice(s, e));
@@ -965,15 +968,31 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConvos]  = useState(() => loadConvos());
   const [currentId, setCurrentId]   = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(null);
   const bottomRef                   = useRef(null);
 
-  function handleDocSelect(file) {
+  async function handleDocSelect(file) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      setAttachment({ type: "doc", name: file.name, content: (ev.target.result || "").slice(0, 4000), dataUrl: null });
-    };
-    reader.readAsText(file);
+    setAttachment({ type: "doc", name: file.name, content: "Extracting text…", dataUrl: null, loading: true });
+    try {
+      const result = await extractTextFromFile(file);
+      const text = (result.text || "").slice(0, 4000);
+      const images = result.images || [];
+      setAttachment({
+        type: images.length > 0 && !text ? "img" : "doc",
+        name: file.name,
+        content: text || (images.length > 0 ? "(scanned document — sending as images)" : ""),
+        dataUrl: images[0] || null,
+        images: images,
+        loading: false,
+      });
+    } catch (err) {
+      setAttachment({
+        type: "doc", name: file.name,
+        content: `Failed to extract text: ${err.message}`,
+        dataUrl: null, loading: false,
+      });
+    }
   }
 
   function handleImgSelect(file) {
@@ -1050,24 +1069,32 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     const capturedAttachment = attachment;
     setAttachment(null);
 
+    // Collect images for multimodal AI call
+    let images = null;
+    if (capturedAttachment?.type === "img" && capturedAttachment.dataUrl) {
+      images = [capturedAttachment.dataUrl];
+    } else if (capturedAttachment?.images && capturedAttachment.images.length > 0) {
+      images = capturedAttachment.images;
+    }
+
     // Build augmented query for AI
     let aiQuery = q;
     if (capturedAttachment?.type === "doc" && capturedAttachment.content) {
       aiQuery = `The student uploaded a document named "${capturedAttachment.name}". Document content:\n\n${capturedAttachment.content}\n\nBased on this content, answer: ${q}`;
-    } else if (capturedAttachment?.type === "img") {
-      aiQuery = `The student uploaded an image named "${capturedAttachment.name}". ${q}`;
+    } else if (images) {
+      aiQuery = `The student uploaded an image named "${capturedAttachment.name}". Please analyze the image and answer: ${q}`;
     }
 
     try {
       const bankRes = searchQuestionBank(q, subjects);
       let aiRes = { definition: "", explanation: "", ytQuery: `${q} explained`, followUps: [] };
-      try { aiRes = await generateAIResponse(aiQuery, aiConfig, messages, null); } catch {}
+      try { aiRes = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images); } catch {}
       const ytQuery = aiRes.ytQuery || `${q} explained`;
       const video   = await fetchYouTubeVideo(ytQuery);
 
       const result = bankRes.found
         ? { source: "bank", ...bankRes, ...aiRes, ytQuery, video }
-        : { source: "ai", ...aiRes, ytQuery, video, questions: [], bankCount: 0, subjectLabel: null, topic: q };
+        : { source: "ai", ...aiRes, ytQuery, video, questions: [], bankCount: 0, subjectLabel: selectedSubject?.label || null, topic: q };
 
       const finalMsgs = [...messages, userMsg].filter(m => m.type !== "loading").concat({ type: "ai", data: result });
       setData(result);
@@ -1077,7 +1104,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     } catch (e) {
       setMsgs(p => p.filter(m => m.type !== "loading").concat({
         type: "ai",
-        data: { source: "ai", definition: "Something went wrong — check your AI settings.", explanation: String(e?.message || ""), ytQuery: q, video: null, questions: [], bankCount: 0, subjectLabel: null, topic: q },
+        data: { source: "ai", definition: "Something went wrong — check your AI settings.", explanation: String(e?.message || ""), ytQuery: q, video: null, questions: [], bankCount: 0, subjectLabel: selectedSubject?.label || null, topic: q },
       }));
     } finally {
       setLoading(false);
@@ -1086,7 +1113,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
   const topTitle = { chat: "AI Tutor", practice: "Practice Mode", learn: "Video Lessons", study: "Guided Study" }[view] || "AI Tutor";
   const topSub   = {
-    chat:     "Scholar's Circle · Ask anything",
+    chat:     selectedSubject ? `${selectedSubject.label || selectedSubject.id} · Ask anything` : "Scholar's Circle · Ask anything",
     practice: data ? `${data.subjectLabel || "AI"} · ${data.bankCount || 0} questions` : "",
     learn:    "Watch a video · Ask AI questions as you go",
     study:    "Roadmap → Explain → Questions → Flashcards",
@@ -1130,6 +1157,29 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               {topSub}
             </div>
           </div>
+
+          {/* Subject selector — only in chat view */}
+          {view === "chat" && subjects?.length > 0 && (
+            <select
+              value={selectedSubject?.id || ""}
+              onChange={e => {
+                const subj = subjects.find(s => s.id === e.target.value);
+                setSelectedSubject(subj || null);
+              }}
+              style={{
+                background: D.accent, border: `0.5px solid ${D.line}`,
+                borderRadius: 8, padding: "5px 8px", fontSize: 11,
+                color: selectedSubject ? D.accent2 : D.muted,
+                fontFamily: "Manrope,sans-serif", outline: "none",
+                cursor: "pointer", flexShrink: 0, maxWidth: 120,
+              }}
+            >
+              <option value="">All subjects</option>
+              {subjects.map(s => (
+                <option key={s.id} value={s.id}>{s.label || s.id}</option>
+              ))}
+            </select>
+          )}
 
           {/* 📚 Guided Study button */}
           <button
