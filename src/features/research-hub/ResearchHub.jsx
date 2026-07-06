@@ -506,6 +506,8 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
     />
   );
 
+  const communityResources = useMemo(() => resources, [resources]);
+
   if (viewerToken) {
     return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} />;
   }
@@ -535,8 +537,6 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
       />
     );
   }
-
-  const communityResources = useMemo(() => resources, [resources]);
 
   return (
     <div style={{ padding: spacing.xl, maxWidth: "1200px", margin: "0 auto" }}>
