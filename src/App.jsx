@@ -718,7 +718,7 @@ function App() {
 
 
 
-  const { profile: studentProfile, update: updateStudentProfile } = useStudentProfile();
+  const { profile: studentProfile, update: updateStudentProfile } = useStudentProfile(auth.user?.id);
 
 
 
@@ -6978,6 +6978,22 @@ function App() {
 
 
             setTab("today");
+
+
+
+            // Sync onboarding data to student profile
+
+            if (data.isUniStudent !== undefined || data.institution) {
+
+              updateStudentProfile({
+
+                isUniversityStudent: data.isUniStudent,
+
+                institution: data.institution || "",
+
+              });
+
+            }
 
 
 

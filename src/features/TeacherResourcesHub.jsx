@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount } from "../lib/researchUtils";
 import { getDepartments } from "../lib/departments.js";
+import { getMyProfile } from "../lib/profileApi.js";
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, getPendingResources } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
 
@@ -19,8 +20,9 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const [viewerToken, setViewerToken] = useState(null);
   const [activeTab, setActiveTab] = useState("my");
   const [showFilterSheet, setShowFilterSheet] = useState(false);
-  const [filters, setFilters] = useState({ department: "all", level: "all", semester: "all", subject: "all" });
+  const [filters, setFilters] = useState({ university: "all", department: "all", level: "all", semester: "all", subject: "all" });
   const [departments, setDepartments] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
   const [editResource, setEditResource] = useState(null);
   const [editForm, setEditForm] = useState({ title: "", subject: "", description: "", isPremium: false, level: "", semester: "" });
   const [editDeptIds, setEditDeptIds] = useState([]);
@@ -49,8 +51,23 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   useEffect(() => {
     fetchMyResources();
     fetchFolders();
-    getDepartments().then(setDepartments).catch(() => {});
+    fetchUserProfile();
   }, []);
+
+  useEffect(() => {
+    if (userProfile?.universityId) {
+      getDepartments(userProfile.universityId).then(setDepartments).catch(() => {});
+    } else {
+      getDepartments().then(setDepartments).catch(() => {});
+    }
+  }, [userProfile?.universityId]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const data = await getMyProfile();
+      if (data?.profile) setUserProfile(data.profile);
+    } catch {}
+  };
 
   useEffect(() => {
     if (activeTab === "pending" && pendingResources.length === 0 && !pendingLoading) {
@@ -151,6 +168,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
         departmentIds: newFolderDeptIds,
         level: newFolderLevel || null,
         semester: newFolderSemester || null,
+        universityId: userProfile?.universityId || null,
       });
       setFolders((prev) => [data, ...prev]);
       setShowCreateFolder(false);
@@ -356,25 +374,27 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     setMcqSaving(false);
   };
 
-  const activeFilterCount = ["level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
+  const activeFilterCount = ["university", "level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
 
   const filteredResources = useMemo(() => {
     return resources.filter((r) => {
+      const matchesUni = filters.university === "all" || r.university?.name === filters.university;
       const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
       const matchesLevel = filters.level === "all" || r.level === filters.level;
       const matchesSemester = filters.semester === "all" || r.semester === filters.semester;
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
-      return matchesDept && matchesLevel && matchesSemester && matchesSubject;
+      return matchesUni && matchesDept && matchesLevel && matchesSemester && matchesSubject;
     });
   }, [resources, filters]);
 
   const filteredPending = useMemo(() => {
     return pendingResources.filter((r) => {
+      const matchesUni = filters.university === "all" || r.university?.name === filters.university;
       const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
       const matchesLevel = filters.level === "all" || r.level === filters.level;
       const matchesSemester = filters.semester === "all" || r.semester === filters.semester;
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
-      return matchesDept && matchesLevel && matchesSemester && matchesSubject;
+      return matchesUni && matchesDept && matchesLevel && matchesSemester && matchesSubject;
     });
   }, [pendingResources, filters]);
 
@@ -388,11 +408,14 @@ export default function TeacherResourcesHub({ onBack } = {}) {
       result[key] = Array.from(set).sort();
     }
     const deptSet = new Set();
+    const uniSet = new Set();
     for (const r of allResources) {
       if (r.department) deptSet.add(r.department);
       if (r.resourceDepts) r.resourceDepts.forEach((rd) => deptSet.add(rd.department.name));
+      if (r.university?.name) uniSet.add(r.university.name);
     }
     result.department = Array.from(deptSet).sort();
+    result.university = Array.from(uniSet).sort();
     return result;
   }, [allResources]);
 
@@ -432,6 +455,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             <span>{formatViewCount(resource.viewCount)} views</span>
             {resource.isPremium && <span>· ⭐ Premium</span>}
             {resource.uploader && <span>· by {resource.uploader.username}</span>}
+            {resource.university?.name && <span>· 🎓 {resource.university.name}</span>}
           </div>
         </div>
 
@@ -731,6 +755,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             </div>
 
             {[
+              { key: "university", label: "University" },
               { key: "level", label: "Level" },
               { key: "semester", label: "Semester" },
               { key: "subject", label: "Subject" },
@@ -753,7 +778,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
 
             <div style={{ display: "flex", gap: "10px" }}>
               <button
-                onClick={() => setFilters({ department: "all", level: "all", semester: "all", subject: "all" })}
+                onClick={() => setFilters({ university: "all", department: "all", level: "all", semester: "all", subject: "all" })}
                 style={{ flex: 1, padding: "10px", background: "#0f1128", border: "0.5px solid #252860", borderRadius: "10px", fontSize: "13px", fontWeight: 600, color: "#7986cb", cursor: "pointer" }}
               >
                 Clear all{activeFilterCount > 0 && ` (${activeFilterCount})`}

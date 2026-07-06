@@ -44,6 +44,27 @@ function groupByLevelThenSubject(resources, sourceFilter, currentUserId) {
   }));
 }
 
+function groupByUniversityThenLevel(resources, sourceFilter, currentUserId) {
+  const filtered = resources.filter((r) => {
+    if (r.status === "pending" && r.uploadedBy !== currentUserId) return false;
+    if (sourceFilter === "mine") return r.uploadedBy === currentUserId;
+    if (sourceFilter === "department") return r.uploadedBy !== currentUserId;
+    return true;
+  });
+
+  const byUni = {};
+  for (const r of filtered) {
+    const uni = r.university?.name || "General";
+    if (!byUni[uni]) byUni[uni] = [];
+    byUni[uni].push(r);
+  }
+
+  return Object.keys(byUni).sort().map((uniName) => ({
+    university: uniName,
+    levels: groupByLevelThenSubject(byUni[uniName], "all", currentUserId),
+  }));
+}
+
 function StatsStrip({ fsrsStats, onExpand }) {
   if (!fsrsStats) return null;
   const { totalItems, dueCount, masteredCount, streak } = fsrsStats;
@@ -122,6 +143,7 @@ export default function LibraryView({
   bookmarkedIds,
   bookmarkBusyId,
   mcqProgress,
+  userProfile,
   onOpen,
   onToggleBookmark,
   onShare,
@@ -154,6 +176,30 @@ export default function LibraryView({
     }
     return result;
   }, [resources, sourceFilter, currentUserId, search]);
+
+  const groupedByUni = useMemo(() => {
+    let result = groupByUniversityThenLevel(resources, sourceFilter, currentUserId);
+    if (search) {
+      const q = search.toLowerCase();
+      result = result
+        .map((uniGroup) => ({
+          ...uniGroup,
+          levels: uniGroup.levels
+            .map((levelGroup) => ({
+              ...levelGroup,
+              subjects: levelGroup.subjects.filter((s) =>
+                s.subject.toLowerCase().includes(q) ||
+                s.resources.some((r) => r.title?.toLowerCase().includes(q))
+              ),
+            }))
+            .filter((lg) => lg.subjects.length > 0),
+        }))
+        .filter((ug) => ug.levels.length > 0);
+    }
+    return result;
+  }, [resources, sourceFilter, currentUserId, search]);
+
+  const hasUniversityData = useMemo(() => resources.some((r) => r.university?.name), [resources]);
 
   const toggleLevel = (level) => {
     setExpandedLevels((prev) => ({ ...prev, [level]: !prev[level] }));
@@ -233,8 +279,88 @@ export default function LibraryView({
         </div>
       </div>
 
-      {/* Level → Subject grouping */}
-      {grouped.length === 0 ? (
+      {/* University → Level → Subject grouping (when university data exists) */}
+      {hasUniversityData && groupedByUni.length > 0 ? (
+        groupedByUni.map((uniGroup) => (
+          <div key={uniGroup.university} style={{ marginBottom: spacing.xl }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: spacing.sm,
+              padding: "8px 14px", marginBottom: spacing.md,
+              background: "rgba(255,215,0,0.08)", border: `0.5px solid ${goldBorder}`,
+              borderRadius: "12px",
+            }}>
+              <span style={{ fontSize: 18 }}>{uniGroup.university === "General" ? "📚" : "🎓"}</span>
+              <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: goldText }}>
+                {uniGroup.university}
+              </span>
+              <span style={{
+                fontSize: fontSize.xs, color: colors.textDim,
+                background: colors.bg, padding: "2px 8px", borderRadius: "10px",
+              }}>
+                {uniGroup.levels.reduce((sum, lg) => sum + lg.subjects.reduce((s, sub) => s + sub.resources.length, 0), 0)} items
+              </span>
+            </div>
+            {uniGroup.levels.map((levelGroup) => {
+              const isExpanded = expandedLevels[`${uniGroup.university}-${levelGroup.level}`] !== false;
+              const totalItems = levelGroup.subjects.reduce((sum, s) => sum + s.resources.length, 0);
+              const totalDue = levelGroup.subjects.reduce((sum, s) => {
+                const stats = fsrsStats?.bySubject?.[s.subject];
+                return sum + (stats?.due || 0);
+              }, 0);
+
+              return (
+                <div key={levelGroup.level} style={{ marginBottom: spacing.md, marginLeft: spacing.md }}>
+                  <button
+                    onClick={() => toggleLevel(`${uniGroup.university}-${levelGroup.level}`)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "8px 14px", marginBottom: spacing.sm,
+                      background: colors.surface, border: `0.5px solid ${colors.border}`,
+                      borderRadius: "10px", cursor: "pointer",
+                      fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+                      <span style={{ fontSize: 12 }}>{isExpanded ? "▼" : "▶"}</span>
+                      <span>{levelGroup.level} Level</span>
+                      <span style={{
+                        fontSize: fontSize.xs, fontWeight: fontWeight.semibold,
+                        color: colors.textDim, background: colors.bg,
+                        padding: "2px 8px", borderRadius: "10px",
+                      }}>{totalItems} items</span>
+                      {totalDue > 0 && (
+                        <span style={{
+                          fontSize: fontSize.xs, fontWeight: fontWeight.bold,
+                          color: "#ef4444", background: "rgba(239,68,68,0.12)",
+                          padding: "2px 8px", borderRadius: "10px",
+                        }}>{totalDue} due</span>
+                      )}
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div style={sharedStyles.grid}>
+                      {levelGroup.subjects.map((s) => (
+                        <SubjectDeckCard
+                          key={s.subject}
+                          subject={s.subject}
+                          level={levelGroup.level}
+                          resources={s.resources}
+                          fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
+                          onClick={() => setSelectedSubject({
+                            subject: s.subject,
+                            level: levelGroup.level,
+                            resources: s.resources,
+                          })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))
+      ) : grouped.length === 0 ? (
         <div style={sharedStyles.emptyState}>
           <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
           <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { DISCIPLINES } from "./AITutor/disciplines.js";
+import { getUniversities, getUniversityDepartments } from "../lib/universities.js";
+import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
 
 const PROFILE_KEY = "sc_student_profile_v1";
 
@@ -49,6 +51,10 @@ const EMPTY_PROFILE = {
   discipline: "",
   level: "",
   institution: "",
+  universityId: null,
+  universityName: "",
+  isUniversityStudent: true,
+  schoolName: "",
   department: "",
   programme: "",
   matricNumber: "",
@@ -61,9 +67,48 @@ const EMPTY_PROFILE = {
   updatedAt: null
 };
 
-/** Hook to access and update the student profile. */
-export function useStudentProfile() {
+/** Hook to access and update the student profile with backend sync. */
+export function useStudentProfile(authUserId) {
   const [profile, setProfile] = useState(() => loadProfile());
+  const [loading, setLoading] = useState(false);
+
+  // Fetch from backend on mount and when auth user changes
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getMyProfile();
+        if (cancelled || !data?.profile) return;
+        const p = data.profile;
+        const merged = {
+          ...EMPTY_PROFILE,
+          ...loadProfile(),
+          fullName: p.fullName || "",
+          avatar: p.avatar || "🎓",
+          discipline: p.discipline || "",
+          level: p.level || "",
+          institution: p.institution || p.university?.name || "",
+          universityId: p.universityId || null,
+          universityName: p.university?.name || "",
+          isUniversityStudent: p.isUniversityStudent ?? true,
+          schoolName: p.schoolName || "",
+          department: p.department || "",
+          programme: p.programme || "",
+          matricNumber: p.matricNumber || "",
+          bio: p.bio || "",
+          learningStyle: p.learningStyle || "",
+          goals: p.goals || "",
+          targetGrade: p.targetGrade || "",
+          studyHoursPerDay: p.studyHoursPerDay ?? 2,
+        };
+        setProfile(merged);
+        saveProfile(merged);
+      } catch {
+        // offline fallback — keep localStorage
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authUserId]);
 
   const update = (changes) => {
     const next = {
@@ -74,6 +119,25 @@ export function useStudentProfile() {
     };
     setProfile(next);
     saveProfile(next);
+    // Fire-and-forget backend save
+    saveMyProfile({
+      fullName: next.fullName,
+      avatar: next.avatar,
+      discipline: next.discipline,
+      level: next.level,
+      institution: next.institution,
+      universityId: next.universityId,
+      isUniversityStudent: next.isUniversityStudent,
+      schoolName: next.schoolName,
+      department: next.department,
+      programme: next.programme,
+      matricNumber: next.matricNumber,
+      bio: next.bio,
+      learningStyle: next.learningStyle,
+      goals: next.goals,
+      targetGrade: next.targetGrade,
+      studyHoursPerDay: next.studyHoursPerDay,
+    }).catch(() => {});
   };
 
   const reset = () => {
@@ -81,27 +145,89 @@ export function useStudentProfile() {
     setProfile(null);
   };
 
-  return { profile, update, reset, isComplete: !!(profile?.fullName && profile?.discipline && profile?.level) };
+  return { profile, update, reset, loading, isComplete: !!(profile?.fullName && profile?.discipline && profile?.level) };
 }
 
 export function StudentProfile({ profile, onSave, authUser }) {
   const [draft, setDraft] = useState(profile || EMPTY_PROFILE);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState("info"); // info, academic, preferences
+  const [universities, setUniversities] = useState([]);
+  const [uniQuery, setUniQuery] = useState("");
+  const [showUniDropdown, setShowUniDropdown] = useState(false);
+  const [uniDepts, setUniDepts] = useState([]);
+  const [savingToBackend, setSavingToBackend] = useState(false);
 
   useEffect(() => {
     if (profile) setDraft(profile);
   }, [profile]);
+
+  // Load universities for dropdown
+  useEffect(() => {
+    getUniversities().then(setUniversities).catch(() => {});
+  }, []);
+
+  // Load departments when university changes
+  useEffect(() => {
+    if (draft.universityId) {
+      getUniversityDepartments(draft.universityId).then(setUniDepts).catch(() => setUniDepts([]));
+    } else {
+      setUniDepts([]);
+    }
+  }, [draft.universityId]);
+
+  const filteredUnis = universities.filter(u =>
+    !uniQuery || u.name.toLowerCase().includes(uniQuery.toLowerCase())
+  );
 
   function set(field, value) {
     setDraft((d) => ({ ...d, [field]: value }));
     setSaved(false);
   }
 
-  function handleSave() {
+  function selectUniversity(uni) {
+    setDraft((d) => ({
+      ...d,
+      universityId: uni.id,
+      universityName: uni.name,
+      institution: uni.name,
+      isUniversityStudent: uni.type !== "school",
+      schoolName: uni.type === "school" ? uni.name : d.schoolName,
+    }));
+    setSaved(false);
+    setShowUniDropdown(false);
+    setUniQuery("");
+  }
+
+  async function handleSave() {
     onSave(draft);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSavingToBackend(true);
+    try {
+      await saveMyProfile({
+        fullName: draft.fullName,
+        avatar: draft.avatar,
+        discipline: draft.discipline,
+        level: draft.level,
+        institution: draft.institution,
+        universityId: draft.universityId,
+        isUniversityStudent: draft.isUniversityStudent,
+        schoolName: draft.schoolName,
+        department: draft.department,
+        programme: draft.programme,
+        matricNumber: draft.matricNumber,
+        bio: draft.bio,
+        learningStyle: draft.learningStyle,
+        goals: draft.goals,
+        targetGrade: draft.targetGrade,
+        studyHoursPerDay: draft.studyHoursPerDay,
+      });
+    } catch {
+      // offline fallback — localStorage already saved by onSave
+    } finally {
+      setSavingToBackend(false);
+      setTimeout(() => setSaved(false), 2500);
+    }
   }
 
   const completion = computeCompletion(draft);
@@ -146,7 +272,13 @@ export function StudentProfile({ profile, onSave, authUser }) {
             {selectedDiscipline ? `${selectedDiscipline.icon} ${selectedDiscipline.label}` : "Set your discipline"}
             {draft.level && ` · ${ACADEMIC_LEVELS.find((l) => l.id === draft.level)?.label || draft.level}`}
           </div>
-          {draft.institution && (
+          {draft.universityName && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, padding: "4px 10px", borderRadius: 8, background: "rgba(255,215,0,0.15)", border: "1px solid rgba(255,215,0,0.3)", fontSize: 12, color: "#FFD700" }}>
+              {draft.isUniversityStudent ? "🎓" : "🏫"} {draft.universityName}
+              {draft.department && ` · ${draft.department}`}
+            </div>
+          )}
+          {draft.institution && !draft.universityName && (
             <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
               🏛️ {draft.institution}
               {draft.department && ` · ${draft.department}`}
@@ -299,24 +431,76 @@ export function StudentProfile({ profile, onSave, authUser }) {
             </div>
           </Field>
 
-          <Field label="Institution">
-            <input
-              type="text"
-              value={draft.institution}
-              onChange={(e) => set("institution", e.target.value)}
-              placeholder="e.g., University of Lagos"
-              style={inputStyle}
-            />
+          <Field label="University / School" hint="Search and select your institution">
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                value={showUniDropdown ? uniQuery : (draft.universityName || draft.institution || "")}
+                onChange={(e) => { setUniQuery(e.target.value); setShowUniDropdown(true); }}
+                onFocus={() => { setShowUniDropdown(true); setUniQuery(""); }}
+                placeholder="Search for your university or school…"
+                style={inputStyle}
+              />
+              {showUniDropdown && (
+                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, maxHeight: "240px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "0 0 8px 8px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                  {filteredUnis.length === 0 ? (
+                    <div style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af" }}>
+                      {universities.length === 0 ? "Loading…" : `No results for "${uniQuery}"`}
+                    </div>
+                  ) : (
+                    filteredUnis.slice(0, 20).map((u) => (
+                      <div
+                        key={u.id}
+                        onClick={() => selectUniversity(u)}
+                        style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid rgba(255,215,0,0.1)", display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#e8eaf6" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,215,0,0.1)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <span style={{ fontSize: 18 }}>{u.type === "school" ? "🏫" : u.type === "polytechnic" ? "🏛️" : "🎓"}</span>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{u.name}</div>
+                          <div style={{ fontSize: 11, color: "#7b82b8" }}>
+                            {u.type === "school" ? "Secondary School" : u.type === "polytechnic" ? "Polytechnic" : "University"}
+                            {u.city ? ` · ${u.city}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              {showUniDropdown && (
+                <div onClick={() => setShowUniDropdown(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+              )}
+            </div>
+            {draft.universityName && (
+              <div style={{ marginTop: 6, fontSize: 11, color: "#10b981" }}>
+                ✓ {draft.isUniversityStudent ? "University" : "School"}: {draft.universityName}
+              </div>
+            )}
           </Field>
 
           <Field label="Department / Faculty">
-            <input
-              type="text"
-              value={draft.department}
-              onChange={(e) => set("department", e.target.value)}
-              placeholder="e.g., Computer Science"
-              style={inputStyle}
-            />
+            {uniDepts.length > 0 ? (
+              <select
+                value={draft.department}
+                onChange={(e) => set("department", e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Select department…</option>
+                {uniDepts.map((d) => (
+                  <option key={d.id} value={d.name}>{d.icon || "🏛️"} {d.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={draft.department}
+                onChange={(e) => set("department", e.target.value)}
+                placeholder="e.g., Computer Science"
+                style={inputStyle}
+              />
+            )}
           </Field>
 
           <Field label="Programme / Major">
@@ -424,7 +608,7 @@ export function StudentProfile({ profile, onSave, authUser }) {
           justifyContent: "flex-end"
         }}
       >
-        {saved && <span style={{ color: "#10b981", fontSize: 13 }}>✓ Profile saved</span>}
+        {saved && <span style={{ color: "#10b981", fontSize: 13 }}>{savingToBackend ? "Syncing…" : "✓ Profile saved"}</span>}
         <button
           onClick={handleSave}
           disabled={!draft.fullName?.trim()}
@@ -473,5 +657,6 @@ function computeCompletion(p) {
   if (!p) return 0;
   const fields = ["fullName", "discipline", "level", "institution", "department", "programme", "learningStyle", "targetGrade", "goals"];
   const filled = fields.filter((f) => p[f] && String(p[f]).trim().length > 0).length;
-  return Math.round((filled / fields.length) * 100);
+  const uniBonus = p.universityId ? 1 : 0;
+  return Math.round(((filled + uniBonus) / (fields.length + 1)) * 100);
 }

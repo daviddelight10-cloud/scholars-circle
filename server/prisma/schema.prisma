@@ -194,6 +194,8 @@ model User {
 
   aiUsageLogs       AiUsageLog[]
 
+  userProfile       UserProfile?
+
 }
 
 // ============ CAMPUS ANNOUNCEMENTS ============
@@ -1262,17 +1264,65 @@ model WallReaction {
   @@index([postId])
 }
 
+// ============ UNIVERSITIES ============
+model University {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  type        String       @default("university") // university | polytechnic | college | school
+  country     String       @default("Nigeria")
+  city        String?
+  createdAt   DateTime     @default(now())
+
+  departments Department[]
+  userProfiles UserProfile[]
+  userDepartments UserDepartment[]
+  resources   Resource[]
+  folders     Folder[]
+}
+
+// ============ USER PROFILE ============
+model UserProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName        String?
+  avatar          String?
+  discipline      String?
+  level           String?
+  institution     String?  // free text fallback
+  universityId    String?
+  university      University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
+  schoolName      String?  // for non-university students
+  department      String?  // free text department name
+  programme       String?
+  matricNumber    String?
+  bio             String?
+  learningStyle   String?
+  goals           String?
+  targetGrade     String?
+  studyHoursPerDay Int     @default(2)
+  isUniversityStudent Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([universityId])
+}
+
 // ============ DEPARTMENTS ============
 model Department {
   id          String              @id @default(cuid())
   name        String              @unique
   icon        String?
+  universityId String?
+  university  University?         @relation(fields: [universityId], references: [id], onDelete: SetNull)
   createdAt   DateTime            @default(now())
   subjects    Subject[]           @relation("SubjectPrimaryDept")
   subjectDepts SubjectDepartment[]
   userDepts   UserDepartment[]
   resourceDepts ResourceDepartment[]
   folderDepts  FolderDepartment[]
+
+  @@index([universityId])
 }
 
 model SubjectDepartment {
@@ -1289,11 +1339,14 @@ model UserDepartment {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  universityId String?
+  university   University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
   yearLevel    Int        @default(1)
   semester     String?
   setAt        DateTime   @default(now())
 
   @@index([departmentId])
+  @@index([universityId])
 }
 
 model ResourceDepartment {
@@ -1371,6 +1424,8 @@ model Resource {
   department  String?
   level       String?
   semester    String?
+  universityId String?
+  university  University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
   folderId    String?
   folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   avgRating   Float    @default(0)
@@ -1394,6 +1449,7 @@ model Resource {
   @@index([shareToken])
   @@index([uploadedBy])
   @@index([folderId])
+  @@index([universityId])
 }
 
 model ResourceView {
@@ -1555,6 +1611,8 @@ model Folder {
   visibility  String   @default("private") // private | shared | link
   level       String?  // 100 Level, 200 Level, etc.
   semester    String?  // First Semester, Second Semester
+  universityId String?
+  university  University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
   shareToken  String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1564,6 +1622,7 @@ model Folder {
 
   @@index([ownerId])
   @@index([visibility])
+  @@index([universityId])
 }
 
 model FolderDepartment {

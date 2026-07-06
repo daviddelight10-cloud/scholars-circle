@@ -13,8 +13,9 @@ async function authFetch(url, opts = {}) {
   });
 }
 
-export async function getDepartments() {
-  const res = await authFetch(`${BASE}/api/departments`);
+export async function getDepartments(universityId) {
+  const params = universityId ? `?universityId=${universityId}` : "";
+  const res = await authFetch(`${BASE}/api/departments${params}`);
   if (!res.ok) throw new Error("Failed to load departments");
   return res.json();
 }
@@ -25,10 +26,10 @@ export async function getUserDepartment() {
   return res.json();
 }
 
-export async function setUserDepartment(departmentId, yearLevel, semester) {
+export async function setUserDepartment(departmentId, yearLevel, semester, universityId) {
   const res = await authFetch(`${BASE}/api/departments/user`, {
     method: "POST",
-    body: JSON.stringify({ departmentId, yearLevel, semester }),
+    body: JSON.stringify({ departmentId, yearLevel, semester, universityId }),
   });
   if (!res.ok) throw new Error("Failed to save department");
   return res.json();

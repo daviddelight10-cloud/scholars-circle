@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { saveMyProfile } from "../lib/profileApi.js";
 
 const STORE_KEY = "sc_onboarded_v1";
 
@@ -25,7 +26,11 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
   const [dailyMinutes, setDailyMinutes] = useState(45);
   const [confidence, setConfidence] = useState(2);
 
-  const totalSteps = 4;
+  const totalSteps = 5;
+
+  const [isUniStudent, setIsUniStudent] = useState(true);
+  const [uniName, setUniName] = useState("");
+  const [uniQuery, setUniQuery] = useState("");
 
   function toggleSubject(id) {
     setSelectedSubjects((prev) =>
@@ -35,11 +40,22 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
 
   function finish() {
     markOnboarded();
+    // Save academic context to profile
+    saveMyProfile({
+      isUniversityStudent: isUniStudent,
+      institution: uniName || null,
+      learningStyle: "visual",
+      goals: confidence <= 2 ? "Catch up and build confidence" : confidence >= 4 ? "Maintain and excel" : "Improve steadily",
+      targetGrade: "A",
+      studyHoursPerDay: Math.round(dailyMinutes / 60 * 10) / 10,
+    }).catch(() => {});
     onComplete({
       selectedSubjects,
       examDate,
       dailyMinutes,
       confidence,
+      isUniStudent,
+      institution: uniName,
     });
   }
 
@@ -81,6 +97,72 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
 
         {step === 1 && (
           <>
+            <h2>🎓 Are you a university student?</h2>
+            <p className="muted">This helps us tailor your experience.</p>
+            <div style={{ display: "flex", gap: "12px", marginTop: "16px" }}>
+              <button
+                onClick={() => { setIsUniStudent(true); setStep(2); }}
+                style={{
+                  flex: 1, padding: "24px 16px", borderRadius: "14px", cursor: "pointer",
+                  border: isUniStudent ? "2px solid #FFD700" : "1px solid #333",
+                  background: isUniStudent ? "#1a1500" : "#111",
+                  color: isUniStudent ? "#FFD700" : "#888",
+                  fontSize: "15px", fontWeight: 700,
+                }}
+              >
+                🎓 Yes, I'm a university / polytechnic student
+              </button>
+              <button
+                onClick={() => { setIsUniStudent(false); setStep(2); }}
+                style={{
+                  flex: 1, padding: "24px 16px", borderRadius: "14px", cursor: "pointer",
+                  border: !isUniStudent ? "2px solid #FFD700" : "1px solid #333",
+                  background: !isUniStudent ? "#1a1500" : "#111",
+                  color: !isUniStudent ? "#FFD700" : "#888",
+                  fontSize: "15px", fontWeight: 700,
+                }}
+              >
+                📚 No, I'm in secondary school
+              </button>
+            </div>
+            <div className="onboarding-actions">
+              <button onClick={() => setStep(0)} className="ghost">
+                Back
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <h2>{isUniStudent ? "🏛️ Which university?" : "🏫 Which school?"}</h2>
+            <p className="muted">
+              {isUniStudent ? "Search for your university. We'll connect you with coursemates." : "Type your school name to get started."}
+            </p>
+            <input
+              type="text"
+              placeholder={isUniStudent ? "e.g. University of Lagos" : "e.g. King's College, Lagos"}
+              value={uniName}
+              onChange={(e) => setUniName(e.target.value)}
+              style={{ fontSize: 16, padding: "10px 12px", width: "100%", marginTop: "12px" }}
+              autoFocus
+            />
+            <div className="onboarding-actions">
+              <button onClick={() => setStep(1)} className="ghost">
+                Back
+              </button>
+              <button
+                style={{ borderColor: "#FFD700", color: "#FFD700" }}
+                onClick={() => setStep(3)}
+              >
+                Next →
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
             <h2>📚 Pick your courses</h2>
             <p className="muted">Which subjects are you taking this semester?</p>
             <div className="onboarding-grid">
@@ -99,12 +181,12 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
               })}
             </div>
             <div className="onboarding-actions">
-              <button onClick={() => setStep(0)} className="ghost">
+              <button onClick={() => setStep(2)} className="ghost">
                 Back
               </button>
               <button
                 style={{ borderColor: "#FFD700", color: "#FFD700" }}
-                onClick={() => setStep(2)}
+                onClick={() => setStep(4)}
                 disabled={selectedSubjects.length === 0}
               >
                 Next →
@@ -113,7 +195,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
           </>
         )}
 
-        {step === 2 && (
+        {step === 4 && (
           <>
             <h2>📆 When's your next exam?</h2>
             <p className="muted">
@@ -142,12 +224,12 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
               ))}
             </div>
             <div className="onboarding-actions">
-              <button onClick={() => setStep(1)} className="ghost">
+              <button onClick={() => setStep(3)} className="ghost">
                 Back
               </button>
               <button
                 style={{ borderColor: "#FFD700", color: "#FFD700" }}
-                onClick={() => setStep(3)}
+                onClick={() => setStep(5)}
               >
                 Next →
               </button>
@@ -155,7 +237,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
           </>
         )}
 
-        {step === 3 && (
+        {step === 5 && (
           <>
             <h2>🎯 How confident are you right now?</h2>
             <p className="muted">Rate your overall current understanding. Be honest — we'll adjust the plan.</p>
@@ -181,7 +263,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
               ))}
             </div>
             <div className="onboarding-actions">
-              <button onClick={() => setStep(2)} className="ghost">
+              <button onClick={() => setStep(4)} className="ghost">
                 Back
               </button>
               <button

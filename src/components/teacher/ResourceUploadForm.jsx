@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { callAI, extractJSON } from "../../lib/aiClient";
 import { getSubjectBadgeColor } from "../../lib/researchUtils";
 import { getDepartments } from "../../lib/departments.js";
+import { getMyProfile } from "../../lib/profileApi.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -23,6 +24,7 @@ export default function ResourceUploadForm() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
+  const [userProfile, setUserProfile] = useState(null);
 
   // MCQ Builder state
   const [mcqMode, setMcqMode] = useState("manual"); // manual | ai
@@ -41,8 +43,18 @@ export default function ResourceUploadForm() {
   const semesters = ["First Semester", "Second Semester"];
 
   useEffect(() => {
-    getDepartments().then(setDepartments).catch(() => {});
+    getMyProfile().then((data) => {
+      if (data?.profile) setUserProfile(data.profile);
+    }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (userProfile?.universityId) {
+      getDepartments(userProfile.universityId).then(setDepartments).catch(() => {});
+    } else {
+      getDepartments().then(setDepartments).catch(() => {});
+    }
+  }, [userProfile?.universityId]);
 
   const isMcqType = formData.contentType === "MCQ";
 
@@ -176,6 +188,7 @@ export default function ResourceUploadForm() {
       if (selectedDeptIds.length > 0) formDataToSend.append("departmentIds", JSON.stringify(selectedDeptIds));
       if (formData.level) formDataToSend.append("level", formData.level);
       if (formData.semester) formDataToSend.append("semester", formData.semester);
+      if (userProfile?.universityId) formDataToSend.append("universityId", userProfile.universityId);
 
       if (isMcqType) {
         formDataToSend.append("mcqData", JSON.stringify(mcqBank));

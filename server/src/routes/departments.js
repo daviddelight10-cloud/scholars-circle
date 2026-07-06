@@ -4,12 +4,17 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// GET /api/departments — public, list all departments
-router.get("/", async (_req, res) => {
+// GET /api/departments — public, list all departments (optional ?universityId=xxx)
+router.get("/", async (req, res) => {
   try {
+    const { universityId } = req.query;
+    const where = {};
+    if (universityId) where.universityId = universityId;
     const rows = await prisma.department.findMany({
+      where,
       orderBy: { name: "asc" },
       include: {
+        university: { select: { id: true, name: true } },
         _count: { select: { subjects: true } },
       },
     });
@@ -22,9 +27,11 @@ router.get("/", async (_req, res) => {
 // POST /api/departments — TEACHER/LECTURER only
 router.post("/", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {
-    const { name, icon } = req.body;
+    const { name, icon, universityId } = req.body;
     if (!name) return res.status(400).json({ error: "name is required" });
-    const dept = await prisma.department.create({ data: { name, icon: icon || null } });
+    const dept = await prisma.department.create({
+      data: { name, icon: icon || null, universityId: universityId || null },
+    });
     res.status(201).json(dept);
   } catch (err) {
     if (err.code === "P2002") return res.status(409).json({ error: "Department already exists" });
@@ -76,15 +83,15 @@ router.get("/user", requireAuth, async (req, res) => {
 // POST /api/departments/user — set user's department + year level
 router.post("/user", requireAuth, async (req, res) => {
   try {
-    const { departmentId, yearLevel, semester } = req.body;
+    const { departmentId, yearLevel, semester, universityId } = req.body;
     if (!departmentId || !yearLevel) {
       return res.status(400).json({ error: "departmentId and yearLevel required" });
     }
     const row = await prisma.userDepartment.upsert({
       where: { userId: req.user.sub },
-      update: { departmentId, yearLevel: Number(yearLevel), semester: semester || null, setAt: new Date() },
-      create: { userId: req.user.sub, departmentId, yearLevel: Number(yearLevel), semester: semester || null },
-      include: { department: true },
+      update: { departmentId, universityId: universityId || null, yearLevel: Number(yearLevel), semester: semester || null, setAt: new Date() },
+      create: { userId: req.user.sub, departmentId, universityId: universityId || null, yearLevel: Number(yearLevel), semester: semester || null },
+      include: { department: true, university: { select: { id: true, name: true } } },
     });
     res.json(row);
   } catch (err) {

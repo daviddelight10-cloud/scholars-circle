@@ -1,8 +1,16 @@
 import { useMemo, useState } from "react";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
-export default function FilterBar({ filters, setFilters, resources }) {
+export default function FilterBar({ filters, setFilters, resources, universities }) {
   const [expanded, setExpanded] = useState(false);
+
+  const universityNames = useMemo(() => {
+    const set = new Set();
+    for (const r of resources) {
+      if (r.university?.name) set.add(r.university.name);
+    }
+    return Array.from(set).sort();
+  }, [resources]);
 
   const departments = useMemo(() => {
     const set = new Set(resources.map((r) => r.department).filter(Boolean));
@@ -24,10 +32,10 @@ export default function FilterBar({ filters, setFilters, resources }) {
     return Array.from(set).sort();
   }, [resources]);
 
-  const activeCount = ["department", "level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
+  const activeCount = ["university", "department", "level", "semester", "subject"].filter((k) => filters[k] !== "all").length;
 
   const clearAll = () => {
-    setFilters({ department: "all", level: "all", semester: "all", subject: "all" });
+    setFilters({ university: "all", department: "all", level: "all", semester: "all", subject: "all" });
   };
 
   const selectStyle = {
@@ -73,6 +81,15 @@ export default function FilterBar({ filters, setFilters, resources }) {
           padding: spacing.md, background: colors.surface,
           border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.lg,
         }}>
+          {universityNames.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs, minWidth: "160px", flex: "1 1 160px" }}>
+              <label style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textMuted }}>University</label>
+              <select value={filters.university || "all"} onChange={(e) => setFilters((p) => ({ ...p, university: e.target.value }))} style={selectStyle}>
+                <option value="all">All universities</option>
+                {universityNames.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs, minWidth: "140px", flex: "1 1 140px" }}>
             <label style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Department</label>
             <select value={filters.department} onChange={(e) => setFilters((p) => ({ ...p, department: e.target.value }))} style={selectStyle}>

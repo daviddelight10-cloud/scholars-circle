@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { copyShareToken } from "../../lib/researchUtils";
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder } from "../../lib/foldersApi";
+import { getMyProfile } from "../../lib/profileApi.js";
 import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
 
@@ -36,7 +37,8 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   const [viewerToken, setViewerToken] = useState(null);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
-  const [filters, setFilters] = useState({ department: "all", level: "all", semester: "all", subject: "all" });
+  const [filters, setFilters] = useState({ university: "all", department: "all", level: "all", semester: "all", subject: "all" });
+  const [userProfile, setUserProfile] = useState(null);
   const [fsrsStats, setFsrsStats] = useState(null);
   const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
@@ -75,7 +77,15 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
     fetchFsrsAnalytics();
     fetchFolders();
     fetchMcqProgress();
+    fetchUserProfile();
   }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const data = await getMyProfile();
+      if (data?.profile) setUserProfile(data.profile);
+    } catch {}
+  };
 
   useEffect(() => {
     const handler = (e) => {
@@ -196,6 +206,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
         visibility: newFolderVisibility,
         level: newFolderLevel || null,
         semester: newFolderSemester || null,
+        universityId: userProfile?.universityId || null,
       });
       setFolders((prev) => ({ ...prev, own: [data, ...(prev.own || [])] }));
       setShowCreateFolder(false);
@@ -354,6 +365,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
     if (uploadFile) formData.append("file", uploadFile);
     if (uploadDescription.trim()) formData.append("description", uploadDescription.trim());
     if (uploadFolderId) formData.append("folderId", uploadFolderId);
+    if (userProfile?.universityId) formData.append("universityId", userProfile.universityId);
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -407,6 +419,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
     formData.append("isPremium", "false");
     formData.append("mcqData", JSON.stringify(mcqRows));
     if (uploadFolderId) formData.append("folderId", uploadFolderId);
+    if (userProfile?.universityId) formData.append("universityId", userProfile.universityId);
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -459,11 +472,12 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
     let list = (tabResources || []).filter((r) => {
       const matchesSearch = search === "" || r.title.toLowerCase().includes(search.toLowerCase()) || r.subject.toLowerCase().includes(search.toLowerCase());
       const matchesType = activeFilter === "all" || r.contentType === activeFilter;
+      const matchesUni = filters.university === "all" || r.university?.name === filters.university;
       const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
       const matchesLevel = filters.level === "all" || r.level === filters.level;
       const matchesSemester = filters.semester === "all" || r.semester === filters.semester;
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
-      return matchesSearch && matchesType && matchesDept && matchesLevel && matchesSemester && matchesSubject;
+      return matchesSearch && matchesType && matchesUni && matchesDept && matchesLevel && matchesSemester && matchesSubject;
     });
     const sorted = [...list];
     if (sortBy === "views") sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
@@ -559,6 +573,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
           bookmarkedIds={bookmarkedIds}
           bookmarkBusyId={bookmarkBusyId}
           mcqProgress={mcqProgress}
+          userProfile={userProfile}
           onOpen={handleOpen}
           onToggleBookmark={toggleBookmark}
           onShare={handleShare}

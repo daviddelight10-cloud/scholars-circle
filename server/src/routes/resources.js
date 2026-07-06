@@ -90,7 +90,7 @@ router.get("/teacher/my", requireAuth, async (req, res) => {
   try {
     const resources = await prisma.resource.findMany({
       where: { uploadedBy: req.user.sub },
-      include: { uploader: { select: { id: true, username: true, role: true } }, _count: { select: { bookmarks: true } }, resourceDepts: { include: { department: { select: { id: true, name: true } } } } },
+      include: { uploader: { select: { id: true, username: true, role: true } }, university: { select: { id: true, name: true, type: true } }, _count: { select: { bookmarks: true } }, resourceDepts: { include: { department: { select: { id: true, name: true } } } } },
       orderBy: { createdAt: "desc" },
     });
     res.json(resources);
@@ -158,7 +158,7 @@ router.get("/pending", requireAuth, requireRole("TEACHER", "LECTURER"), async (r
   try {
     const resources = await prisma.resource.findMany({
       where: { status: "pending" },
-      include: { uploader: { select: { id: true, username: true, role: true } }, resourceDepts: { include: { department: { select: { id: true, name: true } } } } },
+      include: { uploader: { select: { id: true, username: true, role: true } }, university: { select: { id: true, name: true, type: true } }, resourceDepts: { include: { department: { select: { id: true, name: true } } } } },
       orderBy: { createdAt: "desc" },
     });
     res.json(resources);
@@ -1396,7 +1396,7 @@ router.get("/pdf-review/flashcards/:resourceId", requireAuth, (req, res) => { re
 // POST /api/resources - Create new resource (any authenticated user)
 router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   try {
-    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId } = req.body;
+    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId, universityId } = req.body;
 
     if (!title || !subject || !contentType) {
       return res.status(400).json({ error: "Title, subject, and content type are required" });
@@ -1405,7 +1405,12 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     // Fetch user's department info for auto-filling if not provided
     const userDept = await prisma.userDepartment.findUnique({
       where: { userId: req.user.sub },
-      include: { department: { select: { name: true } } },
+      include: { department: { select: { name: true } }, university: { select: { id: true, name: true } } },
+    });
+    // Also fetch user profile for university info
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { userId: req.user.sub },
+      select: { universityId: true, isUniversityStudent: true, schoolName: true },
     });
     const user = await prisma.user.findUnique({ where: { id: req.user.sub }, select: { role: true } });
     const isStudent = user?.role === "STUDENT";
@@ -1429,6 +1434,8 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const levelMap = { 1: "100 Level", 2: "200 Level", 3: "300 Level", 4: "400 Level", 5: "500 Level", 6: "600 Level" };
     const finalLevel = level || (userDept ? levelMap[userDept.yearLevel] || null : null);
     const finalSemester = semester || userDept?.semester || null;
+    // Auto-fill universityId from user's profile or userDepartment
+    const finalUniversityId = universityId || userDept?.universityId || userProfile?.universityId || null;
 
     // Parse departmentIds — can be a JSON array string or repeated form fields
     // If uploading into a shared folder, inherit the folder's department associations
@@ -1494,6 +1501,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         department: finalDept,
         level: finalLevel,
         semester: finalSemester,
+        universityId: finalUniversityId,
         folderId: folderId || null,
         resourceDepts: parsedDeptIds.length > 0 ? {
           create: parsedDeptIds.map((deptId) => ({ departmentId: deptId })),
@@ -1501,6 +1509,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
       },
       include: {
         uploader: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true, type: true } },
         resourceDepts: { include: { department: { select: { id: true, name: true } } } },
       },
     });
@@ -1568,7 +1577,7 @@ router.post("/:token/view", requireAuth, async (req, res) => {
 router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, subject, description, isPremium, department, level, semester, departmentIds, mcqData } = req.body;
+    const { title, subject, description, isPremium, department, level, semester, departmentIds, mcqData, universityId } = req.body;
 
     const resource = await prisma.resource.findUnique({
       where: { id },
@@ -1619,6 +1628,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
         ...(department !== undefined && { department }),
         ...(level !== undefined && { level }),
         ...(semester !== undefined && { semester }),
+        ...(universityId !== undefined && { universityId: universityId || null }),
         ...(parsedMcqData && { mcqData: parsedMcqData }),
         ...(parsedDeptIds !== null && {
           resourceDepts: {
@@ -1629,6 +1639,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       },
       include: {
         uploader: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true, type: true } },
         resourceDepts: { include: { department: { select: { id: true, name: true } } } },
       },
     });
