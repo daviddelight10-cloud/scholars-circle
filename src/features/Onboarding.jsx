@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { saveMyProfile } from "../lib/profileApi.js";
 import { getUniversities, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 
@@ -35,6 +35,17 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
   const [uniQuery, setUniQuery] = useState("");
   const [uniResults, setUniResults] = useState([]);
   const [showUniDropdown, setShowUniDropdown] = useState(false);
+  const uniWrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (uniWrapperRef.current && !uniWrapperRef.current.contains(e.target)) {
+        setShowUniDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     getUniversities()
@@ -170,21 +181,29 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
             <p className="muted">
               {isUniStudent ? "Search for your university. We'll connect you with coursemates." : "Type your school name to get started."}
             </p>
-            <div style={{ position: "relative", marginTop: "12px" }}>
+            <div ref={uniWrapperRef} style={{ position: "relative", marginTop: "12px" }}>
               <input
                 type="text"
                 placeholder={isUniStudent ? "Search e.g. University of Lagos" : "e.g. King's College, Lagos"}
                 value={showUniDropdown ? uniQuery : (uniName || "")}
-                onChange={(e) => { setUniQuery(e.target.value); setShowUniDropdown(true); if (isUniStudent) setUniId(null); }}
-                onFocus={() => { setShowUniDropdown(true); setUniQuery(""); }}
+                onChange={(e) => {
+                  if (isUniStudent) {
+                    setUniQuery(e.target.value);
+                    setShowUniDropdown(true);
+                    setUniId(null);
+                  } else {
+                    setUniName(e.target.value);
+                  }
+                }}
+                onFocus={() => { if (isUniStudent) { setShowUniDropdown(true); setUniQuery(""); } }}
                 style={{ fontSize: 16, padding: "10px 12px", width: "100%" }}
                 autoFocus
               />
               {isUniStudent && showUniDropdown && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 1000, maxHeight: "240px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "0 0 8px 8px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "relative", marginTop: "4px", maxHeight: "220px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
                   {filteredUnis.length === 0 ? (
                     <div style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af" }}>
-                      {uniResults.length === 0 ? "Loading…" : `No results for "${uniQuery}"`}
+                      {uniResults.length === 0 ? "Loading…" : "No results for \"" + uniQuery + "\""}
                     </div>
                   ) : (
                     filteredUnis.slice(0, 20).map((u) => (
@@ -205,9 +224,6 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                   )}
                 </div>
               )}
-              {isUniStudent && showUniDropdown && (
-                <div onClick={() => setShowUniDropdown(false)} style={{ position: "fixed", inset: 0, zIndex: 999 }} />
-              )}
             </div>
             {uniName && (
               <div style={{ marginTop: 8, fontSize: 12, color: "#10b981" }}>✓ {uniName}</div>
@@ -218,7 +234,12 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
               </button>
               <button
                 style={{ borderColor: "#FFD700", color: "#FFD700" }}
-                onClick={() => setStep(3)}
+                onClick={() => {
+                  if (isUniStudent && !uniName && uniQuery.trim()) {
+                    setUniName(uniQuery.trim());
+                  }
+                  setStep(3);
+                }}
               >
                 Next →
               </button>
