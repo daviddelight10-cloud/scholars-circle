@@ -214,20 +214,42 @@ export default function DailyReview({ onBack, onComplete }) {
           ) : currentItem.itemType === "mcq" || currentItem.itemType === "legacy_mcq" ? (
             <>
               <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: spacing.md }}>
-                {currentItem.mcq?.q || currentItem.mcq?.question || `Question ${(currentItem.pageIndex || 0) + 1}`}
+                {currentItem.mcq?.question || currentItem.mcq?.q || `Question ${(currentItem.pageIndex || 0) + 1}`}
               </div>
               {showAnswer && currentItem.mcq?.options && (
                 <div style={{ width: "100%", textAlign: "left" }}>
-                  {currentItem.mcq.options.map((opt, oi) => (
-                    <div key={oi} style={{
-                      padding: "8px 12px", marginBottom: 4, borderRadius: 8,
-                      background: oi === (currentItem.mcq?.answer ?? currentItem.mcq?.correctIndex) ? "#0f2a1a" : colors.bg,
-                      border: `0.5px solid ${oi === (currentItem.mcq?.answer ?? currentItem.mcq?.correctIndex) ? "#22c55e" : colors.border}`,
-                      fontSize: fontSize.sm, color: oi === (currentItem.mcq?.answer ?? currentItem.mcq?.correctIndex) ? "#a5d6a7" : colors.textMuted,
-                    }}>
-                      {String.fromCharCode(65 + oi)}. {opt}
-                    </div>
-                  ))}
+                  {(() => {
+                    const opts = currentItem.mcq.options;
+                    const correctKey = currentItem.mcq?.correct ?? currentItem.mcq?.answer ?? null;
+                    if (Array.isArray(opts)) {
+                      return opts.map((opt, oi) => {
+                        const isCorrect = String.fromCharCode(65 + oi) === correctKey || oi === (currentItem.mcq?.correctIndex ?? currentItem.mcq?.answer);
+                        return (
+                          <div key={oi} style={{
+                            padding: "8px 12px", marginBottom: 4, borderRadius: 8,
+                            background: isCorrect ? "#0f2a1a" : colors.bg,
+                            border: `0.5px solid ${isCorrect ? "#22c55e" : colors.border}`,
+                            fontSize: fontSize.sm, color: isCorrect ? "#a5d6a7" : colors.textMuted,
+                          }}>
+                            {String.fromCharCode(65 + oi)}. {opt}
+                          </div>
+                        );
+                      });
+                    }
+                    return Object.entries(opts).map(([key, val]) => {
+                      const isCorrect = key === correctKey;
+                      return (
+                        <div key={key} style={{
+                          padding: "8px 12px", marginBottom: 4, borderRadius: 8,
+                          background: isCorrect ? "#0f2a1a" : colors.bg,
+                          border: `0.5px solid ${isCorrect ? "#22c55e" : colors.border}`,
+                          fontSize: fontSize.sm, color: isCorrect ? "#a5d6a7" : colors.textMuted,
+                        }}>
+                          {key}. {val}
+                        </div>
+                      );
+                    });
+                  })()}
                   {currentItem.mcq?.explanation && (
                     <div style={{ marginTop: spacing.sm, fontSize: fontSize.xs, color: colors.textDim, fontStyle: "italic" }}>
                       {currentItem.mcq.explanation}
