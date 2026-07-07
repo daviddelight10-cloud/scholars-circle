@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
+import { lazyWithRetry } from "./main.jsx";
 
 import { useLocation, Link } from "react-router-dom";
 
@@ -47,13 +48,13 @@ import { UserDataProvider, useUserData } from "./contexts/UserDataContext";
 import { UIProvider, useUI } from "./contexts/UIContext";
 
 // Page components (lazy loaded for code splitting)
-const Home = lazy(() => import("./pages/Home"));
-const Learn = lazy(() => import("./pages/Learn"));
-const AITutorPage = lazy(() => import("./pages/AITutor"));
-const Progress = lazy(() => import("./pages/Progress"));
-const Resources = lazy(() => import("./pages/Resources"));
-const ClassroomPage = lazy(() => import("./pages/Classroom"));
-const Profile = lazy(() => import("./pages/Profile"));
+const Home = lazyWithRetry(() => import("./pages/Home"));
+const Learn = lazyWithRetry(() => import("./pages/Learn"));
+const AITutorPage = lazyWithRetry(() => import("./pages/AITutor"));
+const Progress = lazyWithRetry(() => import("./pages/Progress"));
+const Resources = lazyWithRetry(() => import("./pages/Resources"));
+const ClassroomPage = lazyWithRetry(() => import("./pages/Classroom"));
+const Profile = lazyWithRetry(() => import("./pages/Profile"));
 
 // Components
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -128,14 +129,14 @@ import { StudyGroups } from "./features/StudyGroups";
 
 
 
-const GamificationHub = lazy(() => import("./features/Gamification"));
-const ResearchHub = lazy(() => import("./features/research-hub/ResearchHub"));
+const GamificationHub = lazyWithRetry(() => import("./features/Gamification"));
+const ResearchHub = lazyWithRetry(() => import("./features/research-hub/ResearchHub"));
 
-const ResourceViewer = lazy(() => import("./features/ResourceViewer"));
-const TeacherResourcesHub = lazy(() => import("./features/TeacherResourcesHub"));
-const AdminDashboard = lazy(() => import("./features/AdminDashboard"));
-const Lecturers = lazy(() => import("./features/Lecturers/index.jsx"));
-const CampusComm = lazy(() => import("./features/CampusComm.jsx"));
+const ResourceViewer = lazyWithRetry(() => import("./features/ResourceViewer"));
+const TeacherResourcesHub = lazyWithRetry(() => import("./features/TeacherResourcesHub"));
+const AdminDashboard = lazyWithRetry(() => import("./features/AdminDashboard"));
+const Lecturers = lazyWithRetry(() => import("./features/Lecturers/index.jsx"));
+const CampusComm = lazyWithRetry(() => import("./features/CampusComm.jsx"));
 
 
 

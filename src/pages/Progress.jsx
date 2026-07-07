@@ -1,4 +1,5 @@
-import React, { memo, Suspense, lazy } from "react";
+import React, { memo, Suspense } from "react";
+import { lazyWithRetry } from "../main.jsx";
 import StatsPanel from "../features/StatsPanel";
 import { Leaderboard } from "../components/Leaderboard";
 import { AchievementsBadges } from "../components/SearchAndBadges";
@@ -8,7 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useUI } from "../contexts/UIContext";
 import { useUserData } from "../contexts/UserDataContext";
 
-const GamificationHub = lazy(() => import("../features/Gamification"));
+const GamificationHub = lazyWithRetry(() => import("../features/Gamification"));
 
 function Progress({
   authUser: authUserProp,

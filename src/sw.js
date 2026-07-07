@@ -10,23 +10,31 @@ cleanupOutdatedCaches();
 // Precache build assets injected by vite-plugin-pwa
 precacheAndRoute(self.__WB_MANIFEST || []);
 
-// Offline fallback: serve offline.html for navigation requests when network fails
+// Navigation requests: always go to network first, never serve stale HTML.
+// Stale HTML references old chunk filenames that 404 on new deployments.
+// Only fall back to offline.html when the network is truly unavailable.
 registerRoute(
   ({ request }) => request.mode === "navigate",
-  new NetworkFirst({
-    cacheName: "pages-cache",
-    networkTimeoutSeconds: 3,
-    plugins: [
-      {
-        handlerDidError: async () => {
-          const cache = await caches.open("pages-cache");
-          const cached = await cache.match("/offline.html");
-          if (cached) return cached;
-          return Response.error();
-        },
-      },
-    ],
-  })
+  async ({ event }) => {
+    try {
+      const resp = await fetch(event.request, { cache: "no-store" });
+      if (resp && resp.ok) {
+        // Cache the fresh HTML for offline use
+        const cache = await caches.open("pages-cache");
+        cache.put(event.request, resp.clone());
+        return resp;
+      }
+      throw new Error("Navigation response not ok");
+    } catch (err) {
+      // Network failed — try cached HTML, then offline page
+      const cache = await caches.open("pages-cache");
+      const cached = await cache.match(event.request);
+      if (cached) return cached;
+      const offline = await cache.match("/offline.html");
+      if (offline) return offline;
+      return Response.error();
+    }
+  }
 );
 
 // Cache Unsplash hero/cover images
@@ -222,6 +230,10 @@ self.addEventListener('message', (event) => {
     scheduleReminder(event.data.reminder);
   } else if (event.data.type === 'CANCEL_REMINDER') {
     cancelReminder(event.data.id);
+  } else if (event.data.type === 'CLEAR_CACHES') {
+    // App detected stale chunks — purge everything and skip waiting
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+    self.skipWaiting();
   }
 });
 
