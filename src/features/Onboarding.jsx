@@ -32,7 +32,9 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
   const [isUniStudent, setIsUniStudent] = useState(true);
   const [uniName, setUniName] = useState("");
   const [uniId, setUniId] = useState(null);
-  const [uniResults, setUniResults] = useState([]);
+  const [uniResults, setUniResults] = useState(() =>
+    FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }))
+  );
   const [showUniDropdown, setShowUniDropdown] = useState(false);
   const uniWrapperRef = useRef(null);
 

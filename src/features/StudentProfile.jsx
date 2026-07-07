@@ -152,7 +152,9 @@ export function StudentProfile({ profile, onSave, authUser }) {
   const [draft, setDraft] = useState(profile || EMPTY_PROFILE);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState("info"); // info, academic, preferences
-  const [universities, setUniversities] = useState([]);
+  const [universities, setUniversities] = useState(() =>
+    FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }))
+  );
   const [showUniDropdown, setShowUniDropdown] = useState(false);
   const [uniDepts, setUniDepts] = useState([]);
   const [savingToBackend, setSavingToBackend] = useState(false);
