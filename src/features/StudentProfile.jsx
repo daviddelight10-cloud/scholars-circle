@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { DISCIPLINES } from "./AITutor/disciplines.js";
 import { getUniversities, getUniversityDepartments, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
@@ -155,42 +155,22 @@ export function StudentProfile({ profile, onSave, authUser }) {
   const [universities, setUniversities] = useState(() =>
     FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }))
   );
-  const [showUniDropdown, setShowUniDropdown] = useState(false);
   const [uniDepts, setUniDepts] = useState([]);
   const [savingToBackend, setSavingToBackend] = useState(false);
-  const uniWrapperRef = useRef(null);
-
-  useEffect(() => {
-    function handleClose(e) {
-      if (uniWrapperRef.current && !uniWrapperRef.current.contains(e.target)) {
-        setShowUniDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClose);
-    document.addEventListener("touchstart", handleClose);
-    return () => {
-      document.removeEventListener("mousedown", handleClose);
-      document.removeEventListener("touchstart", handleClose);
-    };
-  }, []);
 
   useEffect(() => {
     if (profile) setDraft(profile);
   }, [profile]);
 
-  // Load universities for dropdown
+  // Load universities from API (fallback already in state)
   useEffect(() => {
     getUniversities()
       .then((rows) => {
         if (rows && rows.length > 0) {
           setUniversities(rows);
-        } else {
-          setUniversities(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
         }
       })
-      .catch(() => {
-        setUniversities(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
-      });
+      .catch(() => {});
   }, []);
 
   // Load departments when university changes
@@ -202,26 +182,22 @@ export function StudentProfile({ profile, onSave, authUser }) {
     }
   }, [draft.universityId]);
 
-  const filteredUnis = universities.filter(u =>
-    !draft.universityName || u.name.toLowerCase().includes((draft.universityName || "").toLowerCase())
-  );
-
   function set(field, value) {
     setDraft((d) => ({ ...d, [field]: value }));
     setSaved(false);
   }
 
-  function selectUniversity(uni) {
+  function handleUniInput(value) {
+    const match = universities.find((u) => u.name === value);
     setDraft((d) => ({
       ...d,
-      universityId: uni.id,
-      universityName: uni.name,
-      institution: uni.name,
-      isUniversityStudent: uni.type !== "school",
-      schoolName: uni.type === "school" ? uni.name : d.schoolName,
+      universityName: value,
+      institution: value,
+      universityId: match ? match.id : null,
+      isUniversityStudent: match ? match.type !== "school" : d.isUniversityStudent,
+      schoolName: match && match.type === "school" ? match.name : d.schoolName,
     }));
     setSaved(false);
-    setShowUniDropdown(false);
   }
 
   async function handleSave() {
@@ -457,43 +433,20 @@ export function StudentProfile({ profile, onSave, authUser }) {
           </Field>
 
           <Field label="University / School" hint="Search and select your institution">
-            <div ref={uniWrapperRef} style={{ position: "relative" }}>
+            <div style={{ position: "relative" }}>
               <input
                 type="text"
+                list="profile-uni-datalist"
                 value={draft.universityName || draft.institution || ""}
-                onChange={(e) => { set("universityName", e.target.value); set("institution", e.target.value); setShowUniDropdown(true); }}
-                onFocus={() => { setShowUniDropdown(true); }}
+                onChange={(e) => handleUniInput(e.target.value)}
                 placeholder="Search for your university or school…"
                 style={inputStyle}
               />
-              {showUniDropdown && (
-                <div style={{ position: "relative", marginTop: "4px", maxHeight: "220px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
-                  {filteredUnis.length === 0 ? (
-                    <div style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af" }}>
-                      {universities.length === 0 ? "Loading…" : "No results for \"" + (draft.universityName || "") + "\""}
-                    </div>
-                  ) : (
-                    filteredUnis.slice(0, 20).map((u) => (
-                      <div
-                        key={u.id}
-                        onClick={() => selectUniversity(u)}
-                        style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid rgba(255,215,0,0.1)", display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#e8eaf6" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,215,0,0.1)"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                      >
-                        <span style={{ fontSize: 18 }}>{u.type === "school" ? "🏫" : u.type === "polytechnic" ? "🏛️" : "🎓"}</span>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{u.name}</div>
-                          <div style={{ fontSize: 11, color: "#7b82b8" }}>
-                            {u.type === "school" ? "Secondary School" : u.type === "polytechnic" ? "Polytechnic" : "University"}
-                            {u.city ? " · " + u.city : ""}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
+              <datalist id="profile-uni-datalist">
+                {universities.map((u) => (
+                  <option key={u.id} value={u.name} />
+                ))}
+              </datalist>
             </div>
             {draft.universityName && (
               <div style={{ marginTop: 6, fontSize: 11, color: "#10b981" }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { saveMyProfile } from "../lib/profileApi.js";
 import { getUniversities, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 
@@ -35,45 +35,21 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
   const [uniResults, setUniResults] = useState(() =>
     FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }))
   );
-  const [showUniDropdown, setShowUniDropdown] = useState(false);
-  const uniWrapperRef = useRef(null);
-
-  useEffect(() => {
-    function handleClose(e) {
-      if (uniWrapperRef.current && !uniWrapperRef.current.contains(e.target)) {
-        setShowUniDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClose);
-    document.addEventListener("touchstart", handleClose);
-    return () => {
-      document.removeEventListener("mousedown", handleClose);
-      document.removeEventListener("touchstart", handleClose);
-    };
-  }, []);
 
   useEffect(() => {
     getUniversities()
       .then((rows) => {
         if (rows && rows.length > 0) {
           setUniResults(rows);
-        } else {
-          setUniResults(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
         }
       })
-      .catch(() => {
-        setUniResults(FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null })));
-      });
+      .catch(() => {});
   }, []);
 
-  const filteredUnis = uniResults.filter((u) =>
-    !uniName || u.name.toLowerCase().includes(uniName.toLowerCase())
-  );
-
-  function selectUni(u) {
-    setUniName(u.name);
-    setUniId(u.id);
-    setShowUniDropdown(false);
+  function handleUniChange(value) {
+    setUniName(value);
+    const match = uniResults.find((u) => u.name === value);
+    setUniId(match ? match.id : null);
   }
 
   function toggleSubject(id) {
@@ -185,47 +161,21 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
             <p className="muted">
               {isUniStudent ? "Search for your university. We'll connect you with coursemates." : "Type your school name to get started."}
             </p>
-            <div ref={uniWrapperRef} style={{ position: "relative", marginTop: "12px" }}>
+            <div style={{ marginTop: "12px" }}>
               <input
                 type="text"
+                list="uni-datalist"
                 placeholder={isUniStudent ? "Search e.g. University of Lagos" : "e.g. King's College, Lagos"}
                 value={uniName}
-                onChange={(e) => {
-                  setUniName(e.target.value);
-                  if (isUniStudent) {
-                    setShowUniDropdown(true);
-                    setUniId(null);
-                  }
-                }}
-                onFocus={() => { if (isUniStudent) setShowUniDropdown(true); }}
-                style={{ fontSize: 16, padding: "10px 12px", width: "100%" }}
+                onChange={(e) => handleUniChange(e.target.value)}
+                style={{ fontSize: 16, padding: "10px 12px", width: "100%", boxSizing: "border-box" }}
                 autoFocus
               />
-              {isUniStudent && showUniDropdown && (
-                <div style={{ position: "relative", marginTop: "4px", maxHeight: "220px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
-                  {filteredUnis.length === 0 ? (
-                    <div style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af" }}>
-                      {uniResults.length === 0 ? "Loading…" : "No results for \"" + uniName + "\""}
-                    </div>
-                  ) : (
-                    filteredUnis.slice(0, 20).map((u) => (
-                      <div
-                        key={u.id}
-                        onClick={() => selectUni(u)}
-                        style={{ padding: "10px 14px", cursor: "pointer", borderBottom: "1px solid rgba(255,215,0,0.1)", display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#e8eaf6" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,215,0,0.1)"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                      >
-                        <span style={{ fontSize: 18 }}>{u.type === "polytechnic" ? "🏛️" : "🎓"}</span>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{u.name}</div>
-                          {u.city && <div style={{ fontSize: 11, color: "#7b82b8" }}>{u.city}</div>}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
+              <datalist id="uni-datalist">
+                {uniResults.map((u) => (
+                  <option key={u.id} value={u.name} />
+                ))}
+              </datalist>
             </div>
             {uniName && (
               <div style={{ marginTop: 8, fontSize: 12, color: "#10b981" }}>✓ {uniName}</div>
