@@ -234,6 +234,32 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [studySaveError, setStudySaveError] = useState("");
   const [studyIsPublic, setStudyIsPublic] = useState(false);
 
+  // ── AI Study History (localStorage) ────────────────────────────────────────
+  const studyHistoryKey = `sc_study_history_${propResourceId || docKey}`;
+  const [studyHistory, setStudyHistory] = useState(() => loadStored(studyHistoryKey, []));
+  const [historyView, setHistoryView] = useState(null); // null | { type: 'mcq'|'summary', ...entry }
+  const [historyQuizAnswers, setHistoryQuizAnswers] = useState({});
+  const [historyQuizLocked, setHistoryQuizLocked] = useState({});
+  const [historyQuizIdx, setHistoryQuizIdx] = useState(0);
+  const [historyQuizShowResults, setHistoryQuizShowResults] = useState(false);
+
+  useEffect(() => {
+    saveStored(studyHistoryKey, studyHistory);
+  }, [studyHistory, studyHistoryKey]);
+
+  function saveStudyHistoryEntry(entry) {
+    const newEntry = { id: Date.now(), ts: Date.now(), ...entry };
+    setStudyHistory((prev) => [newEntry, ...prev].slice(0, 20));
+  }
+
+  function deleteStudyHistoryEntry(id) {
+    setStudyHistory((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  function clearStudyHistory() {
+    setStudyHistory([]);
+  }
+
   // ── FSRS Spaced Repetition state ────────────────────────────────────────────
   const [fsrsStatus, setFsrsStatus] = useState(null); // per-resource FSRS data
   const [fsrsRatingBar, setFsrsRatingBar] = useState(false); // show page rating bar
@@ -928,6 +954,11 @@ ${text}
     setParsedMcqs([]);
     setStudySaveStatus("idle");
     setStudySaveError("");
+    setHistoryView(null);
+    setHistoryQuizAnswers({});
+    setHistoryQuizLocked({});
+    setHistoryQuizIdx(0);
+    setHistoryQuizShowResults(false);
     if (numPages > 1 && studyRangeType === "custom") {
       const clampedFrom = Math.max(1, Math.min(studyFrom, numPages));
       setStudyFrom(clampedFrom);
@@ -950,6 +981,11 @@ ${text}
     setParsedMcqs([]);
     setStudySaveStatus("idle");
     setStudySaveError("");
+    setHistoryView(null);
+    setHistoryQuizAnswers({});
+    setHistoryQuizLocked({});
+    setHistoryQuizIdx(0);
+    setHistoryQuizShowResults(false);
   };
 
   const handleStudyGenerate = async () => {
@@ -1013,6 +1049,7 @@ Rules:
           const mcqs = parseMcqMarkdown(raw);
           setParsedMcqs(mcqs);
           setStudyStep("result");
+          if (mcqs.length > 0) saveStudyHistoryEntry({ type: "mcq", mode: "auto", rangeLabel: `page ${currentPage}`, mcqs, rawText: raw });
         } catch (err) {
           setStudyError(err.message || "Failed to generate questions. Please try again.");
           setStudyStep("setup");
@@ -1049,6 +1086,7 @@ Be thorough and comprehensive. Use bullet points and **bold** key terms througho
           }
           setStudyResult(raw);
           setStudyStep("result");
+          saveStudyHistoryEntry({ type: "summary", mode: "auto", rangeLabel: `page ${currentPage}`, rawText: raw });
         } catch (err) {
           setStudyError(err.message || "Failed to generate summary. Please try again.");
           setStudyStep("setup");
@@ -1110,6 +1148,7 @@ ${extractedText}
         const mcqs = parseMcqMarkdown(raw);
         setParsedMcqs(mcqs);
         setStudyStep("result");
+        if (mcqs.length > 0) saveStudyHistoryEntry({ type: "mcq", mode: "text", rangeLabel: label, mcqs, rawText: raw });
       } catch (err) {
         setStudyError(err.message || "Failed to generate questions. Please try again.");
         setStudyStep("setup");
@@ -1124,6 +1163,7 @@ ${extractedText}
         }
         setStudyResult(raw);
         setStudyStep("result");
+        saveStudyHistoryEntry({ type: "summary", mode: "text", rangeLabel: label, rawText: raw });
       } catch (err) {
         setStudyError(err.message || "Failed to generate summary. Please try again.");
         setStudyStep("setup");
@@ -1142,7 +1182,43 @@ ${extractedText}
     setParsedMcqs([]);
     setStudySaveStatus("idle");
     setStudySaveError("");
+    setHistoryView(null);
   };
+
+  // ── History quiz helpers ──────────────────────────────────────────────────
+  function startHistoryQuiz(entry) {
+    setHistoryView(entry);
+    setHistoryQuizAnswers({});
+    setHistoryQuizLocked({});
+    setHistoryQuizIdx(0);
+    setHistoryQuizShowResults(false);
+  }
+
+  function handleHistoryQuizAnswer(key) {
+    if (historyQuizLocked[historyQuizIdx]) return;
+    setHistoryQuizAnswers((prev) => ({ ...prev, [historyQuizIdx]: key }));
+    setHistoryQuizLocked((prev) => ({ ...prev, [historyQuizIdx]: true }));
+  }
+
+  function historyQuizNext() {
+    if (!historyView?.mcqs) return;
+    if (historyQuizIdx < historyView.mcqs.length - 1) {
+      setHistoryQuizIdx(historyQuizIdx + 1);
+    } else {
+      setHistoryQuizShowResults(true);
+    }
+  }
+
+  function historyQuizRetake() {
+    setHistoryQuizAnswers({});
+    setHistoryQuizLocked({});
+    setHistoryQuizIdx(0);
+    setHistoryQuizShowResults(false);
+  }
+
+  const historyQuizScore = historyView?.mcqs
+    ? historyView.mcqs.reduce((acc, q, i) => acc + (historyQuizAnswers[i] === q.correct ? 1 : 0), 0)
+    : 0;
 
   const generateSummaryPdf = async (markdownText, docTitle, rangeLabel) => {
     const { jsPDF } = await import("jspdf");
@@ -4232,6 +4308,33 @@ ${extractedText}
                       </div>
                     </div>
 
+                    {/* History button */}
+                    {studyHistory.length > 0 && studyMode !== "flashcard" && (
+                      <button
+                        style={{
+                          width: "100%",
+                          padding: "10px 14px",
+                          background: T.hover,
+                          border: `1px solid ${T.border}`,
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: T.text,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                        onClick={() => setStudyStep("history")}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 16 }}>🕘</span>
+                          History ({studyHistory.length})
+                        </span>
+                        <span style={{ fontSize: 12, color: T.muted }}>View past →</span>
+                      </button>
+                    )}
+
                     {/* Page range */}
                     {numPages > 1 && (
                       <div>
@@ -4458,6 +4561,266 @@ ${extractedText}
                   <div style={s.studyLoadingBox}>
                     <span style={{ ...s.spinner, width: 24, height: 24, borderWidth: 3 }} />
                     <span style={s.studyLoadingText}>{studyLoadingMsg}</span>
+                  </div>
+                )}
+
+                {/* ── History List ── */}
+                {studyStep === "history" && !historyView && (
+                  <div style={s.studyBody}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>🕘 Study History</span>
+                      <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setStudyStep("setup")}>← Back</button>
+                    </div>
+                    {studyHistory.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "24px 16px", color: T.muted, fontSize: 13 }}>
+                        No history yet. Generate some MCQs or summaries to see them here.
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                          {studyHistory.map((entry) => (
+                            <div key={entry.id} style={{
+                              background: T.hover,
+                              border: `0.5px solid ${T.border}`,
+                              borderRadius: 10,
+                              padding: "10px 12px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}>
+                              <span style={{ fontSize: 20, flexShrink: 0 }}>
+                                {entry.type === "mcq" ? "📝" : "📄"}
+                              </span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} MCQs` : "Summary"} · {entry.rangeLabel}
+                                </div>
+                                <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>
+                                  {new Date(entry.ts).toLocaleDateString(undefined, { month: "short", day: "numeric" })} at {new Date(entry.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                              </div>
+                              <button
+                                style={{
+                                  padding: "6px 12px",
+                                  background: entry.type === "mcq" ? `${T.accent}20` : T.hover,
+                                  border: `1px solid ${entry.type === "mcq" ? T.accent : T.border}`,
+                                  borderRadius: 8,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: entry.type === "mcq" ? T.accent : T.text,
+                                  cursor: "pointer",
+                                  flexShrink: 0,
+                                }}
+                                onClick={() => entry.type === "mcq" ? startHistoryQuiz(entry) : setHistoryView(entry)}
+                              >
+                                {entry.type === "mcq" ? "Practice" : "View"}
+                              </button>
+                              <button
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  color: T.muted,
+                                  fontSize: 14,
+                                  cursor: "pointer",
+                                  padding: 4,
+                                  flexShrink: 0,
+                                }}
+                                onClick={() => deleteStudyHistoryEntry(entry.id)}
+                                title="Delete"
+                              >
+                                🗑
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          style={{
+                            width: "100%",
+                            marginTop: 10,
+                            padding: "8px",
+                            background: "none",
+                            border: `1px solid ${T.border}`,
+                            borderRadius: 8,
+                            fontSize: 11,
+                            color: T.muted,
+                            cursor: "pointer",
+                          }}
+                          onClick={clearStudyHistory}
+                        >
+                          Clear all history
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ── History: Summary View ── */}
+                {studyStep === "history" && historyView?.type === "summary" && (
+                  <div style={s.studyBody}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📄 {historyView.rangeLabel}</span>
+                      <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setHistoryView(null)}>← Back to list</button>
+                    </div>
+                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 10 }}>
+                      {new Date(historyView.ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} at {new Date(historyView.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                    <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                      <MarkdownText theme={theme}>{historyView.rawText}</MarkdownText>
+                    </div>
+                    <button
+                      style={{
+                        ...s.studyActionBtn,
+                        marginTop: 10,
+                        width: "100%",
+                      }}
+                      onClick={() => navigator.clipboard?.writeText(historyView.rawText).catch(() => {})}
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                )}
+
+                {/* ── History: MCQ Quiz Practice ── */}
+                {studyStep === "history" && historyView?.type === "mcq" && !historyQuizShowResults && (
+                  <div style={s.studyBody}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📝 Practice MCQs</span>
+                      <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setHistoryView(null)}>← Back</button>
+                    </div>
+                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 12 }}>
+                      {historyView.rangeLabel} · {historyView.mcqs.length} questions
+                    </div>
+                    {/* Progress */}
+                    <div style={{ height: 4, background: T.hover, borderRadius: 4, overflow: "hidden", marginBottom: 12 }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${historyView.mcqs.length > 0 ? ((historyQuizIdx + (historyQuizLocked[historyQuizIdx] ? 1 : 0)) / historyView.mcqs.length) * 100 : 0}%`,
+                        background: T.accent,
+                        borderRadius: 4,
+                        transition: "width 0.3s ease",
+                      }} />
+                    </div>
+                    {/* Question */}
+                    {(() => {
+                      const q = historyView.mcqs[historyQuizIdx];
+                      if (!q) return null;
+                      const selected = historyQuizAnswers[historyQuizIdx];
+                      const isLocked = historyQuizLocked[historyQuizIdx];
+                      return (
+                        <>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: T.text, lineHeight: 1.5, marginBottom: 12 }}>
+                            Q{historyQuizIdx + 1}. {q.question}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {Object.entries(q.options).map(([key, val]) => {
+                              const isSelected = selected === key;
+                              const isCorrect = key === q.correct;
+                              const showCorrect = isLocked && isCorrect;
+                              const showWrong = isLocked && isSelected && !isCorrect;
+                              return (
+                                <div
+                                  key={key}
+                                  onClick={() => !isLocked && handleHistoryQuizAnswer(key)}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    padding: "10px 12px",
+                                    borderRadius: 8,
+                                    cursor: isLocked ? "default" : "pointer",
+                                    background: showCorrect ? `${T.accent}15` : showWrong ? "rgba(244,67,54,0.12)" : T.hover,
+                                    border: `1px solid ${showCorrect ? T.accent : showWrong ? "#ef5350" : isSelected ? T.accent : T.border}`,
+                                    transition: "all 0.15s",
+                                  }}
+                                >
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: showCorrect ? T.accent : showWrong ? "#ef5350" : T.muted, minWidth: 20 }}>{key}.</span>
+                                  <span style={{ fontSize: 13, color: T.text, flex: 1 }}>{val}</span>
+                                  {showCorrect && <span style={{ fontSize: 14, color: T.accent }}>✓</span>}
+                                  {showWrong && <span style={{ fontSize: 14, color: "#ef5350" }}>✕</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {isLocked && (
+                            <>
+                              {q.explanation && (
+                                <div style={{
+                                  marginTop: 10,
+                                  padding: "10px 12px",
+                                  background: T.hover,
+                                  border: `0.5px solid ${T.border}`,
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                  color: T.muted,
+                                  lineHeight: 1.5,
+                                }}>
+                                  <span style={{ fontWeight: 700, color: T.text }}>Explanation: </span>
+                                  {q.explanation}
+                                </div>
+                              )}
+                              <button
+                                style={{
+                                  ...s.studyGenerateBtn,
+                                  marginTop: 12,
+                                }}
+                                onClick={historyQuizNext}
+                              >
+                                {historyQuizIdx < historyView.mcqs.length - 1 ? "Next →" : "See Results"}
+                              </button>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* ── History: MCQ Quiz Results ── */}
+                {studyStep === "history" && historyView?.type === "mcq" && historyQuizShowResults && (
+                  <div style={s.studyBody}>
+                    <div style={{ textAlign: "center", marginBottom: 16 }}>
+                      <div style={{ fontSize: 32, marginBottom: 4 }}>
+                        {historyQuizScore === historyView.mcqs.length ? "🏆" : historyQuizScore >= historyView.mcqs.length / 2 ? "🎉" : "📚"}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: historyQuizScore >= historyView.mcqs.length / 2 ? "#66bb6a" : "#ffb74d" }}>
+                        {historyQuizScore} / {historyView.mcqs.length}
+                      </div>
+                      <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
+                        {historyView.mcqs.length > 0 ? Math.round((historyQuizScore / historyView.mcqs.length) * 100) : 0}% correct
+                      </div>
+                    </div>
+                    {/* Review */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto", marginBottom: 12 }}>
+                      {historyView.mcqs.map((q, i) => {
+                        const userAnswer = historyQuizAnswers[i];
+                        const isCorrect = userAnswer === q.correct;
+                        return (
+                          <div key={i} style={{
+                            padding: "10px 12px",
+                            background: T.hover,
+                            border: `0.5px solid ${isCorrect ? "#2a6a3a" : "#6a2a2a"}`,
+                            borderRadius: 8,
+                          }}>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
+                              <span style={{ fontSize: 13 }}>{isCorrect ? "✅" : "❌"}</span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: T.muted }}>
+                              Correct: <span style={{ color: T.accent }}>{q.correct}. {q.options[q.correct]}</span>
+                              {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef5350" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={historyQuizRetake}>
+                        🔄 Retake
+                      </button>
+                      <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => setHistoryView(null)}>
+                        ← Back to list
+                      </button>
+                    </div>
                   </div>
                 )}
 
