@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
-import { lazyWithRetry } from "./main.jsx";
+import { lazyWithRetry } from "./lib/lazyWithRetry.js";
 
 import { useLocation, Link } from "react-router-dom";
 

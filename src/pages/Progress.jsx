@@ -1,5 +1,5 @@
 import React, { memo, Suspense } from "react";
-import { lazyWithRetry } from "../main.jsx";
+import { lazyWithRetry } from "../lib/lazyWithRetry.js";
 import StatsPanel from "../features/StatsPanel";
 import { Leaderboard } from "../components/Leaderboard";
 import { AchievementsBadges } from "../components/SearchAndBadges";
