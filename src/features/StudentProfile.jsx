@@ -162,12 +162,14 @@ export function StudentProfile({ profile, onSave, authUser }) {
     if (profile) setDraft(profile);
   }, [profile]);
 
-  // Load universities from API (fallback already in state)
+  // Load universities from API (merge with fallback so list is never sparse)
   useEffect(() => {
+    const fallback = FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }));
     getUniversities()
       .then((rows) => {
         if (rows && rows.length > 0) {
-          setUniversities(rows);
+          const existing = new Set(rows.map((r) => r.name.toLowerCase()));
+          setUniversities([...rows, ...fallback.filter((f) => !existing.has(f.name.toLowerCase()))]);
         }
       })
       .catch(() => {});

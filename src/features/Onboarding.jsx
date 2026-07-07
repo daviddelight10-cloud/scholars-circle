@@ -37,10 +37,12 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
   );
 
   useEffect(() => {
+    const fallback = FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }));
     getUniversities()
       .then((rows) => {
         if (rows && rows.length > 0) {
-          setUniResults(rows);
+          const existing = new Set(rows.map((r) => r.name.toLowerCase()));
+          setUniResults([...rows, ...fallback.filter((f) => !existing.has(f.name.toLowerCase()))]);
         }
       })
       .catch(() => {});
