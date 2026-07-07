@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { saveMyProfile } from "../lib/profileApi.js";
 import { getUniversities, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
+import UniversitySelect from "../components/UniversitySelect.jsx";
 
 const STORE_KEY = "sc_onboarded_v1";
 
@@ -48,10 +49,9 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
       .catch(() => {});
   }, []);
 
-  function handleUniChange(value) {
+  function handleUniChange(value, uni) {
     setUniName(value);
-    const match = uniResults.find((u) => u.name === value);
-    setUniId(match ? match.id : null);
+    setUniId(uni ? uni.id : null);
   }
 
   function toggleSubject(id) {
@@ -164,20 +164,13 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
               {isUniStudent ? "Search for your university. We'll connect you with coursemates." : "Type your school name to get started."}
             </p>
             <div style={{ marginTop: "12px" }}>
-              <input
-                type="text"
-                list="uni-datalist"
-                placeholder={isUniStudent ? "Search e.g. University of Lagos" : "e.g. King's College, Lagos"}
+              <UniversitySelect
                 value={uniName}
-                onChange={(e) => handleUniChange(e.target.value)}
-                style={{ fontSize: 16, padding: "10px 12px", width: "100%", boxSizing: "border-box" }}
+                onChange={(val, uni) => handleUniChange(val, uni)}
+                universities={uniResults}
+                placeholder={isUniStudent ? "Search e.g. University of Lagos" : "e.g. King's College, Lagos"}
                 autoFocus
               />
-              <datalist id="uni-datalist">
-                {uniResults.map((u) => (
-                  <option key={u.id} value={u.name} />
-                ))}
-              </datalist>
             </div>
             {uniName && (
               <div style={{ marginTop: 8, fontSize: 12, color: "#10b981" }}>✓ {uniName}</div>

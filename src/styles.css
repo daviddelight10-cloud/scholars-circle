@@ -4303,6 +4303,11 @@ textarea {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.onboarding-card .uni-select-dropdown {
+  position: fixed !important;
+  z-index: 100000 !important;
 }
 .onboarding-progress {
   display: flex;

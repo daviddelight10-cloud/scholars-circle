@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DISCIPLINES } from "./AITutor/disciplines.js";
 import { getUniversities, getUniversityDepartments, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
+import UniversitySelect from "../components/UniversitySelect.jsx";
 
 const PROFILE_KEY = "sc_student_profile_v1";
 
@@ -189,15 +190,14 @@ export function StudentProfile({ profile, onSave, authUser }) {
     setSaved(false);
   }
 
-  function handleUniInput(value) {
-    const match = universities.find((u) => u.name === value);
+  function handleUniInput(value, uni) {
     setDraft((d) => ({
       ...d,
       universityName: value,
       institution: value,
-      universityId: match ? match.id : null,
-      isUniversityStudent: match ? match.type !== "school" : d.isUniversityStudent,
-      schoolName: match && match.type === "school" ? match.name : d.schoolName,
+      universityId: uni ? uni.id : null,
+      isUniversityStudent: uni ? uni.type !== "school" : d.isUniversityStudent,
+      schoolName: uni && uni.type === "school" ? uni.name : d.schoolName,
     }));
     setSaved(false);
   }
@@ -435,21 +435,13 @@ export function StudentProfile({ profile, onSave, authUser }) {
           </Field>
 
           <Field label="University / School" hint="Search and select your institution">
-            <div style={{ position: "relative" }}>
-              <input
-                type="text"
-                list="profile-uni-datalist"
-                value={draft.universityName || draft.institution || ""}
-                onChange={(e) => handleUniInput(e.target.value)}
-                placeholder="Search for your university or school…"
-                style={inputStyle}
-              />
-              <datalist id="profile-uni-datalist">
-                {universities.map((u) => (
-                  <option key={u.id} value={u.name} />
-                ))}
-              </datalist>
-            </div>
+            <UniversitySelect
+              value={draft.universityName || draft.institution || ""}
+              onChange={(val, uni) => handleUniInput(val, uni)}
+              universities={universities}
+              placeholder="Search for your university or school…"
+              style={inputStyle}
+            />
             {draft.universityName && (
               <div style={{ marginTop: 6, fontSize: 11, color: "#10b981" }}>
                 ✓ {draft.isUniversityStudent ? "University" : "School"}: {draft.universityName}
