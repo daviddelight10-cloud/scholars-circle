@@ -31,8 +31,13 @@ export default function UniversitySelect({
     if (!value) return universities.slice(0, 50);
     const q = value.toLowerCase();
     return universities
-      .filter((u) => u.name.toLowerCase().includes(q))
+      .filter((u) => u.name && u.name.toLowerCase().includes(q))
       .slice(0, 50);
+  }, [value, universities]);
+
+  const exactMatch = useMemo(() => {
+    if (!value) return true;
+    return universities.some((u) => u.name && u.name.toLowerCase() === value.toLowerCase());
   }, [value, universities]);
 
   function handleInput(e) {
@@ -52,6 +57,12 @@ export default function UniversitySelect({
 
   function pick(u) {
     onChange(u.name, u);
+    setOpen(false);
+    inputRef.current?.blur();
+  }
+
+  function pickCustom() {
+    onChange(value, { id: null, name: value, type: "university", city: null });
     setOpen(false);
     inputRef.current?.blur();
   }
@@ -145,7 +156,7 @@ export default function UniversitySelect({
             animation: "uniSlideIn 0.15s ease-out",
           }}
         >
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && !value ? (
             <div
               style={{
                 padding: "16px 16px",
@@ -154,83 +165,130 @@ export default function UniversitySelect({
                 textAlign: "center",
               }}
             >
-              {universities.length === 0
-                ? "Loading universities…"
-                : 'No match for "' + value + '"'}
+              {universities.length === 0 ? "Loading universities…" : "No results"}
             </div>
           ) : (
-            filtered.map((u, i) => (
-              <div
-                key={u.id}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  pick(u);
-                }}
-                onMouseEnter={() => setHighlight(i)}
-                style={{
-                  padding: "11px 14px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  fontSize: 14,
-                  color: "#e8eaf6",
-                  background:
-                    i === highlight
-                      ? "rgba(255,215,0,0.08)"
-                      : "transparent",
-                  transition: "background 0.12s",
-                  borderBottom:
-                    i < filtered.length - 1
-                      ? "1px solid rgba(255,255,255,0.04)"
-                      : "none",
-                }}
-              >
-                <span
+            <>
+              {filtered.map((u, i) => (
+                <div
+                  key={u.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pick(u);
+                  }}
+                  onMouseEnter={() => setHighlight(i)}
                   style={{
-                    fontSize: 20,
-                    flexShrink: 0,
-                    width: 32,
-                    height: 32,
+                    padding: "11px 14px",
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 8,
-                    background: "rgba(255,215,0,0.06)",
+                    gap: 10,
+                    fontSize: 14,
+                    color: "#e8eaf6",
+                    background:
+                      i === highlight
+                        ? "rgba(255,215,0,0.08)"
+                        : "transparent",
+                    transition: "background 0.12s",
+                    borderBottom:
+                      i < filtered.length - 1 || (!exactMatch && value)
+                        ? "1px solid rgba(255,255,255,0.04)"
+                        : "none",
                   }}
                 >
-                  {icon(u.type)}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      fontSize: 14,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {u.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#7b82b8", marginTop: 1 }}>
-                    {label(u.type)}
-                    {u.city ? " · " + u.city : ""}
-                  </div>
-                </div>
-                {i === highlight && (
                   <span
                     style={{
-                      fontSize: 16,
-                      color: "#FFD700",
+                      fontSize: 20,
                       flexShrink: 0,
+                      width: 32,
+                      height: 32,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 8,
+                      background: "rgba(255,215,0,0.06)",
                     }}
                   >
-                    ↵
+                    {icon(u.type)}
                   </span>
-                )}
-              </div>
-            ))
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 14,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {u.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#7b82b8", marginTop: 1 }}>
+                      {label(u.type)}
+                      {u.city ? " · " + u.city : ""}
+                    </div>
+                  </div>
+                  {i === highlight && (
+                    <span
+                      style={{
+                        fontSize: 16,
+                        color: "#FFD700",
+                        flexShrink: 0,
+                      }}
+                    >
+                      ↵
+                    </span>
+                  )}
+                </div>
+              ))}
+              {value && !exactMatch && (
+                <div
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pickCustom();
+                  }}
+                  onMouseEnter={() => setHighlight(filtered.length)}
+                  style={{
+                    padding: "11px 14px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    fontSize: 14,
+                    color: "#FFD700",
+                    background:
+                      highlight === filtered.length
+                        ? "rgba(255,215,0,0.08)"
+                        : "transparent",
+                    transition: "background 0.12s",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 20,
+                      flexShrink: 0,
+                      width: 32,
+                      height: 32,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 8,
+                      background: "rgba(255,215,0,0.1)",
+                    }}
+                  >
+                    ✏️
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      Use "{value}"
+                    </div>
+                    <div style={{ fontSize: 11, color: "#7b82b8", marginTop: 1 }}>
+                      Add as custom entry
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

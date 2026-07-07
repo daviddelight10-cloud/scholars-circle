@@ -169,8 +169,14 @@ export function StudentProfile({ profile, onSave, authUser }) {
     getUniversities()
       .then((rows) => {
         if (rows && rows.length > 0) {
-          const existing = new Set(rows.map((r) => r.name.toLowerCase()));
-          setUniversities([...rows, ...fallback.filter((f) => !existing.has(f.name.toLowerCase()))]);
+          const normalized = rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            type: r.type || "university",
+            city: r.city || null,
+          }));
+          const existing = new Set(normalized.map((r) => r.name.toLowerCase()));
+          setUniversities([...normalized, ...fallback.filter((f) => !existing.has(f.name.toLowerCase()))]);
         }
       })
       .catch(() => {});

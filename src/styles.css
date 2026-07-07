@@ -4290,9 +4290,10 @@ textarea {
   backdrop-filter: blur(6px);
   z-index: 1000;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 16px;
+  overflow-y: auto;
 }
 .onboarding-card {
   background: #141414;
@@ -4301,13 +4302,8 @@ textarea {
   padding: 28px;
   max-width: 560px;
   width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-.onboarding-card .uni-select-dropdown {
-  position: fixed !important;
-  z-index: 100000 !important;
+  margin: auto;
+  overflow: visible;
 }
 .onboarding-progress {
   display: flex;
