@@ -32,19 +32,22 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
   const [isUniStudent, setIsUniStudent] = useState(true);
   const [uniName, setUniName] = useState("");
   const [uniId, setUniId] = useState(null);
-  const [uniQuery, setUniQuery] = useState("");
   const [uniResults, setUniResults] = useState([]);
   const [showUniDropdown, setShowUniDropdown] = useState(false);
   const uniWrapperRef = useRef(null);
 
   useEffect(() => {
-    function handleClickOutside(e) {
+    function handleClose(e) {
       if (uniWrapperRef.current && !uniWrapperRef.current.contains(e.target)) {
         setShowUniDropdown(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClose);
+    document.addEventListener("touchstart", handleClose);
+    return () => {
+      document.removeEventListener("mousedown", handleClose);
+      document.removeEventListener("touchstart", handleClose);
+    };
   }, []);
 
   useEffect(() => {
@@ -62,14 +65,13 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
   }, []);
 
   const filteredUnis = uniResults.filter((u) =>
-    !uniQuery || u.name.toLowerCase().includes(uniQuery.toLowerCase())
+    !uniName || u.name.toLowerCase().includes(uniName.toLowerCase())
   );
 
   function selectUni(u) {
     setUniName(u.name);
     setUniId(u.id);
     setShowUniDropdown(false);
-    setUniQuery("");
   }
 
   function toggleSubject(id) {
@@ -185,17 +187,15 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
               <input
                 type="text"
                 placeholder={isUniStudent ? "Search e.g. University of Lagos" : "e.g. King's College, Lagos"}
-                value={showUniDropdown ? uniQuery : (uniName || "")}
+                value={uniName}
                 onChange={(e) => {
+                  setUniName(e.target.value);
                   if (isUniStudent) {
-                    setUniQuery(e.target.value);
                     setShowUniDropdown(true);
                     setUniId(null);
-                  } else {
-                    setUniName(e.target.value);
                   }
                 }}
-                onFocus={() => { if (isUniStudent) { setShowUniDropdown(true); setUniQuery(""); } }}
+                onFocus={() => { if (isUniStudent) setShowUniDropdown(true); }}
                 style={{ fontSize: 16, padding: "10px 12px", width: "100%" }}
                 autoFocus
               />
@@ -203,7 +203,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
                 <div style={{ position: "relative", marginTop: "4px", maxHeight: "220px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
                   {filteredUnis.length === 0 ? (
                     <div style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af" }}>
-                      {uniResults.length === 0 ? "Loading…" : "No results for \"" + uniQuery + "\""}
+                      {uniResults.length === 0 ? "Loading…" : "No results for \"" + uniName + "\""}
                     </div>
                   ) : (
                     filteredUnis.slice(0, 20).map((u) => (
@@ -234,12 +234,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
               </button>
               <button
                 style={{ borderColor: "#FFD700", color: "#FFD700" }}
-                onClick={() => {
-                  if (isUniStudent && !uniName && uniQuery.trim()) {
-                    setUniName(uniQuery.trim());
-                  }
-                  setStep(3);
-                }}
+                onClick={() => setStep(3)}
               >
                 Next →
               </button>

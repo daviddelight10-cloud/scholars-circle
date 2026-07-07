@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { DISCIPLINES } from "./AITutor/disciplines.js";
 import { getUniversities, getUniversityDepartments, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
@@ -153,10 +153,24 @@ export function StudentProfile({ profile, onSave, authUser }) {
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState("info"); // info, academic, preferences
   const [universities, setUniversities] = useState([]);
-  const [uniQuery, setUniQuery] = useState("");
   const [showUniDropdown, setShowUniDropdown] = useState(false);
   const [uniDepts, setUniDepts] = useState([]);
   const [savingToBackend, setSavingToBackend] = useState(false);
+  const uniWrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClose(e) {
+      if (uniWrapperRef.current && !uniWrapperRef.current.contains(e.target)) {
+        setShowUniDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClose);
+    document.addEventListener("touchstart", handleClose);
+    return () => {
+      document.removeEventListener("mousedown", handleClose);
+      document.removeEventListener("touchstart", handleClose);
+    };
+  }, []);
 
   useEffect(() => {
     if (profile) setDraft(profile);
@@ -187,7 +201,7 @@ export function StudentProfile({ profile, onSave, authUser }) {
   }, [draft.universityId]);
 
   const filteredUnis = universities.filter(u =>
-    !uniQuery || u.name.toLowerCase().includes(uniQuery.toLowerCase())
+    !draft.universityName || u.name.toLowerCase().includes((draft.universityName || "").toLowerCase())
   );
 
   function set(field, value) {
@@ -206,7 +220,6 @@ export function StudentProfile({ profile, onSave, authUser }) {
     }));
     setSaved(false);
     setShowUniDropdown(false);
-    setUniQuery("");
   }
 
   async function handleSave() {
@@ -442,20 +455,20 @@ export function StudentProfile({ profile, onSave, authUser }) {
           </Field>
 
           <Field label="University / School" hint="Search and select your institution">
-            <div style={{ position: "relative" }}>
+            <div ref={uniWrapperRef} style={{ position: "relative" }}>
               <input
                 type="text"
-                value={showUniDropdown ? uniQuery : (draft.universityName || draft.institution || "")}
-                onChange={(e) => { setUniQuery(e.target.value); setShowUniDropdown(true); }}
-                onFocus={() => { setShowUniDropdown(true); setUniQuery(""); }}
+                value={draft.universityName || draft.institution || ""}
+                onChange={(e) => { set("universityName", e.target.value); set("institution", e.target.value); setShowUniDropdown(true); }}
+                onFocus={() => { setShowUniDropdown(true); }}
                 placeholder="Search for your university or school…"
                 style={inputStyle}
               />
               {showUniDropdown && (
-                <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, maxHeight: "240px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "0 0 8px 8px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "relative", marginTop: "4px", maxHeight: "220px", overflowY: "auto", background: "#1a1a2e", border: "1px solid rgba(255,215,0,0.3)", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
                   {filteredUnis.length === 0 ? (
                     <div style={{ padding: "12px 14px", fontSize: 12, color: "#9ca3af" }}>
-                      {universities.length === 0 ? "Loading…" : `No results for "${uniQuery}"`}
+                      {universities.length === 0 ? "Loading…" : "No results for \"" + (draft.universityName || "") + "\""}
                     </div>
                   ) : (
                     filteredUnis.slice(0, 20).map((u) => (
@@ -471,16 +484,13 @@ export function StudentProfile({ profile, onSave, authUser }) {
                           <div style={{ fontWeight: 600 }}>{u.name}</div>
                           <div style={{ fontSize: 11, color: "#7b82b8" }}>
                             {u.type === "school" ? "Secondary School" : u.type === "polytechnic" ? "Polytechnic" : "University"}
-                            {u.city ? ` · ${u.city}` : ""}
+                            {u.city ? " · " + u.city : ""}
                           </div>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-              )}
-              {showUniDropdown && (
-                <div onClick={() => setShowUniDropdown(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
               )}
             </div>
             {draft.universityName && (
