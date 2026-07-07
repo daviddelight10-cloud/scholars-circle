@@ -1,11 +1,21 @@
+import { Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import HomePage from './features/HomePage';
-import App from './App';
-import ResearchHub from './features/research-hub/ResearchHub';
-import ResourceViewer from './features/ResourceViewer';
-import TeacherResourcesHub from './features/TeacherResourcesHub';
-import SharedFolderView from './features/SharedFolderView';
-import ResourceUploadForm from './components/teacher/ResourceUploadForm';
+import { lazyWithRetry } from './lib/lazyWithRetry.js';
+
+const App = lazyWithRetry(() => import('./App'));
+const ResearchHub = lazyWithRetry(() => import('./features/research-hub/ResearchHub'));
+const ResourceViewer = lazyWithRetry(() => import('./features/ResourceViewer'));
+const TeacherResourcesHub = lazyWithRetry(() => import('./features/TeacherResourcesHub'));
+const SharedFolderView = lazyWithRetry(() => import('./features/SharedFolderView'));
+const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
+
+const PageLoader = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#0f1117' }}>
+    <div style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+  </div>
+);
 
 // Auth check component
 function LandingPageWrapper() {
@@ -27,6 +37,7 @@ function LandingPageWrapper() {
 
 export default function AppRouter() {
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       {/* Landing page routes - redirect to /app if logged in */}
       <Route path="/" element={<LandingPageWrapper />} />
@@ -52,5 +63,6 @@ export default function AppRouter() {
       {/* Catch all - redirect to landing page */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   );
 }

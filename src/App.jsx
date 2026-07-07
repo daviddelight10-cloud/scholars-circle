@@ -5,7 +5,6 @@ import { useLocation, Link } from "react-router-dom";
 
 import { useToast } from "./components/Toast";
 
-import DOMPurify from "dompurify";
 
 import {
   Home as HomeIcon, BookOpen, Bot, BarChart3, Search, Menu, X,
@@ -29,16 +28,15 @@ import { callAI } from "./lib/aiClient";
 
 
 
-import TeacherQuestionManager from "./features/TeacherQuestionManager.jsx";
-import DepartmentManager from "./components/teacher/DepartmentManager.jsx";
+const TeacherQuestionManager = lazyWithRetry(() => import("./features/TeacherQuestionManager.jsx"));
+const DepartmentManager = lazyWithRetry(() => import("./components/teacher/DepartmentManager.jsx"));
 
-import LearnHub from "./features/LearnHub.jsx";
-import DepartmentSwitcher from "./components/learn/DepartmentSwitcher.jsx";
+const DepartmentSwitcher = lazyWithRetry(() => import("./components/learn/DepartmentSwitcher.jsx"));
 import { getDepartments, getUserDepartment } from "./lib/departments.js";
 
 import NotificationBell from "./features/NotificationBellImproved.jsx";
 
-import NotificationsTab from "./features/NotificationsTab.jsx";
+const NotificationsTab = lazyWithRetry(() => import("./features/NotificationsTab.jsx"));
 
 
 
@@ -69,25 +67,18 @@ import {
 } from "./lib/appUtils";
 
 import DemoLockedOverlay from "./components/DemoLockedOverlay";
-import { GlobalSearchDropdown } from "./components/GlobalSearchDropdown";
 import {
   ConfettiOverlay, CelebrationToast, StreakLossWarning,
-  StudyHeatmap, LeagueProgress, CelebrationNotification,
+  StudyHeatmap, LeagueProgress,
 } from "./components/Celebrations";
 import {
-  CommandPalette, AIHelper, SimpleCheckpoint,
-  RevisionPlanner, BulkImport, AIQuestionGen,
+  CommandPalette, RevisionPlanner, BulkImport, AIQuestionGen,
 } from "./components/SmallComponents";
-import { SessionPlayer } from "./components/SessionPlayer";
-import { QuestionBank } from "./components/QuestionBank";
-import { Classroom } from "./components/Classroom";
-import { FlashcardDeck } from "./components/FlashcardDeck";
-import { Leaderboard } from "./components/Leaderboard";
-import { PomodoroTimer, NotesEditor, TimetableBuilder, CheatSheet } from "./components/StudyTools";
-import { SearchResults, AchievementsBadges, ConfidenceHeatmap } from "./components/SearchAndBadges";
-import { DiscussionBoard } from "./components/Discussion";
-import { AITutorChat } from "./components/AITutorChat";
-import { StudyReminders } from "./components/StudyReminders";
+const SessionPlayer = lazyWithRetry(() => import("./components/SessionPlayer").then(m => ({ default: m.SessionPlayer })));
+const PomodoroTimer = lazyWithRetry(() => import("./components/StudyTools").then(m => ({ default: m.PomodoroTimer })));
+const TimetableBuilder = lazyWithRetry(() => import("./components/StudyTools").then(m => ({ default: m.TimetableBuilder })));
+const DiscussionBoard = lazyWithRetry(() => import("./components/Discussion").then(m => ({ default: m.DiscussionBoard })));
+const StudyReminders = lazyWithRetry(() => import("./components/StudyReminders").then(m => ({ default: m.StudyReminders })));
 import { KeyManagement, LockedScreen } from "./components/AdminComponents";
 
 
@@ -100,32 +91,17 @@ import { KeyManagement, LockedScreen } from "./components/AdminComponents";
 
 
 
-import { TodayScreen } from "./features/TodayPlan";
+const LectureToNotes = lazyWithRetry(() => import("./features/LectureToNotes").then(m => ({ default: m.LectureToNotes })));
 
+const PastPaperDrill = lazyWithRetry(() => import("./features/PastPaperDrill").then(m => ({ default: m.PastPaperDrill })));
 
-
-import { LectureToNotes } from "./features/LectureToNotes";
-
-
-
-import { PastPaperDrill } from "./features/PastPaperDrill";
-
-
-
-
-import { PracticeWithHints } from "./features/PracticeWithHints";
-
-
+const PracticeWithHints = lazyWithRetry(() => import("./features/PracticeWithHints").then(m => ({ default: m.PracticeWithHints })));
 
 import { AchievementNotification } from "./features/AchievementNotification";
 
+const PersonalizedStudyPaths = lazyWithRetry(() => import("./features/PersonalizedStudyPaths").then(m => ({ default: m.PersonalizedStudyPaths })));
 
-
-import { PersonalizedStudyPaths } from "./features/PersonalizedStudyPaths";
-
-
-
-import { StudyGroups } from "./features/StudyGroups";
+const StudyGroups = lazyWithRetry(() => import("./features/StudyGroups").then(m => ({ default: m.StudyGroups })));
 
 
 
@@ -141,7 +117,6 @@ const CampusComm = lazyWithRetry(() => import("./features/CampusComm.jsx"));
 
 
 import { ExamSimulator, selectAdaptiveQuestions, calculateSessionAnalytics, PostSessionInsights } from "./features/EnhancedSession";
-import StatsPanel from "./features/StatsPanel";
 
 
 
@@ -149,47 +124,38 @@ import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboard
 
 
 
-import AITutor from "./features/AITutor/index.jsx";
-import AISectionOverlay from "./features/AISectionOverlay.jsx";
+const AITutor = lazyWithRetry(() => import("./features/AITutor/index.jsx"));
 
 
 
-import { StudentProfile, useStudentProfile } from "./features/StudentProfile.jsx";
+import { useStudentProfile } from "./features/StudentProfile.jsx";
 
 
 
-import { TeacherInvitesPanel } from "./features/TeacherInvites.jsx";
+const TeacherInvitesPanel = lazyWithRetry(() => import("./features/TeacherInvites.jsx").then(m => ({ default: m.TeacherInvitesPanel })));
 
 
 
-import { LiveSessionsPanel } from "./features/LiveSessions/LiveSessionsPanel.jsx";
+const LiveSessionsPanel = lazyWithRetry(() => import("./features/LiveSessions/LiveSessionsPanel.jsx").then(m => ({ default: m.LiveSessionsPanel })));
 
 
 
-import { LiveBanner } from "./features/LiveSessions/LiveBanner.jsx";
+const ClassroomAssignmentsPanel = lazyWithRetry(() => import("./features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx").then(m => ({ default: m.ClassroomAssignmentsPanel })));
 
 
 
-import { ClassroomAssignmentsPanel } from "./features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
+const AttendancePanel = lazyWithRetry(() => import("./features/LiveSessions/AttendancePanel.jsx").then(m => ({ default: m.AttendancePanel })));
 
 
 
-import { AttendancePanel } from "./features/LiveSessions/AttendancePanel.jsx";
+const NotificationSettings = lazyWithRetry(() => import("./features/NotificationCenter.jsx").then(m => ({ default: m.NotificationSettings })));
 
 
 
-import { PushPermissionBanner, NotificationSettings } from "./features/NotificationCenter.jsx";
-
-
-
-import { InstallPrompt } from "./features/InstallPrompt.jsx";
-import PremiumPage from "./features/PremiumPage.jsx";
-import PaystackPop from "@paystack/inline-js";
+const PremiumPage = lazyWithRetry(() => import("./features/PremiumPage.jsx"));
 const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_2c321f6a4471b672ee716506912ede6f6f99d8cd";
 
 
-
-import CourseOutline from "./features/CourseOutline";
 
 
 
@@ -6771,6 +6737,7 @@ function App() {
 
         ) : (
 
+          <Suspense fallback={<div className="card"><p className="muted">Loading session...</p></div>}>
           <SessionPlayer
 
             session={activeSession}
@@ -6788,6 +6755,7 @@ function App() {
             }}
 
           />
+          </Suspense>
 
         )}
 
@@ -7438,11 +7406,12 @@ function App() {
                   {/* Paystack */}
                   {paymentMethod === "paystack" && (
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const plan = { week1: { label: "1 Week", price: 700 }, week2: { label: "2 Weeks", price: 1300 }, month1: { label: "1 Month", price: 2400 } }[selectedPlan];
                         const rawEmail = auth.user?.email || auth.user?.username || "";
                         const payEmail = rawEmail.includes("@") ? rawEmail : `${rawEmail || "user"}@scholars-circle.app`;
                         try {
+                          const { default: PaystackPop } = await import("@paystack/inline-js");
                           const popup = new PaystackPop();
                           popup.newTransaction({
                             key: PAYSTACK_PUBLIC_KEY,
@@ -8843,41 +8812,26 @@ function App() {
 
         ) : (
 
+          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
           <>
-
             {demoMode && (
-
               <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-
                   <span style={{ fontSize: 16 }}>⏱️</span>
-
                   <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.lectureToNotesDaily - (demoUsage.lectureToNotesDate === new Date().toDateString() ? demoUsage.lectureToNotesUsed : 0)} Lecture to Notes use(s) remaining today.</span>
-
                 </div>
-
               </div>
-
             )}
-
             <LectureToNotes
-
               subjects={subjects}
-
               aiConfig={aiConfig}
-
               onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-
               demoMode={demoMode}
-
               demoUsage={demoUsage}
-
               setDemoUsage={setDemoUsage}
-
             />
-
           </>
+          </Suspense>
 
         )
 
@@ -8896,21 +8850,15 @@ function App() {
 
 
       {tab === "studypaths" && (
-
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <PersonalizedStudyPaths
-
           subjects={subjects}
-
           mastery={mastery}
-
           history={history}
-
           stats={stats}
-
           onStartPractice={(subjectId) => startSubjectPractice(subjectId)}
-
         />
-
+        </Suspense>
       )}
 
 
@@ -8938,9 +8886,9 @@ function App() {
           />
 
         ) : (
-
+          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
           <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
-
+          </Suspense>
         )
 
       )}
@@ -8955,23 +8903,17 @@ function App() {
 
         activeSession?.mode === "practicehints" ? (
 
+          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
           <PracticeWithHints
-
             questions={activeSession.questions}
-
             subject={activeSession.source}
-
             onComplete={(result) => {
-
               updateLearningModels(result.results);
-
               completeSession(result, activeSession.source);
-
               setActiveSession(null);
-
             }}
-
           />
+          </Suspense>
 
         ) : (
 
@@ -9063,16 +9005,12 @@ function App() {
 
           )}
 
+          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
           <PastPaperDrill
-
             subjects={subjects}
-
             demoMode={demoMode}
-
             demoUsage={demoUsage}
-
             setDemoUsage={setDemoUsage}
-
             onStartPastPaper={(qs, yr, mins) => {
 
               if (demoMode && (demoUsage.pastPapersUsed || 0) >= DEMO_LIMITS.pastPapersLimit) {
@@ -9104,6 +9042,8 @@ function App() {
             }}
 
           />
+
+          </Suspense>
 
         </>
 
@@ -9536,6 +9476,7 @@ function App() {
       )}
 
       {showDeptSwitcher && (
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <DepartmentSwitcher
           activeDept={activeDept}
           activeYearLevel={activeYearLevel}
@@ -9559,6 +9500,7 @@ function App() {
             setShowDeptSwitcher(false);
           }}
         />
+        </Suspense>
       )}
 
 
@@ -9572,9 +9514,9 @@ function App() {
 
 
       {tab === "invites" && isTeacher && (
-
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <TeacherInvitesPanel token={token} />
-
+        </Suspense>
       )}
 
 
@@ -9678,21 +9620,19 @@ function App() {
 
 
       {tab === "teacher-questions" && isFaculty && (
-
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <TeacherQuestionManager
-
           token={token}
-
           subjects={subjects}
-
           onSubjectsRefresh={() => token && loadUserDataFromBackend(token)}
-
         />
-
+        </Suspense>
       )}
 
       {tab === "departments" && isTeacher && (
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <DepartmentManager />
+        </Suspense>
       )}
 
       {tab === "campus-comm" && isFaculty && (
@@ -9712,12 +9652,14 @@ function App() {
 
 
       {tab === "premium" && !isFaculty && (
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <PremiumPage
           user={auth.user}
           token={token}
           isActivated={isActivated}
           onActivated={() => refreshAuth()}
         />
+        </Suspense>
       )}
 
       {tab === "research-hub" && (
@@ -9841,7 +9783,9 @@ function App() {
         </div>
 
         {/* 🔔 Notifications */}
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <NotificationSettings token={token} />
+        </Suspense>
 
         {/* 🎟️ Support */}
         <div style={{ background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.2)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
@@ -9980,31 +9924,20 @@ function App() {
 
 
           {aiTutorSubTab === "chat" && (
-
+            <Suspense fallback={<div className="card"><p className="muted">Loading AI Tutor...</p></div>}>
             <AITutor
-
               aiConfig={aiConfig}
-
               subjects={subjects}
-
               studentProfile={studentProfile}
-
               onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
-
               onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-
               token={token}
-
               demoMode={demoMode}
-
               demoUsage={demoUsage}
-
               setDemoUsage={setDemoUsage}
-
               onNavigate={(target) => setTab(target)}
-
             />
-
+            </Suspense>
           )}
 
 
@@ -10049,21 +9982,16 @@ function App() {
 
                 )}
 
+                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
                 <LectureToNotes
-
                   subjects={subjects}
-
                   aiConfig={aiConfig}
-
                   onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-
                   demoMode={demoMode}
-
                   demoUsage={demoUsage}
-
                   setDemoUsage={setDemoUsage}
-
                 />
+                </Suspense>
 
               </>
 
@@ -10093,15 +10021,12 @@ function App() {
 
 
       {tab === "notifications" && (
-
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <NotificationsTab
-
           token={token}
-
           currentUser={auth.user}
-
         />
-
+        </Suspense>
       )}
 
 
@@ -10125,13 +10050,9 @@ function App() {
 
 
       {tab === "reminders" && (
-
-
-
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <StudyReminders reminders={reminders} setReminders={setReminders} timetable={timetable} notificationPermission={notificationPermission} setNotificationPermission={setNotificationPermission} token={token} />
-
-
-
+        </Suspense>
       )}
 
 
@@ -10178,23 +10099,17 @@ function App() {
 
               )}
 
+              <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
               <PomodoroTimer
-
                 demoMode={demoMode}
-
                 onSessionDone={() => {
-
                   setStats((s) => ({ ...s, questsDone: { ...s.questsDone, q7: s.questsDone.q7 } }));
-
                   if (demoMode) {
-
                     setDemoUsage(prev => ({ ...prev, pomodoroSessions: prev.pomodoroSessions + 1 }));
-
                   }
-
                 }}
-
               />
+              </Suspense>
 
             </>
 
@@ -10202,11 +10117,11 @@ function App() {
 
         ) : (
 
+          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
           <PomodoroTimer onSessionDone={() =>
-
             setStats((s) => ({ ...s, questsDone: { ...s.questsDone, q7: s.questsDone.q7 } }))
-
           } />
+          </Suspense>
 
         )
 
@@ -10221,13 +10136,9 @@ function App() {
 
 
       {tab === "timetable" && (
-
-
-
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <TimetableBuilder timetable={timetable} setTimetable={setTimetable} subjects={subjects} />
-
-
-
+        </Suspense>
       )}
 
 
@@ -10236,13 +10147,9 @@ function App() {
 
 
       {tab === "discuss" && (
-
-
-
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <DiscussionBoard subjects={subjects} discussion={discussion} setDiscussion={setDiscussion} username={auth.user.username} isTeacher={isFaculty} />
-
-
-
+        </Suspense>
       )}
 
 
@@ -12033,13 +11940,17 @@ function _Classroom_REMOVED({ subjects, assignments, teacherMode, setTeacherMode
 
                 {/* Live Sessions tab */}
                 {classTab === "sessions" && (
+                  <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
                   <LiveSessionsPanel classroomId={selectedClassroom.id} classroomName={selectedClassroom.name} isHost={isHost} currentUser={currentUser} token={token} />
+                  </Suspense>
                 )}
 
                 {/* Assignments tab */}
                 {classTab === "assignments" && (
                   <div>
+                    <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
                     <ClassroomAssignmentsPanel classroomId={selectedClassroom.id} isHost={isHost} currentUser={currentUser} token={token} />
+                    </Suspense>
                     {assignments.length > 0 && (
                       <div style={{ marginTop: 12 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: CL.border, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 8, fontFamily: "Syne,sans-serif" }}>LEGACY ASSIGNMENTS</div>
@@ -12112,7 +12023,9 @@ function _Classroom_REMOVED({ subjects, assignments, teacherMode, setTeacherMode
 
                 {/* Attendance tab */}
                 {classTab === "attendance" && (
+                  <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
                   <AttendancePanel classroomId={selectedClassroom.id} isHost={isHost} token={token} />
+                  </Suspense>
                 )}
 
                 {/* Teacher tools — single instance */}

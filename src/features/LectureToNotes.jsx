@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { callAI, extractJSON as extractJSONShared } from "../lib/aiClient";
-import { jsPDF } from "jspdf";
 
 const STORE_KEY = "sc_lecture_notes_v1";
 
@@ -255,9 +254,10 @@ Generate 5 flashcards as multiple-choice with 4 options. Keep all text concise.`
     setSavedNotes(next);
   }
 
-  function exportToPDF() {
+  async function exportToPDF() {
     if (!result) return;
     
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const subject = subjects.find((s) => s.id === subjectId);
     const pageTitle = title || "Untitled Lecture";

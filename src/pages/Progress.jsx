@@ -1,6 +1,5 @@
 import React, { memo, Suspense } from "react";
 import { lazyWithRetry } from "../lib/lazyWithRetry.js";
-import StatsPanel from "../features/StatsPanel";
 import { Leaderboard } from "../components/Leaderboard";
 import { AchievementsBadges } from "../components/SearchAndBadges";
 import { BADGES } from "../lib/constants";
@@ -10,6 +9,7 @@ import { useUI } from "../contexts/UIContext";
 import { useUserData } from "../contexts/UserDataContext";
 
 const GamificationHub = lazyWithRetry(() => import("../features/Gamification"));
+const StatsPanel = lazyWithRetry(() => import("../features/StatsPanel"));
 
 function Progress({
   authUser: authUserProp,
@@ -106,6 +106,7 @@ function Progress({
       {progressSubTab === "stats" && (
         <div>
           <h2>📊 Analytics</h2>
+          <Suspense fallback={<StatsGridSkeleton />}>
           <StatsPanel
             history={history}
             stats={stats}
@@ -114,6 +115,7 @@ function Progress({
             aiConfig={aiConfig}
             onRePractice={onRePractice}
           />
+          </Suspense>
         </div>
       )}
     </>
