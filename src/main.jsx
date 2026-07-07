@@ -38,10 +38,12 @@ if ('serviceWorker' in navigator) {
       });
   });
 
-  // Handle controller change (new SW activated)
+  // Handle controller change (new SW activated) — reload to get new assets
+  let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    console.log('New service worker controller activated');
-    // Don't reload automatically - let the app handle it via UI
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
   });
 } else {
   console.log('Service Worker not supported in this browser');
