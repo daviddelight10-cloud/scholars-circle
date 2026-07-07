@@ -228,6 +228,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             title={resource.title}
             contentType={resource.contentType}
             resourceId={resource.id}
+            folderId={resource.folderId}
             onBack={onBack || (() => {
               window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
               navigate("/app");

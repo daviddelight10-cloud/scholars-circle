@@ -2,6 +2,12 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import FlashcardRunner from "../components/FlashcardRunner.jsx";
+import {
+  loadHistory, saveHistory, createHistoryEntry,
+  recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
+  getMastery, recordPracticeSession, getMasteryColor, getMasteryEmoji,
+} from "../lib/studyHistory.js";
+import { copyShareToken } from "../lib/researchUtils.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -234,21 +240,39 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [studySaveError, setStudySaveError] = useState("");
   const [studyIsPublic, setStudyIsPublic] = useState(false);
 
-  // ── AI Study History (localStorage) ────────────────────────────────────────
-  const studyHistoryKey = `sc_study_history_${propResourceId || docKey}`;
-  const [studyHistory, setStudyHistory] = useState(() => loadStored(studyHistoryKey, []));
+  // ── AI Study History (localStorage via shared utility) ─────────────────────
+  const studyResourceId = propResourceId || docKey;
+  const [studyHistory, setStudyHistory] = useState(() => loadHistory(studyResourceId));
   const [historyView, setHistoryView] = useState(null); // null | { type: 'mcq'|'summary', ...entry }
   const [historyQuizAnswers, setHistoryQuizAnswers] = useState({});
   const [historyQuizLocked, setHistoryQuizLocked] = useState({});
   const [historyQuizIdx, setHistoryQuizIdx] = useState(0);
   const [historyQuizShowResults, setHistoryQuizShowResults] = useState(false);
+  const [historyQuizWeakFirst, setHistoryQuizWeakFirst] = useState(false);
+
+  // Practice-first state (for newly generated MCQs)
+  const [practiceMode, setPracticeMode] = useState(false); // when true, show quiz instead of raw text
+  const [practiceAnswers, setPracticeAnswers] = useState({});
+  const [practiceLocked, setPracticeLocked] = useState({});
+  const [practiceIdx, setPracticeIdx] = useState(0);
+  const [practiceShowResults, setPracticeShowResults] = useState(false);
+  const [practiceWeakFirst, setPracticeWeakFirst] = useState(false);
+  const [showRawText, setShowRawText] = useState(false);
+
+  // Auto-save toast state
+  const [autoSaveToast, setAutoSaveToast] = useState(null); // null | { status, resourceId, label }
+  const autoSaveTimerRef = useRef(null);
+
+  // Mastery state
+  const [mastery, setMastery] = useState(() => getMastery(studyResourceId));
 
   useEffect(() => {
-    saveStored(studyHistoryKey, studyHistory);
-  }, [studyHistory, studyHistoryKey]);
+    saveHistory(studyResourceId, studyHistory);
+    setMastery(getMastery(studyResourceId));
+  }, [studyHistory, studyResourceId]);
 
   function saveStudyHistoryEntry(entry) {
-    const newEntry = { id: Date.now(), ts: Date.now(), ...entry };
+    const newEntry = createHistoryEntry(entry);
     setStudyHistory((prev) => [newEntry, ...prev].slice(0, 20));
   }
 
@@ -259,6 +283,101 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   function clearStudyHistory() {
     setStudyHistory([]);
   }
+
+  // ── Auto-save to folder ────────────────────────────────────────────────────
+  async function autoSaveToFolder(mcqs, rangeLabel) {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token || !propFolderId) return; // need auth + folder
+
+    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: `[AI] MCQs from ${shortTitle} (${rangeLabel})`,
+          subject: "General",
+          contentType: "mcq",
+          mcqData: mcqs,
+          description: `AI-generated MCQs from ${shortTitle}, ${rangeLabel}`,
+          isPublic: false,
+          folderId: propFolderId,
+        }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const data = await res.json();
+
+      // Show toast with undo
+      setAutoSaveToast({ status: "saved", resourceId: data.resource?.id || data.id, label: "Saved to your folder" });
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
+    } catch (err) {
+      setAutoSaveToast({ status: "error", label: "Auto-save failed" });
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
+    }
+  }
+
+  async function undoAutoSave() {
+    if (!autoSaveToast?.resourceId) return;
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE}/api/resources/${autoSaveToast.resourceId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {}
+    setAutoSaveToast(null);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+  }
+
+  // ── Practice helpers (for newly generated MCQs) ────────────────────────────
+  function startPractice(weakFirst = false) {
+    const mcqs = weakFirst ? getWeakSpotQuestions(studyResourceId, parsedMcqs) : parsedMcqs;
+    setPracticeWeakFirst(weakFirst);
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setPracticeShowResults(false);
+    setPracticeMode(true);
+  }
+
+  function handlePracticeAnswer(key) {
+    if (practiceLocked[practiceIdx]) return;
+    setPracticeAnswers((prev) => ({ ...prev, [practiceIdx]: key }));
+    setPracticeLocked((prev) => ({ ...prev, [practiceIdx]: true }));
+  }
+
+  function practiceNext() {
+    if (!parsedMcqs.length) return;
+    if (practiceIdx < parsedMcqs.length - 1) {
+      setPracticeIdx(practiceIdx + 1);
+    } else {
+      setPracticeShowResults(true);
+      // Record practice results
+      recordPracticeResult(studyResourceId, parsedMcqs, practiceAnswers);
+      const score = parsedMcqs.reduce((acc, q, i) => acc + (practiceAnswers[i] === q.correct ? 1 : 0), 0);
+      recordPracticeSession(studyResourceId, null, score, parsedMcqs.length);
+      setMastery(getMastery(studyResourceId));
+    }
+  }
+
+  function practiceRetake() {
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setPracticeShowResults(false);
+  }
+
+  const practiceScore = parsedMcqs.length
+    ? parsedMcqs.reduce((acc, q, i) => acc + (practiceAnswers[i] === q.correct ? 1 : 0), 0)
+    : 0;
 
   // ── FSRS Spaced Repetition state ────────────────────────────────────────────
   const [fsrsStatus, setFsrsStatus] = useState(null); // per-resource FSRS data
@@ -959,6 +1078,13 @@ ${text}
     setHistoryQuizLocked({});
     setHistoryQuizIdx(0);
     setHistoryQuizShowResults(false);
+    setPracticeMode(false);
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setPracticeShowResults(false);
+    setShowRawText(false);
+    setMastery(getMastery(studyResourceId));
     if (numPages > 1 && studyRangeType === "custom") {
       const clampedFrom = Math.max(1, Math.min(studyFrom, numPages));
       setStudyFrom(clampedFrom);
@@ -986,12 +1112,24 @@ ${text}
     setHistoryQuizLocked({});
     setHistoryQuizIdx(0);
     setHistoryQuizShowResults(false);
+    setPracticeMode(false);
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setPracticeShowResults(false);
+    setShowRawText(false);
   };
 
   const handleStudyGenerate = async () => {
     setStudyError("");
     setStudyResult("");
     setParsedMcqs([]);
+    setPracticeMode(false);
+    setPracticeShowResults(false);
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setShowRawText(false);
 
     const { from, to, label } = resolveRange();
     if (from > to) { setStudyError("Invalid page range."); return; }
@@ -1049,7 +1187,11 @@ Rules:
           const mcqs = parseMcqMarkdown(raw);
           setParsedMcqs(mcqs);
           setStudyStep("result");
-          if (mcqs.length > 0) saveStudyHistoryEntry({ type: "mcq", mode: "auto", rangeLabel: `page ${currentPage}`, mcqs, rawText: raw });
+          if (mcqs.length > 0) {
+            saveStudyHistoryEntry({ type: "mcq", mode: "auto", rangeLabel: `page ${currentPage}`, mcqs, rawText: raw });
+            autoSaveToFolder(mcqs, `page ${currentPage}`);
+            setPracticeMode(true);
+          }
         } catch (err) {
           setStudyError(err.message || "Failed to generate questions. Please try again.");
           setStudyStep("setup");
@@ -1148,7 +1290,11 @@ ${extractedText}
         const mcqs = parseMcqMarkdown(raw);
         setParsedMcqs(mcqs);
         setStudyStep("result");
-        if (mcqs.length > 0) saveStudyHistoryEntry({ type: "mcq", mode: "text", rangeLabel: label, mcqs, rawText: raw });
+        if (mcqs.length > 0) {
+          saveStudyHistoryEntry({ type: "mcq", mode: "text", rangeLabel: label, mcqs, rawText: raw });
+          autoSaveToFolder(mcqs, label);
+          setPracticeMode(true);
+        }
       } catch (err) {
         setStudyError(err.message || "Failed to generate questions. Please try again.");
         setStudyStep("setup");
@@ -1183,11 +1329,19 @@ ${extractedText}
     setStudySaveStatus("idle");
     setStudySaveError("");
     setHistoryView(null);
+    setPracticeMode(false);
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setPracticeShowResults(false);
+    setShowRawText(false);
   };
 
   // ── History quiz helpers ──────────────────────────────────────────────────
-  function startHistoryQuiz(entry) {
-    setHistoryView(entry);
+  function startHistoryQuiz(entry, weakFirst = false) {
+    const mcqs = weakFirst ? getWeakSpotQuestions(studyResourceId, entry.mcqs) : entry.mcqs;
+    setHistoryView({ ...entry, mcqs });
+    setHistoryQuizWeakFirst(weakFirst);
     setHistoryQuizAnswers({});
     setHistoryQuizLocked({});
     setHistoryQuizIdx(0);
@@ -1206,6 +1360,11 @@ ${extractedText}
       setHistoryQuizIdx(historyQuizIdx + 1);
     } else {
       setHistoryQuizShowResults(true);
+      // Record practice results for weak-spot tracking
+      recordPracticeResult(studyResourceId, historyView.mcqs, historyQuizAnswers);
+      const score = historyView.mcqs.reduce((acc, q, i) => acc + (historyQuizAnswers[i] === q.correct ? 1 : 0), 0);
+      recordPracticeSession(studyResourceId, historyView.id, score, historyView.mcqs.length);
+      setMastery(getMastery(studyResourceId));
     }
   }
 
@@ -1214,6 +1373,36 @@ ${extractedText}
     setHistoryQuizLocked({});
     setHistoryQuizIdx(0);
     setHistoryQuizShowResults(false);
+  }
+
+  async function handleSharePracticeSet(entry) {
+    // Save as public MCQ resource and get share token
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token) return;
+    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: `[AI] MCQs from ${shortTitle} (${entry.rangeLabel})`,
+          subject: "General",
+          contentType: "mcq",
+          mcqData: entry.mcqs,
+          description: `AI-generated MCQs from ${shortTitle}, ${entry.rangeLabel}`,
+          isPublic: true,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.shareToken) {
+        await copyShareToken(data.shareToken);
+        setAutoSaveToast({ status: "saved", label: "Share link copied!", resourceId: null });
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 4000);
+      }
+    } catch {}
   }
 
   const historyQuizScore = historyView?.mcqs
@@ -4308,6 +4497,37 @@ ${extractedText}
                       </div>
                     </div>
 
+                    {/* Mastery progress bar */}
+                    {mastery.totalQuestions > 0 && studyMode !== "flashcard" && (
+                      <div style={{
+                        padding: "10px 14px",
+                        background: T.hover,
+                        border: `1px solid ${T.border}`,
+                        borderRadius: 10,
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
+                            {getMasteryEmoji(mastery.correctRate)} Document mastery
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: getMasteryColor(mastery.correctRate) }}>
+                            {mastery.correctRate}%
+                          </span>
+                        </div>
+                        <div style={{ height: 6, background: T.border, borderRadius: 4, overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%",
+                            width: `${mastery.correctRate}%`,
+                            background: getMasteryColor(mastery.correctRate),
+                            borderRadius: 4,
+                            transition: "width 0.4s ease",
+                          }} />
+                        </div>
+                        <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>
+                          {mastery.mastered}/{mastery.totalQuestions} questions mastered · Practiced {mastery.practicedCount} time{mastery.practicedCount !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+                    )}
+
                     {/* History button */}
                     {studyHistory.length > 0 && studyMode !== "flashcard" && (
                       <button
@@ -4615,6 +4835,42 @@ ${extractedText}
                               >
                                 {entry.type === "mcq" ? "Practice" : "View"}
                               </button>
+                              {entry.type === "mcq" && getWeakSpots(studyResourceId).length > 0 && (
+                                <button
+                                  style={{
+                                    padding: "4px 8px",
+                                    background: "rgba(255,179,0,0.15)",
+                                    border: "1px solid rgba(255,179,0,0.4)",
+                                    borderRadius: 6,
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    color: "#ffb74d",
+                                    cursor: "pointer",
+                                    flexShrink: 0,
+                                  }}
+                                  onClick={() => startHistoryQuiz(entry, true)}
+                                  title="Practice weak spots first"
+                                >
+                                  ⚡
+                                </button>
+                              )}
+                              {entry.type === "mcq" && (
+                                <button
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: T.muted,
+                                    fontSize: 14,
+                                    cursor: "pointer",
+                                    padding: 4,
+                                    flexShrink: 0,
+                                  }}
+                                  onClick={() => handleSharePracticeSet(entry)}
+                                  title="Share with study group"
+                                >
+                                  🔗
+                                </button>
+                              )}
                               <button
                                 style={{
                                   background: "none",
@@ -4813,9 +5069,12 @@ ${extractedText}
                         );
                       })}
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={historyQuizRetake}>
                         🔄 Retake
+                      </button>
+                      <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => handleSharePracticeSet(historyView)}>
+                        🔗 Share
                       </button>
                       <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => setHistoryView(null)}>
                         ← Back to list
@@ -4827,12 +5086,128 @@ ${extractedText}
                 {studyStep === "result" && (
                   <>
                     <div style={s.studyBody}>
-                      {studyMode === "mcq" && parsedMcqs.length === 0 && (
-                        <div style={s.studyMcqNote}>
-                          Couldn't structure these questions for saving — you can still copy the text below.
-                        </div>
+                      {/* Practice-first for MCQs with parsed questions */}
+                      {studyMode === "mcq" && parsedMcqs.length > 0 && practiceMode && !practiceShowResults && (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📝 Practice ({parsedMcqs.length} questions)</span>
+                            <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setPracticeMode(false)}>View text instead</button>
+                          </div>
+                          {/* Progress */}
+                          <div style={{ height: 4, background: T.hover, borderRadius: 4, overflow: "hidden", marginBottom: 12 }}>
+                            <div style={{
+                              height: "100%",
+                              width: `${parsedMcqs.length > 0 ? ((practiceIdx + (practiceLocked[practiceIdx] ? 1 : 0)) / parsedMcqs.length) * 100 : 0}%`,
+                              background: T.accent, borderRadius: 4, transition: "width 0.3s ease",
+                            }} />
+                          </div>
+                          {(() => {
+                            const q = parsedMcqs[practiceIdx];
+                            if (!q) return null;
+                            const selected = practiceAnswers[practiceIdx];
+                            const isLocked = practiceLocked[practiceIdx];
+                            return (
+                              <>
+                                <div style={{ fontSize: 14, fontWeight: 600, color: T.text, lineHeight: 1.5, marginBottom: 12 }}>
+                                  Q{practiceIdx + 1}. {q.question}
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  {Object.entries(q.options).map(([key, val]) => {
+                                    const isSelected = selected === key;
+                                    const isCorrect = key === q.correct;
+                                    const showCorrect = isLocked && isCorrect;
+                                    const showWrong = isLocked && isSelected && !isCorrect;
+                                    return (
+                                      <div key={key} onClick={() => !isLocked && handlePracticeAnswer(key)}
+                                        style={{
+                                          display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8,
+                                          cursor: isLocked ? "default" : "pointer",
+                                          background: showCorrect ? `${T.accent}15` : showWrong ? "rgba(244,67,54,0.12)" : T.hover,
+                                          border: `1px solid ${showCorrect ? T.accent : showWrong ? "#ef5350" : isSelected ? T.accent : T.border}`,
+                                          transition: "all 0.15s",
+                                        }}>
+                                        <span style={{ fontSize: 12, fontWeight: 700, color: showCorrect ? T.accent : showWrong ? "#ef5350" : T.muted, minWidth: 20 }}>{key}.</span>
+                                        <span style={{ fontSize: 13, color: T.text, flex: 1 }}>{val}</span>
+                                        {showCorrect && <span style={{ fontSize: 14, color: T.accent }}>✓</span>}
+                                        {showWrong && <span style={{ fontSize: 14, color: "#ef5350" }}>✕</span>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {isLocked && (
+                                  <>
+                                    {q.explanation && (
+                                      <div style={{ marginTop: 10, padding: "10px 12px", background: T.hover, border: `0.5px solid ${T.border}`, borderRadius: 8, fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
+                                        <span style={{ fontWeight: 700, color: T.text }}>Explanation: </span>{q.explanation}
+                                      </div>
+                                    )}
+                                    <button style={{ ...s.studyGenerateBtn, marginTop: 12 }} onClick={practiceNext}>
+                                      {practiceIdx < parsedMcqs.length - 1 ? "Next →" : "See Results"}
+                                    </button>
+                                  </>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </>
                       )}
-                      <MarkdownText theme={theme}>{studyResult}</MarkdownText>
+
+                      {/* Practice results screen */}
+                      {studyMode === "mcq" && parsedMcqs.length > 0 && practiceMode && practiceShowResults && (
+                        <>
+                          <div style={{ textAlign: "center", marginBottom: 16 }}>
+                            <div style={{ fontSize: 32, marginBottom: 4 }}>
+                              {practiceScore === parsedMcqs.length ? "🏆" : practiceScore >= parsedMcqs.length / 2 ? "🎉" : "📚"}
+                            </div>
+                            <div style={{ fontSize: 22, fontWeight: 800, color: practiceScore >= parsedMcqs.length / 2 ? "#66bb6a" : "#ffb74d" }}>
+                              {practiceScore} / {parsedMcqs.length}
+                            </div>
+                            <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
+                              {parsedMcqs.length > 0 ? Math.round((practiceScore / parsedMcqs.length) * 100) : 0}% correct
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto", marginBottom: 12 }}>
+                            {parsedMcqs.map((q, i) => {
+                              const userAnswer = practiceAnswers[i];
+                              const isCorrect = userAnswer === q.correct;
+                              return (
+                                <div key={i} style={{ padding: "10px 12px", background: T.hover, border: `0.5px solid ${isCorrect ? "#2a6a3a" : "#6a2a2a"}`, borderRadius: 8 }}>
+                                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
+                                    <span style={{ fontSize: 13 }}>{isCorrect ? "✅" : "❌"}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
+                                  </div>
+                                  <div style={{ fontSize: 11, color: T.muted }}>
+                                    Correct: <span style={{ color: T.accent }}>{q.correct}. {q.options[q.correct]}</span>
+                                    {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef5350" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={practiceRetake}>🔄 Retake</button>
+                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => { setPracticeMode(false); setShowRawText(true); }}>📄 View text</button>
+                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={handleStudyNew}>✨ New</button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Fallback: raw text (when no parsed MCQs, or user chose to view text, or summary mode) */}
+                      {((studyMode === "mcq" && (parsedMcqs.length === 0 || !practiceMode)) || studyMode === "summary") && (
+                        <>
+                          {studyMode === "mcq" && parsedMcqs.length === 0 && (
+                            <div style={s.studyMcqNote}>
+                              Couldn't structure these questions for saving — you can still copy the text below.
+                            </div>
+                          )}
+                          {studyMode === "mcq" && parsedMcqs.length > 0 && !practiceMode && (
+                            <button style={{ ...s.studyGenerateBtn, marginBottom: 12 }} onClick={() => startPractice()}>
+                              📝 Practice these questions
+                            </button>
+                          )}
+                          <MarkdownText theme={theme}>{studyResult}</MarkdownText>
+                        </>
+                      )}
                     </div>
                     <div style={s.studyResultActions}>
                       <button style={s.studyActionBtn} onClick={handleStudyCopy}>
@@ -4865,6 +5240,25 @@ ${extractedText}
                 )}
               </div>
             </>
+          )}
+
+          {/* Auto-save toast */}
+          {autoSaveToast && (
+            <div style={{
+              position: "fixed", bottom: isMobile ? 70 : 24, left: "50%", transform: "translateX(-50%)",
+              background: autoSaveToast.status === "saved" ? "#2a8a4a" : "#c0392b",
+              color: "white", padding: "10px 16px", borderRadius: 12, fontSize: 13, fontWeight: 600,
+              display: "flex", alignItems: "center", gap: 12, zIndex: 10000,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)", animation: "slideUp 0.3s ease",
+            }}>
+              <span>{autoSaveToast.status === "saved" ? "✅" : "⚠️"} {autoSaveToast.label}</span>
+              {autoSaveToast.status === "saved" && autoSaveToast.resourceId && (
+                <button onClick={undoAutoSave} style={{
+                  background: "rgba(255,255,255,0.2)", border: "none", color: "white",
+                  padding: "4px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 600,
+                }}>Undo</button>
+              )}
+            </div>
           )}
 
           {/* FSRS Page Rating Bar */}

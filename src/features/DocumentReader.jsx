@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import {
+  loadHistory, saveHistory, createHistoryEntry,
+  recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
+  getMastery, recordPracticeSession, getMasteryColor, getMasteryEmoji,
+} from "../lib/studyHistory.js";
+import { copyShareToken } from "../lib/researchUtils.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -92,7 +98,7 @@ const SMART_CHIPS = [
   { label: "Why it matters", prompt: "Why is this important and where is it used in practice?" },
 ];
 
-export default function DocumentReader({ fileUrl, title, contentType, resourceId, onBack }) {
+export default function DocumentReader({ fileUrl, title, contentType, resourceId, folderId, onBack }) {
   const [theme, setTheme] = useState(() => localStorage.getItem("sc_doc_theme") || "dark");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -105,8 +111,6 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
   const [studyLoading, setStudyLoading] = useState(false);
   const [studyError, setStudyError] = useState("");
   const [parsedMcqs, setParsedMcqs] = useState([]);
-  const [mcqAnswers, setMcqAnswers] = useState({});
-  const [showMcqResults, setShowMcqResults] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -117,6 +121,205 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
   const [isDrawing, setIsDrawing] = useState(false);
   const drawStartRef = useRef({ x: 0, y: 0 });
   const t = THEMES[theme];
+
+  // ── AI Study History (localStorage via shared utility) ─────────────────────
+  const studyResourceId = resourceId || title || "doc";
+  const [studyHistory, setStudyHistory] = useState(() => loadHistory(studyResourceId));
+  const [historyView, setHistoryView] = useState(null);
+  const [historyQuizAnswers, setHistoryQuizAnswers] = useState({});
+  const [historyQuizLocked, setHistoryQuizLocked] = useState({});
+  const [historyQuizIdx, setHistoryQuizIdx] = useState(0);
+  const [historyQuizShowResults, setHistoryQuizShowResults] = useState(false);
+  const [studyStep, setStudyStep] = useState("setup"); // "setup" | "history"
+
+  // Practice-first state
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [practiceAnswers, setPracticeAnswers] = useState({});
+  const [practiceLocked, setPracticeLocked] = useState({});
+  const [practiceIdx, setPracticeIdx] = useState(0);
+  const [practiceShowResults, setPracticeShowResults] = useState(false);
+
+  // Auto-save toast
+  const [autoSaveToast, setAutoSaveToast] = useState(null);
+  const autoSaveTimerRef = useRef(null);
+
+  // Mastery
+  const [mastery, setMastery] = useState(() => getMastery(studyResourceId));
+
+  useEffect(() => {
+    saveHistory(studyResourceId, studyHistory);
+    setMastery(getMastery(studyResourceId));
+  }, [studyHistory, studyResourceId]);
+
+  function saveStudyHistoryEntry(entry) {
+    const newEntry = createHistoryEntry(entry);
+    setStudyHistory((prev) => [newEntry, ...prev].slice(0, 20));
+  }
+
+  function deleteStudyHistoryEntry(id) {
+    setStudyHistory((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  function clearStudyHistory() {
+    setStudyHistory([]);
+  }
+
+  // ── Auto-save to folder ────────────────────────────────────────────────────
+  async function autoSaveToFolder(mcqs, rangeLabel) {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token || !folderId) return;
+
+    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: `[AI] MCQs from ${shortTitle} (${rangeLabel})`,
+          subject: "General",
+          contentType: "mcq",
+          mcqData: mcqs,
+          description: `AI-generated MCQs from ${shortTitle}, ${rangeLabel}`,
+          isPublic: false,
+          folderId,
+        }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const data = await res.json();
+      setAutoSaveToast({ status: "saved", resourceId: data.resource?.id || data.id, label: "Saved to your folder" });
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
+    } catch (err) {
+      setAutoSaveToast({ status: "error", label: "Auto-save failed" });
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
+    }
+  }
+
+  async function undoAutoSave() {
+    if (!autoSaveToast?.resourceId) return;
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE}/api/resources/${autoSaveToast.resourceId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {}
+    setAutoSaveToast(null);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+  }
+
+  // ── Practice helpers ───────────────────────────────────────────────────────
+  function startPractice(weakFirst = false) {
+    const mcqs = weakFirst ? getWeakSpotQuestions(studyResourceId, parsedMcqs) : parsedMcqs;
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setPracticeShowResults(false);
+    setPracticeMode(true);
+  }
+
+  function handlePracticeAnswer(key) {
+    if (practiceLocked[practiceIdx]) return;
+    setPracticeAnswers((prev) => ({ ...prev, [practiceIdx]: key }));
+    setPracticeLocked((prev) => ({ ...prev, [practiceIdx]: true }));
+  }
+
+  function practiceNext() {
+    if (!parsedMcqs.length) return;
+    if (practiceIdx < parsedMcqs.length - 1) {
+      setPracticeIdx(practiceIdx + 1);
+    } else {
+      setPracticeShowResults(true);
+      recordPracticeResult(studyResourceId, parsedMcqs, practiceAnswers);
+      const score = parsedMcqs.reduce((acc, q, i) => acc + (practiceAnswers[i] === q.correct ? 1 : 0), 0);
+      recordPracticeSession(studyResourceId, null, score, parsedMcqs.length);
+      setMastery(getMastery(studyResourceId));
+    }
+  }
+
+  function practiceRetake() {
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
+    setPracticeShowResults(false);
+  }
+
+  const practiceScore = parsedMcqs.length
+    ? parsedMcqs.reduce((acc, q, i) => acc + (practiceAnswers[i] === q.correct ? 1 : 0), 0)
+    : 0;
+
+  // ── History quiz helpers ───────────────────────────────────────────────────
+  function startHistoryQuiz(entry, weakFirst = false) {
+    const mcqs = weakFirst ? getWeakSpotQuestions(studyResourceId, entry.mcqs) : entry.mcqs;
+    setHistoryView({ ...entry, mcqs });
+    setHistoryQuizAnswers({});
+    setHistoryQuizLocked({});
+    setHistoryQuizIdx(0);
+    setHistoryQuizShowResults(false);
+  }
+
+  function handleHistoryQuizAnswer(key) {
+    if (historyQuizLocked[historyQuizIdx]) return;
+    setHistoryQuizAnswers((prev) => ({ ...prev, [historyQuizIdx]: key }));
+    setHistoryQuizLocked((prev) => ({ ...prev, [historyQuizIdx]: true }));
+  }
+
+  function historyQuizNext() {
+    if (!historyView?.mcqs) return;
+    if (historyQuizIdx < historyView.mcqs.length - 1) {
+      setHistoryQuizIdx(historyQuizIdx + 1);
+    } else {
+      setHistoryQuizShowResults(true);
+      recordPracticeResult(studyResourceId, historyView.mcqs, historyQuizAnswers);
+      const score = historyView.mcqs.reduce((acc, q, i) => acc + (historyQuizAnswers[i] === q.correct ? 1 : 0), 0);
+      recordPracticeSession(studyResourceId, historyView.id, score, historyView.mcqs.length);
+      setMastery(getMastery(studyResourceId));
+    }
+  }
+
+  function historyQuizRetake() {
+    setHistoryQuizAnswers({});
+    setHistoryQuizLocked({});
+    setHistoryQuizIdx(0);
+    setHistoryQuizShowResults(false);
+  }
+
+  const historyQuizScore = historyView?.mcqs
+    ? historyView.mcqs.reduce((acc, q, i) => acc + (historyQuizAnswers[i] === q.correct ? 1 : 0), 0)
+    : 0;
+
+  async function handleSharePracticeSet(entry) {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token) return;
+    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: `[AI] MCQs from ${shortTitle} (${entry.rangeLabel})`,
+          subject: "General",
+          contentType: "mcq",
+          mcqData: entry.mcqs,
+          description: `AI-generated MCQs from ${shortTitle}, ${entry.rangeLabel}`,
+          isPublic: true,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.shareToken) {
+        await copyShareToken(data.shareToken);
+        setAutoSaveToast({ status: "saved", label: "Share link copied!", resourceId: null });
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 4000);
+      }
+    } catch {}
+  }
 
   // Escape key to exit
   useEffect(() => {
@@ -139,8 +342,6 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
       setStudyResult("");
       setParsedMcqs([]);
       setChatMessages([]);
-      setMcqAnswers({});
-      setShowMcqResults(false);
       try {
         if (contentType === "image") {
           const res = await fetch(getProxiedUrl(fileUrl), { headers: getAuthHeaders() });
@@ -239,6 +440,11 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
     setStudyError("");
     setStudyResult("");
     setParsedMcqs([]);
+    setPracticeMode(false);
+    setPracticeShowResults(false);
+    setPracticeAnswers({});
+    setPracticeLocked({});
+    setPracticeIdx(0);
 
     let promptText = "";
     let imageToSend = null;
@@ -275,6 +481,14 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
       if (studyMode === "mcq") {
         const mcqs = parseMcqMarkdown(raw);
         setParsedMcqs(mcqs);
+        if (mcqs.length > 0) {
+          const rangeLabel = contentType === "image" ? "image" : "document";
+          saveStudyHistoryEntry({ type: "mcq", mode: "auto", rangeLabel, mcqs, rawText: raw });
+          autoSaveToFolder(mcqs, rangeLabel);
+          setPracticeMode(true);
+        }
+      } else {
+        saveStudyHistoryEntry({ type: "summary", mode: "auto", rangeLabel: contentType === "image" ? "image" : "document", rawText: raw });
       }
     } catch (err) {
       console.error("[DocReader] study error:", err);
@@ -464,11 +678,6 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
     setSearchResults(results);
   };
 
-  const mcqScore = () => {
-    if (!parsedMcqs.length) return 0;
-    return parsedMcqs.filter((q, i) => mcqAnswers[i] === q.correct).length;
-  };
-
   if (loading) {
     return (
       <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
@@ -581,7 +790,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
             {/* Mode tabs */}
             <div style={{ display: "flex", gap: "4px", padding: "10px", borderBottom: `0.5px solid ${t.border}` }}>
               {[["summary", "📝 Summary"], ["mcq", "❓ MCQs"], ["chat", "💬 Ask AI"]].map(([key, label]) => (
-                <button key={key} onClick={() => { setStudyMode(key); setStudyResult(""); setParsedMcqs([]); setStudyError(""); }}
+                <button key={key} onClick={() => { setStudyMode(key); setStudyResult(""); setParsedMcqs([]); setStudyError(""); setPracticeMode(false); setHistoryView(null); setStudyStep("setup"); }}
                   style={{
                     flex: 1, padding: "8px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
                     background: studyMode === key ? t.accent : "transparent", color: studyMode === key ? "#fff" : t.muted,
@@ -593,8 +802,207 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
             {/* Summary / MCQ Panel */}
             {(studyMode === "summary" || studyMode === "mcq") && (
               <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
-                {!studyResult && !studyLoading && (
+
+                {/* History view */}
+                {studyStep === "history" && !historyView && (
                   <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>🕘 Study History</span>
+                      <button style={{ background: "none", border: "none", color: t.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setStudyStep("setup")}>← Back</button>
+                    </div>
+                    {studyHistory.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "24px 16px", color: t.muted, fontSize: 13 }}>
+                        No history yet. Generate some MCQs or summaries to see them here.
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
+                          {studyHistory.map((entry) => (
+                            <div key={entry.id} style={{
+                              background: t.hover, border: `0.5px solid ${t.border}`, borderRadius: 10,
+                              padding: "10px 12px", display: "flex", alignItems: "center", gap: 10,
+                            }}>
+                              <span style={{ fontSize: 20, flexShrink: 0 }}>{entry.type === "mcq" ? "📝" : "📄"}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} MCQs` : "Summary"} · {entry.rangeLabel}
+                                </div>
+                                <div style={{ fontSize: 10, color: t.muted, marginTop: 2 }}>
+                                  {new Date(entry.ts).toLocaleDateString(undefined, { month: "short", day: "numeric" })} at {new Date(entry.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                              </div>
+                              <button
+                                style={{
+                                  padding: "6px 12px", background: entry.type === "mcq" ? `${t.accent}20` : t.hover,
+                                  border: `1px solid ${entry.type === "mcq" ? t.accent : t.border}`, borderRadius: 8,
+                                  fontSize: 11, fontWeight: 700, color: entry.type === "mcq" ? t.accent : t.text,
+                                  cursor: "pointer", flexShrink: 0,
+                                }}
+                                onClick={() => entry.type === "mcq" ? startHistoryQuiz(entry) : setHistoryView(entry)}
+                              >
+                                {entry.type === "mcq" ? "Practice" : "View"}
+                              </button>
+                              {entry.type === "mcq" && getWeakSpots(studyResourceId).length > 0 && (
+                                <button
+                                  style={{
+                                    padding: "4px 8px", background: "rgba(255,179,0,0.15)",
+                                    border: "1px solid rgba(255,179,0,0.4)", borderRadius: 6,
+                                    fontSize: 10, fontWeight: 700, color: "#ffb74d", cursor: "pointer", flexShrink: 0,
+                                  }}
+                                  onClick={() => startHistoryQuiz(entry, true)} title="Practice weak spots first"
+                                >⚡</button>
+                              )}
+                              {entry.type === "mcq" && (
+                                <button style={{ background: "none", border: "none", color: t.muted, fontSize: 14, cursor: "pointer", padding: 4, flexShrink: 0 }}
+                                  onClick={() => handleSharePracticeSet(entry)} title="Share with study group">🔗</button>
+                              )}
+                              <button style={{ background: "none", border: "none", color: t.muted, fontSize: 14, cursor: "pointer", padding: 4, flexShrink: 0 }}
+                                onClick={() => deleteStudyHistoryEntry(entry.id)} title="Delete">🗑</button>
+                            </div>
+                          ))}
+                        </div>
+                        <button onClick={clearStudyHistory} style={{ width: "100%", marginTop: 12, padding: "8px", borderRadius: 8, fontSize: 12, color: t.accent, background: "transparent", border: `0.5px solid ${t.accent}`, cursor: "pointer" }}>Clear all history</button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* History quiz view */}
+                {studyStep === "history" && historyView && historyView.type === "mcq" && !historyQuizShowResults && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>📝 Practice ({historyView.mcqs.length} questions)</span>
+                      <button style={{ background: "none", border: "none", color: t.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setHistoryView(null)}>← Back to list</button>
+                    </div>
+                    <div style={{ height: 4, background: t.hover, borderRadius: 4, overflow: "hidden", marginBottom: 12 }}>
+                      <div style={{ height: "100%", width: `${historyView.mcqs.length > 0 ? ((historyQuizIdx + (historyQuizLocked[historyQuizIdx] ? 1 : 0)) / historyView.mcqs.length) * 100 : 0}%`, background: t.accent, borderRadius: 4, transition: "width 0.3s ease" }} />
+                    </div>
+                    {(() => {
+                      const q = historyView.mcqs[historyQuizIdx];
+                      if (!q) return null;
+                      const selected = historyQuizAnswers[historyQuizIdx];
+                      const isLocked = historyQuizLocked[historyQuizIdx];
+                      return (
+                        <>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Q{historyQuizIdx + 1}. {q.question}</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {Object.entries(q.options).map(([key, val]) => {
+                              const isSelected = selected === key;
+                              const isCorrect = key === q.correct;
+                              const showCorrect = isLocked && isCorrect;
+                              const showWrong = isLocked && isSelected && !isCorrect;
+                              return (
+                                <div key={key} onClick={() => !isLocked && handleHistoryQuizAnswer(key)}
+                                  style={{
+                                    display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8,
+                                    cursor: isLocked ? "default" : "pointer",
+                                    background: showCorrect ? `${t.accent}15` : showWrong ? "rgba(244,67,54,0.12)" : t.hover,
+                                    border: `1px solid ${showCorrect ? t.accent : showWrong ? "#ef5350" : isSelected ? t.accent : t.border}`,
+                                    transition: "all 0.15s",
+                                  }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: showCorrect ? t.accent : showWrong ? "#ef5350" : t.muted, minWidth: 20 }}>{key}.</span>
+                                  <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{val}</span>
+                                  {showCorrect && <span style={{ fontSize: 14, color: t.accent }}>✓</span>}
+                                  {showWrong && <span style={{ fontSize: 14, color: "#ef5350" }}>✕</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {isLocked && (
+                            <>
+                              {q.explanation && (
+                                <div style={{ marginTop: 10, padding: "10px 12px", background: t.hover, border: `0.5px solid ${t.border}`, borderRadius: 8, fontSize: 12, color: t.muted, lineHeight: 1.5 }}>
+                                  <span style={{ fontWeight: 700, color: t.text }}>Explanation: </span>{q.explanation}
+                                </div>
+                              )}
+                              <button style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none" }} onClick={historyQuizNext}>
+                                {historyQuizIdx < historyView.mcqs.length - 1 ? "Next →" : "See Results"}
+                              </button>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* History quiz results */}
+                {studyStep === "history" && historyView && historyView.type === "mcq" && historyQuizShowResults && (
+                  <div>
+                    <div style={{ textAlign: "center", marginBottom: 16 }}>
+                      <div style={{ fontSize: 32, marginBottom: 4 }}>{historyQuizScore === historyView.mcqs.length ? "🏆" : historyQuizScore >= historyView.mcqs.length / 2 ? "🎉" : "📚"}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: historyQuizScore >= historyView.mcqs.length / 2 ? "#66bb6a" : "#ffb74d" }}>{historyQuizScore} / {historyView.mcqs.length}</div>
+                      <div style={{ fontSize: 12, color: t.muted, marginTop: 4 }}>{historyView.mcqs.length > 0 ? Math.round((historyQuizScore / historyView.mcqs.length) * 100) : 0}% correct</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto", marginBottom: 12 }}>
+                      {historyView.mcqs.map((q, i) => {
+                        const userAnswer = historyQuizAnswers[i];
+                        const isCorrect = userAnswer === q.correct;
+                        return (
+                          <div key={i} style={{ padding: "10px 12px", background: t.hover, border: `0.5px solid ${isCorrect ? "#2a6a3a" : "#6a2a2a"}`, borderRadius: 8 }}>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
+                              <span style={{ fontSize: 13 }}>{isCorrect ? "✅" : "❌"}</span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: t.text, lineHeight: 1.4 }}>{q.question}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: t.muted }}>
+                              Correct: <span style={{ color: t.accent }}>{q.correct}. {q.options[q.correct]}</span>
+                              {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef5350" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }} onClick={historyQuizRetake}>🔄 Retake</button>
+                      <button style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }} onClick={() => handleSharePracticeSet(historyView)}>🔗 Share</button>
+                      <button style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }} onClick={() => setHistoryView(null)}>← Back to list</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* History summary view */}
+                {studyStep === "history" && historyView && historyView.type === "summary" && (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>📄 Saved Summary</span>
+                      <button style={{ background: "none", border: "none", color: t.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setHistoryView(null)}>← Back to list</button>
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                      <MarkdownText>{historyView.rawText}</MarkdownText>
+                    </div>
+                  </div>
+                )}
+
+                {/* Setup screen */}
+                {studyStep === "setup" && !studyResult && !studyLoading && (
+                  <div>
+                    {/* Mastery progress bar */}
+                    {mastery.totalQuestions > 0 && (
+                      <div style={{ padding: "10px 14px", background: t.hover, border: `1px solid ${t.border}`, borderRadius: 10, marginBottom: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{getMasteryEmoji(mastery.correctRate)} Document mastery</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: getMasteryColor(mastery.correctRate) }}>{mastery.correctRate}%</span>
+                        </div>
+                        <div style={{ height: 6, background: t.border, borderRadius: 4, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${mastery.correctRate}%`, background: getMasteryColor(mastery.correctRate), borderRadius: 4, transition: "width 0.4s ease" }} />
+                        </div>
+                        <div style={{ fontSize: 10, color: t.muted, marginTop: 4 }}>
+                          {mastery.mastered}/{mastery.totalQuestions} questions mastered · Practiced {mastery.practicedCount} time{mastery.practicedCount !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* History button */}
+                    {studyHistory.length > 0 && (
+                      <button
+                        style={{ width: "100%", padding: "10px 14px", background: t.hover, border: `1px solid ${t.border}`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: t.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}
+                        onClick={() => setStudyStep("history")}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 16 }}>🕘</span> History ({studyHistory.length})</span>
+                        <span style={{ fontSize: 14, color: t.muted }}>→</span>
+                      </button>
+                    )}
+
                     <p style={{ fontSize: "13px", color: t.muted, marginBottom: "14px", lineHeight: 1.6 }}>
                       {studyMode === "mcq" ? "Generate multiple-choice questions from this document to test your knowledge." : "Get an AI-powered summary with key topics, important details, and likely exam focus areas."}
                     </p>
@@ -604,6 +1012,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                     }}>✨ Generate {studyMode === "mcq" ? "Questions" : "Summary"}</button>
                   </div>
                 )}
+
                 {studyLoading && (
                   <div style={{ textAlign: "center", padding: "40px 0" }}>
                     <div style={{ fontSize: "24px", marginBottom: "8px" }}>⏳</div>
@@ -612,58 +1021,126 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                 )}
                 {studyError && <div style={{ fontSize: "13px", color: t.accent, padding: "12px", background: t.hover, borderRadius: "8px" }}>{studyError}</div>}
 
+                {/* Summary result */}
                 {studyMode === "summary" && studyResult && !studyLoading && (
                   <div style={{ fontSize: "13px", lineHeight: 1.7 }}>
                     <MarkdownText>{studyResult}</MarkdownText>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <button onClick={() => { navigator.clipboard?.writeText(studyResult).catch(() => {}); }} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }}>📋 Copy</button>
+                      <button onClick={handleStudyGenerate} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }}>🔄 Regenerate</button>
+                      <button onClick={() => { setStudyResult(""); setParsedMcqs([]); }} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }}>✨ New</button>
+                    </div>
                   </div>
                 )}
 
-                {studyMode === "mcq" && parsedMcqs.length > 0 && !studyLoading && (
+                {/* MCQ practice-first view */}
+                {studyMode === "mcq" && parsedMcqs.length > 0 && !studyLoading && practiceMode && !practiceShowResults && (
                   <div>
-                    {showMcqResults && (
-                      <div style={{ marginBottom: "14px", padding: "12px", borderRadius: "10px", background: t.hover, textAlign: "center" }}>
-                        <span style={{ fontSize: "16px", fontWeight: 700, color: t.text }}>{mcqScore()}</span>
-                        <span style={{ fontSize: "13px", color: t.muted }}> / {parsedMcqs.length} correct</span>
-                      </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: t.text }}>📝 Practice ({parsedMcqs.length} questions)</span>
+                      <button style={{ background: "none", border: "none", color: t.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setPracticeMode(false)}>View text instead</button>
+                    </div>
+                    <div style={{ height: 4, background: t.hover, borderRadius: 4, overflow: "hidden", marginBottom: 12 }}>
+                      <div style={{ height: "100%", width: `${parsedMcqs.length > 0 ? ((practiceIdx + (practiceLocked[practiceIdx] ? 1 : 0)) / parsedMcqs.length) * 100 : 0}%`, background: t.accent, borderRadius: 4, transition: "width 0.3s ease" }} />
+                    </div>
+                    {(() => {
+                      const q = parsedMcqs[practiceIdx];
+                      if (!q) return null;
+                      const selected = practiceAnswers[practiceIdx];
+                      const isLocked = practiceLocked[practiceIdx];
+                      return (
+                        <>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Q{practiceIdx + 1}. {q.question}</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {Object.entries(q.options).map(([key, val]) => {
+                              const isSelected = selected === key;
+                              const isCorrect = key === q.correct;
+                              const showCorrect = isLocked && isCorrect;
+                              const showWrong = isLocked && isSelected && !isCorrect;
+                              return (
+                                <div key={key} onClick={() => !isLocked && handlePracticeAnswer(key)}
+                                  style={{
+                                    display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8,
+                                    cursor: isLocked ? "default" : "pointer",
+                                    background: showCorrect ? `${t.accent}15` : showWrong ? "rgba(244,67,54,0.12)" : t.hover,
+                                    border: `1px solid ${showCorrect ? t.accent : showWrong ? "#ef5350" : isSelected ? t.accent : t.border}`,
+                                    transition: "all 0.15s",
+                                  }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: showCorrect ? t.accent : showWrong ? "#ef5350" : t.muted, minWidth: 20 }}>{key}.</span>
+                                  <span style={{ fontSize: 13, color: t.text, flex: 1 }}>{val}</span>
+                                  {showCorrect && <span style={{ fontSize: 14, color: t.accent }}>✓</span>}
+                                  {showWrong && <span style={{ fontSize: 14, color: "#ef5350" }}>✕</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {isLocked && (
+                            <>
+                              {q.explanation && (
+                                <div style={{ marginTop: 10, padding: "10px 12px", background: t.hover, border: `0.5px solid ${t.border}`, borderRadius: 8, fontSize: 12, color: t.muted, lineHeight: 1.5 }}>
+                                  <span style={{ fontWeight: 700, color: t.text }}>Explanation: </span>{q.explanation}
+                                </div>
+                              )}
+                              <button style={{ width: "100%", marginTop: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none" }} onClick={practiceNext}>
+                                {practiceIdx < parsedMcqs.length - 1 ? "Next →" : "See Results"}
+                              </button>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* MCQ practice results */}
+                {studyMode === "mcq" && parsedMcqs.length > 0 && !studyLoading && practiceMode && practiceShowResults && (
+                  <div>
+                    <div style={{ textAlign: "center", marginBottom: 16 }}>
+                      <div style={{ fontSize: 32, marginBottom: 4 }}>{practiceScore === parsedMcqs.length ? "🏆" : practiceScore >= parsedMcqs.length / 2 ? "🎉" : "📚"}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: practiceScore >= parsedMcqs.length / 2 ? "#66bb6a" : "#ffb74d" }}>{practiceScore} / {parsedMcqs.length}</div>
+                      <div style={{ fontSize: 12, color: t.muted, marginTop: 4 }}>{parsedMcqs.length > 0 ? Math.round((practiceScore / parsedMcqs.length) * 100) : 0}% correct</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto", marginBottom: 12 }}>
+                      {parsedMcqs.map((q, i) => {
+                        const userAnswer = practiceAnswers[i];
+                        const isCorrect = userAnswer === q.correct;
+                        return (
+                          <div key={i} style={{ padding: "10px 12px", background: t.hover, border: `0.5px solid ${isCorrect ? "#2a6a3a" : "#6a2a2a"}`, borderRadius: 8 }}>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
+                              <span style={{ fontSize: 13 }}>{isCorrect ? "✅" : "❌"}</span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: t.text, lineHeight: 1.4 }}>{q.question}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: t.muted }}>
+                              Correct: <span style={{ color: t.accent }}>{q.correct}. {q.options[q.correct]}</span>
+                              {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef5350" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }} onClick={practiceRetake}>🔄 Retake</button>
+                      <button style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }} onClick={() => setPracticeMode(false)}>📄 View text</button>
+                      <button style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }} onClick={() => { setStudyResult(""); setParsedMcqs([]); setPracticeMode(false); }}>✨ New</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* MCQ text fallback (no parsed MCQs or user chose to view text) */}
+                {studyMode === "mcq" && studyResult && !studyLoading && (parsedMcqs.length === 0 || !practiceMode) && (
+                  <div style={{ fontSize: "13px", lineHeight: 1.7 }}>
+                    {parsedMcqs.length > 0 && !practiceMode && (
+                      <button onClick={() => startPractice()} style={{ width: "100%", marginBottom: 12, padding: "12px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none" }}>📝 Practice these questions</button>
                     )}
-                    {parsedMcqs.map((q, i) => (
-                      <div key={i} style={{ marginBottom: "16px", padding: "14px", borderRadius: "10px", border: `0.5px solid ${t.border}`, background: t.bg }}>
-                        <div style={{ fontSize: "13px", fontWeight: 600, color: t.text, marginBottom: "10px" }}>{i + 1}. {q.question}</div>
-                        {Object.entries(q.options).map(([key, val]) => {
-                          const selected = mcqAnswers[i] === key;
-                          const isCorrect = q.correct === key;
-                          const showColor = showMcqResults && (selected || isCorrect);
-                          return (
-                            <button key={key} onClick={() => !showMcqResults && setMcqAnswers((p) => ({ ...p, [i]: key }))}
-                              style={{
-                                display: "block", width: "100%", textAlign: "left", padding: "8px 12px", marginBottom: "6px",
-                                borderRadius: "8px", fontSize: "13px", cursor: showMcqResults ? "default" : "pointer",
-                                background: showColor ? (isCorrect ? "rgba(76,175,80,0.15)" : selected ? "rgba(244,67,54,0.15)" : "transparent") : selected ? t.hover : "transparent",
-                                border: `0.5px solid ${showColor ? (isCorrect ? "#4caf50" : selected ? "#f44336" : t.border) : selected ? t.accent : t.border}`,
-                                color: t.text,
-                              }}>
-                              <b style={{ marginRight: "6px" }}>{key}.</b> {val}
-                              {showMcqResults && isCorrect && " ✓"}
-                              {showMcqResults && selected && !isCorrect && " ✗"}
-                            </button>
-                          );
-                        })}
-                        {showMcqResults && q.explanation && (
-                          <div style={{ marginTop: "8px", fontSize: "12px", color: t.muted, fontStyle: "italic" }}>💡 {q.explanation}</div>
-                        )}
-                      </div>
-                    ))}
-                    {!showMcqResults ? (
-                      <button onClick={() => setShowMcqResults(true)} disabled={Object.keys(mcqAnswers).length < parsedMcqs.length}
-                        style={{ width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: "pointer", background: t.accent, color: "#fff", border: "none", opacity: Object.keys(mcqAnswers).length < parsedMcqs.length ? 0.5 : 1 }}>
-                        Check Answers
-                      </button>
-                    ) : (
-                      <button onClick={() => { setMcqAnswers({}); setShowMcqResults(false); }}
-                        style={{ width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: 700, cursor: "pointer", background: "transparent", color: t.text, border: `0.5px solid ${t.border}` }}>
-                        Try Again
-                      </button>
+                    {parsedMcqs.length === 0 && (
+                      <div style={{ fontSize: 12, color: t.muted, marginBottom: 10, padding: "8px 12px", background: t.hover, borderRadius: 8 }}>Couldn't structure these questions for practice — you can still copy the text below.</div>
                     )}
+                    <MarkdownText>{studyResult}</MarkdownText>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <button onClick={() => { navigator.clipboard?.writeText(studyResult).catch(() => {}); }} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }}>📋 Copy</button>
+                      <button onClick={handleStudyGenerate} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }}>🔄 Regenerate</button>
+                      <button onClick={() => { setStudyResult(""); setParsedMcqs([]); setPracticeMode(false); }} style={{ padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: t.hover, color: t.text, border: `0.5px solid ${t.border}` }}>✨ New</button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -725,6 +1202,25 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
           </div>
         )}
       </div>
+
+      {/* Auto-save toast */}
+      {autoSaveToast && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: autoSaveToast.status === "saved" ? "#2a8a4a" : "#c0392b",
+          color: "white", padding: "10px 16px", borderRadius: 12, fontSize: 13, fontWeight: 600,
+          display: "flex", alignItems: "center", gap: 12, zIndex: 10000,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+        }}>
+          <span>{autoSaveToast.status === "saved" ? "✅" : "⚠️"} {autoSaveToast.label}</span>
+          {autoSaveToast.status === "saved" && autoSaveToast.resourceId && (
+            <button onClick={undoAutoSave} style={{
+              background: "rgba(255,255,255,0.2)", border: "none", color: "white",
+              padding: "4px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 600,
+            }}>Undo</button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
