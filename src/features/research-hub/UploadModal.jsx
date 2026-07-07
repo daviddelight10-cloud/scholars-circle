@@ -1,6 +1,13 @@
+import { useState, useRef, useEffect } from "react";
+import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient";
+import { extractFileText, chunkText } from "../../lib/extractFileText";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
+
+const MAX_QUESTIONS = 300;
+const CHUNK_SIZE = 12000;
+const QUESTIONS_PER_CHUNK = 50;
 
 export default function UploadModal({
   show, onClose,
@@ -18,6 +25,23 @@ export default function UploadModal({
   fileInputRef,
   onSubmitFile, onSubmitMcq,
 }) {
+  const [aiFile, setAiFile] = useState(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiProgress, setAiProgress] = useState("");
+  const [aiError, setAiError] = useState("");
+  const aiFileInputRef = useRef(null);
+  const [aiDragOver, setAiDragOver] = useState(false);
+
+  useEffect(() => {
+    if (show) {
+      setAiFile(null);
+      setAiGenerating(false);
+      setAiProgress("");
+      setAiError("");
+      setAiDragOver(false);
+    }
+  }, [show]);
+
   if (!show) return null;
 
   const handleFilePick = (e) => {
@@ -29,7 +53,6 @@ export default function UploadModal({
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { alert("File too large — 50MB max"); return; }
     setUploadFile(file);
-    const ext = file.name.split(".").pop()?.toLowerCase();
     const detected = extToContentType(file.name);
     if (detected) setUploadType(detected);
     if (file.type.startsWith("image/")) {
@@ -69,6 +92,155 @@ export default function UploadModal({
     e.stopPropagation();
     setDragOver(false);
   };
+
+  // ── AI MCQ Generation ──────────────────────────────────────────────────────
+
+  const handleAiFilePick = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleAiFileSelected(file);
+  };
+
+  const handleAiFileSelected = (file) => {
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { setAiError("File too large — 50MB max"); return; }
+    setAiFile(file);
+    setAiError("");
+  };
+
+  const handleAiDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAiDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleAiFileSelected(file);
+  };
+
+  const buildMcqPrompt = (text, questionCount) => {
+    return `You are an expert exam MCQ generator for university students. Generate exactly ${questionCount} multiple-choice questions based on this content:
+
+"""
+${text}
+"""
+
+CRITICAL INSTRUCTIONS:
+1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
+2. Generate exactly ${questionCount} questions — one per topic/concept in the content.
+3. Each question must have exactly 4 options (A, B, C, D) and one correct answer.
+4. Questions should test understanding and application, not just memorization.
+5. Include a brief explanation for each question.
+6. Cover the breadth of the content — don't repeat similar questions.
+7. If the content already contains questions, extract and format them properly.
+
+Format:
+[
+  {
+    "question": "Question text?",
+    "options": {"A":"...","B":"...","C":"...","D":"..."},
+    "correct": "A",
+    "explanation": "Brief explanation."
+  }
+]`;
+  };
+
+  const mapAiMcqsToRows = (parsed) => {
+    if (!Array.isArray(parsed)) {
+      if (parsed && Array.isArray(parsed.mcq_questions)) {
+        parsed = parsed.mcq_questions;
+      } else {
+        return [];
+      }
+    }
+    return parsed
+      .filter((q) => q && q.question && q.options && q.correct !== undefined && q.correct !== null)
+      .map((q) => {
+        const opts = q.options;
+        let row;
+        if (Array.isArray(opts)) {
+          row = {
+            question: q.question,
+            options: { A: opts[0] || "", B: opts[1] || "", C: opts[2] || "", D: opts[3] || "" },
+            correct: typeof q.correct === "number" ? ["A", "B", "C", "D"][q.correct] || "A" : String(q.correct),
+            explanation: q.explanation || "",
+          };
+        } else {
+          row = {
+            question: q.question,
+            options: { A: opts.A || "", B: opts.B || "", C: opts.C || "", D: opts.D || "" },
+            correct: typeof q.correct === "number" ? ["A", "B", "C", "D"][q.correct] || "A" : String(q.correct),
+            explanation: q.explanation || "",
+          };
+        }
+        row.correct = row.correct.toUpperCase();
+        return row;
+      })
+      .filter((r) => r.options.A.trim() && r.options.B.trim() && r.options.C.trim() && r.options.D.trim() && r.question.trim());
+  };
+
+  const generateAiMcqs = async () => {
+    if (!aiFile) { setAiError("Upload a file first"); return; }
+    setAiGenerating(true);
+    setAiError("");
+    setAiProgress("Extracting text from file…");
+
+    try {
+      const { text, images } = await extractFileText(aiFile, 15);
+
+      // Image-based: send images to multimodal AI
+      if (images.length > 0 && text.length < 50) {
+        setAiProgress(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
+        const prompt = buildMcqPrompt("The images contain study material. Generate comprehensive MCQs covering all the content visible.", Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS));
+        const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        const parsed = extractJSON(raw, "array");
+        const rows = mapAiMcqsToRows(parsed);
+        if (rows.length === 0) throw new Error("AI didn't generate valid questions. Try again.");
+        setMcqRows(rows);
+        setAiProgress(`Generated ${rows.length} questions ✓`);
+        return;
+      }
+
+      if (!text.trim()) throw new Error("No text could be extracted from this file.");
+
+      // Text-based: chunk and generate in parallel for large documents
+      const chunks = chunkText(text, CHUNK_SIZE);
+      const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
+      const targetCount = Math.min(MAX_QUESTIONS, totalPossible);
+      const questionsPerChunk = Math.ceil(targetCount / chunks.length);
+
+      setAiProgress(`Generating MCQs from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
+
+      const promises = chunks.map((chunk, idx) => {
+        const count = idx === chunks.length - 1
+          ? targetCount - (questionsPerChunk * (chunks.length - 1))
+          : questionsPerChunk;
+        const prompt = buildMcqPrompt(chunk, Math.max(5, count));
+        return callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+          .then((raw) => {
+            try {
+              const parsed = extractJSON(raw, "array");
+              return mapAiMcqsToRows(parsed);
+            } catch {
+              return [];
+            }
+          })
+          .catch(() => []);
+      });
+
+      const results = await Promise.all(promises);
+      const allRows = results.flat().slice(0, MAX_QUESTIONS);
+
+      if (allRows.length === 0) throw new Error("AI couldn't generate questions from this content. Try a different file.");
+
+      setMcqRows(allRows);
+      setAiProgress(`Generated ${allRows.length} questions ✓ — review, edit, or submit below`);
+    } catch (err) {
+      setAiError(err.message || "AI generation failed. Try again.");
+      setAiProgress("");
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // ── MCQ row helpers ────────────────────────────────────────────────────────
 
   const updateMcqRow = (index, patch) =>
     setMcqRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -158,6 +330,105 @@ export default function UploadModal({
           </>
         ) : (
           <>
+            {/* AI Generation Section */}
+            <div style={{ background: colors.bg, border: `0.5px solid ${goldBorder}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md }}>
+              <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: goldText, marginBottom: spacing.sm }}>
+                ✨ Generate MCQs from a file with AI
+              </div>
+              <p style={{ fontSize: fontSize.xs, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 1.5 }}>
+                Upload a PDF, DOCX, TXT, PPTX, or image — AI will extract and generate up to {MAX_QUESTIONS} questions automatically. Large documents are split into sections and processed in parallel for speed.
+              </p>
+
+              {/* AI file dropzone */}
+              <label
+                onDrop={handleAiDrop}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setAiDragOver(true); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setAiDragOver(false); }}
+                style={{
+                  display: "block", textAlign: "center", padding: "16px 12px",
+                  border: `1.5px dashed ${aiDragOver ? colors.borderActive : aiFile ? colors.successBorder : colors.border}`,
+                  borderRadius: borderRadius.md, cursor: "pointer", marginBottom: spacing.sm, transition: "all 0.15s",
+                  background: aiDragOver ? "#1a1a00" : "transparent",
+                }}
+              >
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleAiFilePick} style={{ display: "none" }} ref={aiFileInputRef} />
+                {aiFile ? (
+                  <span style={{ fontSize: fontSize.base, color: colors.success }}>✓ {aiFile.name} ({(aiFile.size / 1024).toFixed(0)} KB)</span>
+                ) : (
+                  <span style={{ fontSize: fontSize.base, color: colors.textDim }}>
+                    {aiDragOver ? "Drop file here" : "📎 Tap or drag a file for AI generation"}
+                  </span>
+                )}
+              </label>
+
+              {aiError && (
+                <div style={{ fontSize: fontSize.xs, color: colors.danger, marginBottom: spacing.sm, padding: "6px 10px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
+                  {aiError}
+                </div>
+              )}
+
+              {aiProgress && !aiGenerating && (
+                <div style={{ fontSize: fontSize.xs, color: colors.success, marginBottom: spacing.sm, padding: "6px 10px", background: colors.successBg, borderRadius: borderRadius.sm }}>
+                  {aiProgress}
+                </div>
+              )}
+
+              {aiGenerating && (
+                <div style={{ marginBottom: spacing.sm }}>
+                  <div style={{ fontSize: fontSize.xs, color: goldText, textAlign: "center", marginBottom: spacing.xs }}>{aiProgress}</div>
+                  <div style={{ height: "4px", background: colors.surface, borderRadius: borderRadius.sm, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: "100%", background: "linear-gradient(90deg, transparent, #FFD700, transparent)", borderRadius: borderRadius.sm, animation: "shimmer 1.5s infinite" }} />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: spacing.sm }}>
+                <button
+                  onClick={generateAiMcqs}
+                  disabled={aiGenerating || !aiFile}
+                  style={{
+                    flex: 1, padding: "10px", borderRadius: borderRadius.md,
+                    background: aiGenerating || !aiFile ? goldDim : "linear-gradient(135deg, #b8860b, #FFD700)",
+                    border: `0.5px solid ${goldBorder}`,
+                    fontSize: fontSize.base, fontWeight: fontWeight.bold,
+                    color: aiGenerating || !aiFile ? goldText : "#0a0a0a",
+                    cursor: aiGenerating || !aiFile ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {aiGenerating ? "Generating…" : "🤖 Generate MCQs"}
+                </button>
+                {mcqRows.some((r) => r.question.trim()) && (
+                  <button
+                    onClick={onSubmitMcq}
+                    disabled={uploading}
+                    style={{
+                      padding: "10px 16px", borderRadius: borderRadius.md,
+                      background: goldDim, border: `0.5px solid ${goldBorder}`,
+                      fontSize: fontSize.base, fontWeight: fontWeight.bold, color: goldText,
+                      cursor: uploading ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+                    }}
+                  >
+                    {uploading ? "Submitting…" : `Quick Submit (${mcqRows.filter((r) => r.question.trim()).length})`}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md }}>
+              <div style={{ flex: 1, height: "0.5px", background: colors.border }} />
+              <span style={{ fontSize: fontSize.xs, color: colors.textDim, fontWeight: fontWeight.semibold }}>OR ADD MANUALLY</span>
+              <div style={{ flex: 1, height: "0.5px", background: colors.border }} />
+            </div>
+
+            {/* MCQ count badge */}
+            {mcqRows.filter((r) => r.question.trim()).length > 0 && (
+              <div style={{ fontSize: fontSize.xs, color: goldText, marginBottom: spacing.sm, fontWeight: fontWeight.semibold }}>
+                {mcqRows.filter((r) => r.question.trim()).length} question{mcqRows.filter((r) => r.question.trim()).length !== 1 ? "s" : ""} ready
+              </div>
+            )}
+
+            {/* Editable MCQ rows */}
             {mcqRows.map((row, i) => (
               <div key={i} style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: spacing.sm }}>
@@ -186,7 +457,7 @@ export default function UploadModal({
             )}
 
             <button onClick={onSubmitMcq} disabled={uploading} style={{ ...sharedStyles.submit, opacity: uploading ? 0.5 : 1, cursor: uploading ? "not-allowed" : "pointer" }}>
-              {uploading ? "Submitting..." : "Submit MCQs"}
+              {uploading ? "Submitting..." : `Submit MCQs (${mcqRows.filter((r) => r.question.trim()).length})`}
             </button>
           </>
         )}
@@ -195,6 +466,13 @@ export default function UploadModal({
           Your upload will appear in My Uploads. Student uploads require moderator approval before going public; teacher/lecturer uploads go live immediately.
         </p>
       </div>
+
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 }
