@@ -49,6 +49,12 @@ export function InstallPrompt() {
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
 
+    function onDismissed() {
+      setVisible(false);
+      setDeferredPrompt(null);
+    }
+    window.addEventListener("pwa-install-dismissed", onDismissed);
+
     // iOS doesn't fire beforeinstallprompt — show our manual instructions after a short delay
     if (isIOS()) {
       const t = setTimeout(() => setVisible(true), 5000);
@@ -56,12 +62,14 @@ export function InstallPrompt() {
         clearTimeout(t);
         window.removeEventListener("beforeinstallprompt", onBeforeInstall);
         window.removeEventListener("appinstalled", onInstalled);
+        window.removeEventListener("pwa-install-dismissed", onDismissed);
       };
     }
 
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("appinstalled", onInstalled);
+      window.removeEventListener("pwa-install-dismissed", onDismissed);
     };
   }, []);
 
@@ -80,6 +88,8 @@ export function InstallPrompt() {
         setVisible(false);
       }
       setDeferredPrompt(null);
+      window.__deferredPrompt = null;
+      window.dispatchEvent(new CustomEvent('pwa-install-dismissed'));
     } finally {
       setInstalling(false);
     }

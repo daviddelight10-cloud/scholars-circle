@@ -38,7 +38,7 @@ import NotificationBell from "./features/NotificationBellImproved.jsx";
 
 const NotificationsTab = lazyWithRetry(() => import("./features/NotificationsTab.jsx"));
 
-
+import { InstallPrompt } from "./features/InstallPrompt.jsx";
 
 // Context providers + hooks
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -600,6 +600,10 @@ function App() {
   const [aiTutorSubTab, setAiTutorSubTab] = useState("chat");
 
   const [isIOS, setIsIOS] = useState(false);
+
+  const [isInstalled, setIsInstalled] = useState(() => window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true);
+
+  const [showIOSInstall, setShowIOSInstall] = useState(false);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -4380,11 +4384,27 @@ function App() {
 
     window.addEventListener('beforeinstallprompt', handler);
 
+    const onInstalled = () => {
+      setIsInstalled(true);
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+      window.__deferredPrompt = null;
+    };
+    window.addEventListener('appinstalled', onInstalled);
+
+    const onDismissed = () => {
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+    };
+    window.addEventListener('pwa-install-dismissed', onDismissed);
+
     return () => {
 
       console.log('Removing beforeinstallprompt listener');
 
       window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', onInstalled);
+      window.removeEventListener('pwa-install-dismissed', onDismissed);
 
     };
 
@@ -4605,6 +4625,10 @@ function App() {
     setDeferredPrompt(null);
 
     setShowInstallPrompt(false);
+
+    window.__deferredPrompt = null;
+
+    window.dispatchEvent(new CustomEvent('pwa-install-dismissed'));
 
   }
 
@@ -8175,9 +8199,21 @@ function App() {
 
             {/* Install Button */}
 
-            {deferredPrompt && !isIOS && (
+            {!isInstalled && !isIOS && deferredPrompt && (
 
               <button className="header-btn" onClick={handleInstallClick}>
+
+                <span className="btn-icon"><Download size={16} /></span>
+
+                <span className="btn-label">Install</span>
+
+              </button>
+
+            )}
+
+            {!isInstalled && isIOS && (
+
+              <button className="header-btn" onClick={() => setShowIOSInstall(true)}>
 
                 <span className="btn-icon"><Download size={16} /></span>
 
@@ -10185,6 +10221,54 @@ function App() {
       )}
 
 
+
+      {showIOSInstall && (
+        <div onClick={() => setShowIOSInstall(false)} style={{
+          position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.7)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: "#1a1d29", borderRadius: 16, padding: 24, maxWidth: 380, width: "100%",
+            border: "1px solid rgba(255,215,0,0.3)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <img src="/icon-192.png" alt="" style={{ width: 56, height: 56, borderRadius: 12 }} />
+            </div>
+            <h3 style={{ textAlign: "center", fontSize: 18, fontWeight: 700, margin: "0 0 12px 0" }}>
+              Install Scholar's Circle
+            </h3>
+            <p style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", margin: "0 0 20px 0" }}>
+              Add the app to your Home Screen for the best experience.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+                <span style={{ fontSize: 20 }}>1</span>
+                <span style={{ fontSize: 13 }}>Tap the <b>Share</b> button at the bottom of Safari</span>
+                <span style={{ fontSize: 22 }}>⬆️</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+                <span style={{ fontSize: 20 }}>2</span>
+                <span style={{ fontSize: 13 }}>Scroll down and tap <b>"Add to Home Screen"</b></span>
+                <span style={{ fontSize: 22 }}>➕</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+                <span style={{ fontSize: 20 }}>3</span>
+                <span style={{ fontSize: 13 }}>Tap <b>"Add"</b> — that's it!</span>
+                <span style={{ fontSize: 22 }}>✅</span>
+              </div>
+            </div>
+            <button onClick={() => setShowIOSInstall(false)} style={{
+              marginTop: 20, width: "100%", padding: "12px", borderRadius: 10, border: "none",
+              background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "#fff",
+              fontSize: 14, fontWeight: 700, cursor: "pointer",
+            }}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      <InstallPrompt />
 
     </main>
 
