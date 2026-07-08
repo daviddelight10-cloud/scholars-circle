@@ -115,7 +115,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
                 width: "56px", height: "56px", borderRadius: "50%",
                 border: `3px solid ${lvlColor}`, display: "flex", alignItems: "center",
                 justifyContent: "center", fontSize: "20px", fontWeight: 800,
-                color: lvlColor, background: "#07080f",
+                color: lvlColor, background: "#0A0D13",
               }}>
                 {pct}%
               </div>

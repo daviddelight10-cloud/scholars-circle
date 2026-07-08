@@ -6,7 +6,7 @@ import MasteryGrid from "../components/analytics/MasteryGrid.jsx";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
-  bg:     "#07080F",
+  bg:     "#0A0D13",
   card:   "#0d0f1f",
   line:   "#1e2140",
   accent: "#1a1a1a",
@@ -295,7 +295,7 @@ export default function StatsPanel({ history, stats, subjects, mastery, aiConfig
               {/* Expandable analytics panel */}
               {isExpanded && (
                 <div style={{
-                  background: "#07080f", border: `0.5px solid ${D.line}`,
+                  background: "#0A0D13", border: `0.5px solid ${D.line}`,
                   borderRadius: 12, padding: "14px 14px 10px", marginBottom: 4,
                   animation: "sp-in 0.2s ease forwards",
                 }}>

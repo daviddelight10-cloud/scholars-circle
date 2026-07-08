@@ -9,7 +9,7 @@ export default function HeroSection() {
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
-      background: 'linear-gradient(135deg, #07080F 0%, #0D0E18 50%, #07080F 100%)',
+      background: 'linear-gradient(135deg, #0A0D13 0%, #0D0E18 50%, #0A0D13 100%)',
       position: 'relative'
     }}>
       {/* Animated background elements */}

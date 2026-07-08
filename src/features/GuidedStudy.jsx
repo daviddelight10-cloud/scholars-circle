@@ -14,7 +14,7 @@ function saveSession(entry) {
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
-  bg:     "#07080F",
+  bg:     "#0A0D13",
   card:   "#0d0f1f",
   bar:    "#0a0b15",
   accent: "#1a1a1a",

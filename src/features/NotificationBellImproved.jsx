@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-produ
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#07080F",
+  bg:      "#0A0D13",
   card:    "#0D0E18",
   cardHov: "#111220",
   border:  "rgba(255,255,255,0.07)",
@@ -442,7 +442,7 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
 
           {/* Unread badge */}
           {unreadCount > 0 && (
-            <div style={{ position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:999, background:"#EF4444", border:"2px solid #07080F", display:"flex", alignItems:"center", justifyContent:"center", animation:"scPulse 2s ease-in-out infinite" }}>
+            <div style={{ position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:999, background:"#EF4444", border:"2px solid #0A0D13", display:"flex", alignItems:"center", justifyContent:"center", animation:"scPulse 2s ease-in-out infinite" }}>
               <span style={{ fontFamily:T.mono, fontSize:9, fontWeight:700, color:"#fff", lineHeight:1 }}>{unreadCount>9?"9+":unreadCount}</span>
             </div>
           )}

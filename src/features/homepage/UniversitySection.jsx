@@ -4,7 +4,7 @@ export default function UniversitySection() {
   return (
     <section id="universities" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0D0E18 0%, #07080F 100%)'
+      background: 'linear-gradient(180deg, #0D0E18 0%, #0A0D13 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>

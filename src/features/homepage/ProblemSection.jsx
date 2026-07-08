@@ -4,7 +4,7 @@ export default function ProblemSection() {
   return (
     <section id="problem" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #07080F 0%, #0D0E18 100%)'
+      background: 'linear-gradient(180deg, #0A0D13 0%, #0D0E18 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>

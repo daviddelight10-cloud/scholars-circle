@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-produ
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#07080F",
+  bg:      "#0A0D13",
   card:    "#0D0E18",
   cardHov: "#111220",
   border:  "rgba(255,255,255,0.07)",

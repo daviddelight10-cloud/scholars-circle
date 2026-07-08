@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 
 const D = {
-  bg:     "#07080F",
+  bg:     "#0A0D13",
   card:   "#0d0f1f",
   faint:  "#12142a",
   line:   "#1e2140",

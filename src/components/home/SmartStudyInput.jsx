@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
-  bg:     "#07080F",
+  bg:     "#0A0D13",
   card:   "#0d0f1f",
   accent: "#1a1a1a",
   border: "#B8860B",
