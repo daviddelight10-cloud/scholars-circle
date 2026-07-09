@@ -10,7 +10,7 @@ const TYPE_FILTERS = [
   { key: "note", label: "Notes", icon: "📝" },
 ];
 
-export default function SubjectDetailView({ subject, level, resources, fsrsSubjectStats, onBack, onOpen, onToggleBookmark, onShare, bookmarkedIds, bookmarkBusyId, mcqProgress, onStudySubject }) {
+export default function SubjectDetailView({ subject, level, resources, fsrsSubjectStats, onBack, onOpen, onToggleBookmark, onShare, bookmarkedIds, bookmarkBusyId, mcqProgress, onStudySubject, backLabel = "Library" }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -34,7 +34,7 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
   return (
     <div>
       {/* Back button */}
-      <button onClick={onBack} style={sharedStyles.backBtn}>← Back to Library</button>
+      <button onClick={onBack} style={sharedStyles.backBtn}>← Back to {backLabel}</button>
 
       {/* Subject header */}
       <div style={{
@@ -50,7 +50,7 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
               <div style={{ fontSize: fontSize.base, color: colors.textMuted }}>{level} Level</div>
             )}
           </div>
-          {dueCount > 0 && (
+          {dueCount > 0 && onStudySubject && (
             <button onClick={onStudySubject} style={{
               padding: "10px 20px", borderRadius: "24px", cursor: "pointer",
               background: goldDim, border: `0.5px solid ${goldBorder}`,

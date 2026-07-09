@@ -11,6 +11,7 @@ import FolderDetailView from "./FolderDetailView";
 import UploadModal from "./UploadModal";
 import CreateFolderModal from "./CreateFolderModal";
 import LibraryView from "./LibraryView.jsx";
+import DepartmentView from "./DepartmentView.jsx";
 import { colors, spacing, fontSize, fontWeight, sharedStyles, gold, goldDim, goldBorder, goldText } from "./constants";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -25,10 +26,12 @@ const emptyMessages = {
   "public": "No resources found. Try a different search or clear filters.",
 };
 
-export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
+export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } = {}) {
   const { setLastActivity } = useUserData();
 
   const [resources, setResources] = useState([]);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resourcesError, setResourcesError] = useState(null);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
@@ -37,7 +40,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   const [viewerToken, setViewerToken] = useState(null);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
-  const [filters, setFilters] = useState({ university: "all", department: "all", level: "all", semester: "all", subject: "all" });
+  const [filters, setFilters] = useState({ university: "all", department: "all", level: "all", semester: activeSemester || "all", subject: "all" });
   const [userProfile, setUserProfile] = useState(null);
   const [fsrsStats, setFsrsStats] = useState(null);
   const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
@@ -90,8 +93,10 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   useEffect(() => {
     const handler = (e) => {
       const tab = e.detail?.tab;
-      if (tab === "department" || tab === "space" || tab === "fsrs" || tab === "progress") {
+      if (tab === "space" || tab === "fsrs" || tab === "progress") {
         setActiveTab("library");
+      } else if (tab === "department") {
+        setActiveTab("department");
       } else if (tab) {
         setActiveTab(tab);
       }
@@ -103,8 +108,10 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   useEffect(() => {
     if (window.__sc_pending_hub_tab) {
       const { tab, subTab } = window.__sc_pending_hub_tab;
-      if (tab === "department" || tab === "space" || tab === "fsrs" || tab === "progress") {
+      if (tab === "space" || tab === "fsrs" || tab === "progress") {
         setActiveTab("library");
+      } else if (tab === "department") {
+        setActiveTab("department");
       } else if (tab) {
         setActiveTab(tab);
       }
@@ -113,34 +120,55 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "library") {
+    if (activeTab === "library" || activeTab === "department") {
       fetchBookmarks();
     }
   }, [activeTab]);
 
   const getAuthHeaders = () => {
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    return { Authorization: `Bearer ${authData.authToken}` };
+    try {
+      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      return authData.authToken ? { Authorization: `Bearer ${authData.authToken}` } : {};
+    } catch {
+      return {};
+    }
   };
 
   const fetchResources = async () => {
+    setResourcesError(null);
     const cacheKey = "sc_resources_list";
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
         const { data, ts } = JSON.parse(raw);
-        if (Date.now() - ts < CACHE_TTL) { setResources(data); return; }
+        if (Date.now() - ts < CACHE_TTL && Array.isArray(data) && data.length > 0) {
+          setResources(data);
+          setResourcesLoading(false);
+          return;
+        }
       }
     } catch {}
+    setResourcesLoading(true);
     try {
       const response = await fetch(`${API_BASE}/api/resources`, { headers: getAuthHeaders() });
       if (response.ok) {
         const data = await response.json();
         setResources(data);
-        try { localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() })); } catch {}
+        if (Array.isArray(data) && data.length > 0) {
+          try { localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() })); } catch {}
+        } else {
+          try { localStorage.removeItem(cacheKey); } catch {}
+        }
+      } else if (response.status === 401) {
+        setResourcesError("Your session has expired. Please log in again.");
+      } else {
+        setResourcesError(`Failed to load materials (HTTP ${response.status}).`);
       }
     } catch (err) {
       console.error("Failed to fetch resources:", err);
+      setResourcesError("Network error — could not reach the server. Check your connection and try again.");
+    } finally {
+      setResourcesLoading(false);
     }
   };
 
@@ -261,7 +289,8 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
 
   const getCurrentUserId = () => {
     try {
-      return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authUser?.id || null;
+      const id = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authUser?.id;
+      return id != null ? String(id) : null;
     } catch { return null; }
   };
 
@@ -286,7 +315,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   const folderIsOwner = useMemo(() => {
     if (!folderDetail) return false;
     const uid = getCurrentUserId();
-    return uid && folderDetail.ownerId === uid;
+    return uid && String(folderDetail.ownerId) === uid;
   }, [folderDetail]);
 
   const handleQuizComplete = useCallback((data) => {
@@ -479,6 +508,17 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
       return matchesSearch && matchesType && matchesUni && matchesDept && matchesLevel && matchesSemester && matchesSubject;
     });
+    if (list.length === 0 && filters.semester !== "all" && (tabResources || []).length > 0) {
+      list = (tabResources || []).filter((r) => {
+        const matchesSearch = search === "" || r.title.toLowerCase().includes(search.toLowerCase()) || r.subject.toLowerCase().includes(search.toLowerCase());
+        const matchesType = activeFilter === "all" || r.contentType === activeFilter;
+        const matchesUni = filters.university === "all" || r.university?.name === filters.university;
+        const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
+        const matchesLevel = filters.level === "all" || r.level === filters.level;
+        const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
+        return matchesSearch && matchesType && matchesUni && matchesDept && matchesLevel && matchesSubject;
+      });
+    }
     const sorted = [...list];
     if (sortBy === "views") sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
     else if (sortBy === "recent") sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -555,7 +595,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
   return (
     <div style={{ padding: spacing.xl, maxWidth: "1200px", margin: "0 auto" }}>
       <div className="sc-tabrow" style={sharedStyles.tabRow}>
-        {[["library", "� Library"], ["community", "🌐 Community"]].map(([key, label]) => (
+        {[["library", "📚 My Space"], ["community", "🌐 Community"], ["department", "🏛️ Department"]].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)} style={activeTab === key ? sharedStyles.tabActive : sharedStyles.tab}>
             {label}
             {key === "library" && fsrsStats && fsrsStats.dueCount > 0 && <span style={sharedStyles.tabCount}>{fsrsStats.dueCount}</span>}
@@ -566,26 +606,36 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
       {activeTab === "library" ? (
         <LibraryView
           resources={resources}
+          resourcesLoading={resourcesLoading}
+          resourcesError={resourcesError}
+          onRetry={fetchResources}
           currentUserId={getCurrentUserId()}
           fsrsStats={fsrsStats}
-          fsrsAnalytics={fsrsAnalytics}
           folders={folders}
           bookmarkedIds={bookmarkedIds}
           bookmarkBusyId={bookmarkBusyId}
           mcqProgress={mcqProgress}
-          userProfile={userProfile}
           onOpen={handleOpen}
           onToggleBookmark={toggleBookmark}
           onShare={handleShare}
-          onOpenPdf={(token, page) => {
-            const res = resources.find((r) => r.shareToken === token);
-            if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
-            setViewerInitialPage(page || null);
-            setViewerToken(token);
-          }}
-          onRefresh={() => { fetchFsrsStats(); fetchFsrsAnalytics(); fetchResources(); }}
           onCreateFolder={() => setShowCreateFolder(true)}
           onOpenFolder={openFolder}
+        />
+      ) : activeTab === "department" ? (
+        <DepartmentView
+          resources={resources}
+          resourcesLoading={resourcesLoading}
+          resourcesError={resourcesError}
+          onRetry={fetchResources}
+          currentUserId={getCurrentUserId()}
+          userProfile={userProfile}
+          fsrsStats={fsrsStats}
+          bookmarkedIds={bookmarkedIds}
+          bookmarkBusyId={bookmarkBusyId}
+          mcqProgress={mcqProgress}
+          onOpen={handleOpen}
+          onToggleBookmark={toggleBookmark}
+          onShare={handleShare}
         />
       ) : (
         <>
@@ -613,7 +663,25 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
 
           <div style={sharedStyles.sectionLabel}>COMMUNITY</div>
 
-          {visibleResources.length === 0 ? (
+          {resourcesLoading ? (
+            <div style={sharedStyles.emptyState}>
+              <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⏳</div>
+              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
+                Loading materials…
+              </div>
+            </div>
+          ) : resourcesError ? (
+            <div style={sharedStyles.emptyState}>
+              <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⚠️</div>
+              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
+                Something went wrong
+              </div>
+              <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5, marginBottom: spacing.md }}>
+                {resourcesError}
+              </div>
+              <button onClick={fetchResources} style={{ ...sharedStyles.chipActive, cursor: "pointer" }}>↻ Retry</button>
+            </div>
+          ) : visibleResources.length === 0 ? (
             <div style={sharedStyles.emptyState}>
               <div style={{ fontSize: 36, marginBottom: spacing.sm }}>📭</div>
               <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
@@ -648,7 +716,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
         </div>
       )}
 
-      {showFab && (
+      {showFab && activeTab === "library" && (
         <div onClick={() => setShowFab(false)} style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
           zIndex: 998, animation: "fadeup 0.15s ease",
@@ -659,7 +727,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
         position: "fixed", bottom: "24px", right: "24px", zIndex: 999,
         display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px",
       }}>
-        {showFab && (
+        {showFab && activeTab === "library" && (
           <>
             <FabAction
               icon="📎"
@@ -681,6 +749,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
             />
           </>
         )}
+        {activeTab === "library" && (
         <button
           onClick={() => setShowFab((v) => !v)}
           style={{
@@ -696,6 +765,7 @@ export default function ResearchHub({ onBack, onStreakUpdate } = {}) {
         >
           +
         </button>
+        )}
       </div>
 
       {uploadModal}

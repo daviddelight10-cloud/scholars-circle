@@ -1,211 +1,62 @@
 import { useState, useMemo } from "react";
-import { colors, spacing, fontSize, fontWeight, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
+import { colors, spacing, fontSize, fontWeight, sharedStyles } from "./constants";
 import SubjectDeckCard from "./SubjectDeckCard";
 import SubjectDetailView from "./SubjectDetailView";
 import FolderGrid from "./FolderGrid";
-import DailyReview from "./DailyReview";
-import RetentionDashboard from "./RetentionDashboard";
 
-const SOURCE_FILTERS = [
-  { key: "all", label: "All Materials" },
-  { key: "mine", label: "My Uploads" },
-  { key: "department", label: "Department" },
-];
-
-function groupByLevelThenSubject(resources, sourceFilter, currentUserId) {
+function groupBySubject(resources, currentUserId, bookmarkedIds) {
   const filtered = resources.filter((r) => {
-    if (r.status === "pending" && r.uploadedBy !== currentUserId) return false;
-    if (sourceFilter === "mine") return r.uploadedBy === currentUserId;
-    if (sourceFilter === "department") return r.uploadedBy !== currentUserId;
-    return true;
+    if (r.status === "pending" && String(r.uploadedBy) !== currentUserId) return false;
+    return String(r.uploadedBy) === currentUserId || (bookmarkedIds && bookmarkedIds.has(r.id));
   });
 
-  const byLevel = {};
+  const bySubject = {};
   for (const r of filtered) {
-    const level = r.level || "Unlevelled";
     const subject = r.subject || "General";
-    if (!byLevel[level]) byLevel[level] = {};
-    if (!byLevel[level][subject]) byLevel[level][subject] = [];
-    byLevel[level][subject].push(r);
+    if (!bySubject[subject]) bySubject[subject] = [];
+    bySubject[subject].push(r);
   }
 
-  const sortedLevels = Object.keys(byLevel).sort((a, b) => {
-    if (a === "Unlevelled") return 1;
-    if (b === "Unlevelled") return -1;
-    return a.localeCompare(b, undefined, { numeric: true });
-  });
-
-  return sortedLevels.map((level) => ({
-    level,
-    subjects: Object.keys(byLevel[level]).sort().map((subject) => ({
-      subject,
-      resources: byLevel[level][subject],
-    })),
+  return Object.keys(bySubject).sort().map((subject) => ({
+    subject,
+    resources: bySubject[subject],
   }));
-}
-
-function groupByUniversityThenLevel(resources, sourceFilter, currentUserId) {
-  const filtered = resources.filter((r) => {
-    if (r.status === "pending" && r.uploadedBy !== currentUserId) return false;
-    if (sourceFilter === "mine") return r.uploadedBy === currentUserId;
-    if (sourceFilter === "department") return r.uploadedBy !== currentUserId;
-    return true;
-  });
-
-  const byUni = {};
-  for (const r of filtered) {
-    const uni = r.university?.name || "General";
-    if (!byUni[uni]) byUni[uni] = [];
-    byUni[uni].push(r);
-  }
-
-  return Object.keys(byUni).sort().map((uniName) => ({
-    university: uniName,
-    levels: groupByLevelThenSubject(byUni[uniName], "all", currentUserId),
-  }));
-}
-
-function StatsStrip({ fsrsStats, onExpand }) {
-  if (!fsrsStats) return null;
-  const { totalItems, dueCount, masteredCount, streak } = fsrsStats;
-
-  return (
-    <div
-      onClick={onExpand}
-      style={{
-        display: "flex", gap: spacing.lg, padding: "10px 16px",
-        background: colors.surface, border: `0.5px solid ${colors.border}`,
-        borderRadius: "12px", marginBottom: spacing.lg, cursor: "pointer",
-        alignItems: "center", flexWrap: "wrap", transition: "borderColor 0.15s",
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = goldBorder; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border; }}
-    >
-      <div style={{ fontSize: fontSize.sm, color: colors.textMuted, display: "flex", alignItems: "center", gap: spacing.xs }}>
-        📊 <span style={{ fontWeight: fontWeight.bold, color: colors.text }}>{totalItems}</span> items
-      </div>
-      <div style={{ fontSize: fontSize.sm, color: colors.textMuted, display: "flex", alignItems: "center", gap: spacing.xs }}>
-        ✅ <span style={{ fontWeight: fontWeight.bold, color: masteredCount > 0 ? "#22c55e" : colors.textMuted }}>{masteredCount}</span> mastered
-      </div>
-      {dueCount > 0 && (
-        <div style={{ fontSize: fontSize.sm, color: colors.textMuted, display: "flex", alignItems: "center", gap: spacing.xs }}>
-          🔁 <span style={{ fontWeight: fontWeight.bold, color: "#ef4444" }}>{dueCount}</span> due
-        </div>
-      )}
-      {streak > 0 && (
-        <div style={{ fontSize: fontSize.sm, color: colors.textMuted, display: "flex", alignItems: "center", gap: spacing.xs }}>
-          🔥 <span style={{ fontWeight: fontWeight.bold, color: "#f59e0b" }}>{streak}</span> day streak
-        </div>
-      )}
-      <div style={{ marginLeft: "auto", fontSize: fontSize.xs, color: colors.textDim }}>View analytics →</div>
-    </div>
-  );
-}
-
-function ReviewBanner({ dueCount, onStart }) {
-  if (!dueCount || dueCount === 0) return null;
-
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "12px 18px", marginBottom: spacing.lg,
-      background: "rgba(245,166,35,0.10)", border: `0.5px solid ${goldBorder}`,
-      borderRadius: "16px", animation: "fadeup 0.2s ease",
-      flexWrap: "wrap", gap: spacing.sm,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
-        <span style={{ fontSize: 24 }}>🔁</span>
-        <div>
-          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: goldText }}>
-            {dueCount} card{dueCount !== 1 ? "s" : ""} due for review
-          </div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Keep your streak alive — review now</div>
-        </div>
-      </div>
-      <button onClick={onStart} style={{
-        padding: "8px 20px", borderRadius: "24px", cursor: "pointer",
-        background: goldDim, border: `0.5px solid ${goldBorder}`,
-        color: goldText, fontSize: fontSize.sm, fontWeight: fontWeight.bold,
-        display: "flex", alignItems: "center", gap: spacing.xs,
-      }}>
-        Start Review ▶
-      </button>
-    </div>
-  );
 }
 
 export default function LibraryView({
   resources,
+  resourcesLoading,
+  resourcesError,
+  onRetry,
   currentUserId,
   fsrsStats,
-  fsrsAnalytics,
   folders,
   bookmarkedIds,
   bookmarkBusyId,
   mcqProgress,
-  userProfile,
   onOpen,
   onToggleBookmark,
   onShare,
-  onOpenPdf,
-  onRefresh,
   onCreateFolder,
   onOpenFolder,
 }) {
-  const [sourceFilter, setSourceFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [expandedLevels, setExpandedLevels] = useState({});
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [showReview, setShowReview] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
   const [showFolders, setShowFolders] = useState(false);
 
   const grouped = useMemo(() => {
-    let result = groupByLevelThenSubject(resources, sourceFilter, currentUserId);
+    let result = groupBySubject(resources, currentUserId, bookmarkedIds);
     if (search) {
       const q = search.toLowerCase();
       result = result
-        .map((levelGroup) => ({
-          ...levelGroup,
-          subjects: levelGroup.subjects.filter((s) =>
-            s.subject.toLowerCase().includes(q) ||
-            s.resources.some((r) => r.title?.toLowerCase().includes(q))
-          ),
-        }))
-        .filter((lg) => lg.subjects.length > 0);
+        .filter((s) =>
+          s.subject.toLowerCase().includes(q) ||
+          s.resources.some((r) => r.title?.toLowerCase().includes(q))
+        );
     }
     return result;
-  }, [resources, sourceFilter, currentUserId, search]);
+  }, [resources, currentUserId, bookmarkedIds, search]);
 
-  const groupedByUni = useMemo(() => {
-    let result = groupByUniversityThenLevel(resources, sourceFilter, currentUserId);
-    if (search) {
-      const q = search.toLowerCase();
-      result = result
-        .map((uniGroup) => ({
-          ...uniGroup,
-          levels: uniGroup.levels
-            .map((levelGroup) => ({
-              ...levelGroup,
-              subjects: levelGroup.subjects.filter((s) =>
-                s.subject.toLowerCase().includes(q) ||
-                s.resources.some((r) => r.title?.toLowerCase().includes(q))
-              ),
-            }))
-            .filter((lg) => lg.subjects.length > 0),
-        }))
-        .filter((ug) => ug.levels.length > 0);
-    }
-    return result;
-  }, [resources, sourceFilter, currentUserId, search]);
-
-  const hasUniversityData = useMemo(() => resources.some((r) => r.university?.name), [resources]);
-
-  const toggleLevel = (level) => {
-    setExpandedLevels((prev) => ({ ...prev, [level]: !prev[level] }));
-  };
-
-  // Subject detail view
   if (selectedSubject) {
     return (
       <SubjectDetailView
@@ -220,224 +71,77 @@ export default function LibraryView({
         bookmarkedIds={bookmarkedIds}
         bookmarkBusyId={bookmarkBusyId}
         mcqProgress={mcqProgress}
-        onStudySubject={() => {
-          setSelectedSubject(null);
-          setShowReview(true);
-        }}
+        backLabel="My Space"
       />
     );
   }
 
-  // Daily review overlay
-  if (showReview) {
-    return (
-      <DailyReview
-        onBack={() => { setShowReview(false); onRefresh(); }}
-        onComplete={onRefresh}
-        onOpenPdf={onOpenPdf}
-      />
-    );
-  }
-
-  // Analytics overlay
-  if (showAnalytics) {
-    return (
-      <RetentionDashboard
-        fsrsStats={fsrsStats}
-        fsrsAnalytics={fsrsAnalytics}
-        onBack={() => setShowAnalytics(false)}
-      />
-    );
-  }
-
-  const dueCount = fsrsStats?.dueCount || 0;
   const hasFolders = folders?.own?.length > 0 || folders?.shared?.length > 0;
 
   return (
     <div>
-      {/* Review banner */}
-      <ReviewBanner dueCount={dueCount} onStart={() => setShowReview(true)} />
-
-      {/* Stats strip */}
-      <StatsStrip fsrsStats={fsrsStats} onExpand={() => setShowAnalytics(true)} />
-
-      {/* Source filters + search */}
-      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: spacing.xs }}>
-          {SOURCE_FILTERS.map((f) => (
-            <button key={f.key} onClick={() => setSourceFilter(f.key)}
-              style={sourceFilter === f.key ? sharedStyles.chipActive : sharedStyles.chip}>
-              {f.label}
-            </button>
-          ))}
+      {resourcesLoading ? (
+        <div style={sharedStyles.emptyState}>
+          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⏳</div>
+          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
+            Loading your space…
+          </div>
+          <div style={{ fontSize: fontSize.base, color: colors.textDim }}>
+            Fetching your materials from the server.
+          </div>
         </div>
+      ) : resourcesError ? (
+        <div style={sharedStyles.emptyState}>
+          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⚠️</div>
+          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
+            Something went wrong
+          </div>
+          <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5, marginBottom: spacing.md }}>
+            {resourcesError}
+          </div>
+          <button onClick={onRetry} style={{ ...sharedStyles.chipActive, cursor: "pointer" }}>↻ Retry</button>
+        </div>
+      ) : (
+      <>
+      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ ...sharedStyles.searchWrap, flex: "1 1 200px" }}>
           <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search subjects or materials…"
+            placeholder="Search your materials…"
             style={sharedStyles.searchInput} />
         </div>
       </div>
 
-      {/* University → Level → Subject grouping (when university data exists) */}
-      {hasUniversityData && groupedByUni.length > 0 ? (
-        groupedByUni.map((uniGroup) => (
-          <div key={uniGroup.university} style={{ marginBottom: spacing.xl }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: spacing.sm,
-              padding: "8px 14px", marginBottom: spacing.md,
-              background: "rgba(255,215,0,0.08)", border: `0.5px solid ${goldBorder}`,
-              borderRadius: "12px",
-            }}>
-              <span style={{ fontSize: 18 }}>{uniGroup.university === "General" ? "📚" : "🎓"}</span>
-              <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: goldText }}>
-                {uniGroup.university}
-              </span>
-              <span style={{
-                fontSize: fontSize.xs, color: colors.textDim,
-                background: colors.bg, padding: "2px 8px", borderRadius: "10px",
-              }}>
-                {uniGroup.levels.reduce((sum, lg) => sum + lg.subjects.reduce((s, sub) => s + sub.resources.length, 0), 0)} items
-              </span>
-            </div>
-            {uniGroup.levels.map((levelGroup) => {
-              const isExpanded = expandedLevels[`${uniGroup.university}-${levelGroup.level}`] !== false;
-              const totalItems = levelGroup.subjects.reduce((sum, s) => sum + s.resources.length, 0);
-              const totalDue = levelGroup.subjects.reduce((sum, s) => {
-                const stats = fsrsStats?.bySubject?.[s.subject];
-                return sum + (stats?.due || 0);
-              }, 0);
-
-              return (
-                <div key={levelGroup.level} style={{ marginBottom: spacing.md, marginLeft: spacing.md }}>
-                  <button
-                    onClick={() => toggleLevel(`${uniGroup.university}-${levelGroup.level}`)}
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      width: "100%", padding: "8px 14px", marginBottom: spacing.sm,
-                      background: colors.surface, border: `0.5px solid ${colors.border}`,
-                      borderRadius: "10px", cursor: "pointer",
-                      fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-                      <span style={{ fontSize: 12 }}>{isExpanded ? "▼" : "▶"}</span>
-                      <span>{levelGroup.level} Level</span>
-                      <span style={{
-                        fontSize: fontSize.xs, fontWeight: fontWeight.semibold,
-                        color: colors.textDim, background: colors.bg,
-                        padding: "2px 8px", borderRadius: "10px",
-                      }}>{totalItems} items</span>
-                      {totalDue > 0 && (
-                        <span style={{
-                          fontSize: fontSize.xs, fontWeight: fontWeight.bold,
-                          color: "#ef4444", background: "rgba(239,68,68,0.12)",
-                          padding: "2px 8px", borderRadius: "10px",
-                        }}>{totalDue} due</span>
-                      )}
-                    </div>
-                  </button>
-                  {isExpanded && (
-                    <div style={sharedStyles.grid}>
-                      {levelGroup.subjects.map((s) => (
-                        <SubjectDeckCard
-                          key={s.subject}
-                          subject={s.subject}
-                          level={levelGroup.level}
-                          resources={s.resources}
-                          fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
-                          onClick={() => setSelectedSubject({
-                            subject: s.subject,
-                            level: levelGroup.level,
-                            resources: s.resources,
-                          })}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))
-      ) : grouped.length === 0 ? (
+      {grouped.length === 0 ? (
         <div style={sharedStyles.emptyState}>
           <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
           <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>
-            {search ? "No results found" : "No materials yet"}
+            {search ? "No results found" : "Your space is empty"}
           </div>
           <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
             {search
-              ? `Try a different search term or clear the filter.`
-              : `Upload materials or open PDFs and MCQs from the Community tab to build your library. The FSRS algorithm will automatically schedule reviews.`
+              ? "Try a different search term."
+              : "Upload materials using the + button below, or bookmark items from the Community tab to add them here."
             }
           </div>
         </div>
       ) : (
-        grouped.map((levelGroup) => {
-          const isExpanded = expandedLevels[levelGroup.level] !== false; // default expanded
-          const totalItems = levelGroup.subjects.reduce((sum, s) => sum + s.resources.length, 0);
-          const totalDue = levelGroup.subjects.reduce((sum, s) => {
-            const stats = fsrsStats?.bySubject?.[s.subject];
-            return sum + (stats?.due || 0);
-          }, 0);
-
-          return (
-            <div key={levelGroup.level} style={{ marginBottom: spacing.xl }}>
-              {/* Level header */}
-              <button
-                onClick={() => toggleLevel(levelGroup.level)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  width: "100%", padding: "10px 16px", marginBottom: spacing.md,
-                  background: colors.surface, border: `0.5px solid ${colors.border}`,
-                  borderRadius: "12px", cursor: "pointer",
-                  fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.text,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-                  <span style={{ fontSize: 14 }}>{isExpanded ? "▼" : "▶"}</span>
-                  <span>{levelGroup.level} Level</span>
-                  <span style={{
-                    fontSize: fontSize.xs, fontWeight: fontWeight.semibold,
-                    color: colors.textDim, background: colors.bg,
-                    padding: "2px 10px", borderRadius: "12px",
-                  }}>{totalItems} items</span>
-                  {totalDue > 0 && (
-                    <span style={{
-                      fontSize: fontSize.xs, fontWeight: fontWeight.bold,
-                      color: "#ef4444", background: "rgba(239,68,68,0.12)",
-                      padding: "2px 10px", borderRadius: "12px",
-                    }}>{totalDue} due</span>
-                  )}
-                </div>
-              </button>
-
-              {/* Subject deck cards */}
-              {isExpanded && (
-                <div style={sharedStyles.grid}>
-                  {levelGroup.subjects.map((s) => (
-                    <SubjectDeckCard
-                      key={s.subject}
-                      subject={s.subject}
-                      level={levelGroup.level}
-                      resources={s.resources}
-                      fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
-                      onClick={() => setSelectedSubject({
-                        subject: s.subject,
-                        level: levelGroup.level,
-                        resources: s.resources,
-                      })}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })
+        <div style={sharedStyles.grid}>
+          {grouped.map((s) => (
+            <SubjectDeckCard
+              key={s.subject}
+              subject={s.subject}
+              resources={s.resources}
+              fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
+              onClick={() => setSelectedSubject({
+                subject: s.subject,
+                resources: s.resources,
+              })}
+            />
+          ))}
+        </div>
       )}
 
-      {/* Folders section */}
       {hasFolders && (
         <div style={{ marginTop: spacing.xxl }}>
           <button
@@ -464,6 +168,8 @@ export default function LibraryView({
             />
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );
