@@ -186,6 +186,13 @@ function handleVoiceWsUpgrade(request, socket, head) {
     session.clientWs = ws;
     console.log(`Client WebSocket connected for voice session ${sessionId}`);
 
+    // If Gemini setup already completed before client connected (race condition),
+    // send setup_complete immediately so the client transitions to READY
+    if (session.setupComplete) {
+      console.log(`Setup already complete for session ${sessionId}, notifying client`);
+      ws.send(JSON.stringify({ type: "setup_complete" }));
+    }
+
     ws.on("message", (data) => {
       if (!session.setupComplete) return;
       if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
