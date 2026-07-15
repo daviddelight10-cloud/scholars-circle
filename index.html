@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0D13" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f7f7fb" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Scholar's Circle - AI-Powered Study Platform for Students</title>
+    <meta name="title" content="Scholar's Circle - AI-Powered Study Platform for Students" />
+    <meta name="description" content="Master every subject with confidence. Scholar's Circle combines spaced repetition, AI-generated questions, and gamified learning to help students study smarter. Built by MBBS students for students." />
+    <meta name="keywords" content="study platform, spaced repetition, AI learning, medical students, exam prep, flashcards, quiz app, biology, chemistry, physics, math, university study" />
+    <meta name="author" content="Scholar's Circle" />
+    <link rel="canonical" href="https://scholarscircle.com" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://scholarscircle.com" />
+    <meta property="og:title" content="Scholar's Circle - AI-Powered Study Platform for Students" />
+    <meta property="og:description" content="Master every subject with confidence. Scholar's Circle combines spaced repetition, AI-generated questions, and gamified learning to help students study smarter." />
+    <meta property="og:image" content="https://scholarscircle.com/og-image.png" />
+    <meta property="og:site_name" content="Scholar's Circle" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://scholarscircle.com" />
+    <meta property="twitter:title" content="Scholar's Circle - AI-Powered Study Platform for Students" />
+    <meta property="twitter:description" content="Master every subject with confidence. Scholar's Circle combines spaced repetition, AI-generated questions, and gamified learning to help students study smarter." />
+    <meta property="twitter:image" content="https://scholarscircle.com/og-image.png" />
+    
+    <!-- iOS PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Scholar's Circle" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icon-167.png" />
+    <!-- Apple Splash Screens (uses apple-touch-icon as fallback) -->
+    
+    <!-- Format Detection -->
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
+    <link rel="shortcut icon" href="/icon-32.png" />
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Scholar's Circle",
+      "description": "Master every subject with confidence. Scholar's Circle combines spaced repetition, AI-generated questions, and gamified learning to help students study smarter.",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "iOS, Android, Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "1000"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "Scholar's Circle",
+        "foundingDate": "2024"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <style>
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sar: env(safe-area-inset-right);
+        --sab: env(safe-area-inset-bottom);
+        --sal: env(safe-area-inset-left);
+      }
+      
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: #0A0D13;
+      }
+      
+      @media (prefers-color-scheme: light) {
+        html, body { background: #f7f7fb; }
+      }
+      
+      #root {
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
+    </style>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,47 @@
+{
+  "name": "scholars-circle-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1073.0",
+    "@prisma/client": "^6.8.2",
+    "@supabase/supabase-js": "^2.108.2",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.4.0",
+    "file-type": "^22.0.1",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "prisma": "^6.8.2",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1",
+    "sanitize-html": "^2.17.4",
+    "web-push": "^3.6.7",
+    "winston": "^3.19.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "preDeployCommand": "npx prisma generate && npx prisma db push",
+    "startCommand": "node src/index.js",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
