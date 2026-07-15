@@ -5,7 +5,7 @@ import os from "os";
 const CHUNK_SIZE = 12000;
 const CHUNK_OVERLAP = 500;
 
-const GEMINI_LIVE_MODEL = "gemini-2.5-flash-preview-native-audio-dialog";
+const GEMINI_LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
 
 export function getLiveModel() {
   return process.env.GEMINI_LIVE_MODEL || GEMINI_LIVE_MODEL;
