@@ -14,7 +14,17 @@ export function getLiveModel() {
 export function getGeminiLiveWsUrl() {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not configured on the server");
-  return `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${key}`;
+  return `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent`;
+}
+
+export function getGeminiLiveWsOptions() {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY is not configured on the server");
+  return {
+    headers: {
+      "x-goog-api-key": key,
+    },
+  };
 }
 
 async function downloadFile(url) {

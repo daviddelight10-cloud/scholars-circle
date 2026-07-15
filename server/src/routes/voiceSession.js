@@ -8,6 +8,7 @@ import {
   buildVoiceSystemPrompt,
   extractConceptsFromChunks,
   getGeminiLiveWsUrl,
+  getGeminiLiveWsOptions,
   getLiveModel,
 } from "../lib/voiceGrounding.js";
 import { WebSocket } from "ws";
@@ -136,10 +137,11 @@ router.post("/start", requireAuth, async (req, res) => {
     const concepts = extractConceptsFromChunks(chunks);
 
     const geminiWsUrl = getGeminiLiveWsUrl();
+    const geminiWsOptions = getGeminiLiveWsOptions();
     const model = getLiveModel();
-    console.log(`Connecting to Gemini Live: model=${model}, url=${geminiWsUrl.replace(/key=[^&]+/, 'key=***')}`);
+    console.log(`Connecting to Gemini Live: model=${model}`);
 
-    const geminiWs = new WebSocket(geminiWsUrl);
+    const geminiWs = new WebSocket(geminiWsUrl, geminiWsOptions);
     let geminiSetupError = null;
 
     const sessionRecord = await prisma.voiceSession.create({
@@ -268,9 +270,10 @@ router.post("/start", requireAuth, async (req, res) => {
     });
 
     geminiWs.on("close", (code, reason) => {
-      console.log(`Gemini Live WebSocket closed for session ${sessionId}. Code: ${code}, Reason: ${reason?.toString() || 'none'}`);
+      const reasonStr = reason?.toString() || 'none';
+      console.log(`Gemini Live WebSocket closed for session ${sessionId}. Code: ${code}, Reason: ${reasonStr}`);
       if (!session.setupComplete && !geminiSetupError) {
-        geminiSetupError = new Error(`Gemini WebSocket closed early (code: ${code})`);
+        geminiSetupError = new Error(`Gemini WebSocket closed early (code: ${code}, reason: ${reasonStr})`);
       }
       if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
         session.clientWs.send(JSON.stringify({ type: "session_ended", message: "Gemini session closed" }));
