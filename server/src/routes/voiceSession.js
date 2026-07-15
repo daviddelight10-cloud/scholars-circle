@@ -139,6 +139,7 @@ router.post("/start", requireAuth, async (req, res) => {
     const model = getLiveModel();
 
     const geminiWs = new WebSocket(geminiWsUrl);
+    let geminiSetupError = null;
 
     const sessionRecord = await prisma.voiceSession.create({
       data: {
@@ -241,6 +242,7 @@ router.post("/start", requireAuth, async (req, res) => {
 
     geminiWs.on("error", (err) => {
       console.error(`Gemini Live WebSocket error for session ${sessionId}:`, err.message);
+      geminiSetupError = err;
       if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
         session.clientWs.send(JSON.stringify({
           type: "error",
@@ -261,12 +263,20 @@ router.post("/start", requireAuth, async (req, res) => {
     });
 
     const waitForSetup = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Gemini setup timeout")), 15000);
+      const timeout = setTimeout(() => {
+        geminiSetupError = geminiSetupError || new Error("Gemini setup timeout (15s) — check GEMINI_API_KEY and model availability");
+        reject(geminiSetupError);
+      }, 15000);
       const checkInterval = setInterval(() => {
         if (session.setupComplete) {
           clearTimeout(timeout);
           clearInterval(checkInterval);
           resolve();
+        }
+        if (geminiSetupError) {
+          clearTimeout(timeout);
+          clearInterval(checkInterval);
+          reject(geminiSetupError);
         }
       }, 100);
     });
@@ -274,12 +284,13 @@ router.post("/start", requireAuth, async (req, res) => {
     try {
       await waitForSetup;
     } catch (setupErr) {
+      console.error(`Voice session ${sessionId} setup failed:`, setupErr.message);
       deleteActiveSession(sessionId);
       await prisma.voiceSession.update({
         where: { id: sessionId },
         data: { status: "error", endedAt: new Date() },
       });
-      return res.status(502).json({ error: "Failed to establish voice session with Gemini. Please try again." });
+      return res.status(502).json({ error: `Failed to establish voice session with Gemini: ${setupErr.message}` });
     }
 
     logSecurityEvent(req.user.sub, "voice_session_start", { sessionId, resourceId, mode }, req);
