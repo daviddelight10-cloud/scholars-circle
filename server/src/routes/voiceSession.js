@@ -175,7 +175,9 @@ router.post("/start", requireAuth, async (req, res) => {
       const setupMessage = {
         setup: {
           model: `models/${model}`,
-          responseModalities: ["AUDIO"],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+          },
           systemInstruction: {
             parts: [{ text: systemPrompt }],
           },
@@ -183,6 +185,7 @@ router.post("/start", requireAuth, async (req, res) => {
           outputAudioTranscription: {},
         },
       };
+      console.log(`Sending setup message for session ${sessionId}:`, JSON.stringify(setupMessage).slice(0, 200));
       geminiWs.send(JSON.stringify(setupMessage));
     });
 
