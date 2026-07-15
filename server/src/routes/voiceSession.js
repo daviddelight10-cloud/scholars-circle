@@ -137,6 +137,7 @@ router.post("/start", requireAuth, async (req, res) => {
 
     const geminiWsUrl = getGeminiLiveWsUrl();
     const model = getLiveModel();
+    console.log(`Connecting to Gemini Live: model=${model}, url=${geminiWsUrl.replace(/key=[^&]+/, 'key=***')}`);
 
     const geminiWs = new WebSocket(geminiWsUrl);
     let geminiSetupError = null;
@@ -190,6 +191,17 @@ router.post("/start", requireAuth, async (req, res) => {
       try {
         msg = JSON.parse(data.toString());
       } catch {
+        console.warn(`Gemini sent non-JSON message for session ${sessionId}:`, data.toString().slice(0, 200));
+        return;
+      }
+
+      // Log every message for debugging
+      console.log(`Gemini message for session ${sessionId}:`, JSON.stringify(msg).slice(0, 300));
+
+      // Check for error in Gemini response
+      if (msg.error) {
+        console.error(`Gemini API error for session ${sessionId}:`, JSON.stringify(msg.error));
+        geminiSetupError = new Error(`Gemini API error: ${msg.error.message || JSON.stringify(msg.error)}`);
         return;
       }
 
@@ -252,8 +264,11 @@ router.post("/start", requireAuth, async (req, res) => {
       logSecurityEvent(req.user.sub, "voice_session_error", { sessionId, error: err.message }, req);
     });
 
-    geminiWs.on("close", () => {
-      console.log(`Gemini Live WebSocket closed for session ${sessionId}`);
+    geminiWs.on("close", (code, reason) => {
+      console.log(`Gemini Live WebSocket closed for session ${sessionId}. Code: ${code}, Reason: ${reason?.toString() || 'none'}`);
+      if (!session.setupComplete && !geminiSetupError) {
+        geminiSetupError = new Error(`Gemini WebSocket closed early (code: ${code})`);
+      }
       if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
         session.clientWs.send(JSON.stringify({ type: "session_ended", message: "Gemini session closed" }));
         session.clientWs.close();
