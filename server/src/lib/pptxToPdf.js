@@ -1,10 +1,7 @@
 import JSZip from "jszip";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
-// PPTX uses EMU (English Metric Units): 914400 EMU = 1 inch = 72 pt
 const EMU_PER_PT = 914400 / 72;
-// Default slide dimensions (10in x 7.5in = 720pt x 540pt for 4:3)
-// 16:9 is 13.333in x 7.5in = 960pt x 540pt
 
 function emuToPt(emu) {
   return Math.round(emu / EMU_PER_PT);
@@ -18,53 +15,94 @@ function parseColor(hex) {
   return rgb(r, g, b);
 }
 
-// Extract text runs from a shape's XML, preserving formatting
-function extractTextRuns(spXml) {
-  const runs = [];
-  const paragraphs = spXml.match(/<a:p>[\s\S]*?<\/a:p>/g) || [];
-  for (const paraXml of paragraphs) {
-    const textRuns = paraXml.match(/<a:r>[\s\S]*?<\/a:r>/g) || [];
-    let paraText = "";
-    let isBold = false;
-    let fontSize = 18; // default 18pt
-    let color = rgb(0, 0, 0);
+function decodeXmlEntities(text) {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
 
-    for (const runXml of textRuns) {
+/**
+ * Extract paragraphs from shape XML, preserving per-run formatting
+ * (bold, font size, color) and paragraph alignment + line spacing.
+ * Returns array of paragraphs, each with { runs, align, lineSpacingPct }
+ */
+function extractParagraphs(spXml) {
+  const paragraphs = spXml.match(/<a:p>[\s\S]*?<\/a:p>/g) || [];
+  return paragraphs.map((paraXml) => {
+    // Parse paragraph properties
+    let align = "l"; // default left
+    let lineSpacingPct = 120; // default 120%
+    // Support both <a:pPr ...>...</a:pPr> and self-closing <a:pPr .../>
+    const pPrMatch = paraXml.match(/<a:pPr([^>]*)>([\s\S]*?)<\/a:pPr>/);
+    const pPrSelfClosingMatch = paraXml.match(/<a:pPr([^>]*?)\/>/);
+    if (pPrMatch) {
+      const attrs = pPrMatch[1];
+      const algnMatch = attrs.match(/algn="(l|ctr|r|just)"/);
+      if (algnMatch) align = algnMatch[1];
+      const lnSpcMatch = pPrMatch[2].match(/<a:lnSpc>[\s\S]*?<a:spcPct val="(\d+)"/);
+      if (lnSpcMatch) lineSpacingPct = parseInt(lnSpcMatch[1], 10) / 1000;
+    } else if (pPrSelfClosingMatch) {
+      const attrs = pPrSelfClosingMatch[1];
+      const algnMatch = attrs.match(/algn="(l|ctr|r|just)"/);
+      if (algnMatch) align = algnMatch[1];
+    }
+
+    // Parse runs
+    const runs = [];
+    const runXmls = paraXml.match(/<a:r>[\s\S]*?<\/a:r>/g) || [];
+    for (const runXml of runXmls) {
       const textMatch = runXml.match(/<a:t>([\s\S]*?)<\/a:t>/);
       if (!textMatch) continue;
-      const text = textMatch[1]
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'");
+      const text = decodeXmlEntities(textMatch[1]);
+
+      let isBold = false;
+      let isItalic = false;
+      let fontSize = 18;
+      let color = rgb(0, 0, 0);
 
       const rPrMatch = runXml.match(/<a:rPr([^>]*)>/);
       if (rPrMatch) {
         const attrs = rPrMatch[1];
         isBold = /b="1"/.test(attrs) || /b="true"/.test(attrs);
+        isItalic = /i="1"/.test(attrs) || /i="true"/.test(attrs);
         const sizeMatch = attrs.match(/sz="(\d+)"/);
         if (sizeMatch) fontSize = parseInt(sizeMatch[1], 10) / 100;
-        const colorMatch = attrs.match(/<a:srgbClr val="([0-9A-Fa-f]{6})"/);
-        if (colorMatch) color = parseColor(colorMatch[1]);
       }
+      // Color is a child element of <a:rPr>, not an attribute — search the full runXml
+      const colorMatch = runXml.match(/<a:srgbClr val="([0-9A-Fa-f]{6})"/);
+      if (colorMatch) color = parseColor(colorMatch[1]);
 
-      paraText += text;
+      if (text) {
+        runs.push({ text, bold: isBold, italic: isItalic, fontSize, color });
+      }
     }
 
-    if (paraText.trim()) {
-      runs.push({ text: paraText, bold: isBold, fontSize, color });
-    }
-  }
-  return runs;
+    return { runs, align, lineSpacingPct };
+  }).filter((p) => p.runs.length > 0);
 }
 
-// Extract offset and extent from a shape/picture's <p:spPr> or <p:xfrm>
+/**
+ * Parse shape fill color from <p:spPr>
+ */
+function getShapeFill(spXml) {
+  const spPrMatch = spXml.match(/<p:spPr[\s\S]*?<\/p:spPr>/);
+  if (!spPrMatch) return null;
+  const spPr = spPrMatch[0];
+  const solidFillMatch = spPr.match(/<a:solidFill>[\s\S]*?<a:srgbClr val="([0-9A-Fa-f]{6})"/);
+  if (solidFillMatch) return parseColor(solidFillMatch[1]);
+  return null;
+}
+
 function getShapeBounds(xml) {
-  const xfrmMatch = xml.match(/<a:xfrm>([\s\S]*?)<\/a:xfrm>/);
-  if (!xfrmMatch) return null;
-  const offMatch = xfrmMatch[1].match(/<a:off x="(-?\d+)" y="(-?\d+)"/);
-  const extMatch = xfrmMatch[1].match(/<a:ext cx="(\d+)" cy="(\d+)"/);
+  // Anchor to <p:spPr> or <p:grpSpPr> to avoid grabbing a nested child's <a:xfrm>
+  const spPrMatch = xml.match(/<p:(?:spPr|grpSpPr)[\s\S]*?<a:xfrm>([\s\S]*?)<\/a:xfrm>/);
+  const xfrmContent = spPrMatch ? spPrMatch[1] : null;
+  if (!xfrmContent) return null;
+  const offMatch = xfrmContent.match(/<a:off x="(-?\d+)" y="(-?\d+)"/);
+  const extMatch = xfrmContent.match(/<a:ext cx="(\d+)" cy="(\d+)"/);
   if (!offMatch || !extMatch) return null;
   return {
     x: emuToPt(parseInt(offMatch[1], 10)),
@@ -74,15 +112,12 @@ function getShapeBounds(xml) {
   };
 }
 
-// Get image relationship ID from a picture element
 function getPictureRId(picXml) {
   const blipMatch = picXml.match(/<a:blip r:embed="([^"]+)"/);
   return blipMatch ? blipMatch[1] : null;
 }
 
-// Get image filename from slide rels
 function getImageFileName(relsXml, rId) {
-  // Try Id before Target, then Target before Id (different PPTX generators order differently)
   let relMatch = relsXml.match(new RegExp(`Id="${rId}"[^>]*Target="([^"]+)"`));
   if (!relMatch) {
     relMatch = relsXml.match(new RegExp(`Target="([^"]+)"[^>]*Id="${rId}"`));
@@ -93,7 +128,6 @@ function getImageFileName(relsXml, rId) {
   return target;
 }
 
-// Wrap text to fit within a given width. Long words are character-split as fallback.
 function wrapText(text, font, fontSize, maxWidth) {
   const words = text.split(" ");
   const lines = [];
@@ -109,7 +143,6 @@ function wrapText(text, font, fontSize, maxWidth) {
     }
   }
   if (current) lines.push(current);
-  // Fallback: if any single line exceeds maxWidth, split by characters
   const result = [];
   for (const line of lines) {
     if (font.widthOfTextAtSize(line, fontSize) <= maxWidth) {
@@ -128,6 +161,242 @@ function wrapText(text, font, fontSize, maxWidth) {
     }
   }
   return result;
+}
+
+/**
+ * Wrap a paragraph's runs into lines, preserving per-run formatting.
+ * Each line is an array of { text, font, fontSize, color } segments.
+ */
+function wrapParagraphRuns(runs, helv, helvBold, helvItalic, helvBoldItalic, maxWidth) {
+  const lines = [];
+  let currentLine = [];
+  let currentWidth = 0;
+
+  for (const run of runs) {
+    const font = run.bold
+      ? (run.italic ? helvBoldItalic : helvBold)
+      : (run.italic ? helvItalic : helv);
+    const words = run.text.split(" ");
+
+    for (let wi = 0; wi < words.length; wi++) {
+      const word = words[wi];
+      const wordWidth = font.widthOfTextAtSize(word, run.fontSize);
+      const spaceWidth = currentLine.length > 0 ? font.widthOfTextAtSize(" ", run.fontSize) : 0;
+      const testWidth = currentWidth + spaceWidth + wordWidth;
+
+      if (testWidth > maxWidth && currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = [];
+        currentWidth = 0;
+      }
+
+      if (currentLine.length > 0) {
+        // Add space segment
+        currentLine.push({ text: " ", font, fontSize: run.fontSize, color: run.color, width: spaceWidth });
+        currentWidth += spaceWidth;
+      }
+
+      // Split long words by characters
+      if (wordWidth > maxWidth) {
+        let chunk = "";
+        for (const ch of word) {
+          const chunkWidth = font.widthOfTextAtSize(chunk + ch, run.fontSize);
+          if (chunkWidth > maxWidth && chunk) {
+            currentLine.push({ text: chunk, font, fontSize: run.fontSize, color: run.color, width: font.widthOfTextAtSize(chunk, run.fontSize) });
+            lines.push(currentLine);
+            currentLine = [];
+            currentWidth = 0;
+            chunk = ch;
+          } else {
+            chunk += ch;
+          }
+        }
+        if (chunk) {
+          const chunkWidth = font.widthOfTextAtSize(chunk, run.fontSize);
+          currentLine.push({ text: chunk, font, fontSize: run.fontSize, color: run.color, width: chunkWidth });
+          currentWidth += chunkWidth;
+        }
+      } else {
+        currentLine.push({ text: word, font, fontSize: run.fontSize, color: run.color, width: wordWidth });
+        currentWidth += wordWidth;
+      }
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+/**
+ * Parse top-level slide elements (p:sp, p:pic, p:grpSp) with proper nesting.
+ * Uses a stack-based approach so nested p:grpSp inside p:grpSp is handled correctly.
+ */
+function parseTopLevelElements(xml) {
+  const elements = [];
+  const openTagRegex = /<(p:sp|p:pic|p:grpSp)([\s\S]*?)>/g;
+  let match;
+  while ((match = openTagRegex.exec(xml)) !== null) {
+    const tag = match[1];
+    const tagStart = match.index;
+    const afterTag = openTagRegex.lastIndex;
+
+    // Find the matching closing tag, accounting for nesting
+    const closeTag = `</${tag}>`;
+    const openTagStr = `<${tag}`;
+    let depth = 1;
+    let searchPos = afterTag;
+    while (depth > 0 && searchPos < xml.length) {
+      const nextClose = xml.indexOf(closeTag, searchPos);
+      const nextOpen = xml.indexOf(openTagStr, searchPos);
+      if (nextClose === -1) break;
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++;
+        searchPos = nextOpen + openTagStr.length;
+      } else {
+        depth--;
+        searchPos = nextClose + closeTag.length;
+      }
+    }
+    const contentEnd = searchPos - closeTag.length;
+    const content = xml.slice(afterTag, contentEnd);
+    elements.push({ tag, content });
+    openTagRegex.lastIndex = searchPos;
+  }
+  return elements;
+}
+
+/**
+ * Recursively process slide elements (shapes, pictures, groups).
+ * Supports p:sp, p:pic, and p:grpSp with nested children.
+ */
+async function processElements(slideXml, page, pdfDoc, zip, relsXml, imageCache, slideHeightPt, offsetX, offsetY, helv, helvBold, helvItalic, helvBoldItalic) {
+  const elements = parseTopLevelElements(slideXml);
+  for (const { tag, content } of elements) {
+
+    if (tag === "p:grpSp") {
+      // Get group bounds for offset
+      const grpBounds = getShapeBounds(content);
+      const grpOffsetX = (grpBounds?.x || 0) + offsetX;
+      const grpOffsetY = (grpBounds?.y || 0) + offsetY;
+
+      // Recursively process child elements inside the group
+      await processElements(content, page, pdfDoc, zip, relsXml, imageCache, slideHeightPt, grpOffsetX, grpOffsetY, helv, helvBold, helvItalic, helvBoldItalic);
+    } else if (tag === "p:pic") {
+      const bounds = getShapeBounds(content);
+      const rId = getPictureRId(content);
+      if (!bounds || !rId) continue;
+
+      const imageFileName = getImageFileName(relsXml, rId);
+      if (!imageFileName) continue;
+
+      const fullPath = `ppt/${imageFileName}`.replace(/\.\.\//g, "");
+      if (!zip.files[fullPath]) continue;
+
+      let img;
+      if (imageCache.has(fullPath)) {
+        img = imageCache.get(fullPath);
+      } else {
+        const imgBuffer = await zip.files[fullPath].async("uint8array");
+        try {
+          if (fullPath.match(/\.png$/i)) {
+            img = await pdfDoc.embedPng(imgBuffer);
+          } else if (fullPath.match(/\.(jpg|jpeg)$/i)) {
+            img = await pdfDoc.embedJpg(imgBuffer);
+          } else {
+            continue;
+          }
+          imageCache.set(fullPath, img);
+        } catch (e) {
+          console.warn(`[pptxToPdf] Failed to embed image ${fullPath}:`, e.message);
+          continue;
+        }
+      }
+
+      const drawX = bounds.x + offsetX;
+      const drawY = slideHeightPt - (bounds.y + offsetY) - bounds.height;
+      page.drawImage(img, {
+        x: drawX,
+        y: drawY,
+        width: bounds.width,
+        height: bounds.height,
+      });
+    } else if (tag === "p:sp") {
+      const bounds = getShapeBounds(content);
+      if (!bounds) continue;
+
+      const paragraphs = extractParagraphs(content);
+      if (paragraphs.length === 0) continue;
+
+      const drawX = bounds.x + offsetX;
+      const drawY = bounds.y + offsetY;
+      const shapeWidth = bounds.width;
+      const shapeHeight = bounds.height;
+
+      // Draw shape background if present
+      const fillColor = getShapeFill(content);
+      if (fillColor) {
+        page.drawRectangle({
+          x: drawX,
+          y: slideHeightPt - drawY - shapeHeight,
+          width: shapeWidth,
+          height: shapeHeight,
+          color: fillColor,
+        });
+      }
+
+      // Text rendering: top-to-bottom
+      const padding = 4;
+      const textLeft = drawX + padding;
+      const textTop = slideHeightPt - drawY - padding; // top of text area (pdf-lib y)
+      const textBottom = slideHeightPt - drawY - shapeHeight + padding;
+      const maxWidth = shapeWidth - padding * 2;
+
+      let cursorY = textTop;
+
+      for (const para of paragraphs) {
+        const lineSpacing = para.lineSpacingPct / 100;
+        const maxFontSize = Math.max(...para.runs.map((r) => r.fontSize));
+        const lineHeight = maxFontSize * lineSpacing;
+
+        // Wrap runs into lines with per-run formatting
+        const lines = wrapParagraphRuns(para.runs, helv, helvBold, helvItalic, helvBoldItalic, maxWidth);
+
+        for (const lineSegments of lines) {
+          if (cursorY - lineHeight < textBottom) break;
+
+          // Calculate total line width for alignment
+          const totalWidth = lineSegments.reduce((sum, s) => sum + s.width, 0);
+
+          let lineX = textLeft;
+          if (para.align === "ctr") {
+            lineX = textLeft + (maxWidth - totalWidth) / 2;
+          } else if (para.align === "r") {
+            lineX = textLeft + (maxWidth - totalWidth);
+          }
+
+          // Draw each segment
+          for (const seg of lineSegments) {
+            page.drawText(seg.text, {
+              x: lineX,
+              y: cursorY - seg.fontSize,
+              size: seg.fontSize,
+              font: seg.font,
+              color: seg.color,
+            });
+            lineX += seg.width;
+          }
+
+          cursorY -= lineHeight;
+        }
+
+        // Extra spacing between paragraphs
+        cursorY -= maxFontSize * 0.3;
+      }
+    }
+  }
 }
 
 export async function pptxToPdf(pptxBuffer) {
@@ -160,8 +429,9 @@ export async function pptxToPdf(pptxBuffer) {
   const pdfDoc = await PDFDocument.create();
   const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const helvItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+  const helvBoldItalic = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
 
-  // Cache for embedded images
   const imageCache = new Map();
 
   for (const slidePath of slideFiles) {
@@ -186,84 +456,12 @@ export async function pptxToPdf(pptxBuffer) {
       color: rgb(1, 1, 1),
     });
 
-    // Parse shapes (text boxes) and pictures in order
-    // Match both <p:sp>...</p:sp> and <p:pic>...</p:pic>
-    const elementRegex = /<(p:sp|p:pic)([\s\S]*?)<\/\1>/g;
-    let match;
-    while ((match = elementRegex.exec(slideXml)) !== null) {
-      const tag = match[1];
-      const content = match[2];
-
-      if (tag === "p:pic") {
-        // Picture element — embed image at position
-        const bounds = getShapeBounds(content);
-        const rId = getPictureRId(content);
-        if (!bounds || !rId) continue;
-
-        const imageFileName = getImageFileName(relsXml, rId);
-        if (!imageFileName) continue;
-
-        const fullPath = `ppt/${imageFileName}`.replace(/\.\.\//g, "");
-        if (!zip.files[fullPath]) continue;
-
-        // Check cache
-        let img;
-        if (imageCache.has(fullPath)) {
-          img = imageCache.get(fullPath);
-        } else {
-          const imgBuffer = await zip.files[fullPath].async("uint8array");
-          try {
-            if (fullPath.match(/\.png$/i)) {
-              img = await pdfDoc.embedPng(imgBuffer);
-            } else if (fullPath.match(/\.(jpg|jpeg)$/i)) {
-              img = await pdfDoc.embedJpg(imgBuffer);
-            } else {
-              continue;
-            }
-            imageCache.set(fullPath, img);
-          } catch (e) {
-            console.warn(`[pptxToPdf] Failed to embed image ${fullPath}:`, e.message);
-            continue;
-          }
-        }
-
-        // Draw image at position (pdf-lib uses bottom-left origin, PPTX uses top-left)
-        page.drawImage(img, {
-          x: bounds.x,
-          y: slideHeightPt - bounds.y - bounds.height,
-          width: bounds.width,
-          height: bounds.height,
-        });
-      } else if (tag === "p:sp") {
-        // Shape element — extract and draw text
-        const bounds = getShapeBounds(content);
-        if (!bounds) continue;
-
-        const textRuns = extractTextRuns(content);
-        if (textRuns.length === 0) continue;
-
-        let textY = slideHeightPt - bounds.y - bounds.height;
-        const textX = bounds.x + 4;
-        const maxWidth = bounds.width - 8;
-
-        for (const run of textRuns) {
-          const font = run.bold ? helvBold : helv;
-          const lines = wrapText(run.text, font, run.fontSize, maxWidth);
-          for (const line of lines) {
-            if (textY + run.fontSize > slideHeightPt - bounds.y) break;
-            page.drawText(line, {
-              x: textX,
-              y: textY + run.fontSize,
-              size: run.fontSize,
-              font,
-              color: run.color,
-            });
-            textY += run.fontSize * 1.2;
-          }
-          textY += 2;
-        }
-      }
-    }
+    // Parse all elements (shapes, pictures, groups) recursively
+    await processElements(
+      slideXml, page, pdfDoc, zip, relsXml, imageCache,
+      slideHeightPt, 0, 0,
+      helv, helvBold, helvItalic, helvBoldItalic
+    );
   }
 
   const pdfBytes = await pdfDoc.save();
