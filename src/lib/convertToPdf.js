@@ -73,9 +73,30 @@ async function txtToPdf(file, onProgress) {
   doc.setFontSize(fontSize);
   doc.setTextColor(30, 30, 35);
 
+  function splitLongWords(text, maxWidth) {
+    const words = text.split(/(\s+)/);
+    const result = [];
+    for (const word of words) {
+      if (/^\s+$/.test(word)) { result.push(word); continue; }
+      if (doc.getTextWidth(word) <= maxWidth) { result.push(word); continue; }
+      let chunk = "";
+      for (const ch of word) {
+        if (doc.getTextWidth(chunk + ch) > maxWidth) {
+          if (chunk) result.push(chunk + "\u200B");
+          chunk = ch;
+        } else {
+          chunk += ch;
+        }
+      }
+      if (chunk) result.push(chunk);
+    }
+    return result.join("");
+  }
+
   const paragraphs = text.split(/\n/);
   for (const para of paragraphs) {
-    const wrapped = doc.splitTextToSize(para, contentWidth);
+    const broken = splitLongWords(para, contentWidth);
+    const wrapped = doc.splitTextToSize(broken, contentWidth);
     for (const line of wrapped) {
       if (y > pageHeight - marginBottom) {
         doc.addPage();
@@ -130,6 +151,10 @@ async function docxToPdf(file, onProgress) {
     box-sizing: border-box;
     z-index: -9999;
     pointer-events: none;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    overflow: hidden;
   `;
   container.innerHTML = `
     <div style="border-bottom: 2px solid #b8860b; padding-bottom: 10px; margin-bottom: 20px;">
@@ -151,9 +176,13 @@ async function docxToPdf(file, onProgress) {
   container.querySelectorAll("h1").forEach((h) => { h.style.fontSize = "18px"; });
   container.querySelectorAll("h2").forEach((h) => { h.style.fontSize = "16px"; });
   container.querySelectorAll("h3").forEach((h) => { h.style.fontSize = "14px"; });
+  container.querySelectorAll("p, li, td, th, div").forEach((el) => {
+    el.style.overflowWrap = "break-word";
+    el.style.wordBreak = "break-word";
+  });
   // Style tables
   container.querySelectorAll("table").forEach((t) => {
-    t.style.cssText = "width: 100%; border-collapse: collapse; margin: 10px 0;";
+    t.style.cssText = "width: 100%; border-collapse: collapse; margin: 10px 0; table-layout: fixed;";
   });
   container.querySelectorAll("td, th").forEach((c) => {
     c.style.cssText = "border: 1px solid #ddd; padding: 6px 8px;";
