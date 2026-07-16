@@ -55,6 +55,9 @@ export default function UploadWizard({
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState("");
   const [genError, setGenError] = useState("");
+  const [converting, setConverting] = useState(false);
+  const [convertProgress, setConvertProgress] = useState("");
+  const [convertError, setConvertError] = useState("");
   const [mcqRows, setMcqRows] = useState([emptyMcqRow()]);
   const [flashcards, setFlashcards] = useState([emptyFlashcard()]);
   const [summaryText, setSummaryText] = useState("");
@@ -74,6 +77,9 @@ export default function UploadWizard({
       setGenerating(false);
       setGenProgress("");
       setGenError("");
+      setConverting(false);
+      setConvertProgress("");
+      setConvertError("");
       setMcqRows([emptyMcqRow()]);
       setFlashcards([emptyFlashcard()]);
       setSummaryText("");
@@ -90,12 +96,37 @@ export default function UploadWizard({
     if (f) handleFileSelected(f);
   };
 
-  const handleFileSelected = (f) => {
+  const handleFileSelected = async (f) => {
     if (!f) return;
     if (f.size > 50 * 1024 * 1024) { setGenError("File too large — 50MB max"); return; }
-    setFile(f);
     setGenError("");
-    setTitle(stripExt(f.name));
+    setConvertError("");
+
+    if (needsConversion(f)) {
+      setConverting(true);
+      setConvertProgress("Converting to PDF…");
+      setFile(f);
+      setTitle(stripExt(f.name));
+      try {
+        const result = await convertToPdf(f, (status) => setConvertProgress(status));
+        if (result) {
+          const pdfFile = new File([result.pdfBlob], result.fileName, { type: "application/pdf" });
+          setFile(pdfFile);
+          setTitle(stripExt(result.fileName));
+          setConvertProgress("");
+        }
+      } catch (err) {
+        setConvertError(err.message || "Conversion failed — you can still use the original file");
+        setFile(f);
+        setTitle(stripExt(f.name));
+      } finally {
+        setConverting(false);
+        setConvertProgress("");
+      }
+    } else {
+      setFile(f);
+      setTitle(stripExt(f.name));
+    }
   };
 
   const handleDrop = (e) => {
@@ -106,7 +137,7 @@ export default function UploadWizard({
     if (f) handleFileSelected(f);
   };
 
-  const canProceedStep1 = isNote ? noteContent.trim().length > 0 : file !== null;
+  const canProceedStep1 = isNote ? noteContent.trim().length > 0 : file !== null && !converting;
 
   // ── Step 2: Action selection ───────────────────────────────────────────────
 
@@ -360,54 +391,13 @@ ${text}
           folderId: destFolderId || null,
         });
       } else if (file) {
-        if (needsConversion(file)) {
-          setGenerating(true);
-          setGenProgress("Converting to PDF…");
-          setTimeout(async () => {
-            try {
-              const result = await convertToPdf(file, (status) => setGenProgress(status));
-              setGenerating(false);
-              setGenProgress("");
-              if (result) {
-                const pdfFile = new File([result.pdfBlob], result.fileName, { type: "application/pdf" });
-                onUploadFile({
-                  title: title.trim(),
-                  subject: subject.trim(),
-                  contentType: "pdf",
-                  file: pdfFile,
-                  folderId: destFolderId || null,
-                });
-              } else {
-                onUploadFile({
-                  title: title.trim(),
-                  subject: subject.trim(),
-                  contentType: extToContentType(file.name) || "pdf",
-                  file,
-                  folderId: destFolderId || null,
-                });
-              }
-            } catch (err) {
-              setGenerating(false);
-              setGenProgress("");
-              setGenError("Conversion failed — uploading original file");
-              onUploadFile({
-                title: title.trim(),
-                subject: subject.trim(),
-                contentType: extToContentType(file.name) || "pdf",
-                file,
-                folderId: destFolderId || null,
-              });
-            }
-          }, 50);
-        } else {
-          onUploadFile({
-            title: title.trim(),
-            subject: subject.trim(),
-            contentType: extToContentType(file.name) || "pdf",
-            file,
-            folderId: destFolderId || null,
-          });
-        }
+        onUploadFile({
+          title: title.trim(),
+          subject: subject.trim(),
+          contentType: extToContentType(file.name) || "pdf",
+          file,
+          folderId: destFolderId || null,
+        });
       }
     } else if (action === "mcqs") {
       const incomplete = mcqRows.some((row) => !row.question.trim() || Object.values(row.options).some((o) => !o.trim()));
@@ -537,9 +527,9 @@ ${text}
                 <input type="file" accept={ACCEPTED_EXTS} onChange={handleFilePick} style={{ display: "none" }} ref={fileInputRef} />
                 {file ? (
                   <>
-                    <div style={{ fontSize: 32 }}>✓</div>
-                    <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.success }}>{file.name}</div>
-                    <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>{(file.size / 1024).toFixed(0)} KB</div>
+                    <div style={{ fontSize: 32 }}>{converting ? "⏳" : "✓"}</div>
+                    <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: converting ? goldText : colors.success }}>{file.name}</div>
+                    <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>{(file.size / 1024).toFixed(0)} KB{converting ? " · converting…" : ""}</div>
                   </>
                 ) : (
                   <>
@@ -566,6 +556,21 @@ ${text}
               </div>
             )}
 
+            {converting && (
+              <div style={{ marginTop: spacing.md, textAlign: "center" }}>
+                <div style={{ fontSize: fontSize.sm, color: goldText, marginBottom: spacing.xs }}>{convertProgress || "Converting to PDF…"}</div>
+                <div style={{ height: "4px", background: colors.surface, borderRadius: borderRadius.sm, overflow: "hidden", maxWidth: "300px", margin: "0 auto" }}>
+                  <div style={{ height: "100%", width: "100%", background: `linear-gradient(90deg, transparent, ${gold}, transparent)`, borderRadius: borderRadius.sm, animation: "shimmer 1.5s infinite" }} />
+                </div>
+              </div>
+            )}
+
+            {convertError && !converting && (
+              <div style={{ fontSize: fontSize.xs, color: colors.danger, marginTop: spacing.md, padding: "6px 10px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
+                {convertError}
+              </div>
+            )}
+
             {genError && (
               <div style={{ fontSize: fontSize.xs, color: colors.danger, marginTop: spacing.md, padding: "6px 10px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
                 {genError}
@@ -574,7 +579,7 @@ ${text}
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg }}>
               <button
-                onClick={() => { setIsNote(!isNote); setFile(null); setGenError(""); }}
+                onClick={() => { setIsNote(!isNote); setFile(null); setGenError(""); setConvertError(""); }}
                 style={{ background: "none", border: "none", color: colors.textMuted, fontSize: fontSize.sm, cursor: "pointer", padding: 0 }}
               >
                 {isNote ? "← Upload a file instead" : "or write a note manually →"}
@@ -584,7 +589,7 @@ ${text}
                 disabled={!canProceedStep1}
                 style={canProceedStep1 ? sharedStyles.wizardBtnPrimary : sharedStyles.wizardBtnDisabled}
               >
-                Continue →
+                {converting ? "Converting…" : "Continue →"}
               </button>
             </div>
           </>
@@ -742,7 +747,7 @@ ${text}
                 <strong>{title}</strong> — {subject}
               </div>
               <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: spacing.xs }}>
-                {action === "material" && (isNote ? "📝 Note" : needsConversion(file) ? `📄 ${file?.name || "File"} → PDF` : `📄 ${file?.name || "File"}`)}
+                {action === "material" && (isNote ? "📝 Note" : "📄 " + (file?.name || "File"))}
                 {action === "mcqs" && `✎ ${mcqRows.filter((r) => r.question.trim()).length} MCQ questions`}
                 {action === "flashcards" && `🎴 ${flashcards.filter((fc) => fc.front.trim()).length} flashcards`}
                 {action === "summary" && "AI-generated summary (PDF)"}

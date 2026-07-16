@@ -113,10 +113,12 @@ async function docxToPdf(file, onProgress) {
   onProgress?.("Rendering document to PDF…");
 
   // Create off-screen container with styled HTML
+  // Position behind the page at negative z-index so it's rendered (html2canvas needs it)
+  // but not visible to the user. opacity:0 would make html2canvas capture blank content.
   const container = document.createElement("div");
   container.style.cssText = `
     position: fixed;
-    left: -9999px;
+    left: 0;
     top: 0;
     width: 595px;
     padding: 40px;
@@ -126,6 +128,8 @@ async function docxToPdf(file, onProgress) {
     font-size: 13px;
     line-height: 1.6;
     box-sizing: border-box;
+    z-index: -9999;
+    pointer-events: none;
   `;
   container.innerHTML = `
     <div style="border-bottom: 2px solid #b8860b; padding-bottom: 10px; margin-bottom: 20px;">
@@ -157,12 +161,29 @@ async function docxToPdf(file, onProgress) {
 
   document.body.appendChild(container);
 
+  // Wait for all images to load before rendering
+  const imgs = container.querySelectorAll("img");
+  if (imgs.length > 0) {
+    await Promise.all(
+      Array.from(imgs).map((img) => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      })
+    );
+  }
+
+  // Small delay to ensure DOM is fully painted
+  await new Promise((r) => setTimeout(r, 100));
+
   try {
     const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
     await doc.html(container, {
       callback: (doc) => {},
       margin: [40, 40, 40, 40],
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false },
       autoPaging: "text",
     });
 
