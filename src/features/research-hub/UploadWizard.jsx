@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient";
 import { extractFileText, chunkText } from "../../lib/extractFileText";
+import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
+import { convertToPdf, needsConversion } from "../../lib/convertToPdf";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText, gold } from "./constants";
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
@@ -358,13 +360,54 @@ ${text}
           folderId: destFolderId || null,
         });
       } else if (file) {
-        onUploadFile({
-          title: title.trim(),
-          subject: subject.trim(),
-          contentType: extToContentType(file.name) || "pdf",
-          file,
-          folderId: destFolderId || null,
-        });
+        if (needsConversion(file)) {
+          setGenerating(true);
+          setGenProgress("Converting to PDF…");
+          setTimeout(async () => {
+            try {
+              const result = await convertToPdf(file, (status) => setGenProgress(status));
+              setGenerating(false);
+              setGenProgress("");
+              if (result) {
+                const pdfFile = new File([result.pdfBlob], result.fileName, { type: "application/pdf" });
+                onUploadFile({
+                  title: title.trim(),
+                  subject: subject.trim(),
+                  contentType: "pdf",
+                  file: pdfFile,
+                  folderId: destFolderId || null,
+                });
+              } else {
+                onUploadFile({
+                  title: title.trim(),
+                  subject: subject.trim(),
+                  contentType: extToContentType(file.name) || "pdf",
+                  file,
+                  folderId: destFolderId || null,
+                });
+              }
+            } catch (err) {
+              setGenerating(false);
+              setGenProgress("");
+              setGenError("Conversion failed — uploading original file");
+              onUploadFile({
+                title: title.trim(),
+                subject: subject.trim(),
+                contentType: extToContentType(file.name) || "pdf",
+                file,
+                folderId: destFolderId || null,
+              });
+            }
+          }, 50);
+        } else {
+          onUploadFile({
+            title: title.trim(),
+            subject: subject.trim(),
+            contentType: extToContentType(file.name) || "pdf",
+            file,
+            folderId: destFolderId || null,
+          });
+        }
       }
     } else if (action === "mcqs") {
       const incomplete = mcqRows.some((row) => !row.question.trim() || Object.values(row.options).some((o) => !o.trim()));
@@ -388,13 +431,36 @@ ${text}
       });
     } else if (action === "summary") {
       if (!summaryText.trim()) { setGenError("Summary is empty"); return; }
-      onSaveStudyTool({
-        title: title.trim(),
-        subject: subject.trim(),
-        contentType: "note",
-        description: summaryText.trim(),
-        folderId: destFolderId || null,
-      });
+      setGenerating(true);
+      setGenProgress("Generating formatted PDF…");
+      setTimeout(() => {
+        try {
+          const pdfBuffer = generateSummaryPdf(title.trim(), subject.trim(), summaryText.trim());
+          const bytes = new Uint8Array(pdfBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          const base64 = btoa(binary);
+          const fileName = `[AI] Summary — ${title.trim()}.pdf`;
+          setGenerating(false);
+          setGenProgress("");
+          onSaveStudyTool({
+            title: title.trim(),
+            subject: subject.trim(),
+            contentType: "pdf",
+            fileBuffer: base64,
+            fileName,
+            description: summaryText.trim(),
+            folderId: destFolderId || null,
+          });
+        } catch (err) {
+          setGenerating(false);
+          setGenProgress("");
+          setGenError("Failed to generate PDF: " + (err.message || "Unknown error"));
+        }
+      }, 50);
     }
   };
 
@@ -642,7 +708,7 @@ ${text}
                     <textarea
                       value={summaryText}
                       onChange={(e) => setSummaryText(e.target.value)}
-                      style={{ ...sharedStyles.input, minHeight: "300px", resize: "vertical", fontFamily: "monospace", fontSize: fontSize.sm, lineHeight: 1.6 }}
+                      style={{ ...sharedStyles.input, minHeight: "300px", resize: "vertical", fontFamily: "Georgia, serif", fontSize: fontSize.sm, lineHeight: 1.7, whiteSpace: "pre-wrap" }}
                     />
                   </>
                 )}
@@ -676,14 +742,23 @@ ${text}
                 <strong>{title}</strong> — {subject}
               </div>
               <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: spacing.xs }}>
-                {action === "material" && (isNote ? "📝 Note" : `📄 ${file?.name || "File"}`)}
+                {action === "material" && (isNote ? "📝 Note" : needsConversion(file) ? `📄 ${file?.name || "File"} → PDF` : `📄 ${file?.name || "File"}`)}
                 {action === "mcqs" && `✎ ${mcqRows.filter((r) => r.question.trim()).length} MCQ questions`}
                 {action === "flashcards" && `🎴 ${flashcards.filter((fc) => fc.front.trim()).length} flashcards`}
-                {action === "summary" && "📝 AI-generated summary"}
+                {action === "summary" && "AI-generated summary (PDF)"}
                 {" → "}
                 {destFolderId ? allFolders.find((f) => f.id === destFolderId)?.name : "Loose material"}
               </div>
             </div>
+
+            {generating && (
+              <div style={{ marginBottom: spacing.md, textAlign: "center" }}>
+                <div style={{ fontSize: fontSize.sm, color: goldText, marginBottom: spacing.xs }}>{genProgress || "Generating…"}</div>
+                <div style={{ height: "4px", background: colors.bg, borderRadius: borderRadius.sm, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: "40%", background: `linear-gradient(90deg, transparent, ${gold}, transparent)`, borderRadius: borderRadius.sm, animation: "shimmer 1.2s infinite" }} />
+                </div>
+              </div>
+            )}
 
             {uploading && (
               <div style={{ marginBottom: spacing.md }}>
@@ -701,13 +776,13 @@ ${text}
             )}
 
             <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <button onClick={() => setStep(action === "material" ? 2 : 3)} style={sharedStyles.wizardBackBtn} disabled={uploading}>← Back</button>
+              <button onClick={() => setStep(action === "material" ? 2 : 3)} style={sharedStyles.wizardBackBtn} disabled={uploading || generating}>← Back</button>
               <button
                 onClick={handleSave}
-                disabled={uploading || !canSave()}
-                style={uploading || !canSave() ? sharedStyles.wizardBtnDisabled : sharedStyles.wizardBtnPrimary}
+                disabled={uploading || generating || !canSave()}
+                style={uploading || generating || !canSave() ? sharedStyles.wizardBtnDisabled : sharedStyles.wizardBtnPrimary}
               >
-                {uploading ? "Saving…" : "Save to space ✓"}
+                {uploading ? "Saving…" : generating ? "Generating…" : "Save to space ✓"}
               </button>
             </div>
           </>

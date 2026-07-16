@@ -490,6 +490,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     if (data.mcqData) body.mcqData = data.mcqData;
     if (data.flashcardData) body.flashcardData = data.flashcardData;
     if (data.description) body.description = data.description;
+    if (data.fileBuffer) body.fileBuffer = data.fileBuffer;
+    if (data.fileName) body.fileName = data.fileName;
     if (data.folderId) body.folderId = data.folderId;
     body.isPublic = false;
 

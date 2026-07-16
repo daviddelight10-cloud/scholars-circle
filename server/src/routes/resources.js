@@ -7,6 +7,7 @@ import path from "path";
 import { uploadFile, deleteFile } from "../lib/supabaseStorage.js";
 import { sm2, computeQuality, computeDueDate, updateUniversalStreak } from "../lib/sm2.js";
 import { fsrsRate, fsrsNewCard, intervalLabel, stateLabel, isMastered } from "../lib/fsrs.js";
+import { pptxToPdf } from "../lib/pptxToPdf.js";
 
 const router = express.Router();
 
@@ -1434,6 +1435,27 @@ router.get("/pdf-review/stats", requireAuth, (req, res) => { req.url = "/fsrs/st
 router.get("/pdf-review/status/:resourceId", requireAuth, (req, res) => { req.url = req.url.replace("/pdf-review/", "/fsrs/"); router.handle(req, res, () => {}); });
 router.post("/pdf-review/flashcards/generate", requireAuth, aiRateLimit, (req, res) => { req.url = "/fsrs/flashcards/generate"; router.handle(req, res, () => {}); });
 router.get("/pdf-review/flashcards/:resourceId", requireAuth, (req, res) => { req.url = req.url.replace("/pdf-review/", "/fsrs/"); router.handle(req, res, () => {}); });
+
+// POST /api/resources/convert-pptx — Convert PPTX to PDF (server-side)
+router.post("/convert-pptx", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "PPTX file is required" });
+    }
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    if (ext !== ".pptx") {
+      return res.status(400).json({ error: "Only PPTX files are supported for conversion" });
+    }
+
+    const pdfBuffer = await pptxToPdf(req.file.buffer);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${path.basename(req.file.originalname, ".pptx")}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error converting PPTX to PDF:", error);
+    res.status(500).json({ error: error.message || "Failed to convert PPTX to PDF" });
+  }
+});
 
 // POST /api/resources - Create new resource (any authenticated user)
 router.post("/", requireAuth, upload.single("file"), async (req, res) => {
