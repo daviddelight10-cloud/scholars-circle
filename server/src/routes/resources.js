@@ -110,7 +110,7 @@ router.get("/teacher/my", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/resources/bookmarks - Get current user's bookmarked resources
+// GET /api/resources/bookmarks - Get current user's bookmarked resources (with folderId)
 router.get("/bookmarks", requireAuth, async (req, res) => {
   try {
     const bookmarks = await prisma.resourceBookmark.findMany({
@@ -126,21 +126,34 @@ router.get("/bookmarks", requireAuth, async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json(bookmarks.map((b) => b.resource));
+    res.json(bookmarks.map((b) => ({ ...b.resource, bookmarkFolderId: b.folderId })));
   } catch (error) {
     console.error("Error fetching bookmarks:", error);
     res.status(500).json({ error: "Failed to fetch bookmarks" });
   }
 });
 
-// POST /api/resources/:id/bookmark - Bookmark a resource
+// POST /api/resources/:id/bookmark - Bookmark a resource (optionally into a folder)
 router.post("/:id/bookmark", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const { folderId } = req.body;
+
+    // If folderId provided, verify the user owns or has access to that folder
+    if (folderId) {
+      const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+      if (!folder) {
+        return res.status(404).json({ error: "Folder not found" });
+      }
+      if (folder.ownerId !== req.user.sub && folder.visibility !== "link") {
+        return res.status(403).json({ error: "You don't have access to this folder" });
+      }
+    }
+
     const bookmark = await prisma.resourceBookmark.upsert({
       where: { resourceId_userId: { resourceId: id, userId: req.user.sub } },
-      create: { resourceId: id, userId: req.user.sub },
-      update: {},
+      create: { resourceId: id, userId: req.user.sub, folderId: folderId || null },
+      update: { folderId: folderId || null },
     });
     res.status(201).json(bookmark);
   } catch (error) {

@@ -261,6 +261,103 @@ export const sharedStyles = {
     fontSize: fontSize.base, fontWeight: fontWeight.semibold, zIndex: 999,
     display: "flex", alignItems: "center", gap: spacing.sm, animation: "fadeup 0.2s ease",
   },
+  wizardModal: {
+    background: colors.surface, border: `0.5px solid ${goldBorder}`,
+    borderRadius: borderRadius.xl, padding: "26px", width: "100%",
+    maxWidth: "540px", maxHeight: "88vh", overflowY: "auto",
+  },
+  overlay: {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    zIndex: 1000, padding: spacing.md,
+  },
+  modalTitle: {
+    fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.textBright,
+    margin: 0,
+  },
+  closeBtn: {
+    background: "none", border: "none", color: colors.textMuted,
+    fontSize: fontSize.lg, cursor: "pointer", padding: "4px 8px",
+    borderRadius: borderRadius.sm, transition: "color 0.15s",
+  },
+  stepIndicator: {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    gap: spacing.sm, marginBottom: spacing.xl,
+  },
+  stepDot: {
+    width: "8px", height: "8px", borderRadius: "50%", background: colors.border,
+    transition: "all 0.2s ease",
+  },
+  stepDotActive: {
+    width: "24px", height: "8px", borderRadius: "4px",
+    background: gold, transition: "all 0.2s ease",
+  },
+  stepDotDone: {
+    width: "8px", height: "8px", borderRadius: "50%", background: goldDim,
+    border: `1px solid ${goldBorder}`, transition: "all 0.2s ease",
+  },
+  choiceCard: {
+    background: colors.bg, border: `1px solid ${colors.border}`,
+    borderRadius: borderRadius.lg, padding: spacing.lg, cursor: "pointer",
+    display: "flex", flexDirection: "column", alignItems: "center", gap: spacing.sm,
+    textAlign: "center", transition: "all 0.15s ease", minHeight: "110px",
+    justifyContent: "center",
+  },
+  choiceCardHover: {
+    borderColor: goldBorder, background: goldDim,
+    transform: "translateY(-2px)", boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+  },
+  choiceCardIcon: {
+    fontSize: 28, marginBottom: spacing.xs,
+  },
+  choiceCardLabel: {
+    fontSize: fontSize.base, fontWeight: fontWeight.bold, color: colors.text,
+  },
+  choiceCardDesc: {
+    fontSize: fontSize.xs, color: colors.textDim, lineHeight: 1.4,
+  },
+  deskCard: {
+    background: colors.surface, border: `0.5px solid ${colors.border}`,
+    borderRadius: borderRadius.lg, padding: spacing.lg, cursor: "pointer",
+    transition: "borderColor 0.15s, box-shadow 0.15s, transform 0.15s",
+    position: "relative", overflow: "hidden",
+  },
+  createDeckCard: {
+    background: "transparent", border: `1.5px dashed ${colors.border}`,
+    borderRadius: borderRadius.lg, padding: spacing.xl, cursor: "pointer",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: spacing.sm, minHeight: "140px", transition: "all 0.15s ease",
+  },
+  wizardDropzone: {
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    textAlign: "center", padding: "40px 20px",
+    border: `2px dashed ${colors.border}`, borderRadius: borderRadius.xl,
+    cursor: "pointer", transition: "all 0.15s", gap: spacing.sm,
+  },
+  wizardBtn: {
+    padding: "12px 24px", borderRadius: borderRadius.lg,
+    background: goldDim, border: `0.5px solid ${goldBorder}`,
+    fontSize: fontSize.md, fontWeight: fontWeight.bold, color: goldText,
+    cursor: "pointer", transition: "all 0.15s",
+  },
+  wizardBtnPrimary: {
+    padding: "12px 24px", borderRadius: borderRadius.lg,
+    background: `linear-gradient(135deg, #b8860b, ${gold})`,
+    border: "none", fontSize: fontSize.md, fontWeight: fontWeight.bold,
+    color: "#0a0a0a", cursor: "pointer", transition: "all 0.15s",
+  },
+  wizardBtnDisabled: {
+    padding: "12px 24px", borderRadius: borderRadius.lg,
+    background: colors.surface, border: `0.5px solid ${colors.border}`,
+    fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textDim,
+    cursor: "not-allowed", opacity: 0.6,
+  },
+  wizardBackBtn: {
+    padding: "12px 20px", borderRadius: borderRadius.lg,
+    background: "none", border: `0.5px solid ${colors.border}`,
+    fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.textMuted,
+    cursor: "pointer",
+  },
 };
 
 export function formatRelativeDate(dateStr) {

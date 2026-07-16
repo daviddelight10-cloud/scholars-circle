@@ -8,7 +8,8 @@ import { useUserData } from "../../contexts/UserDataContext";
 import ResourceCard from "./ResourceCard";
 import FilterBar from "./FilterBar";
 import FolderDetailView from "./FolderDetailView";
-import UploadModal from "./UploadModal";
+import UploadWizard from "./UploadWizard";
+import BookmarkSpacePicker from "./BookmarkSpacePicker";
 import CreateFolderModal from "./CreateFolderModal";
 import LibraryView from "./LibraryView.jsx";
 import DepartmentView from "./DepartmentView.jsx";
@@ -16,8 +17,6 @@ import { colors, spacing, fontSize, fontWeight, sharedStyles, gold, goldDim, gol
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const CACHE_TTL = 5 * 60 * 1000;
-
-const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
 const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
 const filterLabels = { all: "All", note: "Notes", pdf: "PDF", mcq: "MCQ", tutorial_question: "Tutorial Q" };
@@ -39,26 +38,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   const [toast, setToast] = useState(null);
   const [viewerToken, setViewerToken] = useState(null);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
+  const [bookmarkFolderMap, setBookmarkFolderMap] = useState({});
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
+  const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
+  const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [filters, setFilters] = useState({ university: "all", department: "all", level: "all", semester: activeSemester || "all", subject: "all" });
   const [userProfile, setUserProfile] = useState(null);
   const [fsrsStats, setFsrsStats] = useState(null);
   const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
 
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showUploadWizard, setShowUploadWizard] = useState(false);
+  const [wizardPresetFolderId, setWizardPresetFolderId] = useState(null);
   const [showFab, setShowFab] = useState(false);
-  const [uploadType, setUploadType] = useState("pdf");
-  const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadSubject, setUploadSubject] = useState("");
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadDescription, setUploadDescription] = useState("");
-  const [uploadPreview, setUploadPreview] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [mcqRows, setMcqRows] = useState([emptyMcqRow()]);
-  const fileInputRef = useRef(null);
 
   const [folders, setFolders] = useState({ own: [], shared: [] });
   const [activeFolder, setActiveFolder] = useState(null);
@@ -71,7 +65,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   const [newFolderLevel, setNewFolderLevel] = useState("");
   const [newFolderSemester, setNewFolderSemester] = useState("");
   const [activeFolderTab, setActiveFolderTab] = useState("materials");
-  const [uploadFolderId, setUploadFolderId] = useState(null);
   const [mcqProgress, setMcqProgress] = useState({});
 
   useEffect(() => {
@@ -79,6 +72,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     fetchFsrsStats();
     fetchFsrsAnalytics();
     fetchFolders();
+    fetchBookmarks();
     fetchMcqProgress();
     fetchUserProfile();
   }, []);
@@ -178,6 +172,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       if (res.ok) {
         const data = await res.json();
         setBookmarkedIds(new Set(data.map((r) => r.id)));
+        const folderMap = {};
+        for (const r of data) {
+          if (r.bookmarkFolderId) folderMap[r.id] = r.bookmarkFolderId;
+        }
+        setBookmarkFolderMap(folderMap);
       }
     } catch {}
   };
@@ -282,9 +281,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     setActiveFolderTab("materials");
   };
 
-  const openUploadInFolder = (folderId, type) => {
-    setUploadFolderId(folderId);
-    openUpload(type);
+  const openUploadInFolder = (folderId) => {
+    setWizardPresetFolderId(folderId);
+    setUploadProgress(0);
+    setShowUploadWizard(true);
   };
 
   const getCurrentUserId = () => {
@@ -298,7 +298,16 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     if (!folderDetail) return [];
     const shared = folderDetail.sharedResources || [];
     const mine = folderDetail.myResources || [];
-    return [...mine, ...shared];
+    const bookmarked = folderDetail.bookmarkedResources || [];
+    const seen = new Set();
+    const combined = [];
+    for (const r of [...mine, ...shared, ...bookmarked]) {
+      if (!seen.has(r.id)) {
+        seen.add(r.id);
+        combined.push(r);
+      }
+    }
+    return combined;
   }, [folderDetail]);
 
   const folderCategorized = useMemo(() => {
@@ -335,65 +344,101 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     setViewerToken(token);
   }, [resources, setLastActivity]);
 
-  const toggleBookmark = useCallback(async (resource) => {
+  const toggleBookmark = useCallback((resource) => {
     const isBookmarked = bookmarkedIds.has(resource.id);
+    if (isBookmarked) {
+      // Unbookmark directly — no picker needed
+      setBookmarkBusyId(resource.id);
+      const prevIds = bookmarkedIds;
+      setBookmarkedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(resource.id);
+        return next;
+      });
+      setBookmarkFolderMap((prev) => {
+        const next = { ...prev };
+        delete next[resource.id];
+        return next;
+      });
+      fetch(`${API_BASE}/api/resources/${resource.id}/bookmark`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      }).then((res) => {
+        if (res.ok) showToast("Removed from your space");
+        else {
+          setBookmarkedIds(prevIds);
+          showToast("Failed to remove bookmark");
+        }
+      }).catch(() => {
+        setBookmarkedIds(prevIds);
+        showToast("Network error — try again");
+      }).finally(() => setBookmarkBusyId(null));
+    } else {
+      // Show the space picker
+      setBookmarkTarget(resource);
+      setShowBookmarkPicker(true);
+    }
+  }, [bookmarkedIds]);
+
+  const handleBookmarkWithFolder = useCallback(async (resource, folderId) => {
     setBookmarkBusyId(resource.id);
     const prevIds = bookmarkedIds;
     setBookmarkedIds((prev) => {
       const next = new Set(prev);
-      if (isBookmarked) next.delete(resource.id); else next.add(resource.id);
+      next.add(resource.id);
       return next;
     });
+    if (folderId) {
+      setBookmarkFolderMap((prev) => ({ ...prev, [resource.id]: folderId }));
+    }
     try {
       const res = await fetch(`${API_BASE}/api/resources/${resource.id}/bookmark`, {
-        method: isBookmarked ? "DELETE" : "POST",
+        method: "POST",
         headers: getAuthHeaders(),
+        body: JSON.stringify({ folderId: folderId || null }),
       });
       if (res.ok) {
-        showToast(isBookmarked ? "Removed from your space" : "Added to your space ✓");
+        showToast(folderId ? "Added to space ✓" : "Added to your space ✓");
+        fetchBookmarks();
+        if (folderId && activeFolder === folderId) fetchFolderDetail(folderId);
       } else {
         setBookmarkedIds(prevIds);
-        showToast("Failed to update bookmark");
+        showToast("Failed to bookmark");
       }
     } catch {
       setBookmarkedIds(prevIds);
       showToast("Network error — try again");
     } finally {
       setBookmarkBusyId(null);
+      setShowBookmarkPicker(false);
+      setBookmarkTarget(null);
     }
-  }, [bookmarkedIds]);
+  }, [bookmarkedIds, activeFolder]);
 
-  const openUpload = (type) => {
-    setUploadType(type);
-    setUploadTitle(""); setUploadSubject(""); setUploadFile(null);
-    setUploadDescription(""); setUploadPreview(null); setUploadProgress(0);
-    setMcqRows([emptyMcqRow()]);
-    setShowUploadModal(true);
+  const openUpload = () => {
+    setWizardPresetFolderId(null);
+    setUploadProgress(0);
+    setShowUploadWizard(true);
   };
 
-  const closeUpload = () => {
+  const closeUploadWizard = () => {
     if (uploading) return;
-    setShowUploadModal(false);
-    setUploadFolderId(null);
-    if (uploadPreview) URL.revokeObjectURL(uploadPreview);
-    setUploadPreview(null);
+    setShowUploadWizard(false);
+    setWizardPresetFolderId(null);
   };
 
-  const submitFileUpload = () => {
-    if (!uploadTitle.trim() || !uploadSubject.trim()) { showToast("Add a title and subject first"); return; }
-    if (uploadType !== "note" && !uploadFile) { showToast("Choose a file first"); return; }
-    if (uploadType === "note" && !uploadDescription.trim()) { showToast("Write some note content first"); return; }
+  const handleWizardFileUpload = (data) => {
     setUploading(true);
     setUploadProgress(0);
 
     const formData = new FormData();
-    formData.append("title", uploadTitle.trim());
-    formData.append("subject", uploadSubject.trim());
-    formData.append("contentType", uploadType);
+    formData.append("title", data.title);
+    formData.append("subject", data.subject);
+    formData.append("contentType", data.contentType);
     formData.append("isPremium", "false");
-    if (uploadFile) formData.append("file", uploadFile);
-    if (uploadDescription.trim()) formData.append("description", uploadDescription.trim());
-    if (uploadFolderId) formData.append("folderId", uploadFolderId);
+    if (data.file) formData.append("file", data.file);
+    if (data.description) formData.append("description", data.description);
+    if (data.folderId) formData.append("folderId", data.folderId);
     if (userProfile?.universityId) formData.append("universityId", userProfile.universityId);
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
@@ -416,12 +461,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
             });
           }
         } catch {}
-        setShowUploadModal(false);
-        if (uploadPreview) URL.revokeObjectURL(uploadPreview);
-        setUploadPreview(null);
-        showToast("Uploaded ✓");
-        if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
-        else { fetchResources(); }
+        setShowUploadWizard(false);
+        showToast("Saved to space ✓");
+        if (data.folderId) { fetchFolderDetail(data.folderId); }
+        else { fetchResources(); fetchFolders(); }
       } else {
         showToast("Upload failed");
       }
@@ -435,56 +478,52 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     xhr.send(formData);
   };
 
-  const submitMcqUpload = () => {
-    if (!uploadTitle.trim() || !uploadSubject.trim()) { showToast("Add a title and subject first"); return; }
-    const incomplete = mcqRows.some((row) => !row.question.trim() || Object.values(row.options).some((o) => !o.trim()));
-    if (incomplete) { showToast("Fill in every question and all 4 options"); return; }
+  const handleWizardStudyToolSave = (data) => {
     setUploading(true);
+    setUploadProgress(0);
 
-    const formData = new FormData();
-    formData.append("title", uploadTitle.trim());
-    formData.append("subject", uploadSubject.trim());
-    formData.append("contentType", "mcq");
-    formData.append("isPremium", "false");
-    formData.append("mcqData", JSON.stringify(mcqRows));
-    if (uploadFolderId) formData.append("folderId", uploadFolderId);
-    if (userProfile?.universityId) formData.append("universityId", userProfile.universityId);
+    const body = {
+      title: data.title,
+      subject: data.subject,
+      contentType: data.contentType,
+    };
+    if (data.mcqData) body.mcqData = data.mcqData;
+    if (data.flashcardData) body.flashcardData = data.flashcardData;
+    if (data.description) body.description = data.description;
+    if (data.folderId) body.folderId = data.folderId;
+    body.isPublic = false;
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
 
-    const xhr = new XMLHttpRequest();
-    xhr.upload.addEventListener("progress", (e) => {
-      if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-    });
-    xhr.addEventListener("load", () => {
-      setUploading(false);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const resource = JSON.parse(xhr.responseText);
-          if (resource.status === "approved") {
-            setResources((prev) => {
-              const updated = [resource, ...prev];
-              try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
-              return updated;
-            });
-          }
-        } catch {}
-        setShowUploadModal(false);
-        showToast("MCQs submitted ✓");
-        if (uploadFolderId) { fetchFolderDetail(uploadFolderId); setUploadFolderId(null); }
-        else { fetchResources(); }
-      } else {
-        showToast("Submission failed");
-      }
-    });
-    xhr.addEventListener("error", () => {
-      setUploading(false);
-      showToast("Submission failed — check your connection");
-    });
-    xhr.open("POST", `${API_BASE}/api/resources`);
-    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.send(formData);
+    fetch(`${API_BASE}/api/resources/study-tool-save`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to save");
+        return res.json();
+      })
+      .then((resource) => {
+        setUploading(false);
+        setResources((prev) => {
+          const updated = [resource, ...prev];
+          try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
+          return updated;
+        });
+        setShowUploadWizard(false);
+        showToast("Saved to space ✓");
+        if (data.folderId) { fetchFolderDetail(data.folderId); }
+        else { fetchResources(); fetchFolders(); }
+      })
+      .catch(() => {
+        setUploading(false);
+        showToast("Failed to save — try again");
+      });
   };
 
   const subjects = useMemo(() => {
@@ -526,24 +565,18 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     return sorted;
   }, [tabResources, search, activeFilter, filters, sortBy]);
 
-  const uploadModal = (
-    <UploadModal
-      show={showUploadModal}
-      onClose={closeUpload}
-      uploadType={uploadType} setUploadType={setUploadType}
-      uploadTitle={uploadTitle} setUploadTitle={setUploadTitle}
-      uploadSubject={uploadSubject} setUploadSubject={setUploadSubject}
-      uploadFile={uploadFile} setUploadFile={setUploadFile}
-      uploadDescription={uploadDescription} setUploadDescription={setUploadDescription}
-      uploadPreview={uploadPreview} setUploadPreview={setUploadPreview}
-      uploadProgress={uploadProgress} setUploadProgress={setUploadProgress}
-      uploading={uploading} setUploading={setUploading}
-      dragOver={dragOver} setDragOver={setDragOver}
-      mcqRows={mcqRows} setMcqRows={setMcqRows}
+  const uploadWizard = (
+    <UploadWizard
+      show={showUploadWizard}
+      onClose={closeUploadWizard}
       subjects={subjects}
-      fileInputRef={fileInputRef}
-      onSubmitFile={submitFileUpload}
-      onSubmitMcq={submitMcqUpload}
+      folders={folders}
+      presetFolderId={wizardPresetFolderId}
+      userProfile={userProfile}
+      onUploadFile={handleWizardFileUpload}
+      onSaveStudyTool={handleWizardStudyToolSave}
+      uploading={uploading}
+      uploadProgress={uploadProgress}
     />
   );
 
@@ -557,6 +590,17 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       newVisibility={newFolderVisibility} setNewVisibility={setNewFolderVisibility}
       newLevel={newFolderLevel} setNewLevel={setNewFolderLevel}
       newSemester={newFolderSemester} setNewSemester={setNewFolderSemester}
+    />
+  );
+
+  const bookmarkPicker = (
+    <BookmarkSpacePicker
+      show={showBookmarkPicker}
+      onClose={() => { setShowBookmarkPicker(false); setBookmarkTarget(null); }}
+      resource={bookmarkTarget}
+      folders={folders}
+      onConfirm={handleBookmarkWithFolder}
+      onCreateFolder={() => { setShowBookmarkPicker(false); setShowCreateFolder(true); }}
     />
   );
 
@@ -579,15 +623,16 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         onShareFolder={handleShareFolder}
         onDeleteFolder={handleDeleteFolder}
         onUploadToFolder={openUploadInFolder}
-        onCreateMcq={(fid) => openUploadInFolder(fid, "mcq")}
         bookmarkedIds={bookmarkedIds}
+        bookmarkFolderMap={bookmarkFolderMap}
         bookmarkBusyId={bookmarkBusyId}
         onOpen={handleOpen}
         onToggleBookmark={toggleBookmark}
         onShare={handleShare}
         mcqProgress={mcqProgress}
-        uploadModal={uploadModal}
+        uploadModal={uploadWizard}
         createFolderModal={createFolderModal}
+        bookmarkPicker={bookmarkPicker}
       />
     );
   }
@@ -613,6 +658,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
           fsrsStats={fsrsStats}
           folders={folders}
           bookmarkedIds={bookmarkedIds}
+          bookmarkFolderMap={bookmarkFolderMap}
           bookmarkBusyId={bookmarkBusyId}
           mcqProgress={mcqProgress}
           onOpen={handleOpen}
@@ -734,21 +780,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
           <>
             <FabAction
               icon="📎"
-              label="Upload Material"
-              subtitle="PDF, Image, DOCX, Note…"
-              onClick={() => { openUpload("pdf"); setShowFab(false); }}
+              label="Upload to Space"
+              subtitle="PDF, Image, DOCX, Note, AI tools…"
+              onClick={() => { openUpload(); setShowFab(false); }}
             />
             <FabAction
               icon="📁"
-              label="Create New Folder"
+              label="Create New Space"
               subtitle="Organize your study materials"
               onClick={() => { setShowCreateFolder(true); setShowFab(false); }}
-            />
-            <FabAction
-              icon="✎"
-              label="Generate MCQs"
-              subtitle="Build a quiz question set"
-              onClick={() => { openUpload("mcq"); setShowFab(false); }}
             />
           </>
         )}
@@ -771,8 +811,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         )}
       </div>
 
-      {uploadModal}
+      {uploadWizard}
       {createFolderModal}
+      {bookmarkPicker}
 
       <style>{`
         @keyframes fadeup {

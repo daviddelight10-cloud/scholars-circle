@@ -1,15 +1,18 @@
 import { useState, useMemo } from "react";
 import { colors, spacing, fontSize, fontWeight, sharedStyles } from "./constants";
-import SubjectDeckCard from "./SubjectDeckCard";
 import SubjectDetailView from "./SubjectDetailView";
-import FolderGrid from "./FolderGrid";
-import SubTabBar from "./SubTabBar";
+import { FolderDeskCard, SubjectDeskCard, CreateDeckCard } from "./DeskCard";
 
-function groupBySubject(resources, currentUserId, bookmarkedIds) {
+function groupBySubject(resources, currentUserId, bookmarkedIds, bookmarkFolderMap) {
   const filtered = resources.filter((r) => {
     if (r.status === "rejected" && String(r.uploadedBy) !== currentUserId) return false;
     if (r.status === "pending" && String(r.uploadedBy) !== currentUserId) return false;
-    return String(r.uploadedBy) === currentUserId || (bookmarkedIds && bookmarkedIds.has(r.id));
+    const isOwned = String(r.uploadedBy) === currentUserId;
+    const isBookmarked = bookmarkedIds && bookmarkedIds.has(r.id);
+    if (!isOwned && !isBookmarked) return false;
+    // If bookmarked into a specific folder, don't show as loose material
+    if (isBookmarked && !isOwned && bookmarkFolderMap && bookmarkFolderMap[r.id]) return false;
+    return true;
   });
 
   const bySubject = {};
@@ -34,6 +37,7 @@ export default function LibraryView({
   fsrsStats,
   folders,
   bookmarkedIds,
+  bookmarkFolderMap,
   bookmarkBusyId,
   mcqProgress,
   onOpen,
@@ -44,10 +48,9 @@ export default function LibraryView({
 }) {
   const [search, setSearch] = useState("");
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [subTab, setSubTab] = useState("materials");
 
   const grouped = useMemo(() => {
-    let result = groupBySubject(resources, currentUserId, bookmarkedIds);
+    let result = groupBySubject(resources, currentUserId, bookmarkedIds, bookmarkFolderMap);
     if (search) {
       const q = search.toLowerCase();
       result = result
@@ -57,7 +60,7 @@ export default function LibraryView({
         );
     }
     return result;
-  }, [resources, currentUserId, bookmarkedIds, search]);
+  }, [resources, currentUserId, bookmarkedIds, bookmarkFolderMap, search]);
 
   const filteredOwnFolders = useMemo(() => {
     if (!folders?.own) return [];
@@ -92,14 +95,9 @@ export default function LibraryView({
     );
   }
 
-  const ownFolderCount = folders?.own?.length || 0;
-  const sharedFolderCount = folders?.shared?.length || 0;
-  const totalFolderCount = ownFolderCount + sharedFolderCount;
-
-  const subTabs = [
-    ["materials", "Materials"],
-    ["folders", "Folders", totalFolderCount],
-  ];
+  const hasFolders = (filteredOwnFolders.length > 0 || filteredSharedFolders.length > 0);
+  const hasLooseMaterials = grouped.length > 0;
+  const isEmpty = !hasFolders && !hasLooseMaterials && !search;
 
   return (
     <div>
@@ -124,57 +122,70 @@ export default function LibraryView({
           </div>
           <button onClick={onRetry} style={{ ...sharedStyles.chipActive, cursor: "pointer" }}>↻ Retry</button>
         </div>
+      ) : isEmpty ? (
+        <div style={sharedStyles.emptyState}>
+          <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
+          <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>
+            Your space is empty
+          </div>
+          <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5, marginBottom: spacing.xl }}>
+            Upload materials using the + button below, or bookmark items from the Community tab to add them here.
+          </div>
+          <button onClick={onCreateFolder} style={{ ...sharedStyles.addBtn }}>+ Create your first space</button>
+        </div>
       ) : (
       <>
       <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ ...sharedStyles.searchWrap, flex: "1 1 200px" }}>
           <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder={subTab === "materials" ? "Search your materials…" : "Search your folders…"}
+            placeholder="Search your spaces & materials…"
             style={sharedStyles.searchInput} />
         </div>
       </div>
 
-      <SubTabBar tabs={subTabs} activeTab={subTab} onTabChange={setSubTab} />
+      {/* Unified grid: create card + folder spaces + loose material subject groups */}
+      <div style={sharedStyles.grid}>
+        <CreateDeckCard onClick={onCreateFolder} />
 
-      {subTab === "materials" ? (
-        grouped.length === 0 ? (
-          <div style={sharedStyles.emptyState}>
-            <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
-            <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>
-              {search ? "No results found" : "Your space is empty"}
-            </div>
-            <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
-              {search
-                ? "Try a different search term."
-                : "Upload materials using the + button below, or bookmark items from the Community tab to add them here."
-              }
-            </div>
+        {filteredOwnFolders.map((folder) => (
+          <FolderDeskCard
+            key={folder.id}
+            folder={folder}
+            onClick={() => onOpenFolder(folder.id)}
+          />
+        ))}
+
+        {filteredSharedFolders.map((folder) => (
+          <FolderDeskCard
+            key={folder.id}
+            folder={folder}
+            onClick={() => onOpenFolder(folder.id)}
+          />
+        ))}
+
+        {grouped.map((s) => (
+          <SubjectDeskCard
+            key={s.subject}
+            subject={s.subject}
+            resources={s.resources}
+            fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
+            onClick={() => setSelectedSubject({
+              subject: s.subject,
+              resources: s.resources,
+            })}
+          />
+        ))}
+      </div>
+
+      {/* No results from search */}
+      {search && !hasFolders && !hasLooseMaterials && (
+        <div style={sharedStyles.emptyState}>
+          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>🔍</div>
+          <div style={{ fontSize: fontSize.base, color: colors.textDim }}>
+            No results for "{search}"
           </div>
-        ) : (
-          <div style={sharedStyles.grid}>
-            {grouped.map((s) => (
-              <SubjectDeckCard
-                key={s.subject}
-                subject={s.subject}
-                resources={s.resources}
-                fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
-                onClick={() => setSelectedSubject({
-                  subject: s.subject,
-                  resources: s.resources,
-                })}
-              />
-            ))}
-          </div>
-        )
-      ) : (
-        <FolderGrid
-          folders={filteredOwnFolders}
-          sharedFolders={filteredSharedFolders}
-          search={search}
-          onOpenFolder={onOpenFolder}
-          onCreateFolder={onCreateFolder}
-        />
+        </div>
       )}
       </>
       )}

@@ -1474,11 +1474,14 @@ model ResourceBookmark {
   resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
 
   @@unique([resourceId, userId])
   @@index([userId])
   @@index([resourceId])
+  @@index([folderId])
 }
 
 model QuizAttempt {
@@ -1621,6 +1624,7 @@ model Folder {
   updatedAt   DateTime @updatedAt
 
   resources     Resource[]
+  bookmarks     ResourceBookmark[]
   folderDepts   FolderDepartment[]
 
   @@index([ownerId])

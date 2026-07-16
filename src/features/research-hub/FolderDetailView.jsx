@@ -2,18 +2,18 @@ import ResourceCard from "./ResourceCard";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
 const emptyStateConfig = {
-  materials: { icon: "📄", message: "No materials in this folder yet.", cta: "Upload PDFs, notes, or other files to get started." },
-  summary: { icon: "📝", message: "No AI-generated summaries yet.", cta: "Open a PDF and use the AI tool to generate summaries." },
-  flashcards: { icon: "🎴", message: "No flashcard decks in this folder yet.", cta: "Generate flashcards from a PDF using the AI tools." },
-  mcqs: { icon: "✎", message: "No MCQ sets in this folder yet.", cta: "Create one manually or generate from a PDF." },
+  materials: { icon: "📄", message: "No materials in this space yet.", cta: "Upload PDFs, notes, or other files to get started." },
+  summary: { icon: "📝", message: "No AI-generated summaries yet.", cta: "Upload a file and choose 'Generate Summary' to create one." },
+  flashcards: { icon: "🎴", message: "No flashcard decks in this space yet.", cta: "Upload a file and choose 'Generate Flashcards' to create a deck." },
+  mcqs: { icon: "✎", message: "No MCQ sets in this space yet.", cta: "Upload a file and choose 'Generate MCQs' or create manually." },
 };
 
 export default function FolderDetailView({
   folderDetail, folderLoading, folderCategorized, activeFolderTab, setActiveFolderTab,
   folderIsOwner, onClose, onShareFolder, onDeleteFolder,
-  onUploadToFolder, onCreateMcq,
-  bookmarkedIds, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress,
-  uploadModal, createFolderModal,
+  onUploadToFolder,
+  bookmarkedIds, bookmarkFolderMap, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress,
+  uploadModal, createFolderModal, bookmarkPicker,
 }) {
   const folderSubTabs = [
     ["materials", "📄 Materials", folderCategorized.materials.length],
@@ -28,7 +28,7 @@ export default function FolderDetailView({
     <>
       <div style={{ padding: spacing.xl, maxWidth: "1200px", margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: spacing.md, marginBottom: spacing.xl }}>
-          <button onClick={onClose} style={sharedStyles.backBtn}>← Folders</button>
+          <button onClick={onClose} style={sharedStyles.backBtn}>← My Space</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.textBright }}>
               {folderDetail?.name || "Loading…"}
@@ -63,11 +63,13 @@ export default function FolderDetailView({
 
         {folderDetail && (
           <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap" }}>
-            <button onClick={() => onUploadToFolder(folderDetail.id, "pdf")} style={{ ...sharedStyles.chip, background: goldDim, borderColor: goldBorder, color: goldText }}>
-              📎 Upload to folder
-            </button>
-            <button onClick={() => onCreateMcq(folderDetail.id)} style={{ ...sharedStyles.chip, background: goldDim, borderColor: goldBorder, color: goldText }}>
-              ✎ Create MCQ set
+            <button onClick={() => onUploadToFolder(folderDetail.id)} style={{
+              padding: "10px 20px", borderRadius: borderRadius.lg,
+              background: `linear-gradient(135deg, #b8860b, ${goldText})`,
+              border: "none", fontSize: fontSize.md, fontWeight: fontWeight.bold,
+              color: "#0a0a0a", cursor: "pointer", display: "flex", alignItems: "center", gap: spacing.sm,
+            }}>
+              📎 Add to space
             </button>
           </div>
         )}
@@ -82,7 +84,7 @@ export default function FolderDetailView({
         </div>
 
         {folderLoading ? (
-          <div style={sharedStyles.emptyState}>Loading folder contents…</div>
+          <div style={sharedStyles.emptyState}>Loading space contents…</div>
         ) : currentList.length > 0 ? (
           <div style={sharedStyles.grid}>
             {currentList.map((resource) => (
@@ -112,6 +114,7 @@ export default function FolderDetailView({
       </div>
       {uploadModal}
       {createFolderModal}
+      {bookmarkPicker}
     </>
   );
 }

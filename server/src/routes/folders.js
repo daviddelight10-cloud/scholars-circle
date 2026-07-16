@@ -239,10 +239,34 @@ router.get("/:id", requireAuth, async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
+    // Resources the caller has bookmarked into this folder (only approved or own)
+    const bookmarkedResources = await prisma.resourceBookmark.findMany({
+      where: {
+        userId,
+        folderId: folder.id,
+        resource: {
+          OR: [
+            { status: "approved" },
+            { uploadedBy: userId },
+          ],
+        },
+      },
+      include: {
+        resource: {
+          include: {
+            uploader: { select: { id: true, username: true, role: true } },
+            _count: { select: { bookmarks: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
     res.json({
       ...folder,
       sharedResources,
       myResources,
+      bookmarkedResources: bookmarkedResources.map((b) => b.resource),
     });
   } catch (error) {
     console.error("Error fetching folder:", error);
