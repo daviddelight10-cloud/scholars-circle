@@ -82,7 +82,7 @@ async function txtToPdf(file, onProgress) {
       let chunk = "";
       for (const ch of word) {
         if (doc.getTextWidth(chunk + ch) > maxWidth) {
-          if (chunk) result.push(chunk + "\u200B");
+          if (chunk) result.push(chunk + " ");
           chunk = ch;
         } else {
           chunk += ch;
@@ -176,16 +176,23 @@ async function docxToPdf(file, onProgress) {
   container.querySelectorAll("h1").forEach((h) => { h.style.fontSize = "18px"; });
   container.querySelectorAll("h2").forEach((h) => { h.style.fontSize = "16px"; });
   container.querySelectorAll("h3").forEach((h) => { h.style.fontSize = "14px"; });
-  container.querySelectorAll("p, li, td, th, div").forEach((el) => {
+  container.querySelectorAll("p, li, td, th, div, span, pre").forEach((el) => {
     el.style.overflowWrap = "break-word";
     el.style.wordBreak = "break-word";
+    el.style.whiteSpace = "pre-wrap";
   });
   // Style tables
   container.querySelectorAll("table").forEach((t) => {
-    t.style.cssText = "width: 100%; border-collapse: collapse; margin: 10px 0; table-layout: fixed;";
+    t.style.width = "100%";
+    t.style.borderCollapse = "collapse";
+    t.style.margin = "10px 0";
+    t.style.tableLayout = "fixed";
   });
   container.querySelectorAll("td, th").forEach((c) => {
-    c.style.cssText = "border: 1px solid #ddd; padding: 6px 8px;";
+    c.style.border = "1px solid #ddd";
+    c.style.padding = "6px 8px";
+    c.style.overflowWrap = "break-word";
+    c.style.wordBreak = "break-word";
   });
 
   document.body.appendChild(container);
