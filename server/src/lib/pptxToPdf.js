@@ -243,18 +243,23 @@ function parseTopLevelElements(xml) {
     const tagStart = match.index;
     const afterTag = openTagRegex.lastIndex;
 
-    // Find the matching closing tag, accounting for nesting
+    // Find the matching closing tag, accounting for nesting.
+    // Use a regex that matches only actual element openings (tag name
+    // followed by > or whitespace) to avoid matching child elements
+    // like <p:spPr>, <p:spTree>, <p:grpSpPr> as nested <p:sp>/<p:grpSp>.
     const closeTag = `</${tag}>`;
-    const openTagStr = `<${tag}`;
+    const nestedOpenRegex = new RegExp(`<${tag.replace(/:/g, '\\:')}(?:\\s|>)`, 'g');
     let depth = 1;
     let searchPos = afterTag;
     while (depth > 0 && searchPos < xml.length) {
       const nextClose = xml.indexOf(closeTag, searchPos);
-      const nextOpen = xml.indexOf(openTagStr, searchPos);
+      nestedOpenRegex.lastIndex = searchPos;
+      const nestedMatch = nestedOpenRegex.exec(xml);
+      const nextOpen = nestedMatch ? nestedMatch.index : -1;
       if (nextClose === -1) break;
       if (nextOpen !== -1 && nextOpen < nextClose) {
         depth++;
-        searchPos = nextOpen + openTagStr.length;
+        searchPos = nestedOpenRegex.lastIndex;
       } else {
         depth--;
         searchPos = nextClose + closeTag.length;
