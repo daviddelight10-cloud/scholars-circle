@@ -454,11 +454,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         try {
           const resource = JSON.parse(xhr.responseText);
           if (resource.status === "approved") {
-            setResources((prev) => {
-              const updated = [resource, ...prev];
-              try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
-              return updated;
-            });
+            try { localStorage.removeItem("sc_resources_list"); } catch {}
+            setResources((prev) => [resource, ...prev]);
           }
         } catch {}
         setShowUploadWizard(false);
@@ -512,11 +509,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       })
       .then((resource) => {
         setUploading(false);
-        setResources((prev) => {
-          const updated = [resource, ...prev];
-          try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: updated, ts: Date.now() })); } catch {}
-          return updated;
-        });
+        try { localStorage.removeItem("sc_resources_list"); } catch {}
+        setResources((prev) => [resource, ...prev]);
         setShowUploadWizard(false);
         showToast("Saved to space ✓");
         if (data.folderId) { fetchFolderDetail(data.folderId); }
