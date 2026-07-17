@@ -236,7 +236,9 @@ function wrapParagraphRuns(runs, helv, helvBold, helvItalic, helvBoldItalic, max
  */
 function parseTopLevelElements(xml) {
   const elements = [];
-  const openTagRegex = /<(p:sp|p:pic|p:grpSp)([\s\S]*?)>/g;
+  // Match only actual element openings: tag name must be followed by > or whitespace
+  // to avoid matching <p:spTree>, <p:spPr>, <p:grpSpPr> etc.
+  const openTagRegex = /<(p:sp|p:pic|p:grpSp)(?=\s|>)([\s\S]*?)>/g;
   let match;
   while ((match = openTagRegex.exec(xml)) !== null) {
     const tag = match[1];
