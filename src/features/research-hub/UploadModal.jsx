@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient";
 import { extractFileText, chunkText } from "../../lib/extractFileText";
+import { detectFileTypeSync, typeToContentType } from "../../lib/detectFileType.js";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
@@ -53,7 +54,7 @@ export default function UploadModal({
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { alert("File too large — 50MB max"); return; }
     setUploadFile(file);
-    const detected = extToContentType(file.name);
+    const detected = typeToContentType(detectFileTypeSync(file)) || extToContentType(file.name);
     if (detected) setUploadType(detected);
     if (file.type.startsWith("image/")) {
       const url = URL.createObjectURL(file);
