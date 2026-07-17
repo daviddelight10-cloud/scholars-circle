@@ -1,5 +1,4 @@
 import { jsPDF } from "jspdf";
-import { detectFileType, detectFileTypeSync } from "./detectFileType.js";
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 
@@ -210,15 +209,10 @@ async function docxToPdf(file, onProgress) {
 
   onProgress?.("Extracting document content…");
   const arrayBuffer = await file.arrayBuffer();
-  let result;
-  try {
-    result = await window.mammoth.convertToHtml(
-      { arrayBuffer },
-      { convertImage: window.mammoth.images.imgElement((image) => image.read("base64").then((imageBuffer) => ({ src: `data:${image.contentType};base64,${imageBuffer}` }))) }
-    );
-  } catch (err) {
-    throw new Error("Could not read this DOCX file. It may be corrupted or not a valid Word document.");
-  }
+  const result = await window.mammoth.convertToHtml(
+    { arrayBuffer },
+    { convertImage: window.mammoth.images.imgElement((image) => image.read("base64").then((imageBuffer) => ({ src: `data:${image.contentType};base64,${imageBuffer}` }))) }
+  );
   const html = result.value;
   if (!html.trim()) throw new Error("No content found in DOCX file");
 
@@ -415,12 +409,18 @@ async function pptxToPdfClient(file, onProgress) {
 export async function convertToPdf(file, onProgress) {
   if (!file) return null;
 
-  const type = await detectFileType(file);
+  const name = file.name.toLowerCase();
+  const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
+  const isPDF = file.type === "application/pdf" || name.endsWith(".pdf");
+  const isTXT = file.type === "text/plain" || name.endsWith(".txt");
+  const isDOCX = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx");
+  const isPPTX = file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation" || name.endsWith(".pptx");
+  const isDOC = name.endsWith(".doc");
 
-  if (type === "image" || type === "pdf" || type === "doc") return null;
-  if (type === "txt") return txtToPdf(file, onProgress);
-  if (type === "docx") return docxToPdf(file, onProgress);
-  if (type === "pptx") return pptxToPdfClient(file, onProgress);
+  if (isImage || isPDF || isDOC) return null;
+  if (isTXT) return txtToPdf(file, onProgress);
+  if (isDOCX) return docxToPdf(file, onProgress);
+  if (isPPTX) return pptxToPdfClient(file, onProgress);
 
   return null;
 }
@@ -430,7 +430,10 @@ export async function convertToPdf(file, onProgress) {
  */
 export function needsConversion(file) {
   if (!file) return false;
-  const type = detectFileTypeSync(file);
-  const isJSON = (file.name || "").toLowerCase().endsWith(".json");
-  return !(type === "image" || type === "pdf" || type === "doc" || isJSON);
+  const name = file.name.toLowerCase();
+  const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
+  const isPDF = file.type === "application/pdf" || name.endsWith(".pdf");
+  const isDOC = name.endsWith(".doc");
+  const isJSON = name.endsWith(".json");
+  return !(isImage || isPDF || isDOC || isJSON);
 }

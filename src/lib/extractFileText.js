@@ -6,8 +6,6 @@
  * @returns { Promise<{ text: string, images: string[] }> }
  */
 
-import { detectFileType } from "./detectFileType.js";
-
 const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
@@ -42,13 +40,15 @@ async function ensureScript(src, windowKey) {
 export async function extractFileText(file, maxImagePages = 10) {
   if (!file) throw new Error("No file provided");
 
-  const type = await detectFileType(file);
-
-  const isImage = type === "image";
-  const isPDF = type === "pdf";
-  const isTXT = type === "txt";
-  const isDOCX = type === "docx";
-  const isPPTX = type === "pptx";
+  const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+  const isPDF = file.type === "application/pdf" || file.name.endsWith(".pdf");
+  const isTXT = file.type === "text/plain" || file.name.endsWith(".txt");
+  const isDOCX =
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    file.name.endsWith(".docx");
+  const isPPTX =
+    file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    file.name.endsWith(".pptx");
 
   if (isImage) {
     const dataUrl = await new Promise((resolve, reject) => {
@@ -125,12 +125,7 @@ export async function extractFileText(file, maxImagePages = 10) {
   if (isDOCX) {
     await ensureScript(MAMMOTH_CDN, "mammoth");
     const arrayBuffer = await file.arrayBuffer();
-    let result;
-    try {
-      result = await window.mammoth.extractRawText({ arrayBuffer });
-    } catch {
-      throw new Error("Could not read this DOCX file. It may be corrupted or not a valid Word document.");
-    }
+    const result = await window.mammoth.extractRawText({ arrayBuffer });
     const text = (result.value || "").trim();
     if (!text) throw new Error("No text found in DOCX file");
     return { text, images: [] };
@@ -138,12 +133,7 @@ export async function extractFileText(file, maxImagePages = 10) {
 
   if (isPPTX) {
     await ensureScript(JSZIP_CDN, "JSZip");
-    let zip;
-    try {
-      zip = await window.JSZip.loadAsync(await file.arrayBuffer());
-    } catch {
-      throw new Error("Could not read this PPTX file. It may be corrupted or incomplete.");
-    }
+    const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
     let fullText = "";
     const slideFiles = Object.keys(zip.files)
       .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))

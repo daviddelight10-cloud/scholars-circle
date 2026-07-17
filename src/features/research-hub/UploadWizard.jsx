@@ -3,7 +3,6 @@ import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient";
 import { extractFileText, chunkText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
 import { convertToPdf, needsConversion } from "../../lib/convertToPdf";
-import { detectFileType, detectFileTypeSync, typeToContentType } from "../../lib/detectFileType.js";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText, gold } from "./constants";
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
@@ -16,15 +15,8 @@ const MAX_FLASHCARDS = 50;
 
 const ACCEPTED_EXTS = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp";
 
-function extToContentType(file) {
-  // Try magic number / MIME detection first (works even without file extension)
-  if (file instanceof File || file instanceof Blob) {
-    const detected = typeToContentType(detectFileTypeSync(file));
-    if (detected) return detected;
-  }
-  // Fallback to extension
-  const name = (file?.name || file || "").toLowerCase();
-  const ext = name.split(".").pop();
+function extToContentType(filename) {
+  const ext = filename.split(".").pop()?.toLowerCase();
   if (["pdf"].includes(ext)) return "pdf";
   if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext)) return "image";
   if (["docx", "doc"].includes(ext)) return "docx";
@@ -70,7 +62,6 @@ export default function UploadWizard({
   const [flashcards, setFlashcards] = useState([emptyFlashcard()]);
   const [summaryText, setSummaryText] = useState("");
   const [destFolderId, setDestFolderId] = useState("");
-  const [detectedContentType, setDetectedContentType] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -93,7 +84,6 @@ export default function UploadWizard({
       setFlashcards([emptyFlashcard()]);
       setSummaryText("");
       setDestFolderId(presetFolderId || "");
-      setDetectedContentType(null);
     }
   }, [show, presetFolderId]);
 
@@ -112,18 +102,7 @@ export default function UploadWizard({
     setGenError("");
     setConvertError("");
 
-    // Detect file type from magic bytes (works even without extension)
-    const detectedType = await detectFileType(f);
-    setDetectedContentType(typeToContentType(detectedType));
-
-    // Use the async-detected type to decide if conversion is needed.
-    // detectFileTypeSync (used by needsConversion) can't read magic bytes,
-    // so it returns "unknown" for extensionless files, causing unnecessary
-    // conversion attempts that fail with JSZip errors from mammoth.
-    const isJSON = (f.name || "").toLowerCase().endsWith(".json");
-    const shouldConvert = !(detectedType === "image" || detectedType === "pdf" || detectedType === "doc" || detectedType === "unknown" || isJSON);
-
-    if (shouldConvert) {
+    if (needsConversion(f)) {
       setConverting(true);
       setConvertProgress("Converting to PDF…");
       setFile(f);
@@ -415,7 +394,7 @@ ${text}
         onUploadFile({
           title: title.trim(),
           subject: subject.trim(),
-          contentType: detectedContentType || extToContentType(file) || "pdf",
+          contentType: extToContentType(file.name) || "pdf",
           file,
           folderId: destFolderId || null,
         });
