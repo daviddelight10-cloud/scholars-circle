@@ -2,6 +2,11 @@ import JSZip from "jszip";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const EMU_PER_PT = 914400 / 72;
+const DEBUG = process.env.PPTX_TO_PDF_DEBUG === "true";
+
+function logDebug(...args) {
+  if (DEBUG) console.log("[pptxToPdf]", ...args);
+}
 
 function emuToPt(emu) {
   return Math.round(emu / EMU_PER_PT);
@@ -30,7 +35,7 @@ function decodeXmlEntities(text) {
  * Returns array of paragraphs, each with { runs, align, lineSpacingPct }
  */
 function extractParagraphs(spXml) {
-  const paragraphs = spXml.match(/<a:p>[\s\S]*?<\/a:p>/g) || [];
+  const paragraphs = spXml.match(/<a:p[^>]*>[\s\S]*?<\/a:p>/g) || [];
   return paragraphs.map((paraXml) => {
     // Parse paragraph properties
     let align = "l"; // default left
@@ -52,9 +57,9 @@ function extractParagraphs(spXml) {
 
     // Parse runs
     const runs = [];
-    const runXmls = paraXml.match(/<a:r>[\s\S]*?<\/a:r>/g) || [];
+    const runXmls = paraXml.match(/<a:r[^>]*>[\s\S]*?<\/a:r>/g) || [];
     for (const runXml of runXmls) {
-      const textMatch = runXml.match(/<a:t>([\s\S]*?)<\/a:t>/);
+      const textMatch = runXml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/);
       if (!textMatch) continue;
       const text = decodeXmlEntities(textMatch[1]);
 
@@ -97,8 +102,12 @@ function getShapeFill(spXml) {
 }
 
 function getShapeBounds(xml) {
-  // Anchor to <p:spPr> or <p:grpSpPr> to avoid grabbing a nested child's <a:xfrm>
-  const spPrMatch = xml.match(/<p:(?:spPr|grpSpPr)[\s\S]*?<a:xfrm>([\s\S]*?)<\/a:xfrm>/);
+  // Anchor to <p:spPr>, <p:grpSpPr>, <p:graphicFramePr>, or a direct <p:xfrm>
+  // to avoid grabbing a nested child's <a:xfrm>.
+  let spPrMatch = xml.match(/<p:(?:spPr|grpSpPr|graphicFramePr)[\s\S]*?<a:xfrm>([\s\S]*?)<\/a:xfrm>/);
+  if (!spPrMatch) {
+    spPrMatch = xml.match(/<p:xfrm>([\s\S]*?)<\/p:xfrm>/);
+  }
   const xfrmContent = spPrMatch ? spPrMatch[1] : null;
   if (!xfrmContent) return null;
   const offMatch = xfrmContent.match(/<a:off x="(-?\d+)" y="(-?\d+)"/);
@@ -238,7 +247,8 @@ function parseTopLevelElements(xml) {
   const elements = [];
   // Match only actual element openings: tag name must be followed by > or whitespace
   // to avoid matching <p:spTree>, <p:spPr>, <p:grpSpPr> etc.
-  const openTagRegex = /<(p:sp|p:pic|p:grpSp)(?=\s|>)([\s\S]*?)>/g;
+  const openTagRegex = /<(p:sp|p:pic|p:grpSp|p:cxnSp|p:graphicFrame)(?=\s|>)([\s\S]*?)>/g;
+  logDebug("parseTopLevelElements: input length", xml.length);
   let match;
   while ((match = openTagRegex.exec(xml)) !== null) {
     const tag = match[1];
@@ -272,6 +282,7 @@ function parseTopLevelElements(xml) {
     elements.push({ tag, content });
     openTagRegex.lastIndex = searchPos;
   }
+  logDebug("parseTopLevelElements: found", elements.length, "elements");
   return elements;
 }
 
@@ -279,7 +290,8 @@ function parseTopLevelElements(xml) {
  * Recursively process slide elements (shapes, pictures, groups).
  * Supports p:sp, p:pic, and p:grpSp with nested children.
  */
-async function processElements(slideXml, page, pdfDoc, zip, relsXml, imageCache, slideHeightPt, offsetX, offsetY, helv, helvBold, helvItalic, helvBoldItalic) {
+async function processElements(slideXml, page, pdfDoc, zip, relsXml, imageCache, slideWidthPt, slideHeightPt, offsetX, offsetY, helv, helvBold, helvItalic, helvBoldItalic) {
+  logDebug("processElements: offsetX", offsetX, "offsetY", offsetY, "slideHeightPt", slideHeightPt);
   const elements = parseTopLevelElements(slideXml);
   for (const { tag, content } of elements) {
 
@@ -290,7 +302,7 @@ async function processElements(slideXml, page, pdfDoc, zip, relsXml, imageCache,
       const grpOffsetY = (grpBounds?.y || 0) + offsetY;
 
       // Recursively process child elements inside the group
-      await processElements(content, page, pdfDoc, zip, relsXml, imageCache, slideHeightPt, grpOffsetX, grpOffsetY, helv, helvBold, helvItalic, helvBoldItalic);
+      await processElements(content, page, pdfDoc, zip, relsXml, imageCache, slideWidthPt, slideHeightPt, grpOffsetX, grpOffsetY, helv, helvBold, helvItalic, helvBoldItalic);
     } else if (tag === "p:pic") {
       const bounds = getShapeBounds(content);
       const rId = getPictureRId(content);
@@ -330,12 +342,19 @@ async function processElements(slideXml, page, pdfDoc, zip, relsXml, imageCache,
         width: bounds.width,
         height: bounds.height,
       });
-    } else if (tag === "p:sp") {
-      const bounds = getShapeBounds(content);
-      if (!bounds) continue;
+    } else if (tag === "p:sp" || tag === "p:cxnSp" || tag === "p:graphicFrame") {
+      let bounds = getShapeBounds(content);
+      if (!bounds) {
+        logDebug("No bounds for", tag, "— using full-page fallback");
+        bounds = { x: 0, y: 0, width: slideWidthPt, height: slideHeightPt };
+      }
 
       const paragraphs = extractParagraphs(content);
-      if (paragraphs.length === 0) continue;
+      if (paragraphs.length === 0) {
+        logDebug("No paragraphs in", tag, "— skipping");
+        continue;
+      }
+      logDebug("Drawing", tag, "bounds:", bounds, "paragraphs:", paragraphs.length);
 
       const drawX = bounds.x + offsetX;
       const drawY = bounds.y + offsetY;
@@ -466,7 +485,7 @@ export async function pptxToPdf(pptxBuffer) {
     // Parse all elements (shapes, pictures, groups) recursively
     await processElements(
       slideXml, page, pdfDoc, zip, relsXml, imageCache,
-      slideHeightPt, 0, 0,
+      slideWidthPt, slideHeightPt, 0, 0,
       helv, helvBold, helvItalic, helvBoldItalic
     );
   }
