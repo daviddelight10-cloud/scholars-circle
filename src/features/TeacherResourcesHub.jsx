@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount } from "../lib/researchUtils";
 import { getDepartments } from "../lib/departments.js";
 import { getMyProfile } from "../lib/profileApi.js";
@@ -10,6 +10,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_
 
 export default function TeacherResourcesHub({ onBack } = {}) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const lastFetchKey = useRef("");
   const [resources, setResources] = useState([]);
   const [allMaterials, setAllMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,10 +53,13 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const [collapsedUnis, setCollapsedUnis] = useState({});
 
   useEffect(() => {
+    // Re-fetch when location key changes (e.g., navigating back from upload)
+    if (lastFetchKey.current === location.key) return;
+    lastFetchKey.current = location.key;
     fetchMyResources();
     fetchFolders();
     fetchUserProfile();
-  }, []);
+  }, [location.key]);
 
   useEffect(() => {
     if (userProfile?.universityId) {

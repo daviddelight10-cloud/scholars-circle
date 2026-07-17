@@ -220,7 +220,7 @@ export default function ResourceUploadForm() {
 
       // Success
       setTimeout(() => {
-        navigate("/teacher/resources");
+        navigate("/teacher/resources", { state: { refresh: true } });
       }, 500);
     } catch (err) {
       // "Failed to fetch" usually means network/CORS error
