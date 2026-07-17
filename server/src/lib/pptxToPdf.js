@@ -1,12 +1,5 @@
 import JSZip from "jszip";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import fs from "fs/promises";
-import os from "os";
-import path from "path";
-
-const execFileAsync = promisify(execFile);
 
 const EMU_PER_PT = 914400 / 72;
 const DEBUG = process.env.PPTX_TO_PDF_DEBUG === "true";
@@ -468,93 +461,7 @@ async function processElements(slideXml, page, pdfDoc, zip, relsXml, imageCache,
   }
 }
 
-async function findSoffice() {
-  const candidates = [
-    "soffice",
-    "libreoffice",
-    "/usr/bin/soffice",
-    "/usr/bin/libreoffice",
-    "/snap/bin/libreoffice",
-    "/opt/libreoffice/program/soffice",
-    "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-    "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
-    "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
-  ];
-  for (const candidate of candidates) {
-    try {
-      await execFileAsync(candidate, ["--version"], { timeout: 2000 });
-      return candidate;
-    } catch {
-      // continue searching
-    }
-  }
-  return null;
-}
-
-async function convertWithLibreOffice(pptxBuffer) {
-  const soffice = await findSoffice();
-  if (!soffice) return null;
-
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pptx-conv-"));
-  const pptxPath = path.join(tmpDir, "input.pptx");
-  const pdfPath = path.join(tmpDir, "input.pdf");
-  // Use a separate LibreOffice user profile per conversion to avoid lock files
-  const userProfileUrl = "file:///" + tmpDir.replace(/\\/g, "/").replace(/\/$/, "");
-
-  try {
-    await fs.writeFile(pptxPath, pptxBuffer);
-
-    logDebug("Using LibreOffice for conversion:", soffice);
-    const { stdout, stderr } = await execFileAsync(
-      soffice,
-      [
-        "-env:UserInstallation=" + userProfileUrl,
-        "--headless",
-        "--invisible",
-        "--norestore",
-        "--nolockcheck",
-        "--convert-to",
-        "pdf",
-        "--outdir",
-        tmpDir,
-        pptxPath,
-      ],
-      { timeout: 120000 }
-    );
-
-    const stats = await fs.stat(pdfPath).catch(() => null);
-    if (!stats || stats.size === 0) {
-      logDebug("LibreOffice produced no PDF output");
-      return null;
-    }
-
-    const pdfBuffer = await fs.readFile(pdfPath);
-    logDebug("LibreOffice conversion successful, PDF size:", pdfBuffer.length);
-    return pdfBuffer;
-  } catch (err) {
-    logDebug("LibreOffice conversion failed:", err.message);
-    if (err.stderr) logDebug("LibreOffice stderr:", err.stderr);
-    return null;
-  } finally {
-    try {
-      await fs.rm(tmpDir, { recursive: true, force: true });
-    } catch {
-      // ignore cleanup errors
-    }
-  }
-}
-
 export async function pptxToPdf(pptxBuffer) {
-  // Try LibreOffice headless first — highest fidelity
-  const librePdf = await convertWithLibreOffice(pptxBuffer);
-  if (librePdf) return librePdf;
-
-  // Fallback to JSZip/pdf-lib parser
-  logDebug("LibreOffice not available, falling back to JSZip parser");
-  return pptxToPdfFallback(pptxBuffer);
-}
-
-async function pptxToPdfFallback(pptxBuffer) {
   const zip = await JSZip.loadAsync(pptxBuffer);
 
   // Read presentation.xml for slide dimensions
