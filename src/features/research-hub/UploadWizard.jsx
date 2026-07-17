@@ -116,7 +116,14 @@ export default function UploadWizard({
     const detectedType = await detectFileType(f);
     setDetectedContentType(typeToContentType(detectedType));
 
-    if (needsConversion(f)) {
+    // Use the async-detected type to decide if conversion is needed.
+    // detectFileTypeSync (used by needsConversion) can't read magic bytes,
+    // so it returns "unknown" for extensionless files, causing unnecessary
+    // conversion attempts that fail with JSZip errors from mammoth.
+    const isJSON = (f.name || "").toLowerCase().endsWith(".json");
+    const shouldConvert = !(detectedType === "image" || detectedType === "pdf" || detectedType === "doc" || detectedType === "unknown" || isJSON);
+
+    if (shouldConvert) {
       setConverting(true);
       setConvertProgress("Converting to PDF…");
       setFile(f);

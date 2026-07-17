@@ -210,10 +210,15 @@ async function docxToPdf(file, onProgress) {
 
   onProgress?.("Extracting document content…");
   const arrayBuffer = await file.arrayBuffer();
-  const result = await window.mammoth.convertToHtml(
-    { arrayBuffer },
-    { convertImage: window.mammoth.images.imgElement((image) => image.read("base64").then((imageBuffer) => ({ src: `data:${image.contentType};base64,${imageBuffer}` }))) }
-  );
+  let result;
+  try {
+    result = await window.mammoth.convertToHtml(
+      { arrayBuffer },
+      { convertImage: window.mammoth.images.imgElement((image) => image.read("base64").then((imageBuffer) => ({ src: `data:${image.contentType};base64,${imageBuffer}` }))) }
+    );
+  } catch (err) {
+    throw new Error("Could not read this DOCX file. It may be corrupted or not a valid Word document.");
+  }
   const html = result.value;
   if (!html.trim()) throw new Error("No content found in DOCX file");
 
