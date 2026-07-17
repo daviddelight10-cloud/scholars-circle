@@ -21,12 +21,37 @@ function parseColor(hex) {
 }
 
 function sanitizePdfText(text) {
-  return text
+  // Decompose accented characters and remove combining diacritics
+  text = text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+
+  // Map typographic ligatures to plain ASCII
+  text = text
+    .replace(/[\uFB00]/g, "ff")
+    .replace(/[\uFB01]/g, "fi")
+    .replace(/[\uFB02]/g, "fl")
+    .replace(/[\uFB03]/g, "ffi")
+    .replace(/[\uFB04]/g, "ffl")
+    .replace(/[\uFB05\uFB06]/g, "st");
+
+  // Map common smart punctuation to ASCII equivalents
+  text = text
+    .replace(/[\u2018\u2019\u201A\u201B\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014\u2015]/g, "-")
+    .replace(/[\u2026]/g, "...")
+    .replace(/[\u2022]/g, "*")
+    .replace(/[\u00A0]/g, " ");
+
+  // Normalize whitespace and strip control characters
+  text = text
     .replace(/\r\n/g, " ")
-    .replace(/\r/g, " ")
-    .replace(/\n/g, " ")
+    .replace(/[\r\n]/g, " ")
     .replace(/\t/g, "    ")
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+
+  // Final safety net: any remaining character outside the WinAnsi/ASCII range
+  // (printable ASCII 0x20-0x7E or Latin-1 Supplement 0xA0-0xFF) is replaced with a space.
+  return text.replace(/[^\x20-\x7E\u00A0-\u00FF]/g, " ");
 }
 
 function decodeXmlEntities(text) {
