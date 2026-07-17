@@ -461,7 +461,81 @@ async function processElements(slideXml, page, pdfDoc, zip, relsXml, imageCache,
   }
 }
 
+async function convertWithConvertApi(pptxBuffer) {
+  const secret = process.env.CONVERTAPI_SECRET;
+  if (!secret) {
+    logDebug("CONVERTAPI_SECRET not set, skipping ConvertAPI");
+    return null;
+  }
+
+  const form = new FormData();
+  const filename = `presentation.pptx`;
+  // Node 18+ FormData accepts Blob; create one from the buffer
+  const blob = new Blob([pptxBuffer], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+  form.append("File", blob, filename);
+
+  const url = `https://v2.convertapi.com/convert/pptx/to/pdf?Secret=${encodeURIComponent(secret)}&StoreFile=true`;
+
+  try {
+    logDebug("Converting via ConvertAPI...");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+
+    const response = await fetch(url, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.error("[pptxToPdf] ConvertAPI HTTP error:", response.status, text.slice(0, 500));
+      return null;
+    }
+
+    const result = await response.json();
+    if (!result?.Files?.[0]?.Url) {
+      console.error("[pptxToPdf] ConvertAPI response missing Files[].Url:", JSON.stringify(result).slice(0, 500));
+      return null;
+    }
+
+    const fileUrl = result.Files[0].Url;
+    logDebug("ConvertAPI file URL:", fileUrl);
+
+    const dlController = new AbortController();
+    const dlTimeout = setTimeout(() => dlController.abort(), 60000);
+    const pdfResponse = await fetch(fileUrl, { signal: dlController.signal });
+    clearTimeout(dlTimeout);
+    if (!pdfResponse.ok) {
+      console.error("[pptxToPdf] ConvertAPI file download failed:", pdfResponse.status);
+      return null;
+    }
+
+    const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    logDebug("ConvertAPI conversion successful, PDF size:", pdfBuffer.length);
+    return pdfBuffer;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      console.error("[pptxToPdf] ConvertAPI conversion timed out after 120s");
+    } else {
+      console.error("[pptxToPdf] ConvertAPI conversion failed:", err.message);
+    }
+    return null;
+  }
+}
+
 export async function pptxToPdf(pptxBuffer) {
+  // Try ConvertAPI first for high fidelity when configured
+  const apiPdf = await convertWithConvertApi(pptxBuffer);
+  if (apiPdf) return apiPdf;
+
+  // Fallback to local JSZip/pdf-lib parser
+  logDebug("ConvertAPI not used, falling back to local parser");
+  return pptxToPdfFallback(pptxBuffer);
+}
+
+async function pptxToPdfFallback(pptxBuffer) {
   const zip = await JSZip.loadAsync(pptxBuffer);
 
   // Read presentation.xml for slide dimensions
