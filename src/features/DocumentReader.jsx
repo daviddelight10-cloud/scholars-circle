@@ -46,7 +46,12 @@ async function extractPptxText(arrayBuffer) {
   await loadScript(JSZIP_CDN, "JSZip");
   const JSZip = window.JSZip;
   if (!JSZip) throw new Error("JSZip library failed to load");
-  const zip = await JSZip.loadAsync(arrayBuffer);
+  let zip;
+  try {
+    zip = await JSZip.loadAsync(arrayBuffer);
+  } catch {
+    throw new Error("Could not read this PPTX file. It may be corrupted or not a valid PowerPoint file.");
+  }
   const slideFiles = Object.keys(zip.files)
     .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
     .sort((a, b) => {
@@ -364,7 +369,12 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
           await loadScript(MAMMOTH_CDN, "mammoth");
           const mammoth = window.mammoth;
           if (!mammoth) throw new Error("DOCX library failed to load");
-          const result = await mammoth.extractRawText({ arrayBuffer });
+          let result;
+          try {
+            result = await mammoth.extractRawText({ arrayBuffer });
+          } catch {
+            throw new Error("Could not read this document. It may be corrupted or not a valid Word file.");
+          }
           const text = (result.value || "").trim();
           if (!text) throw new Error("No text found in document");
           if (!cancelled) {

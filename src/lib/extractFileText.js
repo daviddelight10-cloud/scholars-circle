@@ -125,7 +125,12 @@ export async function extractFileText(file, maxImagePages = 10) {
   if (isDOCX) {
     await ensureScript(MAMMOTH_CDN, "mammoth");
     const arrayBuffer = await file.arrayBuffer();
-    const result = await window.mammoth.extractRawText({ arrayBuffer });
+    let result;
+    try {
+      result = await window.mammoth.extractRawText({ arrayBuffer });
+    } catch {
+      throw new Error("Could not read this DOCX file. It may be corrupted or not a valid Word document.");
+    }
     const text = (result.value || "").trim();
     if (!text) throw new Error("No text found in DOCX file");
     return { text, images: [] };
