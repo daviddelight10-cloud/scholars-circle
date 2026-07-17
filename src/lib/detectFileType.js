@@ -113,34 +113,46 @@ export async function detectFileType(file) {
 }
 
 /**
- * Inspect a ZIP archive to determine if it's a DOCX or PPTX by looking
- * for characteristic file entries inside the ZIP.
+ * Inspect a ZIP archive to determine if it's a DOCX or PPTX by scanning
+ * raw bytes for characteristic folder names. ZIP files store entry names
+ * as plain text in the central directory (near the end of the file).
+ * This avoids loading JSZip just for type detection.
  */
 async function detectZipType(file) {
-  // Load JSZip dynamically from CDN if not already loaded
-  const JSZIP_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+  // Read the last 64KB of the file (central directory is at the end)
+  // plus the first 2KB (local file headers are at the start)
+  const tailSize = Math.min(65536, file.size);
+  const headSize = Math.min(2048, file.size);
 
-  if (!window.JSZip) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = JSZIP_CDN;
-      s.type = "text/javascript";
-      s.onload = resolve;
-      s.onerror = () => reject(new Error("Failed to load JSZip"));
-      document.head.appendChild(s);
-    });
+  let combined = new Uint8Array(0);
+
+  try {
+    const tailBuf = await file.slice(file.size - tailSize, file.size).arrayBuffer();
+    const tail = new Uint8Array(tailBuf);
+
+    if (headSize > 0 && headSize < file.size) {
+      const headBuf = await file.slice(0, headSize).arrayBuffer();
+      const head = new Uint8Array(headBuf);
+      combined = new Uint8Array(head.length + tail.length);
+      combined.set(head, 0);
+      combined.set(tail, head.length);
+    } else {
+      combined = tail;
+    }
+  } catch {
+    return null;
   }
 
-  const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
-  const entries = Object.keys(zip.files);
+  // Convert to string for searching (entry names are ASCII/UTF-8)
+  const text = new TextDecoder("ascii", { fatal: false }).decode(combined);
 
   // DOCX contains word/document.xml
-  if (entries.some((e) => e.toLowerCase().startsWith("word/"))) {
+  if (text.includes("word/") || text.includes("word\\")) {
     return "docx";
   }
 
   // PPTX contains ppt/slides/
-  if (entries.some((e) => e.toLowerCase().startsWith("ppt/"))) {
+  if (text.includes("ppt/") || text.includes("ppt\\")) {
     return "pptx";
   }
 

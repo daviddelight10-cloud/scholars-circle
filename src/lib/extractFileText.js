@@ -133,7 +133,12 @@ export async function extractFileText(file, maxImagePages = 10) {
 
   if (isPPTX) {
     await ensureScript(JSZIP_CDN, "JSZip");
-    const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+    let zip;
+    try {
+      zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+    } catch {
+      throw new Error("Could not read this PPTX file. It may be corrupted or incomplete.");
+    }
     let fullText = "";
     const slideFiles = Object.keys(zip.files)
       .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
