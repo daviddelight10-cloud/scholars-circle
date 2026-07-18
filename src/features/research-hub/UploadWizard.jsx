@@ -36,6 +36,7 @@ export default function UploadWizard({
   uploadProgress,
   uploadError,
   onClearUploadError,
+  onCreateFolder,
 }) {
   const [step, setStep] = useState(1);
   const [file, setFile] = useState(null);
@@ -57,6 +58,11 @@ export default function UploadWizard({
   const [destFolderId, setDestFolderId] = useState("");
   const [titleError, setTitleError] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
+  const [showNewSpaceInput, setShowNewSpaceInput] = useState(false);
+  const [newSpaceName, setNewSpaceName] = useState("");
+  const [newSpaceCourseCode, setNewSpaceCourseCode] = useState("");
+  const [creatingSpace, setCreatingSpace] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -81,6 +87,11 @@ export default function UploadWizard({
       setDestFolderId(presetFolderId || "");
       setTitleError("");
       setSaveError("");
+      setIsPublic(true);
+      setShowNewSpaceInput(false);
+      setNewSpaceName("");
+      setNewSpaceCourseCode("");
+      setCreatingSpace(false);
       if (onClearUploadError) onClearUploadError();
     }
   }, [show, presetFolderId]);
@@ -392,6 +403,24 @@ ${text}
   const addFlashcard = () => setFlashcards((prev) => [...prev, emptyFlashcard()]);
   const removeFlashcard = (index) => setFlashcards((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
 
+  const handleCreateSpace = async () => {
+    if (!newSpaceName.trim()) return;
+    setCreatingSpace(true);
+    try {
+      const newFolder = await onCreateFolder(newSpaceName.trim(), newSpaceCourseCode.trim());
+      if (newFolder) {
+        setDestFolderId(newFolder.id);
+        setShowNewSpaceInput(false);
+        setNewSpaceName("");
+        setNewSpaceCourseCode("");
+      }
+    } catch {
+      // error handled by ResearchHub toast
+    } finally {
+      setCreatingSpace(false);
+    }
+  };
+
   // ── Step 4: Save ───────────────────────────────────────────────────────────
 
   const handleSave = async () => {
@@ -407,6 +436,7 @@ ${text}
           contentType: "note",
           description: noteContent.trim(),
           folderId: destFolderId || null,
+          isPublic,
         });
       } else if (file) {
         const detectedType = await detectFileType(file);
@@ -417,6 +447,7 @@ ${text}
           contentType,
           file,
           folderId: destFolderId || null,
+          isPublic,
         });
       } else {
         setSaveError("No file selected — please go back to step 1");
@@ -430,6 +461,7 @@ ${text}
         contentType: "mcq",
         mcqData: JSON.stringify(mcqRows),
         folderId: destFolderId || null,
+        isPublic,
       });
     } else if (action === "flashcards") {
       const incompleteIdx = flashcards.findIndex((fc) => !fc.front.trim() || !fc.back.trim());
@@ -440,6 +472,7 @@ ${text}
         contentType: "flashcard_deck",
         flashcardData: JSON.stringify(flashcards),
         folderId: destFolderId || null,
+        isPublic,
       });
     } else if (action === "summary") {
       if (!summaryText.trim()) { setSaveError("Summary is empty — please generate one first"); return; }
@@ -466,6 +499,7 @@ ${text}
             fileName,
             description: summaryText.trim(),
             folderId: destFolderId || null,
+            isPublic,
           });
         } catch (err) {
           setGenerating(false);
@@ -753,14 +787,90 @@ ${text}
         {/* ── Step 4: Save to Space ──────────────────────────────────────── */}
         {step === 4 && (
           <>
+            {/* Space selector */}
             <div style={{ marginBottom: spacing.md }}>
               <label style={sharedStyles.fieldLabel}>Save to space</label>
-              <select value={destFolderId} onChange={(e) => setDestFolderId(e.target.value)} style={sharedStyles.select}>
+              <select value={destFolderId} onChange={(e) => setDestFolderId(e.target.value)} style={{ ...sharedStyles.select, marginBottom: spacing.xs }}>
                 <option value="">No space (loose material)</option>
                 {allFolders.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}{f.courseCode ? ` — ${f.courseCode}` : ""}</option>
                 ))}
               </select>
+              {!showNewSpaceInput ? (
+                <button
+                  onClick={() => setShowNewSpaceInput(true)}
+                  style={{ background: "none", border: `0.5px solid ${goldBorder}`, color: goldText, fontSize: fontSize.xs, padding: "6px 12px", borderRadius: borderRadius.sm, cursor: "pointer", fontWeight: fontWeight.semibold }}
+                >
+                  + Create new space
+                </button>
+              ) : (
+                <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md, marginTop: spacing.sm }}>
+                  <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: goldText, marginBottom: spacing.sm }}>New space</div>
+                  <input
+                    value={newSpaceName}
+                    onChange={(e) => setNewSpaceName(e.target.value)}
+                    placeholder="Space name (e.g. Anatomy — Year 1)"
+                    style={{ ...sharedStyles.input, marginBottom: spacing.sm }}
+                    autoFocus
+                  />
+                  <input
+                    value={newSpaceCourseCode}
+                    onChange={(e) => setNewSpaceCourseCode(e.target.value)}
+                    placeholder="Course code (optional, e.g. BIO 111)"
+                    style={{ ...sharedStyles.input, marginBottom: spacing.sm }}
+                  />
+                  <div style={{ display: "flex", gap: spacing.sm }}>
+                    <button
+                      onClick={handleCreateSpace}
+                      disabled={!newSpaceName.trim() || creatingSpace}
+                      style={{ ...sharedStyles.wizardBtnPrimary, padding: "6px 16px", fontSize: fontSize.xs, opacity: !newSpaceName.trim() || creatingSpace ? 0.5 : 1, cursor: !newSpaceName.trim() || creatingSpace ? "not-allowed" : "pointer" }}
+                    >
+                      {creatingSpace ? "Creating…" : "Create space ✓"}
+                    </button>
+                    <button
+                      onClick={() => { setShowNewSpaceInput(false); setNewSpaceName(""); setNewSpaceCourseCode(""); }}
+                      style={{ background: "none", border: "none", color: colors.textDim, fontSize: fontSize.xs, cursor: "pointer", padding: "6px 8px" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Public / Private toggle */}
+            <div style={{ marginBottom: spacing.lg }}>
+              <label style={sharedStyles.fieldLabel}>Visibility</label>
+              <div style={{
+                display: "flex", alignItems: "center", gap: spacing.sm,
+                background: colors.bg, border: `0.5px solid ${colors.border}`,
+                borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`,
+                cursor: "pointer", userSelect: "none",
+              }} onClick={() => setIsPublic((v) => !v)}>
+                {/* Toggle track */}
+                <div style={{
+                  width: "44px", height: "24px", borderRadius: "12px",
+                  background: isPublic ? gold : colors.border,
+                  position: "relative", flexShrink: 0,
+                  transition: "background 0.2s ease",
+                }}>
+                  <div style={{
+                    position: "absolute", top: "2px", left: isPublic ? "22px" : "2px",
+                    width: "20px", height: "20px", borderRadius: "50%",
+                    background: "#fff",
+                    transition: "left 0.2s ease",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: isPublic ? goldText : colors.text }}>
+                    {isPublic ? "🌍 Public — appears in community" : "🔒 Private — only you"}
+                  </div>
+                  <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: "2px" }}>
+                    {isPublic ? "Visible to all users in the Community tab" : "Only visible to you in your library"}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Summary of what will be saved */}
@@ -776,6 +886,8 @@ ${text}
                 {action === "summary" && "AI-generated summary (PDF)"}
                 {" → "}
                 {destFolderId ? allFolders.find((f) => f.id === destFolderId)?.name : "Loose material"}
+                {" · "}
+                {isPublic ? "🌍 Public" : "🔒 Private"}
               </div>
             </div>
 

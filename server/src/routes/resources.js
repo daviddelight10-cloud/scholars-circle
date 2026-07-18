@@ -1472,7 +1472,7 @@ router.post("/convert-pptx", requireAuth, upload.single("file"), async (req, res
 // POST /api/resources - Create new resource (any authenticated user)
 router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   try {
-    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId, universityId } = req.body;
+    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId, universityId, isPublic } = req.body;
 
     if (!title || !contentType) {
       return res.status(400).json({ error: "Title and content type are required" });
@@ -1575,7 +1575,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         shareToken,
         mcqData: contentType === "mcq" ? JSON.parse(mcqData) : null,
         flashcardData: contentType === "flashcard_deck" ? (typeof req.body.flashcardData === "string" ? JSON.parse(req.body.flashcardData) : req.body.flashcardData) : null,
-        status: "approved",
+        status: isPublic === "true" || isPublic === true ? "approved" : "private",
         department: finalDept,
         level: finalLevel,
         semester: finalSemester,

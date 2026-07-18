@@ -467,6 +467,23 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     setWizardPresetFolderId(null);
   };
 
+  const handleWizardCreateFolder = async (name, courseCode) => {
+    try {
+      const data = await createFolder({
+        name,
+        courseCode: courseCode || null,
+        visibility: "private",
+        universityId: userProfile?.universityId || null,
+      });
+      setFolders((prev) => ({ ...prev, own: [data, ...(prev.own || [])] }));
+      showToast("Space created ✓");
+      return data;
+    } catch (err) {
+      showToast(err.message || "Failed to create space");
+      throw err;
+    }
+  };
+
   const handleWizardFileUpload = (data) => {
     setUploading(true);
     setUploadProgress(0);
@@ -476,6 +493,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     formData.append("subject", data.subject);
     formData.append("contentType", data.contentType);
     formData.append("isPremium", "false");
+    formData.append("isPublic", data.isPublic ? "true" : "false");
     if (data.file) formData.append("file", data.file);
     if (data.description) formData.append("description", data.description);
     if (data.folderId) formData.append("folderId", data.folderId);
@@ -535,7 +553,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     if (data.fileBuffer) body.fileBuffer = data.fileBuffer;
     if (data.fileName) body.fileName = data.fileName;
     if (data.folderId) body.folderId = data.folderId;
-    body.isPublic = false;
+    body.isPublic = data.isPublic !== undefined ? data.isPublic : true;
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     const token = authData.authToken;
@@ -623,6 +641,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       uploadProgress={uploadProgress}
       uploadError={uploadError}
       onClearUploadError={() => setUploadError("")}
+      onCreateFolder={handleWizardCreateFolder}
     />
   );
 
