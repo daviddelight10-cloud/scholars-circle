@@ -3,6 +3,7 @@ import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient";
 import { extractFileText, chunkText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
 import { convertToPdf, needsConversion } from "../../lib/convertToPdf";
+import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText, gold } from "./constants";
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
@@ -14,16 +15,6 @@ const QUESTIONS_PER_CHUNK = 50;
 const MAX_FLASHCARDS = 50;
 
 const ACCEPTED_EXTS = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp";
-
-function extToContentType(filename) {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  if (["pdf"].includes(ext)) return "pdf";
-  if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(ext)) return "image";
-  if (["docx", "doc"].includes(ext)) return "docx";
-  if (["pptx"].includes(ext)) return "pptx";
-  if (["txt"].includes(ext)) return "txt";
-  return null;
-}
 
 function stripExt(filename) {
   const idx = filename.lastIndexOf(".");
@@ -101,6 +92,12 @@ export default function UploadWizard({
     if (f.size > 50 * 1024 * 1024) { setGenError("File too large — 50MB max"); return; }
     setGenError("");
     setConvertError("");
+
+    const detectedType = await detectFileType(f);
+    if (detectedType === "unknown") {
+      setGenError("Unsupported file type. Please upload PDF, DOCX, TXT, PPTX, or an image.");
+      return;
+    }
 
     if (needsConversion(f)) {
       setConverting(true);
@@ -378,7 +375,7 @@ ${text}
 
   // ── Step 4: Save ───────────────────────────────────────────────────────────
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim() || !subject.trim()) { setGenError("Add a title and subject first"); return; }
 
     if (action === "material") {
@@ -391,10 +388,12 @@ ${text}
           folderId: destFolderId || null,
         });
       } else if (file) {
+        const detectedType = await detectFileType(file);
+        const contentType = typeToContentType(detectedType) || "pdf";
         onUploadFile({
           title: title.trim(),
           subject: subject.trim(),
-          contentType: extToContentType(file.name) || "pdf",
+          contentType,
           file,
           folderId: destFolderId || null,
         });

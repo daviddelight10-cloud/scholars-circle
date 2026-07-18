@@ -6,6 +6,8 @@
  * @returns { Promise<{ text: string, images: string[] }> }
  */
 
+import { detectFileType } from "./detectMimeType";
+
 const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
@@ -40,15 +42,13 @@ async function ensureScript(src, windowKey) {
 export async function extractFileText(file, maxImagePages = 10) {
   if (!file) throw new Error("No file provided");
 
-  const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
-  const isPDF = file.type === "application/pdf" || file.name.endsWith(".pdf");
-  const isTXT = file.type === "text/plain" || file.name.endsWith(".txt");
-  const isDOCX =
-    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    file.name.endsWith(".docx");
-  const isPPTX =
-    file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
-    file.name.endsWith(".pptx");
+  const detectedType = await detectFileType(file);
+
+  const isImage = detectedType === "image";
+  const isPDF = detectedType === "pdf";
+  const isTXT = detectedType === "txt";
+  const isDOCX = detectedType === "docx";
+  const isPPTX = detectedType === "pptx";
 
   if (isImage) {
     const dataUrl = await new Promise((resolve, reject) => {

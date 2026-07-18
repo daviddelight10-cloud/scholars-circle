@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { detectFileType, detectFileTypeSync } from "./detectMimeType";
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 
@@ -409,18 +410,12 @@ async function pptxToPdfClient(file, onProgress) {
 export async function convertToPdf(file, onProgress) {
   if (!file) return null;
 
-  const name = file.name.toLowerCase();
-  const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
-  const isPDF = file.type === "application/pdf" || name.endsWith(".pdf");
-  const isTXT = file.type === "text/plain" || name.endsWith(".txt");
-  const isDOCX = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx");
-  const isPPTX = file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation" || name.endsWith(".pptx");
-  const isDOC = name.endsWith(".doc");
+  const detectedType = await detectFileType(file);
 
-  if (isImage || isPDF || isDOC) return null;
-  if (isTXT) return txtToPdf(file, onProgress);
-  if (isDOCX) return docxToPdf(file, onProgress);
-  if (isPPTX) return pptxToPdfClient(file, onProgress);
+  if (detectedType === "image" || detectedType === "pdf" || detectedType === "doc") return null;
+  if (detectedType === "txt") return txtToPdf(file, onProgress);
+  if (detectedType === "docx") return docxToPdf(file, onProgress);
+  if (detectedType === "pptx") return pptxToPdfClient(file, onProgress);
 
   return null;
 }
@@ -430,10 +425,6 @@ export async function convertToPdf(file, onProgress) {
  */
 export function needsConversion(file) {
   if (!file) return false;
-  const name = file.name.toLowerCase();
-  const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
-  const isPDF = file.type === "application/pdf" || name.endsWith(".pdf");
-  const isDOC = name.endsWith(".doc");
-  const isJSON = name.endsWith(".json");
-  return !(isImage || isPDF || isDOC || isJSON);
+  const detectedType = detectFileTypeSync(file);
+  return !(detectedType === "image" || detectedType === "pdf" || detectedType === "doc" || file.name.toLowerCase().endsWith(".json"));
 }
