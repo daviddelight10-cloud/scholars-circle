@@ -17,8 +17,22 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
     const allowedExtensions = [".pdf", ".docx", ".doc", ".txt", ".json", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".pptx"];
+    const allowedMimeTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/msword",
+      "text/plain",
+      "application/json",
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/gif",
+      "image/bmp",
+    ];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedExtensions.includes(ext)) {
+    const mime = (file.mimetype || "").toLowerCase();
+    if (allowedExtensions.includes(ext) || allowedMimeTypes.includes(mime)) {
       cb(null, true);
     } else {
       cb(new Error("Only PDF, DOCX, PPTX, TXT, JSON, and image files are allowed (max 50MB)"));
@@ -1441,10 +1455,6 @@ router.post("/convert-pptx", requireAuth, upload.single("file"), async (req, res
   try {
     if (!req.file) {
       return res.status(400).json({ error: "PPTX file is required" });
-    }
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    if (ext !== ".pptx") {
-      return res.status(400).json({ error: "Only PPTX files are supported for conversion" });
     }
 
     const pdfBuffer = await pptxToPdf(req.file.buffer);

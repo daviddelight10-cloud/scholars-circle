@@ -374,21 +374,46 @@ async function docxToPdf(file, onProgress) {
 
 /**
  * Convert PPTX to PDF — calls server-side conversion endpoint.
+ * Renames the file to .pptx if needed so the server accepts it.
  */
 async function pptxToPdfClient(file, onProgress) {
   onProgress?.("Uploading to server for conversion…");
 
+  // Ensure the file has a .pptx extension — the server multer filter checks it
+  let uploadFile = file;
+  const lowerName = (file.name || "").toLowerCase();
+  if (!lowerName.endsWith(".pptx")) {
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "presentation";
+    uploadFile = new File([file], baseName + ".pptx", {
+      type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    });
+  }
+
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", uploadFile);
 
   const token = getAuthToken();
-  const res = await fetch(`${API_BASE}/api/resources/convert-pptx`, {
-    method: "POST",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: formData,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/resources/convert-pptx`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === "AbortError") {
+      throw new Error("PPTX conversion timed out — the server took too long. You can still upload the original file.");
+    }
+    throw new Error("Failed to connect to server for PPTX conversion. You can still upload the original file.");
+  }
+  clearTimeout(timeout);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Conversion failed" }));
