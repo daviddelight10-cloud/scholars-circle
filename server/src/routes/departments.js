@@ -9,7 +9,12 @@ router.get("/", async (req, res) => {
   try {
     const { universityId } = req.query;
     const where = {};
-    if (universityId) where.universityId = universityId;
+    if (universityId) {
+      where.OR = [
+        { universityId: universityId },
+        { universityId: null },
+      ];
+    }
     const rows = await prisma.department.findMany({
       where,
       orderBy: { name: "asc" },

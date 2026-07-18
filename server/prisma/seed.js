@@ -41,7 +41,7 @@ async function main() {
     console.log("Skipping demo student — username/email already exists.");
   }
 
-  // Seed medical departments (11 medical programs)
+  // Seed medical departments (13 medical programs)
   const deptData = [
     { name: "Medicine & Surgery", icon: "🩺" },
     { name: "Medical Laboratory Science", icon: "🔬" },
@@ -50,10 +50,12 @@ async function main() {
     { name: "Dentistry", icon: "🦷" },
     { name: "Paediatrics", icon: "👶" },
     { name: "Dermatology", icon: "🧴" },
-    { name: "Physiotherapy", icon: "🏃" },
-    { name: "Biochemistry", icon: "🧬" },
+    { name: "Physiotherapy", icon: "💪" },
+    { name: "Biochemistry", icon: "🧪" },
     { name: "Anatomy", icon: "🦴" },
     { name: "Microbiology", icon: "🦠" },
+    { name: "Physiology", icon: "🫀" },
+    { name: "Pharmacy", icon: "💊" },
   ];
 
   const depts = {};
@@ -83,6 +85,8 @@ async function main() {
     { label: "Dentistry", description: "Oral and dental health", icon: "🦷", dept: "Dentistry", year: 3 },
     { label: "Dermatology", description: "Skin diseases and treatment", icon: "🧴", dept: "Dermatology", year: 4 },
     { label: "Physiotherapy", description: "Physical rehabilitation and movement", icon: "🏃", dept: "Physiotherapy", year: 2 },
+    { label: "Physiology", description: "Normal body functions", icon: "🫀", dept: "Physiology", year: 1 },
+    { label: "Pharmacology", description: "Drug actions and interactions", icon: "💊", dept: "Pharmacy", year: 2 },
   ];
 
   const subjects = {};

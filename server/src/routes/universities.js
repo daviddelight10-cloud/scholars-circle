@@ -52,7 +52,12 @@ router.get("/:id", async (req, res) => {
 router.get("/:id/departments", async (req, res) => {
   try {
     const depts = await prisma.department.findMany({
-      where: { universityId: req.params.id },
+      where: {
+        OR: [
+          { universityId: req.params.id },
+          { universityId: null },
+        ],
+      },
       orderBy: { name: "asc" },
       include: { _count: { select: { subjects: true } } },
     });
