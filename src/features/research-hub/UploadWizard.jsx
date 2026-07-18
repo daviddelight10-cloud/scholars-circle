@@ -93,8 +93,16 @@ export default function UploadWizard({
     setGenError("");
     setConvertError("");
 
+    // Show immediate UI feedback before async detection
+    setFile(f);
+    setTitle(stripExt(f.name));
+    setConverting(true);
+    setConvertProgress("Reading file…");
+
     const detectedType = await detectFileType(f);
     if (detectedType === "unknown") {
+      setConverting(false);
+      setConvertProgress("");
       setGenError("Unsupported file type. Please upload PDF, DOCX, TXT, PPTX, or an image.");
       return;
     }
@@ -102,10 +110,7 @@ export default function UploadWizard({
     const needsConvert = !["image", "pdf", "doc"].includes(detectedType) && !f.name.toLowerCase().endsWith(".json");
 
     if (needsConvert) {
-      setConverting(true);
       setConvertProgress("Converting to PDF…");
-      setFile(f);
-      setTitle(stripExt(f.name));
       try {
         const result = await convertToPdf(f, (status) => setConvertProgress(status));
         if (result) {
@@ -123,8 +128,8 @@ export default function UploadWizard({
         setConvertProgress("");
       }
     } else {
-      setFile(f);
-      setTitle(stripExt(f.name));
+      setConverting(false);
+      setConvertProgress("");
     }
   };
 
