@@ -105,7 +105,7 @@ export default function LibraryView({
     );
   }
 
-  const hasFolders = (filteredOwnFolders.length > 0 || filteredSharedFolders.length > 0 || filteredBookmarkedFolders.length > 0);
+  const hasFolders = (filteredOwnFolders.length > 0 || filteredBookmarkedFolders.length > 0);
   const hasLooseMaterials = grouped.length > 0;
   const isEmpty = !hasFolders && !hasLooseMaterials && !search;
 
@@ -159,17 +159,6 @@ export default function LibraryView({
         <CreateDeckCard onClick={onCreateFolder} />
 
         {filteredOwnFolders.map((folder) => (
-          <FolderDeskCard
-            key={folder.id}
-            folder={folder}
-            onClick={() => onOpenFolder(folder.id)}
-            isBookmarked={folderBookmarkedIds?.has(folder.id)}
-            bookmarkBusy={folderBookmarkBusyId === folder.id}
-            onToggleBookmark={onToggleFolderBookmark}
-          />
-        ))}
-
-        {filteredSharedFolders.map((folder) => (
           <FolderDeskCard
             key={folder.id}
             folder={folder}
