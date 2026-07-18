@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { colors, spacing, fontSize, fontWeight, sharedStyles } from "./constants";
 import SubjectDetailView from "./SubjectDetailView";
 import { FolderDeskCard, SubjectDeskCard, CreateDeckCard } from "./DeskCard";
 
@@ -10,7 +9,6 @@ function groupBySubject(resources, currentUserId, bookmarkedIds, bookmarkFolderM
     const isOwned = String(r.uploadedBy) === currentUserId;
     const isBookmarked = bookmarkedIds && bookmarkedIds.has(r.id);
     if (!isOwned && !isBookmarked) return false;
-    // If bookmarked into a specific folder, don't show as loose material
     if (isBookmarked && !isOwned && bookmarkFolderMap && bookmarkFolderMap[r.id]) return false;
     return true;
   });
@@ -72,13 +70,6 @@ export default function LibraryView({
     return folders.own.filter((f) => f.name.toLowerCase().includes(q));
   }, [folders, search]);
 
-  const filteredSharedFolders = useMemo(() => {
-    if (!folders?.shared) return [];
-    if (!search) return folders.shared;
-    const q = search.toLowerCase();
-    return folders.shared.filter((f) => f.name.toLowerCase().includes(q));
-  }, [folders, search]);
-
   const filteredBookmarkedFolders = useMemo(() => {
     if (!folders?.bookmarked) return [];
     if (!search) return folders.bookmarked;
@@ -112,53 +103,67 @@ export default function LibraryView({
   return (
     <div>
       {resourcesLoading ? (
-        <div style={sharedStyles.emptyState}>
-          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⏳</div>
-          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-            Loading your space…
-          </div>
-          <div style={{ fontSize: fontSize.base, color: colors.textDim }}>
-            Fetching your materials from the server.
-          </div>
+        <div className="px-5 py-16 text-center">
+          <div className="mb-2 text-4xl">⏳</div>
+          <div className="text-sm font-bold text-hub-text-muted">Loading your space…</div>
+          <div className="text-[13px] text-hub-text-dim">Fetching your materials from the server.</div>
         </div>
       ) : resourcesError ? (
-        <div style={sharedStyles.emptyState}>
-          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⚠️</div>
-          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-            Something went wrong
-          </div>
-          <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5, marginBottom: spacing.md }}>
-            {resourcesError}
-          </div>
-          <button onClick={onRetry} style={{ ...sharedStyles.chipActive, cursor: "pointer" }}>↻ Retry</button>
+        <div className="px-5 py-16 text-center">
+          <div className="mb-2 text-4xl">⚠️</div>
+          <div className="text-sm font-bold text-hub-text-muted">Something went wrong</div>
+          <div className="mx-auto mb-4 max-w-md text-[13px] leading-relaxed text-hub-text-dim">{resourcesError}</div>
+          <button onClick={onRetry} className="cursor-pointer rounded-full bg-gold-dim px-4 py-1.5 text-[11px] font-semibold text-gold border border-gold-border">↻ Retry</button>
         </div>
       ) : isEmpty ? (
-        <div style={sharedStyles.emptyState}>
-          <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
-          <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>
-            Your space is empty
+        <div className="px-5 py-16 text-center">
+          <div className="mb-6 text-6xl">📚</div>
+          <div className="mb-2 text-xl font-extrabold text-hub-text-muted">Your space is empty</div>
+          <div className="mx-auto mb-8 max-w-md text-[13px] leading-relaxed text-hub-text-dim">
+            Welcome! This is your personal study circle. Here's how to get started:
           </div>
-          <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5, marginBottom: spacing.xl }}>
-            Upload materials using the + button below, or bookmark items from the Community tab to add them here.
+          <div className="mx-auto max-w-md space-y-3 text-left">
+            <div className="flex items-start gap-3 rounded-xl border border-hub-border bg-hub-surface p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold-dim text-sm font-bold text-gold">1</div>
+              <div>
+                <div className="text-[13px] font-bold text-hub-text">Upload your first material</div>
+                <div className="text-[11px] text-hub-text-dim">Tap the + button below to upload a PDF, note, or create MCQs.</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-xl border border-hub-border bg-hub-surface p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold-dim text-sm font-bold text-gold">2</div>
+              <div>
+                <div className="text-[13px] font-bold text-hub-text">Create a space to organize</div>
+                <div className="text-[11px] text-hub-text-dim">Group materials by subject, level, or semester into folders.</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-xl border border-hub-border bg-hub-surface p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold-dim text-sm font-bold text-gold">3</div>
+              <div>
+                <div className="text-[13px] font-bold text-hub-text">Bookmark from Community</div>
+                <div className="text-[11px] text-hub-text-dim">Find materials in the Community tab and tap ☆ to save them here.</div>
+              </div>
+            </div>
           </div>
-          <button onClick={onCreateFolder} style={{ ...sharedStyles.addBtn }}>+ Create your first space</button>
+          <button onClick={onCreateFolder} className="mt-8 rounded-lg border border-gold-border bg-gold-dim px-5 py-2.5 text-sm font-semibold text-gold transition-all active:scale-95">
+            + Create your first space
+          </button>
         </div>
       ) : (
       <>
-      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ ...sharedStyles.searchWrap, flex: "1 1 200px" }}>
-          <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="flex flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2.5">
+          <span className="text-lg text-hub-text-dim">🔍</span>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search your spaces & materials…"
-            style={sharedStyles.searchInput} />
+            className="flex-1 bg-none border-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
         </div>
       </div>
 
-      {/* Unified grid: create card + folder spaces + loose material subject groups */}
-      <div style={sharedStyles.grid}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <CreateDeckCard onClick={onCreateFolder} />
 
-        {filteredOwnFolders.map((folder) => (
+        {filteredOwnFolders.map((folder, i) => (
           <FolderDeskCard
             key={folder.id}
             folder={folder}
@@ -166,10 +171,11 @@ export default function LibraryView({
             isBookmarked={folderBookmarkedIds?.has(folder.id)}
             bookmarkBusy={folderBookmarkBusyId === folder.id}
             onToggleBookmark={onToggleFolderBookmark}
+            index={i + 1}
           />
         ))}
 
-        {grouped.map((s) => (
+        {grouped.map((s, i) => (
           <SubjectDeskCard
             key={s.subject}
             subject={s.subject}
@@ -179,16 +185,16 @@ export default function LibraryView({
               subject: s.subject,
               resources: s.resources,
             })}
+            index={i + filteredOwnFolders.length + 1}
           />
         ))}
       </div>
 
-      {/* Saved spaces section */}
       {filteredBookmarkedFolders.length > 0 && (
-        <div style={{ marginTop: spacing.xl }}>
-          <div style={{ ...sharedStyles.sectionLabel, marginBottom: spacing.md }}>★ Saved Spaces</div>
-          <div style={sharedStyles.grid}>
-            {filteredBookmarkedFolders.map((folder) => (
+        <div className="mt-8">
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">★ Saved Spaces</div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredBookmarkedFolders.map((folder, i) => (
               <FolderDeskCard
                 key={folder.id}
                 folder={folder}
@@ -197,19 +203,17 @@ export default function LibraryView({
                 bookmarkBusy={folderBookmarkBusyId === folder.id}
                 onToggleBookmark={onToggleFolderBookmark}
                 shared
+                index={i}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* No results from search */}
       {search && !hasFolders && !hasLooseMaterials && (
-        <div style={sharedStyles.emptyState}>
-          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>🔍</div>
-          <div style={{ fontSize: fontSize.base, color: colors.textDim }}>
-            No results for "{search}"
-          </div>
+        <div className="px-5 py-12 text-center">
+          <div className="mb-2 text-4xl">🔍</div>
+          <div className="text-[13px] text-hub-text-dim">No results for "{search}"</div>
         </div>
       )}
       </>

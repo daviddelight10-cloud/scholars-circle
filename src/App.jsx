@@ -8427,13 +8427,13 @@ function App() {
 
           onClick={() => setTab("research-hub")}
 
-          title="Research Hub"
+          title="My Circle"
 
         >
 
           <Search size={20} className="nav-icon" />
 
-          <span className="nav-label">Research</span>
+          <span className="nav-label">Circle</span>
 
         </button>
 
@@ -8727,7 +8727,7 @@ function App() {
 
           ["settings", "Settings", Settings],
 
-          ["research-hub", "Research Hub", Search],
+          ["research-hub", "My Circle", Search],
 
           ...(!isFaculty ? [["premium", "Premium", Gem]] : []),
 

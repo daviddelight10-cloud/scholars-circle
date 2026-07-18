@@ -1,26 +1,8 @@
 import { memo } from "react";
-import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
-import { getSubjectBadgeColor } from "../../lib/researchUtils";
+import { getSubjectColor, getSubjectIcon } from "./subjectColors";
 
-const SUBJECT_ICONS = {
-  biology: "🧬", chemistry: "⚗️", physics: "🔭", math: "📐", mathematics: "📐",
-  english: "📖", history: "🏛️", geography: "🌍", economics: "📈", psychology: "🧠",
-  sociology: "👥", political: "⚖️", philosophy: "💭", computer: "💻", engineering: "⚙️",
-  medicine: "⚕️", law: "⚖️", business: "💼", accounting: "🧮", finance: "💰",
-  marketing: "📢", management: "📋", statistics: "📊", science: "🔬", art: "🎨",
-  music: "🎵", language: "🗣️", religion: "🙏", agriculture: "🌾", education: "🎓",
-};
-
-function getSubjectIcon(subject) {
-  const lower = (subject || "").toLowerCase();
-  for (const key of Object.keys(SUBJECT_ICONS)) {
-    if (lower.includes(key)) return SUBJECT_ICONS[key];
-  }
-  return "📚";
-}
-
-const SubjectDeckCard = memo(function SubjectDeckCard({ subject, level, resources, fsrsSubjectStats, onClick }) {
-  const badgeColor = getSubjectBadgeColor(subject);
+const SubjectDeckCard = memo(function SubjectDeckCard({ subject, level, resources, fsrsSubjectStats, onClick, index = 0 }) {
+  const sc = getSubjectColor(subject);
   const icon = getSubjectIcon(subject);
   const itemCount = resources.length;
   const dueCount = fsrsSubjectStats?.due || 0;
@@ -36,91 +18,69 @@ const SubjectDeckCard = memo(function SubjectDeckCard({ subject, level, resource
   }, {});
 
   const typeEntries = Object.entries(typeCounts).slice(0, 3);
+  const delay = `${Math.min(index * 40, 400)}ms`;
 
   return (
     <div
       onClick={onClick}
-      style={{
-        ...sharedStyles.card,
-        cursor: "pointer",
-        padding: spacing.lg,
-        position: "relative",
-        overflow: "hidden",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = colors.borderActive;
-        e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.35)";
-        e.currentTarget.style.transform = "translateY(-2px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = colors.border;
-        e.currentTarget.style.boxShadow = "none";
-        e.currentTarget.style.transform = "none";
-      }}
+      className="stagger-in relative cursor-pointer overflow-hidden rounded-xl border border-hub-border bg-hub-surface p-4 transition-all duration-150 active:scale-[0.97] hover:-translate-y-0.5 hover:border-hub-border-active"
+      style={{ borderLeftWidth: "3px", borderLeftColor: sc.accent, animationDelay: delay }}
     >
-      {/* Due badge */}
       {dueCount > 0 && (
-        <div style={{
-          position: "absolute", top: spacing.sm, right: spacing.sm,
-          fontSize: fontSize.xs, fontWeight: fontWeight.bold, padding: "3px 10px",
-          borderRadius: borderRadius.pill, background: "rgba(239,68,68,0.15)",
-          color: "#ef4444", border: "0.5px solid rgba(239,68,68,0.35)",
-        }}>
+        <div className="due-pulse absolute right-2 top-2 rounded-full border border-coral-300 bg-coral-100 px-2.5 py-0.5 text-[10px] font-bold text-coral-400">
           {dueCount} due
         </div>
       )}
 
-      {/* Icon + subject name */}
-      <div style={{ display: "flex", alignItems: "center", gap: spacing.md, marginBottom: spacing.md }}>
-        <div style={{
-          width: "44px", height: "44px", borderRadius: borderRadius.md,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 24, background: badgeColor.bg, border: `0.5px solid ${badgeColor.border}`,
-          flexShrink: 0,
-        }}>{icon}</div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{
-            fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>{subject}</div>
+      <div className="mb-3 flex items-center gap-3">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-2xl"
+          style={{ background: sc.bg, borderColor: sc.border }}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-bold text-hub-text">{subject}</div>
           {level && (
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>{level} Level</div>
+            <div className="mt-0.5 text-[11px] text-hub-text-dim">{level} Level</div>
           )}
         </div>
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: "flex", gap: spacing.md, marginBottom: spacing.sm }}>
-        <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-          <span style={{ fontWeight: fontWeight.bold, color: colors.text }}>{itemCount}</span> items
+      <div className="mb-1 flex gap-4">
+        <div className="text-[11px] text-hub-text-muted">
+          <span className="font-bold text-hub-text">{itemCount}</span> items
         </div>
         {fsrsSubjectStats && fsrsSubjectStats.total > 0 && (
-          <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-            <span style={{ fontWeight: fontWeight.bold, color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : colors.textMuted }}>{masteredCount}</span> mastered
+          <div className="text-[11px] text-hub-text-muted">
+            <span
+              className="font-bold"
+              style={{ color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "#888" }}
+            >
+              {masteredCount}
+            </span>{" "}
+            mastered
           </div>
         )}
       </div>
 
-      {/* Mastery progress bar */}
       {fsrsSubjectStats && fsrsSubjectStats.total > 0 && (
-        <div style={{ height: 4, background: colors.bg, borderRadius: 2, overflow: "hidden", marginBottom: spacing.sm }}>
-          <div style={{
-            height: "100%", width: `${masteryPct}%`,
-            background: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : goldText,
-            borderRadius: 2, transition: "width 0.4s ease",
-          }} />
+        <div className="mb-2 h-1 overflow-hidden rounded-full bg-hub-bg">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${masteryPct}%`,
+              background: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "#FFD700",
+            }}
+          />
         </div>
       )}
 
-      {/* Type breakdown */}
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+      <div className="flex flex-wrap gap-1.5">
         {typeEntries.map(([type, count]) => {
           const labels = { pdf: "📄", mcq: "❓", flashcard_deck: "🃏", note: "📝", image: "🖼", docx: "📝", pptx: "📊", txt: "📃", tutorial_question: "❓" };
           return (
-            <span key={type} style={{
-              fontSize: fontSize.xs, color: colors.textDim,
-              display: "flex", alignItems: "center", gap: 3,
-            }}>
+            <span key={type} className="flex items-center gap-1 text-[10px] text-hub-text-dim">
               {labels[type] || "📎"} {count}
             </span>
           );

@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  --color-hub-bg: #0a0a0a;
+  --color-hub-surface: #141414;
+  --color-hub-surface-hover: #1a1a1a;
+  --color-hub-border: #2a2a2a;
+  --color-hub-border-active: #FFD700;
+  --color-hub-text: #e8e8e8;
+  --color-hub-text-muted: #888888;
+  --color-hub-text-dim: #555555;
+  --color-hub-text-bright: #FFD700;
+
+  --color-gold: #FFD700;
+  --color-gold-dim: rgba(255,215,0,0.15);
+  --color-gold-border: rgba(255,215,0,0.35);
+
+  --color-coral: #ef4444;
+  --color-coral-50: rgba(239,68,68,0.08);
+  --color-coral-100: rgba(239,68,68,0.12);
+  --color-coral-200: rgba(239,68,68,0.20);
+  --color-coral-300: rgba(239,68,68,0.30);
+  --color-coral-400: #f87171;
+  --color-coral-500: #ef4444;
+
+  --color-success-bg: #0f2a1a;
+  --color-success-border: #2a6a3a;
+  --color-success-text: #a5d6a7;
+
+  --font-sans: "Inter", "Segoe UI", "Roboto", "Arial", "sans-serif";
+
+  --animate-stagger-in: stagger-in 0.3s ease both;
+  --animate-due-pulse: due-pulse 2s ease-in-out infinite;
+  --animate-modal-in: modal-in 0.2s ease both;
+  --animate-fade-up: fade-up 0.2s ease both;
+}
+
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger-in {
+  animation: stagger-in 0.3s ease both;
+}
+
+@keyframes due-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.due-pulse {
+  animation: due-pulse 2s ease-in-out infinite;
+}
+
+@keyframes modal-in {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.modal-in {
+  animation: modal-in 0.2s ease both;
+}
+
+@keyframes fade-up {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes fabslide {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Gold gradient text */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Hide scrollbar for tab rows */
+.sc-tabrow::-webkit-scrollbar { display: none; }
+.sc-tabrow { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .stagger-in,
+  .due-pulse,
+  .modal-in {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

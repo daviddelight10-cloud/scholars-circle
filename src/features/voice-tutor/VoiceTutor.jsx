@@ -191,7 +191,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
               color: COLORS.textDim,
               textAlign: "center",
             }}>
-              No documents found. Upload a PDF, DOCX, or PPTX in the Research Hub to get started.
+              No documents found. Upload a PDF, DOCX, or PPTX in My Circle to get started.
             </div>
           ) : (
             <select

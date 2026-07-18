@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
-export default function FilterBar({ filters, setFilters, resources, universities }) {
+export default function FilterBar({ filters, setFilters, resources }) {
   const [expanded, setExpanded] = useState(false);
 
   const universityNames = useMemo(() => {
@@ -38,85 +37,71 @@ export default function FilterBar({ filters, setFilters, resources, universities
     setFilters({ university: "all", department: "all", level: "all", semester: "all", subject: "all" });
   };
 
-  const selectStyle = {
-    background: "#111", border: `0.5px solid ${activeCount > 0 ? colors.borderActive : colors.border}`,
-    borderRadius: borderRadius.sm, padding: "7px 10px", fontSize: fontSize.sm,
-    color: "#e8e8e8", cursor: "pointer", outline: "none",
-  };
-
   return (
-    <div style={{ marginBottom: spacing.lg }}>
-      <div style={{
-        display: "flex", alignItems: "center", gap: spacing.sm, flexWrap: "wrap",
-      }}>
-        <button onClick={() => setExpanded((v) => !v)} style={{
-          ...sharedStyles.chip,
-          background: activeCount > 0 ? goldDim : "#111",
-          borderColor: activeCount > 0 ? goldBorder : colors.border,
-          color: activeCount > 0 ? goldText : colors.textMuted,
-          display: "flex", alignItems: "center", gap: spacing.xs,
-        }}>
+    <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95 ${
+            activeCount > 0
+              ? "border border-gold-border bg-gold-dim text-gold"
+              : "border border-hub-border bg-hub-bg text-hub-text-muted"
+          }`}
+        >
           <span>🔧 Filters</span>
           {activeCount > 0 && (
-            <span style={{
-              background: goldDim, color: goldText, borderRadius: borderRadius.pill,
-              fontSize: fontSize.xs, padding: "1px 6px",
-            }}>{activeCount}</span>
+            <span className="rounded-full bg-gold-dim px-1.5 py-0.5 text-[10px] text-gold">{activeCount}</span>
           )}
-          <span style={{ fontSize: fontSize.xs, opacity: 0.6 }}>{expanded ? "▲" : "▼"}</span>
+          <span className="text-[10px] opacity-60">{expanded ? "▲" : "▼"}</span>
         </button>
 
         {activeCount > 0 && (
-          <button onClick={clearAll} style={{
-            ...sharedStyles.chip,
-            background: "transparent", borderColor: "transparent",
-            color: colors.info, fontSize: fontSize.xs, padding: "4px 8px",
-          }}>Clear all</button>
+          <button onClick={clearAll} className="rounded-full px-2 py-1 text-[10px] text-gold transition-colors hover:text-gold-dim">
+            Clear all
+          </button>
         )}
       </div>
 
       {expanded && (
-        <div style={{
-          display: "flex", gap: spacing.sm, flexWrap: "wrap", marginTop: spacing.sm,
-          padding: spacing.md, background: colors.surface,
-          border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.lg,
-        }}>
+        <div className="mt-2 flex flex-wrap gap-2 rounded-xl border border-hub-border bg-hub-surface p-3">
           {universityNames.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs, minWidth: "160px", flex: "1 1 160px" }}>
-              <label style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textMuted }}>University</label>
-              <select value={filters.university || "all"} onChange={(e) => setFilters((p) => ({ ...p, university: e.target.value }))} style={selectStyle}>
+            <div className="flex min-w-[160px] flex-1 flex-col gap-1">
+              <label className="text-[10px] font-semibold text-hub-text-muted">University</label>
+              <select value={filters.university || "all"} onChange={(e) => setFilters((p) => ({ ...p, university: e.target.value }))}
+                className="rounded-lg border border-hub-border bg-hub-bg px-2.5 py-1.5 text-[11px] text-hub-text outline-none cursor-pointer">
                 <option value="all">All universities</option>
                 {universityNames.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
           )}
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs, minWidth: "140px", flex: "1 1 140px" }}>
-            <label style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Department</label>
-            <select value={filters.department} onChange={(e) => setFilters((p) => ({ ...p, department: e.target.value }))} style={selectStyle}>
+          <div className="flex min-w-[140px] flex-1 flex-col gap-1">
+            <label className="text-[10px] font-semibold text-hub-text-muted">Department</label>
+            <select value={filters.department} onChange={(e) => setFilters((p) => ({ ...p, department: e.target.value }))}
+              className="rounded-lg border border-hub-border bg-hub-bg px-2.5 py-1.5 text-[11px] text-hub-text outline-none cursor-pointer">
               <option value="all">All departments</option>
               {departments.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs, minWidth: "120px", flex: "1 1 120px" }}>
-            <label style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Level</label>
-            <select value={filters.level} onChange={(e) => setFilters((p) => ({ ...p, level: e.target.value }))} style={selectStyle}>
+          <div className="flex min-w-[120px] flex-1 flex-col gap-1">
+            <label className="text-[10px] font-semibold text-hub-text-muted">Level</label>
+            <select value={filters.level} onChange={(e) => setFilters((p) => ({ ...p, level: e.target.value }))}
+              className="rounded-lg border border-hub-border bg-hub-bg px-2.5 py-1.5 text-[11px] text-hub-text outline-none cursor-pointer">
               <option value="all">All levels</option>
               {levels.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs, minWidth: "130px", flex: "1 1 130px" }}>
-            <label style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Semester</label>
-            <select value={filters.semester} onChange={(e) => setFilters((p) => ({ ...p, semester: e.target.value }))} style={selectStyle}>
+          <div className="flex min-w-[130px] flex-1 flex-col gap-1">
+            <label className="text-[10px] font-semibold text-hub-text-muted">Semester</label>
+            <select value={filters.semester} onChange={(e) => setFilters((p) => ({ ...p, semester: e.target.value }))}
+              className="rounded-lg border border-hub-border bg-hub-bg px-2.5 py-1.5 text-[11px] text-hub-text outline-none cursor-pointer">
               <option value="all">All semesters</option>
               {semesters.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs, minWidth: "140px", flex: "1 1 140px" }}>
-            <label style={{ fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Subject</label>
-            <select value={filters.subject} onChange={(e) => setFilters((p) => ({ ...p, subject: e.target.value }))} style={selectStyle}>
+          <div className="flex min-w-[140px] flex-1 flex-col gap-1">
+            <label className="text-[10px] font-semibold text-hub-text-muted">Subject</label>
+            <select value={filters.subject} onChange={(e) => setFilters((p) => ({ ...p, subject: e.target.value }))}
+              className="rounded-lg border border-hub-border bg-hub-bg px-2.5 py-1.5 text-[11px] text-hub-text outline-none cursor-pointer">
               <option value="all">All subjects</option>
               {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>

@@ -514,7 +514,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             cursor: "pointer",
           }}
         >
-          Back to Research Hub
+          Back to My Circle
         </button>
       </div>
     );

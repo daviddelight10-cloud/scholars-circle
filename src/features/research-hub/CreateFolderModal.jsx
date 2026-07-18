@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles } from "./constants";
 import { getDepartments } from "../../lib/departments.js";
 
 export default function CreateFolderModal({
@@ -45,53 +44,68 @@ export default function CreateFolderModal({
   }
 
   return (
-    <div style={sharedStyles.overlay} onClick={onClose}>
-      <div style={sharedStyles.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xl }}>
-          <h2 style={sharedStyles.modalTitle}>Create folder</h2>
-          <button onClick={onClose} style={sharedStyles.closeBtn}>✕</button>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="modal-in w-full max-w-[460px] rounded-2xl border border-hub-border bg-hub-surface p-6"
+        style={{ maxHeight: "86vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-hub-text">Create folder</h2>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-hub-border bg-hub-bg text-sm text-hub-text-muted transition-all active:scale-90">✕</button>
         </div>
 
-        <div style={{ marginBottom: spacing.md }}>
-          <label style={sharedStyles.fieldLabel}>Folder name</label>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Anatomy — Year 1" style={sharedStyles.input} />
+        <div className="mb-4">
+          <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Folder name</label>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Anatomy — Year 1"
+            className="w-full rounded-lg border border-hub-border bg-hub-bg px-3 py-2.5 text-sm text-hub-text outline-none transition-colors focus:border-gold-border" />
         </div>
-        <div style={{ marginBottom: spacing.md }}>
-          <label style={sharedStyles.fieldLabel}>Course code (optional)</label>
-          <input value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} placeholder="e.g. BIO 111" style={sharedStyles.input} />
+
+        <div className="mb-4">
+          <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Course code (optional)</label>
+          <input value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} placeholder="e.g. BIO 111"
+            className="w-full rounded-lg border border-hub-border bg-hub-bg px-3 py-2.5 text-sm text-hub-text outline-none transition-colors focus:border-gold-border" />
         </div>
-        <div style={{ display: "flex", gap: spacing.md, marginBottom: spacing.md }}>
-          <div style={{ flex: 1 }}>
-            <label style={sharedStyles.fieldLabel}>Level</label>
-            <select value={newLevel} onChange={(e) => setNewLevel(e.target.value)} style={sharedStyles.select}>
+
+        <div className="mb-4 flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Level</label>
+            <select value={newLevel} onChange={(e) => setNewLevel(e.target.value)}
+              className="w-full rounded-lg border border-hub-border bg-hub-bg px-3 py-2.5 text-sm text-hub-text outline-none cursor-pointer">
               <option value="">Any level</option>
               {["100 Level", "200 Level", "300 Level", "400 Level", "500 Level", "600 Level"].map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={sharedStyles.fieldLabel}>Semester</label>
-            <select value={newSemester} onChange={(e) => setNewSemester(e.target.value)} style={sharedStyles.select}>
+          <div className="flex-1">
+            <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Semester</label>
+            <select value={newSemester} onChange={(e) => setNewSemester(e.target.value)}
+              className="w-full rounded-lg border border-hub-border bg-hub-bg px-3 py-2.5 text-sm text-hub-text outline-none cursor-pointer">
               <option value="">Any semester</option>
               <option value="First Semester">First Semester</option>
               <option value="Second Semester">Second Semester</option>
             </select>
           </div>
         </div>
-        <div style={{ marginBottom: spacing.xl }}>
-          <label style={sharedStyles.fieldLabel}>Visibility</label>
-          <div style={sharedStyles.segmentRow}>
+
+        <div className="mb-6">
+          <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Visibility</label>
+          <div className="flex gap-1 rounded-lg border border-hub-border bg-hub-bg p-1">
             {[["private", "🔒 Private"], ["link", "🔗 Link share"], ["shared", "👥 Department"]].map(([key, label]) => (
               <button key={key} onClick={() => {
                 setNewVisibility(key);
                 if (key === "shared" && hasDept && newFolderDeptIds.length === 0) {
                   setNewFolderDeptIds([userDept.departmentId]);
                 }
-              }} style={newVisibility === key ? sharedStyles.segActive : sharedStyles.seg}>{label}</button>
+              }} className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-semibold transition-all active:scale-95 ${
+                newVisibility === key
+                  ? "bg-gold-dim text-gold border border-gold-border"
+                  : "text-hub-text-dim hover:text-hub-text-muted border border-transparent"
+              }`}>{label}</button>
             ))}
           </div>
-          <p style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: "6px", lineHeight: 1.4 }}>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-hub-text-dim">
             {newVisibility === "private" && "Only you can see this folder."}
             {newVisibility === "link" && "Anyone with the link can view this folder."}
             {newVisibility === "shared" && "Students in the selected department can access this folder."}
@@ -99,42 +113,27 @@ export default function CreateFolderModal({
         </div>
 
         {newVisibility === "shared" && (
-          <div style={{ marginBottom: spacing.xl }}>
-            <label style={sharedStyles.fieldLabel}>Department</label>
+          <div className="mb-6">
+            <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Department</label>
 
             {hasDept && !showDeptChange ? (
-              <div style={{
-                display: "flex", alignItems: "center", gap: spacing.sm,
-                padding: "10px 14px", borderRadius: borderRadius.md,
-                background: colors.surface, border: `0.5px solid ${colors.border}`,
-              }}>
-                <span style={{ fontSize: 20 }}>{userDept?.department?.icon || "🏛️"}</span>
-                <span style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text }}>
-                  {userDept?.department?.name || "Your department"}
-                </span>
-                <span style={{
-                  fontSize: fontSize.xs, color: colors.textDim,
-                  marginLeft: "auto", cursor: "pointer",
-                }} onClick={() => setShowDeptChange(true)}>
-                  Change
-                </span>
+              <div className="flex items-center gap-2 rounded-lg border border-hub-border bg-hub-surface px-3.5 py-2.5">
+                <span className="text-xl">{userDept?.department?.icon || "🏛️"}</span>
+                <span className="text-sm font-semibold text-hub-text">{userDept?.department?.name || "Your department"}</span>
+                <span className="ml-auto cursor-pointer text-[11px] text-gold" onClick={() => setShowDeptChange(true)}>Change</span>
               </div>
             ) : !hasDept ? (
               <div>
-                <div style={{
-                  padding: "10px 14px", borderRadius: borderRadius.md,
-                  background: "rgba(255,193,7,0.08)", border: "0.5px solid rgba(255,193,7,0.25)",
-                  marginBottom: spacing.sm, fontSize: fontSize.sm, color: "#ffc107",
-                }}>
+                <div className="mb-2 rounded-lg border border-gold-border bg-gold-dim px-3.5 py-2.5 text-[12px] text-gold">
                   ⚠️ You haven't set a department yet. Pick one below — it will be saved to your profile.
                 </div>
                 {deptLoading ? (
-                  <div style={{ fontSize: fontSize.sm, color: colors.textDim }}>Loading departments…</div>
+                  <div className="text-[12px] text-hub-text-dim">Loading departments…</div>
                 ) : (
                   <select
                     value={newFolderDeptIds[0] || ""}
                     onChange={(e) => handleDeptSelect(e.target.value)}
-                    style={sharedStyles.select}
+                    className="w-full rounded-lg border border-hub-border bg-hub-bg px-3 py-2.5 text-sm text-hub-text outline-none cursor-pointer"
                   >
                     <option value="">Select a department</option>
                     {departments.map((dept) => (
@@ -142,9 +141,9 @@ export default function CreateFolderModal({
                     ))}
                   </select>
                 )}
-                <div style={{ marginTop: spacing.sm, fontSize: fontSize.xs, color: colors.textDim }}>
+                <div className="mt-2 text-[10px] text-hub-text-dim">
                   Tip: You can also set your department from your{" "}
-                  <span style={{ color: colors.text, textDecoration: "underline", cursor: "pointer" }}
+                  <span className="cursor-pointer text-gold underline"
                     onClick={() => { onClose(); window.dispatchEvent(new CustomEvent("sc-navigate", { detail: { tab: "profile" } })); }}
                   >
                     Profile page
@@ -154,12 +153,12 @@ export default function CreateFolderModal({
             ) : (
               <div>
                 {deptLoading ? (
-                  <div style={{ fontSize: fontSize.sm, color: colors.textDim }}>Loading departments…</div>
+                  <div className="text-[12px] text-hub-text-dim">Loading departments…</div>
                 ) : (
                   <select
                     value={newFolderDeptIds[0] || ""}
                     onChange={(e) => handleDeptSelect(e.target.value)}
-                    style={sharedStyles.select}
+                    className="w-full rounded-lg border border-hub-border bg-hub-bg px-3 py-2.5 text-sm text-hub-text outline-none cursor-pointer"
                   >
                     <option value="">Select a department</option>
                     {departments.map((dept) => (
@@ -167,7 +166,7 @@ export default function CreateFolderModal({
                     ))}
                   </select>
                 )}
-                <div style={{ marginTop: spacing.sm, fontSize: fontSize.xs, color: colors.textDim, cursor: "pointer" }}
+                <div className="mt-2 cursor-pointer text-[10px] text-hub-text-dim"
                   onClick={() => {
                     setShowDeptChange(false);
                     if (hasDept) setNewFolderDeptIds([userDept.departmentId]);
@@ -180,7 +179,12 @@ export default function CreateFolderModal({
           </div>
         )}
 
-        <button onClick={onCreate} disabled={!newName.trim()} style={{ ...sharedStyles.submit, opacity: !newName.trim() ? 0.5 : 1, cursor: !newName.trim() ? "not-allowed" : "pointer" }}>
+        <button
+          onClick={onCreate}
+          disabled={!newName.trim()}
+          className="w-full rounded-lg py-3 text-sm font-bold text-hub-bg transition-all active:scale-95 disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, #b8860b, #FFD700)", border: "none", cursor: !newName.trim() ? "not-allowed" : "pointer" }}
+        >
           Create folder
         </button>
       </div>

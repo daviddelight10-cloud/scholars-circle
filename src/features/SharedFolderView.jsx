@@ -107,7 +107,7 @@ export default function SharedFolderView() {
         <div style={{ fontSize: 15, fontWeight: 700, color: "#7b82b8", marginBottom: 6 }}>Folder not accessible</div>
         <div style={{ fontSize: 13, color: "#4a5080", marginBottom: 16 }}>{error}</div>
         <button onClick={() => navigate("/resources")} style={{ padding: "10px 20px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "8px", fontSize: 14, fontWeight: 600, color: "#FFD700", cursor: "pointer" }}>
-          ← Back to Research Hub
+          ← Back to My Circle
         </button>
       </div>
     );
@@ -158,7 +158,7 @@ export default function SharedFolderView() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
         <button onClick={() => navigate("/resources")} style={{ padding: "8px 14px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "13px", color: "#7b82b8", cursor: "pointer" }}>
-          ← Research Hub
+          ← My Circle
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "#e8eaf6", margin: 0 }}>

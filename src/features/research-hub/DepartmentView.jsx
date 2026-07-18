@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { colors, spacing, fontSize, fontWeight, sharedStyles } from "./constants";
 import SubjectDeckCard from "./SubjectDeckCard";
 import SubjectDetailView from "./SubjectDetailView";
 import FolderGrid from "./FolderGrid";
@@ -127,41 +126,31 @@ export default function DepartmentView({
 
   if (resourcesLoading) {
     return (
-      <div style={sharedStyles.emptyState}>
-        <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⏳</div>
-        <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-          Loading department materials…
-        </div>
-        <div style={{ fontSize: fontSize.base, color: colors.textDim }}>
-          Fetching materials for your department.
-        </div>
+      <div className="px-5 py-16 text-center">
+        <div className="mb-2 text-4xl">⏳</div>
+        <div className="text-sm font-bold text-hub-text-muted">Loading department materials…</div>
+        <div className="text-[13px] text-hub-text-dim">Fetching materials for your department.</div>
       </div>
     );
   }
 
   if (resourcesError) {
     return (
-      <div style={sharedStyles.emptyState}>
-        <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⚠️</div>
-        <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-          Something went wrong
-        </div>
-        <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5, marginBottom: spacing.md }}>
-          {resourcesError}
-        </div>
-        <button onClick={onRetry} style={{ ...sharedStyles.chipActive, cursor: "pointer" }}>↻ Retry</button>
+      <div className="px-5 py-16 text-center">
+        <div className="mb-2 text-4xl">⚠️</div>
+        <div className="text-sm font-bold text-hub-text-muted">Something went wrong</div>
+        <div className="mx-auto mb-4 max-w-md text-[13px] leading-relaxed text-hub-text-dim">{resourcesError}</div>
+        <button onClick={onRetry} className="cursor-pointer rounded-full bg-gold-dim px-4 py-1.5 text-[11px] font-semibold text-gold border border-gold-border">↻ Retry</button>
       </div>
     );
   }
 
   if (!hasDepartment) {
     return (
-      <div style={sharedStyles.emptyState}>
-        <div style={{ fontSize: 48, marginBottom: spacing.md }}>🏛️</div>
-        <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>
-          No department set
-        </div>
-        <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
+      <div className="px-5 py-16 text-center">
+        <div className="mb-4 text-5xl">🏛️</div>
+        <div className="mb-2 text-lg font-bold text-hub-text-muted">No department set</div>
+        <div className="mx-auto max-w-md text-[13px] leading-relaxed text-hub-text-dim">
           Set your department from the profile or onboarding screen to see department-specific materials here.
         </div>
       </div>
@@ -170,12 +159,12 @@ export default function DepartmentView({
 
   return (
     <div>
-      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ ...sharedStyles.searchWrap, flex: "1 1 200px" }}>
-          <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="flex flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2.5">
+          <span className="text-lg text-hub-text-dim">🔍</span>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder={subTab === "materials" ? "Search subjects or materials…" : "Search department folders…"}
-            style={sharedStyles.searchInput} />
+            className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
         </div>
       </div>
 
@@ -183,12 +172,12 @@ export default function DepartmentView({
 
       {subTab === "materials" ? (
         grouped.length === 0 ? (
-          <div style={sharedStyles.emptyState}>
-            <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
-            <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>
+          <div className="px-5 py-16 text-center">
+            <div className="mb-4 text-5xl">📚</div>
+            <div className="mb-2 text-lg font-bold text-hub-text-muted">
               {search ? "No results found" : "No department materials yet"}
             </div>
-            <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
+            <div className="mx-auto max-w-md text-[13px] leading-relaxed text-hub-text-dim">
               {search
                 ? "Try a different search term."
                 : "Materials uploaded to your department will appear here, grouped by level."}
@@ -204,38 +193,24 @@ export default function DepartmentView({
             }, 0);
 
             return (
-              <div key={levelGroup.level} style={{ marginBottom: spacing.xl }}>
+              <div key={levelGroup.level} className="mb-8">
                 <button
                   onClick={() => toggleLevel(levelGroup.level)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    width: "100%", padding: "10px 16px", marginBottom: spacing.md,
-                    background: colors.surface, border: `0.5px solid ${colors.border}`,
-                    borderRadius: "12px", cursor: "pointer",
-                    fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.text,
-                  }}
+                  className="flex w-full items-center justify-between rounded-xl border border-hub-border bg-hub-surface px-4 py-2.5 text-sm font-bold text-hub-text transition-all active:scale-[0.98]"
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
-                    <span style={{ fontSize: 14 }}>{isExpanded ? "▼" : "▶"}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{isExpanded ? "▼" : "▶"}</span>
                     <span>{levelGroup.level} Level</span>
-                    <span style={{
-                      fontSize: fontSize.xs, fontWeight: fontWeight.semibold,
-                      color: colors.textDim, background: colors.bg,
-                      padding: "2px 10px", borderRadius: "12px",
-                    }}>{totalItems} items</span>
+                    <span className="rounded-full bg-hub-bg px-2.5 py-0.5 text-[10px] font-semibold text-hub-text-dim">{totalItems} items</span>
                     {totalDue > 0 && (
-                      <span style={{
-                        fontSize: fontSize.xs, fontWeight: fontWeight.bold,
-                        color: "#ef4444", background: "rgba(239,68,68,0.12)",
-                        padding: "2px 10px", borderRadius: "12px",
-                      }}>{totalDue} due</span>
+                      <span className="due-pulse rounded-full border border-coral-300 bg-coral-100 px-2.5 py-0.5 text-[10px] font-bold text-coral-400">{totalDue} due</span>
                     )}
                   </div>
                 </button>
 
                 {isExpanded && (
-                  <div style={sharedStyles.grid}>
-                    {levelGroup.subjects.map((s) => (
+                  <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {levelGroup.subjects.map((s, i) => (
                       <SubjectDeckCard
                         key={s.subject}
                         subject={s.subject}
@@ -247,6 +222,7 @@ export default function DepartmentView({
                           level: levelGroup.level,
                           resources: s.resources,
                         })}
+                        index={i}
                       />
                     ))}
                   </div>

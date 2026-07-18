@@ -132,7 +132,7 @@ export const MEDICAL_TAB_LABELS = {
   "drug-ref": "💊 Drug Reference",
   "lab-values": "🧪 Lab Values",
   analytics: "📊 Progress",
-  "research-hub": "📁 Resource Hub",
+  "research-hub": "📁 My Circle",
   classroom: "🏫 Classroom",
   bank: "🏦 Question Bank",
   flashcards: "🃏 Flashcards",

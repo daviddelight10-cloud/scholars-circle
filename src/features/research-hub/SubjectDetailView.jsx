@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { colors, spacing, fontSize, fontWeight, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
+import { getSubjectColor } from "./subjectColors";
 import ResourceCard from "./ResourceCard";
 
 const TYPE_FILTERS = [
@@ -26,6 +26,7 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
     return result;
   }, [resources, typeFilter, search]);
 
+  const sc = getSubjectColor(subject);
   const dueCount = fsrsSubjectStats?.due || 0;
   const masteredCount = fsrsSubjectStats?.mastered || 0;
   const totalCount = fsrsSubjectStats?.total || 0;
@@ -33,86 +34,67 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
 
   return (
     <div>
-      {/* Back button */}
-      <button onClick={onBack} style={sharedStyles.backBtn}>← Back to {backLabel}</button>
+      <button onClick={onBack} className="mb-8 flex items-center gap-2 rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[13px] text-hub-text-muted transition-all active:scale-95">
+        ← Back to {backLabel}
+      </button>
 
-      {/* Subject header */}
-      <div style={{
-        background: colors.surface, border: `0.5px solid ${colors.border}`,
-        borderRadius: "16px", padding: spacing.xl, marginBottom: spacing.xl,
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: spacing.md }}>
+      <div className="mb-8 rounded-2xl border border-hub-border bg-hub-surface p-6" style={{ borderLeftWidth: "3px", borderLeftColor: sc.accent }}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div style={{ fontSize: fontSize.xxl, fontWeight: fontWeight.extrabold, color: goldText, marginBottom: spacing.xs }}>
-              {subject}
-            </div>
+            <div className="mb-1 text-2xl font-extrabold" style={{ color: sc.text }}>{subject}</div>
             {level && (
-              <div style={{ fontSize: fontSize.base, color: colors.textMuted }}>{level} Level</div>
+              <div className="text-[13px] text-hub-text-muted">{level} Level</div>
             )}
           </div>
           {dueCount > 0 && onStudySubject && (
-            <button onClick={onStudySubject} style={{
-              padding: "10px 20px", borderRadius: "24px", cursor: "pointer",
-              background: goldDim, border: `0.5px solid ${goldBorder}`,
-              color: goldText, fontSize: fontSize.sm, fontWeight: fontWeight.bold,
-              display: "flex", alignItems: "center", gap: spacing.sm,
-            }}>
+            <button onClick={onStudySubject} className="flex items-center gap-2 rounded-full border border-gold-border bg-gold-dim px-5 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">
               🔁 Study {dueCount} due
             </button>
           )}
         </div>
 
-        {/* Stats row */}
         {totalCount > 0 && (
-          <div style={{ display: "flex", gap: spacing.lg, marginTop: spacing.lg, flexWrap: "wrap" }}>
-            <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-              <span style={{ fontWeight: fontWeight.bold, color: colors.text }}>{resources.length}</span> materials
-            </div>
-            <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-              <span style={{ fontWeight: fontWeight.bold, color: colors.text }}>{totalCount}</span> FSRS items
-            </div>
-            <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-              <span style={{ fontWeight: fontWeight.bold, color: dueCount > 0 ? "#ef4444" : colors.textMuted }}>{dueCount}</span> due
-            </div>
-            <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-              <span style={{ fontWeight: fontWeight.bold, color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : colors.textMuted }}>{masteredCount}</span> mastered ({masteryPct}%)
-            </div>
+          <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-hub-text-muted">
+            <div><span className="font-bold text-hub-text">{resources.length}</span> materials</div>
+            <div><span className="font-bold text-hub-text">{totalCount}</span> FSRS items</div>
+            <div><span className="font-bold" style={{ color: dueCount > 0 ? "#ef4444" : "#888" }}>{dueCount}</span> due</div>
+            <div><span className="font-bold" style={{ color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "#888" }}>{masteredCount}</span> mastered ({masteryPct}%)</div>
           </div>
         )}
       </div>
 
-      {/* Type filters + search */}
-      <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.lg, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: spacing.xs, flexWrap: "wrap" }}>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1">
           {TYPE_FILTERS.map((f) => (
             <button key={f.key} onClick={() => setTypeFilter(f.key)}
-              style={typeFilter === f.key ? sharedStyles.chipActive : sharedStyles.chip}>
+              className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95 ${
+                typeFilter === f.key
+                  ? "border border-gold-border bg-gold-dim text-gold"
+                  : "border border-hub-border bg-hub-bg text-hub-text-muted"
+              }`}>
               {f.icon} {f.label}
             </button>
           ))}
         </div>
-        <div style={{ ...sharedStyles.searchWrap, flex: "1 1 200px", minHeight: "40px" }}>
-          <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
+        <div className="flex min-h-[40px] flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2">
+          <span className="text-lg text-hub-text-dim">🔍</span>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder={`Search in ${subject}…`}
-            style={sharedStyles.searchInput} />
+            className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
         </div>
       </div>
 
-      {/* Resource grid */}
       {filtered.length === 0 ? (
-        <div style={sharedStyles.emptyState}>
-          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>📭</div>
-          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-            No materials found
-          </div>
-          <div style={{ fontSize: fontSize.base, color: colors.textDim }}>
+        <div className="px-5 py-12 text-center">
+          <div className="mb-2 text-4xl">📭</div>
+          <div className="mb-1 text-sm font-bold text-hub-text-muted">No materials found</div>
+          <div className="text-[13px] text-hub-text-dim">
             {search ? `No results for "${search}"` : `No ${typeFilter !== "all" ? TYPE_FILTERS.find(f => f.key === typeFilter)?.label.toLowerCase() : "materials"} in ${subject} yet`}
           </div>
         </div>
       ) : (
-        <div style={sharedStyles.grid}>
-          {filtered.map((resource) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((resource, i) => (
             <ResourceCard
               key={resource.id}
               resource={resource}
@@ -122,6 +104,7 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
               onToggleBookmark={onToggleBookmark}
               onShare={onShare}
               mcqProgress={mcqProgress}
+              index={i}
             />
           ))}
         </div>

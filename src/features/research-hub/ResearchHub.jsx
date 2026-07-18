@@ -15,7 +15,7 @@ import CreateFolderModal from "./CreateFolderModal";
 import LibraryView from "./LibraryView.jsx";
 import DepartmentView from "./DepartmentView.jsx";
 import SubTabBar from "./SubTabBar.jsx";
-import { colors, spacing, fontSize, fontWeight, sharedStyles, gold, goldDim, goldBorder, goldText } from "./constants";
+import "../../research-hub.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const CACHE_TTL = 5 * 60 * 1000;
@@ -733,12 +733,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   }
 
   return (
-    <div style={{ padding: spacing.xl, maxWidth: "1200px", margin: "0 auto" }}>
-      <div className="sc-tabrow" style={sharedStyles.tabRow}>
+    <div className="mx-auto max-w-[1200px] p-4 sm:p-6">
+      <div className="mb-6">
+        <h1 className="text-gradient-gold text-2xl font-extrabold tracking-tight sm:text-3xl">My Circle</h1>
+        <p className="mt-1 text-[13px] text-hub-text-dim">Your personal study circle</p>
+      </div>
+      <div className="sc-tabrow mb-6 flex gap-2 overflow-x-auto">
         {[["library", "📚 My Space"], ["community", "🌐 Community"]].map(([key, label]) => (
-          <button key={key} onClick={() => setActiveTab(key)} style={activeTab === key ? sharedStyles.tabActive : sharedStyles.tab}>
+          <button key={key} onClick={() => setActiveTab(key)} className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${
+            activeTab === key
+              ? "border border-gold-border bg-gold-dim font-bold text-gold"
+              : "border border-hub-border bg-hub-bg text-hub-text-dim hover:bg-hub-surface-hover hover:text-hub-text-muted"
+          }`}>
             {label}
-            {key === "library" && fsrsStats && fsrsStats.dueCount > 0 && <span style={sharedStyles.tabCount}>{fsrsStats.dueCount}</span>}
+            {key === "library" && fsrsStats && fsrsStats.dueCount > 0 && (
+              <span className="due-pulse rounded-full border border-coral-300 bg-coral-100 px-2 py-0.5 text-[10px] font-bold text-coral-400">{fsrsStats.dueCount}</span>
+            )}
           </button>
         ))}
       </div>
@@ -797,12 +807,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
             />
           ) : (
             <>
-          <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.md, flexWrap: "wrap" }}>
-            <div style={{ ...sharedStyles.searchWrap, flex: "1 1 240px" }}>
-              <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search notes, PDFs, MCQs…" style={sharedStyles.searchInput} />
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="flex min-h-[40px] flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2">
+              <span className="text-lg text-hub-text-dim">🔍</span>
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search notes, PDFs, MCQs…"
+                className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
             </div>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={sharedStyles.select}>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+              className="rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[12px] text-hub-text outline-none cursor-pointer">
               <option value="recent">Most recent</option>
               <option value="views">Most viewed</option>
               <option value="bookmarks">Most saved</option>
@@ -811,47 +823,41 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
 
           <FilterBar filters={filters} setFilters={setFilters} resources={communityResources} />
 
-          <div style={{ display: "flex", gap: spacing.sm, overflowX: "auto", marginBottom: spacing.xl, paddingBottom: spacing.xs }}>
+          <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
             {filterTypes.map((type) => (
-              <button key={type} onClick={() => setActiveFilter(type)} style={activeFilter === type ? sharedStyles.chipActive : sharedStyles.chip}>
+              <button key={type} onClick={() => setActiveFilter(type)} className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95 ${
+                activeFilter === type
+                  ? "border border-gold-border bg-gold-dim text-gold"
+                  : "border border-hub-border bg-hub-bg text-hub-text-muted"
+              }`}>
                 {filterLabels[type]}
               </button>
             ))}
           </div>
 
-          <div style={sharedStyles.sectionLabel}>COMMUNITY</div>
+          <div className="mb-4 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">Community</div>
 
           {resourcesLoading ? (
-            <div style={sharedStyles.emptyState}>
-              <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⏳</div>
-              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-                Loading materials…
-              </div>
+            <div className="px-5 py-16 text-center">
+              <div className="mb-2 text-4xl">⏳</div>
+              <div className="text-sm font-bold text-hub-text-muted">Loading materials…</div>
             </div>
           ) : resourcesError ? (
-            <div style={sharedStyles.emptyState}>
-              <div style={{ fontSize: 36, marginBottom: spacing.sm }}>⚠️</div>
-              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-                Something went wrong
-              </div>
-              <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5, marginBottom: spacing.md }}>
-                {resourcesError}
-              </div>
-              <button onClick={fetchResources} style={{ ...sharedStyles.chipActive, cursor: "pointer" }}>↻ Retry</button>
+            <div className="px-5 py-16 text-center">
+              <div className="mb-2 text-4xl">⚠️</div>
+              <div className="text-sm font-bold text-hub-text-muted">Something went wrong</div>
+              <div className="mx-auto mb-4 max-w-md text-[13px] leading-relaxed text-hub-text-dim">{resourcesError}</div>
+              <button onClick={fetchResources} className="cursor-pointer rounded-full bg-gold-dim px-4 py-1.5 text-[11px] font-semibold text-gold border border-gold-border">↻ Retry</button>
             </div>
           ) : visibleResources.length === 0 ? (
-            <div style={sharedStyles.emptyState}>
-              <div style={{ fontSize: 36, marginBottom: spacing.sm }}>📭</div>
-              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.xs }}>
-                No results
-              </div>
-              <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
-                {emptyMessages["public"]}
-              </div>
+            <div className="px-5 py-16 text-center">
+              <div className="mb-2 text-4xl">📭</div>
+              <div className="mb-1 text-sm font-bold text-hub-text-muted">No results</div>
+              <div className="mx-auto max-w-md text-[13px] leading-relaxed text-hub-text-dim">{emptyMessages["public"]}</div>
             </div>
           ) : (
-            <div style={sharedStyles.grid}>
-              {visibleResources.map((resource) => (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {visibleResources.map((resource, i) => (
                 <ResourceCard
                   key={resource.id}
                   resource={resource}
@@ -861,6 +867,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
                   onToggleBookmark={toggleBookmark}
                   onShare={handleShare}
                   mcqProgress={mcqProgress}
+                  index={i}
                 />
               ))}
             </div>
@@ -871,22 +878,16 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       )}
 
       {toast && (
-        <div style={sharedStyles.toast}>
+        <div className="fixed bottom-24 left-1/2 z-[1001] flex -translate-x-1/2 items-center gap-2 rounded-full border border-gold-border bg-hub-surface px-4 py-2.5 text-[13px] font-semibold text-gold shadow-lg" style={{ animation: "fade-up 0.2s ease both" }}>
           <span>✓</span>{toast}
         </div>
       )}
 
       {showFab && (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
-        <div onClick={() => setShowFab(false)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-          zIndex: 998, animation: "fadeup 0.15s ease",
-        }} />
+        <div onClick={() => setShowFab(false)} className="fixed inset-0 z-[998] bg-black/50" style={{ animation: "fade-up 0.15s ease" }} />
       )}
 
-      <div style={{
-        position: "fixed", bottom: "24px", right: "24px", zIndex: 999,
-        display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px",
-      }}>
+      <div className="fixed bottom-6 right-6 z-[999] flex flex-col items-end gap-3">
         {showFab && (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
           <>
             <FabAction
@@ -906,15 +907,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         {(activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
         <button
           onClick={() => setShowFab((v) => !v)}
+          className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold text-2xl font-bold transition-all duration-200 active:scale-90"
           style={{
-            width: "56px", height: "56px", borderRadius: "50%",
-            background: showFab ? colors.surface : gold,
-            border: `2px solid ${gold}`,
+            background: showFab ? "#141414" : "#FFD700",
             boxShadow: showFab ? "0 4px 16px rgba(0,0,0,0.4)" : "0 4px 20px rgba(255,215,0,0.3)",
-            fontSize: "28px", fontWeight: fontWeight.bold,
-            color: showFab ? goldText : "#0a0a0a",
-            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "all 0.2s ease", transform: showFab ? "rotate(45deg)" : "rotate(0deg)",
+            color: showFab ? "#FFD700" : "#0a0a0a",
+            transform: showFab ? "rotate(45deg)" : "rotate(0deg)",
+            cursor: "pointer",
           }}
         >
           +
@@ -925,42 +924,18 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       {uploadWizard}
       {createFolderModal}
       {bookmarkPicker}
-
-      <style>{`
-        @keyframes fadeup {
-          from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-        @keyframes fabslide {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .sc-tabrow::-webkit-scrollbar { display: none; }
-      `}</style>
     </div>
   );
 }
 
 function FabAction({ icon, label, subtitle, onClick }) {
   return (
-    <div onClick={onClick} style={{
-      display: "flex", alignItems: "center", gap: "12px", cursor: "pointer",
-      animation: "fabslide 0.2s ease",
-    }}>
-      <div style={{
-        background: colors.surface, border: `0.5px solid ${goldBorder}`,
-        borderRadius: "10px", padding: "8px 14px", textAlign: "right",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
-      }}>
-        <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: goldText, whiteSpace: "nowrap" }}>{label}</div>
-        <div style={{ fontSize: fontSize.xs, color: colors.textDim, whiteSpace: "nowrap" }}>{subtitle}</div>
+    <div onClick={onClick} className="flex cursor-pointer items-center gap-3" style={{ animation: "fabslide 0.2s ease" }}>
+      <div className="rounded-xl border border-gold-border bg-hub-surface px-3.5 py-2 text-right shadow-lg">
+        <div className="whitespace-nowrap text-[13px] font-bold text-gold">{label}</div>
+        <div className="whitespace-nowrap text-[10px] text-hub-text-dim">{subtitle}</div>
       </div>
-      <div style={{
-        width: "44px", height: "44px", borderRadius: "50%",
-        background: goldDim, border: `1px solid ${goldBorder}`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "20px", flexShrink: 0,
-      }}>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-gold-border bg-gold-dim text-xl">
         {icon}
       </div>
     </div>

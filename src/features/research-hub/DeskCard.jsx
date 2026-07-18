@@ -1,22 +1,5 @@
 import { memo, useState } from "react";
-import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
-
-const SUBJECT_ICONS = {
-  biology: "🧬", chemistry: "⚗️", physics: "🔭", math: "📐", mathematics: "📐",
-  english: "📖", history: "🏛️", geography: "🌍", economics: "📈", psychology: "🧠",
-  sociology: "👥", political: "⚖️", philosophy: "💭", computer: "💻", engineering: "⚙️",
-  medicine: "⚕️", law: "⚖️", business: "💼", accounting: "🧮", finance: "💰",
-  marketing: "📢", management: "📋", statistics: "📊", science: "🔬", art: "🎨",
-  music: "🎵", language: "🗣️", religion: "🙏", agriculture: "🌾", education: "🎓",
-};
-
-function getSubjectIcon(subject) {
-  const lower = (subject || "").toLowerCase();
-  for (const key of Object.keys(SUBJECT_ICONS)) {
-    if (lower.includes(key)) return SUBJECT_ICONS[key];
-  }
-  return "📚";
-}
+import { getSubjectColor, getSubjectIcon } from "./subjectColors";
 
 const TYPE_LABELS = {
   pdf: "📄", mcq: "✎", flashcard_deck: "🎴", note: "📝",
@@ -25,6 +8,7 @@ const TYPE_LABELS = {
 
 const DeskCard = memo(function DeskCard({
   name,
+  subject,
   icon,
   subtitle,
   itemCount,
@@ -40,12 +24,11 @@ const DeskCard = memo(function DeskCard({
   bookmarkBusy,
   onToggleBookmark,
   folderId,
+  index = 0,
 }) {
   const [hovered, setHovered] = useState(false);
-
-  const hoverStyle = hovered
-    ? { borderColor: colors.borderActive, boxShadow: "0 4px 16px rgba(0,0,0,0.35)", transform: "translateY(-2px)" }
-    : {};
+  const sc = getSubjectColor(subject || name);
+  const delay = `${Math.min(index * 40, 400)}ms`;
 
   const typeEntries = typeCounts
     ? Object.entries(typeCounts).slice(0, 4).filter(([, c]) => c > 0)
@@ -56,15 +39,16 @@ const DeskCard = memo(function DeskCard({
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ ...sharedStyles.deskCard, ...hoverStyle }}
+      className="stagger-in relative cursor-pointer overflow-hidden rounded-xl border border-hub-border bg-hub-surface p-4 transition-all duration-150 active:scale-[0.97] hover:-translate-y-0.5 hover:border-hub-border-active"
+      style={{
+        borderLeftWidth: "3px",
+        borderLeftColor: sc.accent,
+        animationDelay: delay,
+        boxShadow: hovered ? `0 4px 20px ${sc.bg}` : undefined,
+      }}
     >
       {dueCount > 0 && (
-        <div style={{
-          position: "absolute", top: spacing.sm, right: spacing.sm,
-          fontSize: fontSize.xs, fontWeight: fontWeight.bold, padding: "3px 10px",
-          borderRadius: borderRadius.pill, background: "rgba(239,68,68,0.15)",
-          color: "#ef4444", border: "0.5px solid rgba(239,68,68,0.35)",
-        }}>
+        <div className="due-pulse absolute right-2 top-2 rounded-full border border-coral-300 bg-coral-100 px-2.5 py-0.5 text-[10px] font-bold text-coral-400">
           {dueCount} due
         </div>
       )}
@@ -76,13 +60,17 @@ const DeskCard = memo(function DeskCard({
             if (!bookmarkBusy) onToggleBookmark({ id: folderId, name, _count: { resources: itemCount } });
           }}
           disabled={bookmarkBusy}
+          className="absolute top-2 transition-all duration-150"
           style={{
-            position: "absolute", top: spacing.sm, right: dueCount > 0 ? "52px" : spacing.sm,
-            background: "none", border: "none", cursor: bookmarkBusy ? "wait" : "pointer",
-            fontSize: 16, padding: "2px 4px", lineHeight: 1,
-            color: isBookmarked ? goldText : colors.textDim,
+            right: dueCount > 0 ? "52px" : "8px",
+            background: "none",
+            border: "none",
+            cursor: bookmarkBusy ? "wait" : "pointer",
+            fontSize: 16,
+            padding: "2px 4px",
+            lineHeight: 1,
+            color: isBookmarked ? "#FFD700" : "#555",
             opacity: bookmarkBusy ? 0.5 : 1,
-            transition: "color 0.15s, transform 0.15s",
             transform: hovered ? "scale(1.15)" : "scale(1)",
           }}
           title={isBookmarked ? "Remove from my space" : "Add to my space"}
@@ -91,77 +79,83 @@ const DeskCard = memo(function DeskCard({
         </button>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: spacing.md, marginBottom: spacing.md }}>
-        <div style={{
-          width: "44px", height: "44px", borderRadius: borderRadius.md,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 24, background: "#1a1a1a", border: `0.5px solid ${colors.border}`,
-          flexShrink: 0,
-        }}>{icon}</div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{
-            fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8",
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>{name}</div>
+      <div className="mb-3 flex items-center gap-3">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-2xl"
+          style={{ background: sc.bg, borderColor: sc.border }}
+        >
+          {icon || sc.icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-bold text-hub-text">{name}</div>
           {subtitle && (
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>{subtitle}</div>
+            <div className="mt-0.5 text-[11px] text-hub-text-dim">{subtitle}</div>
           )}
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: spacing.md, marginBottom: spacing.sm }}>
-        <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-          <span style={{ fontWeight: fontWeight.bold, color: colors.text }}>{itemCount}</span> items
+      <div className="mb-1 flex gap-4">
+        <div className="text-[11px] text-hub-text-muted">
+          <span className="font-bold text-hub-text">{itemCount}</span> items
         </div>
         {masteredCount != null && masteredCount > 0 && (
-          <div style={{ fontSize: fontSize.sm, color: colors.textMuted }}>
-            <span style={{ fontWeight: fontWeight.bold, color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : colors.textMuted }}>{masteredCount}</span> mastered
+          <div className="text-[11px] text-hub-text-muted">
+            <span
+              className="font-bold"
+              style={{ color: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "#888" }}
+            >
+              {masteredCount}
+            </span>{" "}
+            mastered
           </div>
         )}
       </div>
 
       {masteryPct != null && masteryPct > 0 && (
-        <div style={{ height: 4, background: colors.bg, borderRadius: 2, overflow: "hidden", marginBottom: spacing.sm }}>
-          <div style={{
-            height: "100%", width: `${masteryPct}%`,
-            background: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : goldText,
-            borderRadius: 2, transition: "width 0.4s ease",
-          }} />
+        <div className="mb-2 h-1 overflow-hidden rounded-full bg-hub-bg">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${masteryPct}%`,
+              background: masteryPct >= 70 ? "#22c55e" : masteryPct >= 40 ? "#f59e0b" : "#FFD700",
+            }}
+          />
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+      <div className="flex flex-wrap items-center gap-1.5">
         {typeEntries.map(([type, count]) => (
-          <span key={type} style={{
-            fontSize: fontSize.xs, color: colors.textDim,
-            display: "flex", alignItems: "center", gap: 3,
-          }}>
+          <span key={type} className="flex items-center gap-1 text-[10px] text-hub-text-dim">
             {TYPE_LABELS[type] || "📎"} {count}
           </span>
         ))}
         {visibility && (
-          <span style={{
-            fontSize: fontSize.xs, padding: "2px 8px", borderRadius: borderRadius.sm,
-            background: visibility === "private" ? "#1a0808" : colors.successBg,
-            color: visibility === "private" ? "#ef9a9a" : "#a5d6a7",
-            border: `0.5px solid ${visibility === "private" ? "#4a1010" : colors.successBorder}`,
-          }}>
+          <span
+            className="rounded px-2 py-0.5 text-[10px]"
+            style={{
+              background: visibility === "private" ? "#1a0808" : "#0f2a1a",
+              color: visibility === "private" ? "#ef9a9a" : "#a5d6a7",
+              border: `0.5px solid ${visibility === "private" ? "#4a1010" : "#2a6a3a"}`,
+            }}
+          >
             {visibility === "private" ? "🔒 Private" : visibility === "link" ? "🔗 Link" : "👥 Shared"}
           </span>
         )}
         {shared && ownerName && (
-          <span style={{ fontSize: fontSize.xs, color: colors.textDim }}>by {ownerName}</span>
+          <span className="text-[10px] text-hub-text-dim">by {ownerName}</span>
         )}
       </div>
     </div>
   );
 });
 
-export function FolderDeskCard({ folder, onClick, isBookmarked, bookmarkBusy, onToggleBookmark, shared }) {
+export function FolderDeskCard({ folder, onClick, isBookmarked, bookmarkBusy, onToggleBookmark, shared, index }) {
   const itemCount = folder._count?.resources ?? 0;
+  const subjectHint = folder.courseCode || folder.name || "";
   return (
     <DeskCard
       name={folder.name}
+      subject={subjectHint}
       icon={folder.visibility === "shared" || folder.visibility === "link" ? "📂" : "📁"}
       subtitle={folder.courseCode || null}
       itemCount={itemCount}
@@ -174,11 +168,13 @@ export function FolderDeskCard({ folder, onClick, isBookmarked, bookmarkBusy, on
       bookmarkBusy={bookmarkBusy}
       onToggleBookmark={onToggleBookmark}
       folderId={folder.id}
+      index={index}
     />
   );
 }
 
-export function SubjectDeskCard({ subject, resources, fsrsSubjectStats, onClick }) {
+export function SubjectDeskCard({ subject, resources, fsrsSubjectStats, onClick, index }) {
+  const sc = getSubjectColor(subject);
   const icon = getSubjectIcon(subject);
   const itemCount = resources.length;
   const dueCount = fsrsSubjectStats?.due || 0;
@@ -196,6 +192,7 @@ export function SubjectDeskCard({ subject, resources, fsrsSubjectStats, onClick 
   return (
     <DeskCard
       name={subject}
+      subject={subject}
       icon={icon}
       subtitle={null}
       itemCount={itemCount}
@@ -204,27 +201,26 @@ export function SubjectDeskCard({ subject, resources, fsrsSubjectStats, onClick 
       masteredCount={masteredCount}
       masteryPct={masteryPct}
       onClick={onClick}
+      index={index}
     />
   );
 }
 
 export function CreateDeckCard({ onClick }) {
   const [hovered, setHovered] = useState(false);
-  const hoverStyle = hovered
-    ? { borderColor: goldBorder, background: goldDim }
-    : {};
-
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ ...sharedStyles.createDeckCard, ...hoverStyle }}
+      className="stagger-in flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-hub-border p-6 transition-all duration-150 active:scale-[0.97]"
+      style={{
+        borderColor: hovered ? "rgba(255,215,0,0.35)" : undefined,
+        background: hovered ? "rgba(255,215,0,0.08)" : "transparent",
+      }}
     >
-      <div style={{ fontSize: 32 }}>+</div>
-      <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted }}>
-        Create new space
-      </div>
+      <div className="text-3xl" style={{ color: hovered ? "#FFD700" : "#555", transition: "color 0.15s" }}>+</div>
+      <div className="text-[11px] font-semibold text-hub-text-muted">Create new space</div>
     </div>
   );
 }
