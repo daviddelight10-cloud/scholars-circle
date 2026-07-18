@@ -71,6 +71,30 @@ export async function deleteFolder(id) {
   return res.json();
 }
 
+// ─── Folder Bookmarks ─────────────────────────────────────────────────
+
+export async function bookmarkFolder(folderId) {
+  const res = await authFetch(`${API_BASE}/api/folders/${folderId}/bookmark`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to bookmark folder");
+  }
+  return res.json();
+}
+
+export async function unbookmarkFolder(folderId) {
+  const res = await authFetch(`${API_BASE}/api/folders/${folderId}/bookmark`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to remove folder bookmark");
+  }
+  return res.json();
+}
+
 // ─── Pending Contributions (staff only) ──────────────────────────────
 
 export async function getPendingResources(folderId) {

@@ -36,6 +36,10 @@ const DeskCard = memo(function DeskCard({
   shared,
   ownerName,
   onClick,
+  isBookmarked,
+  bookmarkBusy,
+  onToggleBookmark,
+  folderId,
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -63,6 +67,28 @@ const DeskCard = memo(function DeskCard({
         }}>
           {dueCount} due
         </div>
+      )}
+
+      {onToggleBookmark && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!bookmarkBusy) onToggleBookmark({ id: folderId, name, _count: { resources: itemCount } });
+          }}
+          disabled={bookmarkBusy}
+          style={{
+            position: "absolute", top: spacing.sm, right: dueCount > 0 ? "52px" : spacing.sm,
+            background: "none", border: "none", cursor: bookmarkBusy ? "wait" : "pointer",
+            fontSize: 16, padding: "2px 4px", lineHeight: 1,
+            color: isBookmarked ? goldText : colors.textDim,
+            opacity: bookmarkBusy ? 0.5 : 1,
+            transition: "color 0.15s, transform 0.15s",
+            transform: hovered ? "scale(1.15)" : "scale(1)",
+          }}
+          title={isBookmarked ? "Remove from my space" : "Add to my space"}
+        >
+          {isBookmarked ? "★" : "☆"}
+        </button>
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: spacing.md, marginBottom: spacing.md }}>
@@ -131,7 +157,7 @@ const DeskCard = memo(function DeskCard({
   );
 });
 
-export function FolderDeskCard({ folder, onClick }) {
+export function FolderDeskCard({ folder, onClick, isBookmarked, bookmarkBusy, onToggleBookmark, shared }) {
   const itemCount = folder._count?.resources ?? 0;
   return (
     <DeskCard
@@ -141,8 +167,13 @@ export function FolderDeskCard({ folder, onClick }) {
       itemCount={itemCount}
       typeCounts={null}
       visibility={folder.visibility}
-      shared={false}
+      shared={shared || folder.ownerId !== folder.owner?.id}
+      ownerName={folder.owner?.username}
       onClick={onClick}
+      isBookmarked={isBookmarked}
+      bookmarkBusy={bookmarkBusy}
+      onToggleBookmark={onToggleBookmark}
+      folderId={folder.id}
     />
   );
 }

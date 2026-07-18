@@ -189,6 +189,7 @@ model User {
   fsrsProfile       UserFsrsProfile?
 
   folders           Folder[] @relation("FolderOwner")
+  folderBookmarks   FolderBookmark[]
 
   totalXp           Int      @default(0)
 
@@ -1626,10 +1627,24 @@ model Folder {
   resources     Resource[]
   bookmarks     ResourceBookmark[]
   folderDepts   FolderDepartment[]
+  folderBookmarks FolderBookmark[]
 
   @@index([ownerId])
   @@index([visibility])
   @@index([universityId])
+}
+
+model FolderBookmark {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId    String
+  folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, folderId])
+  @@index([userId])
+  @@index([folderId])
 }
 
 model FolderDepartment {

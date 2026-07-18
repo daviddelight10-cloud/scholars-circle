@@ -1,6 +1,6 @@
 import express from "express";
 import { prisma } from "../db.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -144,9 +144,28 @@ router.get("/", requireAuth, async (req, res) => {
       }
     }
 
+    // Bookmarked folders (folders the user has saved to their space)
+    const folderBookmarks = await prisma.folderBookmark.findMany({
+      where: { userId },
+      include: {
+        folder: {
+          include: {
+            folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
+            owner: { select: { id: true, username: true, role: true } },
+            _count: { select: { resources: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    const bookmarkedFolders = folderBookmarks
+      .map((b) => b.folder)
+      .filter((f) => f && f.ownerId !== userId); // exclude own folders (already in own)
+
     res.json({
       own: ownFolders,
       shared: sharedFolders,
+      bookmarked: bookmarkedFolders,
     });
   } catch (error) {
     console.error("Error listing folders:", error);
@@ -154,8 +173,8 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/folders/shared/:shareToken — Open a link-shared folder
-router.get("/shared/:shareToken", requireAuth, async (req, res) => {
+// GET /api/folders/shared/:shareToken — Open a link-shared folder (public, optional auth)
+router.get("/shared/:shareToken", optionalAuth, async (req, res) => {
   try {
     const { shareToken } = req.params;
     const folder = await prisma.folder.findUnique({
@@ -170,11 +189,24 @@ router.get("/shared/:shareToken", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "Folder not found" });
     }
 
+    const userId = req.user?.sub || null;
+
+    // For anonymous users: only approved resources
+    // For authenticated users: approved + their own resources + their bookmarked resources in this folder
+    const resourceWhere = {
+      folderId: folder.id,
+      ...(userId
+        ? {
+            OR: [
+              { status: "approved" },
+              { uploadedBy: userId },
+            ],
+          }
+        : { status: "approved" }),
+    };
+
     const resources = await prisma.resource.findMany({
-      where: {
-        folderId: folder.id,
-        status: { in: ["approved"] },
-      },
+      where: resourceWhere,
       include: {
         uploader: { select: { id: true, username: true, role: true } },
         _count: { select: { bookmarks: true } },
@@ -182,7 +214,16 @@ router.get("/shared/:shareToken", requireAuth, async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ ...folder, resources });
+    // Check if the authenticated user has bookmarked this folder
+    let folderBookmarked = false;
+    if (userId) {
+      const existing = await prisma.folderBookmark.findUnique({
+        where: { userId_folderId: { userId, folderId: folder.id } },
+      }).catch(() => null);
+      folderBookmarked = !!existing;
+    }
+
+    res.json({ ...folder, resources, folderBookmarked });
   } catch (error) {
     console.error("Error fetching shared folder:", error);
     res.status(500).json({ error: "Failed to fetch folder" });
@@ -408,6 +449,52 @@ router.delete("/:id", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error deleting folder:", error);
     res.status(500).json({ error: "Failed to delete folder" });
+  }
+});
+
+// POST /api/folders/:id/bookmark — Bookmark (save) a folder to my space
+router.post("/:id/bookmark", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.sub;
+
+    const folder = await prisma.folder.findUnique({ where: { id } });
+    if (!folder) {
+      return res.status(404).json({ error: "Folder not found" });
+    }
+
+    // Can only bookmark link-shared or department-shared folders that aren't yours
+    if (folder.ownerId === userId) {
+      return res.status(400).json({ error: "You own this folder already" });
+    }
+    if (folder.visibility === "private") {
+      return res.status(403).json({ error: "Cannot bookmark a private folder" });
+    }
+
+    const bookmark = await prisma.folderBookmark.upsert({
+      where: { userId_folderId: { userId, folderId: id } },
+      create: { userId, folderId: id },
+      update: {},
+    });
+
+    res.status(201).json(bookmark);
+  } catch (error) {
+    console.error("Error bookmarking folder:", error);
+    res.status(500).json({ error: "Failed to bookmark folder" });
+  }
+});
+
+// DELETE /api/folders/:id/bookmark — Remove folder bookmark
+router.delete("/:id/bookmark", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.folderBookmark.deleteMany({
+      where: { folderId: id, userId: req.user.sub },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error removing folder bookmark:", error);
+    res.status(500).json({ error: "Failed to remove bookmark" });
   }
 });
 

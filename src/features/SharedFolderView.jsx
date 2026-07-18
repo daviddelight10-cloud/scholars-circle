@@ -1,8 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getFolderByShareToken } from "../lib/foldersApi";
+import { getFolderByShareToken, bookmarkFolder, unbookmarkFolder } from "../lib/foldersApi";
 import { getContentTypeIcon, getContentTypeIconClass, getSubjectBadgeColor, formatViewCount } from "../lib/researchUtils";
 import ResourceViewer from "./ResourceViewer";
+
+function getAuthToken() {
+  try {
+    return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authToken || null;
+  } catch { return null; }
+}
 
 export default function SharedFolderView() {
   const { shareToken } = useParams();
@@ -12,6 +18,13 @@ export default function SharedFolderView() {
   const [error, setError] = useState("");
   const [viewerToken, setViewerToken] = useState(null);
   const [activeTab, setActiveTab] = useState("materials");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [folderBookmarked, setFolderBookmarked] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+
+  useEffect(() => {
+    setIsAuthenticated(!!getAuthToken());
+  }, []);
 
   useEffect(() => {
     fetchFolder();
@@ -19,15 +32,61 @@ export default function SharedFolderView() {
 
   const fetchFolder = async () => {
     setLoading(true);
+    setError("");
     try {
       const data = await getFolderByShareToken(shareToken);
       setFolder(data);
+      setFolderBookmarked(!!data.folderBookmarked);
     } catch (err) {
       setError(err.message || "Failed to load folder");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleToggleFolderBookmark = useCallback(async () => {
+    if (!folder) return;
+    const token = getAuthToken();
+    if (!token) {
+      navigate("/login?redirect=" + encodeURIComponent(`/folders/${shareToken}`));
+      return;
+    }
+    setBookmarkBusy(true);
+    try {
+      if (folderBookmarked) {
+        await unbookmarkFolder(folder.id);
+        setFolderBookmarked(false);
+      } else {
+        await bookmarkFolder(folder.id);
+        setFolderBookmarked(true);
+      }
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setBookmarkBusy(false);
+    }
+  }, [folder, folderBookmarked, navigate, shareToken]);
+
+  const resources = folder?.resources || [];
+
+  const categorized = useMemo(() => {
+    const materials = [], summaries = [], flashcards = [], mcqs = [];
+    for (const r of resources) {
+      if (r.contentType === "mcq") mcqs.push(r);
+      else if (r.contentType === "flashcard_deck") flashcards.push(r);
+      else if (r.title?.startsWith("[AI] Summary")) summaries.push(r);
+      else materials.push(r);
+    }
+    return { materials, summaries, flashcards, mcqs };
+  }, [resources]);
+
+  const subTabs = [
+    ["materials", "📄 Materials", categorized.materials.length],
+    ["summaries", "📝 Summary", categorized.summaries.length],
+    ["flashcards", "🎴 Flash Cards", categorized.flashcards.length],
+    ["mcqs", "✎ MCQs", categorized.mcqs.length],
+  ];
+  const currentList = categorized[activeTab] || [];
 
   if (viewerToken) {
     return <ResourceViewer token={viewerToken} onBack={() => setViewerToken(null)} />;
@@ -53,27 +112,6 @@ export default function SharedFolderView() {
       </div>
     );
   }
-
-  const resources = folder?.resources || [];
-
-  const categorized = useMemo(() => {
-    const materials = [], summaries = [], flashcards = [], mcqs = [];
-    for (const r of resources) {
-      if (r.contentType === "mcq") mcqs.push(r);
-      else if (r.contentType === "flashcard_deck") flashcards.push(r);
-      else if (r.title?.startsWith("[AI] Summary")) summaries.push(r);
-      else materials.push(r);
-    }
-    return { materials, summaries, flashcards, mcqs };
-  }, [resources]);
-
-  const subTabs = [
-    ["materials", "📄 Materials", categorized.materials.length],
-    ["summary", "📝 Summary", categorized.summaries.length],
-    ["flashcards", "🎴 Flash Cards", categorized.flashcards.length],
-    ["mcqs", "✎ MCQs", categorized.mcqs.length],
-  ];
-  const currentList = categorized[activeTab] || [];
 
   const renderResourceCard = (resource) => {
     const badgeColor = getSubjectBadgeColor(resource.subject);
@@ -135,6 +173,31 @@ export default function SharedFolderView() {
         <span style={{ fontSize: 11, padding: "4px 10px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>
           🔗 Shared folder
         </span>
+        {isAuthenticated ? (
+          <button
+            onClick={handleToggleFolderBookmark}
+            disabled={bookmarkBusy}
+            style={{
+              padding: "8px 16px", borderRadius: "10px", border: "0.5px solid #B8860B",
+              background: folderBookmarked ? "rgba(184,134,11,0.15)" : "#1a1a1a",
+              fontSize: 13, fontWeight: 700, color: folderBookmarked ? "#FFD700" : "#B8860B",
+              cursor: bookmarkBusy ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 6,
+              opacity: bookmarkBusy ? 0.6 : 1,
+            }}
+          >
+            {folderBookmarked ? "★ Saved" : "☆ Add to my space"}
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate("/login?redirect=" + encodeURIComponent(`/folders/${shareToken}`))}
+            style={{
+              padding: "8px 16px", borderRadius: "10px", border: "0.5px solid #B8860B",
+              background: "#1a1a1a", fontSize: 13, fontWeight: 700, color: "#FFD700", cursor: "pointer",
+            }}
+          >
+            🔑 Log in to save
+          </button>
+        )}
       </div>
 
       {/* Owner info */}
@@ -166,17 +229,17 @@ export default function SharedFolderView() {
       ) : (
         <div style={{ textAlign: "center", padding: "60px 20px" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>
-            {activeTab === "materials" ? "📄" : activeTab === "summary" ? "📝" : activeTab === "flashcards" ? "🎴" : "✎"}
+            {activeTab === "materials" ? "📄" : activeTab === "summaries" ? "📝" : activeTab === "flashcards" ? "🎴" : "✎"}
           </div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#7b82b8", marginBottom: 6 }}>
             {activeTab === "materials" && "No materials in this folder"}
-            {activeTab === "summary" && "No AI summaries available"}
+            {activeTab === "summaries" && "No AI summaries available"}
             {activeTab === "flashcards" && "No flashcard decks available"}
             {activeTab === "mcqs" && "No MCQ sets available"}
           </div>
           <div style={{ fontSize: 13, color: "#4a5080" }}>
             {activeTab === "materials" && "No approved materials in this shared folder yet."}
-            {activeTab === "summary" && "AI-generated summaries will appear here."}
+            {activeTab === "summaries" && "AI-generated summaries will appear here."}
             {activeTab === "flashcards" && "Flashcard decks will appear here."}
             {activeTab === "mcqs" && "MCQ sets will appear here."}
           </div>

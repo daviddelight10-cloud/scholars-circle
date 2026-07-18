@@ -45,6 +45,9 @@ export default function LibraryView({
   onShare,
   onCreateFolder,
   onOpenFolder,
+  folderBookmarkedIds,
+  folderBookmarkBusyId,
+  onToggleFolderBookmark,
 }) {
   const [search, setSearch] = useState("");
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -76,6 +79,13 @@ export default function LibraryView({
     return folders.shared.filter((f) => f.name.toLowerCase().includes(q));
   }, [folders, search]);
 
+  const filteredBookmarkedFolders = useMemo(() => {
+    if (!folders?.bookmarked) return [];
+    if (!search) return folders.bookmarked;
+    const q = search.toLowerCase();
+    return folders.bookmarked.filter((f) => f.name.toLowerCase().includes(q));
+  }, [folders, search]);
+
   if (selectedSubject) {
     return (
       <SubjectDetailView
@@ -95,7 +105,7 @@ export default function LibraryView({
     );
   }
 
-  const hasFolders = (filteredOwnFolders.length > 0 || filteredSharedFolders.length > 0);
+  const hasFolders = (filteredOwnFolders.length > 0 || filteredSharedFolders.length > 0 || filteredBookmarkedFolders.length > 0);
   const hasLooseMaterials = grouped.length > 0;
   const isEmpty = !hasFolders && !hasLooseMaterials && !search;
 
@@ -153,6 +163,9 @@ export default function LibraryView({
             key={folder.id}
             folder={folder}
             onClick={() => onOpenFolder(folder.id)}
+            isBookmarked={folderBookmarkedIds?.has(folder.id)}
+            bookmarkBusy={folderBookmarkBusyId === folder.id}
+            onToggleBookmark={onToggleFolderBookmark}
           />
         ))}
 
@@ -161,6 +174,9 @@ export default function LibraryView({
             key={folder.id}
             folder={folder}
             onClick={() => onOpenFolder(folder.id)}
+            isBookmarked={folderBookmarkedIds?.has(folder.id)}
+            bookmarkBusy={folderBookmarkBusyId === folder.id}
+            onToggleBookmark={onToggleFolderBookmark}
           />
         ))}
 
@@ -177,6 +193,26 @@ export default function LibraryView({
           />
         ))}
       </div>
+
+      {/* Saved spaces section */}
+      {filteredBookmarkedFolders.length > 0 && (
+        <div style={{ marginTop: spacing.xl }}>
+          <div style={{ ...sharedStyles.sectionLabel, marginBottom: spacing.md }}>★ Saved Spaces</div>
+          <div style={sharedStyles.grid}>
+            {filteredBookmarkedFolders.map((folder) => (
+              <FolderDeskCard
+                key={folder.id}
+                folder={folder}
+                onClick={() => onOpenFolder(folder.id)}
+                isBookmarked={true}
+                bookmarkBusy={folderBookmarkBusyId === folder.id}
+                onToggleBookmark={onToggleFolderBookmark}
+                shared
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* No results from search */}
       {search && !hasFolders && !hasLooseMaterials && (

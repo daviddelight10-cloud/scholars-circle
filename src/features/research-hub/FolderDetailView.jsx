@@ -3,7 +3,7 @@ import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, gold
 
 const emptyStateConfig = {
   materials: { icon: "📄", message: "No materials in this space yet.", cta: "Upload PDFs, notes, or other files to get started." },
-  summary: { icon: "📝", message: "No AI-generated summaries yet.", cta: "Upload a file and choose 'Generate Summary' to create one." },
+  summaries: { icon: "📝", message: "No AI-generated summaries yet.", cta: "Upload a file and choose 'Generate Summary' to create one." },
   flashcards: { icon: "🎴", message: "No flashcard decks in this space yet.", cta: "Upload a file and choose 'Generate Flashcards' to create a deck." },
   mcqs: { icon: "✎", message: "No MCQ sets in this space yet.", cta: "Upload a file and choose 'Generate MCQs' or create manually." },
 };
@@ -11,13 +11,13 @@ const emptyStateConfig = {
 export default function FolderDetailView({
   folderDetail, folderLoading, folderCategorized, activeFolderTab, setActiveFolderTab,
   folderIsOwner, onClose, onShareFolder, onDeleteFolder,
-  onUploadToFolder,
+  onUploadToFolder, onToggleFolderBookmark, folderBookmarkedIds, folderBookmarkBusyId,
   bookmarkedIds, bookmarkFolderMap, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress,
   uploadModal, createFolderModal, bookmarkPicker,
 }) {
   const folderSubTabs = [
     ["materials", "📄 Materials", folderCategorized.materials.length],
-    ["summary", "📝 Summary", folderCategorized.summaries.length],
+    ["summaries", "📝 Summary", folderCategorized.summaries.length],
     ["flashcards", "🎴 Flash Cards", folderCategorized.flashcards.length],
     ["mcqs", "✎ MCQs", folderCategorized.mcqs.length],
   ];
@@ -51,6 +51,21 @@ export default function FolderDetailView({
           </div>
           {folderDetail && (
             <div style={{ display: "flex", gap: spacing.sm }}>
+              {!folderIsOwner && folderDetail.visibility !== "private" && (
+                <button
+                  onClick={() => onToggleFolderBookmark(folderDetail)}
+                  disabled={folderBookmarkBusyId === folderDetail.id}
+                  style={{
+                    ...sharedStyles.iconActionBtn,
+                    color: folderBookmarkedIds?.has(folderDetail.id) ? goldText : colors.textDim,
+                    opacity: folderBookmarkBusyId === folderDetail.id ? 0.5 : 1,
+                    fontSize: 18,
+                  }}
+                  title={folderBookmarkedIds?.has(folderDetail.id) ? "Remove from my space" : "Save to my space"}
+                >
+                  {folderBookmarkedIds?.has(folderDetail.id) ? "★" : "☆"}
+                </button>
+              )}
               {folderDetail.visibility === "link" && (
                 <button onClick={() => onShareFolder(folderDetail)} style={sharedStyles.iconActionBtn}>🔗</button>
               )}

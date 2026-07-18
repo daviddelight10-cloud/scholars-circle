@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { copyShareToken } from "../../lib/researchUtils";
-import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder } from "../../lib/foldersApi";
+import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder } from "../../lib/foldersApi";
 import { getMyProfile } from "../../lib/profileApi.js";
 import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
@@ -54,7 +54,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
 
-  const [folders, setFolders] = useState({ own: [], shared: [] });
+  const [folders, setFolders] = useState({ own: [], shared: [], bookmarked: [] });
+  const [folderBookmarkedIds, setFolderBookmarkedIds] = useState(new Set());
+  const [folderBookmarkBusyId, setFolderBookmarkBusyId] = useState(null);
   const [activeFolder, setActiveFolder] = useState(null);
   const [folderDetail, setFolderDetail] = useState(null);
   const [folderLoading, setFolderLoading] = useState(false);
@@ -197,7 +199,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
 
   const fetchFolders = async () => {
     try {
-      setFolders(await listFolders());
+      const data = await listFolders();
+      setFolders(data);
+      const bmIds = new Set((data.bookmarked || []).map((f) => f.id));
+      setFolderBookmarkedIds(bmIds);
     } catch {}
   };
 
@@ -267,6 +272,40 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       showToast("Could not copy link");
     }
   };
+
+  const handleToggleFolderBookmark = useCallback(async (folder) => {
+    if (!folder?.id) return;
+    const isBookmarked = folderBookmarkedIds.has(folder.id);
+    setFolderBookmarkBusyId(folder.id);
+    // Optimistic update
+    setFolderBookmarkedIds((prev) => {
+      const next = new Set(prev);
+      if (isBookmarked) next.delete(folder.id);
+      else next.add(folder.id);
+      return next;
+    });
+    try {
+      if (isBookmarked) {
+        await apiUnbookmarkFolder(folder.id);
+        showToast("Removed from your space");
+      } else {
+        await apiBookmarkFolder(folder.id);
+        showToast("Added to your space ★");
+      }
+      fetchFolders();
+    } catch {
+      // Revert on error
+      setFolderBookmarkedIds((prev) => {
+        const next = new Set(prev);
+        if (isBookmarked) next.add(folder.id);
+        else next.delete(folder.id);
+        return next;
+      });
+      showToast("Failed to update bookmark");
+    } finally {
+      setFolderBookmarkBusyId(null);
+    }
+  }, [folderBookmarkedIds]);
 
   const openFolder = (folderId) => {
     setActiveFolder(folderId);
@@ -619,6 +658,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         onShareFolder={handleShareFolder}
         onDeleteFolder={handleDeleteFolder}
         onUploadToFolder={openUploadInFolder}
+        onToggleFolderBookmark={handleToggleFolderBookmark}
+        folderBookmarkedIds={folderBookmarkedIds}
+        folderBookmarkBusyId={folderBookmarkBusyId}
         bookmarkedIds={bookmarkedIds}
         bookmarkFolderMap={bookmarkFolderMap}
         bookmarkBusyId={bookmarkBusyId}
@@ -662,6 +704,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
           onShare={handleShare}
           onCreateFolder={() => setShowCreateFolder(true)}
           onOpenFolder={openFolder}
+          folderBookmarkedIds={folderBookmarkedIds}
+          folderBookmarkBusyId={folderBookmarkBusyId}
+          onToggleFolderBookmark={handleToggleFolderBookmark}
         />
       ) : activeTab === "department" ? (
         <DepartmentView
