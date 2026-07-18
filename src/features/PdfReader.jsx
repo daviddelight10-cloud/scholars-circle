@@ -881,9 +881,24 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const CHUNK_SIZE = 12000; // Per-chunk text size for map-reduce summarization
   const CHUNK_OVERLAP = 500; // Overlap between chunks to preserve context
 
-  const capturePageImage = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
+  const capturePageImage = async () => {
+    let canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[currentPage - 1];
+
+    // If canvas doesn't exist or hasn't been rendered yet, force-render it
+    if (!canvas || canvas.width === 0 || canvas.height === 0) {
+      if (scrollMode === "single") {
+        await renderPage(currentPage);
+        canvas = canvasRef.current;
+      } else {
+        canvas = pageCanvasRefs.current[currentPage - 1];
+        if (canvas) {
+          delete canvas.dataset.rendered;
+          await renderPageToCanvas(currentPage, canvas);
+        }
+      }
+    }
+
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
     try {
       return canvas.toDataURL("image/jpeg", 0.7);
     } catch {
@@ -1142,7 +1157,7 @@ ${text}
       setStudyStep("loading");
       setStudyLoadingMsg("Looking at page…");
 
-      const pageImage = capturePageImage();
+      const pageImage = await capturePageImage();
       if (!pageImage) {
         setStudyError("Could not capture the current page. Try switching to text-based mode.");
         setStudyStep("setup");
