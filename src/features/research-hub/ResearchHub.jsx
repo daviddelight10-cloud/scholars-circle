@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { copyShareToken } from "../../lib/researchUtils";
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder } from "../../lib/foldersApi";
 import { getMyProfile } from "../../lib/profileApi.js";
+import { setUserDepartment } from "../../lib/departments.js";
 import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
 
@@ -67,6 +68,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   const [newFolderVisibility, setNewFolderVisibility] = useState("private");
   const [newFolderLevel, setNewFolderLevel] = useState("");
   const [newFolderSemester, setNewFolderSemester] = useState("");
+  const [newFolderDeptIds, setNewFolderDeptIds] = useState([]);
+  const [userDept, setUserDept] = useState(null);
   const [activeFolderTab, setActiveFolderTab] = useState("materials");
   const [mcqProgress, setMcqProgress] = useState({});
 
@@ -84,6 +87,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     try {
       const data = await getMyProfile();
       if (data?.profile) setUserProfile(data.profile);
+      if (data?.userDept) setUserDept(data.userDept);
     } catch {}
   };
 
@@ -232,7 +236,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) { showToast("Folder name required"); return; }
+    if (newFolderVisibility === "shared" && newFolderDeptIds.length === 0) {
+      showToast("Please select a department to share with");
+      return;
+    }
     try {
+      // If user had no department and selected one, persist it
+      if (newFolderVisibility === "shared" && !userDept?.departmentId && newFolderDeptIds.length > 0) {
+        const yearLevel = newFolderLevel ? parseInt(newFolderLevel) : 1;
+        const safeYearLevel = isNaN(yearLevel) ? 1 : yearLevel;
+        const semester = newFolderSemester || null;
+        try {
+          await setUserDepartment(newFolderDeptIds[0], safeYearLevel, semester, userProfile?.universityId || null);
+          fetchUserProfile();
+        } catch {}
+      }
+
       const data = await createFolder({
         name: newFolderName.trim(),
         courseCode: newFolderCourseCode.trim() || null,
@@ -240,11 +259,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         level: newFolderLevel || null,
         semester: newFolderSemester || null,
         universityId: userProfile?.universityId || null,
+        departmentIds: newFolderVisibility === "shared" ? newFolderDeptIds : undefined,
       });
       setFolders((prev) => ({ ...prev, own: [data, ...(prev.own || [])] }));
       setShowCreateFolder(false);
       setNewFolderName(""); setNewFolderCourseCode(""); setNewFolderVisibility("private");
       setNewFolderLevel(""); setNewFolderSemester("");
+      setNewFolderDeptIds([]);
       showToast("Folder created ✓");
     } catch (err) {
       showToast(err.message || "Failed to create folder");
@@ -655,6 +676,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       newVisibility={newFolderVisibility} setNewVisibility={setNewFolderVisibility}
       newLevel={newFolderLevel} setNewLevel={setNewFolderLevel}
       newSemester={newFolderSemester} setNewSemester={setNewFolderSemester}
+      userDept={userDept}
+      newFolderDeptIds={newFolderDeptIds} setNewFolderDeptIds={setNewFolderDeptIds}
     />
   );
 
