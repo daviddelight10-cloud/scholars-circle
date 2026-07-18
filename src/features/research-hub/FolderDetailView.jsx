@@ -18,7 +18,7 @@ export default function FolderDetailView({
   const folderSubTabs = [
     ["materials", "📄 Materials", folderCategorized.materials.length],
     ["summaries", "📝 Summary", folderCategorized.summaries.length],
-    ["flashcards", "🎴 Flash Cards", folderCategorized.flashcards.length],
+    ["flashcards", "🎴 Cards", folderCategorized.flashcards.length],
     ["mcqs", "✎ MCQs", folderCategorized.mcqs.length],
   ];
   const currentList = folderCategorized[activeFolderTab] || [];
@@ -82,7 +82,7 @@ export default function FolderDetailView({
           </div>
         )}
 
-        <div className="sc-tabrow mb-4 flex gap-4 overflow-x-auto border-b border-hub-border">
+        <div className="sc-tabrow mb-4 flex gap-2 overflow-x-auto border-b border-hub-border">
           {folderSubTabs.map(([key, label, count]) => (
             <button
               key={key}
