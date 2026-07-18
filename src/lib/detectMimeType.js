@@ -17,12 +17,10 @@ export async function detectFileType(file) {
   let result = "unknown";
 
   // Fast path: check well-known MIME types
-  const mime = file.type || "";
+  const mime = (file.type || "").toLowerCase();
   if (mime === "application/pdf") result = "pdf";
   else if (mime.startsWith("image/")) result = "image";
   else if (mime === "text/plain") result = "txt";
-  else if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") result = "docx";
-  else if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") result = "pptx";
   else if (mime === "application/msword") result = "doc";
   else {
     // Read first 12 bytes for magic number detection
@@ -107,46 +105,101 @@ export async function detectFileType(file) {
 }
 
 /**
- * Inspect a ZIP archive to determine if it's a DOCX or PPTX by scanning
- * raw bytes for characteristic folder names. ZIP files store entry names
- * as plain text in the central directory (near the end of the file).
+ * Inspect a ZIP archive to determine if it's a DOCX or PPTX.
+ * First checks [Content_Types].xml (usually near the start of the archive)
+ * for unique OOXML content type strings. If that fails, it locates the
+ * ZIP central directory by parsing the End of Central Directory record
+ * and scans the file names stored there.
+ *
  * This avoids loading JSZip just for type detection.
  */
 async function detectZipType(file) {
-  // Read the last 64KB of the file (central directory is at the end)
-  // plus the first 4KB (local file headers are at the start)
-  const tailSize = Math.min(65536, file.size);
-  const headSize = Math.min(4096, file.size);
-
-  let combined = new Uint8Array(0);
-
+  // ── 1. Fast check: [Content_Types].xml near the start ──────────────────────
+  const headSize = Math.min(65536, file.size);
   try {
-    const tailBuf = await file.slice(file.size - tailSize, file.size).arrayBuffer();
-    const tail = new Uint8Array(tailBuf);
+    const headBuf = await file.slice(0, headSize).arrayBuffer();
+    const headText = new TextDecoder("utf-8", { fatal: false }).decode(headBuf).toLowerCase();
 
-    if (headSize > 0 && headSize < file.size) {
-      const headBuf = await file.slice(0, headSize).arrayBuffer();
-      const head = new Uint8Array(headBuf);
-      combined = new Uint8Array(head.length + tail.length);
-      combined.set(head, 0);
-      combined.set(tail, head.length);
-    } else {
-      combined = tail;
+    if (headText.includes("presentationml.presentation") || headText.includes("presentationml.slide")) {
+      return "pptx";
+    }
+    if (headText.includes("wordprocessingml.document")) {
+      return "docx";
     }
   } catch {
-    return null;
+    // fall through to central directory scan
   }
 
-  // Convert to string for searching (entry names are ASCII/UTF-8)
-  const text = new TextDecoder("ascii", { fatal: false }).decode(combined);
+  // ── 2. Locate and read central directory via EOCD ───────────────────────────
+  let centralDir = new Uint8Array(0);
+  try {
+    const eocdBlockSize = Math.min(65536 + 22, file.size);
+    const eocdBuf = await file.slice(file.size - eocdBlockSize, file.size).arrayBuffer();
+    const eocd = new Uint8Array(eocdBuf);
+
+    // Find EOCD signature PK\x05\x06
+    let eocdPos = -1;
+    for (let i = eocd.length - 22; i >= 0; i--) {
+      if (eocd[i] === 0x50 && eocd[i + 1] === 0x4b && eocd[i + 2] === 0x05 && eocd[i + 3] === 0x06) {
+        eocdPos = i;
+        break;
+      }
+    }
+
+    if (eocdPos >= 0) {
+      const view = new DataView(eocd.buffer, eocd.byteOffset + eocdPos, 22);
+      let cdOffset = view.getUint32(16, true);
+      let cdSize = view.getUint32(12, true);
+
+      // ZIP64: offsets are 0xFFFFFFFF, must search for EOCD64 locator
+      if (cdOffset === 0xffffffff || cdSize === 0xffffffff) {
+        const locOffset = eocdPos - 20;
+        if (locOffset >= 0) {
+          const locator = new DataView(eocd.buffer, eocd.byteOffset + locOffset, 20);
+          if (locator.getUint32(0, true) === 0x07064b50) {
+            const eocd64Offset = Number(locator.getBigUint64(8, true));
+            const eocd64Buf = await file.slice(eocd64Offset, eocd64Offset + 96).arrayBuffer();
+            const eocd64 = new Uint8Array(eocd64Buf);
+            const eocd64View = new DataView(eocd64.buffer, eocd64.byteOffset, Math.min(96, eocd64.length));
+            // Verify signature PK\x06\x06
+            if (eocd64View.getUint32(0, true) === 0x06064b50 && eocd64View.byteLength >= 56) {
+              cdSize = Number(eocd64View.getBigUint64(40, true));
+              cdOffset = Number(eocd64View.getBigUint64(48, true));
+            }
+          }
+        }
+      }
+
+      if (cdSize > 0 && cdOffset >= 0 && cdOffset + cdSize <= file.size) {
+        const cdBuf = await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer();
+        centralDir = new Uint8Array(cdBuf);
+      }
+    }
+  } catch {
+    // fall through to tail scan below
+  }
+
+  // ── 3. Scan central directory (or fall back to last 64KB) for filenames ─────
+  let scan = centralDir;
+  if (centralDir.length === 0) {
+    try {
+      const tailSize = Math.min(65536, file.size);
+      const tailBuf = await file.slice(file.size - tailSize, file.size).arrayBuffer();
+      scan = new Uint8Array(tailBuf);
+    } catch {
+      return null;
+    }
+  }
+
+  const text = new TextDecoder("utf-8", { fatal: false }).decode(scan);
 
   // DOCX contains word/document.xml
-  if (text.includes("word/") || text.includes("word\\")) {
+  if (text.includes("word/document.xml") || text.includes("word/_rels/document.xml.rels")) {
     return "docx";
   }
 
-  // PPTX contains ppt/slides/
-  if (text.includes("ppt/") || text.includes("ppt\\")) {
+  // PPTX contains ppt/presentation.xml
+  if (text.includes("ppt/presentation.xml") || text.includes("ppt/_rels/presentation.xml.rels")) {
     return "pptx";
   }
 
@@ -162,14 +215,6 @@ async function detectZipType(file) {
 export function detectFileTypeSync(file) {
   if (!file) return "unknown";
 
-  const mime = file.type || "";
-  if (mime === "application/pdf") return "pdf";
-  if (mime.startsWith("image/")) return "image";
-  if (mime === "text/plain") return "txt";
-  if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "docx";
-  if (mime === "application/vnd.openxmlformats-officedocument.presentationml.presentation") return "pptx";
-  if (mime === "application/msword") return "doc";
-
   const name = (file.name || "").toLowerCase();
   if (name.endsWith(".pdf")) return "pdf";
   if (name.endsWith(".docx")) return "docx";
@@ -177,6 +222,11 @@ export function detectFileTypeSync(file) {
   if (name.endsWith(".doc")) return "doc";
   if (name.endsWith(".txt")) return "txt";
   if (/\.(png|jpe?g|webp|gif|bmp)$/i.test(name)) return "image";
+
+  const mime = (file.type || "").toLowerCase();
+  if (mime === "application/pdf") return "pdf";
+  if (mime.startsWith("image/")) return "image";
+  if (mime === "text/plain") return "txt";
 
   return "unknown";
 }

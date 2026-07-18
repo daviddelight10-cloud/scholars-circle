@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { callAI, callAIMultimodal, extractJSON } from "../../lib/aiClient";
 import { extractFileText, chunkText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
-import { convertToPdf, needsConversion } from "../../lib/convertToPdf";
+import { convertToPdf } from "../../lib/convertToPdf";
 import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
 import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText, gold } from "./constants";
 
@@ -99,7 +99,9 @@ export default function UploadWizard({
       return;
     }
 
-    if (needsConversion(f)) {
+    const needsConvert = !["image", "pdf", "doc"].includes(detectedType) && !f.name.toLowerCase().endsWith(".json");
+
+    if (needsConvert) {
       setConverting(true);
       setConvertProgress("Converting to PDF…");
       setFile(f);
