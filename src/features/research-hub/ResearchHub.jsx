@@ -14,6 +14,7 @@ import BookmarkSpacePicker from "./BookmarkSpacePicker";
 import CreateFolderModal from "./CreateFolderModal";
 import LibraryView from "./LibraryView.jsx";
 import DepartmentView from "./DepartmentView.jsx";
+import SubTabBar from "./SubTabBar.jsx";
 import { colors, spacing, fontSize, fontWeight, sharedStyles, gold, goldDim, goldBorder, goldText } from "./constants";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -36,6 +37,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [activeTab, setActiveTab] = useState("library");
+  const [communitySubTab, setCommunitySubTab] = useState("all");
   const [toast, setToast] = useState(null);
   const [viewerToken, setViewerToken] = useState(null);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
@@ -97,7 +99,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       if (tab === "space" || tab === "fsrs" || tab === "progress") {
         setActiveTab("library");
       } else if (tab === "department") {
-        setActiveTab("department");
+        setActiveTab("community");
+        setCommunitySubTab("department");
       } else if (tab) {
         setActiveTab(tab);
       }
@@ -112,7 +115,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       if (tab === "space" || tab === "fsrs" || tab === "progress") {
         setActiveTab("library");
       } else if (tab === "department") {
-        setActiveTab("department");
+        setActiveTab("community");
+        setCommunitySubTab("department");
       } else if (tab) {
         setActiveTab(tab);
       }
@@ -121,10 +125,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   }, []);
 
   useEffect(() => {
-    if (activeTab === "library" || activeTab === "department") {
+    if (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) {
       fetchBookmarks();
     }
-  }, [activeTab]);
+  }, [activeTab, communitySubTab]);
 
   const getAuthHeaders = () => {
     try {
@@ -731,7 +735,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   return (
     <div style={{ padding: spacing.xl, maxWidth: "1200px", margin: "0 auto" }}>
       <div className="sc-tabrow" style={sharedStyles.tabRow}>
-        {[["library", "📚 My Space"], ["community", "🌐 Community"], ["department", "🏛️ Department"]].map(([key, label]) => (
+        {[["library", "📚 My Space"], ["community", "🌐 Community"]].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)} style={activeTab === key ? sharedStyles.tabActive : sharedStyles.tab}>
             {label}
             {key === "library" && fsrsStats && fsrsStats.dueCount > 0 && <span style={sharedStyles.tabCount}>{fsrsStats.dueCount}</span>}
@@ -761,27 +765,38 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
           folderBookmarkBusyId={folderBookmarkBusyId}
           onToggleFolderBookmark={handleToggleFolderBookmark}
         />
-      ) : activeTab === "department" ? (
-        <DepartmentView
-          resources={resources}
-          resourcesLoading={resourcesLoading}
-          resourcesError={resourcesError}
-          onRetry={fetchResources}
-          currentUserId={getCurrentUserId()}
-          userProfile={userProfile}
-          fsrsStats={fsrsStats}
-          folders={folders}
-          bookmarkedIds={bookmarkedIds}
-          bookmarkBusyId={bookmarkBusyId}
-          mcqProgress={mcqProgress}
-          onOpen={handleOpen}
-          onToggleBookmark={toggleBookmark}
-          onShare={handleShare}
-          onOpenFolder={openFolder}
-          onCreateFolder={() => setShowCreateFolder(true)}
-        />
       ) : (
         <>
+          <SubTabBar
+            tabs={[
+              ["all", "All Resources"],
+              ["department", "🏛️ My Department", folders?.shared?.length || 0],
+            ]}
+            activeTab={communitySubTab}
+            onTabChange={setCommunitySubTab}
+          />
+
+          {communitySubTab === "department" ? (
+            <DepartmentView
+              resources={resources}
+              resourcesLoading={resourcesLoading}
+              resourcesError={resourcesError}
+              onRetry={fetchResources}
+              currentUserId={getCurrentUserId()}
+              userProfile={userProfile}
+              fsrsStats={fsrsStats}
+              folders={folders}
+              bookmarkedIds={bookmarkedIds}
+              bookmarkBusyId={bookmarkBusyId}
+              mcqProgress={mcqProgress}
+              onOpen={handleOpen}
+              onToggleBookmark={toggleBookmark}
+              onShare={handleShare}
+              onOpenFolder={openFolder}
+              onCreateFolder={() => setShowCreateFolder(true)}
+            />
+          ) : (
+            <>
           <div style={{ display: "flex", gap: spacing.sm, marginBottom: spacing.md, flexWrap: "wrap" }}>
             <div style={{ ...sharedStyles.searchWrap, flex: "1 1 240px" }}>
               <span style={{ color: "#3a3d60", fontSize: fontSize.lg }}>🔍</span>
@@ -850,6 +865,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
               ))}
             </div>
           )}
+            </>
+          )}
         </>
       )}
 
@@ -859,7 +876,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         </div>
       )}
 
-      {showFab && (activeTab === "library" || activeTab === "department") && (
+      {showFab && (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
         <div onClick={() => setShowFab(false)} style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
           zIndex: 998, animation: "fadeup 0.15s ease",
@@ -870,7 +887,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         position: "fixed", bottom: "24px", right: "24px", zIndex: 999,
         display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px",
       }}>
-        {showFab && (activeTab === "library" || activeTab === "department") && (
+        {showFab && (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
           <>
             <FabAction
               icon="📎"
@@ -886,7 +903,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
             />
           </>
         )}
-        {(activeTab === "library" || activeTab === "department") && (
+        {(activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
         <button
           onClick={() => setShowFab((v) => !v)}
           style={{
