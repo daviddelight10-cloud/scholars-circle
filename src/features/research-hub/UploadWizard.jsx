@@ -34,6 +34,8 @@ export default function UploadWizard({
   onSaveStudyTool,
   uploading,
   uploadProgress,
+  uploadError,
+  onClearUploadError,
 }) {
   const [step, setStep] = useState(1);
   const [file, setFile] = useState(null);
@@ -53,6 +55,8 @@ export default function UploadWizard({
   const [flashcards, setFlashcards] = useState([emptyFlashcard()]);
   const [summaryText, setSummaryText] = useState("");
   const [destFolderId, setDestFolderId] = useState("");
+  const [titleError, setTitleError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -75,6 +79,9 @@ export default function UploadWizard({
       setFlashcards([emptyFlashcard()]);
       setSummaryText("");
       setDestFolderId(presetFolderId || "");
+      setTitleError("");
+      setSaveError("");
+      if (onClearUploadError) onClearUploadError();
     }
   }, [show, presetFolderId]);
 
@@ -146,6 +153,11 @@ export default function UploadWizard({
   // ── Step 2: Action selection ───────────────────────────────────────────────
 
   const handleChooseAction = (chosen) => {
+    if (!title.trim()) {
+      setTitleError("Please enter a title before choosing an action");
+      return;
+    }
+    setTitleError("");
     setAction(chosen);
     if (chosen === "material") {
       setStep(4);
@@ -383,10 +395,12 @@ ${text}
   // ── Step 4: Save ───────────────────────────────────────────────────────────
 
   const handleSave = async () => {
-    if (!title.trim() || !subject.trim()) { setGenError("Add a title and subject first"); return; }
+    setSaveError("");
+    if (!title.trim()) { setSaveError("Please go back and enter a title for your document"); return; }
 
     if (action === "material") {
       if (isNote) {
+        if (!noteContent.trim()) { setSaveError("Your note is empty — please go back and add content"); return; }
         onUploadFile({
           title: title.trim(),
           subject: subject.trim(),
@@ -404,10 +418,12 @@ ${text}
           file,
           folderId: destFolderId || null,
         });
+      } else {
+        setSaveError("No file selected — please go back to step 1");
       }
     } else if (action === "mcqs") {
-      const incomplete = mcqRows.some((row) => !row.question.trim() || Object.values(row.options).some((o) => !o.trim()));
-      if (incomplete) { setGenError("Fill in every question and all 4 options"); return; }
+      const incompleteIdx = mcqRows.findIndex((row) => !row.question.trim() || Object.values(row.options).some((o) => !o.trim()));
+      if (incompleteIdx >= 0) { setSaveError(`Question ${incompleteIdx + 1} is missing text or options — please go back and complete it or remove it`); return; }
       onSaveStudyTool({
         title: title.trim(),
         subject: subject.trim(),
@@ -416,8 +432,8 @@ ${text}
         folderId: destFolderId || null,
       });
     } else if (action === "flashcards") {
-      const incomplete = flashcards.some((fc) => !fc.front.trim() || !fc.back.trim());
-      if (incomplete) { setGenError("Fill in all flashcard fronts and backs"); return; }
+      const incompleteIdx = flashcards.findIndex((fc) => !fc.front.trim() || !fc.back.trim());
+      if (incompleteIdx >= 0) { setSaveError(`Flashcard ${incompleteIdx + 1} is missing its front or back — please go back and complete it or remove it`); return; }
       onSaveStudyTool({
         title: title.trim(),
         subject: subject.trim(),
@@ -426,7 +442,7 @@ ${text}
         folderId: destFolderId || null,
       });
     } else if (action === "summary") {
-      if (!summaryText.trim()) { setGenError("Summary is empty"); return; }
+      if (!summaryText.trim()) { setSaveError("Summary is empty — please generate one first"); return; }
       setGenerating(true);
       setGenProgress("Generating formatted PDF…");
       setTimeout(() => {
@@ -454,14 +470,14 @@ ${text}
         } catch (err) {
           setGenerating(false);
           setGenProgress("");
-          setGenError("Failed to generate PDF: " + (err.message || "Unknown error"));
+          setSaveError("Failed to generate PDF: " + (err.message || "Unknown error"));
         }
       }, 50);
     }
   };
 
   const canSave = () => {
-    if (!title.trim() || !subject.trim()) return false;
+    if (!title.trim()) return false;
     if (action === "mcqs") return mcqRows.some((r) => r.question.trim());
     if (action === "flashcards") return flashcards.some((fc) => fc.front.trim());
     if (action === "summary") return summaryText.trim().length > 0;
@@ -606,10 +622,11 @@ ${text}
           <>
             <div style={{ marginBottom: spacing.md }}>
               <label style={sharedStyles.fieldLabel}>Title</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Upper Limb — Brachial Plexus" style={sharedStyles.input} />
+              <input value={title} onChange={(e) => { setTitle(e.target.value); setTitleError(""); }} placeholder="e.g. Upper Limb — Brachial Plexus" style={{ ...sharedStyles.input, borderColor: titleError ? colors.danger : undefined }} />
+              {titleError && <div style={{ fontSize: fontSize.xs, color: colors.danger, marginTop: spacing.xs }}>{titleError}</div>}
             </div>
             <div style={{ marginBottom: spacing.lg }}>
-              <label style={sharedStyles.fieldLabel}>Subject / course code</label>
+              <label style={sharedStyles.fieldLabel}>Subject / course code <span style={{ color: colors.textDim, fontWeight: fontWeight.normal }}>(optional)</span></label>
               <input list="wizardSubjectOptions" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. BIO 111" style={sharedStyles.input} />
               <datalist id="wizardSubjectOptions">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
             </div>
@@ -750,7 +767,7 @@ ${text}
             <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.lg }}>
               <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: goldText, marginBottom: spacing.sm }}>Ready to save</div>
               <div style={{ fontSize: fontSize.sm, color: colors.text, lineHeight: 1.6 }}>
-                <strong>{title}</strong> — {subject}
+                <strong>{title}</strong> — {subject || "No subject"}
               </div>
               <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: spacing.xs }}>
                 {action === "material" && (isNote ? "📝 Note" : "📄 " + (file?.name || "File"))}
@@ -786,12 +803,35 @@ ${text}
               </div>
             )}
 
+            {saveError && !uploading && !generating && (
+              <div style={{ fontSize: fontSize.xs, color: colors.danger, marginBottom: spacing.md, padding: "8px 12px", background: colors.dangerBg, borderRadius: borderRadius.sm, display: "flex", alignItems: "center", gap: spacing.sm }}>
+                <span style={{ flex: 1 }}>⚠️ {saveError}</span>
+                <button
+                  onClick={() => {
+                    if (saveError.includes("title")) setStep(2);
+                    else if (saveError.includes("file") || saveError.includes("note")) setStep(1);
+                    else if (saveError.includes("Question") || saveError.includes("Flashcard") || saveError.includes("Summary")) setStep(3);
+                    setSaveError("");
+                  }}
+                  style={{ background: "none", border: `0.5px solid ${colors.danger}`, color: colors.danger, fontSize: fontSize.xs, padding: "4px 10px", borderRadius: borderRadius.sm, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  Fix it →
+                </button>
+              </div>
+            )}
+
+            {uploadError && !uploading && !generating && (
+              <div style={{ fontSize: fontSize.xs, color: colors.danger, marginBottom: spacing.md, padding: "8px 12px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
+                ⚠️ {uploadError}
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <button onClick={() => setStep(action === "material" ? 2 : 3)} style={sharedStyles.wizardBackBtn} disabled={uploading || generating}>← Back</button>
               <button
                 onClick={handleSave}
-                disabled={uploading || generating || !canSave()}
-                style={uploading || generating || !canSave() ? sharedStyles.wizardBtnDisabled : sharedStyles.wizardBtnPrimary}
+                disabled={uploading || generating}
+                style={uploading || generating ? sharedStyles.wizardBtnDisabled : sharedStyles.wizardBtnPrimary}
               >
                 {uploading ? "Saving…" : generating ? "Generating…" : "Save to space ✓"}
               </button>

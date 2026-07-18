@@ -727,9 +727,11 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
   try {
     const { title, subject, contentType, description, mcqData, flashcardData, fileBuffer, fileName, isPublic, folderId } = req.body;
 
-    if (!title || !subject || !contentType) {
-      return res.status(400).json({ error: "Title, subject, and content type are required" });
+    if (!title || !contentType) {
+      return res.status(400).json({ error: "Title and content type are required" });
     }
+
+    const finalSubject = subject || "";
 
     // If folderId is provided, fetch folder for metadata inheritance
     let folder = null;
@@ -800,7 +802,7 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
     const resource = await prisma.resource.create({
       data: {
         title,
-        subject: folder?.courseCode || subject,
+        subject: folder?.courseCode || finalSubject,
         contentType,
         fileUrl,
         storagePath,
@@ -1472,9 +1474,11 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   try {
     const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId, universityId } = req.body;
 
-    if (!title || !subject || !contentType) {
-      return res.status(400).json({ error: "Title, subject, and content type are required" });
+    if (!title || !contentType) {
+      return res.status(400).json({ error: "Title and content type are required" });
     }
+
+    const finalSubject = subject || "";
 
     // Fetch user's department info for auto-filling if not provided
     const userDept = await prisma.userDepartment.findUnique({
@@ -1559,7 +1563,7 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
     const resource = await prisma.resource.create({
       data: {
         title,
-        subject: folder?.courseCode || subject,
+        subject: folder?.courseCode || finalSubject,
         contentType,
         fileUrl,
         storagePath,

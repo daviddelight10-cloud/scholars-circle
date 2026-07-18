@@ -53,6 +53,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   const [showFab, setShowFab] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const [folders, setFolders] = useState({ own: [], shared: [], bookmarked: [] });
   const [folderBookmarkedIds, setFolderBookmarkedIds] = useState(new Set());
@@ -498,16 +499,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
           }
         } catch {}
         setShowUploadWizard(false);
+        setUploadError("");
         showToast("Saved to space ✓");
         if (data.folderId) { fetchFolderDetail(data.folderId); }
         else { fetchResources(); fetchFolders(); }
       } else {
-        showToast("Upload failed");
+        let errMsg = "Upload failed — please try again";
+        try { const err = JSON.parse(xhr.responseText); if (err.error) errMsg = err.error; } catch {}
+        setUploadError(errMsg);
+        showToast(errMsg);
       }
     });
     xhr.addEventListener("error", () => {
       setUploading(false);
-      showToast("Upload failed — check your connection");
+      setUploadError("Network error — check your connection and try again");
+      showToast("Network error — check your connection");
     });
     xhr.open("POST", `${API_BASE}/api/resources`);
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
@@ -548,6 +554,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       })
       .then((resource) => {
         setUploading(false);
+        setUploadError("");
         try { localStorage.removeItem("sc_resources_list"); } catch {}
         setResources((prev) => [resource, ...prev]);
         setShowUploadWizard(false);
@@ -555,9 +562,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         if (data.folderId) { fetchFolderDetail(data.folderId); }
         else { fetchResources(); fetchFolders(); }
       })
-      .catch(() => {
+      .catch((err) => {
         setUploading(false);
-        showToast("Failed to save — try again");
+        const errMsg = err.message || "Failed to save — try again";
+        setUploadError(errMsg);
+        showToast(errMsg);
       });
   };
 
@@ -612,6 +621,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
       onSaveStudyTool={handleWizardStudyToolSave}
       uploading={uploading}
       uploadProgress={uploadProgress}
+      uploadError={uploadError}
+      onClearUploadError={() => setUploadError("")}
     />
   );
 
