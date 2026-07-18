@@ -16,7 +16,7 @@ export default function FolderDetailView({
   uploadModal, createFolderModal, bookmarkPicker,
 }) {
   const folderSubTabs = [
-    ["materials", "📄 Materials", folderCategorized.materials.length],
+    ["materials", "📄 Files", folderCategorized.materials.length],
     ["summaries", "📝 Summary", folderCategorized.summaries.length],
     ["flashcards", "🎴 Cards", folderCategorized.flashcards.length],
     ["mcqs", "✎ MCQs", folderCategorized.mcqs.length],
@@ -27,7 +27,7 @@ export default function FolderDetailView({
 
   return (
     <>
-      <div className="mx-auto max-w-[1200px] p-6">
+      <div className="mx-auto max-w-[1200px] p-4 sm:p-6">
         <div className="mb-8 flex items-center gap-3">
           <button onClick={onClose} className="flex items-center gap-2 rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[13px] text-hub-text-muted transition-all active:scale-95">
             ← My Space
