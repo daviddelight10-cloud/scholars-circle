@@ -2373,11 +2373,6 @@ ${extractedText}
         return;
       }
       lastTapRef.current = now;
-      // Tap to toggle chrome (header) — quick tap, no movement, not zoomed, no tool
-      if (dist < 10 && tool === "none" && panZoomRef.current.scale <= 1.01) {
-        setChromeHidden((v) => !v);
-        return;
-      }
       // Swipe navigation (only in single page mode)
       if (scrollMode === "single" && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
         if (panZoomRef.current.scale > 1.01) {
