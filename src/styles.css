@@ -2043,6 +2043,28 @@ body {
   box-sizing: border-box;
 }
 
+/* ── My Circle sticky header ── */
+.mc-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.97), rgba(10, 10, 10, 0.92));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 215, 0, 0.12);
+}
+.mc-sticky-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.4), transparent);
+}
+
 
 
 .hero-banner {

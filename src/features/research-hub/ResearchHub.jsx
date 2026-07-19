@@ -737,11 +737,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
 
   return (
     <div className="mx-auto max-w-[1200px] p-4 sm:p-6">
-      <div className="mb-6 flex flex-col items-center text-center">
-        <h1 className="text-gradient-gold text-2xl font-extrabold tracking-tight sm:text-3xl">My Circle</h1>
-        <p className="mt-1 text-[13px] text-hub-text-dim">Your personal study circle</p>
-      </div>
-      <div className="sc-tabrow mb-6 flex justify-center gap-2 overflow-x-auto">
+      <div className="mc-sticky-header -mx-4 mb-6 px-4 sm:-mx-6 sm:px-6">
+        <div className="flex flex-col items-center pt-2 text-center">
+          <h1 className="text-gradient-gold text-2xl font-extrabold tracking-tight sm:text-3xl">My Circle</h1>
+          <p className="mt-1 text-[13px] text-hub-text-dim">Your personal study circle</p>
+        </div>
+        <div className="sc-tabrow flex justify-center gap-2 overflow-x-auto pb-2 pt-3">
         {[["library", "📚 My Space"], ["community", "🌐 Community"]].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)} className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${
             activeTab === key
@@ -754,6 +755,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
             )}
           </button>
         ))}
+      </div>
       </div>
 
       {activeTab === "library" ? (
@@ -898,10 +900,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         {(activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
         <button
           onClick={() => setShowFab((v) => !v)}
-          className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold text-2xl font-bold transition-all duration-200 active:scale-90"
+          className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold text-3xl font-bold transition-all duration-200 active:scale-90"
           style={{
-            background: showFab ? "#141414" : "#FFD700",
-            boxShadow: showFab ? "0 4px 16px rgba(0,0,0,0.4)" : "0 4px 20px rgba(255,215,0,0.3)",
+            background: showFab ? "#141414" : "linear-gradient(135deg, #FFD700, #DAA520, #B8860B)",
+            boxShadow: showFab ? "0 4px 16px rgba(0,0,0,0.4)" : "0 8px 28px rgba(255,215,0,0.45), 0 2px 8px rgba(0,0,0,0.3)",
             color: showFab ? "#FFD700" : "#0a0a0a",
             transform: showFab ? "rotate(45deg)" : "rotate(0deg)",
             cursor: "pointer",
