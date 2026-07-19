@@ -3567,16 +3567,15 @@ ${extractedText}
         [data-text-layer] span { line-height: 1; }
       `}</style>
 
-      {/* Toolbar + Progress wrapper — absolute overlay, never affects layout */}
+      {/* Toolbar + Progress wrapper — in flow, collapses with negative margin so viewer never shifts */}
       <div style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
+        overflow: "hidden",
+        maxHeight: chromeHidden ? "0px" : "200px",
+        marginBottom: chromeHidden ? "-200px" : "0px",
+        transition: "max-height 0.25s ease, margin-bottom 0.25s ease",
+        flexShrink: 0,
+        position: "relative",
         zIndex: 50,
-        transform: chromeHidden ? "translateY(-100%)" : "translateY(0)",
-        transition: "transform 0.25s ease",
-        pointerEvents: chromeHidden ? "none" : "auto",
       }}>
       <div style={s.toolbar}>
         {isMobile ? (
