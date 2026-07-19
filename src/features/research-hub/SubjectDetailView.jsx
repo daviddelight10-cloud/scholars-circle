@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { getSubjectColor } from "./subjectColors";
 import ResourceCard from "./ResourceCard";
+import EmptyState from "./EmptyState";
 
 const TYPE_FILTERS = [
   { key: "all", label: "All", icon: "📚" },
@@ -85,13 +86,11 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
       </div>
 
       {filtered.length === 0 ? (
-        <div className="px-5 py-12 text-center">
-          <div className="mb-2 text-4xl">📭</div>
-          <div className="mb-1 text-sm font-bold text-hub-text-muted">No materials found</div>
-          <div className="text-[13px] text-hub-text-dim">
-            {search ? `No results for "${search}"` : `No ${typeFilter !== "all" ? TYPE_FILTERS.find(f => f.key === typeFilter)?.label.toLowerCase() : "materials"} in ${subject} yet`}
-          </div>
-        </div>
+        <EmptyState
+          icon="📭"
+          title="No materials found"
+          message={search ? `No results for "${search}"` : `No ${typeFilter !== "all" ? TYPE_FILTERS.find(f => f.key === typeFilter)?.label.toLowerCase() : "materials"} in ${subject} yet`}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((resource, i) => (

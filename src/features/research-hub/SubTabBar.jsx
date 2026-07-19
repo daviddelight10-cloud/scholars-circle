@@ -1,11 +1,11 @@
 export default function SubTabBar({ tabs, activeTab, onTabChange }) {
   return (
-    <div className="mb-4 flex w-full gap-4 border-b border-hub-border">
+    <div className="sc-tabrow mb-4 flex w-full gap-2 overflow-x-auto border-b border-hub-border">
       {tabs.map(([key, label, count]) => (
         <button
           key={key}
           onClick={() => onTabChange(key)}
-          className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-2 text-[13px] font-semibold transition-colors duration-150 ${
+          className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-2 py-2 text-[13px] font-semibold transition-colors duration-150 ${
             activeTab === key
               ? "border-gold font-bold text-gold"
               : "border-transparent text-hub-text-dim hover:text-hub-text-muted"

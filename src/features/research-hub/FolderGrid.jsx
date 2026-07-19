@@ -1,4 +1,5 @@
 import { getSubjectColor } from "./subjectColors";
+import EmptyState from "./EmptyState";
 
 function FolderCard({ folder, onClick, shared = false, index = 0 }) {
   const itemCount = folder._count?.resources ?? 0;
@@ -11,20 +12,25 @@ function FolderCard({ folder, onClick, shared = false, index = 0 }) {
       style={{ borderLeftWidth: "3px", borderLeftColor: sc.accent, animationDelay: delay }}
       onClick={onClick}
     >
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-3xl">{shared ? "📂" : "📁"}</div>
+      <div className="mb-3 flex items-center gap-3">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-2xl"
+          style={{ background: sc.bg, borderColor: sc.border }}
+        >
+          {shared ? "📂" : "📁"}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-bold text-hub-text">{folder.name}</div>
+          {folder.courseCode && (
+            <div className="mt-0.5 text-[11px] text-hub-text-dim">{folder.courseCode}</div>
+          )}
+        </div>
         {itemCount > 0 && (
-          <span className="rounded-full border border-gold-border bg-gold-dim px-2.5 py-0.5 text-[10px] font-bold text-gold">
-            {itemCount} {itemCount === 1 ? "item" : "items"}
+          <span className="shrink-0 rounded-full border border-gold-border bg-gold-dim px-2.5 py-0.5 text-[10px] font-bold text-gold">
+            {itemCount}
           </span>
         )}
       </div>
-
-      <div className="mb-1 text-sm font-bold text-hub-text">{folder.name}</div>
-
-      {folder.courseCode && (
-        <div className="mb-2 text-[11px] text-hub-text-muted">{folder.courseCode}</div>
-      )}
 
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         {folder.level && (
@@ -61,16 +67,16 @@ export default function FolderGrid({ folders, sharedFolders, search, onOpenFolde
 
   if (!hasAny && !search) {
     return (
-      <div className="px-5 py-16 text-center">
-        <div className="mb-4 text-5xl">📁</div>
-        <div className="mb-2 text-lg font-bold text-hub-text-muted">No folders yet</div>
-        <div className="mx-auto mb-6 max-w-md text-[13px] leading-relaxed text-hub-text-dim">
-          Create a folder to organize your study materials. You can make private folders or share them with your department.
-        </div>
-        <button onClick={onCreateFolder} className="rounded-lg border border-gold-border bg-gold-dim px-5 py-2 text-sm font-semibold text-gold transition-all active:scale-95">
-          + Create your first folder
-        </button>
-      </div>
+      <EmptyState
+        icon="📁"
+        title="No folders yet"
+        message="Create a folder to organize your study materials. You can make private folders or share them with your department."
+        action={
+          <button onClick={onCreateFolder} className="rounded-lg border border-gold-border bg-gold-dim px-5 py-2 text-sm font-semibold text-gold transition-all active:scale-95">
+            + Create your first folder
+          </button>
+        }
+      />
     );
   }
 
@@ -99,10 +105,7 @@ export default function FolderGrid({ folders, sharedFolders, search, onOpenFolde
       )}
 
       {!hasAny && search && (
-        <div className="px-5 py-12 text-center">
-          <div className="mb-2 text-4xl">🔍</div>
-          <div className="text-[13px] text-hub-text-dim">No folders match "{search}"</div>
-        </div>
+        <EmptyState icon="🔍" message={`No folders match "${search}"`} />
       )}
     </div>
   );

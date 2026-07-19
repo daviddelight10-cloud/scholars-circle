@@ -15,6 +15,9 @@ import CreateFolderModal from "./CreateFolderModal";
 import LibraryView from "./LibraryView.jsx";
 import DepartmentView from "./DepartmentView.jsx";
 import SubTabBar from "./SubTabBar.jsx";
+import EmptyState from "./EmptyState.jsx";
+import LoadingState from "./LoadingState.jsx";
+import ErrorState from "./ErrorState.jsx";
 import "../../research-hub.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -734,11 +737,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
 
   return (
     <div className="mx-auto max-w-[1200px] p-4 sm:p-6">
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col items-center text-center">
         <h1 className="text-gradient-gold text-2xl font-extrabold tracking-tight sm:text-3xl">My Circle</h1>
         <p className="mt-1 text-[13px] text-hub-text-dim">Your personal study circle</p>
       </div>
-      <div className="sc-tabrow mb-6 flex gap-2 overflow-x-auto">
+      <div className="sc-tabrow mb-6 flex justify-center gap-2 overflow-x-auto">
         {[["library", "📚 My Space"], ["community", "🌐 Community"]].map(([key, label]) => (
           <button key={key} onClick={() => setActiveTab(key)} className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${
             activeTab === key
@@ -814,7 +817,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
                 className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
             </div>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-              className="rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[12px] text-hub-text outline-none cursor-pointer">
+              className="min-h-[40px] rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[12px] text-hub-text outline-none cursor-pointer">
               <option value="recent">Most recent</option>
               <option value="views">Most viewed</option>
               <option value="bookmarks">Most saved</option>
@@ -838,23 +841,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
           <div className="mb-4 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">Community</div>
 
           {resourcesLoading ? (
-            <div className="px-5 py-16 text-center">
-              <div className="mb-2 text-4xl">⏳</div>
-              <div className="text-sm font-bold text-hub-text-muted">Loading materials…</div>
-            </div>
+            <LoadingState grid count={4} />
           ) : resourcesError ? (
-            <div className="px-5 py-16 text-center">
-              <div className="mb-2 text-4xl">⚠️</div>
-              <div className="text-sm font-bold text-hub-text-muted">Something went wrong</div>
-              <div className="mx-auto mb-4 max-w-md text-[13px] leading-relaxed text-hub-text-dim">{resourcesError}</div>
-              <button onClick={fetchResources} className="cursor-pointer rounded-full bg-gold-dim px-4 py-1.5 text-[11px] font-semibold text-gold border border-gold-border">↻ Retry</button>
-            </div>
+            <ErrorState message={resourcesError} onRetry={fetchResources} />
           ) : visibleResources.length === 0 ? (
-            <div className="px-5 py-16 text-center">
-              <div className="mb-2 text-4xl">📭</div>
-              <div className="mb-1 text-sm font-bold text-hub-text-muted">No results</div>
-              <div className="mx-auto max-w-md text-[13px] leading-relaxed text-hub-text-dim">{emptyMessages["public"]}</div>
-            </div>
+            <EmptyState icon="📭" title="No results" message={emptyMessages["public"]} />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {visibleResources.map((resource, i) => (
@@ -887,7 +878,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         <div onClick={() => setShowFab(false)} className="fixed inset-0 z-[998] bg-black/50" style={{ animation: "fade-up 0.15s ease" }} />
       )}
 
-      <div className="fixed bottom-6 right-6 z-[999] flex flex-col items-end gap-3">
+      <div className="fixed bottom-20 right-6 z-[999] flex flex-col items-end gap-3">
         {showFab && (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
           <>
             <FabAction

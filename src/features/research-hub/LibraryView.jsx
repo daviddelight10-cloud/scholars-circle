@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react";
 import SubjectDetailView from "./SubjectDetailView";
 import { FolderDeskCard, SubjectDeskCard, CreateDeckCard } from "./DeskCard";
+import EmptyState from "./EmptyState";
+import LoadingState from "./LoadingState";
+import ErrorState from "./ErrorState";
 
 function groupBySubject(resources, currentUserId, bookmarkedIds, bookmarkFolderMap) {
   const filtered = resources.filter((r) => {
@@ -103,18 +106,9 @@ export default function LibraryView({
   return (
     <div>
       {resourcesLoading ? (
-        <div className="px-5 py-16 text-center">
-          <div className="mb-2 text-4xl">⏳</div>
-          <div className="text-sm font-bold text-hub-text-muted">Loading your space…</div>
-          <div className="text-[13px] text-hub-text-dim">Fetching your materials from the server.</div>
-        </div>
+        <LoadingState grid count={4} />
       ) : resourcesError ? (
-        <div className="px-5 py-16 text-center">
-          <div className="mb-2 text-4xl">⚠️</div>
-          <div className="text-sm font-bold text-hub-text-muted">Something went wrong</div>
-          <div className="mx-auto mb-4 max-w-md text-[13px] leading-relaxed text-hub-text-dim">{resourcesError}</div>
-          <button onClick={onRetry} className="cursor-pointer rounded-full bg-gold-dim px-4 py-1.5 text-[11px] font-semibold text-gold border border-gold-border">↻ Retry</button>
-        </div>
+        <ErrorState message={resourcesError} onRetry={onRetry} />
       ) : isEmpty ? (
         <div className="px-5 py-16 text-center">
           <div className="mb-6 text-6xl">📚</div>
@@ -152,7 +146,7 @@ export default function LibraryView({
       ) : (
       <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2.5">
+        <div className="flex min-h-[40px] flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2">
           <span className="text-lg text-hub-text-dim">🔍</span>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search your spaces & materials…"
@@ -211,10 +205,7 @@ export default function LibraryView({
       )}
 
       {search && !hasFolders && !hasLooseMaterials && (
-        <div className="px-5 py-12 text-center">
-          <div className="mb-2 text-4xl">🔍</div>
-          <div className="text-[13px] text-hub-text-dim">No results for "{search}"</div>
-        </div>
+        <EmptyState icon="🔍" message={`No results for "${search}"`} />
       )}
       </>
       )}

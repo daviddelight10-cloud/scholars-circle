@@ -1,5 +1,8 @@
 import ResourceCard from "./ResourceCard";
 import { getSubjectColor } from "./subjectColors";
+import EmptyState from "./EmptyState";
+import LoadingState from "./LoadingState";
+import SubTabBar from "./SubTabBar";
 
 const emptyStateConfig = {
   materials: { icon: "📄", message: "No materials in this space yet.", cta: "Upload PDFs, notes, or other files to get started." },
@@ -82,29 +85,10 @@ export default function FolderDetailView({
           </div>
         )}
 
-        <div className="sc-tabrow mb-4 flex gap-2 overflow-x-auto border-b border-hub-border">
-          {folderSubTabs.map(([key, label, count]) => (
-            <button
-              key={key}
-              onClick={() => setActiveFolderTab(key)}
-              className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-2 text-[13px] font-semibold transition-colors duration-150 ${
-                activeFolderTab === key
-                  ? "border-gold font-bold text-gold"
-                  : "border-transparent text-hub-text-dim hover:text-hub-text-muted"
-              }`}
-            >
-              {label}
-              {count > 0 && (
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  activeFolderTab === key ? "bg-gold-dim text-gold" : "bg-hub-border text-hub-text-dim"
-                }`}>{count}</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <SubTabBar tabs={folderSubTabs} activeTab={activeFolderTab} onTabChange={setActiveFolderTab} />
 
         {folderLoading ? (
-          <div className="px-5 py-16 text-center text-[13px] text-hub-text-dim">Loading space contents…</div>
+          <LoadingState grid count={4} />
         ) : currentList.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {currentList.map((resource, i) => (
@@ -122,11 +106,7 @@ export default function FolderDetailView({
             ))}
           </div>
         ) : (
-          <div className="px-5 py-12 text-center">
-            <div className="mb-2 text-4xl">{emptyCfg.icon}</div>
-            <div className="mb-1 text-sm font-bold text-hub-text-muted">{emptyCfg.message}</div>
-            <div className="mx-auto max-w-md text-[13px] leading-relaxed text-hub-text-dim">{emptyCfg.cta}</div>
-          </div>
+          <EmptyState icon={emptyCfg.icon} title={emptyCfg.message} message={emptyCfg.cta} />
         )}
       </div>
       {uploadModal}
