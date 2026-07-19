@@ -12,6 +12,7 @@ import {
   CalendarDays, User, Settings, Gem, FileText, Laptop,
   Megaphone, KeyRound, Mail, Cog, GraduationCap, Building2,
   Download, Moon, Sun, Sparkles, ClipboardList, UserCircle, Mic,
+  ChevronLeft,
 } from "lucide-react";
 
 
@@ -256,6 +257,8 @@ function App() {
 
 
   const [tab, setTabRaw] = useState("today");
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const prevTabRef = useRef("today");
 
@@ -6817,7 +6820,7 @@ function App() {
 
   return (
 
-    <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack}`}>
+    <main className={`${darkMode ? "app dark" : "app light"} theme-${themePack}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
 
       {/* Offline Banner */}
       {isOffline && (
@@ -8697,67 +8700,201 @@ function App() {
 
 
 
-      {/* Desktop Tabs Navigation */}
+      {/* Desktop Sidebar Navigation */}
 
-      <nav className="tabs desktop-tabs">
+      <aside className={`app-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
 
+        <button className="app-sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)}>
 
+          <ChevronLeft size={18} />
 
-        {[
+        </button>
 
-          ["today", "Home", HomeIcon],
+        <div className="app-sidebar-scroll">
 
-          ["practice", "Learn", BookOpen],
+          <div className="app-sidebar-section">
 
-          ["aitutor", "AI Tutor", Bot],
+            <span className="app-sidebar-label">Main</span>
 
-          ["voice-tutor", "Voice Tutor", Mic],
+            {[
 
-          ["analytics", "Progress", BarChart3],
+              ["today", "Home", HomeIcon],
 
-          ["classroom", "Classroom", School],
+              ["practice", "Learn", BookOpen],
 
-          ["resources", "Resources", BookOpen],
+              ["aitutor", "AI Tutor", Bot],
 
-          ["studygroups", "Groups", Users],
+              ["voice-tutor", "Voice Tutor", Mic],
 
-          ["discuss", "Discussion", MessageCircle],
+            ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
 
-          ["timetable", "Schedule", CalendarDays],
+              <button
 
-          ["settings", "Settings", Settings],
+                key={id}
 
-          ["research-hub", "My Circle", Search],
+                className={`app-sidebar-item ${["today", "dashboard"].includes(tab) && id === "today" ? "active" : tab === id ? "active" : ""}`}
 
-          ...(!isFaculty ? [["premium", "Premium", Gem]] : []),
+                onClick={() => setTab(id)}
 
-          ...(isFaculty ? [["teacher-questions", "My Questions", FileText], ["teacher-resources", "Teacher Resources", Laptop], ["campus-comm", "Announcements", Megaphone], ["departments", "Departments", Building2]] : []),
+              >
 
-          ...(isTeacher ? [["keys", "Keys", KeyRound], ["invites", "Invites", Mail], ["admin", "Admin", Cog]] : []),
+                <Icon size={18} className="app-sidebar-icon" />
 
-        ].filter(([id]) => {
+                <span className="app-sidebar-text">{label}</span>
 
-          if (!demoMode) return true;
+              </button>
 
-          return !["classroom"].includes(id);
+            ))}
 
-        }).map(([id, label, Icon]) => {
-          return (
-            <button
-              key={id}
-              className={["today", "dashboard"].includes(tab) && id === "today" ? "active" : tab === id ? "active" : ""}
-              onClick={() => setTab(id)}
-              style={{ display: "flex", alignItems: "center", gap: 6 }}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          );
-        })}
+          </div>
 
+          <div className="app-sidebar-section">
 
+            <span className="app-sidebar-label">Workspace</span>
 
-      </nav>
+            {[
+
+              ["analytics", "Progress", BarChart3],
+
+              ["classroom", "Classroom", School],
+
+              ["resources", "Resources", BookOpen],
+
+              ["research-hub", "My Circle", Search],
+
+            ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
+
+              <button
+
+                key={id}
+
+                className={`app-sidebar-item ${tab === id ? "active" : ""}`}
+
+                onClick={() => setTab(id)}
+
+              >
+
+                <Icon size={18} className="app-sidebar-icon" />
+
+                <span className="app-sidebar-text">{label}</span>
+
+              </button>
+
+            ))}
+
+          </div>
+
+          <div className="app-sidebar-section">
+
+            <span className="app-sidebar-label">Community</span>
+
+            {[
+
+              ["studygroups", "Groups", Users],
+
+              ["discuss", "Discussion", MessageCircle],
+
+              ["timetable", "Schedule", CalendarDays],
+
+            ].map(([id, label, Icon]) => (
+
+              <button
+
+                key={id}
+
+                className={`app-sidebar-item ${tab === id ? "active" : ""}`}
+
+                onClick={() => setTab(id)}
+
+              >
+
+                <Icon size={18} className="app-sidebar-icon" />
+
+                <span className="app-sidebar-text">{label}</span>
+
+              </button>
+
+            ))}
+
+          </div>
+
+          <div className="app-sidebar-section">
+
+            <span className="app-sidebar-label">Account</span>
+
+            {[
+
+              ["settings", "Settings", Settings],
+
+              ...(!isFaculty ? [["premium", "Premium", Gem]] : []),
+
+            ].map(([id, label, Icon]) => (
+
+              <button
+
+                key={id}
+
+                className={`app-sidebar-item ${tab === id ? "active" : ""}${id === "premium" ? " app-sidebar-premium" : ""}`}
+
+                onClick={() => setTab(id)}
+
+              >
+
+                <Icon size={18} className="app-sidebar-icon" />
+
+                <span className="app-sidebar-text">{label}</span>
+
+              </button>
+
+            ))}
+
+          </div>
+
+          {isFaculty && (
+
+            <div className="app-sidebar-section">
+
+              <span className="app-sidebar-label">Faculty</span>
+
+              {[
+
+                ["teacher-questions", "My Questions", FileText],
+
+                ["teacher-resources", "Teacher Resources", Laptop],
+
+                ["campus-comm", "Announcements", Megaphone],
+
+                ["departments", "Departments", Building2],
+
+                ...(isTeacher ? [["keys", "Keys", KeyRound], ["invites", "Invites", Mail], ["admin", "Admin", Cog]] : []),
+
+              ].map(([id, label, Icon]) => (
+
+                <button
+
+                  key={id}
+
+                  className={`app-sidebar-item ${tab === id ? "active" : ""}`}
+
+                  onClick={() => setTab(id)}
+
+                >
+
+                  <Icon size={18} className="app-sidebar-icon" />
+
+                  <span className="app-sidebar-text">{label}</span>
+
+                </button>
+
+              ))}
+
+            </div>
+
+          )}
+
+        </div>
+
+      </aside>
 
 
 

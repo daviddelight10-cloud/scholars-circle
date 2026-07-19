@@ -2227,7 +2227,21 @@ ${extractedText}
       if (scrollMode !== "single") {
         // Continuous mode: visual feedback via CSS transform, commit on pinch end
         const visualScale = Math.max(0.5, Math.min(3, ratio));
-        applyPanZoom({ scale: visualScale, x: 0, y: 0 });
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const container = viewerRef.current;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const focalX = midX - rect.left - rect.width / 2;
+          const focalY = midY - rect.top - rect.height / 2;
+          const startPz = pinchStartPanZoomRef.current;
+          const scaleDelta = visualScale / (startPz.scale || 1);
+          const newX = (startPz.x || 0) * scaleDelta + focalX * (1 - scaleDelta);
+          const newY = (startPz.y || 0) * scaleDelta + focalY * (1 - scaleDelta);
+          applyPanZoom({ scale: visualScale, x: newX, y: newY });
+        } else {
+          applyPanZoom({ scale: visualScale, x: 0, y: 0 });
+        }
       } else {
         const startPz = pinchStartPanZoomRef.current;
         const newScale = Math.max(1, Math.min(5, startPz.scale * ratio));
@@ -2267,9 +2281,28 @@ ${extractedText}
       if (scrollMode !== "single") {
         // Continuous mode: commit pinch zoom to scale state, reset CSS transform
         const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
-        setUserZoomed(true);
-        setScale(commitScale);
-        resetPanZoom();
+        const container = viewerRef.current;
+        // Adjust scroll position to keep pinch focal point stable after scale change
+        if (container && pinchMidRef.current) {
+          const rect = container.getBoundingClientRect();
+          const focalX = pinchMidRef.current.x - rect.left;
+          const focalY = pinchMidRef.current.y - rect.top;
+          const scaleRatio = commitScale / pinchStartScaleRef.current;
+          setUserZoomed(true);
+          setScale(commitScale);
+          resetPanZoom();
+          requestAnimationFrame(() => {
+            if (scrollMode === "vertical") {
+              container.scrollTop = container.scrollTop * scaleRatio + focalY * (scaleRatio - 1);
+            } else {
+              container.scrollLeft = container.scrollLeft * scaleRatio + focalX * (scaleRatio - 1);
+            }
+          });
+        } else {
+          setUserZoomed(true);
+          setScale(commitScale);
+          resetPanZoom();
+        }
       } else if (panZoomRef.current.scale <= 1.01) {
         // If zoomed back to 1, reset pan too
         resetPanZoom();
@@ -3498,8 +3531,13 @@ ${extractedText}
         [data-text-layer] span { line-height: 1; }
       `}</style>
 
-      {/* Toolbar */}
-      {!chromeHidden && (
+      {/* Toolbar + Progress wrapper — always in DOM, animated hide */}
+      <div style={{
+        overflow: "hidden",
+        maxHeight: chromeHidden ? "0px" : "200px",
+        transition: "max-height 0.25s ease",
+        flexShrink: 0,
+      }}>
       <div style={s.toolbar}>
         {isMobile ? (
           <>
@@ -3936,14 +3974,10 @@ ${extractedText}
         </div>
       )}
     </div>
-      )}
-
-      {/* Progress bar */}
-      {!chromeHidden && (
-      <div style={s.progressBar}>
-        <div style={{ ...s.progressFill, width: numPages ? `${(currentPage / numPages) * 100}%` : "0%" }} />
+        <div style={s.progressBar}>
+          <div style={{ ...s.progressFill, width: numPages ? `${(currentPage / numPages) * 100}%` : "0%" }} />
+        </div>
       </div>
-      )}
 
       {/* Mobile search panel (rendered outside toolbar when mobile) */}
       {isMobile && showSearch && (
