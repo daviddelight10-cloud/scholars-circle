@@ -688,6 +688,40 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setPanZoom(pz);
   };
 
+  // Shared zoom-commit: anchors zoom at a screen point (touch/cursor), compensates scroll
+  const commitZoomAtPoint = (newScale, screenX, screenY) => {
+    const container = viewerRef.current;
+    if (!container) {
+      setUserZoomed(true);
+      setScale(newScale);
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const oldScale = scale;
+    const scaleRatio = newScale / oldScale;
+    // Content-space point under the anchor before zoom
+    const contentX = container.scrollLeft + (screenX - rect.left);
+    const contentY = container.scrollTop + (screenY - rect.top);
+    // Immediately resize all mounted canvases so layout is correct before paint
+    pageCanvasRefs.current.forEach((c) => {
+      if (c && pageDimsRef.current[1]) {
+        const base = pageDimsRef.current[parseInt(c.parentElement?.dataset?.page, 10)] || pageDimsRef.current[1];
+        c.style.width = (base.width * newScale) + "px";
+        c.style.height = (base.height * newScale) + "px";
+      }
+    });
+    setUserZoomed(true);
+    setScale(newScale);
+    // After React commits the new scale, adjust scroll so the same content point stays under the anchor
+    requestAnimationFrame(() => {
+      if (scrollMode === "vertical") {
+        container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
+      } else if (scrollMode === "horizontal") {
+        container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
+      }
+    });
+  };
+
   const goToPage = useCallback(async (n) => {
     if (!pdfDocRef.current) return;
     n = Math.max(1, Math.min(pdfDocRef.current.numPages, n));
@@ -714,13 +748,25 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   }, [currentPage, renderPage, scrollMode]);
 
   const handleZoomIn = () => {
-    setUserZoomed(true);
-    setScale((s) => Math.min(2.6, s * 1.2));
+    const newScale = Math.min(2.6, scale * 1.2);
+    if (scrollMode !== "single" && viewerRef.current) {
+      const rect = viewerRef.current.getBoundingClientRect();
+      commitZoomAtPoint(newScale, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    } else {
+      setUserZoomed(true);
+      setScale(newScale);
+    }
   };
 
   const handleZoomOut = () => {
-    setUserZoomed(true);
-    setScale((s) => Math.max(0.5, s / 1.2));
+    const newScale = Math.max(0.5, scale / 1.2);
+    if (scrollMode !== "single" && viewerRef.current) {
+      const rect = viewerRef.current.getBoundingClientRect();
+      commitZoomAtPoint(newScale, rect.left + rect.width / 2, rect.top + rect.height / 2);
+    } else {
+      setUserZoomed(true);
+      setScale(newScale);
+    }
   };
 
   const getPageText = useCallback(async (n) => {
@@ -2279,29 +2325,14 @@ ${extractedText}
       setPinchActive(false);
       pinchStartDistRef.current = 0;
       if (scrollMode !== "single") {
-        // Continuous mode: commit pinch zoom to scale state, reset CSS transform
+        // Continuous mode: commit pinch zoom anchored at pinch midpoint
         const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
-        const container = viewerRef.current;
-        // Adjust scroll position to keep pinch focal point stable after scale change
-        if (container && pinchMidRef.current) {
-          const rect = container.getBoundingClientRect();
-          const focalX = pinchMidRef.current.x - rect.left;
-          const focalY = pinchMidRef.current.y - rect.top;
-          const scaleRatio = commitScale / pinchStartScaleRef.current;
-          setUserZoomed(true);
-          setScale(commitScale);
-          resetPanZoom();
-          requestAnimationFrame(() => {
-            if (scrollMode === "vertical") {
-              container.scrollTop = container.scrollTop * scaleRatio + focalY * (scaleRatio - 1);
-            } else {
-              container.scrollLeft = container.scrollLeft * scaleRatio + focalX * (scaleRatio - 1);
-            }
-          });
+        resetPanZoom();
+        if (pinchMidRef.current) {
+          commitZoomAtPoint(commitScale, pinchMidRef.current.x, pinchMidRef.current.y);
         } else {
           setUserZoomed(true);
           setScale(commitScale);
-          resetPanZoom();
         }
       } else if (panZoomRef.current.scale <= 1.01) {
         // If zoomed back to 1, reset pan too
@@ -2324,13 +2355,13 @@ ${extractedText}
       if (dist < 10 && now - lastTapRef.current < 300 && tool === "none") {
         lastTapRef.current = 0;
         if (scrollMode !== "single") {
-          // Continuous mode: toggle scale between fit and 2x
+          // Continuous mode: toggle scale between fit and 2x, anchored at tap point
           if (userZoomed) {
             setUserZoomed(false);
             fitToWidth();
           } else {
-            setUserZoomed(true);
-            setScale((s) => Math.min(2.6, s * 2));
+            const targetScale = Math.min(2.6, scale * 2);
+            commitZoomAtPoint(targetScale, t.clientX, t.clientY);
           }
         } else if (panZoomRef.current.scale > 1.01) {
           resetPanZoom();
@@ -2360,13 +2391,18 @@ ${extractedText}
     }
   };
 
-  // ---- Ctrl+wheel zoom (desktop) ----
+  // ---- Ctrl+wheel / trackpad pinch zoom (desktop) ----
   const onWheelViewer = (e) => {
-    if (!e.ctrlKey) return;
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    setUserZoomed(true);
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setScale((s) => Math.max(0.5, Math.min(2.6, s * delta)));
+    const delta = e.deltaY > 0 ? 0.92 : 1.08;
+    const newScale = Math.max(0.5, Math.min(2.6, scale * delta));
+    if (scrollMode !== "single") {
+      commitZoomAtPoint(newScale, e.clientX, e.clientY);
+    } else {
+      setUserZoomed(true);
+      setScale(newScale);
+    }
     showZoomBadge();
   };
 
@@ -2665,16 +2701,16 @@ ${extractedText}
     } : scrollMode === "vertical" ? {
       flex: 1,
       overflowY: "auto",
-      overflowX: "hidden",
+      overflowX: userZoomed ? "auto" : "hidden",
       position: "relative",
-      touchAction: "pan-y",
+      touchAction: userZoomed ? "auto" : "pan-y",
     } : {
       flex: 1,
       overflowX: "auto",
-      overflowY: "hidden",
+      overflowY: userZoomed ? "auto" : "hidden",
       position: "relative",
       scrollSnapType: "x mandatory",
-      touchAction: "pan-x",
+      touchAction: userZoomed ? "auto" : "pan-x",
     },
     pageShadow: {
       position: "relative",
@@ -3531,12 +3567,16 @@ ${extractedText}
         [data-text-layer] span { line-height: 1; }
       `}</style>
 
-      {/* Toolbar + Progress wrapper — always in DOM, animated hide */}
+      {/* Toolbar + Progress wrapper — absolute overlay, never affects layout */}
       <div style={{
-        overflow: "hidden",
-        maxHeight: chromeHidden ? "0px" : "200px",
-        transition: "max-height 0.25s ease",
-        flexShrink: 0,
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        transform: chromeHidden ? "translateY(-100%)" : "translateY(0)",
+        transition: "transform 0.25s ease",
+        pointerEvents: chromeHidden ? "none" : "auto",
       }}>
       <div style={s.toolbar}>
         {isMobile ? (
