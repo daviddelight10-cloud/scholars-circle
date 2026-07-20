@@ -117,6 +117,8 @@ export function useVoiceSession() {
       });
       audioContextRef.current = audioContext;
 
+      await audioContext.audioWorklet.addModule("/audio-processor.js");
+
       const source = audioContext.createMediaStreamSource(stream);
       mediaRecorderRef.current = source;
 
@@ -125,12 +127,12 @@ export function useVoiceSession() {
       micAnalyser.smoothingTimeConstant = 0.6;
       micAnalyserRef.current = micAnalyser;
 
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
+      const workletNode = new AudioWorkletNode(audioContext, "mic-processor");
+      processorRef.current = workletNode;
 
-      processor.onaudioprocess = (e) => {
+      workletNode.port.onmessage = (e) => {
         if (!isListeningRef.current) return;
-        const inputData = e.inputBuffer.getChannelData(0);
+        const inputData = e.data;
 
         let sum = 0;
         for (let i = 0; i < inputData.length; i++) {
@@ -194,8 +196,8 @@ export function useVoiceSession() {
       };
 
       source.connect(micAnalyser);
-      micAnalyser.connect(processor);
-      processor.connect(audioContext.destination);
+      micAnalyser.connect(workletNode);
+      workletNode.connect(audioContext.destination);
 
       isListeningRef.current = true;
       if (handsFreeRef.current) {
@@ -329,7 +331,7 @@ export function useVoiceSession() {
     endSessionRef.current = endSession;
   }, [endSession]);
 
-  const startSession = useCallback(async (resourceId, mode = "teach") => {
+  const startSession = useCallback(async (resourceId, mode = "teach", voiceName = "Aoede") => {
     setError(null);
     setTranscript([]);
     transcriptRef.current = [];
@@ -352,7 +354,7 @@ export function useVoiceSession() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ resourceId, mode }),
+        body: JSON.stringify({ resourceId, mode, voiceName }),
       });
 
       const data = await res.json();

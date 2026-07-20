@@ -76,7 +76,7 @@ function resetSessionTimeout(sessionId) {
 // POST /api/voice-session/start
 router.post("/start", requireAuth, async (req, res) => {
   try {
-    const { resourceId, mode = "teach" } = req.body || {};
+    const { resourceId, mode = "teach", voiceName = "Aoede" } = req.body || {};
     if (!resourceId) {
       return res.status(400).json({ error: "resourceId is required" });
     }
@@ -179,6 +179,13 @@ router.post("/start", requireAuth, async (req, res) => {
           model: `models/${model}`,
           generationConfig: {
             responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: voiceName
+                }
+              }
+            }
           },
           systemInstruction: {
             parts: [{ text: systemPrompt }],

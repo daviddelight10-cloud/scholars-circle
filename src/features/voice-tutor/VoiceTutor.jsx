@@ -4,8 +4,8 @@ import { useVoiceSession } from "./useVoiceSession.js";
 import VoiceOrb from "./VoiceOrb.jsx";
 import MaterialsDrawer from "./MaterialsDrawer.jsx";
 import ConceptsDrawer from "./ConceptsDrawer.jsx";
-import TranscriptDrawer from "./TranscriptDrawer.jsx";
-import { COLORS, FONTS, VOICE_STATES, VOICE_MODES, SESSION_TIMEOUT_SEC } from "./voiceConfig.js";
+import TranscriptOverlay from "./TranscriptOverlay.jsx";
+import { COLORS, FONTS, VOICE_STATES, VOICE_MODES, SESSION_TIMEOUT_SEC, hexToRgba } from "./voiceConfig.js";
 
 function getAuthToken() {
   try {
@@ -23,8 +23,8 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
   const [loadingResources, setLoadingResources] = useState(true);
   const [showMaterials, setShowMaterials] = useState(false);
   const [showConcepts, setShowConcepts] = useState(false);
-  const [showTranscript, setShowTranscript] = useState(false);
   const [textInput, setTextInput] = useState("");
+  const [voiceName, setVoiceName] = useState("Aoede");
 
   const voice = useVoiceSession();
 
@@ -63,8 +63,8 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
 
   const handleStart = useCallback(() => {
     if (!selectedResourceId) return;
-    voice.startSession(selectedResourceId, mode);
-  }, [selectedResourceId, mode, voice]);
+    voice.startSession(selectedResourceId, mode, voiceName);
+  }, [selectedResourceId, mode, voiceName, voice]);
 
   const handleEnd = useCallback(() => {
     voice.endSession();
@@ -99,10 +99,18 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
     VOICE_STATES.THINKING,
   ].includes(voice.state);
 
+  // Determine glow color based on state
+  let glowColor = "transparent";
+  if (voice.state === VOICE_STATES.LISTENING) glowColor = hexToRgba(COLORS.green, 0.1);
+  else if (voice.state === VOICE_STATES.SPEAKING || voice.state === VOICE_STATES.THINKING) glowColor = hexToRgba(COLORS.gold, 0.1);
+  else if (voice.state === VOICE_STATES.READY) glowColor = hexToRgba(COLORS.electric, 0.1);
+
   return (
     <div style={{
       minHeight: "100%",
       background: COLORS.ink,
+      backgroundImage: `radial-gradient(circle at center, ${glowColor} 0%, transparent 60%)`,
+      transition: "background-image 0.5s ease-in-out",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
@@ -110,6 +118,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
       fontFamily: FONTS.body,
       color: COLORS.text,
       position: "relative",
+      overflow: "hidden",
     }}>
       <style>{`
         @keyframes scVtPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
@@ -221,37 +230,65 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
         </div>
       )}
 
-      {/* Mode selector */}
+      {/* Mode & Voice selector */}
       {!isActive && (
         <div style={{
           display: "flex",
-          gap: 8,
+          gap: 12,
           marginBottom: 24,
+          flexWrap: "wrap",
+          justifyContent: "center",
         }}>
-          {Object.entries(VOICE_MODES).map(([key, m]) => (
-            <button
-              key={key}
-              onClick={() => setMode(key)}
-              style={{
-                padding: "10px 16px",
-                background: mode === key ? hexToRgba(COLORS.electric, 0.15) : COLORS.inkLight,
-                border: `1px solid ${mode === key ? COLORS.electric : COLORS.border}`,
-                borderRadius: 10,
-                color: mode === key ? COLORS.electric : COLORS.textDim,
-                fontSize: 12,
-                fontFamily: FONTS.body,
-                fontWeight: mode === key ? 600 : 400,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                transition: "all 0.15s",
-              }}
-            >
-              <span style={{ fontSize: 14 }}>{m.icon}</span>
-              {m.label}
-            </button>
-          ))}
+          <div style={{ display: "flex", gap: 8 }}>
+            {Object.entries(VOICE_MODES).map(([key, m]) => (
+              <button
+                key={key}
+                onClick={() => setMode(key)}
+                style={{
+                  padding: "10px 16px",
+                  background: mode === key ? hexToRgba(COLORS.electric, 0.15) : hexToRgba(COLORS.surfaceLight, 0.6),
+                  border: `1px solid ${mode === key ? COLORS.electric : COLORS.border}`,
+                  borderRadius: 10,
+                  color: mode === key ? COLORS.electric : COLORS.textDim,
+                  fontSize: 12,
+                  fontFamily: FONTS.body,
+                  fontWeight: mode === key ? 600 : 400,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all 0.15s",
+                  backdropFilter: "blur(10px)",
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{m.icon}</span>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          
+          <select
+            value={voiceName}
+            onChange={(e) => setVoiceName(e.target.value)}
+            style={{
+              padding: "10px 16px",
+              background: hexToRgba(COLORS.surfaceLight, 0.6),
+              border: `1px solid ${COLORS.border}`,
+              borderRadius: 10,
+              color: COLORS.text,
+              fontSize: 12,
+              fontFamily: FONTS.body,
+              outline: "none",
+              cursor: "pointer",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <option value="Aoede">Voice: Aoede</option>
+            <option value="Puck">Voice: Puck</option>
+            <option value="Charon">Voice: Charon</option>
+            <option value="Kore">Voice: Kore</option>
+            <option value="Fenrir">Voice: Fenrir</option>
+          </select>
         </div>
       )}
 
@@ -264,6 +301,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
         justifyContent: "center",
         gap: 20,
         minHeight: 280,
+        zIndex: 10,
       }}>
         <VoiceOrb
           state={voice.state}
@@ -323,78 +361,103 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
             }}>Session ended</p>
           )}
         </div>
-
-        {/* Timer + Hands-free toggle */}
-        {isActive && (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}>
-            <span style={{
-              fontSize: 11,
-              color: COLORS.textFaint,
-              fontFamily: FONTS.mono,
-            }}>
-              {String(remainingMin).padStart(2, "0")}:{String(remainingSecDisp).padStart(2, "0")} remaining
-            </span>
-            <button
-              onClick={voice.toggleHandsFree}
-              style={{
-                padding: "6px 14px",
-                background: voice.handsFreeMode ? hexToRgba(COLORS.green, 0.15) : COLORS.inkLight,
-                border: `1px solid ${voice.handsFreeMode ? hexToRgba(COLORS.green, 0.4) : COLORS.border}`,
-                borderRadius: 8,
-                color: voice.handsFreeMode ? COLORS.green : COLORS.textDim,
-                fontSize: 11,
-                fontFamily: FONTS.body,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: 13 }}>{voice.handsFreeMode ? "🎙️" : "🎤"}</span>
-              {voice.handsFreeMode ? "Hands-Free ON" : "Hands-Free"}
-            </button>
-            <button
-              onClick={handleEnd}
-              style={{
-                padding: "6px 14px",
-                background: hexToRgba(COLORS.coral, 0.15),
-                border: `1px solid ${hexToRgba(COLORS.coral, 0.3)}`,
-                borderRadius: 8,
-                color: COLORS.coral,
-                fontSize: 11,
-                fontFamily: FONTS.body,
-                cursor: "pointer",
-              }}
-            >End Session</button>
-          </div>
-        )}
       </div>
 
-      {/* Bottom toolbar */}
+      {isActive && (
+        <TranscriptOverlay transcript={voice.transcript} />
+      )}
+
+      {/* Floating Action Bar (Bottom toolbar) */}
       {isActive && (
         <div style={{
-          width: "100%",
-          maxWidth: 480,
+          position: "absolute",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
           display: "flex",
-          gap: 8,
-          padding: "12px 0",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 20px",
+          background: hexToRgba(COLORS.surfaceLight, 0.7),
+          backdropFilter: "blur(12px)",
+          border: `1px solid ${hexToRgba(COLORS.border, 0.5)}`,
+          borderRadius: 40,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+          zIndex: 100,
         }}>
           <button
             onClick={() => setShowMaterials(true)}
-            style={toolbarBtnStyle}
-          >📄 Materials</button>
+            style={floatingBtnStyle}
+            title="Materials"
+          >📄</button>
           <button
             onClick={() => setShowConcepts(true)}
-            style={toolbarBtnStyle}
-          >💡 Concepts</button>
+            style={floatingBtnStyle}
+            title="Concepts"
+          >💡</button>
+          
+          <div style={{ width: 1, height: 24, background: COLORS.border, margin: "0 4px" }} />
+          
           <button
-            onClick={() => setShowTranscript(true)}
-            style={toolbarBtnStyle}
-          >💬 Transcript</button>
+            onClick={voice.toggleHandsFree}
+            style={{
+              padding: "8px 16px",
+              background: voice.handsFreeMode ? hexToRgba(COLORS.green, 0.2) : "transparent",
+              border: `1px solid ${voice.handsFreeMode ? hexToRgba(COLORS.green, 0.4) : "transparent"}`,
+              borderRadius: 20,
+              color: voice.handsFreeMode ? COLORS.green : COLORS.textDim,
+              fontSize: 12,
+              fontFamily: FONTS.body,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.2s",
+            }}
+          >
+            <span style={{ fontSize: 14 }}>{voice.handsFreeMode ? "🎙️" : "🎤"}</span>
+            {voice.handsFreeMode ? "Hands-Free" : "Tap-to-Talk"}
+          </button>
+          
+          <div style={{ width: 1, height: 24, background: COLORS.border, margin: "0 4px" }} />
+          
+          <button
+            onClick={handleEnd}
+            style={{
+              padding: "8px 16px",
+              background: hexToRgba(COLORS.coral, 0.15),
+              border: `1px solid ${hexToRgba(COLORS.coral, 0.3)}`,
+              borderRadius: 20,
+              color: COLORS.coral,
+              fontSize: 12,
+              fontFamily: FONTS.body,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ fontSize: 14 }}>🛑</span> End
+          </button>
+        </div>
+      )}
+
+      {/* Timer floating at top right when active */}
+      {isActive && (
+        <div style={{
+          position: "absolute",
+          top: 24,
+          right: 24,
+          padding: "6px 12px",
+          background: hexToRgba(COLORS.surfaceLight, 0.5),
+          backdropFilter: "blur(10px)",
+          borderRadius: 20,
+          border: `1px solid ${hexToRgba(COLORS.border, 0.3)}`,
+          fontSize: 11,
+          color: COLORS.textFaint,
+          fontFamily: FONTS.mono,
+        }}>
+          {String(remainingMin).padStart(2, "0")}:{String(remainingSecDisp).padStart(2, "0")} left
         </div>
       )}
 
@@ -406,6 +469,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
           display: "flex",
           gap: 8,
           padding: "8px 0 16px",
+          zIndex: 10,
         }}>
           <input
             value={textInput}
@@ -415,13 +479,14 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
             style={{
               flex: 1,
               padding: "10px 14px",
-              background: COLORS.inkLight,
+              background: hexToRgba(COLORS.inkLight, 0.8),
               border: `1px solid ${COLORS.border}`,
               borderRadius: 10,
               color: COLORS.text,
               fontSize: 13,
               fontFamily: FONTS.body,
               outline: "none",
+              backdropFilter: "blur(10px)",
             }}
           />
           <button
@@ -452,32 +517,21 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
         concepts={voice.concepts}
         onConceptClick={handleConceptClick}
       />
-      <TranscriptDrawer
-        open={showTranscript}
-        onClose={() => setShowTranscript(false)}
-        transcript={voice.transcript}
-      />
     </div>
   );
 }
 
-const toolbarBtnStyle = {
-  flex: 1,
-  padding: "10px 8px",
-  background: COLORS.inkLight,
-  border: `1px solid ${COLORS.border}`,
-  borderRadius: 10,
+const floatingBtnStyle = {
+  background: "transparent",
+  border: "none",
   color: COLORS.textDim,
-  fontSize: 11,
-  fontFamily: FONTS.body,
+  fontSize: 16,
   cursor: "pointer",
-  transition: "border-color 0.15s, color 0.15s",
+  padding: "8px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "50%",
+  transition: "all 0.2s",
 };
 
-function hexToRgba(hex, alpha) {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
