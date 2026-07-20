@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { API_BASE } from "../../lib/constants.js";
-import { VOICE_STATES, AUDIO_CONFIG, SESSION_TIMEOUT_SEC, WS_MESSAGE_TYPES } from "./voiceConfig.js";
+import { VOICE_STATES, AUDIO_CONFIG, SESSION_TIMEOUT_SEC, WS_MESSAGE_TYPES, VAD_CONFIG } from "./voiceConfig.js";
 
 function getAuthToken() {
   try {
@@ -31,6 +31,8 @@ export function useVoiceSession() {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [fallbackMode, setFallbackMode] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
+  const [handsFreeMode, setHandsFreeMode] = useState(false);
+  const [vadState, setVadState] = useState("idle");
 
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -46,6 +48,13 @@ export function useVoiceSession() {
   const endSessionRef = useRef(null);
   const nextPlayTimeRef = useRef(0);
   const pendingAudioChunksRef = useRef(0);
+  const activeSourceNodesRef = useRef([]);
+  const micAnalyserRef = useRef(null);
+  const tutorAnalyserRef = useRef(null);
+  const handsFreeRef = useRef(false);
+  const speechStateRef = useRef("idle");
+  const speechOnsetTimeRef = useRef(0);
+  const speechSilenceTimeRef = useRef(0);
 
   useEffect(() => {
     stateRef.current = state;
@@ -53,6 +62,14 @@ export function useVoiceSession() {
 
   const stopMic = useCallback(() => {
     isListeningRef.current = false;
+    speechStateRef.current = "idle";
+    speechOnsetTimeRef.current = 0;
+    speechSilenceTimeRef.current = 0;
+    setVadState("idle");
+    if (micAnalyserRef.current) {
+      try { micAnalyserRef.current.disconnect(); } catch {}
+      micAnalyserRef.current = null;
+    }
     if (processorRef.current) {
       try { processorRef.current.disconnect(); } catch {}
       processorRef.current = null;
@@ -70,6 +87,15 @@ export function useVoiceSession() {
       audioContextRef.current = null;
     }
     setMicLevel(0);
+  }, []);
+
+  const stopPlayback = useCallback(() => {
+    for (const node of activeSourceNodesRef.current) {
+      try { node.stop(); } catch {}
+    }
+    activeSourceNodesRef.current = [];
+    pendingAudioChunksRef.current = 0;
+    nextPlayTimeRef.current = 0;
   }, []);
 
   const startMic = useCallback(async () => {
@@ -94,6 +120,11 @@ export function useVoiceSession() {
       const source = audioContext.createMediaStreamSource(stream);
       mediaRecorderRef.current = source;
 
+      const micAnalyser = audioContext.createAnalyser();
+      micAnalyser.fftSize = 128;
+      micAnalyser.smoothingTimeConstant = 0.6;
+      micAnalyserRef.current = micAnalyser;
+
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
@@ -103,10 +134,48 @@ export function useVoiceSession() {
 
         let sum = 0;
         for (let i = 0; i < inputData.length; i++) {
-          sum += Math.abs(inputData[i]);
+          sum += inputData[i] * inputData[i];
         }
         const rms = Math.sqrt(sum / inputData.length);
-        setMicLevel(Math.min(1, rms * 3));
+        setMicLevel(Math.min(1, rms * 5));
+
+        if (handsFreeRef.current) {
+          const now = Date.now();
+          const isLoud = rms > VAD_CONFIG.speechThreshold;
+
+          if (isLoud) {
+            speechSilenceTimeRef.current = 0;
+
+            if (speechStateRef.current !== "speaking") {
+              if (speechOnsetTimeRef.current === 0) {
+                speechOnsetTimeRef.current = now;
+              }
+              if (now - speechOnsetTimeRef.current > VAD_CONFIG.speechOnsetMs) {
+                speechStateRef.current = "speaking";
+                setVadState("speaking");
+                setState(VOICE_STATES.LISTENING);
+                stopPlayback();
+                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({ type: WS_MESSAGE_TYPES.INTERRUPT }));
+                }
+              }
+            }
+          } else {
+            speechOnsetTimeRef.current = 0;
+
+            if (speechStateRef.current === "speaking") {
+              if (speechSilenceTimeRef.current === 0) {
+                speechSilenceTimeRef.current = now;
+              }
+              if (now - speechSilenceTimeRef.current > VAD_CONFIG.silenceOffsetMs) {
+                speechStateRef.current = "silence";
+                setVadState("silence");
+                setState(VOICE_STATES.READY);
+                speechSilenceTimeRef.current = 0;
+              }
+            }
+          }
+        }
 
         const pcm16 = new Int16Array(inputData.length);
         for (let i = 0; i < inputData.length; i++) {
@@ -124,17 +193,22 @@ export function useVoiceSession() {
         }
       };
 
-      source.connect(processor);
+      source.connect(micAnalyser);
+      micAnalyser.connect(processor);
       processor.connect(audioContext.destination);
 
       isListeningRef.current = true;
-      setState(VOICE_STATES.LISTENING);
+      if (handsFreeRef.current) {
+        setState(VOICE_STATES.READY);
+      } else {
+        setState(VOICE_STATES.LISTENING);
+      }
     } catch (err) {
       console.error("Mic access failed:", err);
       setError("Microphone access denied. Please allow microphone permissions and try again.");
       setState(VOICE_STATES.ERROR);
     }
-  }, []);
+  }, [stopPlayback]);
 
   const playAudioChunk = useCallback((base64Audio) => {
     try {
@@ -158,12 +232,19 @@ export function useVoiceSession() {
       }
       const ctx = playbackContextRef.current;
 
+      if (!tutorAnalyserRef.current) {
+        tutorAnalyserRef.current = ctx.createAnalyser();
+        tutorAnalyserRef.current.fftSize = 128;
+        tutorAnalyserRef.current.smoothingTimeConstant = 0.7;
+        tutorAnalyserRef.current.connect(ctx.destination);
+      }
+
       const audioBuffer = ctx.createBuffer(1, float32.length, AUDIO_CONFIG.sampleRate);
       audioBuffer.copyToChannel(float32, 0);
 
       const sourceNode = ctx.createBufferSource();
       sourceNode.buffer = audioBuffer;
-      sourceNode.connect(ctx.destination);
+      sourceNode.connect(tutorAnalyserRef.current || ctx.destination);
 
       // Schedule chunks back-to-back instead of overlapping them, so streamed
       // TTS audio plays sequentially rather than garbling.
@@ -171,8 +252,10 @@ export function useVoiceSession() {
       nextPlayTimeRef.current = startAt + audioBuffer.duration;
 
       pendingAudioChunksRef.current += 1;
+      activeSourceNodesRef.current.push(sourceNode);
       sourceNode.onended = () => {
         pendingAudioChunksRef.current = Math.max(0, pendingAudioChunksRef.current - 1);
+        activeSourceNodesRef.current = activeSourceNodesRef.current.filter((n) => n !== sourceNode);
         if (pendingAudioChunksRef.current === 0 && stateRef.current === VOICE_STATES.SPEAKING) {
           setState(VOICE_STATES.READY);
         }
@@ -212,6 +295,7 @@ export function useVoiceSession() {
   }, [stopTimer]);
 
   const endSession = useCallback(async () => {
+    stopPlayback();
     stopMic();
     stopTimer();
 
@@ -239,7 +323,7 @@ export function useVoiceSession() {
     }
 
     setState(VOICE_STATES.ENDED);
-  }, [sessionId, stopMic, stopTimer]);
+  }, [sessionId, stopMic, stopPlayback, stopTimer]);
 
   useEffect(() => {
     endSessionRef.current = endSession;
@@ -303,6 +387,9 @@ export function useVoiceSession() {
         switch (msg.type) {
           case WS_MESSAGE_TYPES.SETUP_COMPLETE:
             setState(VOICE_STATES.READY);
+            if (handsFreeRef.current) {
+              startMic();
+            }
             break;
 
           case WS_MESSAGE_TYPES.SERVER_CONTENT:
@@ -351,6 +438,7 @@ export function useVoiceSession() {
 
       ws.onclose = () => {
         console.log("Voice tutor WebSocket closed");
+        stopPlayback();
         if (stateRef.current !== VOICE_STATES.ENDED && stateRef.current !== VOICE_STATES.ERROR) {
           setState(VOICE_STATES.IDLE);
         }
@@ -361,19 +449,20 @@ export function useVoiceSession() {
       setError(err.message || "Failed to start voice session.");
       setState(VOICE_STATES.ERROR);
     }
-  }, [addToTranscript, playAudioChunk, startTimer, stopMic, stopTimer]);
+  }, [addToTranscript, playAudioChunk, startMic, startTimer, stopMic, stopPlayback, stopTimer]);
 
   const toggleListening = useCallback(() => {
     if (state === VOICE_STATES.LISTENING) {
       stopMic();
       setState(VOICE_STATES.READY);
     } else if (state === VOICE_STATES.READY || state === VOICE_STATES.SPEAKING) {
+      stopPlayback();
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: WS_MESSAGE_TYPES.INTERRUPT }));
       }
       startMic();
     }
-  }, [state, startMic, stopMic]);
+  }, [state, startMic, stopMic, stopPlayback]);
 
   const sendText = useCallback((text) => {
     if (!text.trim()) return;
@@ -392,6 +481,7 @@ export function useVoiceSession() {
 
   useEffect(() => {
     return () => {
+      stopPlayback();
       stopMic();
       stopTimer();
       if (wsRef.current) {
@@ -401,7 +491,40 @@ export function useVoiceSession() {
         try { playbackContextRef.current.close(); } catch {}
       }
     };
-  }, [stopMic, stopTimer]);
+  }, [stopMic, stopPlayback, stopTimer]);
+
+  const toggleHandsFree = useCallback(() => {
+    const next = !handsFreeRef.current;
+    handsFreeRef.current = next;
+    setHandsFreeMode(next);
+
+    if (next) {
+      if (stateRef.current === VOICE_STATES.READY || stateRef.current === VOICE_STATES.SPEAKING) {
+        stopPlayback();
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: WS_MESSAGE_TYPES.INTERRUPT }));
+        }
+        startMic();
+      }
+    } else {
+      if (stateRef.current === VOICE_STATES.LISTENING) {
+        stopMic();
+        setState(VOICE_STATES.READY);
+      }
+    }
+  }, [startMic, stopMic, stopPlayback]);
+
+  const getAudioData = useCallback(() => {
+    const micData = new Uint8Array(64);
+    const tutorData = new Uint8Array(64);
+    if (micAnalyserRef.current) {
+      micAnalyserRef.current.getByteFrequencyData(micData);
+    }
+    if (tutorAnalyserRef.current) {
+      tutorAnalyserRef.current.getByteFrequencyData(tutorData);
+    }
+    return { micData, tutorData };
+  }, []);
 
   return {
     state,
@@ -413,11 +536,16 @@ export function useVoiceSession() {
     elapsedSec,
     fallbackMode,
     micLevel,
+    handsFreeMode,
+    vadState,
     startSession,
     endSession,
     toggleListening,
+    toggleHandsFree,
     sendText,
     setError,
+    stopPlayback,
+    getAudioData,
   };
 }
 

@@ -51,6 +51,12 @@ export const FONTS = {
   mono: "'JetBrains Mono', monospace",
 };
 
+export const VAD_CONFIG = {
+  speechThreshold: 0.025,
+  speechOnsetMs: 100,
+  silenceOffsetMs: 1200,
+};
+
 export const WS_MESSAGE_TYPES = {
   AUDIO: "audio",
   TEXT: "text",

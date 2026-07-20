@@ -270,6 +270,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
           micLevel={voice.micLevel}
           onClick={selectedResourceId || isActive ? handleOrbClick : undefined}
           size={220}
+          getAudioData={voice.getAudioData}
         />
 
         {/* Status text */}
@@ -295,13 +296,13 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
             <p style={{
               margin: 0, fontSize: 13, color: COLORS.electric,
               fontFamily: FONTS.body,
-            }}>Ready — tap to speak</p>
+            }}>{voice.handsFreeMode ? "Listening... just start talking" : "Ready — tap to speak"}</p>
           )}
           {voice.state === VOICE_STATES.LISTENING && (
             <p style={{
               margin: 0, fontSize: 13, color: COLORS.green,
               fontFamily: FONTS.body,
-            }}>Listening... tap to stop</p>
+            }}>{voice.handsFreeMode ? "Listening... speak naturally" : "Listening... tap to stop"}</p>
           )}
           {voice.state === VOICE_STATES.SPEAKING && (
             <p style={{
@@ -323,7 +324,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
           )}
         </div>
 
-        {/* Timer */}
+        {/* Timer + Hands-free toggle */}
         {isActive && (
           <div style={{
             display: "flex",
@@ -337,6 +338,25 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
             }}>
               {String(remainingMin).padStart(2, "0")}:{String(remainingSecDisp).padStart(2, "0")} remaining
             </span>
+            <button
+              onClick={voice.toggleHandsFree}
+              style={{
+                padding: "6px 14px",
+                background: voice.handsFreeMode ? hexToRgba(COLORS.green, 0.15) : COLORS.inkLight,
+                border: `1px solid ${voice.handsFreeMode ? hexToRgba(COLORS.green, 0.4) : COLORS.border}`,
+                borderRadius: 8,
+                color: voice.handsFreeMode ? COLORS.green : COLORS.textDim,
+                fontSize: 11,
+                fontFamily: FONTS.body,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: 13 }}>{voice.handsFreeMode ? "🎙️" : "🎤"}</span>
+              {voice.handsFreeMode ? "Hands-Free ON" : "Hands-Free"}
+            </button>
             <button
               onClick={handleEnd}
               style={{
