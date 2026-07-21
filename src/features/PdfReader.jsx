@@ -3542,7 +3542,7 @@ ${extractedText}
   };
 
   return (
-    <div style={s.container}>
+    <div className="zoom-allowed" style={s.container}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translate3d(0, 100%, 0); } to { transform: translate3d(0, 0, 0); } }

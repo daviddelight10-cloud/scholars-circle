@@ -15,19 +15,18 @@ export default function TranscriptOverlay({ transcript }) {
 
   return (
     <div style={{
-      position: "absolute",
-      bottom: 100, // Above the action bar
-      left: 0,
-      right: 0,
-      maxHeight: "35vh", // Take up bottom 1/3 of screen
-      padding: "20px 40px",
+      flex: 1,
+      width: "100%",
+      maxWidth: 600,
+      maxHeight: "30vh",
+      padding: "12px 20px 0",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      pointerEvents: "none", // Let clicks pass through to background
+      pointerEvents: "none",
       zIndex: 50,
-      maskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 100%)",
-      WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 100%)",
+      maskImage: "linear-gradient(to bottom, transparent 0%, black 20%, black 100%)",
+      WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 20%, black 100%)",
     }}>
       <div 
         ref={containerRef}

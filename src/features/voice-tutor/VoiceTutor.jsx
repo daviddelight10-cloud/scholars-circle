@@ -16,7 +16,7 @@ function getAuthToken() {
   }
 }
 
-export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
+export default function VoiceTutor({ preselectedResourceId = null, onExit, onSessionActiveChange }) {
   const [resources, setResources] = useState([]);
   const [selectedResourceId, setSelectedResourceId] = useState(preselectedResourceId);
   const [mode, setMode] = useState("teach");
@@ -99,40 +99,49 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
     VOICE_STATES.THINKING,
   ].includes(voice.state);
 
+  useEffect(() => {
+    if (onSessionActiveChange) onSessionActiveChange(isActive);
+  }, [isActive, onSessionActiveChange]);
+
   // Determine glow color based on state
   let glowColor = "transparent";
-  if (voice.state === VOICE_STATES.LISTENING) glowColor = hexToRgba(COLORS.green, 0.1);
-  else if (voice.state === VOICE_STATES.SPEAKING || voice.state === VOICE_STATES.THINKING) glowColor = hexToRgba(COLORS.gold, 0.1);
-  else if (voice.state === VOICE_STATES.READY) glowColor = hexToRgba(COLORS.electric, 0.1);
+  if (voice.state === VOICE_STATES.LISTENING) glowColor = hexToRgba(COLORS.green, 0.12);
+  else if (voice.state === VOICE_STATES.SPEAKING || voice.state === VOICE_STATES.THINKING) glowColor = hexToRgba(COLORS.gold, 0.12);
+  else if (voice.state === VOICE_STATES.READY) glowColor = hexToRgba(COLORS.electric, 0.12);
 
   return (
     <div style={{
-      minHeight: "100%",
+      position: "fixed",
+      inset: 0,
+      height: "100dvh",
+      width: "100vw",
       background: COLORS.ink,
-      backgroundImage: `radial-gradient(circle at center, ${glowColor} 0%, transparent 60%)`,
+      backgroundImage: `radial-gradient(circle at 50% 40%, ${glowColor} 0%, transparent 70%)`,
       transition: "background-image 0.5s ease-in-out",
       display: "flex",
       flexDirection: "column",
-      alignItems: "center",
-      padding: "20px 16px",
       fontFamily: FONTS.body,
       color: COLORS.text,
-      position: "relative",
       overflow: "hidden",
+      zIndex: 500,
+      paddingTop: "env(safe-area-inset-top)",
+      paddingBottom: "env(safe-area-inset-bottom)",
+      animation: "scVtFadeIn 0.3s ease-out",
     }}>
       <style>{`
         @keyframes scVtPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
         .sc-vt-pulse { animation: scVtPulse 2s ease-in-out infinite; }
+        @keyframes scVtFadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
       `}</style>
 
-      {/* Top bar */}
+      {/* Header bar */}
       <div style={{
+        flexShrink: 0,
         width: "100%",
-        maxWidth: 640,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 24,
+        padding: "12px 20px",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 22 }}>🎙️</span>
@@ -147,21 +156,38 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
             }}>Study with your documents — powered by Gemini Live</p>
           </div>
         </div>
-        {onExit && (
-          <button
-            onClick={onExit}
-            style={{
-              background: COLORS.inkLight,
-              border: `1px solid ${COLORS.border}`,
-              borderRadius: 10,
-              padding: "8px 14px",
-              color: COLORS.textDim,
-              fontSize: 13,
-              cursor: "pointer",
-              fontFamily: FONTS.body,
-            }}
-          >Exit</button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {isActive && (
+            <span style={{
+              padding: "6px 12px",
+              background: hexToRgba(COLORS.surfaceLight, 0.5),
+              backdropFilter: "blur(10px)",
+              borderRadius: 20,
+              border: `1px solid ${hexToRgba(COLORS.border, 0.3)}`,
+              fontSize: 11,
+              color: COLORS.textFaint,
+              fontFamily: FONTS.mono,
+              whiteSpace: "nowrap",
+            }}>
+              {String(remainingMin).padStart(2, "0")}:{String(remainingSecDisp).padStart(2, "0")} left
+            </span>
+          )}
+          {onExit && (
+            <button
+              onClick={onExit}
+              style={{
+                background: COLORS.inkLight,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 10,
+                padding: "8px 14px",
+                color: COLORS.textDim,
+                fontSize: 13,
+                cursor: "pointer",
+                fontFamily: FONTS.body,
+              }}
+            >Exit</button>
+          )}
+        </div>
       </div>
 
       {/* Resource selector */}
@@ -170,6 +196,8 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
           width: "100%",
           maxWidth: 480,
           marginBottom: 20,
+          padding: "0 20px",
+          boxSizing: "border-box",
         }}>
           <label style={{
             display: "block",
@@ -238,6 +266,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
           marginBottom: 24,
           flexWrap: "wrap",
           justifyContent: "center",
+          padding: "0 20px",
         }}>
           <div style={{ display: "flex", gap: 8 }}>
             {Object.entries(VOICE_MODES).map(([key, m]) => (
@@ -292,7 +321,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
         </div>
       )}
 
-      {/* Orb */}
+      {/* Main content area: Orb + status (flex: 1 to fill space) */}
       <div style={{
         flex: 1,
         display: "flex",
@@ -300,8 +329,10 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
         alignItems: "center",
         justifyContent: "center",
         gap: 20,
-        minHeight: 280,
+        minHeight: 0,
+        position: "relative",
         zIndex: 10,
+        width: "100%",
       }}>
         <VoiceOrb
           state={voice.state}
@@ -361,114 +392,22 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
             }}>Session ended</p>
           )}
         </div>
+
+        {isActive && (
+          <TranscriptOverlay transcript={voice.transcript} />
+        )}
       </div>
-
-      {isActive && (
-        <TranscriptOverlay transcript={voice.transcript} />
-      )}
-
-      {/* Floating Action Bar (Bottom toolbar) */}
-      {isActive && (
-        <div style={{
-          position: "absolute",
-          bottom: 24,
-          left: "50%",
-          transform: "translateX(-50%)",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "12px 20px",
-          background: hexToRgba(COLORS.surfaceLight, 0.7),
-          backdropFilter: "blur(12px)",
-          border: `1px solid ${hexToRgba(COLORS.border, 0.5)}`,
-          borderRadius: 40,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
-          zIndex: 100,
-        }}>
-          <button
-            onClick={() => setShowMaterials(true)}
-            style={floatingBtnStyle}
-            title="Materials"
-          >📄</button>
-          <button
-            onClick={() => setShowConcepts(true)}
-            style={floatingBtnStyle}
-            title="Concepts"
-          >💡</button>
-          
-          <div style={{ width: 1, height: 24, background: COLORS.border, margin: "0 4px" }} />
-          
-          <button
-            onClick={voice.toggleHandsFree}
-            style={{
-              padding: "8px 16px",
-              background: voice.handsFreeMode ? hexToRgba(COLORS.green, 0.2) : "transparent",
-              border: `1px solid ${voice.handsFreeMode ? hexToRgba(COLORS.green, 0.4) : "transparent"}`,
-              borderRadius: 20,
-              color: voice.handsFreeMode ? COLORS.green : COLORS.textDim,
-              fontSize: 12,
-              fontFamily: FONTS.body,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              transition: "all 0.2s",
-            }}
-          >
-            <span style={{ fontSize: 14 }}>{voice.handsFreeMode ? "🎙️" : "🎤"}</span>
-            {voice.handsFreeMode ? "Hands-Free" : "Tap-to-Talk"}
-          </button>
-          
-          <div style={{ width: 1, height: 24, background: COLORS.border, margin: "0 4px" }} />
-          
-          <button
-            onClick={handleEnd}
-            style={{
-              padding: "8px 16px",
-              background: hexToRgba(COLORS.coral, 0.15),
-              border: `1px solid ${hexToRgba(COLORS.coral, 0.3)}`,
-              borderRadius: 20,
-              color: COLORS.coral,
-              fontSize: 12,
-              fontFamily: FONTS.body,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <span style={{ fontSize: 14 }}>🛑</span> End
-          </button>
-        </div>
-      )}
-
-      {/* Timer floating at top right when active */}
-      {isActive && (
-        <div style={{
-          position: "absolute",
-          top: 24,
-          right: 24,
-          padding: "6px 12px",
-          background: hexToRgba(COLORS.surfaceLight, 0.5),
-          backdropFilter: "blur(10px)",
-          borderRadius: 20,
-          border: `1px solid ${hexToRgba(COLORS.border, 0.3)}`,
-          fontSize: 11,
-          color: COLORS.textFaint,
-          fontFamily: FONTS.mono,
-        }}>
-          {String(remainingMin).padStart(2, "0")}:{String(remainingSecDisp).padStart(2, "0")} left
-        </div>
-      )}
 
       {/* Fallback text input */}
       {voice.fallbackMode && isActive && (
         <div style={{
+          flexShrink: 0,
           width: "100%",
           maxWidth: 480,
           display: "flex",
           gap: 8,
-          padding: "8px 0 16px",
+          padding: "8px 20px",
+          margin: "0 auto",
           zIndex: 10,
         }}>
           <input
@@ -502,6 +441,86 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit }) {
               cursor: "pointer",
             }}
           >Send</button>
+        </div>
+      )}
+
+      {/* Floating Action Bar — pinned to bottom via flex, not absolute */}
+      {isActive && (
+        <div style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          padding: "16px 20px calc(20px + env(safe-area-inset-bottom))",
+          zIndex: 100,
+        }}>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "12px 20px",
+            background: hexToRgba(COLORS.surfaceLight, 0.7),
+            backdropFilter: "blur(12px)",
+            border: `1px solid ${hexToRgba(COLORS.border, 0.5)}`,
+            borderRadius: 40,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+          }}>
+            <button
+              onClick={() => setShowMaterials(true)}
+              style={floatingBtnStyle}
+              title="Materials"
+            >📄</button>
+            <button
+              onClick={() => setShowConcepts(true)}
+              style={floatingBtnStyle}
+              title="Concepts"
+            >💡</button>
+            
+            <div style={{ width: 1, height: 24, background: COLORS.border, margin: "0 4px" }} />
+            
+            <button
+              onClick={voice.toggleHandsFree}
+              style={{
+                padding: "8px 16px",
+                background: voice.handsFreeMode ? hexToRgba(COLORS.green, 0.2) : "transparent",
+                border: `1px solid ${voice.handsFreeMode ? hexToRgba(COLORS.green, 0.4) : "transparent"}`,
+                borderRadius: 20,
+                color: voice.handsFreeMode ? COLORS.green : COLORS.textDim,
+                fontSize: 12,
+                fontFamily: FONTS.body,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                transition: "all 0.2s",
+              }}
+            >
+              <span style={{ fontSize: 14 }}>{voice.handsFreeMode ? "🎙️" : "🎤"}</span>
+              {voice.handsFreeMode ? "Hands-Free" : "Tap-to-Talk"}
+            </button>
+            
+            <div style={{ width: 1, height: 24, background: COLORS.border, margin: "0 4px" }} />
+            
+            <button
+              onClick={handleEnd}
+              style={{
+                padding: "8px 16px",
+                background: hexToRgba(COLORS.coral, 0.15),
+                border: `1px solid ${hexToRgba(COLORS.coral, 0.3)}`,
+                borderRadius: 20,
+                color: COLORS.coral,
+                fontSize: 12,
+                fontFamily: FONTS.body,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: 14 }}>🛑</span> End
+            </button>
+          </div>
         </div>
       )}
 

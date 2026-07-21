@@ -610,6 +610,8 @@ function App() {
 
   const [voiceTutorResourceId, setVoiceTutorResourceId] = useState(null);
 
+  const [voiceSessionActive, setVoiceSessionActive] = useState(false);
+
   const [isIOS, setIsIOS] = useState(false);
 
   const [isInstalled, setIsInstalled] = useState(() => window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true);
@@ -8374,6 +8376,7 @@ function App() {
 
       {/* Mobile Bottom Navigation */}
 
+      {!(tab === "voice-tutor" && voiceSessionActive) && (
       <nav className="mobile-nav">
 
         <button
@@ -8473,6 +8476,7 @@ function App() {
         </button>
 
       </nav>
+      )}
 
 
 
@@ -10149,6 +10153,7 @@ function App() {
         <VoiceTutorPage
           preselectedResourceId={voiceTutorResourceId}
           onExit={() => { setVoiceTutorResourceId(null); setTab("today"); }}
+          onSessionActiveChange={setVoiceSessionActive}
         />
                 </Suspense>
         </ErrorBoundary>

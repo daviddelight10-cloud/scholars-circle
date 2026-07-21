@@ -330,6 +330,18 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
     return () => window.removeEventListener("keydown", handler);
   }, [onBack]);
 
+  // Enable browser zoom while reading documents, revert on unmount
+  useEffect(() => {
+    const viewport = document.querySelector('meta[name="viewport"]');
+    const original = viewport?.content || '';
+    if (viewport) {
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
+    }
+    return () => {
+      if (viewport) viewport.setAttribute('content', original);
+    };
+  }, []);
+
   // Fetch and extract content
   useEffect(() => {
     let cancelled = false;
@@ -680,7 +692,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
 
   if (loading) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
+      <div className="zoom-allowed" style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
         <div style={{ fontSize: "32px", marginBottom: "12px" }}>📖</div>
         <div style={{ color: t.muted, fontSize: "14px" }}>Loading document…</div>
       </div>
@@ -689,7 +701,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
 
   if (error) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
+      <div className="zoom-allowed" style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
         <div style={{ fontSize: "32px", marginBottom: "12px" }}>⚠️</div>
         <div style={{ color: t.accent, fontSize: "14px", marginBottom: "16px" }}>{error}</div>
         {onBack && <button onClick={onBack} style={{ padding: "8px 20px", borderRadius: "8px", border: `0.5px solid ${t.border}`, background: t.toolbar, color: t.text, cursor: "pointer" }}>← Back</button>}
@@ -698,7 +710,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", background: t.bg }}>
+    <div className="zoom-allowed" style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", background: t.bg }}>
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: t.toolbar, borderBottom: `0.5px solid ${t.border}`, flexShrink: 0 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: t.muted, fontSize: "18px", cursor: "pointer", padding: "4px 8px" }}>←</button>
