@@ -3,6 +3,7 @@ import { X, Flag, SkipForward, RotateCcw, Share2, Clock, CheckCircle2, XCircle, 
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import { copyShareToken } from "../lib/researchUtils.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { callAI } from "../lib/aiClient.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
@@ -262,20 +263,12 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
     if (!q) return;
     setAiExplainData(prev => ({ ...prev, [qIdx]: { ...prev[qIdx], loading: true } }));
     try {
-      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      const token = authData.authToken;
       const optionsStr = Object.entries(q.options).map(([k, v]) => `${k}. ${v}`).join("\n");
       const correctAnswer = q.options[q.correct] || q.correct;
       const userAnswer = answers[qIdx] ? q.options[answers[qIdx]] : "(skipped)";
       const prompt = `You are a helpful study tutor. A student just answered this MCQ question:\n\nQuestion: ${q.question}\nOptions:\n${optionsStr}\nCorrect answer: ${correctAnswer}\nStudent's answer: ${userAnswer}\n\nGive a clear, concise explanation (2-3 sentences) of why the correct answer is right. Be educational and encouraging.`;
-      const res = await fetch(`${API_BASE}/ai/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ prompt }),
-      });
-      if (!res.ok) throw new Error("AI request failed");
-      const data = await res.json();
-      setAiExplainData(prev => ({ ...prev, [qIdx]: { explanation: data.text || "No explanation generated.", followUps: [], loading: false } }));
+      const text = await callAI(prompt, { provider: "openrouter" });
+      setAiExplainData(prev => ({ ...prev, [qIdx]: { explanation: text || "No explanation generated.", followUps: [], loading: false } }));
     } catch {
       setAiExplainData(prev => ({ ...prev, [qIdx]: { explanation: "Could not get AI explanation. Please try again.", followUps: [], loading: false } }));
     }
@@ -288,25 +281,17 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
     setFollowUpInput("");
     setAiFollowUpLoading(true);
     try {
-      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      const token = authData.authToken;
       const optionsStr = Object.entries(q.options).map(([k, v]) => `${k}. ${v}`).join("\n");
       const correctAnswer = q.options[q.correct] || q.correct;
       const prevExplain = aiExplainData[qIdx]?.explanation || "";
       const prevFollowUps = (aiExplainData[qIdx]?.followUps || []).map(f => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n");
       const prompt = `You are a helpful study tutor. The student asked about this MCQ question earlier and you gave an explanation. Now they have a follow-up question.\n\nOriginal Question: ${q.question}\nOptions:\n${optionsStr}\nCorrect answer: ${correctAnswer}\n\nYour previous explanation: ${prevExplain}\n\nPrevious follow-ups:\n${prevFollowUps || "(none)"}\n\nStudent's follow-up question: ${userQuestion}\n\nAnswer concisely (2-4 sentences). Be educational and encouraging.`;
-      const res = await fetch(`${API_BASE}/ai/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ prompt }),
-      });
-      if (!res.ok) throw new Error("AI request failed");
-      const data = await res.json();
+      const text = await callAI(prompt, { provider: "openrouter" });
       setAiExplainData(prev => ({
         ...prev,
         [qIdx]: {
           ...prev[qIdx],
-          followUps: [...(prev[qIdx]?.followUps || []), { question: userQuestion, answer: data.text || "No response." }],
+          followUps: [...(prev[qIdx]?.followUps || []), { question: userQuestion, answer: text || "No response." }],
         },
       }));
     } catch {
