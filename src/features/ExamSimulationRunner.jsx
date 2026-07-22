@@ -61,12 +61,14 @@ export default function ExamSimulationRunner({ subject, resourceIds, questionCou
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [configQuestions, setConfigQuestions] = useState(questionCount);
   const [configMinutes, setConfigMinutes] = useState(timeLimitMin);
+  const [examError, setExamError] = useState("");
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 640;
   const examStartRef = useRef(0);
   const handleSubmitRef = useRef(null);
 
   const startExam = async (count, minutes) => {
     setLoading(true);
+    setExamError("");
     const params = new URLSearchParams();
     if (subject) params.set("subject", subject);
     if (resourceIds) params.set("resourceIds", resourceIds.join(","));
@@ -74,6 +76,7 @@ export default function ExamSimulationRunner({ subject, resourceIds, questionCou
 
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/due-mcqs?${params.toString()}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       const enriched = shuffleArray((data.items || []).filter((i) => i.mcq))
         .slice(0, count)
@@ -83,11 +86,17 @@ export default function ExamSimulationRunner({ subject, resourceIds, questionCou
           _pageIndex: i.pageIndex,
           _resourceTitle: i.resource?.title,
         }));
+      if (enriched.length === 0) {
+        setExamError("No MCQ questions found. Add MCQ resources first, or try Spaced Review to initialize questions.");
+        setLoading(false);
+        return;
+      }
       setItems(enriched);
       setTimeLeft(minutes * 60 * 1000);
       setPhase("exam");
       examStartRef.current = Date.now();
     } catch {
+      setExamError("Failed to load exam questions. Please try again.");
       setPhase("config");
     }
     setLoading(false);
@@ -186,6 +195,11 @@ export default function ExamSimulationRunner({ subject, resourceIds, questionCou
           <div style={{ marginTop: "20px", padding: "12px 14px", background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px", fontSize: "12px", color: "#7b82b8", lineHeight: 1.6 }}>
             ⚠️ No instant feedback. All questions reviewed at the end. Timer auto-submits when expired.
           </div>
+          {examError && (
+            <div style={{ marginTop: "12px", padding: "12px 14px", background: "#2a0f0f", border: "0.5px solid #6a2a2a", borderRadius: "10px", fontSize: "12px", color: "#ef9a9a", lineHeight: 1.6 }}>
+              {examError}
+            </div>
+          )}
           <button
             onClick={() => startExam(configQuestions, configMinutes)}
             disabled={loading}
@@ -277,6 +291,18 @@ export default function ExamSimulationRunner({ subject, resourceIds, questionCou
               );
             })}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div style={{ ...fullscreenStyle, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", maxWidth: 400, padding: 20 }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
+          <p style={{ color: "#7b82b8", fontSize: 14, marginBottom: 16 }}>No questions available for this exam.</p>
+          <button onClick={onBack} style={{ padding: "10px 20px", background: "#0f1128", border: "0.5px solid #252860", borderRadius: "10px", color: "#7986cb", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>← Back to Hub</button>
         </div>
       </div>
     );
