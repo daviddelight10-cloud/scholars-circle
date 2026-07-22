@@ -404,7 +404,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     fetchFsrsStats(); fetchFsrsAnalytics();
     fetchMcqProgress();
     if (onStreakUpdate && data.streak != null) onStreakUpdate(data.streak, data.longestStreak);
-  }, [onStreakUpdate]);
+    if (onXpUpdate && data.xpAwarded > 0) onXpUpdate(data.xpAwarded);
+  }, [onStreakUpdate, onXpUpdate]);
 
   const handleSessionComplete = useCallback(() => {
     setSessionMode(null);

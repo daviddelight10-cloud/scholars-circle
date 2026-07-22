@@ -279,9 +279,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           return <McqModeSelect resource={resource} onBack={handleBack} onSelect={(mode) => setMcqMode(mode)} onQuizComplete={onQuizComplete} />;
         }
         if (mcqMode === "exam") {
-          return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} />;
+          return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
         }
-        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} />;
+        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
 
       case "flashcard_deck":
         return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;

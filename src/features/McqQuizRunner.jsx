@@ -70,7 +70,7 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComplete, switchMode }) {
+export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComplete, switchMode, onStreakUpdate, onXpUpdate }) {
   const isMobile = useIsMobile();
   const rawQuestions = useMemo(() => {
     const raw = resource.mcqData;
@@ -215,6 +215,8 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
         const data = await res.json();
         setResultsData(data);
         if (onQuizComplete) onQuizComplete(data);
+        if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
+        if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
       } else {
         const err = await res.json().catch(() => ({}));
         setSubmitError(err.error || "Failed to submit quiz");

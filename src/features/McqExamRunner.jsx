@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { X, Flag, Clock, CheckCircle2, XCircle, ChevronRight, ChevronLeft, Trophy, Zap, BarChart3, Flame, Sparkles, Send, Pause, Play, AlertTriangle } from "lucide-react";
+import { X, Flag, Clock, CheckCircle2, XCircle, ChevronRight, ChevronLeft, Trophy, Zap, BarChart3, Flame, Sparkles, Send, Pause, Play, AlertTriangle, RotateCcw, Share2 } from "lucide-react";
 import { copyShareToken } from "../lib/researchUtils.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { callAI } from "../lib/aiClient.js";
@@ -59,7 +59,7 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function McqExamRunner({ resource, shareToken, onBack, onQuizComplete }) {
+export default function McqExamRunner({ resource, shareToken, onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
   const isMobile = useIsMobile();
   const rawQuestions = useMemo(() => {
     const raw = resource.mcqData;
@@ -208,6 +208,8 @@ export default function McqExamRunner({ resource, shareToken, onBack, onQuizComp
         const data = await res.json();
         setResultsData(data);
         if (onQuizComplete) onQuizComplete(data);
+        if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
+        if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
       } else {
         const err = await res.json().catch(() => ({}));
         setSubmitError(err.error || "Failed to submit exam");
@@ -220,7 +222,7 @@ export default function McqExamRunner({ resource, shareToken, onBack, onQuizComp
       setSubmitting(false);
       setPhase("results");
     }
-  }, [phase, currentIndex, resource.id, score, totalQuestions, examQuestions, answers, onQuizComplete]);
+  }, [phase, currentIndex, resource.id, score, totalQuestions, examQuestions, answers, onQuizComplete, onStreakUpdate, onXpUpdate]);
 
   const getAIExplain = useCallback(async (qIdx) => {
     const q = examQuestions[qIdx];
