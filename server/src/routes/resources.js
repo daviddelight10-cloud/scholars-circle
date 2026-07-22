@@ -280,8 +280,8 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
     });
     const isFirstAttempt = existingAttempts.length === 0;
 
-    // Gate XP to first attempt only (prevents farming); 10 XP per correct — matches session rate
-    const xpAwarded = isFirstAttempt ? score * 10 : 0;
+    // Award XP on every attempt (10 XP per correct) so users can always farm XP by practicing
+    const xpAwarded = score * 10;
 
     // Create attempt record
     const attempt = await prisma.quizAttempt.create({
@@ -370,7 +370,7 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
     // Update universal daily streak (synced across the whole app)
     const streakInfo = await updateUniversalStreak(req.user.sub, prisma);
 
-    // Write XP to both ledgers on first attempt so totalXp and userProgress.xp stay in sync
+    // Write XP to both ledgers so totalXp and userProgress.xp stay in sync
     if (xpAwarded > 0) {
       await prisma.user.update({
         where: { id: req.user.sub },
@@ -2045,7 +2045,8 @@ router.post("/folders/:folderId/quiz-attempts", requireAuth, async (req, res) =>
       select: { id: true },
     });
     const isFirstAttempt = existingAttempts.length === 0;
-    const xpAwarded = isFirstAttempt ? score * 10 : 0;
+    // Award XP on every attempt (10 XP per correct) so users can always farm XP by practicing
+    const xpAwarded = score * 10;
 
     const attempt = await prisma.folderQuizAttempt.create({
       data: { folderId, userId: req.user.sub, score, total, xpAwarded, mode: attemptMode, details: details || null },

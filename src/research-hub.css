@@ -94,3 +94,64 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ── Flashcard Runner animations ─────────────────────────────────────── */
+@keyframes fc-card-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.fc-float {
+  animation: fc-card-float 3s ease-in-out infinite;
+}
+
+@keyframes fc-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.fc-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  animation: fc-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes fc-fade-in-up {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.fc-fade-in-up {
+  animation: fc-fade-in-up 0.35s ease both;
+}
+
+@keyframes fc-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,112,67,0.5); }
+  50% { box-shadow: 0 0 12px 3px rgba(255,112,67,0.45); }
+}
+.fc-pulse-glow {
+  animation: fc-pulse-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes fc-bounce-hint {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(3px); opacity: 1; }
+}
+.fc-bounce-hint {
+  animation: fc-bounce-hint 1.8s ease-in-out infinite;
+}
+
+@keyframes fc-scale-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.fc-scale-in {
+  animation: fc-scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes fc-pulse-text {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.fc-pulse-text {
+  animation: fc-pulse-text 1.4s ease-in-out infinite;
+}
