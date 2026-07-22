@@ -190,6 +190,7 @@ model User {
 
   folders           Folder[] @relation("FolderOwner")
   folderBookmarks   FolderBookmark[]
+  folderQuizAttempts FolderQuizAttempt[]
 
   totalXp           Int      @default(0)
 
@@ -1494,11 +1495,13 @@ model QuizAttempt {
   score       Int
   total       Int
   xpAwarded   Int      @default(0)
+  mode        String   @default("practice") // practice | exam
   details     Json?    // [{ questionIndex, correct }] per-question results
   createdAt   DateTime @default(now())
 
   @@index([resourceId])
   @@index([userId])
+  @@index([mode])
 }
 
 model ResourceRating {
@@ -1628,6 +1631,7 @@ model Folder {
   bookmarks     ResourceBookmark[]
   folderDepts   FolderDepartment[]
   folderBookmarks FolderBookmark[]
+  folderQuizAttempts FolderQuizAttempt[]
 
   @@index([ownerId])
   @@index([visibility])
@@ -1655,6 +1659,24 @@ model FolderDepartment {
 
   @@id([folderId, departmentId])
   @@index([departmentId])
+}
+
+model FolderQuizAttempt {
+  id          String   @id @default(cuid())
+  folderId    String
+  folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score       Int
+  total       Int
+  xpAwarded   Int      @default(0)
+  mode        String   @default("practice") // practice | exam
+  details     Json?    // [{ resourceId, questionIndex, correct }] per-question results
+  createdAt   DateTime @default(now())
+
+  @@index([folderId])
+  @@index([userId])
+  @@index([mode])
 }
 
 // ============ VOICE TUTOR (Gemini Live API) ============

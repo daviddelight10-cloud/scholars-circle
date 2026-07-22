@@ -57,9 +57,9 @@ export function SearchResults({ query, subjects, onStart }) {
   );
 }
 
-export function AchievementsBadges({ badges, stats, history, subjects, mastery }) {
-  const earned = badges.filter(b => { try { return b.check(stats, history, subjects, mastery); } catch { return false; } });
-  const locked = badges.filter(b => { try { return !b.check(stats, history, subjects, mastery); } catch { return true; } });
+export function AchievementsBadges({ badges, stats, history, subjects }) {
+  const earned = badges.filter(b => { try { return b.check(stats, history, subjects, {}); } catch { return false; } });
+  const locked = badges.filter(b => { try { return !b.check(stats, history, subjects, {}); } catch { return true; } });
 
   return (
     <div className="card">

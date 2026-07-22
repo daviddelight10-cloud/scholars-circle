@@ -49,6 +49,9 @@ export default function DepartmentView({
   onShare,
   onOpenFolder,
   onCreateFolder,
+  onSpacedReview,
+  onAdaptiveDrill,
+  onExamSimulation,
 }) {
   const [search, setSearch] = useState("");
   const [expandedLevels, setExpandedLevels] = useState({});
@@ -122,6 +125,9 @@ export default function DepartmentView({
         bookmarkedIds={bookmarkedIds}
         bookmarkBusyId={bookmarkBusyId}
         mcqProgress={mcqProgress}
+        onStudySubject={() => onSpacedReview?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
+        onAdaptiveDrill={() => onAdaptiveDrill?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
+        onExamSimulation={() => onExamSimulation?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
         backLabel="Department"
       />
     );

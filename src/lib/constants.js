@@ -151,12 +151,11 @@ export const DEMO_ACHIEVEMENTS = [
   { id: "demo_complete", icon: "🎯", label: "Demo Complete", desc: "Earn all demo achievements", check: (p, u, a) => a.length >= 7 },
 ];
 
-export const PRIMARY_TABS = ["today", "practice", "clinical-cases", "osce", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub"];
+export const PRIMARY_TABS = ["today", "clinical-cases", "osce", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub"];
 
 export const TAB_LABELS = {
-  today: "🏠 Home", dashboard: "🏠 Home", practice: "📚 Q-Bank", aitutor: "🤖 AI Tutor",
-  analytics: "📊 Progress", studypaths: "🛣️ Study Paths", learn: "📚 Q-Bank", classroom: "🏫 Classroom",
-  bank: "🏦 Question Bank",
+  today: "🏠 Home", dashboard: "🏠 Home", aitutor: "🤖 AI Tutor",
+  analytics: "📊 Progress", classroom: "🏫 Classroom",
   outline: "📋 Course Outline", keys: "🔑 Keys", invites: "✉️ Invites", admin: "⚙️ Admin",
   flashcards: "🃏 Flashcards", lecturers: "👨‍⚕️ Clinicians",
   leaderboard: "🏆 Leaderboard", gamification: "⚔️ Arena", studygroups: "👥 Study Groups",

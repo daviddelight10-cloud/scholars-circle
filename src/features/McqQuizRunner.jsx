@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { X, Flag, SkipForward, RotateCcw, Share2, Clock, CheckCircle2, XCircle, ChevronRight, Trophy, Zap, BarChart3, Flame, Sparkles, Send } from "lucide-react";
+import { X, Flag, SkipForward, RotateCcw, Share2, Clock, CheckCircle2, XCircle, ChevronRight, ChevronLeft, Trophy, Zap, BarChart3, Flame, Sparkles, Send } from "lucide-react";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import { copyShareToken } from "../lib/researchUtils.js";
 import MarkdownText from "../components/MarkdownText.jsx";
@@ -70,7 +70,7 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComplete }) {
+export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComplete, switchMode }) {
   const isMobile = useIsMobile();
   const rawQuestions = useMemo(() => {
     const raw = resource.mcqData;
@@ -172,6 +172,12 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
       else next.add(currentIndex);
       return next;
     });
+  }, [currentIndex]);
+
+  const handlePrev = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
   }, [currentIndex]);
 
   const handleNext = useCallback(() => {
@@ -861,24 +867,54 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
           )}
 
           {isLocked ? (
-            <button
-              onClick={handleNext}
-              disabled={submitting}
-              style={{
-                width: "100%", marginTop: isMobile ? "12px" : "16px", padding: isMobile ? "10px" : "12px",
-                background: submitting ? "#0f1128" : "#1a1a1a",
-                border: "0.5px solid #B8860B", borderRadius: "10px",
-                fontSize: isMobile ? "13px" : "14px", fontWeight: 700, color: "#FFD700",
-                cursor: submitting ? "not-allowed" : "pointer",
-                opacity: submitting ? 0.5 : 1,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-              }}
-            >
-              {submitting ? "Submitting..." : currentIndex < totalQuestions - 1 ? "Next" : "See Results"}
-              {!submitting && <ChevronRight size={isMobile ? 14 : 16} />}
-            </button>
+            <div style={{ display: "flex", gap: "10px", marginTop: isMobile ? "12px" : "16px" }}>
+              {currentIndex > 0 && (
+                <button
+                  onClick={handlePrev}
+                  disabled={submitting}
+                  style={{
+                    padding: isMobile ? "10px" : "12px",
+                    background: "transparent", border: "0.5px solid #2a2d4a", borderRadius: "10px",
+                    fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#5a6090", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                    opacity: submitting ? 0.5 : 1,
+                  }}
+                >
+                  <ChevronLeft size={isMobile ? 13 : 15} /> Prev
+                </button>
+              )}
+              <button
+                onClick={handleNext}
+                disabled={submitting}
+                style={{
+                  flex: 1, padding: isMobile ? "10px" : "12px",
+                  background: submitting ? "#0f1128" : "#1a1a1a",
+                  border: "0.5px solid #B8860B", borderRadius: "10px",
+                  fontSize: isMobile ? "13px" : "14px", fontWeight: 700, color: "#FFD700",
+                  cursor: submitting ? "not-allowed" : "pointer",
+                  opacity: submitting ? 0.5 : 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                }}
+              >
+                {submitting ? "Submitting..." : currentIndex < totalQuestions - 1 ? "Next" : "See Results"}
+                {!submitting && <ChevronRight size={isMobile ? 14 : 16} />}
+              </button>
+            </div>
           ) : (
             <div style={{ display: "flex", gap: "10px", marginTop: isMobile ? "12px" : "16px" }}>
+              {currentIndex > 0 && (
+                <button
+                  onClick={handlePrev}
+                  style={{
+                      padding: isMobile ? "10px" : "12px",
+                      background: "transparent", border: "0.5px solid #2a2d4a", borderRadius: "10px",
+                      fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#5a6090", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                  }}
+                >
+                  <ChevronLeft size={isMobile ? 13 : 15} /> Prev
+                </button>
+              )}
               <button
                 onClick={handleSkip}
                 style={{

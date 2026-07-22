@@ -12,7 +12,6 @@ const initialState = {
   showOnboarding: false,
   demoMode: false,
   demoUsage: { aiCalls: 0, practiceQuestions: 0 },
-  learnSubTab: "practice",
   progressSubTab: "stats",
   resourcesSubTab: "notes",
   aiTutorSubTab: "chat",
@@ -57,8 +56,6 @@ function uiReducer(state, action) {
       return { ...state, demoUsage: action.payload };
     case "UPDATE_DEMO_USAGE":
       return { ...state, demoUsage: { ...state.demoUsage, ...action.payload } };
-    case "SET_LEARN_SUB_TAB":
-      return { ...state, learnSubTab: action.payload };
     case "SET_PROGRESS_SUB_TAB":
       return { ...state, progressSubTab: action.payload };
     case "SET_RESOURCES_SUB_TAB":
@@ -106,7 +103,6 @@ export function UIProvider({ children }) {
     setDemoMode: (demo) => dispatch({ type: "SET_DEMO_MODE", payload: demo }),
     setDemoUsage: (usage) => dispatch({ type: "SET_DEMO_USAGE", payload: usage }),
     updateDemoUsage: (usage) => dispatch({ type: "UPDATE_DEMO_USAGE", payload: usage }),
-    setLearnSubTab: (tab) => dispatch({ type: "SET_LEARN_SUB_TAB", payload: tab }),
     setProgressSubTab: (tab) => dispatch({ type: "SET_PROGRESS_SUB_TAB", payload: tab }),
     setResourcesSubTab: (tab) => dispatch({ type: "SET_RESOURCES_SUB_TAB", payload: tab }),
     setAiTutorSubTab: (tab) => dispatch({ type: "SET_AI_TUTOR_SUB_TAB", payload: tab }),

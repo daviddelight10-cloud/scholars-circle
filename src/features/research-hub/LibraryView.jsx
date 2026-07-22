@@ -49,6 +49,9 @@ export default function LibraryView({
   folderBookmarkedIds,
   folderBookmarkBusyId,
   onToggleFolderBookmark,
+  onSpacedReview,
+  onAdaptiveDrill,
+  onExamSimulation,
 }) {
   const [search, setSearch] = useState("");
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -94,6 +97,9 @@ export default function LibraryView({
         bookmarkedIds={bookmarkedIds}
         bookmarkBusyId={bookmarkBusyId}
         mcqProgress={mcqProgress}
+        onStudySubject={() => onSpacedReview?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
+        onAdaptiveDrill={() => onAdaptiveDrill?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
+        onExamSimulation={() => onExamSimulation?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
         backLabel="My Space"
       />
     );

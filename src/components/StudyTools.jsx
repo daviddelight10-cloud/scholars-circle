@@ -120,7 +120,7 @@ export function TimetableBuilder({ timetable, setTimetable, subjects }) {
   );
 }
 
-export function CheatSheet({ subjects, mastery }) {
+export function CheatSheet({ subjects }) {
   const [active, setActive] = useState(subjects[0]?.id || "");
   const subject = subjects.find(s => s.id === active);
 
@@ -155,7 +155,6 @@ export function CheatSheet({ subjects, mastery }) {
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0 6px" }}>
             <h3 style={{ margin: 0 }}>{subject.icon} {subject.label}</h3>
-            <span className="muted" style={{ fontSize: 13 }}>Mastery: {mastery[subject.id] || 0}%</span>
           </div>
           {subject.lessons.map(l => (
             <div key={l.title} className="lesson-block">

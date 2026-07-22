@@ -266,10 +266,12 @@ router.patch("/:id/reject", requireAuth, requireRole("TEACHER", "LECTURER"), asy
 // POST /api/quiz-attempts - Submit quiz attempt, award XP, return stats
 router.post("/quiz-attempts", requireAuth, async (req, res) => {
   try {
-    const { resourceId, score, total, details } = req.body;
+    const { resourceId, score, total, details, mode } = req.body;
     if (!resourceId || score === undefined || total === undefined) {
       return res.status(400).json({ error: "resourceId, score, and total are required" });
     }
+
+    const attemptMode = mode === "exam" ? "exam" : "practice";
 
     // Check if this is the user's first attempt on this resource
     const existingAttempts = await prisma.quizAttempt.findMany({
@@ -283,7 +285,7 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
 
     // Create attempt record
     const attempt = await prisma.quizAttempt.create({
-      data: { resourceId, userId: req.user.sub, score, total, xpAwarded, details: details || null },
+      data: { resourceId, userId: req.user.sub, score, total, xpAwarded, mode: attemptMode, details: details || null },
     });
 
     // Increment takenCount on first attempt only
@@ -1001,6 +1003,20 @@ router.post("/fsrs/rate", requireAuth, async (req, res) => {
 
     const streakInfo = await updateUniversalStreak(req.user.sub, prisma).catch(() => null);
 
+    // Award XP for correct answers (grade >= 3): 10 XP per correct, same as session rate
+    const xpAwarded = g >= 3 ? 10 : 0;
+    if (xpAwarded > 0) {
+      await prisma.user.update({
+        where: { id: req.user.sub },
+        data: { totalXp: { increment: xpAwarded } },
+      }).catch(() => {});
+      await prisma.userProgress.upsert({
+        where: { userId: req.user.sub },
+        create: { userId: req.user.sub, xp: xpAwarded },
+        update: { xp: { increment: xpAwarded } },
+      }).catch(() => {});
+    }
+
     res.json({
       nextReviewAt: result.nextReviewDate,
       intervalDays: result.intervalDays,
@@ -1012,6 +1028,8 @@ router.post("/fsrs/rate", requireAuth, async (req, res) => {
       reps: result.reps,
       retrievability: result.retrievability,
       streak: streakInfo?.streak ?? 0,
+      longestStreak: streakInfo?.longestStreak ?? 0,
+      xpAwarded,
     });
   } catch (error) {
     console.error("Error rating review item:", error);
@@ -1887,6 +1905,241 @@ router.post("/:id/flag", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error flagging resource:", error);
     res.status(500).json({ error: "Failed to flag resource" });
+  }
+});
+
+// ============ PHASE 11: SCOPED SESSION ENDPOINTS ============
+
+// ── GET /api/resources/fsrs/due-mcqs — Due MCQ items scoped by subject or resourceIds ──
+router.get("/fsrs/due-mcqs", requireAuth, async (req, res) => {
+  try {
+    const now = new Date();
+    const { subject, resourceIds } = req.query;
+    const limit = Math.max(1, Math.min(20, parseInt(req.query.limit) || 20));
+
+    const where = {
+      userId: req.user.sub,
+      itemType: { in: ["mcq", "legacy_mcq"] },
+      dueAt: { lte: now },
+    };
+
+    if (subject) {
+      where.subject = subject;
+    }
+
+    if (resourceIds) {
+      const ids = resourceIds.split(",").filter(Boolean);
+      if (ids.length > 0) where.resourceId = { in: ids };
+    }
+
+    const items = await prisma.pdfReviewItem.findMany({
+      where,
+      include: {
+        resource: { select: { id: true, title: true, subject: true, shareToken: true, mcqData: true } },
+      },
+      orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
+      take: limit,
+    });
+
+    const enriched = items.map((i) => {
+      const base = {
+        id: i.id,
+        resourceId: i.resourceId,
+        pageIndex: i.pageIndex,
+        state: i.state,
+        stability: i.stability,
+        difficulty: i.difficulty,
+        reps: i.reps,
+        lapses: i.lapses,
+        dueAt: i.dueAt,
+        topic: i.topic,
+        subject: i.subject,
+        resource: i.resource,
+      };
+      if (i.resource?.mcqData) {
+        const mcqData = typeof i.resource.mcqData === "string" ? JSON.parse(i.resource.mcqData) : i.resource.mcqData;
+        if (Array.isArray(mcqData) && mcqData[i.pageIndex]) {
+          base.mcq = mcqData[i.pageIndex];
+        }
+      }
+      return base;
+    }).filter((i) => i.mcq);
+
+    res.json({ items: enriched, totalDue: enriched.length });
+  } catch (error) {
+    console.error("Error fetching due MCQs:", error);
+    res.status(500).json({ error: "Failed to fetch due MCQs" });
+  }
+});
+
+// ── GET /api/resources/fsrs/weak-topics — Ranked weak topics scoped by subject or resourceIds ──
+router.get("/fsrs/weak-topics", requireAuth, async (req, res) => {
+  try {
+    const { subject, resourceIds } = req.query;
+
+    const where = {
+      userId: req.user.sub,
+      itemType: { in: ["mcq", "legacy_mcq", "page", "whole_pdf"] },
+    };
+
+    if (subject) {
+      where.subject = subject;
+    }
+
+    if (resourceIds) {
+      const ids = resourceIds.split(",").filter(Boolean);
+      if (ids.length > 0) where.resourceId = { in: ids };
+    }
+
+    const items = await prisma.pdfReviewItem.findMany({
+      where,
+      select: { topic: true, subject: true, lapses: true, difficulty: true, state: true, dueAt: true },
+    });
+
+    // Group by topic
+    const topicMap = {};
+    for (const i of items) {
+      const key = i.topic || i.subject || "General";
+      if (!topicMap[key]) {
+        topicMap[key] = { topic: key, dueCount: 0, totalItems: 0, sumDifficulty: 0, sumLapses: 0 };
+      }
+      const t = topicMap[key];
+      t.totalItems++;
+      t.sumDifficulty += i.difficulty || 0;
+      t.sumLapses += i.lapses || 0;
+      if (new Date(i.dueAt) <= new Date()) t.dueCount++;
+    }
+
+    const ranked = Object.values(topicMap).map((t) => ({
+      topic: t.topic,
+      dueCount: t.dueCount,
+      avgDifficulty: t.totalItems > 0 ? Math.round((t.sumDifficulty / t.totalItems) * 100) / 100 : 0,
+      lapseRate: t.totalItems > 0 ? Math.round((t.sumLapses / t.totalItems) * 100) / 100 : 0,
+    })).sort((a, b) => (b.dueCount + b.lapseRate * 2) - (a.dueCount + a.lapseRate * 2));
+
+    res.json({ topics: ranked.slice(0, 15) });
+  } catch (error) {
+    console.error("Error fetching weak topics:", error);
+    res.status(500).json({ error: "Failed to fetch weak topics" });
+  }
+});
+
+// ── POST /api/resources/folders/:folderId/quiz-attempts — Combined folder-wide quiz attempt ──
+router.post("/folders/:folderId/quiz-attempts", requireAuth, async (req, res) => {
+  try {
+    const { folderId } = req.params;
+    const { score, total, details, mode } = req.body;
+
+    if (score === undefined || total === undefined) {
+      return res.status(400).json({ error: "score and total are required" });
+    }
+
+    const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+    if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+    const attemptMode = mode === "exam" ? "exam" : "practice";
+
+    // Check if this is the user's first folder attempt
+    const existingAttempts = await prisma.folderQuizAttempt.findMany({
+      where: { folderId, userId: req.user.sub },
+      select: { id: true },
+    });
+    const isFirstAttempt = existingAttempts.length === 0;
+    const xpAwarded = isFirstAttempt ? score * 10 : 0;
+
+    const attempt = await prisma.folderQuizAttempt.create({
+      data: { folderId, userId: req.user.sub, score, total, xpAwarded, mode: attemptMode, details: details || null },
+    });
+
+    // Update FSRS for each question in details
+    if (details && Array.isArray(details)) {
+      const now = new Date();
+      for (const d of details) {
+        if (!d.resourceId) continue;
+        const grade = d.correct ? (d.timeSpentMs && d.timeSpentMs < 5000 ? 4 : 3) : 1;
+
+        const existing = await prisma.pdfReviewItem.findUnique({
+          where: {
+            userId_resourceId_itemType_pageIndex_flashcardId: {
+              userId: req.user.sub,
+              resourceId: d.resourceId,
+              itemType: "mcq",
+              pageIndex: d.questionIndex,
+              flashcardId: "none",
+            },
+          },
+        }).catch(() => null);
+
+        const card = existing
+          ? { state: existing.state, stability: existing.stability, difficulty: existing.difficulty, reps: existing.reps, lapses: existing.lapses, lastReviewAt: existing.lastReviewAt }
+          : fsrsNewCard();
+
+        const result = fsrsRate(card, grade, now);
+
+        await prisma.pdfReviewItem.upsert({
+          where: {
+            userId_resourceId_itemType_pageIndex_flashcardId: {
+              userId: req.user.sub,
+              resourceId: d.resourceId,
+              itemType: "mcq",
+              pageIndex: d.questionIndex,
+              flashcardId: "none",
+            },
+          },
+          create: {
+            userId: req.user.sub,
+            resourceId: d.resourceId,
+            itemType: "mcq",
+            pageIndex: d.questionIndex,
+            flashcardId: "none",
+            state: result.state,
+            stability: result.stability,
+            difficulty: result.difficulty,
+            reps: result.reps,
+            lapses: result.lapses,
+            lastReviewAt: result.lastReviewAt,
+            nextReviewAt: result.nextReviewDate,
+            dueAt: result.nextReviewDate,
+          },
+          update: {
+            state: result.state,
+            stability: result.stability,
+            difficulty: result.difficulty,
+            reps: result.reps,
+            lapses: result.lapses,
+            lastReviewAt: result.lastReviewAt,
+            nextReviewAt: result.nextReviewDate,
+            dueAt: result.nextReviewDate,
+          },
+        }).catch(() => {});
+      }
+    }
+
+    // Update streak
+    const streakInfo = await updateUniversalStreak(req.user.sub, prisma);
+
+    // Award XP
+    if (xpAwarded > 0) {
+      await prisma.user.update({
+        where: { id: req.user.sub },
+        data: { totalXp: { increment: xpAwarded } },
+      });
+      await prisma.userProgress.upsert({
+        where: { userId: req.user.sub },
+        create: { userId: req.user.sub, xp: xpAwarded },
+        update: { xp: { increment: xpAwarded } },
+      }).catch(() => {});
+    }
+
+    res.json({
+      xpAwarded,
+      streak: streakInfo.streak,
+      longestStreak: streakInfo.longestStreak,
+      streakIsNewDay: streakInfo.isNewDay,
+    });
+  } catch (error) {
+    console.error("Error saving folder quiz attempt:", error);
+    res.status(500).json({ error: "Failed to save folder quiz attempt" });
   }
 });
 

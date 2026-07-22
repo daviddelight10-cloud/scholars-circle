@@ -16,23 +16,20 @@ function Progress({
   stats: statsProp,
   history: historyProp,
   subjects: subjectsProp,
-  mastery: masteryProp,
   token: tokenProp,
   progressSubTab: progressSubTabProp,
   setProgressSubTab: setProgressSubTabProp,
   aiConfig: aiConfigProp,
-  onRePractice,
   loading,
 }) {
   const { user: ctxUser, token: ctxToken } = useAuth();
-  const { stats: ctxStats, history: ctxHistory, subjects: ctxSubjects, mastery: ctxMastery } = useUserData();
+  const { stats: ctxStats, history: ctxHistory, subjects: ctxSubjects } = useUserData();
   const { aiConfig: ctxAiConfig, progressSubTab: ctxProgressSubTab, setProgressSubTab: ctxSetProgressSubTab } = useUI();
 
   const authUser = authUserProp ?? ctxUser;
   const stats = statsProp ?? ctxStats ?? {};
   const history = historyProp ?? ctxHistory ?? [];
   const subjects = subjectsProp ?? ctxSubjects ?? [];
-  const mastery = masteryProp ?? ctxMastery ?? {};
   const token = tokenProp ?? ctxToken;
   const aiConfig = aiConfigProp ?? ctxAiConfig;
   const progressSubTab = progressSubTabProp ?? ctxProgressSubTab ?? "stats";
@@ -75,7 +72,6 @@ function Progress({
           xp={stats.xp}
           sessions={stats.sessions}
           streak={stats.streak}
-          mastery={mastery}
           subjects={subjects}
           token={token}
         />
@@ -87,7 +83,6 @@ function Progress({
           stats={stats}
           history={history}
           subjects={subjects}
-          mastery={mastery}
         />
       )}
 
@@ -111,9 +106,7 @@ function Progress({
             history={history}
             stats={stats}
             subjects={subjects}
-            mastery={mastery}
             aiConfig={aiConfig}
-            onRePractice={onRePractice}
           />
           </Suspense>
         </div>

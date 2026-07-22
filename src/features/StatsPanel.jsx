@@ -74,7 +74,7 @@ function WeeklyChart({ history }) {
 }
 
 // ─── Exam Review Modal ─────────────────────────────────────────────────────────
-function ExamReviewModal({ exam, onClose, onRePractice, aiConfig }) {
+function ExamReviewModal({ exam, onClose, aiConfig }) {
   const [explanations, setExplanations] = useState({});
   const [loadingIdx, setLoadingIdx]     = useState(null);
 
@@ -127,14 +127,9 @@ Give a clear, concise explanation (3-5 sentences) of why the correct answer is r
             </div>
           </div>
           {missed.length > 0 && (
-            <button
-              onClick={() => { onRePractice(missed); onClose(); }}
-              style={{
-                background: "#1a1a1a", border: `0.5px solid ${D.border}`,
-                borderRadius: 10, padding: "7px 14px", fontSize: 11,
-                color: "#FFD700", cursor: "pointer", fontFamily: "Manrope,sans-serif", fontWeight: 600,
-              }}
-            >🔁 Re-Practice Missed</button>
+            <span style={{ fontSize: 11, color: D.muted, fontFamily: "Manrope,sans-serif", fontWeight: 600, padding: "7px 14px" }}>
+              {missed.length} missed
+            </span>
           )}
           <button onClick={onClose} style={{ background: "none", border: "none", color: D.muted, cursor: "pointer", fontSize: 20 }}>×</button>
         </div>
@@ -222,17 +217,13 @@ Give a clear, concise explanation (3-5 sentences) of why the correct answer is r
 
 // ─── Main StatsPanel ───────────────────────────────────────────────────────────
 /**
- * @param {{ history: any[], stats: any, subjects: any[], mastery: Record<string,number>, aiConfig: any, onRePractice: (questions: any[]) => void }} props
+ * @param {{ history: any[], stats: any, subjects: any[], aiConfig: any }} props
  */
-export default function StatsPanel({ history, stats, subjects, mastery, aiConfig, onRePractice }) {
+export default function StatsPanel({ history, stats, subjects, aiConfig }) {
   const [reviewExam, setReviewExam] = useState(null);
-  const [expandedSubjectId, setExpandedSubjectId] = useState(null);
 
   const exams    = [...history].filter(h => h.mode === "exam" || h.mode === "practice").reverse().slice(0, 20);
   const avgScore = history.length ? Math.round(history.reduce((a, h) => a + percent(h.score, h.total), 0) / history.length) : 0;
-  const topSubject = subjects.length
-    ? subjects.reduce((best, s) => (mastery[s.id] || 0) > (mastery[best.id] || 0) ? s : best, subjects[0])
-    : null;
 
   const summaryCards = [
     { icon: "📊", label: "Avg Score",     value: `${avgScore}%`,           color: avgScore >= 70 ? "#81c784" : avgScore >= 50 ? "#ffd54f" : "#ef9a9a" },
@@ -262,51 +253,6 @@ export default function StatsPanel({ history, stats, subjects, mastery, aiConfig
       {/* ── Weekly activity ── */}
       <div style={{ background: D.faint, border: `0.5px solid ${D.line}`, borderRadius: 16, padding: "14px 16px", marginBottom: 14 }}>
         <WeeklyChart history={history} />
-      </div>
-
-      {/* ── Mastery chart (expandable) ── */}
-      <div style={{ background: D.faint, border: `0.5px solid ${D.line}`, borderRadius: 16, padding: "14px 16px", marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: D.border, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12, fontFamily: "Syne,sans-serif" }}>
-          SUBJECT MASTERY
-        </div>
-        {subjects.map(s => {
-          const m = mastery[s.id] || 0;
-          const col = m >= 75 ? "#81c784" : m >= 50 ? "#ffd54f" : m >= 25 ? "#ff8a65" : "#ef9a9a";
-          const isExpanded = expandedSubjectId === s.id;
-          return (
-            <div key={s.id} style={{ marginBottom: 10 }}>
-              <div
-                onClick={() => setExpandedSubjectId(isExpanded ? null : s.id)}
-                style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, cursor: "pointer", padding: "2px 0" }}
-              >
-                <span style={{ fontSize: 12, color: D.muted, fontFamily: "Manrope,sans-serif" }}>{s.icon} {s.label}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: col }}>{m}%</span>
-                  <span style={{ fontSize: 10, color: D.hint }}>{isExpanded ? "▲" : "▼"}</span>
-                </div>
-              </div>
-              <div style={{ height: 7, background: D.line, borderRadius: 4, overflow: "hidden", marginBottom: isExpanded ? 12 : 0 }}>
-                <div style={{
-                  height: "100%", width: `${m}%`,
-                  background: `linear-gradient(90deg, ${col}80, ${col})`,
-                  borderRadius: 4, transition: "width 0.5s ease",
-                }} />
-              </div>
-              {/* Expandable analytics panel */}
-              {isExpanded && (
-                <div style={{
-                  background: "#0A0D13", border: `0.5px solid ${D.line}`,
-                  borderRadius: 12, padding: "14px 14px 10px", marginBottom: 4,
-                  animation: "sp-in 0.2s ease forwards",
-                }}>
-                  <PeerComparison subjectId={s.id} />
-                  <div style={{ height: "0.5px", background: D.line, margin: "12px 0" }} />
-                  <MasteryGrid subjectId={s.id} />
-                </div>
-              )}
-            </div>
-          );
-        })}
       </div>
 
       {/* ── Exam history ── */}
@@ -356,31 +302,12 @@ export default function StatsPanel({ history, stats, subjects, mastery, aiConfig
         )}
       </div>
 
-      {/* Top subject callout */}
-      {topSubject && (mastery[topSubject.id] || 0) > 0 && (
-        <div style={{
-          background: "#071410", border: "0.5px solid #0a3020",
-          borderRadius: 14, padding: "12px 16px", display: "flex", gap: 12, alignItems: "center",
-        }}>
-          <span style={{ fontSize: 22 }}>{topSubject.icon}</span>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#81c784", fontFamily: "Manrope,sans-serif" }}>
-              Top subject: {topSubject.label}
-            </div>
-            <div style={{ fontSize: 11, color: D.muted, fontFamily: "Manrope,sans-serif" }}>
-              {mastery[topSubject.id]}% mastery · keep it up!
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Exam Review Modal */}
       {reviewExam && (
         <ExamReviewModal
           exam={reviewExam}
           aiConfig={aiConfig}
           onClose={() => setReviewExam(null)}
-          onRePractice={(missed) => onRePractice?.(missed)}
         />
       )}
     </div>

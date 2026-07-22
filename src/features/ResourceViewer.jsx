@@ -3,7 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
 import PdfReader from "./PdfReader.jsx";
 import DocumentReader from "./DocumentReader.jsx";
+import McqModeSelect from "./McqModeSelect.jsx";
 import McqQuizRunner from "./McqQuizRunner.jsx";
+import McqExamRunner from "./McqExamRunner.jsx";
 import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 
@@ -12,7 +14,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // token prop: used when rendered in-app (overrides useParams)
 // onBack prop: called by Back button (overrides navigate) — used for in-app rendering
-export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplete, initialPage } = {}) {
+export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplete, onStreakUpdate, onXpUpdate, initialPage } = {}) {
   const params = useParams();
   const navigate = useNavigate();
   const token = tokenProp || params.token;
@@ -24,6 +26,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState(null);
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
+  const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam"
 
   // Auth form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -272,10 +275,16 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         );
 
       case "mcq":
-        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} onBack={handleBack} onQuizComplete={onQuizComplete} />;
+        if (!mcqMode) {
+          return <McqModeSelect resource={resource} onBack={handleBack} onSelect={(mode) => setMcqMode(mode)} onQuizComplete={onQuizComplete} />;
+        }
+        if (mcqMode === "exam") {
+          return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} />;
+        }
+        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} />;
 
       case "flashcard_deck":
-        return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onQuizComplete} />;
+        return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
 
       case "tutorial_question":
         return (

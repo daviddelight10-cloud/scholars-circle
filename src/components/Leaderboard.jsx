@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BADGES } from "../lib/constants";
 
-export function Leaderboard({ username, xp, sessions, streak, mastery, subjects, token }) {
+export function Leaderboard({ username, xp, sessions, streak, subjects, token }) {
   const [board, setBoard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [initialLoadDone, setInitialLoadDone] = useState(false);

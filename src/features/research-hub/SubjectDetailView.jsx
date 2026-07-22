@@ -11,7 +11,7 @@ const TYPE_FILTERS = [
   { key: "note", label: "Notes", icon: "📝" },
 ];
 
-export default function SubjectDetailView({ subject, level, resources, fsrsSubjectStats, onBack, onOpen, onToggleBookmark, onShare, bookmarkedIds, bookmarkBusyId, mcqProgress, onStudySubject, backLabel = "Library" }) {
+export default function SubjectDetailView({ subject, level, resources, fsrsSubjectStats, onBack, onOpen, onToggleBookmark, onShare, bookmarkedIds, bookmarkBusyId, mcqProgress, onStudySubject, onAdaptiveDrill, onExamSimulation, backLabel = "Library" }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -84,6 +84,32 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
             className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
         </div>
       </div>
+
+      {typeFilter === "mcq" && filtered.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-hub-border bg-hub-surface p-3">
+          <span className="mr-1 text-[11px] font-bold text-hub-text-muted">Session:</span>
+          <button
+            onClick={() => onStudySubject?.()}
+            disabled={dueCount === 0}
+            className="flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: dueCount > 0 ? "#f59e0b" : "#2a2d4a", color: dueCount > 0 ? "#f59e0b" : "#5a6090", background: dueCount > 0 ? "rgba(245,158,11,0.1)" : "transparent" }}
+          >
+            🔁 Spaced Review{dueCount > 0 ? ` (${dueCount})` : ""}
+          </button>
+          <button
+            onClick={() => onAdaptiveDrill?.()}
+            className="flex items-center gap-1.5 rounded-full border border-hub-border bg-hub-bg px-3.5 py-1.5 text-[11px] font-semibold text-hub-text-muted transition-all active:scale-95"
+          >
+            🎯 Adaptive Drill
+          </button>
+          <button
+            onClick={() => onExamSimulation?.()}
+            className="flex items-center gap-1.5 rounded-full border border-hub-border bg-hub-bg px-3.5 py-1.5 text-[11px] font-semibold text-hub-text-muted transition-all active:scale-95"
+          >
+            🎓 Exam Simulation
+          </button>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState

@@ -18,6 +18,10 @@ import SubTabBar from "./SubTabBar.jsx";
 import EmptyState from "./EmptyState.jsx";
 import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
+import SpacedReviewSession from "../SpacedReviewSession.jsx";
+import AdaptiveDrillSession from "../AdaptiveDrillSession.jsx";
+import ExamSimulationRunner from "../ExamSimulationRunner.jsx";
+import McqFolderRunner from "../McqFolderRunner.jsx";
 import "../../research-hub.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -30,7 +34,7 @@ const emptyMessages = {
   "public": "No resources found. Try a different search or clear filters.",
 };
 
-export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } = {}) {
+export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, activeSemester } = {}) {
   const { setLastActivity } = useUserData();
 
   const [resources, setResources] = useState([]);
@@ -77,6 +81,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
   const [userDept, setUserDept] = useState(null);
   const [activeFolderTab, setActiveFolderTab] = useState("materials");
   const [mcqProgress, setMcqProgress] = useState({});
+  const [sessionMode, setSessionMode] = useState(null); // { type: 'spaced'|'adaptive'|'exam'|'folder', subject, resourceIds, folder, mcqResources }
 
   useEffect(() => {
     fetchResources();
@@ -401,6 +406,36 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
     if (onStreakUpdate && data.streak != null) onStreakUpdate(data.streak, data.longestStreak);
   }, [onStreakUpdate]);
 
+  const handleSessionComplete = useCallback(() => {
+    setSessionMode(null);
+    fetchFsrsStats(); fetchFsrsAnalytics();
+    fetchMcqProgress();
+  }, []);
+
+  const handleStreakUpdate = useCallback((streak, longestStreak) => {
+    if (onStreakUpdate) onStreakUpdate(streak, longestStreak);
+  }, [onStreakUpdate]);
+
+  const handleXpUpdate = useCallback((xp) => {
+    if (onXpUpdate) onXpUpdate(xp);
+  }, [onXpUpdate]);
+
+  const startSpacedReview = useCallback((subject, resourceIds) => {
+    setSessionMode({ type: "spaced", subject, resourceIds });
+  }, []);
+
+  const startAdaptiveDrill = useCallback((subject, resourceIds) => {
+    setSessionMode({ type: "adaptive", subject, resourceIds });
+  }, []);
+
+  const startExamSimulation = useCallback((subject, resourceIds) => {
+    setSessionMode({ type: "exam", subject, resourceIds });
+  }, []);
+
+  const startFolderPractice = useCallback((folder, mcqResources) => {
+    setSessionMode({ type: "folder", folder, mcqResources });
+  }, []);
+
   const handleShare = useCallback(async (token) => {
     const success = await copyShareToken(token);
     if (success) showToast("Link copied! 🔗");
@@ -701,8 +736,23 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
 
   const communityResources = useMemo(() => resources.filter((r) => r.status !== "rejected"), [resources]);
 
+  if (sessionMode) {
+    if (sessionMode.type === "spaced") {
+      return <SpacedReviewSession subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    }
+    if (sessionMode.type === "adaptive") {
+      return <AdaptiveDrillSession subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    }
+    if (sessionMode.type === "exam") {
+      return <ExamSimulationRunner subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    }
+    if (sessionMode.type === "folder") {
+      return <McqFolderRunner folder={sessionMode.folder} mcqResources={sessionMode.mcqResources} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    }
+  }
+
   if (viewerToken) {
-    return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} />;
+    return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
   }
 
   if (activeFolder) {
@@ -728,6 +778,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
         onToggleBookmark={toggleBookmark}
         onShare={handleShare}
         mcqProgress={mcqProgress}
+        onSpacedReview={(resourceIds) => startSpacedReview(null, resourceIds)}
+        onAdaptiveDrill={(resourceIds) => startAdaptiveDrill(null, resourceIds)}
+        onExamSimulation={(resourceIds) => startExamSimulation(null, resourceIds)}
+        onPracticeAll={() => startFolderPractice(folderDetail, folderCategorized.mcqs)}
         uploadModal={uploadWizard}
         createFolderModal={createFolderModal}
         bookmarkPicker={bookmarkPicker}
@@ -779,6 +833,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
           folderBookmarkedIds={folderBookmarkedIds}
           folderBookmarkBusyId={folderBookmarkBusyId}
           onToggleFolderBookmark={handleToggleFolderBookmark}
+          onSpacedReview={startSpacedReview}
+          onAdaptiveDrill={startAdaptiveDrill}
+          onExamSimulation={startExamSimulation}
         />
       ) : (
         <>
@@ -809,6 +866,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, activeSemester } =
               onShare={handleShare}
               onOpenFolder={openFolder}
               onCreateFolder={() => setShowCreateFolder(true)}
+              onSpacedReview={startSpacedReview}
+              onAdaptiveDrill={startAdaptiveDrill}
+              onExamSimulation={startExamSimulation}
             />
           ) : (
             <>

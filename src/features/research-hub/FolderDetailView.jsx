@@ -16,6 +16,7 @@ export default function FolderDetailView({
   folderIsOwner, onClose, onShareFolder, onDeleteFolder,
   onUploadToFolder, onToggleFolderBookmark, folderBookmarkedIds, folderBookmarkBusyId,
   bookmarkedIds, bookmarkFolderMap, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress,
+  onSpacedReview, onAdaptiveDrill, onExamSimulation, onPracticeAll,
   uploadModal, createFolderModal, bookmarkPicker,
 }) {
   const folderSubTabs = [
@@ -86,6 +87,42 @@ export default function FolderDetailView({
         )}
 
         <SubTabBar tabs={folderSubTabs} activeTab={activeFolderTab} onTabChange={setActiveFolderTab} />
+
+        {activeFolderTab === "mcqs" && !folderLoading && currentList.length > 0 && (
+          <>
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-hub-border bg-hub-surface p-3">
+              <span className="mr-1 text-[11px] font-bold text-hub-text-muted">Session:</span>
+              <button
+                onClick={() => onSpacedReview?.(currentList.map(r => r.id))}
+                className="flex items-center gap-1.5 rounded-full border border-hub-border bg-hub-bg px-3.5 py-1.5 text-[11px] font-semibold text-hub-text-muted transition-all active:scale-95"
+              >
+                🔁 Spaced Review
+              </button>
+              <button
+                onClick={() => onAdaptiveDrill?.(currentList.map(r => r.id))}
+                className="flex items-center gap-1.5 rounded-full border border-hub-border bg-hub-bg px-3.5 py-1.5 text-[11px] font-semibold text-hub-text-muted transition-all active:scale-95"
+              >
+                🎯 Adaptive Drill
+              </button>
+              <button
+                onClick={() => onExamSimulation?.(currentList.map(r => r.id))}
+                className="flex items-center gap-1.5 rounded-full border border-hub-border bg-hub-bg px-3.5 py-1.5 text-[11px] font-semibold text-hub-text-muted transition-all active:scale-95"
+              >
+                🎓 Exam Simulation
+              </button>
+            </div>
+            {currentList.length > 1 && (
+              <div className="mb-4">
+                <button
+                  onClick={() => onPracticeAll?.()}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold-border bg-gold-dim px-5 py-3 text-sm font-bold text-gold transition-all active:scale-[0.98]"
+                >
+                  ▶ Practice All {currentList.length} MCQ Sets
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         {folderLoading ? (
           <LoadingState grid count={4} />
