@@ -40,7 +40,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   useEffect(() => {
     if (resource?.flashcardData) {
       const parsed = typeof resource.flashcardData === "string" ? JSON.parse(resource.flashcardData) : resource.flashcardData;
-      setCards(parsed);
+      setCards([...parsed].sort(() => Math.random() - 0.5));
       setLoading(false);
     } else {
       setLoading(false);

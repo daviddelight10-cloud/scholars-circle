@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import TypewriterText from "../components/TypewriterText.jsx";
 import FlashcardRunner from "../components/FlashcardRunner.jsx";
 import {
   loadHistory, saveHistory, createHistoryEntry,
@@ -29,10 +30,10 @@ const THEMES = {
     shadow: "rgba(0,0,0,0.40)", chipBg: "#1a1a2e",
   },
   sepia: {
-    bg: "#F4E8D0", toolbar: "#EFE0C6", border: "#D4C19C", text: "#5B4636",
-    muted: "#8C7355", accent: "#A0522D", hover: "rgba(160,82,45,0.10)",
-    inputBg: "#EAD9BC", chatBot: "#EFE0C6", thumbBg: "#F8EFD9",
-    shadow: "rgba(91,70,54,0.12)", chipBg: "#E8D5B0",
+    bg: "#F5EFDD", toolbar: "#EFE8D3", border: "#DED2B0", text: "#3A3A3A",
+    muted: "#6E6656", accent: "#8B5E34", hover: "rgba(139,94,52,0.10)",
+    inputBg: "#EFE7CE", chatBot: "#EFE8D3", thumbBg: "#F8F2E1",
+    shadow: "rgba(58,58,58,0.10)", chipBg: "#E9E0C4",
   },
 };
 
@@ -185,6 +186,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [chatInput, setChatInput] = useState("");
   const [chatPosition, setChatPosition] = useState({ left: 0, top: 0 });
   const [chatError, setChatError] = useState(null);
+  const [streamingIdx, setStreamingIdx] = useState(null); // index of chat message currently typing out
 
   // Refs
   const pdfDocRef = useRef(null);
@@ -394,7 +396,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pageEnterTimeRef = useRef(Date.now());
 
   // Scroll mode: "single" | "vertical" | "horizontal"
-  const [scrollMode, setScrollMode] = useState(() => loadStored(`sc_pdf_scrollmode_${docKey}`, "single"));
+  const [scrollMode, setScrollMode] = useState(() => loadStored(`sc_pdf_scrollmode_${docKey}`, "vertical"));
   const [transitioning, setTransitioning] = useState(false);
   const [transitionDir, setTransitionDir] = useState("next");
   const pageItemRefs = useRef([]);
@@ -914,7 +916,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
     try {
       const answer = await callAIMultimodal(firstPrompt, thumb, [], { provider: "openrouter" });
-      setChatMessages((prev) => [...prev, { role: "assistant", content: answer || "No response." }]);
+      setChatMessages((prev) => {
+        const next = [...prev, { role: "assistant", content: answer || "No response." }];
+        setStreamingIdx(next.length - 1);
+        return next;
+      });
     } catch (err) {
       setChatError(err.message || "Something went wrong reaching the AI.");
     } finally {
@@ -1855,6 +1861,7 @@ ${extractedText}
     setChatLoading(false);
     setChatInput("");
     setChatError(null);
+    setStreamingIdx(null);
   };
 
   // Close study tools when chat opens (mutual exclusion)
@@ -1868,6 +1875,7 @@ ${extractedText}
     setChatInput("");
     setChatLoading(true);
     setChatError(null);
+    setStreamingIdx(null);
 
     // Build history for API (exclude the current message we just added)
     const historyForApi = [...chatMessages, { role: "user", content: trimmed }];
@@ -1878,7 +1886,11 @@ ${extractedText}
 
     try {
       const answer = await callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" });
-      setChatMessages((prev) => [...prev, { role: "assistant", content: answer || "No response." }]);
+      setChatMessages((prev) => {
+        const next = [...prev, { role: "assistant", content: answer || "No response." }];
+        setStreamingIdx(next.length - 1);
+        return next;
+      });
     } catch (err) {
       setChatError(err.message || "Something went wrong. Try sending that again.");
     } finally {
@@ -1908,7 +1920,11 @@ ${extractedText}
     const promptWithContext = `${TUTOR_SYSTEM}${retryCtx}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nRETRY: ${lastUserMsg.content}\n\nAnswer directly. Start with the answer.`;
     callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" })
       .then((answer) => {
-        setChatMessages((prev) => [...prev, { role: "assistant", content: answer || "No response." }]);
+        setChatMessages((prev) => {
+          const next = [...prev, { role: "assistant", content: answer || "No response." }];
+          setStreamingIdx(next.length - 1);
+          return next;
+        });
       })
       .catch((err) => {
         setChatError(err.message || "Something went wrong. Try again.");
@@ -1946,7 +1962,11 @@ ${extractedText}
 
     try {
       const answer = await callAIMultimodal(firstPrompt, null, [], { provider: "openrouter" });
-      setChatMessages((prev) => [...prev, { role: "assistant", content: answer || "No response." }]);
+      setChatMessages((prev) => {
+        const next = [...prev, { role: "assistant", content: answer || "No response." }];
+        setStreamingIdx(next.length - 1);
+        return next;
+      });
     } catch (err) {
       setChatError(err.message || "Something went wrong reaching the AI.");
     } finally {
@@ -3552,6 +3572,7 @@ ${extractedText}
         @keyframes slideEnterLeft { from { transform: translateX(-60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeExit { from { opacity: 1; } to { opacity: 0; } }
         @keyframes fadeEnter { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes sc-cursor-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
         .page-anim-exit-next { animation: slideExitLeft 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
         .page-anim-exit-prev { animation: slideExitRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
         .page-anim-enter-next { animation: slideEnterRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
@@ -4271,7 +4292,7 @@ ${extractedText}
                 ref={canvasRef}
                 style={{
                   display: "block",
-                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none",
+                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
                 }}
               />
               {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -4288,7 +4309,7 @@ ${extractedText}
               )}
               <svg
                 ref={lassoSvgRef}
-                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none" }}
+                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none" }}
                 onPointerDown={onOverlayDown}
                 onPointerMove={onOverlayMove}
                 onPointerUp={onOverlayUp}
@@ -4346,7 +4367,7 @@ ${extractedText}
                         ref={(el) => { pageCanvasRefs.current[pg - 1] = el; }}
                         style={{
                           display: "block",
-                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none",
+                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
                         }}
                       />
                       {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -4367,7 +4388,7 @@ ${extractedText}
                           ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
                           style={{
                             ...s.lassoOverlay,
-                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.8) brightness(0.82) contrast(0.9)" : "none",
+                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
                             pointerEvents: pg === currentPage && tool !== "none" ? "auto" : "none",
                           }}
                           onPointerDown={pg === currentPage ? onOverlayDown : undefined}
@@ -4453,7 +4474,9 @@ ${extractedText}
                         <img src={msg.image} alt="Circled content" style={s.msgImage} />
                       )}
                       {msg.role === "assistant"
-                        ? <MarkdownText theme={theme}>{msg.content}</MarkdownText>
+                        ? (i === streamingIdx
+                          ? <TypewriterText text={msg.content} theme={theme} active onDone={() => setStreamingIdx(null)} onTick={() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }} />
+                          : <MarkdownText theme={theme}>{msg.content}</MarkdownText>)
                         : msg.content}
                     </div>
                   ))}
