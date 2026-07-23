@@ -324,6 +324,43 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
   }
 
+  async function autoSaveFlashcardsToFolder(flashcards, rangeLabel) {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+    if (!token || !propFolderId) return; // need auth + folder
+
+    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
+    const deckData = flashcards.map((fc) => ({ front: fc.front, back: fc.back }));
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: `[AI] Flashcards from ${shortTitle} (${rangeLabel})`,
+          subject: "General",
+          contentType: "flashcard_deck",
+          flashcardData: JSON.stringify(deckData),
+          description: `AI-generated flashcards from ${shortTitle}, ${rangeLabel}`,
+          isPublic: false,
+          folderId: propFolderId,
+        }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const data = await res.json();
+
+      setAutoSaveToast({ status: "saved", resourceId: data.resource?.id || data.id, label: "Flashcards saved to your folder" });
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
+    } catch (err) {
+      setAutoSaveToast({ status: "error", label: "Auto-save failed" });
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
+    }
+  }
+
   async function undoAutoSave() {
     if (!autoSaveToast?.resourceId) return;
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
@@ -1794,16 +1831,19 @@ ${extractedText}
   };
 
   const fetchFlashcards = async () => {
-    if (!propResourceId) return;
+    if (!propResourceId) return [];
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/flashcards/${propResourceId}`, {
         headers: getFsrsAuthHeaders(),
       });
       if (res.ok) {
         const data = await res.json();
-        setFsrsFlashcards(data.flashcards || []);
+        const cards = data.flashcards || [];
+        setFsrsFlashcards(cards);
+        return cards;
       }
     } catch {}
+    return [];
   };
 
   const generateFlashcards = async () => {
@@ -1828,8 +1868,12 @@ ${extractedText}
         body: JSON.stringify({ resourceId: propResourceId, pages, count: fsrsFlashcardCount }),
       });
       if (res.ok) {
-        await fetchFlashcards();
+        const cards = await fetchFlashcards();
         setFsrsFlashcardView("browse");
+        if (cards.length > 0) {
+          const { label } = resolveRange();
+          autoSaveFlashcardsToFolder(cards, label);
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         if (res.status === 429) {

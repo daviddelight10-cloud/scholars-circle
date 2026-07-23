@@ -254,7 +254,7 @@ Format:
         chunkResults.push(...batchResults);
       }
 
-      let allRows = chunkResults.flatMap((r) => r.rows).slice(0, MAX_QUESTIONS);
+      let allRows = chunkResults.flatMap((r) => r.rows).slice(0, targetCount);
 
       // Adaptive retry: if total < 50% of target, retry underproducing chunks with halved counts
       if (allRows.length < targetCount * 0.5 && allRows.length < MAX_QUESTIONS) {
@@ -281,7 +281,7 @@ Format:
             const batchRetryResults = await Promise.all(retryBatchPromises);
             retryRows.push(...batchRetryResults);
           }
-          allRows = [...allRows, ...retryRows.flat()].slice(0, MAX_QUESTIONS);
+          allRows = [...allRows, ...retryRows.flat()].slice(0, targetCount);
         }
       }
 

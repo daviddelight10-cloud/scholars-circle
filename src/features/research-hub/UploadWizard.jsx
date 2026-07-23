@@ -9,11 +9,11 @@ import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, gold
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 const emptyFlashcard = () => ({ front: "", back: "" });
 
-const MAX_QUESTIONS = 300;
+const MAX_QUESTIONS = 1000;
 const QUESTIONS_PER_CHUNK = 50;
 const MAX_FLASHCARDS = 50;
 const CONCURRENCY_LIMIT = 3;
-const MAX_CHUNKS = 15;
+const MAX_CHUNKS = 20;
 const MIN_CHUNK_SIZE = 5000;
 
 const ACCEPTED_EXTS = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp";
@@ -52,6 +52,7 @@ export default function UploadWizard({
   const [genProgress, setGenProgress] = useState("");
   const [genError, setGenError] = useState("");
   const [genWarning, setGenWarning] = useState("");
+  const [genQuestionCount, setGenQuestionCount] = useState("");
   const [converting, setConverting] = useState(false);
   const [convertProgress, setConvertProgress] = useState("");
   const [convertError, setConvertError] = useState("");
@@ -82,6 +83,7 @@ export default function UploadWizard({
       setGenProgress("");
       setGenError("");
       setGenWarning("");
+      setGenQuestionCount("");
       setConverting(false);
       setConvertProgress("");
       setConvertError("");
@@ -304,13 +306,16 @@ ${text}
         images = result.images;
       }
 
+      const customCount = genQuestionCount !== "" && !Number.isNaN(parseInt(genQuestionCount, 10)) ? Math.max(1, Math.min(MAX_QUESTIONS, parseInt(genQuestionCount, 10))) : null;
+
       // Image-based: send to multimodal AI
       if (images.length > 0 && text.length < 50 && !isNote) {
         setGenProgress(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
         const contextText = "The images contain study material. Generate comprehensive content covering all the content visible.";
 
         if (chosenAction === "mcqs") {
-          const prompt = buildMcqPrompt(contextText, Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS));
+          const imgCount = customCount || Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS);
+          const prompt = buildMcqPrompt(contextText, imgCount);
           const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
           const parsed = extractJSON(raw, "array");
           const rows = mapAiMcqsToRows(parsed);
@@ -337,15 +342,21 @@ ${text}
       if (!isNote && !text.trim()) throw new Error("No text could be extracted from this file.");
       if (isNote && !noteContent.trim()) throw new Error("Note is empty.");
 
-      const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / MAX_CHUNKS));
+      const textBasedChunks = Math.min(MAX_CHUNKS, Math.max(1, Math.ceil(text.length / MIN_CHUNK_SIZE)));
+      const countBasedChunks = customCount ? Math.min(MAX_CHUNKS, Math.ceil(customCount / QUESTIONS_PER_CHUNK)) : 1;
+      const desiredChunks = Math.max(textBasedChunks, countBasedChunks);
+      const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / desiredChunks));
       const chunks = chunkText(text, chunkSize);
 
       if (chosenAction === "mcqs") {
         const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
-        const targetCount = Math.min(MAX_QUESTIONS, totalPossible);
-        const questionsPerChunk = Math.ceil(targetCount / chunks.length);
+        const targetCount = customCount ? Math.min(customCount, totalPossible) : Math.min(MAX_QUESTIONS, totalPossible);
+        const questionsPerChunk = Math.min(QUESTIONS_PER_CHUNK, Math.ceil(targetCount / chunks.length));
         setGenProgress(`Generating MCQs from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
         setGenWarning("");
+        if (customCount && targetCount < customCount) {
+          setGenWarning(`⚠️ Requested ${customCount} questions, but this document can only support ~${targetCount} given its length — generating the maximum achievable.`);
+        }
 
         // Process chunks in concurrency-limited batches to avoid rate-limit (429) errors
         const chunkResults = [];
@@ -373,7 +384,7 @@ ${text}
           chunkResults.push(...batchResults);
         }
 
-        let allRows = chunkResults.flatMap((r) => r.rows).slice(0, MAX_QUESTIONS);
+        let allRows = chunkResults.flatMap((r) => r.rows).slice(0, targetCount);
 
         // Adaptive retry: if total < 50% of target, retry underproducing chunks with halved counts
         if (allRows.length < targetCount * 0.5 && allRows.length < MAX_QUESTIONS) {
@@ -400,7 +411,7 @@ ${text}
               const batchRetryResults = await Promise.all(retryBatchPromises);
               retryRows.push(...batchRetryResults);
             }
-            allRows = [...allRows, ...retryRows.flat()].slice(0, MAX_QUESTIONS);
+            allRows = [...allRows, ...retryRows.flat()].slice(0, targetCount);
           }
         }
 
@@ -727,6 +738,30 @@ ${text}
               <label style={sharedStyles.fieldLabel}>Subject / course code <span style={{ color: colors.textDim, fontWeight: fontWeight.normal }}>(optional)</span></label>
               <input list="wizardSubjectOptions" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. BIO 111" style={sharedStyles.input} />
               <datalist id="wizardSubjectOptions">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
+            </div>
+
+            <div style={{ marginBottom: spacing.md }}>
+              <label style={{ ...sharedStyles.fieldLabel, marginBottom: 4 }}>
+                Number of MCQs (optional — leave blank for auto)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={MAX_QUESTIONS}
+                value={genQuestionCount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") { setGenQuestionCount(""); return; }
+                  const num = parseInt(v, 10);
+                  if (Number.isNaN(num)) return;
+                  setGenQuestionCount(Math.max(1, Math.min(MAX_QUESTIONS, num)));
+                }}
+                placeholder={`Auto (up to ${MAX_QUESTIONS})`}
+                style={{ ...sharedStyles.input, maxWidth: 200 }}
+              />
+              <div style={{ fontSize: fontSize.xs, color: colors.textMuted, marginTop: 4 }}>
+                Specify how many questions AI should generate. Leave blank to auto-detect from document length.
+              </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.md }}>
