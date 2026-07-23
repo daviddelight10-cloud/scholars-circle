@@ -38,8 +38,8 @@ const extractJSONArray = (raw) => extractJSONShared(raw, "array");
 
 const ASA_QUESTIONS_PER_CHUNK = 50;
 const ASA_CONCURRENCY_LIMIT = 3;
-const ASA_MAX_QUESTIONS = 300;
-const ASA_MAX_CHUNKS = 15;
+const ASA_MAX_QUESTIONS = 1000;
+const ASA_MAX_CHUNKS = 20;
 const ASA_MIN_CHUNK_SIZE = 5000;
 
 export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUsage, setDemoUsage }) {
@@ -1167,23 +1167,22 @@ Generate ${actualQuestionCount} MCQ questions. Keep all text concise but informa
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>Questions (up to 100)</label>
-                <select
+                <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>Questions (up to 1000)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
                   value={questionCount}
-                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (Number.isNaN(val)) { setQuestionCount(""); return; }
+                    setQuestionCount(Math.max(1, Math.min(1000, val)));
+                  }}
+                  onBlur={(e) => {
+                    if (e.target.value === "" || Number.isNaN(parseInt(e.target.value, 10))) setQuestionCount(20);
+                  }}
                   style={{ minWidth: 120 }}
-                >
-                  <option value={10}>10 questions</option>
-                  <option value={20}>20 questions</option>
-                  <option value={30}>30 questions</option>
-                  <option value={40}>40 questions</option>
-                  <option value={50}>50 questions</option>
-                  <option value={60}>60 questions</option>
-                  <option value={70}>70 questions</option>
-                  <option value={80}>80 questions</option>
-                  <option value={90}>90 questions</option>
-                  <option value={100}>100 questions</option>
-                </select>
+                />
               </div>
             </div>
           </div>

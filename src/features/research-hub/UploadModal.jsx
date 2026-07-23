@@ -5,10 +5,10 @@ import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, gold
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
-const MAX_QUESTIONS = 300;
+const MAX_QUESTIONS = 1000;
 const QUESTIONS_PER_CHUNK = 50;
 const CONCURRENCY_LIMIT = 3;
-const MAX_CHUNKS = 15;
+const MAX_CHUNKS = 20;
 const MIN_CHUNK_SIZE = 5000;
 
 export default function UploadModal({
@@ -32,6 +32,7 @@ export default function UploadModal({
   const [aiProgress, setAiProgress] = useState("");
   const [aiError, setAiError] = useState("");
   const [aiWarning, setAiWarning] = useState("");
+  const [aiQuestionCount, setAiQuestionCount] = useState("");
   const aiFileInputRef = useRef(null);
   const [aiDragOver, setAiDragOver] = useState(false);
 
@@ -42,6 +43,7 @@ export default function UploadModal({
       setAiProgress("");
       setAiError("");
       setAiWarning("");
+      setAiQuestionCount("");
       setAiDragOver(false);
     }
   }, [show]);
@@ -189,10 +191,13 @@ Format:
     try {
       const { text, images } = await extractFileText(aiFile, 15);
 
+      const customCount = aiQuestionCount !== "" && !Number.isNaN(parseInt(aiQuestionCount, 10)) ? Math.max(1, Math.min(MAX_QUESTIONS, parseInt(aiQuestionCount, 10))) : null;
+
       // Image-based: send images to multimodal AI
       if (images.length > 0 && text.length < 50) {
+        const imgCount = customCount || Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS);
         setAiProgress(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
-        const prompt = buildMcqPrompt("The images contain study material. Generate comprehensive MCQs covering all the content visible.", Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS));
+        const prompt = buildMcqPrompt("The images contain study material. Generate comprehensive MCQs covering all the content visible.", imgCount);
         const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
         const parsed = extractJSON(raw, "array");
         const rows = mapAiMcqsToRows(parsed);
@@ -204,15 +209,24 @@ Format:
 
       if (!text.trim()) throw new Error("No text could be extracted from this file.");
 
-      // Text-based: chunk and generate in concurrency-limited batches
-      const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / MAX_CHUNKS));
+      // Text-based: chunk and generate in concurrency-limited batches.
+      // Determine chunk count from BOTH text length and desired question count,
+      // so a large custom count still gets enough chunks to stay within the
+      // per-call token budget (QUESTIONS_PER_CHUNK questions max per AI call).
+      const textBasedChunks = Math.min(MAX_CHUNKS, Math.max(1, Math.ceil(text.length / MIN_CHUNK_SIZE)));
+      const countBasedChunks = customCount ? Math.min(MAX_CHUNKS, Math.ceil(customCount / QUESTIONS_PER_CHUNK)) : 1;
+      const desiredChunks = Math.max(textBasedChunks, countBasedChunks);
+      const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / desiredChunks));
       const chunks = chunkText(text, chunkSize);
       const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
-      const targetCount = Math.min(MAX_QUESTIONS, totalPossible);
-      const questionsPerChunk = Math.ceil(targetCount / chunks.length);
+      const targetCount = customCount ? Math.min(customCount, totalPossible) : Math.min(MAX_QUESTIONS, totalPossible);
+      const questionsPerChunk = Math.min(QUESTIONS_PER_CHUNK, Math.ceil(targetCount / chunks.length));
 
       setAiProgress(`Generating MCQs from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
       setAiWarning("");
+      if (customCount && targetCount < customCount) {
+        setAiWarning(`⚠️ Requested ${customCount} questions, but this document can only support ~${targetCount} given its length — generating the maximum achievable.`);
+      }
 
       // Process chunks in concurrency-limited batches to avoid rate-limit (429) errors
       const chunkResults = [];
@@ -220,7 +234,7 @@ Format:
         const batchEnd = Math.min(batchStart + CONCURRENCY_LIMIT, chunks.length);
         const batchPromises = [];
         for (let idx = batchStart; idx < batchEnd; idx++) {
-          const count = idx === chunks.length - 1 ? targetCount - (questionsPerChunk * (chunks.length - 1)) : questionsPerChunk;
+          const count = idx === chunks.length - 1 ? Math.min(QUESTIONS_PER_CHUNK, targetCount - (questionsPerChunk * (chunks.length - 1))) : questionsPerChunk;
           const requested = Math.max(5, count);
           const prompt = buildMcqPrompt(chunks[idx], requested);
           batchPromises.push(
@@ -390,8 +404,29 @@ Format:
                 ✨ Generate MCQs from a file with AI
               </div>
               <p style={{ fontSize: fontSize.xs, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 1.5 }}>
-                Upload a PDF, DOCX, TXT, PPTX, or image — AI will extract and generate up to {MAX_QUESTIONS} questions automatically. Large documents are split into sections and processed in parallel for speed.
+                Upload a PDF, DOCX, TXT, PPTX, or image — AI will extract and generate up to {MAX_QUESTIONS} questions automatically, or a specific number you choose below. Large documents are split into sections and processed in parallel for speed.
               </p>
+
+              <div style={{ marginBottom: spacing.sm }}>
+                <label style={{ fontSize: fontSize.xs, color: colors.textMuted, display: "block", marginBottom: 4 }}>
+                  Number of questions (optional — leave blank for auto)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={MAX_QUESTIONS}
+                  value={aiQuestionCount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "") { setAiQuestionCount(""); return; }
+                    const num = parseInt(v, 10);
+                    if (Number.isNaN(num)) return;
+                    setAiQuestionCount(Math.max(1, Math.min(MAX_QUESTIONS, num)));
+                  }}
+                  placeholder={`Auto (up to ${MAX_QUESTIONS})`}
+                  style={{ ...sharedStyles.input, maxWidth: 180 }}
+                />
+              </div>
 
               {/* AI file dropzone */}
               <label
