@@ -63,7 +63,7 @@ async function callViaProxy(prompt, provider, model) {
       headers,
       credentials: "include", // Support httpOnly cookies
       body: JSON.stringify({ prompt, provider, model }),
-      signal: AbortSignal.timeout(60000) // 60s for long generations
+      signal: AbortSignal.timeout(120000) // 120s for long generations (e.g. large MCQ batches)
     });
   } catch (netErr) {
     if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
@@ -101,7 +101,7 @@ async function callDirect(prompt, aiConfig) {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 8192 } }),
       }
     );
     const data = await r.json();
@@ -125,7 +125,7 @@ async function callDirect(prompt, aiConfig) {
       body: JSON.stringify({
         model: model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 2000,
+        max_tokens: 8192,
       }),
     });
     const data = await r.json();
@@ -271,14 +271,40 @@ export function extractJSON(raw, kind = "object") {
       return JSON.parse(fixed);
     } catch (fixError) {
       // Last resort: try to extract individual valid objects from a truncated array
+      // Use a balanced-brace scanner instead of regex, because MCQ objects contain
+      // nested {} (the "options" field) which /\{[^{}]*\}/g cannot match correctly.
       try {
         const objects = [];
-        const objRegex = /\{[^{}]*\}/g;
-        let m;
-        while ((m = objRegex.exec(jsonStr)) !== null) {
-          try {
-            objects.push(JSON.parse(m[0]));
-          } catch {}
+        let i = 0;
+        while (i < jsonStr.length) {
+          if (jsonStr[i] === '{') {
+            // Find the matching closing brace, accounting for nesting and strings
+            let depth = 0;
+            let inString = false;
+            let escape = false;
+            let j = i;
+            for (; j < jsonStr.length; j++) {
+              const ch = jsonStr[j];
+              if (escape) { escape = false; continue; }
+              if (ch === '\\') { escape = true; continue; }
+              if (ch === '"') { inString = !inString; continue; }
+              if (inString) continue;
+              if (ch === '{') depth++;
+              else if (ch === '}') {
+                depth--;
+                if (depth === 0) { j++; break; }
+              }
+            }
+            if (depth === 0) {
+              const objStr = jsonStr.slice(i, j);
+              try {
+                objects.push(JSON.parse(objStr));
+              } catch {}
+            }
+            i = j;
+          } else {
+            i++;
+          }
         }
         if (objects.length > 0) return kind === "array" ? objects : objects[0];
       } catch {}

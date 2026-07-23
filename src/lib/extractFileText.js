@@ -80,10 +80,21 @@ export async function extractFileText(file, maxImagePages = 10) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         if (textContent && textContent.items && textContent.items.length > 0) {
-          const pageText = textContent.items
-            .map((item) => item.str || "")
-            .filter((str) => str.trim().length > 0)
-            .join(" ");
+          // Preserve line structure by detecting Y-coordinate changes.
+          // PDF.js items have transform[5] = Y position. When Y changes,
+          // it means a new line — insert \n so chunkText can split on it.
+          const items = textContent.items.filter((it) => (it.str || "").trim().length > 0);
+          let pageText = "";
+          let prevY = null;
+          for (const item of items) {
+            const y = item.transform ? item.transform[5] : null;
+            if (prevY !== null && y !== null && Math.abs(y - prevY) > 2) {
+              pageText += "\n" + (item.str || "");
+            } else {
+              pageText += (pageText && !pageText.endsWith("\n") ? " " : "") + (item.str || "");
+            }
+            prevY = y;
+          }
           fullText += pageText + "\n\n";
         }
       } catch (e) {
@@ -160,8 +171,75 @@ export async function extractFileText(file, maxImagePages = 10) {
 }
 
 /**
+ * Split a single oversized paragraph into smaller pieces by detecting
+ * numbered, bulleted, or lettered list item boundaries (single \n).
+ * Falls back to sentence splitting if no list patterns are found.
+ * @returns {string[]}
+ */
+function splitOversizedParagraph(para, maxChars) {
+  // Try splitting on numbered list items: "1. ", "2) ", etc.
+  const numberedSplit = para.split(/\n(?=\d+[.)]\s)/);
+  if (numberedSplit.length > 1) return reassemblePieces(numberedSplit, maxChars, "\n");
+
+  // Try splitting on bulleted list items: "- ", "* ", "• "
+  const bulletedSplit = para.split(/\n(?=[•\-\*]\s)/);
+  if (bulletedSplit.length > 1) return reassemblePieces(bulletedSplit, maxChars, "\n");
+
+  // Try splitting on lettered list items: "a. ", "B) ", etc.
+  const letteredSplit = para.split(/\n(?=[a-zA-Z][.)]\s)/);
+  if (letteredSplit.length > 1) return reassemblePieces(letteredSplit, maxChars, "\n");
+
+  // Try splitting on any single newline (general line-by-line)
+  const lineSplit = para.split(/\n/);
+  if (lineSplit.length > 1) return reassemblePieces(lineSplit, maxChars, "\n");
+
+  // Last resort: split by sentences
+  const sentences = para.match(/[^.!?]+[.!?]+/g) || [para];
+  return reassemblePieces(sentences, maxChars, "");
+}
+
+/**
+ * Reassemble an array of text pieces into chunks of approximately maxChars.
+ * @param {string[]} pieces
+ * @param {number} maxChars
+ * @param {string} joiner — separator between pieces within a chunk
+ * @returns {string[]}
+ */
+function reassemblePieces(pieces, maxChars, joiner) {
+  const chunks = [];
+  let current = "";
+  for (const piece of pieces) {
+    const candidate = current ? current + joiner + piece : piece;
+    if (candidate.length > maxChars) {
+      if (current) chunks.push(current.trim());
+      if (piece.length > maxChars) {
+        // Try to split this piece further, but guard against infinite recursion
+        // by checking if the split actually produces smaller pieces
+        const sub = splitOversizedParagraph(piece, maxChars);
+        if (sub.length > 1 && sub.every(s => s.length <= maxChars)) {
+          chunks.push(...sub);
+        } else {
+          // Hard split by character count as a last resort
+          for (let i = 0; i < piece.length; i += maxChars) {
+            chunks.push(piece.slice(i, i + maxChars).trim());
+          }
+        }
+        current = "";
+      } else {
+        current = piece;
+      }
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) chunks.push(current.trim());
+  return chunks;
+}
+
+/**
  * Chunk text into segments of approximately maxChars each.
- * Tries to split on paragraph boundaries.
+ * Tries to split on paragraph boundaries, then numbered/bulleted list
+ * boundaries, then sentence boundaries as a last resort.
  * @returns {string[]}
  */
 export function chunkText(text, maxChars = 12000) {
@@ -174,18 +252,11 @@ export function chunkText(text, maxChars = 12000) {
   for (const para of paragraphs) {
     if ((current + "\n\n" + para).length > maxChars) {
       if (current) chunks.push(current.trim());
-      // If a single paragraph is too long, split by sentences
+      // If a single paragraph is too long, try list/sentence splitting
       if (para.length > maxChars) {
-        const sentences = para.match(/[^.!?]+[.!?]+/g) || [para];
+        const subChunks = splitOversizedParagraph(para, maxChars);
+        for (const sub of subChunks) chunks.push(sub.trim());
         current = "";
-        for (const sentence of sentences) {
-          if ((current + sentence).length > maxChars) {
-            if (current) chunks.push(current.trim());
-            current = sentence;
-          } else {
-            current += sentence;
-          }
-        }
       } else {
         current = para;
       }

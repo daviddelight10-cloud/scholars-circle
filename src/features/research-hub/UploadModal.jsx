@@ -6,8 +6,9 @@ import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, gold
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
 const MAX_QUESTIONS = 300;
-const CHUNK_SIZE = 12000;
-const QUESTIONS_PER_CHUNK = 50;
+const CHUNK_SIZE = 8000;
+const QUESTIONS_PER_CHUNK = 20;
+const CONCURRENCY_LIMIT = 3;
 
 export default function UploadModal({
   show, onClose,
@@ -29,6 +30,7 @@ export default function UploadModal({
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiProgress, setAiProgress] = useState("");
   const [aiError, setAiError] = useState("");
+  const [aiWarning, setAiWarning] = useState("");
   const aiFileInputRef = useRef(null);
   const [aiDragOver, setAiDragOver] = useState(false);
 
@@ -38,6 +40,7 @@ export default function UploadModal({
       setAiGenerating(false);
       setAiProgress("");
       setAiError("");
+      setAiWarning("");
       setAiDragOver(false);
     }
   }, [show]);
@@ -200,33 +203,82 @@ Format:
 
       if (!text.trim()) throw new Error("No text could be extracted from this file.");
 
-      // Text-based: chunk and generate in parallel for large documents
+      // Text-based: chunk and generate in concurrency-limited batches
       const chunks = chunkText(text, CHUNK_SIZE);
       const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
       const targetCount = Math.min(MAX_QUESTIONS, totalPossible);
       const questionsPerChunk = Math.ceil(targetCount / chunks.length);
 
       setAiProgress(`Generating MCQs from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
+      setAiWarning("");
 
-      const promises = chunks.map((chunk, idx) => {
-        const count = idx === chunks.length - 1
-          ? targetCount - (questionsPerChunk * (chunks.length - 1))
-          : questionsPerChunk;
-        const prompt = buildMcqPrompt(chunk, Math.max(5, count));
-        return callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
-          .then((raw) => {
-            try {
-              const parsed = extractJSON(raw, "array");
-              return mapAiMcqsToRows(parsed);
-            } catch {
-              return [];
+      // Process chunks in concurrency-limited batches to avoid rate-limit (429) errors
+      const chunkResults = [];
+      for (let batchStart = 0; batchStart < chunks.length; batchStart += CONCURRENCY_LIMIT) {
+        const batchEnd = Math.min(batchStart + CONCURRENCY_LIMIT, chunks.length);
+        const batchPromises = [];
+        for (let idx = batchStart; idx < batchEnd; idx++) {
+          const count = idx === chunks.length - 1 ? targetCount - (questionsPerChunk * (chunks.length - 1)) : questionsPerChunk;
+          const requested = Math.max(5, count);
+          const prompt = buildMcqPrompt(chunks[idx], requested);
+          batchPromises.push(
+            callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+              .then((raw) => {
+                try {
+                  const rows = mapAiMcqsToRows(extractJSON(raw, "array"));
+                  return { rows, requested, error: null };
+                } catch (e) {
+                  return { rows: [], requested, error: e.message };
+                }
+              })
+              .catch((err) => ({ rows: [], requested, error: err.message }))
+          );
+        }
+        const batchResults = await Promise.all(batchPromises);
+        chunkResults.push(...batchResults);
+      }
+
+      let allRows = chunkResults.flatMap((r) => r.rows).slice(0, MAX_QUESTIONS);
+
+      // Adaptive retry: if total < 50% of target, retry underproducing chunks with halved counts
+      if (allRows.length < targetCount * 0.5 && allRows.length < MAX_QUESTIONS) {
+        const underproducing = chunkResults
+          .map((r, idx) => ({ idx, requested: r.requested, produced: r.rows.length, error: r.error }))
+          .filter((r) => r.produced < r.requested * 0.5);
+
+        if (underproducing.length > 0) {
+          setAiProgress(`Retrying ${underproducing.length} section${underproducing.length > 1 ? "s" : ""} with fewer questions…`);
+          const retryRows = [];
+          for (let rStart = 0; rStart < underproducing.length; rStart += CONCURRENCY_LIMIT) {
+            const rEnd = Math.min(rStart + CONCURRENCY_LIMIT, underproducing.length);
+            const retryBatchPromises = [];
+            for (let ri = rStart; ri < rEnd; ri++) {
+              const r = underproducing[ri];
+              const retryCount = Math.max(5, Math.ceil(r.requested / 2));
+              const prompt = buildMcqPrompt(chunks[r.idx], retryCount);
+              retryBatchPromises.push(
+                callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+                  .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
+                  .catch(() => [])
+              );
             }
-          })
-          .catch(() => []);
-      });
+            const batchRetryResults = await Promise.all(retryBatchPromises);
+            retryRows.push(...batchRetryResults);
+          }
+          allRows = [...allRows, ...retryRows.flat()].slice(0, MAX_QUESTIONS);
+        }
+      }
 
-      const results = await Promise.all(promises);
-      const allRows = results.flat().slice(0, MAX_QUESTIONS);
+      // Build warning if chunks underproduced
+      const failedChunks = chunkResults.filter((r) => r.rows.length === 0).length;
+      const lowChunks = chunkResults.filter((r) => r.rows.length > 0 && r.rows.length < r.requested * 0.5).length;
+      if (failedChunks > 0 || lowChunks > 0) {
+        const parts = [];
+        if (failedChunks > 0) parts.push(`${failedChunks} section${failedChunks > 1 ? "s" : ""} failed`);
+        if (lowChunks > 0) parts.push(`${lowChunks} section${lowChunks > 1 ? "s" : ""} produced fewer questions than requested`);
+        setAiWarning(`⚠️ ${parts.join(" and ")} — some content may not be fully covered.`);
+        console.warn("MCQ generation stats:", chunkResults.map((r, i) => ({ chunk: i, requested: r.requested, produced: r.rows.length, error: r.error })));
+      }
 
       if (allRows.length === 0) throw new Error("AI couldn't generate questions from this content. Try a different file.");
 
@@ -370,6 +422,12 @@ Format:
               {aiProgress && !aiGenerating && (
                 <div style={{ fontSize: fontSize.xs, color: colors.success, marginBottom: spacing.sm, padding: "6px 10px", background: colors.successBg, borderRadius: borderRadius.sm }}>
                   {aiProgress}
+                </div>
+              )}
+
+              {aiWarning && !aiGenerating && (
+                <div style={{ fontSize: fontSize.xs, color: "#facc15", marginBottom: spacing.sm, padding: "6px 10px", background: "rgba(250, 204, 21, 0.08)", border: "0.5px solid rgba(250, 204, 21, 0.3)", borderRadius: borderRadius.sm }}>
+                  {aiWarning}
                 </div>
               )}
 

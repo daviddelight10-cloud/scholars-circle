@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { callAI, callAIMultimodal, extractJSON as extractJSONShared } from "../lib/aiClient";
+import { chunkText } from "../lib/extractFileText";
 import { jsPDF } from "jspdf";
 import MarkdownText from "../components/MarkdownText.jsx";
 
@@ -33,6 +34,12 @@ function saveCustomSubjects(list) {
 }
 
 const extractJSON = (raw) => extractJSONShared(raw, "object");
+const extractJSONArray = (raw) => extractJSONShared(raw, "array");
+
+const ASA_CHUNK_SIZE = 8000;
+const ASA_QUESTIONS_PER_CHUNK = 20;
+const ASA_CONCURRENCY_LIMIT = 3;
+const ASA_MAX_QUESTIONS = 300;
 
 export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUsage, setDemoUsage }) {
   const [customSubjects, setCustomSubjects] = useState(loadCustomSubjects());
@@ -260,82 +267,218 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
     
     const subject = allSubjects.find((s) => s.id === selectedSubjectId);
     
-    // Limit content length to 12000 characters
-    const maxLength = 12000;
-    const content = extractedText.length > maxLength 
-      ? extractedText.slice(0, maxLength) + "\n...[content truncated for processing]"
-      : extractedText;
-    
     // Determine if this is a calculation-heavy subject (math, physics, chemistry)
     const calculationSubjects = ['mathematics', 'math', 'physics', 'chemistry', 'further maths', 'further mathematics', 'statistics', 'accounting', 'economics'];
     const isCalculationSubject = calculationSubjects.some(s => 
       (subject?.label || '').toLowerCase().includes(s)
     );
     
-    const actualQuestionCount = Math.min(questionCount, 100);
-    
-    const prompt = `You are an expert study assistant. Create comprehensive study materials from this content for ${subject?.label || "a course"}.
+    const actualQuestionCount = Math.min(questionCount, ASA_MAX_QUESTIONS);
+
+    try {
+      setIsProcessing(true);
+      console.log("Starting AI processing...", extractedImages.length > 0 ? `with ${extractedImages.length} image(s)` : "text only");
+      
+      // ── Phase 1: Generate summaries, flashcards, study tips, exam prep (single call, truncated content) ──
+      const maxLength = 12000;
+      const summaryContent = extractedText.length > maxLength 
+        ? extractedText.slice(0, maxLength) + "\n...[content truncated for summary]"
+        : extractedText;
+
+      const summaryPrompt = `You are an expert study assistant. Create comprehensive study materials from this content for ${subject?.label || "a course"}.
 
 IMPORTANT INSTRUCTIONS:
 1. Return ONLY valid JSON. No markdown, no code blocks, no extra text before or after.
-2. Generate exactly ${actualQuestionCount} MCQ questions.
+2. ${isCalculationSubject ? `This is a calculation-based subject. Include formulas, numerical problems, and step-by-step solutions in explanations.` : 'Focus on conceptual understanding and application.'}
+3. Make content challenging but fair for 100-level university students.
+
+Content:
+"""
+${summaryContent}
+"""
+
+Return this EXACT JSON structure (no other text):
+{"summary":["point1","point2","point3","point4","point5","point6","point7"],"key_concepts":[{"concept":"name","explanation":"brief explanation","importance":"high"}],"flashcards":[{"front":"question or concept","back":"answer or explanation","category":"topic"}],"study_tips":["tip1","tip2","tip3","tip4","tip5"],"exam_prep":["question1","question2","question3","question4","question5"]}
+
+Generate 10 flashcards. Keep all text concise but informative.`;
+
+      let parsed;
+      if (extractedImages.length > 0) {
+        const raw = await callAIMultimodal(summaryPrompt, extractedImages, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        parsed = extractJSON(raw);
+      } else {
+        const raw = await callAI(summaryPrompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        parsed = extractJSON(raw);
+      }
+
+      if (!parsed || typeof parsed !== 'object') {
+        parsed = {};
+      }
+      
+      // Ensure all fields exist
+      parsed.mcq_questions = [];
+      if (!parsed.summary) parsed.summary = [];
+      if (!parsed.key_concepts) parsed.key_concepts = [];
+      if (!parsed.flashcards) parsed.flashcards = [];
+      if (!parsed.study_tips) parsed.study_tips = [];
+      if (!parsed.exam_prep) parsed.exam_prep = [];
+
+      // ── Phase 2: Generate MCQs using chunked parallel processing ──
+      if (extractedText.trim() && actualQuestionCount > 0) {
+        const chunks = chunkText(extractedText, ASA_CHUNK_SIZE);
+        const totalPossible = chunks.length * ASA_QUESTIONS_PER_CHUNK;
+        const targetCount = Math.min(actualQuestionCount, totalPossible);
+        const questionsPerChunk = Math.ceil(targetCount / chunks.length);
+
+        console.log(`MCQ generation: ${chunks.length} chunks, ${questionsPerChunk} questions/chunk, target ${targetCount}`);
+
+        const chunkResults = [];
+        for (let batchStart = 0; batchStart < chunks.length; batchStart += ASA_CONCURRENCY_LIMIT) {
+          const batchEnd = Math.min(batchStart + ASA_CONCURRENCY_LIMIT, chunks.length);
+          const batchPromises = [];
+          for (let idx = batchStart; idx < batchEnd; idx++) {
+            const count = idx === chunks.length - 1 ? targetCount - (questionsPerChunk * (chunks.length - 1)) : questionsPerChunk;
+            const requested = Math.max(5, count);
+            const mcqPrompt = `You are an expert study assistant. Generate MCQ questions from this content for ${subject?.label || "a course"}.
+
+IMPORTANT INSTRUCTIONS:
+1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
+2. Generate exactly ${requested} MCQ questions.
 3. ${isCalculationSubject ? `This is a calculation-based subject. Include questions with formulas, numerical problems, and step-by-step solutions in explanations.` : 'Focus on conceptual understanding and application.'}
 4. Each question must have exactly 4 options and the correct answer index (0-3).
 5. Make questions challenging but fair for 100-level university students.
 
 Content:
 """
-${content}
+${chunks[idx]}
 """
 
 Return this EXACT JSON structure (no other text):
-{"summary":["point1","point2","point3","point4","point5","point6","point7"],"key_concepts":[{"concept":"name","explanation":"brief explanation","importance":"high"}],"mcq_questions":[{"question":"text","options":["A","B","C","D"],"answer":0,"explanation":"why this answer is correct","difficulty":"${difficulty}"}],"flashcards":[{"front":"question or concept","back":"answer or explanation","category":"topic"}],"study_tips":["tip1","tip2","tip3","tip4","tip5"],"exam_prep":["question1","question2","question3","question4","question5"]}
+[{"question":"text","options":["A","B","C","D"],"answer":0,"explanation":"why this answer is correct","difficulty":"${difficulty}"}]
 
-Generate ${actualQuestionCount} MCQ questions and 10 flashcards. Keep all text concise but informative.`;
+Generate ${requested} MCQ questions. Keep all text concise but informative.`;
 
-    try {
-      setIsProcessing(true);
-      console.log("Starting AI processing...", extractedImages.length > 0 ? `with ${extractedImages.length} image(s)` : "text only");
-      
-      let raw;
-      if (extractedImages.length > 0) {
-        raw = await callAIMultimodal(prompt, extractedImages, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
-      } else {
-        raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
-      }
-      console.log("AI response received:", raw?.substring(0, 200));
-      
-      if (!raw || raw.trim().length < 10) {
-        throw new Error("AI returned an empty response. Please try again with shorter content.");
-      }
-      
-      const parsed = extractJSON(raw);
-      console.log("Parsed result keys:", Object.keys(parsed || {}));
-      
-      if (!parsed || typeof parsed !== 'object') {
-        throw new Error("Failed to parse AI response. The content may be too long or complex.");
-      }
-      
-      // Validate required fields
-      if (!parsed.mcq_questions || !Array.isArray(parsed.mcq_questions)) {
-        console.warn("No MCQ questions generated, creating empty array");
-        parsed.mcq_questions = [];
+            batchPromises.push(
+              callAI(mcqPrompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+                .then((raw) => {
+                  try {
+                    const arr = extractJSONArray(raw);
+                    return { questions: arr, requested, error: null };
+                  } catch (e) {
+                    return { questions: [], requested, error: e.message };
+                  }
+                })
+                .catch((err) => ({ questions: [], requested, error: err.message }))
+            );
+          }
+          const batchResults = await Promise.all(batchPromises);
+          chunkResults.push(...batchResults);
+        }
+
+        let allQuestions = chunkResults.flatMap((r) => r.questions || []);
+
+        // Adaptive retry: if total < 50% of target, retry underproducing chunks with halved counts
+        if (allQuestions.length < targetCount * 0.5 && allQuestions.length < actualQuestionCount) {
+          const underproducing = chunkResults
+            .map((r, idx) => ({ idx, requested: r.requested, produced: (r.questions || []).length, error: r.error }))
+            .filter((r) => r.produced < r.requested * 0.5);
+
+          if (underproducing.length > 0) {
+            console.log(`Retrying ${underproducing.length} underproducing chunks...`);
+            const retryQuestions = [];
+            for (let rStart = 0; rStart < underproducing.length; rStart += ASA_CONCURRENCY_LIMIT) {
+              const rEnd = Math.min(rStart + ASA_CONCURRENCY_LIMIT, underproducing.length);
+              const retryBatchPromises = [];
+              for (let ri = rStart; ri < rEnd; ri++) {
+                const r = underproducing[ri];
+                const retryCount = Math.max(5, Math.ceil(r.requested / 2));
+                const mcqPrompt = `You are an expert study assistant. Generate MCQ questions from this content for ${subject?.label || "a course"}.
+
+IMPORTANT INSTRUCTIONS:
+1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
+2. Generate exactly ${retryCount} MCQ questions.
+3. ${isCalculationSubject ? `This is a calculation-based subject. Include questions with formulas, numerical problems, and step-by-step solutions in explanations.` : 'Focus on conceptual understanding and application.'}
+4. Each question must have exactly 4 options and the correct answer index (0-3).
+5. Make questions challenging but fair for 100-level university students.
+
+Content:
+"""
+${chunks[r.idx]}
+"""
+
+Return this EXACT JSON structure (no other text):
+[{"question":"text","options":["A","B","C","D"],"answer":0,"explanation":"why this answer is correct","difficulty":"${difficulty}"}]
+
+Generate ${retryCount} MCQ questions. Keep all text concise but informative.`;
+
+                retryBatchPromises.push(
+                  callAI(mcqPrompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+                    .then((raw) => { try { return extractJSONArray(raw) || []; } catch { return []; } })
+                    .catch(() => [])
+                );
+              }
+              const batchRetryResults = await Promise.all(retryBatchPromises);
+              retryQuestions.push(...batchRetryResults);
+            }
+            allQuestions = [...allQuestions, ...retryQuestions.flat()];
+          }
+        }
+
+        // Validate and filter MCQ questions
+        parsed.mcq_questions = allQuestions.filter((q, i) => {
+          if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.answer !== 'number') {
+            console.warn(`Invalid MCQ question at index ${i}, skipping`);
+            return false;
+          }
+          return true;
+        }).slice(0, actualQuestionCount);
+
+        // Build warning if chunks underproduced
+        const failedChunks = chunkResults.filter((r) => (r.questions || []).length === 0).length;
+        const lowChunks = chunkResults.filter((r) => { const len = (r.questions || []).length; return len > 0 && len < r.requested * 0.5; }).length;
+        if (failedChunks > 0 || lowChunks > 0) {
+          const parts = [];
+          if (failedChunks > 0) parts.push(`${failedChunks} section${failedChunks > 1 ? "s" : ""} failed`);
+          if (lowChunks > 0) parts.push(`${lowChunks} section${lowChunks > 1 ? "s" : ""} produced fewer questions than requested`);
+          console.warn(`MCQ generation: ${parts.join(" and ")}`);
+        }
+
+        console.log(`Successfully generated ${parsed.mcq_questions.length} valid MCQ questions`);
+      } else if (extractedImages.length > 0 && actualQuestionCount > 0) {
+        // Image-only fallback: generate MCQs from images using multimodal AI
+        const imgMcqPrompt = `You are an expert study assistant. Generate MCQ questions from these images for ${subject?.label || "a course"}.
+
+IMPORTANT INSTRUCTIONS:
+1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
+2. Generate exactly ${actualQuestionCount} MCQ questions.
+3. ${isCalculationSubject ? `This is a calculation-based subject. Include questions with formulas, numerical problems, and step-by-step solutions in explanations.` : 'Focus on conceptual understanding and application.'}
+4. Each question must have exactly 4 options and the correct answer index (0-3).
+5. Make questions challenging but fair for 100-level university students.
+
+Return this EXACT JSON structure (no other text):
+[{"question":"text","options":["A","B","C","D"],"answer":0,"explanation":"why this answer is correct","difficulty":"${difficulty}"}]
+
+Generate ${actualQuestionCount} MCQ questions. Keep all text concise but informative.`;
+
+        const raw = await callAIMultimodal(imgMcqPrompt, extractedImages, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        try {
+          const arr = extractJSONArray(raw) || [];
+          parsed.mcq_questions = arr.filter((q, i) => {
+            if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.answer !== 'number') {
+              console.warn(`Invalid MCQ question at index ${i}, skipping`);
+              return false;
+            }
+            return true;
+          }).slice(0, actualQuestionCount);
+          console.log(`Successfully generated ${parsed.mcq_questions.length} MCQ questions from images`);
+        } catch (e) {
+          console.warn("Failed to parse image MCQ response:", e.message);
+        }
       }
       
       if (parsed.mcq_questions.length === 0) {
         setError("Warning: No MCQ questions were generated. Try with different content or fewer questions.");
       }
-      
-      // Validate each MCQ question
-      parsed.mcq_questions = parsed.mcq_questions.filter((q, i) => {
-        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || typeof q.answer !== 'number') {
-          console.warn(`Invalid MCQ question at index ${i}, skipping`);
-          return false;
-        }
-        return true;
-      });
-      
-      console.log(`Successfully parsed ${parsed.mcq_questions.length} valid MCQ questions`);
       
       setResult(parsed);
       setActiveTab("results");

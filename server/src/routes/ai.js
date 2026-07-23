@@ -33,7 +33,7 @@ async function tryGemini(prompt, model) {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 8192 } }),
       }
     );
     const data = await r.json().catch(() => ({}));
@@ -65,7 +65,7 @@ async function tryOpenRouter(prompt, model) {
       body: JSON.stringify({
         model: model || DEFAULT_OPENROUTER_MODEL,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 2000,
+        max_tokens: 8192,
       }),
     });
     const data = await r.json().catch(() => ({}));
