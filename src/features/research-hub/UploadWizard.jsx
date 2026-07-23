@@ -49,6 +49,7 @@ export default function UploadWizard({
   const [action, setAction] = useState(null); // 'material' | 'flashcards' | 'mcqs' | 'summary'
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState("");
+  const [genError, setGenError] = useState("");
   const [genWarning, setGenWarning] = useState("");
   const [converting, setConverting] = useState(false);
   const [convertProgress, setConvertProgress] = useState("");
