@@ -36,10 +36,11 @@ function saveCustomSubjects(list) {
 const extractJSON = (raw) => extractJSONShared(raw, "object");
 const extractJSONArray = (raw) => extractJSONShared(raw, "array");
 
-const ASA_CHUNK_SIZE = 8000;
-const ASA_QUESTIONS_PER_CHUNK = 20;
+const ASA_QUESTIONS_PER_CHUNK = 50;
 const ASA_CONCURRENCY_LIMIT = 3;
 const ASA_MAX_QUESTIONS = 300;
+const ASA_MAX_CHUNKS = 15;
+const ASA_MIN_CHUNK_SIZE = 5000;
 
 export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUsage, setDemoUsage }) {
   const [customSubjects, setCustomSubjects] = useState(loadCustomSubjects());
@@ -325,7 +326,8 @@ Generate 10 flashcards. Keep all text concise but informative.`;
 
       // ── Phase 2: Generate MCQs using chunked parallel processing ──
       if (extractedText.trim() && actualQuestionCount > 0) {
-        const chunks = chunkText(extractedText, ASA_CHUNK_SIZE);
+        const chunkSize = Math.max(ASA_MIN_CHUNK_SIZE, Math.ceil(extractedText.length / ASA_MAX_CHUNKS));
+        const chunks = chunkText(extractedText, chunkSize);
         const totalPossible = chunks.length * ASA_QUESTIONS_PER_CHUNK;
         const targetCount = Math.min(actualQuestionCount, totalPossible);
         const questionsPerChunk = Math.ceil(targetCount / chunks.length);

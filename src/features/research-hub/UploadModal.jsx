@@ -6,9 +6,10 @@ import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, gold
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
 const MAX_QUESTIONS = 300;
-const CHUNK_SIZE = 8000;
-const QUESTIONS_PER_CHUNK = 20;
+const QUESTIONS_PER_CHUNK = 50;
 const CONCURRENCY_LIMIT = 3;
+const MAX_CHUNKS = 15;
+const MIN_CHUNK_SIZE = 5000;
 
 export default function UploadModal({
   show, onClose,
@@ -204,7 +205,8 @@ Format:
       if (!text.trim()) throw new Error("No text could be extracted from this file.");
 
       // Text-based: chunk and generate in concurrency-limited batches
-      const chunks = chunkText(text, CHUNK_SIZE);
+      const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / MAX_CHUNKS));
+      const chunks = chunkText(text, chunkSize);
       const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
       const targetCount = Math.min(MAX_QUESTIONS, totalPossible);
       const questionsPerChunk = Math.ceil(targetCount / chunks.length);

@@ -10,10 +10,11 @@ const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: ""
 const emptyFlashcard = () => ({ front: "", back: "" });
 
 const MAX_QUESTIONS = 300;
-const CHUNK_SIZE = 8000;
-const QUESTIONS_PER_CHUNK = 20;
+const QUESTIONS_PER_CHUNK = 50;
 const MAX_FLASHCARDS = 50;
 const CONCURRENCY_LIMIT = 3;
+const MAX_CHUNKS = 15;
+const MIN_CHUNK_SIZE = 5000;
 
 const ACCEPTED_EXTS = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp";
 
@@ -336,7 +337,8 @@ ${text}
       if (!isNote && !text.trim()) throw new Error("No text could be extracted from this file.");
       if (isNote && !noteContent.trim()) throw new Error("Note is empty.");
 
-      const chunks = chunkText(text, CHUNK_SIZE);
+      const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / MAX_CHUNKS));
+      const chunks = chunkText(text, chunkSize);
 
       if (chosenAction === "mcqs") {
         const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
