@@ -47,7 +47,8 @@ export default function UploadWizard({
   const [dragOver, setDragOver] = useState(false);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
-  const [action, setAction] = useState(null); // 'material' | 'flashcards' | 'mcqs' | 'summary'
+  const [action, setAction] = useState(null); // 'material' | 'flashcards' | 'mcqs' | 'mcqs+flashcards' | 'summary'
+  const [reviewSubTab, setReviewSubTab] = useState("mcqs"); // for mcqs+flashcards review
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState("");
   const [genError, setGenError] = useState("");
@@ -79,6 +80,7 @@ export default function UploadWizard({
       setTitle("");
       setSubject("");
       setAction(null);
+      setReviewSubTab("mcqs");
       setGenerating(false);
       setGenProgress("");
       setGenError("");
@@ -287,6 +289,13 @@ ${text}
       .filter((fc) => fc.front.trim() && fc.back.trim());
   };
 
+  const deriveFlashcardsFromMcqs = (rows) => {
+    return rows.map((row) => ({
+      front: row.question,
+      back: `Correct answer: ${row.options[row.correct] || row.correct}.${row.explanation ? " " + row.explanation : ""}`,
+    }));
+  };
+
   const generateContent = async (chosenAction) => {
     const sourceFile = file;
     if (!sourceFile && !isNote) { setGenError("No file selected"); return; }
@@ -313,7 +322,7 @@ ${text}
         setGenProgress(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
         const contextText = "The images contain study material. Generate comprehensive content covering all the content visible.";
 
-        if (chosenAction === "mcqs") {
+        if (chosenAction === "mcqs" || chosenAction === "mcqs+flashcards") {
           const imgCount = customCount || Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS);
           const prompt = buildMcqPrompt(contextText, imgCount);
           const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
@@ -321,7 +330,12 @@ ${text}
           const rows = mapAiMcqsToRows(parsed);
           if (rows.length === 0) throw new Error("AI didn't generate valid questions. Try again.");
           setMcqRows(rows);
-          setGenProgress(`Generated ${rows.length} questions ✓`);
+          if (chosenAction === "mcqs+flashcards") {
+            setFlashcards(deriveFlashcardsFromMcqs(rows));
+            setGenProgress(`Generated ${rows.length} questions + ${rows.length} flashcards ✓`);
+          } else {
+            setGenProgress(`Generated ${rows.length} questions ✓`);
+          }
         } else if (chosenAction === "flashcards") {
           const prompt = buildFlashcardPrompt(contextText, MAX_FLASHCARDS);
           const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
@@ -348,11 +362,12 @@ ${text}
       const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / desiredChunks));
       const chunks = chunkText(text, chunkSize);
 
-      if (chosenAction === "mcqs") {
+      if (chosenAction === "mcqs" || chosenAction === "mcqs+flashcards") {
         const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
         const targetCount = customCount ? Math.min(customCount, totalPossible) : Math.min(MAX_QUESTIONS, totalPossible);
         const questionsPerChunk = Math.min(QUESTIONS_PER_CHUNK, Math.ceil(targetCount / chunks.length));
-        setGenProgress(`Generating MCQs from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
+        const actionLabel = chosenAction === "mcqs+flashcards" ? "MCQs + Flashcards" : "MCQs";
+        setGenProgress(`Generating ${actionLabel} from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
         setGenWarning("");
         if (customCount && targetCount < customCount) {
           setGenWarning(`⚠️ Requested ${customCount} questions, but this document can only support ~${targetCount} given its length — generating the maximum achievable.`);
@@ -428,7 +443,12 @@ ${text}
 
         if (allRows.length === 0) throw new Error("AI couldn't generate questions from this content. Try a different file.");
         setMcqRows(allRows);
-        setGenProgress(`Generated ${allRows.length} question${allRows.length !== 1 ? "s" : ""} ✓ — review and edit below`);
+        if (chosenAction === "mcqs+flashcards") {
+          setFlashcards(deriveFlashcardsFromMcqs(allRows));
+          setGenProgress(`Generated ${allRows.length} question${allRows.length !== 1 ? "s" : ""} + ${allRows.length} flashcards ✓ — review and edit below`);
+        } else {
+          setGenProgress(`Generated ${allRows.length} question${allRows.length !== 1 ? "s" : ""} ✓ — review and edit below`);
+        }
 
       } else if (chosenAction === "flashcards") {
         const cardsPerChunk = Math.ceil(MAX_FLASHCARDS / chunks.length);
@@ -538,6 +558,28 @@ ${text}
         folderId: destFolderId || null,
         isPublic,
       });
+    } else if (action === "mcqs+flashcards") {
+      const incompleteMcq = mcqRows.findIndex((row) => !row.question.trim() || Object.values(row.options).some((o) => !o.trim()));
+      if (incompleteMcq >= 0) { setSaveError(`Question ${incompleteMcq + 1} is missing text or options — please go back and complete it or remove it`); return; }
+      const incompleteFc = flashcards.findIndex((fc) => !fc.front.trim() || !fc.back.trim());
+      if (incompleteFc >= 0) { setSaveError(`Flashcard ${incompleteFc + 1} is missing its front or back — please go back and complete it or remove it`); return; }
+      onSaveStudyTool({
+        title: title.trim(),
+        subject: subject.trim(),
+        contentType: "mcq",
+        mcqData: JSON.stringify(mcqRows),
+        folderId: destFolderId || null,
+        isPublic,
+      });
+      onSaveStudyTool({
+        title: `${title.trim()} — Flashcards`,
+        subject: subject.trim(),
+        contentType: "flashcard_deck",
+        flashcardData: JSON.stringify(flashcards),
+        folderId: destFolderId || null,
+        isPublic,
+        isSecondary: true,
+      });
     } else if (action === "flashcards") {
       const incompleteIdx = flashcards.findIndex((fc) => !fc.front.trim() || !fc.back.trim());
       if (incompleteIdx >= 0) { setSaveError(`Flashcard ${incompleteIdx + 1} is missing its front or back — please go back and complete it or remove it`); return; }
@@ -587,7 +629,7 @@ ${text}
 
   const canSave = () => {
     if (!title.trim()) return false;
-    if (action === "mcqs") return mcqRows.some((r) => r.question.trim());
+    if (action === "mcqs" || action === "mcqs+flashcards") return mcqRows.some((r) => r.question.trim());
     if (action === "flashcards") return flashcards.some((fc) => fc.front.trim());
     if (action === "summary") return summaryText.trim().length > 0;
     if (action === "material") return Boolean(isNote ? noteContent.trim() : file);
@@ -767,8 +809,8 @@ ${text}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.md }}>
               {[
                 { key: "material", icon: "📄", label: "Save as Material", desc: "Upload the file as-is" },
+                { key: "mcqs+flashcards", icon: "✎🎴", label: "Generate MCQs + Flashcards", desc: "AI creates quiz + matching flashcards" },
                 { key: "flashcards", icon: "🎴", label: "Generate Flashcards", desc: "AI creates flashcard deck" },
-                { key: "mcqs", icon: "✎", label: "Generate MCQs", desc: "AI creates quiz questions" },
                 { key: "summary", icon: "📝", label: "Generate Summary", desc: "AI creates study summary" },
               ].map((choice) => (
                 <div
@@ -819,8 +861,14 @@ ${text}
                   </div>
                 )}
                 {/* MCQ Review */}
-                {action === "mcqs" && (
+                {(action === "mcqs" || (action === "mcqs+flashcards" && reviewSubTab === "mcqs")) && (
                   <>
+                    {action === "mcqs+flashcards" && (
+                      <div style={{ display: "flex", gap: spacing.xs, marginBottom: spacing.md }}>
+                        <button onClick={() => setReviewSubTab("mcqs")} style={{ padding: "6px 16px", borderRadius: borderRadius.sm, fontSize: fontSize.xs, fontWeight: fontWeight.bold, cursor: "pointer", border: `0.5px solid ${goldBorder}`, background: goldDim, color: goldText }}>✎ MCQs ({mcqRows.filter((r) => r.question.trim()).length})</button>
+                        <button onClick={() => setReviewSubTab("flashcards")} style={{ padding: "6px 16px", borderRadius: borderRadius.sm, fontSize: fontSize.xs, fontWeight: fontWeight.bold, cursor: "pointer", border: `0.5px solid ${colors.border}`, background: colors.bg, color: colors.textMuted }}>🎴 Flashcards ({flashcards.filter((fc) => fc.front.trim()).length})</button>
+                      </div>
+                    )}
                     <div style={{ fontSize: fontSize.sm, color: goldText, marginBottom: spacing.sm, fontWeight: fontWeight.semibold }}>
                       {mcqRows.filter((r) => r.question.trim()).length} questions ready — review and edit
                     </div>
@@ -846,8 +894,14 @@ ${text}
                 )}
 
                 {/* Flashcard Review */}
-                {action === "flashcards" && (
+                {(action === "flashcards" || (action === "mcqs+flashcards" && reviewSubTab === "flashcards")) && (
                   <>
+                    {action === "mcqs+flashcards" && (
+                      <div style={{ display: "flex", gap: spacing.xs, marginBottom: spacing.md }}>
+                        <button onClick={() => setReviewSubTab("mcqs")} style={{ padding: "6px 16px", borderRadius: borderRadius.sm, fontSize: fontSize.xs, fontWeight: fontWeight.bold, cursor: "pointer", border: `0.5px solid ${colors.border}`, background: colors.bg, color: colors.textMuted }}>✎ MCQs ({mcqRows.filter((r) => r.question.trim()).length})</button>
+                        <button onClick={() => setReviewSubTab("flashcards")} style={{ padding: "6px 16px", borderRadius: borderRadius.sm, fontSize: fontSize.xs, fontWeight: fontWeight.bold, cursor: "pointer", border: `0.5px solid ${goldBorder}`, background: goldDim, color: goldText }}>🎴 Flashcards ({flashcards.filter((fc) => fc.front.trim()).length})</button>
+                      </div>
+                    )}
                     <div style={{ fontSize: fontSize.sm, color: goldText, marginBottom: spacing.sm, fontWeight: fontWeight.semibold }}>
                       {flashcards.filter((fc) => fc.front.trim()).length} flashcards ready — review and edit
                     </div>
@@ -986,6 +1040,7 @@ ${text}
               <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: spacing.xs }}>
                 {action === "material" && (isNote ? "📝 Note" : "📄 " + (file?.name || "File"))}
                 {action === "mcqs" && `✎ ${mcqRows.filter((r) => r.question.trim()).length} MCQ questions`}
+                {action === "mcqs+flashcards" && `✎ ${mcqRows.filter((r) => r.question.trim()).length} MCQs + 🎴 ${flashcards.filter((fc) => fc.front.trim()).length} flashcards`}
                 {action === "flashcards" && `🎴 ${flashcards.filter((fc) => fc.front.trim()).length} flashcards`}
                 {action === "summary" && "AI-generated summary (PDF)"}
                 {" → "}

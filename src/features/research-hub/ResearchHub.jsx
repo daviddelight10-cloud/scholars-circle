@@ -635,14 +635,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         return res.json();
       })
       .then((resource) => {
-        setUploading(false);
         setUploadError("");
         try { localStorage.removeItem("sc_resources_list"); } catch {}
         setResources((prev) => [resource, ...prev]);
-        setShowUploadWizard(false);
-        showToast("Saved to space ✓");
         if (data.folderId) { fetchFolderDetail(data.folderId); }
         else { fetchResources(); fetchFolders(); }
+        if (data.isSecondary) {
+          setUploading(false);
+          setShowUploadWizard(false);
+          showToast("Saved MCQs + Flashcards to space ✓");
+        } else if (!data.isSecondary && data.contentType === "mcq" && data.title.includes(" — Flashcards")) {
+          setUploading(false);
+          setShowUploadWizard(false);
+          showToast("Saved to space ✓");
+        } else {
+          setUploading(false);
+        }
       })
       .catch((err) => {
         setUploading(false);
