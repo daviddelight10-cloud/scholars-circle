@@ -3617,6 +3617,17 @@ ${extractedText}
         @keyframes fadeExit { from { opacity: 1; } to { opacity: 0; } }
         @keyframes fadeEnter { from { opacity: 0; } to { opacity: 1; } }
         @keyframes sc-cursor-blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+        @keyframes sc-fade-in-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes sc-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes sc-card-enter { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+        @keyframes sc-ring-fill { from { stroke-dashoffset: var(--ring-circ, 283); } to { stroke-dashoffset: var(--ring-offset, 0); } }
+        .sc-fade-in-up { animation: sc-fade-in-up 0.35s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .sc-card-enter { animation: sc-card-enter 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .sc-shimmer-bar::after {
+          content: ""; position: absolute; inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+          background-size: 200% 100%; animation: sc-shimmer 2s infinite;
+        }
         .page-anim-exit-next { animation: slideExitLeft 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
         .page-anim-exit-prev { animation: slideExitRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
         .page-anim-enter-next { animation: slideEnterRight 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
@@ -4853,6 +4864,7 @@ ${extractedText}
                           <FlashcardRunner
                             flashcards={fsrsFlashcards.filter((f) => f.fsrs?.isDue)}
                             resourceId={propResourceId}
+                            theme={theme}
                             onComplete={() => { fetchFlashcards(); setFsrsFlashcardView("menu"); }}
                           />
                         ) : (
@@ -4869,20 +4881,39 @@ ${extractedText}
                     {/* Flashcard mode — browse */}
                     {studyMode === "flashcard" && fsrsFlashcardView === "browse" && (
                       <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>All Flashcards ({fsrsFlashcards.length})</span>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                          <span style={{
+                            fontSize: 13, fontWeight: 700, color: T.text,
+                            padding: "4px 12px", borderRadius: 999, background: T.hover,
+                          }}>All Flashcards ({fsrsFlashcards.length})</span>
                           <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setFsrsFlashcardView("menu")}>← Back</button>
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
-                          {fsrsFlashcards.map((fc) => (
-                            <div key={fc.id} style={{ background: T.hover, borderRadius: 10, padding: "10px 12px", border: `0.5px solid ${T.border}` }}>
-                              <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 4 }}>{fc.front}</div>
-                              <div style={{ fontSize: 11, color: T.muted }}>{fc.back}</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 400, overflowY: "auto" }}>
+                          {fsrsFlashcards.map((fc, i) => (
+                            <div key={fc.id} className="sc-fade-in-up" style={{
+                              background: T.hover, borderRadius: 12, padding: "14px 16px",
+                              border: `0.5px solid ${T.border}`, boxShadow: `0 2px 8px ${T.shadow}`,
+                              animationDelay: `${i * 40}ms`,
+                            }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4, lineHeight: 1.4 }}>{fc.front}</div>
+                              <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.4 }}>{fc.back}</div>
                               {fc.fsrs && (
-                                <div style={{ marginTop: 6, display: "flex", gap: 8, fontSize: 10 }}>
-                                  <span style={{ color: fc.fsrs.isDue ? "#ef4444" : (theme === "light" ? "#2563EB" : "#4a5080") }}>{fc.fsrs.isDue ? "Due now" : `Due ${new Date(fc.fsrs.dueAt).toLocaleDateString()}`}</span>
-                                  {fc.fsrs.isMastered && <span style={{ color: "#22c55e" }}>✓ Mastered</span>}
-                                  <span style={{ color: T.muted }}>Reps: {fc.fsrs.reps}</span>
+                                <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                                    background: fc.fsrs.isDue ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.12)",
+                                    color: fc.fsrs.isDue ? "#ef4444" : "#22c55e",
+                                  }}>{fc.fsrs.isDue ? "🔴 Due now" : `📅 ${new Date(fc.fsrs.dueAt).toLocaleDateString()}`}</span>
+                                  {fc.fsrs.isMastered && (
+                                    <span style={{
+                                      fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                                      background: "rgba(34,197,94,0.12)", color: "#22c55e",
+                                    }}>✓ Mastered</span>
+                                  )}
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 999,
+                                    background: T.inputBg, color: T.muted,
+                                  }}>Reps: {fc.fsrs.reps}</span>
                                 </div>
                               )}
                             </div>
@@ -5096,17 +5127,20 @@ ${extractedText}
                     <div style={{ fontSize: 10, color: T.muted, marginBottom: 12 }}>
                       {historyView.rangeLabel} · {historyView.mcqs.length} questions
                     </div>
-                    {/* Progress */}
-                    <div style={{ height: 4, background: T.hover, borderRadius: 4, overflow: "hidden", marginBottom: 12 }}>
-                      <div style={{
-                        height: "100%",
-                        width: `${historyView.mcqs.length > 0 ? ((historyQuizIdx + (historyQuizLocked[historyQuizIdx] ? 1 : 0)) / historyView.mcqs.length) * 100 : 0}%`,
-                        background: T.accent,
-                        borderRadius: 4,
-                        transition: "width 0.3s ease",
-                      }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                      <div style={{ flex: 1, position: "relative", height: 6, background: T.hover, borderRadius: 999, overflow: "hidden" }}>
+                        <div className="sc-shimmer-bar" style={{
+                          position: "relative", height: "100%",
+                          width: `${historyView.mcqs.length > 0 ? ((historyQuizIdx + (historyQuizLocked[historyQuizIdx] ? 1 : 0)) / historyView.mcqs.length) * 100 : 0}%`,
+                          background: `linear-gradient(90deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
+                          borderRadius: 999, transition: "width 0.3s ease", overflow: "hidden",
+                        }} />
+                      </div>
+                      <span style={{
+                        fontSize: 11, color: T.muted, whiteSpace: "nowrap", fontWeight: 600,
+                        padding: "3px 10px", borderRadius: 999, background: T.hover,
+                      }}>Q {historyQuizIdx + 1} / {historyView.mcqs.length}</span>
                     </div>
-                    {/* Question */}
                     {(() => {
                       const q = historyView.mcqs[historyQuizIdx];
                       if (!q) return null;
@@ -5114,10 +5148,19 @@ ${extractedText}
                       const isLocked = historyQuizLocked[historyQuizIdx];
                       return (
                         <>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: T.text, lineHeight: 1.5, marginBottom: 12 }}>
-                            Q{historyQuizIdx + 1}. {q.question}
+                          <div className="sc-fade-in-up" style={{
+                            fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.6, marginBottom: 14,
+                            padding: "16px 20px", borderRadius: 14, background: T.hover,
+                            border: `0.5px solid ${T.border}`, boxShadow: `0 2px 8px ${T.shadow}`,
+                          }}>
+                            <span style={{
+                              display: "inline-block", fontSize: 10, fontWeight: 700, color: T.muted,
+                              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6,
+                              padding: "2px 8px", borderRadius: 999, background: T.inputBg,
+                            }}>Question {historyQuizIdx + 1}</span>
+                            <div style={{ marginTop: 6 }}>{q.question}</div>
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             {Object.entries(q.options).map(([key, val]) => {
                               const isSelected = selected === key;
                               const isCorrect = key === q.correct;
@@ -5127,53 +5170,58 @@ ${extractedText}
                                 <div
                                   key={key}
                                   onClick={() => !isLocked && handleHistoryQuizAnswer(key)}
+                                  className="sc-fade-in-up"
                                   style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                    padding: "10px 12px",
-                                    borderRadius: 8,
-                                    cursor: isLocked ? "default" : "pointer",
-                                    background: showCorrect ? `${T.accent}15` : showWrong ? "rgba(244,67,54,0.12)" : T.hover,
-                                    border: `1px solid ${showCorrect ? T.accent : showWrong ? "#ef5350" : isSelected ? T.accent : T.border}`,
-                                    transition: "all 0.15s",
+                                    display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 12,
+                                    cursor: isLocked ? "default" : "pointer", minHeight: 48,
+                                    background: showCorrect ? "rgba(34,197,94,0.10)" : showWrong ? "rgba(239,68,68,0.10)" : T.hover,
+                                    border: `1px solid ${showCorrect ? "rgba(34,197,94,0.5)" : showWrong ? "rgba(239,68,68,0.5)" : isSelected ? T.accent : T.border}`,
+                                    transition: "all 0.2s cubic-bezier(0.4,0,0.2,1)",
                                   }}
+                                  onMouseEnter={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 4px 12px ${T.shadow}`; } }}
+                                  onMouseLeave={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; } }}
                                 >
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: showCorrect ? T.accent : showWrong ? "#ef5350" : T.muted, minWidth: 20 }}>{key}.</span>
-                                  <span style={{ fontSize: 13, color: T.text, flex: 1 }}>{val}</span>
-                                  {showCorrect && <span style={{ fontSize: 14, color: T.accent }}>✓</span>}
-                                  {showWrong && <span style={{ fontSize: 14, color: "#ef5350" }}>✕</span>}
+                                  <span style={{
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                                    fontSize: 12, fontWeight: 700,
+                                    color: showCorrect ? "#22c55e" : showWrong ? "#ef4444" : T.muted,
+                                    background: showCorrect ? "rgba(34,197,94,0.15)" : showWrong ? "rgba(239,68,68,0.15)" : T.inputBg,
+                                    border: `1px solid ${showCorrect ? "rgba(34,197,94,0.4)" : showWrong ? "rgba(239,68,68,0.4)" : T.border}`,
+                                  }}>{key}</span>
+                                  <span style={{ fontSize: 13, color: T.text, flex: 1, lineHeight: 1.4 }}>{val}</span>
+                                  {showCorrect && <span style={{ fontSize: 16, color: "#22c55e" }}>✓</span>}
+                                  {showWrong && <span style={{ fontSize: 16, color: "#ef4444" }}>✕</span>}
                                 </div>
                               );
                             })}
                           </div>
                           {isLocked && (
-                            <>
+                            <div className="sc-fade-in-up">
                               {q.explanation && (
                                 <div style={{
-                                  marginTop: 10,
-                                  padding: "10px 12px",
-                                  background: T.hover,
-                                  border: `0.5px solid ${T.border}`,
-                                  borderRadius: 8,
-                                  fontSize: 12,
-                                  color: T.muted,
-                                  lineHeight: 1.5,
+                                  marginTop: 12, padding: "12px 16px",
+                                  background: T.hover, borderLeft: `3px solid ${T.accent}`,
+                                  borderRadius: 10, fontSize: 12, color: T.muted, lineHeight: 1.5,
                                 }}>
-                                  <span style={{ fontWeight: 700, color: T.text }}>Explanation: </span>
+                                  <span style={{ fontWeight: 700, color: T.accent }}>💡 Explanation: </span>
                                   {q.explanation}
                                 </div>
                               )}
                               <button
                                 style={{
-                                  ...s.studyGenerateBtn,
-                                  marginTop: 12,
+                                  width: "100%", marginTop: 14, padding: "14px", borderRadius: 12,
+                                  fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none",
+                                  background: `linear-gradient(135deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
+                                  color: "#fff", transition: "all 0.15s ease",
                                 }}
                                 onClick={historyQuizNext}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.02)"; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
                               >
                                 {historyQuizIdx < historyView.mcqs.length - 1 ? "Next →" : "See Results"}
                               </button>
-                            </>
+                            </div>
                           )}
                         </>
                       );
@@ -5184,52 +5232,81 @@ ${extractedText}
                 {/* ── History: MCQ Quiz Results ── */}
                 {studyStep === "history" && historyView?.type === "mcq" && historyQuizShowResults && (
                   <div style={s.studyBody}>
-                    <div style={{ textAlign: "center", marginBottom: 16 }}>
-                      <div style={{ fontSize: 32, marginBottom: 4 }}>
-                        {historyQuizScore === historyView.mcqs.length ? "🏆" : historyQuizScore >= historyView.mcqs.length / 2 ? "🎉" : "📚"}
-                      </div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: historyQuizScore >= historyView.mcqs.length / 2 ? "#66bb6a" : "#ffb74d" }}>
-                        {historyQuizScore} / {historyView.mcqs.length}
-                      </div>
-                      <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
-                        {historyView.mcqs.length > 0 ? Math.round((historyQuizScore / historyView.mcqs.length) * 100) : 0}% correct
-                      </div>
-                    </div>
-                    {/* Review */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto", marginBottom: 12 }}>
-                      {historyView.mcqs.map((q, i) => {
-                        const userAnswer = historyQuizAnswers[i];
-                        const isCorrect = userAnswer === q.correct;
-                        return (
-                          <div key={i} style={{
-                            padding: "10px 12px",
-                            background: T.hover,
-                            border: `0.5px solid ${isCorrect ? "#2a6a3a" : "#6a2a2a"}`,
-                            borderRadius: 8,
-                          }}>
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
-                              <span style={{ fontSize: 13 }}>{isCorrect ? "✅" : "❌"}</span>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
+                    {(() => {
+                      const pct = historyView.mcqs.length > 0 ? Math.round((historyQuizScore / historyView.mcqs.length) * 100) : 0;
+                      const ringSize = 100, ringStroke = 7, ringRadius = (ringSize - ringStroke) / 2;
+                      const ringCirc = 2 * Math.PI * ringRadius;
+                      const ringOffset = ringCirc - (pct / 100) * ringCirc;
+                      const ringColor = pct >= 70 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
+                      const wrongCount = historyView.mcqs.length - historyQuizScore;
+                      return (
+                        <>
+                          <div style={{ textAlign: "center", marginBottom: 20 }}>
+                            <div className="sc-card-enter" style={{ fontSize: 48, marginBottom: 8 }}>{pct === 100 ? "🏆" : pct >= 50 ? "🎉" : "📚"}</div>
+                            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                              <div style={{ position: "relative", width: ringSize, height: ringSize, filter: `drop-shadow(0 0 12px ${ringColor}44)` }}>
+                                <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
+                                  <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={T.hover} strokeWidth={ringStroke} />
+                                  <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={ringColor} strokeWidth={ringStroke}
+                                    strokeDasharray={ringCirc} strokeDashoffset={ringOffset} strokeLinecap="round"
+                                    style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+                                </svg>
+                                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: ringColor }}>{pct}%</div>
+                              </div>
                             </div>
-                            <div style={{ fontSize: 11, color: T.muted }}>
-                              Correct: <span style={{ color: T.accent }}>{q.correct}. {q.options[q.correct]}</span>
-                              {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef5350" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                            <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 4 }}>{historyQuizScore} / {historyView.mcqs.length}</div>
+                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12, marginBottom: 4 }}>
+                              {[
+                                { val: historyQuizScore, label: "Correct", color: "#22c55e" },
+                                { val: wrongCount, label: "Wrong", color: "#ef4444" },
+                                { val: `${pct}%`, label: "Accuracy", color: T.accent },
+                              ].map((s) => (
+                                <div key={s.label} style={{
+                                  background: T.hover, border: `0.5px solid ${T.border}`, borderTop: `2px solid ${s.color}`,
+                                  borderRadius: 12, padding: "10px 16px", textAlign: "center", minWidth: 72,
+                                }}>
+                                  <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.val}</div>
+                                  <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={historyQuizRetake}>
-                        🔄 Retake
-                      </button>
-                      <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => handleSharePracticeSet(historyView)}>
-                        🔗 Share
-                      </button>
-                      <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => setHistoryView(null)}>
-                        ← Back to list
-                      </button>
-                    </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto", marginBottom: 12 }}>
+                            {historyView.mcqs.map((q, i) => {
+                              const userAnswer = historyQuizAnswers[i];
+                              const isCorrect = userAnswer === q.correct;
+                              return (
+                                <div key={i} className="sc-fade-in-up" style={{
+                                  padding: "12px 14px", background: T.hover,
+                                  border: `0.5px solid ${isCorrect ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+                                  borderRadius: 10, animationDelay: `${i * 30}ms`,
+                                }}>
+                                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                                    <span style={{ fontSize: 14, flexShrink: 0 }}>{isCorrect ? "✅" : "❌"}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
+                                  </div>
+                                  <div style={{ fontSize: 11, color: T.muted, paddingLeft: 22 }}>
+                                    Correct: <span style={{ color: "#22c55e" }}>{q.correct}. {q.options[q.correct]}</span>
+                                    {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef4444" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={historyQuizRetake}>
+                              🔄 Retake
+                            </button>
+                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => handleSharePracticeSet(historyView)}>
+                              🔗 Share
+                            </button>
+                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => setHistoryView(null)}>
+                              ← Back to list
+                            </button>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -5239,17 +5316,23 @@ ${extractedText}
                       {/* Practice-first for MCQs with parsed questions */}
                       {studyMode === "mcq" && parsedMcqs.length > 0 && practiceMode && !practiceShowResults && (
                         <>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                             <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📝 Practice ({parsedMcqs.length} questions)</span>
                             <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setPracticeMode(false)}>View text instead</button>
                           </div>
-                          {/* Progress */}
-                          <div style={{ height: 4, background: T.hover, borderRadius: 4, overflow: "hidden", marginBottom: 12 }}>
-                            <div style={{
-                              height: "100%",
-                              width: `${parsedMcqs.length > 0 ? ((practiceIdx + (practiceLocked[practiceIdx] ? 1 : 0)) / parsedMcqs.length) * 100 : 0}%`,
-                              background: T.accent, borderRadius: 4, transition: "width 0.3s ease",
-                            }} />
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                            <div style={{ flex: 1, position: "relative", height: 6, background: T.hover, borderRadius: 999, overflow: "hidden" }}>
+                              <div className="sc-shimmer-bar" style={{
+                                position: "relative", height: "100%",
+                                width: `${parsedMcqs.length > 0 ? ((practiceIdx + (practiceLocked[practiceIdx] ? 1 : 0)) / parsedMcqs.length) * 100 : 0}%`,
+                                background: `linear-gradient(90deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
+                                borderRadius: 999, transition: "width 0.3s ease", overflow: "hidden",
+                              }} />
+                            </div>
+                            <span style={{
+                              fontSize: 11, color: T.muted, whiteSpace: "nowrap", fontWeight: 600,
+                              padding: "3px 10px", borderRadius: 999, background: T.hover,
+                            }}>Q {practiceIdx + 1} / {parsedMcqs.length}</span>
                           </div>
                           {(() => {
                             const q = parsedMcqs[practiceIdx];
@@ -5258,10 +5341,19 @@ ${extractedText}
                             const isLocked = practiceLocked[practiceIdx];
                             return (
                               <>
-                                <div style={{ fontSize: 14, fontWeight: 600, color: T.text, lineHeight: 1.5, marginBottom: 12 }}>
-                                  Q{practiceIdx + 1}. {q.question}
+                                <div className="sc-fade-in-up" style={{
+                                  fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.6, marginBottom: 14,
+                                  padding: "16px 20px", borderRadius: 14, background: T.hover,
+                                  border: `0.5px solid ${T.border}`, boxShadow: `0 2px 8px ${T.shadow}`,
+                                }}>
+                                  <span style={{
+                                    display: "inline-block", fontSize: 10, fontWeight: 700, color: T.muted,
+                                    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6,
+                                    padding: "2px 8px", borderRadius: 999, background: T.inputBg,
+                                  }}>Question {practiceIdx + 1}</span>
+                                  <div style={{ marginTop: 6 }}>{q.question}</div>
                                 </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                   {Object.entries(q.options).map(([key, val]) => {
                                     const isSelected = selected === key;
                                     const isCorrect = key === q.correct;
@@ -5269,32 +5361,54 @@ ${extractedText}
                                     const showWrong = isLocked && isSelected && !isCorrect;
                                     return (
                                       <div key={key} onClick={() => !isLocked && handlePracticeAnswer(key)}
+                                        className="sc-fade-in-up"
                                         style={{
-                                          display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 8,
-                                          cursor: isLocked ? "default" : "pointer",
-                                          background: showCorrect ? `${T.accent}15` : showWrong ? "rgba(244,67,54,0.12)" : T.hover,
-                                          border: `1px solid ${showCorrect ? T.accent : showWrong ? "#ef5350" : isSelected ? T.accent : T.border}`,
-                                          transition: "all 0.15s",
-                                        }}>
-                                        <span style={{ fontSize: 12, fontWeight: 700, color: showCorrect ? T.accent : showWrong ? "#ef5350" : T.muted, minWidth: 20 }}>{key}.</span>
-                                        <span style={{ fontSize: 13, color: T.text, flex: 1 }}>{val}</span>
-                                        {showCorrect && <span style={{ fontSize: 14, color: T.accent }}>✓</span>}
-                                        {showWrong && <span style={{ fontSize: 14, color: "#ef5350" }}>✕</span>}
+                                          display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 12,
+                                          cursor: isLocked ? "default" : "pointer", minHeight: 48,
+                                          background: showCorrect ? "rgba(34,197,94,0.10)" : showWrong ? "rgba(239,68,68,0.10)" : T.hover,
+                                          border: `1px solid ${showCorrect ? "rgba(34,197,94,0.5)" : showWrong ? "rgba(239,68,68,0.5)" : isSelected ? T.accent : T.border}`,
+                                          transition: "all 0.2s cubic-bezier(0.4,0,0.2,1)",
+                                        }}
+                                        onMouseEnter={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 4px 12px ${T.shadow}`; } }}
+                                        onMouseLeave={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; } }}
+                                      >
+                                        <span style={{
+                                          display: "flex", alignItems: "center", justifyContent: "center",
+                                          width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                                          fontSize: 12, fontWeight: 700,
+                                          color: showCorrect ? "#22c55e" : showWrong ? "#ef4444" : T.muted,
+                                          background: showCorrect ? "rgba(34,197,94,0.15)" : showWrong ? "rgba(239,68,68,0.15)" : T.inputBg,
+                                          border: `1px solid ${showCorrect ? "rgba(34,197,94,0.4)" : showWrong ? "rgba(239,68,68,0.4)" : T.border}`,
+                                        }}>{key}</span>
+                                        <span style={{ fontSize: 13, color: T.text, flex: 1, lineHeight: 1.4 }}>{val}</span>
+                                        {showCorrect && <span style={{ fontSize: 16, color: "#22c55e" }}>✓</span>}
+                                        {showWrong && <span style={{ fontSize: 16, color: "#ef4444" }}>✕</span>}
                                       </div>
                                     );
                                   })}
                                 </div>
                                 {isLocked && (
-                                  <>
+                                  <div className="sc-fade-in-up">
                                     {q.explanation && (
-                                      <div style={{ marginTop: 10, padding: "10px 12px", background: T.hover, border: `0.5px solid ${T.border}`, borderRadius: 8, fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
-                                        <span style={{ fontWeight: 700, color: T.text }}>Explanation: </span>{q.explanation}
+                                      <div style={{
+                                        marginTop: 12, padding: "12px 16px",
+                                        background: T.hover, borderLeft: `3px solid ${T.accent}`,
+                                        borderRadius: 10, fontSize: 12, color: T.muted, lineHeight: 1.5,
+                                      }}>
+                                        <span style={{ fontWeight: 700, color: T.accent }}>💡 Explanation: </span>{q.explanation}
                                       </div>
                                     )}
-                                    <button style={{ ...s.studyGenerateBtn, marginTop: 12 }} onClick={practiceNext}>
+                                    <button style={{
+                                      width: "100%", marginTop: 14, padding: "14px", borderRadius: 12,
+                                      fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none",
+                                      background: `linear-gradient(135deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
+                                      color: "#fff", transition: "all 0.15s ease",
+                                    }} onClick={practiceNext}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.02)"; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
                                       {practiceIdx < parsedMcqs.length - 1 ? "Next →" : "See Results"}
                                     </button>
-                                  </>
+                                  </div>
                                 )}
                               </>
                             );
@@ -5305,40 +5419,75 @@ ${extractedText}
                       {/* Practice results screen */}
                       {studyMode === "mcq" && parsedMcqs.length > 0 && practiceMode && practiceShowResults && (
                         <>
-                          <div style={{ textAlign: "center", marginBottom: 16 }}>
-                            <div style={{ fontSize: 32, marginBottom: 4 }}>
-                              {practiceScore === parsedMcqs.length ? "🏆" : practiceScore >= parsedMcqs.length / 2 ? "🎉" : "📚"}
-                            </div>
-                            <div style={{ fontSize: 22, fontWeight: 800, color: practiceScore >= parsedMcqs.length / 2 ? "#66bb6a" : "#ffb74d" }}>
-                              {practiceScore} / {parsedMcqs.length}
-                            </div>
-                            <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
-                              {parsedMcqs.length > 0 ? Math.round((practiceScore / parsedMcqs.length) * 100) : 0}% correct
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto", marginBottom: 12 }}>
-                            {parsedMcqs.map((q, i) => {
-                              const userAnswer = practiceAnswers[i];
-                              const isCorrect = userAnswer === q.correct;
-                              return (
-                                <div key={i} style={{ padding: "10px 12px", background: T.hover, border: `0.5px solid ${isCorrect ? "#2a6a3a" : "#6a2a2a"}`, borderRadius: 8 }}>
-                                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
-                                    <span style={{ fontSize: 13 }}>{isCorrect ? "✅" : "❌"}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
+                          {(() => {
+                            const pct = parsedMcqs.length > 0 ? Math.round((practiceScore / parsedMcqs.length) * 100) : 0;
+                            const ringSize = 100, ringStroke = 7, ringRadius = (ringSize - ringStroke) / 2;
+                            const ringCirc = 2 * Math.PI * ringRadius;
+                            const ringOffset = ringCirc - (pct / 100) * ringCirc;
+                            const ringColor = pct >= 70 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
+                            const wrongCount = parsedMcqs.length - practiceScore;
+                            return (
+                              <>
+                                <div style={{ textAlign: "center", marginBottom: 20 }}>
+                                  <div className="sc-card-enter" style={{ fontSize: 48, marginBottom: 8 }}>{pct === 100 ? "🏆" : pct >= 50 ? "🎉" : "📚"}</div>
+                                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                                    <div style={{ position: "relative", width: ringSize, height: ringSize, filter: `drop-shadow(0 0 12px ${ringColor}44)` }}>
+                                      <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
+                                        <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={T.hover} strokeWidth={ringStroke} />
+                                        <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={ringColor} strokeWidth={ringStroke}
+                                          strokeDasharray={ringCirc} strokeDashoffset={ringOffset} strokeLinecap="round"
+                                          style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+                                      </svg>
+                                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: ringColor }}>{pct}%</div>
+                                    </div>
                                   </div>
-                                  <div style={{ fontSize: 11, color: T.muted }}>
-                                    Correct: <span style={{ color: T.accent }}>{q.correct}. {q.options[q.correct]}</span>
-                                    {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef5350" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                                  <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 4 }}>{practiceScore} / {parsedMcqs.length}</div>
+                                  <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12, marginBottom: 4 }}>
+                                    {[
+                                      { val: practiceScore, label: "Correct", color: "#22c55e" },
+                                      { val: wrongCount, label: "Wrong", color: "#ef4444" },
+                                      { val: `${pct}%`, label: "Accuracy", color: T.accent },
+                                    ].map((s) => (
+                                      <div key={s.label} style={{
+                                        background: T.hover, border: `0.5px solid ${T.border}`, borderTop: `2px solid ${s.color}`,
+                                        borderRadius: 12, padding: "10px 16px", textAlign: "center", minWidth: 72,
+                                      }}>
+                                        <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.val}</div>
+                                        <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
-                              );
-                            })}
-                          </div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={practiceRetake}>🔄 Retake</button>
-                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => { setPracticeMode(false); setShowRawText(true); }}>📄 View text</button>
-                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={handleStudyNew}>✨ New</button>
-                          </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto", marginBottom: 12 }}>
+                                  {parsedMcqs.map((q, i) => {
+                                    const userAnswer = practiceAnswers[i];
+                                    const isCorrect = userAnswer === q.correct;
+                                    return (
+                                      <div key={i} className="sc-fade-in-up" style={{
+                                        padding: "12px 14px", background: T.hover,
+                                        border: `0.5px solid ${isCorrect ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+                                        borderRadius: 10, animationDelay: `${i * 30}ms`,
+                                      }}>
+                                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                                          <span style={{ fontSize: 14, flexShrink: 0 }}>{isCorrect ? "✅" : "❌"}</span>
+                                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
+                                        </div>
+                                        <div style={{ fontSize: 11, color: T.muted, paddingLeft: 22 }}>
+                                          Correct: <span style={{ color: "#22c55e" }}>{q.correct}. {q.options[q.correct]}</span>
+                                          {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef4444" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                  <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={practiceRetake}>🔄 Retake</button>
+                                  <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => { setPracticeMode(false); setShowRawText(true); }}>📄 View text</button>
+                                  <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={handleStudyNew}>✨ New</button>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </>
                       )}
 
