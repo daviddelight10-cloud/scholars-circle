@@ -540,39 +540,42 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
   return (
     <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
-      {/* Back button */}
-      <button
-        onClick={handleBack}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          padding: "8px 12px",
-          background: "#111328",
-          border: "0.5px solid #2a2d4a",
-          borderRadius: "8px",
-          fontSize: "13px",
-          color: "#7b82b8",
-          cursor: "pointer",
-          marginBottom: "20px",
-        }}
-      >
-        ← Back
-      </button>
+      {/* Back button — hidden for flashcard decks and MCQs (they have their own) */}
+      {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && (
+        <button
+          onClick={handleBack}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 12px",
+            background: "#111328",
+            border: "0.5px solid #2a2d4a",
+            borderRadius: "8px",
+            fontSize: "13px",
+            color: "#7b82b8",
+            cursor: "pointer",
+            marginBottom: "20px",
+          }}
+        >
+          ← Back
+        </button>
+      )}
 
-      {/* Resource Info */}
-      <div
-        style={{
-          background: "#0d0f20",
-          border: "0.5px solid #1e2245",
-          borderRadius: "10px",
-          padding: "14px",
-          marginBottom: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-        }}
-      >
+      {/* Resource Info — hidden for flashcard decks and MCQs */}
+      {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && (
+        <div
+          style={{
+            background: "#0d0f20",
+            border: "0.5px solid #1e2245",
+            borderRadius: "10px",
+            padding: "14px",
+            marginBottom: "16px",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+          }}
+        >
         <div
           style={{
             width: "40px",
@@ -612,6 +615,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           </div>
         </div>
       </div>
+      )}
 
       {/* Premium paywall — non-activated user trying to view a premium resource */}
       {authCase === "loggedin" && isPremiumResource && !allowed && (

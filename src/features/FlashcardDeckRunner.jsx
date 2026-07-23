@@ -22,6 +22,19 @@ const GRADE_CONFIG = [
   { grade: 4, label: "Easy", icon: "🎉", color: "#FFD700", bg: "rgba(255,215,0,0.12)", border: "rgba(255,215,0,0.4)", interval: "~3d" },
 ];
 
+const overlayStyle = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 9999,
+  background: "#060818",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  fontFamily: "Manrope, sans-serif",
+  overflow: "auto",
+};
+
 export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, onXpUpdate }) {
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -71,9 +84,25 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   }, [currentIndex, cards, finished, fetchReviewItem]);
 
   const handleFlip = useCallback(() => {
-    if (flipped) return;
-    setFlipped(true);
-  }, [flipped]);
+    setFlipped((f) => !f);
+  }, []);
+
+  // Keyboard shortcuts: Space=flip, 1-4=rate, Esc=back
+  useEffect(() => {
+    if (finished || loading || cards.length === 0) return;
+    const onKey = (e) => {
+      if (e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        if (rating == null) setFlipped((f) => !f);
+      } else if (e.key === "Escape") {
+        onBack();
+      } else if (flipped && rating == null && ["1", "2", "3", "4"].includes(e.key)) {
+        handleRate(parseInt(e.key, 10));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [flipped, rating, finished, loading, cards.length, onBack]);
 
   const handleRate = async (grade) => {
     if (!resource?.id) return;
@@ -123,17 +152,17 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: "60px", fontFamily: "Manrope, sans-serif" }}>
-        <div className="fc-pulse-text" style={{ color: "#9aa2d8", fontSize: 14, fontWeight: 600 }}>Loading flashcards…</div>
+      <div style={overlayStyle}>
+        <div className="fc-pulse-text" style={{ color: "#9aa2d8", fontSize: 16, fontWeight: 600 }}>Loading flashcards…</div>
       </div>
     );
   }
 
   if (cards.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px", fontFamily: "Manrope, sans-serif" }}>
-        <div className="fc-float" style={{ fontSize: 48, marginBottom: 12 }}>🎴</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#9aa2d8", marginBottom: 6 }}>No flashcards in this deck</div>
+      <div style={overlayStyle}>
+        <div className="fc-float" style={{ fontSize: 56, marginBottom: 16 }}>🎴</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#9aa2d8", marginBottom: 8 }}>No flashcards in this deck</div>
         <button onClick={onBack} style={styles.backBtn}>← Back to folder</button>
       </div>
     );
@@ -150,20 +179,17 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
     const sc2 = getSubjectColor(resource?.subject);
 
     return (
-      <div style={{
-        padding: "20px", maxWidth: "500px", margin: "0 auto", textAlign: "center", fontFamily: "Manrope, sans-serif",
-        position: "relative",
-      }}>
+      <div style={{ ...overlayStyle, justifyContent: "center", alignItems: "center" }}>
         {/* Ambient glow backdrop */}
         <div style={{
-          position: "absolute", top: "-40px", left: "50%", transform: "translateX(-50%)",
-          width: "320px", height: "320px", borderRadius: "50%",
+          position: "absolute", top: "10%", left: "50%", transform: "translateX(-50%)",
+          width: "400px", height: "400px", borderRadius: "50%",
           background: `radial-gradient(circle, ${sc2.bg} 0%, transparent 70%)`,
           pointerEvents: "none", zIndex: 0,
         }} />
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <div className="fc-scale-in" style={{ fontSize: 48, marginBottom: 12 }}>{pct >= 70 ? "🎉" : pct >= 50 ? "📊" : "📚"}</div>
-          <h2 style={{ color: "#e8eaf6", fontSize: 22, fontWeight: 800, marginBottom: 20, fontFamily: "Syne, sans-serif" }}>Session Complete!</h2>
+        <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: "540px", width: "90%" }}>
+          <div className="fc-scale-in" style={{ fontSize: 56, marginBottom: 14 }}>{pct >= 70 ? "🎉" : pct >= 50 ? "📊" : "📚"}</div>
+          <h2 style={{ color: "#e8eaf6", fontSize: 26, fontWeight: 800, marginBottom: 24, fontFamily: "Syne, sans-serif" }}>Session Complete!</h2>
 
           {/* Score ring */}
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
@@ -219,18 +245,18 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   const stateDotColor = { 0: "#60a5fa", 1: "#ffb74d", 2: "#66bb6a", 3: "#ef5350" }[reviewItem?.state] || "#60a5fa";
 
   return (
-    <div style={{ padding: "20px", maxWidth: "640px", margin: "0 auto", fontFamily: "Manrope, sans-serif", position: "relative" }}>
+    <div style={overlayStyle}>
       {/* Ambient glow backdrop */}
       <div style={{
-        position: "absolute", top: "20px", left: "50%", transform: "translateX(-50%)",
-        width: "440px", height: "380px", borderRadius: "50%",
+        position: "absolute", top: "15%", left: "50%", transform: "translateX(-50%)",
+        width: "600px", height: "500px", borderRadius: "50%",
         background: `radial-gradient(circle, ${sc.bg} 0%, transparent 70%)`,
         pointerEvents: "none", zIndex: 0,
       }} />
 
-      <div style={{ position: "relative", zIndex: 1 }}>
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: "840px", margin: "0 auto", display: "flex", flexDirection: "column", minHeight: "100vh", padding: "20px 24px" }}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <button onClick={onBack} style={styles.backBtn}>← Back</button>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {combo.combo >= 3 && (
@@ -260,7 +286,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
         </div>
 
         {/* Progress bar */}
-        <div style={{ position: "relative", height: 7, background: "rgba(255,255,255,0.05)", borderRadius: 999, overflow: "hidden", marginBottom: 28 }}>
+        <div style={{ position: "relative", height: 7, background: "rgba(255,255,255,0.05)", borderRadius: 999, overflow: "hidden", marginBottom: 24 }}>
           <div className="fc-shimmer" style={{
             position: "relative", height: "100%", width: `${progress}%`,
             background: `linear-gradient(90deg, ${sc.accent}, #FFD700)`,
@@ -269,87 +295,94 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
           }} />
         </div>
 
-        {/* 3D Flip Card */}
-        <div
-          onClick={handleFlip}
-          style={{
-            perspective: "1200px",
-            cursor: flipped ? "default" : "pointer",
-            minHeight: "300px",
-            filter: `drop-shadow(0 20px 40px rgba(0,0,0,0.35)) drop-shadow(0 4px 10px ${sc.bg})`,
-          }}
-        >
-          <div style={{
-            position: "relative",
-            width: "100%",
-            minHeight: "300px",
-            transformStyle: "preserve-3d",
-            transition: "transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)",
-            transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-          }}>
-            {/* Front face */}
+        {/* 3D Flip Card — centered, larger */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            onClick={handleFlip}
+            style={{
+              perspective: "1400px",
+              cursor: "pointer",
+              width: "100%",
+              maxWidth: "760px",
+              minHeight: "420px",
+              filter: `drop-shadow(0 24px 50px rgba(0,0,0,0.4)) drop-shadow(0 6px 14px ${sc.bg})`,
+            }}
+          >
             <div style={{
-              position: "absolute", inset: 0,
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              background: "rgba(15,17,36,0.82)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              border: `0.5px solid ${sc.border}`,
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-              borderLeft: `4px solid ${sc.accent}`,
-              borderRadius: "20px",
-              padding: "44px 32px",
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              textAlign: "center",
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04), 0 0 24px ${sc.bg}`,
+              position: "relative",
+              width: "100%",
+              minHeight: "420px",
+              transformStyle: "preserve-3d",
+              transition: "transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)",
+              transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
             }}>
+              {/* Front face */}
               <div style={{
-                fontSize: 10, color: sc.text, marginBottom: 16,
-                textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700,
-                padding: "4px 12px", borderRadius: "999px",
-                background: sc.bg, border: `0.5px solid ${sc.border}`,
+                position: "absolute", inset: 0,
+                backfaceVisibility: "hidden",
+                WebkitBackfaceVisibility: "hidden",
+                background: "rgba(15,17,36,0.85)",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                border: `0.5px solid ${sc.border}`,
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                borderLeft: `4px solid ${sc.accent}`,
+                borderRadius: "24px",
+                padding: "56px 44px",
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                textAlign: "center",
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.04), 0 0 30px ${sc.bg}`,
               }}>
-                Front
+                <div style={{
+                  fontSize: 11, color: sc.text, marginBottom: 20,
+                  textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700,
+                  padding: "5px 14px", borderRadius: "999px",
+                  background: sc.bg, border: `0.5px solid ${sc.border}`,
+                }}>
+                  Front
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 600, color: "#eef0fb", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
+                  {card.front}
+                </div>
+                <div className="fc-bounce-hint" style={{ fontSize: 13, color: "#565c8f", marginTop: 32, fontWeight: 500 }}>
+                  👆 Tap card to flip
+                </div>
               </div>
-              <div style={{ fontSize: 19, fontWeight: 600, color: "#eef0fb", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
-                {card.front}
-              </div>
-              <div className="fc-bounce-hint" style={{ fontSize: 12, color: "#565c8f", marginTop: 26, fontWeight: 500 }}>
-                👆 Tap card to flip
-              </div>
-            </div>
 
-            {/* Back face */}
-            <div style={{
-              position: "absolute", inset: 0,
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              transform: "rotateY(180deg)",
-              background: "rgba(14,20,17,0.82)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              border: `0.5px solid ${sc.border}`,
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-              borderLeft: `4px solid ${sc.accent}`,
-              borderRadius: "20px",
-              padding: "44px 32px",
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              textAlign: "center",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 24px rgba(102,187,106,0.12)",
-            }}>
+              {/* Back face */}
               <div style={{
-                fontSize: 10, color: "#66bb6a", marginBottom: 16,
-                textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700,
-                padding: "4px 12px", borderRadius: "999px",
-                background: "rgba(102,187,106,0.12)", border: "0.5px solid rgba(102,187,106,0.35)",
+                position: "absolute", inset: 0,
+                backfaceVisibility: "hidden",
+                WebkitBackfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
+                background: "rgba(14,20,17,0.85)",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                border: `0.5px solid ${sc.border}`,
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                borderLeft: `4px solid ${sc.accent}`,
+                borderRadius: "24px",
+                padding: "56px 44px",
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                textAlign: "center",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 30px rgba(102,187,106,0.12)",
               }}>
-                Back
-              </div>
-              <div style={{ fontSize: 17, fontWeight: 500, color: "#b9e8bb", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
-                {card.back}
+                <div style={{
+                  fontSize: 11, color: "#66bb6a", marginBottom: 20,
+                  textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700,
+                  padding: "5px 14px", borderRadius: "999px",
+                  background: "rgba(102,187,106,0.12)", border: "0.5px solid rgba(102,187,106,0.35)",
+                }}>
+                  Back
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 500, color: "#b9e8bb", lineHeight: 1.65, textShadow: "0 1px 8px rgba(0,0,0,0.4)" }}>
+                  {card.back}
+                </div>
+                <div className="fc-bounce-hint" style={{ fontSize: 13, color: "#565c8f", marginTop: 32, fontWeight: 500 }}>
+                  👆 Tap to flip back
+                </div>
               </div>
             </div>
           </div>
