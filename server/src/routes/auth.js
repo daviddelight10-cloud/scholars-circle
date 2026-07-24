@@ -50,7 +50,7 @@ router.post("/profile", requireSupabaseAuth, async (req, res) => {
       return res.status(400).json({ error: "Missing Supabase user ID or email from token" });
     }
 
-    // Check if profile already exists
+    // Check if profile already exists by supabaseId
     const existing = await prisma.user.findUnique({ where: { supabaseId } });
 
     if (existing) {
@@ -65,6 +65,44 @@ router.post("/profile", requireSupabaseAuth, async (req, res) => {
         planType: existing.planType || null,
         activationExpiry: existing.activationExpiry || null,
         activatedAt: existing.activatedAt || null,
+      });
+    }
+
+    // Check if a profile already exists by email but with a different supabaseId
+    // (e.g. user signed up with email/password, then later signs in with Google
+    // using the same email). Link them instead of failing on unique constraint.
+    const existingByEmail = await prisma.user.findUnique({ where: { email } });
+
+    if (existingByEmail) {
+      const oldSupabaseId = existingByEmail.supabaseId;
+
+      const linked = await prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: { supabaseId },
+      });
+
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(supabaseId, {
+          app_metadata: { prismaId: linked.id, role: linked.role },
+        });
+      } catch (e) {
+        console.error("Failed to update Supabase app_metadata after linking:", e.message);
+      }
+
+      if (oldSupabaseId) invalidateUserCache(oldSupabaseId);
+      invalidateUserCache(supabaseId);
+
+      return res.json({
+        id: linked.id,
+        email: linked.email,
+        username: linked.username,
+        fullName: linked.fullName,
+        role: linked.role,
+        activationKey: linked.activationKey,
+        isActivated: linked.isActivated,
+        planType: linked.planType || null,
+        activationExpiry: linked.activationExpiry || null,
+        activatedAt: linked.activatedAt || null,
       });
     }
 

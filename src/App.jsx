@@ -3214,15 +3214,9 @@ function App() {
 
         user: appUser,
 
+        error: appUser ? "" : "Account created, but we couldn't finish setting up your profile. Please try signing in — if the problem persists, contact support.",
 
-
-        error: "",
-
-
-
-        info: "Account created successfully.",
-
-
+        info: appUser ? "Account created successfully." : "",
 
       }));
 
