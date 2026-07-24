@@ -3,7 +3,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "preDeployCommand": "npx prisma generate && npx prisma db push",
+    "preDeployCommand": "npx prisma generate && npx prisma db push --accept-data-loss",
     "startCommand": "node src/index.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
