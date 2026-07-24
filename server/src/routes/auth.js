@@ -1,18 +1,14 @@
 import express from "express";
 
-import bcrypt from "bcryptjs";
-
-import jwt from "jsonwebtoken";
-
 import { z } from "zod";
 
-import rateLimit from "express-rate-limit";
+import { createClient } from "@supabase/supabase-js";
 
 import { prisma } from "../db.js";
 
 import { generateActivationKey } from "./keys.js";
 
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, invalidateUserCache } from "../middleware/auth.js";
 
 import { logSecurityEvent } from "../lib/logger.js";
 
@@ -20,61 +16,66 @@ import { logSecurityEvent } from "../lib/logger.js";
 
 const router = express.Router();
 
-// Rate limiter for auth endpoints - prevent brute force attacks
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
-  message: { error: "Too many requests, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Supabase admin client for server-side auth operations (user deletion, metadata updates)
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
-const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 registration attempts per hour
-  message: { error: "Too many registration attempts, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const profileSchema = z.object({
 
-const registerSchema = z.object({
-
-  email: z.string().email(),
-
-  username: z.string()
-    .min(3, 'Username must be at least 3 characters')
-    .max(30, 'Username must be at most 30 characters')
-    .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores (no spaces)'),
-
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters'),
+  fullName: z.string().optional(),
 
   role: z.enum(["STUDENT", "TEACHER", "LECTURER"]).optional(),
 
   inviteCode: z.string().optional(),
 
-  fullName: z.string().optional(),
-
 });
 
-router.post("/register", registerLimiter, async (req, res) => {
+// POST /auth/profile — Create Prisma User profile after Supabase signup
+// Called by the frontend after supabase.auth.signUp() succeeds
+router.post("/profile", requireAuth, async (req, res) => {
 
   try {
 
-    const data = registerSchema.parse(req.body);
+    const data = profileSchema.parse(req.body);
+
+    const supabaseId = req.user.supabaseId;
+    const email = req.user.email;
+
+    if (!supabaseId || !email) {
+      return res.status(400).json({ error: "Missing Supabase user ID or email from token" });
+    }
+
+    // Check if profile already exists
+    const existing = await prisma.user.findUnique({ where: { supabaseId } });
+
+    if (existing) {
+      return res.json({
+        id: existing.id,
+        email: existing.email,
+        username: existing.username,
+        fullName: existing.fullName,
+        role: existing.role,
+        activationKey: existing.activationKey,
+        isActivated: existing.isActivated,
+        planType: existing.planType || null,
+        activationExpiry: existing.activationExpiry || null,
+        activatedAt: existing.activatedAt || null,
+      });
+    }
 
     let desiredRole = data.role || "STUDENT";
+    let usedInvite = null;
 
-    let usedInvite = null; // tracked so we can mark it used after user creation
-
-    // Faculty signup (anyone with a non-student role requires an invite)
+    // Faculty signup requires an invite code
     if (desiredRole !== "STUDENT") {
 
       if (!data.inviteCode) {
         return res.status(403).json({ error: "Faculty invite code is required" });
       }
 
-      // Try DB-stored invite first
       const invite = await prisma.teacherInvite.findUnique({ where: { code: data.inviteCode } });
 
       if (invite) {
@@ -84,14 +85,12 @@ router.post("/register", registerLimiter, async (req, res) => {
         if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
           return res.status(403).json({ error: "This invite code has expired" });
         }
-        if (invite.email && data.email.toLowerCase() !== invite.email.toLowerCase()) {
+        if (invite.email && email.toLowerCase() !== invite.email.toLowerCase()) {
           return res.status(403).json({ error: `This invite code is reserved for ${invite.email}` });
         }
         usedInvite = invite;
-        // The invite code determines the role granted, not the form selection
         desiredRole = invite.assignedRole || "LECTURER";
       } else {
-        // Fallback: legacy global env var (always grants TEACHER)
         const expected = process.env.TEACHER_INVITE_CODE || "";
         if (!expected || data.inviteCode !== expected) {
           return res.status(403).json({ error: "Invalid invite code" });
@@ -101,43 +100,31 @@ router.post("/register", registerLimiter, async (req, res) => {
 
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 10);
-
     // Generate unique activation key for students
     let activationKey = null;
     if (desiredRole === "STUDENT") {
-      // Ensure uniqueness
       let unique = false;
       while (!unique) {
         activationKey = generateActivationKey();
-        const existing = await prisma.user.findUnique({ where: { activationKey } });
-        if (!existing) unique = true;
+        const existingKey = await prisma.user.findUnique({ where: { activationKey } });
+        if (!existingKey) unique = true;
       }
     }
 
     const user = await prisma.user.create({
 
       data: {
-
-        email: data.email,
-
-        username: data.username,
-
+        email,
+        supabaseId,
         fullName: data.fullName || null,
-
-        passwordHash,
-
         role: desiredRole,
-
         activationKey,
-
         isActivated: desiredRole !== "STUDENT",
-
       },
 
     });
 
-    // If a DB invite was used, mark it consumed
+    // Mark invite as used
     if (usedInvite) {
       try {
         await prisma.teacherInvite.update({
@@ -149,32 +136,54 @@ router.post("/register", registerLimiter, async (req, res) => {
       }
     }
 
-    return res.status(201).json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, activationKey: user.activationKey, isActivated: user.isActivated });
+    // Update Supabase user's app_metadata with prismaId and role
+    // This enables the fast path in auth middleware (no DB lookup needed)
+    try {
+      await supabaseAdmin.auth.admin.updateUserById(supabaseId, {
+        app_metadata: { prismaId: user.id, role: user.role },
+      });
+    } catch (e) {
+      console.error("Failed to update Supabase app_metadata:", e.message);
+      // Non-fatal — DB lookup fallback will work
+    }
+
+    // Invalidate cache
+    invalidateUserCache(supabaseId);
+
+    return res.status(201).json({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      activationKey: user.activationKey,
+      isActivated: user.isActivated,
+      planType: user.planType || null,
+      activationExpiry: user.activationExpiry || null,
+      activatedAt: user.activatedAt || null,
+    });
 
   } catch (e) {
-    console.error("Registration error:", e);
+    console.error("Profile creation error:", e);
 
-    // Zod validation errors
     if (e instanceof z.ZodError) {
       const firstError = e.errors[0];
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: firstError.message,
         field: firstError.path.join('.'),
         details: e.errors.map(err => ({ field: err.path.join('.'), message: err.message }))
       });
     }
 
-    // Prisma unique constraint violation
     if (e.code === "P2002") {
       const target = e.meta?.target || [];
-      const field = Array.isArray(target) && target.includes("email") ? "email" : "username";
-      return res.status(400).json({ error: `An account with that ${field} already exists. Please use a different ${field} or log in.` });
+      const field = Array.isArray(target) && target.includes("email") ? "email" : "supabaseId";
+      return res.status(400).json({ error: `An account with that ${field} already exists.` });
     }
 
-    // Generic error with details
-    return res.status(400).json({ 
-      error: e.message || "Registration failed. Please check your information and try again.",
-      details: e.message 
+    return res.status(400).json({
+      error: e.message || "Failed to create profile. Please try again.",
+      details: e.message
     });
 
   }
@@ -183,101 +192,15 @@ router.post("/register", registerLimiter, async (req, res) => {
 
 
 
-router.post("/login", authLimiter, async (req, res) => {
-
-  const schema = z.object({ login: z.string(), password: z.string() });
-
-  try {
-
-    const { login, password } = schema.parse(req.body);
-
-    const user = await prisma.user.findFirst({
-
-      where: { OR: [{ email: login }, { username: login }] },
-
-    });
-
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
-
-    const ok = await bcrypt.compare(password, user.passwordHash);
-
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
-
-    await prisma.loginEvent
-
-      .create({
-
-        data: {
-
-          userId: user.id,
-
-          ip: req.ip || null,
-
-          userAgent: req.headers["user-agent"] || null,
-
-        },
-
-      })
-
-      .catch(() => {});
-
-    // Check if activation has expired — deactivate at login time too
-    let loginIsActivated = user.isActivated;
-    if (user.isActivated && user.activationExpiry && new Date() > new Date(user.activationExpiry)) {
-      await prisma.user.update({ where: { id: user.id }, data: { isActivated: false } });
-      loginIsActivated = false;
-      console.log(`[auth/login] User ${user.username} deactivated — plan expired at ${user.activationExpiry}`);
-    }
-
-    const token = jwt.sign({ sub: user.id, role: user.role, username: user.username, isActivated: loginIsActivated }, process.env.JWT_SECRET, {
-
-      expiresIn: "7d",
-
-    });
-
-    // Set httpOnly cookie for enhanced security
-    res.cookie('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
-    // Log successful login
-    logSecurityEvent(user.id, 'login_success', { username: user.username }, req);
-
-    return res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName || null,
-        role: user.role,
-        activationKey: user.activationKey,
-        isActivated: loginIsActivated,
-        planType: user.planType || null,
-        activationExpiry: user.activationExpiry || null,
-        activatedAt: user.activatedAt || null,
-      },
-    });
-
-  } catch (e) {
-
-    return res.status(400).json({ error: "Login failed", details: e.message });
-
-  }
-
-});
-
-
-
-// GET /auth/refresh — Refresh user's auth status and get new token
+// GET /auth/refresh — Fetch user's app profile using Supabase session token
+// No new token is issued — Supabase handles token refresh on the frontend
 router.get("/refresh", requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.user.sub },
+      where: { supabaseId: req.user.supabaseId },
       select: {
         id: true,
+        email: true,
         username: true,
         fullName: true,
         role: true,
@@ -293,7 +216,7 @@ router.get("/refresh", requireAuth, async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User profile not found", code: "PROFILE_NOT_FOUND" });
     }
 
     // Check if activation has expired and deactivate if so
@@ -302,35 +225,19 @@ router.get("/refresh", requireAuth, async (req, res) => {
       const now = new Date();
       const expiry = new Date(user.activationExpiry);
       if (now > expiry) {
-        // Key has expired — deactivate the user
         await prisma.user.update({
           where: { id: user.id },
           data: { isActivated: false },
         });
         isActivated = false;
-        console.log(`[auth/refresh] User ${user.username} deactivated — key expired at ${user.activationExpiry}`);
+        console.log(`[auth/refresh] User ${user.username || user.email} deactivated — key expired at ${user.activationExpiry}`);
       }
     }
 
-    // Generate new token with updated isActivated status
-    const token = jwt.sign(
-      { sub: user.id, role: user.role, username: user.username, isActivated },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // Set httpOnly cookie
-    res.cookie('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
     return res.json({
-      token,
       user: {
         id: user.id,
+        email: user.email,
         username: user.username,
         fullName: user.fullName || null,
         role: user.role,
@@ -350,48 +257,37 @@ router.get("/refresh", requireAuth, async (req, res) => {
   }
 });
 
-// POST /auth/logout — Logout user and clear cookie
-router.post("/logout", requireAuth, async (req, res) => {
+// DELETE /auth/delete-account — Delete user account from both Supabase and Prisma
+router.delete("/delete-account", requireAuth, async (req, res) => {
   try {
-    // Clear the httpOnly cookie
+    const supabaseId = req.user.supabaseId;
+    const prismaId = req.user.sub;
+
+    // Delete from Supabase Auth
+    if (supabaseId) {
+      const { error: supaError } = await supabaseAdmin.auth.admin.deleteUserById(supabaseId);
+      if (supaError) {
+        console.error("Failed to delete Supabase user:", supaError.message);
+        // Continue to delete Prisma record anyway
+      }
+    }
+
+    // Delete from Prisma (cascades to all related data)
+    await prisma.user.delete({
+      where: { id: prismaId },
+    });
+
+    // Invalidate cache
+    invalidateUserCache(supabaseId);
+
+    // Clear httpOnly cookie
     res.clearCookie('auth_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
     });
 
-    // Log logout event
-    logSecurityEvent(req.user.sub, 'logout', {}, req);
-
-    return res.json({ message: "Logged out successfully" });
-  } catch (e) {
-    return res.status(400).json({ error: "Logout failed" });
-  }
-});
-
-// DELETE /auth/delete-account — Delete user account (requires password confirmation)
-router.delete("/delete-account", requireAuth, async (req, res) => {
-  try {
-    const schema = z.object({ password: z.string() });
-    const { password } = schema.parse(req.body);
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.sub },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) {
-      return res.status(401).json({ error: "Invalid password" });
-    }
-
-    // Delete user's data cascade
-    await prisma.user.delete({
-      where: { id: user.id },
-    });
+    logSecurityEvent(prismaId, 'account_deleted', {}, req);
 
     return res.json({ message: "Account deleted successfully" });
   } catch (e) {

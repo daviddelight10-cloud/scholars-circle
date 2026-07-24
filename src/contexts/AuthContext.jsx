@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer } from "react";
+import React, { createContext, useContext, useReducer, useEffect, useRef } from "react";
+import { supabase } from "../lib/supabaseClient.js";
 
 const AuthContext = createContext(null);
 
@@ -13,6 +14,8 @@ const initialState = {
   error: "",
   info: "",
   token: "",
+  session: null,
+  authReady: false,
 };
 
 function authReducer(state, action) {
@@ -25,6 +28,10 @@ function authReducer(state, action) {
       return { ...state, user: action.payload };
     case "SET_TOKEN":
       return { ...state, token: action.payload };
+    case "SET_SESSION":
+      return { ...state, session: action.payload };
+    case "SET_AUTH_READY":
+      return { ...state, authReady: action.payload };
     case "SET_ERROR":
       return { ...state, error: action.payload };
     case "SET_INFO":
@@ -47,6 +54,8 @@ function authReducer(state, action) {
         ...initialState,
         user: null,
         token: "",
+        session: null,
+        authReady: true,
       };
     default:
       return state;
@@ -55,9 +64,53 @@ function authReducer(state, action) {
 
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const isMounted = useRef(true);
 
-  // Context is an in-memory store only; App.jsx handles token persistence
-  // via scholars-circle-auth in localStorage.
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
+
+  // Listen to Supabase auth state changes (login, logout, token refresh, OAuth redirect)
+  useEffect(() => {
+    let activeSubscription = null;
+
+    // Check for existing session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted.current) return;
+      if (session) {
+        dispatch({ type: "SET_SESSION", payload: session });
+        dispatch({ type: "SET_TOKEN", payload: session.access_token });
+      }
+      dispatch({ type: "SET_AUTH_READY", payload: true });
+    }).catch((err) => {
+      console.error("[AuthContext] getSession error:", err);
+      if (isMounted.current) dispatch({ type: "SET_AUTH_READY", payload: true });
+    });
+
+    // Subscribe to auth state changes
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted.current) return;
+
+      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+        dispatch({ type: "SET_SESSION", payload: null });
+        dispatch({ type: "SET_TOKEN", payload: "" });
+        dispatch({ type: "SET_USER", payload: null });
+      } else if (event === "PASSWORD_RECOVERY") {
+        dispatch({ type: "SET_SESSION", payload: session });
+        dispatch({ type: "SET_TOKEN", payload: session?.access_token || "" });
+      } else if (session) {
+        dispatch({ type: "SET_SESSION", payload: session });
+        dispatch({ type: "SET_TOKEN", payload: session.access_token });
+      }
+    });
+
+    activeSubscription = data?.subscription;
+
+    return () => {
+      if (activeSubscription) activeSubscription.unsubscribe();
+    };
+  }, []);
 
   const value = {
     ...state,
@@ -65,6 +118,7 @@ export function AuthProvider({ children }) {
     setField: (field, value) => dispatch({ type: "SET_FIELD", field, value }),
     setUser: (user) => dispatch({ type: "SET_USER", payload: user }),
     setToken: (token) => dispatch({ type: "SET_TOKEN", payload: token }),
+    setSession: (session) => dispatch({ type: "SET_SESSION", payload: session }),
     setError: (error) => dispatch({ type: "SET_ERROR", payload: error }),
     setInfo: (info) => dispatch({ type: "SET_INFO", payload: info }),
     clearError: () => dispatch({ type: "CLEAR_ERROR" }),
@@ -73,6 +127,8 @@ export function AuthProvider({ children }) {
     logout: () => dispatch({ type: "LOGOUT" }),
     isFaculty: state.user?.role === "TEACHER" || state.user?.role === "LECTURER",
     isTeacher: state.user?.role === "TEACHER" || state.user?.role === "LECTURER",
+    // Supabase auth helpers
+    supabase,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

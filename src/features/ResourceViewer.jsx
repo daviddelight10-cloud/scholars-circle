@@ -10,6 +10,7 @@ import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 
 import { API_BASE } from "../lib/constants";
+import { supabase } from "../lib/supabaseClient.js";
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // token prop: used when rendered in-app (overrides useParams)
@@ -123,23 +124,32 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     setAuthLoading(true);
     setAuthError("");
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login: loginEmail, password: loginPassword }),
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
       });
-      const data = await res.json();
-      if (res.ok) {
-        const authPayload = { authUser: data.user, authToken: data.token };
+      if (error) throw error;
+      const sessionToken = data.session?.access_token || "";
+      // Fetch app profile from backend
+      let appUser = null;
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        const profileData = await res.json();
+        appUser = profileData.user || null;
+      } catch {}
+      if (appUser) {
+        const authPayload = { authUser: appUser, authToken: sessionToken };
         localStorage.setItem("scholars-circle-auth", JSON.stringify(authPayload));
-        setUser(data.user);
+        setUser(appUser);
         setAuthCase("loggedin");
         triggerLogView(resource || { shareToken: token });
       } else {
-        setAuthError(data.error || "Login failed");
+        setAuthError("Login succeeded but profile not found. Please contact support.");
       }
-    } catch {
-      setAuthError("Login failed. Please check your connection.");
+    } catch (err) {
+      setAuthError(err.message || "Login failed. Please check your credentials.");
     } finally {
       setAuthLoading(false);
     }
@@ -149,36 +159,58 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     e.preventDefault();
     setAuthLoading(true);
     setAuthError("");
-    // Sanitize username: strip spaces, use underscore, lowercase
-    const username = signupName.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
-    if (username.length < 3) { setAuthError("Name must be at least 3 characters (letters/numbers)"); setAuthLoading(false); return; }
+    const fullName = signupName.trim();
     if (signupPassword.length < 8) { setAuthError("Password must be at least 8 characters"); setAuthLoading(false); return; }
     const email = signupEmail.trim().toLowerCase();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setAuthError("Please enter a valid email address"); setAuthLoading(false); return; }
+    if (!email || !/^[^\s@]+@[^^\s@]+\.[^\s@]+$/.test(email)) { setAuthError("Please enter a valid email address"); setAuthLoading(false); return; }
     try {
-      // Step 1: Register
-      const regRes = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password: signupPassword }),
+      // Step 1: Sign up with Supabase Auth
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password: signupPassword,
+        options: { data: { fullName } },
       });
-      const regData = await regRes.json();
-      if (!regRes.ok) { setAuthError(regData.error || "Sign up failed"); setAuthLoading(false); return; }
-      // Step 2: Auto-login to get token
-      const loginRes = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login: username, password: signupPassword }),
-      });
-      const loginData = await loginRes.json();
-      if (!loginRes.ok) { setAuthError("Account created! Please log in."); setAuthCase("guest"); setAuthLoading(false); return; }
-      const authPayload = { authUser: loginData.user, authToken: loginData.token };
-      localStorage.setItem("scholars-circle-auth", JSON.stringify(authPayload));
-      setUser(loginData.user);
-      setAuthCase("loggedin");
-      triggerLogView(resource || { shareToken: token });
-    } catch {
-      setAuthError("Sign up failed. Please try again.");
+      if (signUpError) throw signUpError;
+      const sessionToken = signUpData.session?.access_token || "";
+      if (!sessionToken) {
+        setAuthError("Account created! Please check your email to confirm, then log in.");
+        setAuthCase("guest");
+        setAuthLoading(false);
+        return;
+      }
+      // Step 2: Create app profile on backend
+      let appUser = null;
+      try {
+        const profileRes = await fetch(`${API_BASE}/auth/profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({ fullName }),
+        });
+        const profileData = await profileRes.json();
+        appUser = profileData;
+      } catch {}
+      if (!appUser) {
+        // Fallback: fetch existing profile
+        try {
+          const res = await fetch(`${API_BASE}/auth/refresh`, {
+            headers: { Authorization: `Bearer ${sessionToken}` },
+          });
+          const data = await res.json();
+          appUser = data.user || null;
+        } catch {}
+      }
+      if (appUser) {
+        const authPayload = { authUser: appUser, authToken: sessionToken };
+        localStorage.setItem("scholars-circle-auth", JSON.stringify(authPayload));
+        setUser(appUser);
+        setAuthCase("loggedin");
+        triggerLogView(resource || { shareToken: token });
+      } else {
+        setAuthError("Account created but profile setup failed. Please log in.");
+        setAuthCase("guest");
+      }
+    } catch (err) {
+      setAuthError(err.message || "Sign up failed. Please try again.");
     } finally {
       setAuthLoading(false);
     }

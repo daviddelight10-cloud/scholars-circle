@@ -21,7 +21,7 @@ import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPL
 
 
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./lib/supabaseClient.js";
 
 
 
@@ -531,8 +531,6 @@ function App() {
 
   const signupFullNameRef = useRef("");
 
-  const signupUsernameRef = useRef("");
-
   const signupPasswordRef = useRef("");
 
   const signupConfirmPasswordRef = useRef("");
@@ -548,6 +546,10 @@ function App() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+
+  const [resetPasswordMode, setResetPasswordMode] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
 
 
 
@@ -1361,41 +1363,64 @@ function App() {
 
 
 
-    // Step 1: Restore auth from a shared key so we know WHO is logging in
-
-    const authRaw = localStorage.getItem("scholars-circle-auth");
-
-    if (authRaw) {
+    // Step 1: Restore auth from Supabase session (replaces localStorage-based restore)
+    async function restoreSession() {
 
       try {
 
-        const authParsed = JSON.parse(authRaw);
+        const { data: { session } } = await supabase.auth.getSession();
 
-        setAuth((a) => ({ ...a, user: authParsed.authUser ?? null }));
+        if (session) {
 
-        setToken(authParsed.authToken ?? "");
+          setToken(session.access_token);
 
-        // Remember current user ID for storage key
+          // Fetch app profile from backend
+          try {
 
-        const uid = authParsed.authUser?.id || authParsed.authUser?.username;
+            const profile = await api("/auth/refresh", { token: session.access_token });
 
-        if (uid) {
+            if (profile?.user) {
 
-          localStorage.setItem("scholars-circle-current-user", uid);
+              setAuth((a) => ({ ...a, user: profile.user, error: "", info: "" }));
+
+              const uid = profile.user.id || profile.user.email;
+
+              if (uid) localStorage.setItem("scholars-circle-current-user", uid);
+
+            }
+
+          } catch (profileErr) {
+
+            console.error("[restoreSession] Failed to fetch profile:", profileErr);
+
+            // If profile not found, the user needs to complete profile setup
+            if (profileErr.message?.includes("profile") || profileErr.message?.includes("not found")) {
+
+              setAuth((a) => ({ ...a, info: "Please complete your profile to continue.", error: "" }));
+
+            }
+
+          }
 
         }
 
-      } catch { /* ignore */ }
+      } catch (err) {
+
+        console.error("[restoreSession] Session restore error:", err);
+
+      }
 
     }
 
+    // Fire session restore (async, don't block boot)
+    restoreSession();
 
 
-    // Step 2: Load user-specific data using user ID
 
+    // Step 2: Load user-specific data using user ID from localStorage (fallback)
     const uid = (() => {
 
-      try { const u = JSON.parse(authRaw)?.authUser; return u?.id || u?.username; } catch { return null; }
+      try { const u = JSON.parse(localStorage.getItem("scholars-circle-auth"))?.authUser; return u?.id || u?.username; } catch { return null; }
 
     })() || localStorage.getItem("scholars-circle-current-user") || "guest";
 
@@ -1579,6 +1604,18 @@ function App() {
 
 
 
+  }, []);
+
+
+
+  // Detect Supabase PASSWORD_RECOVERY event (user clicked reset link in email)
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setResetPasswordMode(true);
+      }
+    });
+    return () => data?.subscription?.unsubscribe();
   }, []);
 
 
@@ -2752,9 +2789,9 @@ function App() {
 
 
 
-    // Trim spaces from inputs
+    // Trim spaces from inputs — login uses email now (username dropped)
 
-    const trimmedUsername = (auth.username || "").trim();
+    const trimmedEmail = (auth.email || auth.username || "").trim();
 
     const trimmedPassword = (auth.password || "").trim();
 
@@ -2764,19 +2801,19 @@ function App() {
 
 
 
-      const data = await api("/auth/login", {
+      // Sign in with Supabase Auth
 
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
 
+        email: trimmedEmail,
 
-        method: "POST",
-
-
-
-        body: { login: trimmedUsername, password: trimmedPassword },
-
-
+        password: trimmedPassword,
 
       });
+
+
+
+      if (authError) throw authError;
 
 
 
@@ -2786,15 +2823,35 @@ function App() {
 
 
 
-      setToken(data.token);
+      const sessionToken = authData.session?.access_token || "";
+
+      setToken(sessionToken);
 
 
 
-      setAuth((a) => ({ ...a, email: "", username: "", password: "", user: data.user, error: "", info: "" }));
+      // Fetch app profile from backend
+
+      let appUser = null;
+
+      try {
+
+        const profile = await api("/auth/refresh", { token: sessionToken });
+
+        appUser = profile?.user || null;
+
+      } catch (profileErr) {
+
+        console.error("[login] Failed to fetch app profile:", profileErr);
+
+      }
 
 
 
-      // Reset demo mode on successful backend login
+      setAuth((a) => ({ ...a, email: "", username: "", password: "", user: appUser, error: "", info: "" }));
+
+
+
+      // Reset demo mode on successful login
 
       setDemoMode(false);
 
@@ -2818,9 +2875,13 @@ function App() {
 
       // Store new user identity
 
-      localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: data.user, authToken: data.token }));
+      if (appUser) {
 
-      localStorage.setItem("scholars-circle-current-user", data.user.id || data.user.username);
+        localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: appUser, authToken: sessionToken }));
+
+        localStorage.setItem("scholars-circle-current-user", appUser.id || appUser.email);
+
+      }
 
 
 
@@ -2828,7 +2889,7 @@ function App() {
 
       try {
 
-        await loadFromBackend(data.token);
+        await loadFromBackend(sessionToken);
 
       } finally {
 
@@ -2846,29 +2907,25 @@ function App() {
 
 
 
-    } catch {
+    } catch (loginErr) {
 
 
 
-      const hit = DEMO_USERS.find((u) => u.username === trimmedUsername && u.password === trimmedPassword);
+      // Check if this is a demo user (fallback for offline/demo mode)
+
+      const hit = DEMO_USERS.find((u) => u.username === trimmedEmail && u.password === trimmedPassword);
 
 
 
       if (!hit) {
 
+        const errMsg = loginErr?.message || "Invalid credentials. Please check your email and password.";
 
-
-        setAuth((a) => ({ ...a, error: "Invalid credentials. Try backend account or demo teacher/student.", info: "" }));
-
-
+        setAuth((a) => ({ ...a, error: errMsg, info: "" }));
 
         setLoadingOverlay(false);
 
-
-
         return;
-
-
 
       }
 
@@ -2896,7 +2953,57 @@ function App() {
 
 
 
+  async function handleForgotPassword() {
+    const email = (auth.email || "").trim();
+    if (!email) {
+      setAuth((a) => ({ ...a, error: "Please enter your email address first.", info: "" }));
+      return;
+    }
+    setLoadingOverlay(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setAuth((a) => ({
+        ...a,
+        error: "",
+        info: "Password reset link sent! Check your email to reset your password.",
+      }));
+    } catch (err) {
+      setAuth((a) => ({ ...a, error: err.message || "Failed to send reset email.", info: "" }));
+    } finally {
+      setLoadingOverlay(false);
+    }
+  }
 
+  async function handleResetPassword() {
+    if (newPassword.length < 8) {
+      setAuth((a) => ({ ...a, error: "Password must be at least 8 characters.", info: "" }));
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setAuth((a) => ({ ...a, error: "Passwords do not match.", info: "" }));
+      return;
+    }
+    setLoadingOverlay(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setAuth((a) => ({
+        ...a,
+        error: "",
+        info: "Password updated successfully! You can now sign in with your new password.",
+      }));
+      setResetPasswordMode(false);
+      setNewPassword("");
+      setNewPasswordConfirm("");
+    } catch (err) {
+      setAuth((a) => ({ ...a, error: err.message || "Failed to update password.", info: "" }));
+    } finally {
+      setLoadingOverlay(false);
+    }
+  }
 
 
 
@@ -2919,8 +3026,6 @@ function App() {
       const email = (signupEmailRef.current?.value || "").trim();
 
       const fullName = (signupFullNameRef.current?.value || "").trim();
-
-      const username = (signupUsernameRef.current?.value || "").trim();
 
       const password = (signupPasswordRef.current?.value || "").trim();
 
@@ -2966,36 +3071,6 @@ function App() {
 
       }
 
-      if (!username) {
-
-        setAuth((a) => ({ ...a, error: "Please choose a username.", info: "" }));
-
-        setLoadingOverlay(false);
-
-        return;
-
-      }
-
-      if (username.length < 3) {
-
-        setAuth((a) => ({ ...a, error: "Username must be at least 3 characters.", info: "" }));
-
-        setLoadingOverlay(false);
-
-        return;
-
-      }
-
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-
-        setAuth((a) => ({ ...a, error: "Username can only contain letters, numbers, and underscores (no spaces).", info: "" }));
-
-        setLoadingOverlay(false);
-
-        return;
-
-      }
-
       if (!password) {
 
         setAuth((a) => ({ ...a, error: "Please enter a password.", info: "" }));
@@ -3016,42 +3091,57 @@ function App() {
 
       }
 
-      console.log("Registering with:", { email, username, fullName, role });
-
-
-
-      await api("/auth/register", {
-
-        method: "POST",
-
-        body: {
-
-          email,
-
-          username,
-
-          fullName,
-
-          password,
-
-          role,
-
-          inviteCode: (role === "TEACHER" || role === "LECTURER") ? inviteCode : undefined,
-
+      // 1. Sign up with Supabase Auth
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { fullName, role },
         },
-
       });
 
-      // auto-login after successful registration
-      try {
-        const data = await api("/auth/login", {
-          method: "POST",
-          body: { login: email, password: password },
-        });
+      if (signUpError) throw signUpError;
 
+      // 2. Create app profile on backend (invite codes, activation keys)
+      const sessionToken = signUpData.session?.access_token || "";
+      let appUser = null;
 
+      if (sessionToken) {
+        try {
+          const profile = await api("/auth/profile", {
+            token: sessionToken,
+            method: "POST",
+            body: {
+              fullName,
+              role,
+              inviteCode: (role === "TEACHER" || role === "LECTURER") ? inviteCode : undefined,
+            },
+          });
+          appUser = profile;
+        } catch (profileErr) {
+          console.error("Profile creation failed:", profileErr);
+          try {
+            const existing = await api("/auth/refresh", { token: sessionToken });
+            appUser = existing?.user || null;
+          } catch {
+            // Continue without profile
+          }
+        }
+      } else {
+        // Email confirmation required — no session yet
+        setAuth((a) => ({
+          ...a,
+          mode: "login",
+          error: "",
+          info: "Account created! Please check your email to confirm your account, then sign in.",
+          email: email,
+        }));
+        setLoadingOverlay(false);
+        return;
+      }
 
-      setToken(data.token);
+      // 3. Auto-login (session is already active from Supabase signUp)
+      setToken(sessionToken);
 
 
 
@@ -3087,7 +3177,7 @@ function App() {
 
 
 
-        user: data.user,
+        user: appUser,
 
 
 
@@ -3111,9 +3201,13 @@ function App() {
 
       // Set only the essential auth data
 
-      localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: data.user, authToken: data.token }));
+      if (appUser) {
 
-      localStorage.setItem("scholars-circle-current-user", data.user.id || data.user.username);
+        localStorage.setItem("scholars-circle-auth", JSON.stringify({ authUser: appUser, authToken: sessionToken }));
+
+        localStorage.setItem("scholars-circle-current-user", appUser.id || appUser.email);
+
+      }
 
 
 
@@ -3177,26 +3271,18 @@ function App() {
 
       });
 
-      } catch (loginErr) {
-        // Registration succeeded but auto-login failed — switch to login mode
-        console.error("Auto-login after registration failed:", loginErr);
-        setAuth((a) => ({
-          ...a,
-          mode: "login",
-          error: "",
-          info: "Account created successfully! Please sign in with your email and password.",
-          username: email,
-        }));
-      }
-
     } catch (e) {
 
       console.error("Registration error:", e);
 
       let errorMessage = e.message || "Sign up failed. Please try again.";
 
+      // Supabase auth errors
+      if (e.message?.includes("already registered") || e.message?.includes("already been registered")) {
+        errorMessage = "An account with this email already exists. Please sign in instead.";
+      }
       // Network errors — server unreachable
-      if (e.message === "Failed to fetch" || e.message?.includes("NetworkError") || e.message?.includes("network")) {
+      else if (e.message === "Failed to fetch" || e.message?.includes("NetworkError") || e.message?.includes("network")) {
         errorMessage = "Could not connect to the server. Please check your internet connection and try again.";
       }
       // Rate limit errors
@@ -3731,6 +3817,9 @@ function App() {
 
   function logout() {
 
+    // 0. Sign out from Supabase (clears session, invalidates token)
+    supabase.auth.signOut().catch((err) => console.error("[logout] Supabase signOut error:", err));
+
     // 1. Pause sync so clearing state doesn't push empty data anywhere
 
     syncPausedRef.current = true;
@@ -3829,25 +3918,13 @@ function App() {
 
   const refreshAuth = useCallback(async () => {
 
-    const authRaw = localStorage.getItem("scholars-circle-auth");
-
-    if (!authRaw) {
-
-      console.log("[refreshAuth] No auth data, skipping");
-
-      return;
-
-    }
-
-    
-
-    const authParsed = JSON.parse(authRaw);
-
-    const currentToken = authParsed.authToken;
+    // Get fresh token from Supabase session (auto-refreshed by Supabase SDK)
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentToken = session?.access_token;
 
     if (!currentToken) {
 
-      console.log("[refreshAuth] No token, skipping");
+      console.log("[refreshAuth] No Supabase session, skipping");
 
       return;
 
@@ -3920,8 +3997,6 @@ function App() {
         if (authRaw) {
 
           const authParsed = JSON.parse(authRaw);
-
-          authParsed.authToken = res.token;
 
           authParsed.authUser = { ...(authParsed.authUser || {}), ...res.user };
 
@@ -6147,6 +6222,48 @@ function App() {
                 {'<- Back to home'}
               </a>
 
+              {resetPasswordMode ? (
+                <>
+                  <div style={{ marginBottom: 28 }}>
+                    <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Set new password</h1>
+                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Enter your new password below.</p>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>New password</label>
+                      <input
+                        className="auth-input"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Min 8 characters"
+                        autoComplete="new-password"
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleResetPassword(); }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Confirm new password</label>
+                      <input
+                        className="auth-input"
+                        type="password"
+                        value={newPasswordConfirm}
+                        onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                        placeholder="Re-enter new password"
+                        autoComplete="new-password"
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleResetPassword(); }}
+                      />
+                    </div>
+                    <button onClick={handleResetPassword} disabled={loadingOverlay} className="auth-btn auth-btn-primary auth-btn-lg" style={{ width: '100%', opacity: loadingOverlay ? 0.6 : 1, cursor: loadingOverlay ? 'not-allowed' : 'pointer' }}>
+                      {loadingOverlay ? 'Updating...' : 'Update password ->'}
+                    </button>
+                    <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.88rem', color: '#9AA3B5' }}>
+                      <span onClick={() => { setResetPasswordMode(false); setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' })); }} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Back to sign in</span>
+                    </p>
+                  </div>
+                </>
+              ) : (
+              <>
               {/* Tabs */}
               <div style={{ position: 'relative', display: 'flex', gap: 4, background: '#11151E', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 999, padding: 4, marginBottom: 32 }}>
                 <button
@@ -6176,13 +6293,14 @@ function App() {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                     <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email or username</label>
+                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
                       <input
                         className="auth-input"
-                        value={auth.username}
-                        onChange={(e) => setAuth((a) => ({ ...a, username: e.target.value.replace(/\s/g, '') }))}
+                        value={auth.email}
+                        onChange={(e) => setAuth((a) => ({ ...a, email: e.target.value.replace(/\s/g, '') }))}
                         placeholder="you@email.com"
-                        autoComplete="username"
+                        autoComplete="email"
+                        type="email"
                         onKeyDown={(e) => { if (e.key === 'Enter') login(); }}
                       />
                     </div>
@@ -6211,6 +6329,15 @@ function App() {
                       </div>
                     </div>
 
+                    <div style={{ textAlign: 'right', marginTop: -4 }}>
+                      <span
+                        onClick={handleForgotPassword}
+                        style={{ color: '#F5A623', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        Forgot password?
+                      </span>
+                    </div>
+
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9AA3B5', cursor: 'pointer' }}>
                         <input type="checkbox" style={{ accentColor: '#F5A623', width: 15, height: 15 }} />Keep me signed in
@@ -6228,7 +6355,19 @@ function App() {
                     <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
                   </div>
 
-                  <button className="auth-btn auth-btn-ghost" style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: '0.9rem' }}>
+                  <button
+                    className="auth-btn auth-btn-ghost"
+                    style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: '0.9rem' }}
+                    onClick={async () => {
+                      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+                        provider: "google",
+                        options: { redirectTo: window.location.origin },
+                      });
+                      if (oauthError) {
+                        setAuth((a) => ({ ...a, error: oauthError.message, info: "" }));
+                      }
+                    }}
+                  >
                     Continue with Google
                   </button>
 
@@ -6252,20 +6391,6 @@ function App() {
                         ref={signupFullNameRef}
                                                 placeholder="Adeola Okafor"
                         autoComplete="name"
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Username</label>
-                      <input
-                        className="auth-input"
-                        ref={signupUsernameRef}
-                        onChange={(e) => {
-                          const sanitized = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
-                          e.target.value = sanitized;
-                        }}
-                        placeholder="adeola_okafor"
-                        autoComplete="username"
                       />
                     </div>
 
@@ -6364,6 +6489,10 @@ function App() {
                     Already circling back? <span onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
                   </p>
                 </>
+              )}
+
+              </>
+
               )}
 
               {/* Error / Info banners */}

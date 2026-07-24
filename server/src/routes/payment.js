@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { createHmac } from "crypto";
-import jwt from "jsonwebtoken";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -83,12 +82,8 @@ router.post("/verify", requireAuth, async (req, res) => {
         where: { id: req.user.sub },
         select: { id: true, isActivated: true, planType: true, activationExpiry: true, username: true, role: true },
       });
-      const newToken = jwt.sign(
-        { sub: existing.id, role: existing.role, username: existing.username, isActivated: existing.isActivated },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
-      return res.json({ activated: true, user: existing, token: newToken });
+      // No new token — Supabase handles tokens. Frontend refreshes via /auth/refresh.
+      return res.json({ activated: true, user: existing });
     }
 
     // We won the claim — safe to stack expiry onto existing plan if still active
@@ -115,14 +110,8 @@ router.post("/verify", requireAuth, async (req, res) => {
       select: { id: true, isActivated: true, planType: true, activationExpiry: true, username: true, role: true },
     });
 
-    // Issue a fresh JWT with isActivated: true so the frontend updates immediately
-    const newToken = jwt.sign(
-      { sub: updated.id, role: updated.role, username: updated.username, isActivated: true },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.json({ activated: true, user: updated, token: newToken });
+    // No new token — Supabase handles tokens. Frontend refreshes via /auth/refresh.
+    res.json({ activated: true, user: updated });
   } catch (err) {
     console.error("Payment verification error:", err);
     res.status(500).json({ error: "Verification failed. Please contact support." });

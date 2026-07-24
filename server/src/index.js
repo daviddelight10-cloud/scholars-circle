@@ -169,9 +169,26 @@ function handleVoiceWsUpgrade(request, socket, head) {
 
   let userId = null;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "scholars-circle-secret-key");
-    userId = decoded.sub || decoded.userId;
+    const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+    const supabaseId = decoded.sub;
+
+    // Fast path: prismaId in app_metadata
+    if (decoded.app_metadata?.prismaId) {
+      userId = decoded.app_metadata.prismaId;
+    } else if (supabaseId) {
+      // Slow path: DB lookup
+      const user = await prisma.user.findUnique({
+        where: { supabaseId },
+        select: { id: true },
+      });
+      if (user) userId = user.id;
+    }
   } catch {
+    socket.destroy();
+    return;
+  }
+
+  if (!userId) {
     socket.destroy();
     return;
   }
