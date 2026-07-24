@@ -152,6 +152,34 @@ export async function optionalAuth(req, _res, next) {
   return next();
 }
 
+export async function requireSupabaseAuth(req, res, next) {
+  const token = extractToken(req);
+
+  if (!token) return res.status(401).json({ error: "Missing token" });
+
+  let decoded;
+  try {
+    decoded = await verifySupabaseToken(token);
+  } catch (err) {
+    console.error("[requireSupabaseAuth] Token verification failed:", err.message);
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+
+  const supabaseId = decoded.sub;
+  if (!supabaseId) {
+    return res.status(401).json({ error: "Invalid token: missing subject" });
+  }
+
+  req.user = {
+    supabaseId,
+    email: decoded.email || null,
+    role: decoded.app_metadata?.role || null,
+    user_metadata: decoded.user_metadata || {},
+  };
+
+  return next();
+}
+
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });

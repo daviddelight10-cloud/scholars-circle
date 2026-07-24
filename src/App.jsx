@@ -1399,10 +1399,11 @@ function App() {
                 const user = (await supabase.auth.getUser()).data?.user;
                 const fullName = user?.user_metadata?.fullName || "";
                 const role = user?.user_metadata?.role || "STUDENT";
+                const userEmail = user?.email || "";
                 const profile = await api("/auth/profile", {
                   token: session.access_token,
                   method: "POST",
-                  body: { fullName, role },
+                  body: { email: userEmail, fullName, role },
                 });
                 if (profile) {
                   setAuth((a) => ({ ...a, user: profile, error: "", info: "" }));
@@ -2864,10 +2865,11 @@ function App() {
             const user = (await supabase.auth.getUser()).data?.user;
             const fullName = user?.user_metadata?.fullName || "";
             const role = user?.user_metadata?.role || "STUDENT";
+            const userEmail = user?.email || trimmedEmail;
             const profile = await api("/auth/profile", {
               token: sessionToken,
               method: "POST",
-              body: { fullName, role },
+              body: { email: userEmail, fullName, role },
             });
             appUser = profile;
           } catch (createErr) {
@@ -3144,6 +3146,7 @@ function App() {
             token: sessionToken,
             method: "POST",
             body: {
+              email,
               fullName,
               role,
               inviteCode: (role === "TEACHER" || role === "LECTURER") ? inviteCode : undefined,

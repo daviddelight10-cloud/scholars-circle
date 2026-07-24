@@ -8,7 +8,7 @@ import { prisma } from "../db.js";
 
 import { generateActivationKey } from "./keys.js";
 
-import { requireAuth, invalidateUserCache } from "../middleware/auth.js";
+import { requireAuth, requireSupabaseAuth, invalidateUserCache } from "../middleware/auth.js";
 
 import { logSecurityEvent } from "../lib/logger.js";
 
@@ -27,6 +27,8 @@ const profileSchema = z.object({
 
   fullName: z.string().optional(),
 
+  email: z.string().email().optional(),
+
   role: z.enum(["STUDENT", "TEACHER", "LECTURER"]).optional(),
 
   inviteCode: z.string().optional(),
@@ -35,14 +37,14 @@ const profileSchema = z.object({
 
 // POST /auth/profile — Create Prisma User profile after Supabase signup
 // Called by the frontend after supabase.auth.signUp() succeeds
-router.post("/profile", requireAuth, async (req, res) => {
+router.post("/profile", requireSupabaseAuth, async (req, res) => {
 
   try {
 
     const data = profileSchema.parse(req.body);
 
     const supabaseId = req.user.supabaseId;
-    const email = req.user.email;
+    const email = req.user.email || data.email;
 
     if (!supabaseId || !email) {
       return res.status(400).json({ error: "Missing Supabase user ID or email from token" });
