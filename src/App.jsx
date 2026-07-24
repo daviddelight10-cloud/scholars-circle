@@ -1393,11 +1393,26 @@ function App() {
 
             console.error("[restoreSession] Failed to fetch profile:", profileErr);
 
-            // If profile not found, the user needs to complete profile setup
-            if (profileErr.message?.includes("profile") || profileErr.message?.includes("not found")) {
-
-              setAuth((a) => ({ ...a, info: "Please complete your profile to continue.", error: "" }));
-
+            // If profile not found, try to create it (e.g. partial signup)
+            if (profileErr.message?.includes("profile") || profileErr.message?.includes("not found") || profileErr.message?.includes("403")) {
+              try {
+                const user = (await supabase.auth.getUser()).data?.user;
+                const fullName = user?.user_metadata?.fullName || "";
+                const role = user?.user_metadata?.role || "STUDENT";
+                const profile = await api("/auth/profile", {
+                  token: session.access_token,
+                  method: "POST",
+                  body: { fullName, role },
+                });
+                if (profile) {
+                  setAuth((a) => ({ ...a, user: profile, error: "", info: "" }));
+                  const uid = profile.id || profile.email;
+                  if (uid) localStorage.setItem("scholars-circle-current-user", uid);
+                }
+              } catch (createErr) {
+                console.error("[restoreSession] Failed to create missing profile:", createErr);
+                setAuth((a) => ({ ...a, info: "Please complete your profile to continue.", error: "" }));
+              }
             }
 
           }
@@ -2842,6 +2857,23 @@ function App() {
       } catch (profileErr) {
 
         console.error("[login] Failed to fetch app profile:", profileErr);
+
+        // If profile doesn't exist yet (e.g. partial signup), try to create it
+        if (profileErr.message?.includes("profile") || profileErr.message?.includes("not found") || profileErr.message?.includes("403")) {
+          try {
+            const user = (await supabase.auth.getUser()).data?.user;
+            const fullName = user?.user_metadata?.fullName || "";
+            const role = user?.user_metadata?.role || "STUDENT";
+            const profile = await api("/auth/profile", {
+              token: sessionToken,
+              method: "POST",
+              body: { fullName, role },
+            });
+            appUser = profile;
+          } catch (createErr) {
+            console.error("[login] Failed to create missing profile:", createErr);
+          }
+        }
 
       }
 
