@@ -148,7 +148,7 @@ const wss = new WebSocketServer({ noServer: true });
 // NOTE: the "upgrade" event is emitted by the underlying http.Server instance
 // (the one returned by app.listen()), NOT by the Express `app` function itself.
 // The actual listener is attached to `server` further below, after app.listen().
-function handleVoiceWsUpgrade(request, socket, head) {
+async function handleVoiceWsUpgrade(request, socket, head) {
   const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
   const voiceWsMatch = pathname.match(/^\/api\/voice-session\/([^/]+)\/ws$/);
