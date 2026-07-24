@@ -40,7 +40,7 @@ import { startStudyReminderJob } from "./lib/studyReminderJob.js";
 import { seedBadges } from "./lib/badges.js";
 import { prisma } from "./db.js";
 import { WebSocketServer, WebSocket } from "ws";
-import jwt from "jsonwebtoken";
+import { verifySupabaseToken } from "./lib/verifySupabaseToken.js";
 
 // Initialize Web Push (VAPID). Safe to call even if keys are missing.
 configurePush();
@@ -169,7 +169,7 @@ async function handleVoiceWsUpgrade(request, socket, head) {
 
   let userId = null;
   try {
-    const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+    const decoded = await verifySupabaseToken(token);
     const supabaseId = decoded.sub;
 
     // Fast path: prismaId in app_metadata

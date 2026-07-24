@@ -27,6 +27,7 @@
     "express-rate-limit": "^7.4.0",
     "file-type": "^22.0.1",
     "helmet": "^8.2.0",
+    "jose": "^6.2.4",
     "jsonwebtoken": "^9.0.2",
     "jszip": "^3.10.1",
     "mammoth": "^1.8.0",

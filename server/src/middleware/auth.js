@@ -1,5 +1,5 @@
-import jwt from "jsonwebtoken";
 import { prisma } from "../db.js";
+import { verifySupabaseToken } from "../lib/verifySupabaseToken.js";
 
 // In-memory cache: supabaseId -> { id, role, username, ts }
 // Avoids a DB lookup on every single API request.
@@ -53,8 +53,9 @@ export async function requireAuth(req, res, next) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
-  } catch {
+    decoded = await verifySupabaseToken(token);
+  } catch (err) {
+    console.error("[requireAuth] Token verification failed:", err.message);
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 
@@ -111,7 +112,7 @@ export async function optionalAuth(req, _res, next) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+    decoded = await verifySupabaseToken(token);
   } catch {
     return next();
   }
