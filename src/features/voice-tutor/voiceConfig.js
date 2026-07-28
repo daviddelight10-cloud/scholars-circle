@@ -66,8 +66,25 @@ export const FONTS = {
 
 export const VAD_CONFIG = {
   speechThreshold: 0.025,
-  speechOnsetMs: 100,
-  silenceOffsetMs: 1200,
+  speechOnsetMs: 80,
+  silenceOffsetMs: 700,
+};
+
+export const BUFFER_CONFIG = {
+  initialChunks: 3,
+  minChunks: 2,
+  maxChunks: 6,
+  rebufferChunks: 2,
+  jitterEvalInterval: 10,
+};
+
+export const RECONNECT_CONFIG = {
+  maxAttempts: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 4000,
+  pingIntervalMs: 15000,
+  pongTimeoutMs: 5000,
+  gracePeriodMs: 30000,
 };
 
 export function hexToRgba(hex, alpha) {
@@ -90,4 +107,6 @@ export const WS_MESSAGE_TYPES = {
   SESSION_ENDED: "session_ended",
   SESSION_TIMEOUT: "session_timeout",
   ERROR: "error",
+  PING: "ping",
+  PONG: "pong",
 };

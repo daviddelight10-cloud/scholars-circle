@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { API_BASE } from "../../lib/constants.js";
-import { VOICE_STATES, AUDIO_CONFIG, SESSION_TIMEOUT_SEC, WS_MESSAGE_TYPES, VAD_CONFIG } from "./voiceConfig.js";
+import { VOICE_STATES, AUDIO_CONFIG, SESSION_TIMEOUT_SEC, WS_MESSAGE_TYPES, VAD_CONFIG, BUFFER_CONFIG, RECONNECT_CONFIG } from "./voiceConfig.js";
 
 function getAuthToken() {
   try {
@@ -33,6 +33,8 @@ export function useVoiceSession() {
   const [micLevel, setMicLevel] = useState(0);
   const [handsFreeMode, setHandsFreeMode] = useState(false);
   const [vadState, setVadState] = useState("idle");
+  const [connectionQuality, setConnectionQuality] = useState("good");
+  const [isBuffering, setIsBuffering] = useState(false);
 
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -55,6 +57,31 @@ export function useVoiceSession() {
   const speechStateRef = useRef("idle");
   const speechOnsetTimeRef = useRef(0);
   const speechSilenceTimeRef = useRef(0);
+
+  // Audio pre-buffering refs
+  const audioQueueRef = useRef([]);
+  const isBufferingRef = useRef(false);
+  const bufferTargetRef = useRef(BUFFER_CONFIG.initialChunks);
+  const chunkArrivalTimesRef = useRef([]);
+  const chunksSinceJitterEvalRef = useRef(0);
+  const lastChunkTimeRef = useRef(0);
+  const isPlayingRef = useRef(false);
+
+  // Reconnection refs
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef(null);
+  const wsUrlRef = useRef(null);
+  const isReconnectingRef = useRef(false);
+  const pingIntervalRef = useRef(null);
+  const pongTimeoutRef = useRef(null);
+  const lastPongTimeRef = useRef(0);
+  const pingRttRef = useRef([]);
+
+  // Thinking timeout ref
+  const thinkingTimeoutRef = useRef(null);
+
+  // Ref to break circular dependency between playAudioChunk and drainAudioQueue
+  const drainAudioQueueRef = useRef(null);
 
   useEffect(() => {
     stateRef.current = state;
@@ -96,6 +123,14 @@ export function useVoiceSession() {
     activeSourceNodesRef.current = [];
     pendingAudioChunksRef.current = 0;
     nextPlayTimeRef.current = 0;
+    audioQueueRef.current = [];
+    isBufferingRef.current = false;
+    isPlayingRef.current = false;
+    setIsBuffering(false);
+    if (thinkingTimeoutRef.current) {
+      clearTimeout(thinkingTimeoutRef.current);
+      thinkingTimeoutRef.current = null;
+    }
   }, []);
 
   const startMic = useCallback(async () => {
@@ -172,8 +207,16 @@ export function useVoiceSession() {
               if (now - speechSilenceTimeRef.current > VAD_CONFIG.silenceOffsetMs) {
                 speechStateRef.current = "silence";
                 setVadState("silence");
-                setState(VOICE_STATES.READY);
+                setState(VOICE_STATES.THINKING);
                 speechSilenceTimeRef.current = 0;
+                // Revert to READY if no audio arrives within 8s
+                if (thinkingTimeoutRef.current) clearTimeout(thinkingTimeoutRef.current);
+                thinkingTimeoutRef.current = setTimeout(() => {
+                  if (stateRef.current === VOICE_STATES.THINKING) {
+                    setState(VOICE_STATES.READY);
+                  }
+                  thinkingTimeoutRef.current = null;
+                }, 8000);
               }
             }
           }
@@ -258,8 +301,14 @@ export function useVoiceSession() {
       sourceNode.onended = () => {
         pendingAudioChunksRef.current = Math.max(0, pendingAudioChunksRef.current - 1);
         activeSourceNodesRef.current = activeSourceNodesRef.current.filter((n) => n !== sourceNode);
-        if (pendingAudioChunksRef.current === 0 && stateRef.current === VOICE_STATES.SPEAKING) {
-          setState(VOICE_STATES.READY);
+        if (pendingAudioChunksRef.current === 0) {
+          // All scheduled chunks finished — check if more are queued
+          if (audioQueueRef.current.length > 0) {
+            drainAudioQueueRef.current?.();
+          } else if (stateRef.current === VOICE_STATES.SPEAKING) {
+            isPlayingRef.current = false;
+            setState(VOICE_STATES.READY);
+          }
         }
       };
       sourceNode.start(startAt);
@@ -267,6 +316,105 @@ export function useVoiceSession() {
       setState(VOICE_STATES.SPEAKING);
     } catch (err) {
       console.error("Audio playback failed:", err);
+    }
+  }, []);
+
+  // Drain queued audio chunks — called when buffer threshold is met or underrun recovers
+  const drainAudioQueue = useCallback(() => {
+    if (audioQueueRef.current.length === 0) {
+      isPlayingRef.current = false;
+      return;
+    }
+
+    isBufferingRef.current = false;
+    setIsBuffering(false);
+    isPlayingRef.current = true;
+
+    // Play all queued chunks in order
+    while (audioQueueRef.current.length > 0) {
+      const chunk = audioQueueRef.current.shift();
+      playAudioChunk(chunk);
+    }
+  }, [playAudioChunk]);
+
+  // Keep drainAudioQueueRef in sync
+  useEffect(() => {
+    drainAudioQueueRef.current = drainAudioQueue;
+  }, [drainAudioQueue]);
+
+  // Enqueue an audio chunk for buffered playback
+  const enqueueAudioChunk = useCallback((base64Audio) => {
+    const now = Date.now();
+
+    // Track chunk arrival times for jitter calculation
+    if (lastChunkTimeRef.current > 0) {
+      const interval = now - lastChunkTimeRef.current;
+      chunkArrivalTimesRef.current.push(interval);
+      if (chunkArrivalTimesRef.current.length > 30) {
+        chunkArrivalTimesRef.current.shift();
+      }
+    }
+    lastChunkTimeRef.current = now;
+    chunksSinceJitterEvalRef.current += 1;
+
+    // Clear thinking timeout — audio has arrived
+    if (thinkingTimeoutRef.current) {
+      clearTimeout(thinkingTimeoutRef.current);
+      thinkingTimeoutRef.current = null;
+    }
+
+    // If already playing, just play the chunk directly (no need to buffer mid-stream)
+    if (isPlayingRef.current) {
+      playAudioChunk(base64Audio);
+      return;
+    }
+
+    // Add to queue and check if we have enough to start playback
+    audioQueueRef.current.push(base64Audio);
+
+    if (!isBufferingRef.current) {
+      isBufferingRef.current = true;
+      setIsBuffering(true);
+    }
+
+    if (audioQueueRef.current.length >= bufferTargetRef.current) {
+      drainAudioQueue();
+    }
+
+    // Adaptive buffer sizing — re-evaluate every N chunks
+    if (chunksSinceJitterEvalRef.current >= BUFFER_CONFIG.jitterEvalInterval) {
+      chunksSinceJitterEvalRef.current = 0;
+      evaluateBufferTarget();
+    }
+  }, [drainAudioQueue, playAudioChunk]);
+
+  // Adjust buffer target based on network jitter
+  const evaluateBufferTarget = useCallback(() => {
+    const times = chunkArrivalTimesRef.current;
+    if (times.length < 4) return;
+
+    const mean = times.reduce((a, b) => a + b, 0) / times.length;
+    const variance = times.reduce((a, b) => a + (b - mean) ** 2, 0) / times.length;
+    const jitter = Math.sqrt(variance);
+
+    // High jitter → increase buffer; low jitter → decrease
+    if (jitter > mean * 0.5 && bufferTargetRef.current < BUFFER_CONFIG.maxChunks) {
+      bufferTargetRef.current = Math.min(BUFFER_CONFIG.maxChunks, bufferTargetRef.current + 1);
+    } else if (jitter < mean * 0.2 && bufferTargetRef.current > BUFFER_CONFIG.minChunks) {
+      bufferTargetRef.current = Math.max(BUFFER_CONFIG.minChunks, bufferTargetRef.current - 1);
+    }
+
+    // Update connection quality based on jitter and ping RTT
+    const avgRtt = pingRttRef.current.length > 0
+      ? pingRttRef.current.reduce((a, b) => a + b, 0) / pingRttRef.current.length
+      : 0;
+
+    if (jitter > mean * 0.8 || avgRtt > 1000) {
+      setConnectionQuality("poor");
+    } else if (jitter > mean * 0.4 || avgRtt > 400) {
+      setConnectionQuality("fair");
+    } else {
+      setConnectionQuality("good");
     }
   }, []);
 
@@ -300,6 +448,22 @@ export function useVoiceSession() {
     stopPlayback();
     stopMic();
     stopTimer();
+
+    // Clean up reconnection and keepalive timers
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+    if (pongTimeoutRef.current) {
+      clearTimeout(pongTimeoutRef.current);
+      pongTimeoutRef.current = null;
+    }
+    reconnectAttemptsRef.current = 0;
+    isReconnectingRef.current = false;
 
     if (wsRef.current) {
       try { wsRef.current.close(); } catch {}
@@ -338,7 +502,22 @@ export function useVoiceSession() {
     setMaterials(null);
     setConcepts([]);
     setFallbackMode(false);
+    setConnectionQuality("good");
     setState(VOICE_STATES.CONNECTING);
+
+    // Reset buffering state
+    audioQueueRef.current = [];
+    isBufferingRef.current = false;
+    isPlayingRef.current = false;
+    bufferTargetRef.current = BUFFER_CONFIG.initialChunks;
+    chunkArrivalTimesRef.current = [];
+    chunksSinceJitterEvalRef.current = 0;
+    lastChunkTimeRef.current = 0;
+    setIsBuffering(false);
+
+    // Reset reconnection state
+    reconnectAttemptsRef.current = 0;
+    isReconnectingRef.current = false;
 
     const token = getAuthToken();
     if (!token) {
@@ -370,95 +549,179 @@ export function useVoiceSession() {
 
       const wsBase = getWsBase();
       const wsUrl = `${wsBase}/api/voice-session/${data.sessionId}/ws?token=${encodeURIComponent(token)}`;
+      wsUrlRef.current = wsUrl;
+
+      // Local function to set up WS handlers — reused for reconnection
+      const setupWs = (ws) => {
+        ws.onopen = () => {
+          console.log("Voice tutor WebSocket connected");
+          isReconnectingRef.current = false;
+
+          // Start ping/pong keepalive
+          if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = setInterval(() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              const pingStart = Date.now();
+              wsRef.current.send(JSON.stringify({ type: WS_MESSAGE_TYPES.PING, t: pingStart }));
+
+              // Set pong timeout
+              if (pongTimeoutRef.current) clearTimeout(pongTimeoutRef.current);
+              pongTimeoutRef.current = setTimeout(() => {
+                console.warn("Voice tutor WebSocket pong timeout — connection may be dead");
+                // Force close to trigger reconnection
+                try { wsRef.current?.close(); } catch {}
+              }, RECONNECT_CONFIG.pongTimeoutMs);
+            }
+          }, RECONNECT_CONFIG.pingIntervalMs);
+        };
+
+        ws.onmessage = (event) => {
+          let msg;
+          try {
+            msg = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+
+          switch (msg.type) {
+            case WS_MESSAGE_TYPES.SETUP_COMPLETE:
+              setState(VOICE_STATES.READY);
+              if (handsFreeRef.current) {
+                startMic();
+              }
+              break;
+
+            case WS_MESSAGE_TYPES.SERVER_CONTENT:
+              const sc = msg.data;
+              if (sc.inputTranscription) {
+                addToTranscript("user", sc.inputTranscription.text);
+              }
+              if (sc.outputTranscription) {
+                addToTranscript("tutor", sc.outputTranscription.text);
+              }
+              if (sc.modelTurn?.parts) {
+                for (const part of sc.modelTurn.parts) {
+                  if (part.inlineData) {
+                    enqueueAudioChunk(part.inlineData.data);
+                  }
+                }
+              }
+              break;
+
+            case WS_MESSAGE_TYPES.PONG:
+              // Clear pong timeout and record RTT
+              if (pongTimeoutRef.current) {
+                clearTimeout(pongTimeoutRef.current);
+                pongTimeoutRef.current = null;
+              }
+              lastPongTimeRef.current = Date.now();
+              if (msg.t) {
+                const rtt = Date.now() - msg.t;
+                pingRttRef.current.push(rtt);
+                if (pingRttRef.current.length > 10) {
+                  pingRttRef.current.shift();
+                }
+              }
+              break;
+
+            case WS_MESSAGE_TYPES.SESSION_ENDED:
+              setState(VOICE_STATES.ENDED);
+              stopMic();
+              stopTimer();
+              break;
+
+            case WS_MESSAGE_TYPES.SESSION_TIMEOUT:
+              setError("Session ended after 10 minutes.");
+              setState(VOICE_STATES.ENDED);
+              stopMic();
+              stopTimer();
+              break;
+
+            case WS_MESSAGE_TYPES.ERROR:
+              setError(msg.message || "Voice tutor error occurred.");
+              setState(VOICE_STATES.ERROR);
+              break;
+          }
+        };
+
+        ws.onerror = (err) => {
+          console.error("Voice tutor WebSocket error:", err);
+          // Don't switch to fallback immediately — let onclose handle reconnection
+        };
+
+        ws.onclose = () => {
+          console.log("Voice tutor WebSocket closed");
+          // Clean up ping interval
+          if (pingIntervalRef.current) {
+            clearInterval(pingIntervalRef.current);
+            pingIntervalRef.current = null;
+          }
+          if (pongTimeoutRef.current) {
+            clearTimeout(pongTimeoutRef.current);
+            pongTimeoutRef.current = null;
+          }
+
+          // Don't reconnect if session was intentionally ended or errored
+          if (stateRef.current === VOICE_STATES.ENDED || stateRef.current === VOICE_STATES.ERROR) {
+            stopPlayback();
+            stopMic();
+            return;
+          }
+
+          // Attempt reconnection
+          if (reconnectAttemptsRef.current < RECONNECT_CONFIG.maxAttempts) {
+            const attempt = reconnectAttemptsRef.current + 1;
+            const delay = Math.min(
+              RECONNECT_CONFIG.baseDelayMs * Math.pow(2, reconnectAttemptsRef.current),
+              RECONNECT_CONFIG.maxDelayMs
+            );
+            console.log(`Voice tutor attempting reconnect ${attempt}/${RECONNECT_CONFIG.maxAttempts} in ${delay}ms`);
+            setState(VOICE_STATES.CONNECTING);
+            isReconnectingRef.current = true;
+            reconnectAttemptsRef.current = attempt;
+
+            reconnectTimerRef.current = setTimeout(() => {
+              if (stateRef.current === VOICE_STATES.ENDED || stateRef.current === VOICE_STATES.ERROR) return;
+              try {
+                const newWs = new WebSocket(wsUrlRef.current);
+                wsRef.current = newWs;
+                setupWs(newWs);
+              } catch (reconnectErr) {
+                console.error("Voice tutor reconnection failed:", reconnectErr);
+              }
+            }, delay);
+          } else {
+            // Max reconnection attempts exceeded — fall back to text mode
+            console.warn("Voice tutor max reconnection attempts exceeded, switching to text mode");
+            stopPlayback();
+            stopMic();
+            setFallbackMode(true);
+            setError("Connection lost. Switched to text mode.");
+            setState(VOICE_STATES.READY);
+          }
+        };
+      };
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log("Voice tutor WebSocket connected");
-      };
-
-      ws.onmessage = (event) => {
-        let msg;
-        try {
-          msg = JSON.parse(event.data);
-        } catch {
-          return;
-        }
-
-        switch (msg.type) {
-          case WS_MESSAGE_TYPES.SETUP_COMPLETE:
-            setState(VOICE_STATES.READY);
-            if (handsFreeRef.current) {
-              startMic();
-            }
-            break;
-
-          case WS_MESSAGE_TYPES.SERVER_CONTENT:
-            const sc = msg.data;
-            if (sc.inputTranscription) {
-              addToTranscript("user", sc.inputTranscription.text);
-            }
-            if (sc.outputTranscription) {
-              addToTranscript("tutor", sc.outputTranscription.text);
-            }
-            if (sc.modelTurn?.parts) {
-              for (const part of sc.modelTurn.parts) {
-                if (part.inlineData) {
-                  playAudioChunk(part.inlineData.data);
-                }
-              }
-            }
-            break;
-
-          case WS_MESSAGE_TYPES.SESSION_ENDED:
-            setState(VOICE_STATES.ENDED);
-            stopMic();
-            stopTimer();
-            break;
-
-          case WS_MESSAGE_TYPES.SESSION_TIMEOUT:
-            setError("Session ended after 10 minutes.");
-            setState(VOICE_STATES.ENDED);
-            stopMic();
-            stopTimer();
-            break;
-
-          case WS_MESSAGE_TYPES.ERROR:
-            setError(msg.message || "Voice tutor error occurred.");
-            setState(VOICE_STATES.ERROR);
-            break;
-        }
-      };
-
-      ws.onerror = (err) => {
-        console.error("Voice tutor WebSocket error:", err);
-        setError("Connection error. Switching to text mode.");
-        setFallbackMode(true);
-        setState(VOICE_STATES.READY);
-      };
-
-      ws.onclose = () => {
-        console.log("Voice tutor WebSocket closed");
-        stopPlayback();
-        if (stateRef.current !== VOICE_STATES.ENDED && stateRef.current !== VOICE_STATES.ERROR) {
-          setState(VOICE_STATES.IDLE);
-        }
-        stopMic();
-      };
+      setupWs(ws);
     } catch (err) {
       console.error("Voice session start failed:", err);
       setError(err.message || "Failed to start voice session.");
       setState(VOICE_STATES.ERROR);
     }
-  }, [addToTranscript, playAudioChunk, startMic, startTimer, stopMic, stopPlayback, stopTimer]);
+  }, [addToTranscript, enqueueAudioChunk, startMic, startTimer, stopMic, stopPlayback, stopTimer]);
 
   const toggleListening = useCallback(() => {
     if (state === VOICE_STATES.LISTENING) {
       stopMic();
       setState(VOICE_STATES.READY);
-    } else if (state === VOICE_STATES.READY || state === VOICE_STATES.SPEAKING) {
+    } else if (state === VOICE_STATES.READY || state === VOICE_STATES.SPEAKING || state === VOICE_STATES.THINKING) {
       stopPlayback();
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current);
+        thinkingTimeoutRef.current = null;
+      }
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: WS_MESSAGE_TYPES.INTERRUPT }));
       }
@@ -486,6 +749,22 @@ export function useVoiceSession() {
       stopPlayback();
       stopMic();
       stopTimer();
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
+      if (pongTimeoutRef.current) {
+        clearTimeout(pongTimeoutRef.current);
+        pongTimeoutRef.current = null;
+      }
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current);
+        thinkingTimeoutRef.current = null;
+      }
       if (wsRef.current) {
         try { wsRef.current.close(); } catch {}
       }
@@ -501,8 +780,12 @@ export function useVoiceSession() {
     setHandsFreeMode(next);
 
     if (next) {
-      if (stateRef.current === VOICE_STATES.READY || stateRef.current === VOICE_STATES.SPEAKING) {
+      if (stateRef.current === VOICE_STATES.READY || stateRef.current === VOICE_STATES.SPEAKING || stateRef.current === VOICE_STATES.THINKING) {
         stopPlayback();
+        if (thinkingTimeoutRef.current) {
+          clearTimeout(thinkingTimeoutRef.current);
+          thinkingTimeoutRef.current = null;
+        }
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({ type: WS_MESSAGE_TYPES.INTERRUPT }));
         }
@@ -551,6 +834,8 @@ export function useVoiceSession() {
     micLevel,
     handsFreeMode,
     vadState,
+    connectionQuality,
+    isBuffering,
     startSession,
     endSession,
     toggleListening,

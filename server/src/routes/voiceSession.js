@@ -11,6 +11,8 @@ import {
   getGeminiLiveWsUrl,
   getGeminiLiveWsOptions,
   getLiveModel,
+  getCachedDocument,
+  cacheDocument,
 } from "../lib/voiceGrounding.js";
 import { WebSocket } from "ws";
 
@@ -28,6 +30,7 @@ export function deleteActiveSession(sessionId) {
   const s = activeSessions.get(sessionId);
   if (!s) return;
   if (s.timeoutId) clearTimeout(s.timeoutId);
+  if (s.graceTimerId) clearTimeout(s.graceTimerId);
   if (s.geminiWs && s.geminiWs.readyState === WebSocket.OPEN) {
     try { s.geminiWs.close(); } catch {}
   }
@@ -117,21 +120,33 @@ router.post("/start", requireAuth, async (req, res) => {
       }
     }
 
+    // Check document text cache first to avoid re-extraction
     let text = "";
-    try {
-      text = await extractTextFromFile(resource.fileUrl, resource.mimeType, resource.fileName);
-    } catch (extractErr) {
-      console.error("Text extraction failed:", extractErr.message);
-      return res.status(422).json({ error: "Failed to extract text from the document. Please ensure the file is a valid PDF, DOCX, PPTX, or TXT." });
-    }
+    let chunks = null;
+    const cached = getCachedDocument(resource.id);
+    if (cached) {
+      console.log(`Using cached document text for resource ${resource.id}`);
+      text = cached.text;
+      chunks = cached.chunks;
+    } else {
+      try {
+        text = await extractTextFromFile(resource.fileUrl, resource.mimeType, resource.fileName);
+      } catch (extractErr) {
+        console.error("Text extraction failed:", extractErr.message);
+        return res.status(422).json({ error: "Failed to extract text from the document. Please ensure the file is a valid PDF, DOCX, PPTX, or TXT." });
+      }
 
-    if (!text || !text.trim()) {
-      return res.status(422).json({ error: "No text content could be extracted from this document." });
-    }
+      if (!text || !text.trim()) {
+        return res.status(422).json({ error: "No text content could be extracted from this document." });
+      }
 
-    const chunks = chunkText(text);
-    if (chunks.length === 0) {
-      return res.status(422).json({ error: "Document text is too short or empty after processing." });
+      chunks = chunkText(text);
+      if (chunks.length === 0) {
+        return res.status(422).json({ error: "Document text is too short or empty after processing." });
+      }
+
+      // Cache for future sessions
+      cacheDocument(resource.id, text, chunks);
     }
 
     const systemPrompt = buildVoiceSystemPrompt(chunks, mode, resource.title, pageText);

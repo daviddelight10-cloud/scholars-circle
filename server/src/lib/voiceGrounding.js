@@ -7,6 +7,28 @@ const CHUNK_OVERLAP = 500;
 
 const GEMINI_LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
 
+// In-memory document text cache (10-minute TTL)
+const DOC_CACHE_TTL_MS = 10 * 60 * 1000;
+const docCache = new Map();
+
+export function getCachedDocument(resourceId) {
+  const entry = docCache.get(String(resourceId));
+  if (!entry) return null;
+  if (Date.now() - entry.extractedAt > DOC_CACHE_TTL_MS) {
+    docCache.delete(String(resourceId));
+    return null;
+  }
+  return entry;
+}
+
+export function cacheDocument(resourceId, text, chunks) {
+  docCache.set(String(resourceId), {
+    text,
+    chunks,
+    extractedAt: Date.now(),
+  });
+}
+
 export function getLiveModel() {
   return process.env.GEMINI_LIVE_MODEL || GEMINI_LIVE_MODEL;
 }

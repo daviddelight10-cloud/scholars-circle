@@ -201,6 +201,11 @@ async function handleVoiceWsUpgrade(request, socket, head) {
   }
 
   wss.handleUpgrade(request, socket, head, (ws) => {
+    // Clear any existing grace timer (this is a reconnection)
+    if (session.graceTimerId) {
+      clearTimeout(session.graceTimerId);
+      session.graceTimerId = null;
+    }
     session.clientWs = ws;
     console.log(`Client WebSocket connected for voice session ${sessionId}`);
 
@@ -213,6 +218,16 @@ async function handleVoiceWsUpgrade(request, socket, head) {
 
     ws.on("message", (data) => {
       if (!session.setupComplete) return;
+
+      // Handle ping/pong keepalive
+      try {
+        const parsed = JSON.parse(data.toString());
+        if (parsed.type === "ping") {
+          ws.send(JSON.stringify({ type: "pong", t: parsed.t }));
+          return;
+        }
+      } catch {}
+
       if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
         try {
           const parsed = JSON.parse(data.toString());
@@ -253,10 +268,15 @@ async function handleVoiceWsUpgrade(request, socket, head) {
 
     ws.on("close", () => {
       console.log(`Client WebSocket disconnected for voice session ${sessionId}`);
-      if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
-        try { session.geminiWs.close(); } catch {}
-      }
-      deleteActiveSession(sessionId);
+      // Start grace period instead of immediately closing Gemini WS
+      // This allows the client to reconnect without losing the Gemini session
+      session.graceTimerId = setTimeout(() => {
+        console.log(`Voice session ${sessionId} grace period expired, cleaning up`);
+        if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+          try { session.geminiWs.close(); } catch {}
+        }
+        deleteActiveSession(sessionId);
+      }, 30000);
     });
 
     ws.on("error", (err) => {

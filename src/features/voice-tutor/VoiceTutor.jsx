@@ -120,7 +120,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
   const handleOrbClick = useCallback(() => {
     if (voice.state === VOICE_STATES.IDLE || voice.state === VOICE_STATES.ENDED || voice.state === VOICE_STATES.ERROR) {
       if (selectedResourceId) handleStart();
-    } else if (voice.state === VOICE_STATES.READY || voice.state === VOICE_STATES.LISTENING || voice.state === VOICE_STATES.SPEAKING) {
+    } else if (voice.state === VOICE_STATES.READY || voice.state === VOICE_STATES.LISTENING || voice.state === VOICE_STATES.SPEAKING || voice.state === VOICE_STATES.THINKING) {
       voice.toggleListening();
     }
   }, [voice, selectedResourceId, handleStart]);
@@ -188,7 +188,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
     if (!selectedResourceId) return;
     if (voice.state === VOICE_STATES.IDLE || voice.state === VOICE_STATES.ENDED || voice.state === VOICE_STATES.ERROR) {
       handleStart();
-    } else if (voice.state === VOICE_STATES.READY || voice.state === VOICE_STATES.SPEAKING) {
+    } else if (voice.state === VOICE_STATES.READY || voice.state === VOICE_STATES.SPEAKING || voice.state === VOICE_STATES.THINKING) {
       voice.toggleListening();
     } else if (voice.state === VOICE_STATES.LISTENING) {
       voice.toggleListening();
@@ -200,7 +200,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
   else if (voice.state === VOICE_STATES.CONNECTING) statusText = "Connecting to Gemini Live...";
   else if (voice.state === VOICE_STATES.READY) statusText = voice.handsFreeMode ? "Listening — just start talking" : "Ready — tap to speak";
   else if (voice.state === VOICE_STATES.LISTENING) statusText = voice.handsFreeMode ? "Listening — speak naturally" : "Listening — tap to stop";
-  else if (voice.state === VOICE_STATES.SPEAKING) statusText = "Tutor is speaking...";
+  else if (voice.state === VOICE_STATES.SPEAKING) statusText = voice.isBuffering ? "Tutor is speaking (buffering...)" : "Tutor is speaking...";
   else if (voice.state === VOICE_STATES.THINKING) statusText = "Thinking...";
   else if (voice.state === VOICE_STATES.ERROR) statusText = voice.error || "An error occurred";
   else if (voice.state === VOICE_STATES.ENDED) statusText = "Session ended";
@@ -232,6 +232,37 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
             {isActive && (
               <span className="sc-vt-timer">
                 {String(remainingMin).padStart(2, "0")}:{String(remainingSecDisp).padStart(2, "0")} left
+              </span>
+            )}
+            {isActive && voice.connectionQuality && (
+              <span
+                title={`Connection: ${voice.connectionQuality}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  fontSize: 11,
+                  fontFamily: FONTS.body,
+                  color: COLORS.textDim,
+                  padding: "4px 10px",
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.05)",
+                }}
+              >
+                <span style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: voice.connectionQuality === "good" ? COLORS.green
+                    : voice.connectionQuality === "fair" ? COLORS.gold
+                    : COLORS.coral,
+                  boxShadow: `0 0 6px ${
+                    voice.connectionQuality === "good" ? COLORS.green
+                    : voice.connectionQuality === "fair" ? COLORS.gold
+                    : COLORS.coral
+                  }`,
+                }} />
+                {voice.connectionQuality === "good" ? "Good" : voice.connectionQuality === "fair" ? "Fair" : "Poor"}
               </span>
             )}
             {onExit && (
