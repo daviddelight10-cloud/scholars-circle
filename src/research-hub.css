@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+@theme {
+  --color-hub-bg: #0a0a0a;
+  --color-hub-surface: #141414;
+  --color-hub-surface-hover: #1a1a1a;
+  --color-hub-border: #2a2a2a;
+  --color-hub-border-active: #FFD700;
+  --color-hub-text: #e8e8e8;
+  --color-hub-text-muted: #888888;
+  --color-hub-text-dim: #555555;
+  --color-hub-text-bright: #FFD700;
+
+  --color-gold: #FFD700;
+  --color-gold-dim: rgba(255,215,0,0.15);
+  --color-gold-border: rgba(255,215,0,0.35);
+
+  --color-coral: #ef4444;
+  --color-coral-50: rgba(239,68,68,0.08);
+  --color-coral-100: rgba(239,68,68,0.12);
+  --color-coral-200: rgba(239,68,68,0.20);
+  --color-coral-300: rgba(239,68,68,0.30);
+  --color-coral-400: #f87171;
+  --color-coral-500: #ef4444;
+
+  --color-success-bg: #0f2a1a;
+  --color-success-border: #2a6a3a;
+  --color-success-text: #a5d6a7;
+
+  --font-sans: "Inter", "Segoe UI", "Roboto", "Arial", "sans-serif";
+
+  --animate-stagger-in: stagger-in 0.3s ease both;
+  --animate-due-pulse: due-pulse 2s ease-in-out infinite;
+  --animate-modal-in: modal-in 0.2s ease both;
+  --animate-fade-up: fade-up 0.2s ease both;
+}
+
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger-in {
+  animation: stagger-in 0.3s ease both;
+}
+
+@keyframes due-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.due-pulse {
+  animation: due-pulse 2s ease-in-out infinite;
+}
+
+@keyframes modal-in {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.modal-in {
+  animation: modal-in 0.2s ease both;
+}
+
+@keyframes fade-up {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes fabslide {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fabglow {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(255,215,0,0.4), 0 0 0 0 rgba(255,215,0,0.3);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(255,215,0,0.55), 0 0 0 6px rgba(255,215,0,0.08);
+  }
+}
+
+@keyframes error-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Gold gradient text */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Hide scrollbar for tab rows */
+.sc-tabrow::-webkit-scrollbar { display: none; }
+.sc-tabrow { scrollbar-width: none; -ms-overflow-style: none; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .stagger-in,
+  .due-pulse,
+  .modal-in {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ── Flashcard Runner animations ─────────────────────────────────────── */
+@keyframes fc-card-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.fc-float {
+  animation: fc-card-float 3s ease-in-out infinite;
+}
+
+@keyframes fc-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.fc-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  animation: fc-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes fc-fade-in-up {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.fc-fade-in-up {
+  animation: fc-fade-in-up 0.35s ease both;
+}
+
+@keyframes fc-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,112,67,0.5); }
+  50% { box-shadow: 0 0 12px 3px rgba(255,112,67,0.45); }
+}
+.fc-pulse-glow {
+  animation: fc-pulse-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes fc-bounce-hint {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(3px); opacity: 1; }
+}
+.fc-bounce-hint {
+  animation: fc-bounce-hint 1.8s ease-in-out infinite;
+}
+
+@keyframes fc-scale-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.fc-scale-in {
+  animation: fc-scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes fc-pulse-text {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.fc-pulse-text {
+  animation: fc-pulse-text 1.4s ease-in-out infinite;
+}
+
+/* On mobile, the global bottom-nav FAB (App.jsx .nav-fab) already provides
+   Upload/Create Folder actions and navigates into My Circle. Hide this
+   duplicate FAB on mobile to avoid two floating action buttons. Desktop has
+   no global FAB, so this stays visible there. */
+@media (max-width: 768px) {
+  .mc-fab-overlay,
+  .mc-fab-container {
+    display: none !important;
+  }
+}

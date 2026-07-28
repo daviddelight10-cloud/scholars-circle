@@ -1,0 +1,899 @@
+[
+  {
+    "q": "Vertebrates belong to which Sub-Phylum?",
+    "options": [
+      "Vertebrata (Craniata)",
+      "Urochordata",
+      "Cephalochordata",
+      "Hemichordata"
+    ],
+    "answer": 0,
+    "explanation": "Vertebrates are placed in the Sub-Phylum Vertebrata, also called Craniata because they possess a cranium (brain box). They are the most advanced group of animals in Phylum Chordata.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which structure replaces the notochord in adult vertebrates?",
+    "options": [
+      "Vertebral column (backbone)",
+      "Cranium",
+      "Spinal cord",
+      "Exoskeleton"
+    ],
+    "answer": 0,
+    "explanation": "In vertebrates, the vertebral column (backbone) made of vertebrae replaces the notochord. The notochord is only present during the embryonic stage.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The heart of Class Pisces (bony fishes) has how many chambers?",
+    "options": [
+      "Two chambers",
+      "Three chambers",
+      "Four chambers",
+      "One chamber"
+    ],
+    "answer": 0,
+    "explanation": "Fishes have a two-chambered heart consisting of one atrium and one ventricle. This is a key distinguishing feature compared to amphibians (3) and birds/mammals (4).",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What organ in bony fishes controls buoyancy?",
+    "options": [
+      "Swim bladder",
+      "Lateral line",
+      "Operculum",
+      "Ampullae of Lorenzini"
+    ],
+    "answer": 0,
+    "explanation": "The swim bladder in bony fishes controls buoyancy by regulating the amount of gas inside it, allowing the fish to rise or sink to different depths without expending energy.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Class Amphibia are described as 'poikilothermic.' This means they are:",
+    "options": [
+      "Cold-blooded (body temperature varies with environment)",
+      "Warm-blooded (constant body temperature)",
+      "Semi-warm-blooded",
+      "Unable to thermoregulate completely"
+    ],
+    "answer": 0,
+    "explanation": "Poikilothermic (also called ectothermic) means the animal's body temperature changes with the environmental temperature. Amphibians, fishes, and reptiles are all cold-blooded (poikilothermic).",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which type of fertilization occurs in most amphibians?",
+    "options": [
+      "External fertilization",
+      "Internal fertilization",
+      "Parthenogenesis",
+      "Self-fertilization"
+    ],
+    "answer": 0,
+    "explanation": "Most amphibians practice external fertilization, where eggs are fertilized outside the body, typically in water. This is why amphibians must return to water to reproduce.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What is the larval stage of a frog called?",
+    "options": [
+      "Tadpole",
+      "Caterpillar",
+      "Nauplius",
+      "Nymph"
+    ],
+    "answer": 0,
+    "explanation": "The larval stage of a frog is called a tadpole. It is fully aquatic, breathes through gills, and has a tail. It undergoes metamorphosis to develop into the adult frog with lungs and limbs.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Reptiles are described as 'fully terrestrial.' Which adaptation makes their eggs independent of water?",
+    "options": [
+      "Amniotic egg with leathery shell and protective membranes",
+      "External fertilization",
+      "Metamorphosis stage",
+      "Cutaneous respiration"
+    ],
+    "answer": 0,
+    "explanation": "The amniotic egg has protective membranes (amnion, chorion, allantois) and a leathery shell that prevents desiccation. This allows reptiles to reproduce on land without needing water.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which class of vertebrates has pneumatic (hollow) bones?",
+    "options": [
+      "Aves (Birds)",
+      "Mammalia",
+      "Reptilia",
+      "Amphibia"
+    ],
+    "answer": 0,
+    "explanation": "Birds (Aves) have pneumatic bones containing air cavities. This significantly reduces body weight, making flight easier. The air spaces are connected to the air sac system.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which sub-group of mammals lays eggs instead of giving birth to live young?",
+    "options": [
+      "Monotremes",
+      "Marsupials",
+      "Placentals",
+      "Cetaceans"
+    ],
+    "answer": 0,
+    "explanation": "Monotremes are the only egg-laying mammals. Examples include the platypus and echidna. Most other mammals are either marsupials (give birth to very undeveloped young) or placentals (give birth to well-developed young).",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What type of circulatory system do all vertebrates possess?",
+    "options": [
+      "Open circulatory system",
+      "Closed circulatory system with a ventral heart",
+      "Semi-closed circulatory system",
+      "No circulatory system"
+    ],
+    "answer": 1,
+    "explanation": "All vertebrates have a closed circulatory system where blood is confined within blood vessels. The heart is ventral (positioned on the underside), unlike invertebrates that may have dorsal hearts.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "In sharks, the skeleton is made of:",
+    "options": [
+      "Bone",
+      "Cartilage",
+      "Chitin",
+      "Calcium carbonate"
+    ],
+    "answer": 1,
+    "explanation": "Sharks belong to Class Chondrichthyes and have a cartilaginous skeleton (made of cartilage, not bone). Bony fishes (Class Osteichthyes) have skeletons made of bone.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The lateral line system in fishes is used for:",
+    "options": [
+      "Digestion",
+      "Detecting water vibrations and pressure changes",
+      "Reproduction",
+      "Buoyancy regulation"
+    ],
+    "answer": 1,
+    "explanation": "The lateral line system is a sensory system found along the sides of fishes. It detects vibrations, pressure changes, and movement in the surrounding water, helping fish avoid predators and locate prey.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Amphibians undergo which unique developmental process?",
+    "options": [
+      "Moulting",
+      "Metamorphosis",
+      "Parthenogenesis",
+      "Sporulation"
+    ],
+    "answer": 1,
+    "explanation": "Amphibians undergo metamorphosis — a remarkable transformation from the aquatic larval stage (tadpole with gills and tail) to the adult form (lungs and limbs). This is a defining characteristic of Class Amphibia.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The tympanic membrane visible on a frog is functionally equivalent to what structure in humans?",
+    "options": [
+      "Nose",
+      "Eardrum",
+      "Eye lens",
+      "Throat"
+    ],
+    "answer": 1,
+    "explanation": "The tympanic membrane in frogs is equivalent to the human eardrum. It is a visible circular disc behind the eye that detects sound vibrations and is part of the frog's hearing apparatus.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Reptiles maintain their body temperature mainly through:",
+    "options": [
+      "Internal metabolic heat (endothermy)",
+      "Behavioural thermoregulation (e.g., basking in sunlight)",
+      "Sweating",
+      "Shivering"
+    ],
+    "answer": 1,
+    "explanation": "Although reptiles are ectothermic (cold-blooded), they regulate body temperature through behaviour — for example, basking in the sun to warm up or moving to shade to cool down. This is called behavioural thermoregulation.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Birds respire using lungs AND which additional structures?",
+    "options": [
+      "Gills",
+      "Air sacs (double respiration system)",
+      "Swim bladder",
+      "Book lungs"
+    ],
+    "answer": 1,
+    "explanation": "Birds have a highly efficient 'double respiration' system using lungs AND air sacs. Air flows through the lungs in one direction (unidirectional flow) during both inhalation and exhalation, making gas exchange very efficient for the high energy demands of flight.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What is the function of the uropygial gland in birds?",
+    "options": [
+      "Digestion of food",
+      "Preening (waterproofing and maintaining feathers)",
+      "Flight control",
+      "Sound production"
+    ],
+    "answer": 1,
+    "explanation": "The uropygial gland (preen gland) is located at the base of a bird's tail. Birds use their beak to spread oil from this gland over their feathers during preening, which waterproofs and maintains feather structure.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Mammals are uniquely characterized by the presence of:",
+    "options": [
+      "Scales",
+      "Mammary glands that produce milk",
+      "Feathers",
+      "Two-chambered heart"
+    ],
+    "answer": 1,
+    "explanation": "The presence of mammary glands is the defining characteristic of Class Mammalia. These glands produce milk to nourish offspring, providing them with nutrition and immunity. This is unique to mammals.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "In mammals, what separates the thoracic and abdominal cavities?",
+    "options": [
+      "Sternum",
+      "Diaphragm",
+      "Ribcage",
+      "Pelvis"
+    ],
+    "answer": 1,
+    "explanation": "The diaphragm is a muscular sheet that separates the thorax (chest cavity) from the abdomen. It plays a crucial role in breathing by contracting and relaxing to change the volume of the chest cavity, drawing air in and out of the lungs.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Warm-blooded animals that maintain a constant body temperature are described as:",
+    "options": [
+      "Poikilothermic",
+      "Ectothermic",
+      "Homeothermic (endothermic)",
+      "Exothermic"
+    ],
+    "answer": 2,
+    "explanation": "Homeothermic (or endothermic) animals maintain a constant internal body temperature regardless of the external environment. Birds and mammals are warm-blooded. This requires more energy but allows activity in varied climates.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What is unique about the heart of crocodiles among reptiles?",
+    "options": [
+      "Two-chambered",
+      "Three-chambered",
+      "Four-chambered (like birds and mammals)",
+      "No heart"
+    ],
+    "answer": 2,
+    "explanation": "Unlike other reptiles that have a three-chambered heart with incomplete separation, crocodiles have a fully four-chambered heart, similar to birds and mammals. This is thought to be an evolutionary adaptation related to their active predatory lifestyle.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which sensory organ in sharks detects electric fields produced by prey?",
+    "options": [
+      "Lateral line",
+      "Olfactory bulb",
+      "Ampullae of Lorenzini",
+      "Operculum"
+    ],
+    "answer": 2,
+    "explanation": "The ampullae of Lorenzini are electroreceptor organs found in sharks and related cartilaginous fishes. They detect weak electric fields generated by the muscle contractions of nearby animals, helping sharks locate hidden prey.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The forelimbs of birds are modified into:",
+    "options": [
+      "Flippers",
+      "Claws",
+      "Wings",
+      "Tentacles"
+    ],
+    "answer": 2,
+    "explanation": "In birds (Aves), the forelimbs are modified into wings — one of their most distinctive adaptations for flight. The wing structure consists of modified bones comparable to the human arm but restructured for aerodynamic efficiency.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which type of dentition do mammals have, where different teeth have different shapes and functions?",
+    "options": [
+      "Homodont dentition",
+      "Acrodont dentition",
+      "Heterodont dentition",
+      "Pleurodont dentition"
+    ],
+    "answer": 2,
+    "explanation": "Mammals have heterodont dentition — their teeth are of different types (incisors, canines, premolars, molars) each adapted for specific functions such as cutting, tearing, or grinding food. This is distinct from reptiles which have homodont dentition (teeth all the same shape).",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Freshwater fishes deal with osmotic challenges by:",
+    "options": [
+      "Drinking lots of water and excreting little urine",
+      "Absorbing salt from the water",
+      "Producing large amounts of dilute urine",
+      "Excreting excess salt through gills only"
+    ],
+    "answer": 2,
+    "explanation": "Freshwater fishes live in a hypotonic environment (less salty than their bodies), so water constantly enters their bodies by osmosis. To compensate, they produce large volumes of very dilute urine to expel the excess water.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which feature is present only during the embryonic stage of vertebrates and is replaced in adults?",
+    "options": [
+      "Vertebral column",
+      "Cranium",
+      "Notochord",
+      "Spinal cord"
+    ],
+    "answer": 2,
+    "explanation": "The notochord is a flexible rod-like structure present in all chordate embryos. In vertebrates, it is replaced by the vertebral column (backbone) as the animal matures. It only persists in adults as remnants between vertebral discs.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What is 'cutaneous respiration' as seen in amphibians?",
+    "options": [
+      "Breathing through gills",
+      "Breathing through lungs",
+      "Gas exchange through the moist skin",
+      "Breathing through the mouth only"
+    ],
+    "answer": 2,
+    "explanation": "Cutaneous respiration is the process of gas exchange (oxygen and carbon dioxide) through the skin. In amphibians, the moist, thin, glandular skin is richly supplied with blood vessels and serves as an important respiratory surface, especially during hibernation or underwater.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which class of vertebrates includes the first animals to transition from aquatic to terrestrial life?",
+    "options": [
+      "Pisces",
+      "Reptilia",
+      "Amphibia",
+      "Aves"
+    ],
+    "answer": 2,
+    "explanation": "Amphibia represents the first vertebrates to successfully live on land, making them a transitional group between fully aquatic (fish) and fully terrestrial (reptiles) vertebrates. They still depend on water for reproduction and larval development.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What is 'autotomy' as observed in lizards?",
+    "options": [
+      "Growing a new tail from birth",
+      "Regenerating lost limbs",
+      "The ability to voluntarily shed the tail as a defence mechanism",
+      "Changing skin colour"
+    ],
+    "answer": 2,
+    "explanation": "Autotomy is the ability of lizards to voluntarily detach (shed) their tail when grabbed by a predator. The tail may wriggle to distract the predator while the lizard escapes. The tail can later regenerate, though the regenerated tail is usually made of cartilage rather than bone.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Marine fishes deal with salt concentration by:",
+    "options": [
+      "Producing dilute urine",
+      "Absorbing fresh water from food only",
+      "Drinking seawater and actively excreting excess salt through gills",
+      "Reducing all metabolic activity"
+    ],
+    "answer": 2,
+    "explanation": "Marine fishes live in a hypertonic environment (saltier than their bodies), so they constantly lose water by osmosis. To compensate, they drink large amounts of seawater and actively excrete excess salt through specialized cells in their gills and produce small amounts of concentrated urine.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The 'keel' (enlarged sternum) in birds is important because it:",
+    "options": [
+      "Protects the heart",
+      "Stores food",
+      "Provides attachment for powerful pectoral (flight) muscles",
+      "Aids in egg laying"
+    ],
+    "answer": 2,
+    "explanation": "The keel is an extended projection of the sternum (breastbone) in birds. It provides a large surface area for the attachment of the powerful pectoral muscles responsible for the flapping wing movements used in flight. Flightless birds (like ostriches) have a reduced keel.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Bipedal locomotion in humans is significant because it:",
+    "options": [
+      "Allows faster running than quadrupeds",
+      "Allows swimming efficiency",
+      "Frees the forelimbs for tool manipulation and fine motor tasks",
+      "Reduces brain size"
+    ],
+    "answer": 2,
+    "explanation": "Bipedal locomotion (walking on two legs) in humans frees the forelimbs (arms and hands) for tool use, object manipulation, and other complex tasks. Combined with opposable thumbs and a large brain, bipedalism is fundamental to human intelligence and culture.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The nictitating membrane in frogs is a:",
+    "options": [
+      "Poison gland",
+      "Respiratory membrane",
+      "Transparent third eyelid that protects the eye",
+      "Tympanic covering"
+    ],
+    "answer": 2,
+    "explanation": "The nictitating membrane is a transparent or translucent third eyelid in frogs (and some other animals). It can be drawn across the eye to protect and moisten it while still allowing vision — useful when the frog is in water or in potentially harmful environments.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which feature of birds makes their skeleton lightweight for flight?",
+    "options": [
+      "Solid dense bones",
+      "Bones made of cartilage",
+      "Pneumatic bones containing air cavities",
+      "Reduced number of bones"
+    ],
+    "answer": 2,
+    "explanation": "Birds have pneumatic bones — hollow bones with internal struts that are connected to the air sac system. This makes the skeleton extremely lightweight without sacrificing strength, which is essential for reducing the energy cost of flight.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which class of vertebrates is fully ectothermic, has dry horny scales, and reproduces via amniotic eggs?",
+    "options": [
+      "Amphibia",
+      "Pisces",
+      "Aves",
+      "Reptilia"
+    ],
+    "answer": 3,
+    "explanation": "Reptilia are fully terrestrial, cold-blooded (ectothermic), have dry horny scales that prevent water loss, and reproduce using amniotic eggs with leathery shells. These adaptations make them well-suited for completely terrestrial life.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Snakes differ from most reptiles because they lack:",
+    "options": [
+      "Scales",
+      "Internal fertilization",
+      "A vertebral column",
+      "Paired appendages (limbs)"
+    ],
+    "answer": 3,
+    "explanation": "Snakes are limbless reptiles — they lack the paired appendages (limbs) found in most other reptiles. They have vestigial remnants of a pelvic girdle internally in some species (like pythons), but external limbs are completely absent.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The operculum in bony fishes is:",
+    "options": [
+      "A type of scale",
+      "A fin",
+      "A swim bladder component",
+      "A bony flap covering the gills"
+    ],
+    "answer": 3,
+    "explanation": "The operculum is a hard bony flap that covers and protects the gills in bony fishes. It also plays a role in ventilating the gills by pumping water over them. Cartilaginous fishes like sharks lack an operculum and have exposed gill slits instead.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Excretion in vertebrates is primarily carried out by:",
+    "options": [
+      "Skin",
+      "Gills",
+      "Liver",
+      "Kidneys"
+    ],
+    "answer": 3,
+    "explanation": "Kidneys are the primary excretory organs in vertebrates. They filter blood, removing metabolic waste products (especially nitrogenous waste like urea or uric acid) and excess water and salts, producing urine that is excreted from the body.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The placenta in most mammals serves what vital function?",
+    "options": [
+      "Produces milk for young",
+      "Regulates body temperature",
+      "Provides attachment for flight muscles",
+      "Nourishes the developing embryo and facilitates gas exchange"
+    ],
+    "answer": 3,
+    "explanation": "The placenta is a specialized organ in most (placental) mammals that connects the developing embryo to the mother's uterine wall. It allows the transfer of nutrients, oxygen, and antibodies from mother to fetus, and removes waste products from the fetus.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which of the following is a correct example of Class Aves?",
+    "options": [
+      "Tilapia",
+      "Toad",
+      "Salamander",
+      "Pigeon"
+    ],
+    "answer": 3,
+    "explanation": "The pigeon is a bird (Class Aves). Tilapia is a fish (Class Pisces), toad belongs to Class Amphibia, and salamander is also an amphibian. Birds are characterized by feathers, wings, beaks, and four-chambered hearts.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The pinna in mammals refers to:",
+    "options": [
+      "The tail fin",
+      "A type of scale",
+      "Mammary gland",
+      "The external ear (ear flap)"
+    ],
+    "answer": 3,
+    "explanation": "The pinna (plural: pinnae) is the visible external part of the ear found in mammals. It is made of cartilage covered by skin and serves to collect sound waves and direct them into the ear canal. This is a distinctive mammalian feature.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Sharks use their ampullae of Lorenzini to detect:",
+    "options": [
+      "Temperature only",
+      "Light intensity",
+      "Sound frequency",
+      "Electric fields produced by living organisms"
+    ],
+    "answer": 3,
+    "explanation": "The ampullae of Lorenzini are gel-filled sensory organs in sharks that are extremely sensitive to weak electric fields. All living organisms produce small electric fields when their muscles contract. Sharks use this sense (electroreception) to detect hidden or buried prey with great precision.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which vertebrate class undergoes NO metamorphosis and lays eggs with leathery shells?",
+    "options": [
+      "Amphibia",
+      "Pisces",
+      "Aves",
+      "Reptilia"
+    ],
+    "answer": 3,
+    "explanation": "Reptiles do not undergo metamorphosis — the juvenile that hatches from the egg is a miniature version of the adult. Their eggs have leathery shells that protect the developing embryo from desiccation while allowing gas exchange, enabling fully terrestrial reproduction.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Heterodont dentition found in mammals — which tooth type is primarily for tearing food?",
+    "options": [
+      "Incisors",
+      "Premolars",
+      "Molars",
+      "Canines"
+    ],
+    "answer": 3,
+    "explanation": "Canines (also called cuspids or fangs) are the pointed teeth in mammals designed for gripping and tearing food, especially meat. Incisors are for cutting/biting, while premolars and molars are for crushing and grinding food.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Double respiration in birds means that:",
+    "options": [
+      "Birds breathe twice as fast as mammals",
+      "Birds have two sets of lungs",
+      "Birds breathe only through their skin",
+      "Gas exchange occurs during BOTH inhalation and exhalation, maximising oxygen extraction"
+    ],
+    "answer": 3,
+    "explanation": "In birds, the air sac system creates a unidirectional flow of air through the lungs. Unlike mammals where gas exchange only occurs during inhalation, birds extract oxygen from air continuously during both inhalation and exhalation. This makes their respiratory system the most efficient among vertebrates.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which of the following correctly describes monotremes?",
+    "options": [
+      "They are marsupial mammals",
+      "They are fully aquatic mammals",
+      "They are placental mammals with advanced brains",
+      "Egg-laying mammals (e.g., platypus, echidna)"
+    ],
+    "answer": 3,
+    "explanation": "Monotremes are the most primitive group of living mammals. Unlike all other mammals, they lay eggs rather than giving birth to live young. After hatching, the young are fed milk from mammary glands (without nipples — milk seeps through the skin). Examples are the platypus and echidna.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The contour feathers of birds primarily serve which function?",
+    "options": [
+      "Insulation",
+      "Balance during walking",
+      "Waterproofing",
+      "Flight and giving the bird its streamlined shape"
+    ],
+    "answer": 3,
+    "explanation": "Contour feathers are the large, stiff outer feathers of a bird. They give the bird its streamlined aerodynamic shape and are essential for flight. Down feathers (found beneath contour feathers) provide insulation, while filoplumes are sensory feathers.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "A vertebrate with a moist glandular skin, three-chambered heart, and that undergoes external fertilization most likely belongs to which class?",
+    "options": [
+      "Reptilia",
+      "Aves",
+      "Mammalia",
+      "Amphibia"
+    ],
+    "answer": 3,
+    "explanation": "All three features — moist glandular skin (no scales), three-chambered heart, and external fertilization — are characteristic of Class Amphibia. Their moist skin is used for cutaneous respiration, and their three-chambered heart has two atria and one ventricle.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "What is the term for the ability of birds to maintain a constant warm body temperature despite external temperature changes?",
+    "options": [
+      "Poikilothermy",
+      "Ectothermy",
+      "Osmoregulation",
+      "Homoiothermy (Endothermy)"
+    ],
+    "answer": 3,
+    "explanation": "Homoiothermy (also called endothermy or being warm-blooded) is the ability to maintain a constant internal body temperature through metabolic heat production, regardless of external temperatures. This is characteristic of both birds and mammals and requires a high metabolic rate.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "In the Linnaean taxonomic hierarchy, which rank comes immediately ABOVE Phylum?",
+    "options": [
+      "Kingdom",
+      "Order",
+      "Class",
+      "Family"
+    ],
+    "answer": 0,
+    "explanation": "The hierarchy from broadest to most specific is: Domain → Kingdom → Phylum → Class → Order → Family → Genus → Species. Kingdom is directly above Phylum.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Animals are best described as organisms that are:",
+    "options": [
+      "Multicellular, eukaryotic, and heterotrophic",
+      "Unicellular, prokaryotic, and autotrophic",
+      "Multicellular, prokaryotic, and autotrophic",
+      "Unicellular, eukaryotic, and heterotrophic"
+    ],
+    "answer": 0,
+    "explanation": "Animals (Kingdom Animalia) are multicellular, eukaryotic organisms that are heterotrophic (they ingest food rather than produce it) and are generally motile at some life stage.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Phylum Porifera (sponges) is characterized by having:",
+    "options": [
+      "No true tissues or organs; cellular level of organization only",
+      "A gastrovascular cavity and radial symmetry",
+      "A complete digestive tract and bilateral symmetry",
+      "Segmented body with a closed circulatory system"
+    ],
+    "answer": 0,
+    "explanation": "Porifera are the most primitive animals — they have no true tissues or organs. Their body is organized at the cellular level, full of pores (ostia), with choanocytes (collar cells) for filter feeding.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The stinging cells unique to Phylum Cnidaria are called:",
+    "options": [
+      "Cnidocytes",
+      "Choanocytes",
+      "Flame cells",
+      "Spicules"
+    ],
+    "answer": 0,
+    "explanation": "Cnidocytes are specialized stinging cells found only in Cnidaria (jellyfish, hydra, corals). They contain nematocysts used for prey capture and defense. Choanocytes are feeding cells in sponges.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which of the following is NOT a key characteristic of all Chordates?",
+    "options": [
+      "Exoskeleton made of chitin",
+      "Notochord (at least at some stage)",
+      "Dorsal hollow nerve cord",
+      "Post-anal tail"
+    ],
+    "answer": 0,
+    "explanation": "The four defining chordate features are: notochord, dorsal hollow nerve cord, pharyngeal slits, and post-anal tail. A chitinous exoskeleton is characteristic of Arthropoda, not Chordata.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Bony fishes (Osteichthyes) possess which structure used for controlling buoyancy?",
+    "options": [
+      "Swim bladder",
+      "Lateral line only",
+      "Placoid scales",
+      "Operculum"
+    ],
+    "answer": 0,
+    "explanation": "The swim bladder is a gas-filled sac in bony fishes (Osteichthyes) that regulates buoyancy, allowing the fish to maintain depth without constant swimming. Cartilaginous fishes (sharks) lack it.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Amphibians are described as a 'transitional group' because they:",
+    "options": [
+      "Were the first vertebrates to live on land, bridging aquatic and terrestrial life",
+      "Are fully aquatic throughout their lives",
+      "Have dry scaly skin like reptiles",
+      "Lay hard-shelled amniotic eggs"
+    ],
+    "answer": 0,
+    "explanation": "Amphibians represent a critical evolutionary transition — adults can live on land and breathe with lungs, but they return to water for reproduction. Tadpole larvae are fully aquatic and breathe with gills.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The amniotic egg of reptiles is significant because:",
+    "options": [
+      "It allows reproduction independent of water, with protective membranes (amnion, chorion, allantois) and a leathery shell",
+      "It must be laid in water to prevent desiccation",
+      "It has no shell and requires parental incubation",
+      "It contains a larval (tadpole) stage"
+    ],
+    "answer": 0,
+    "explanation": "The amniotic egg was a key evolutionary innovation — membranes (amnion, chorion, allantois) protect and nourish the embryo, while the leathery shell prevents water loss. This freed reptiles completely from aquatic reproduction.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Birds (Class Aves) have a four-chambered heart and are classified as:",
+    "options": [
+      "Endothermic (warm-blooded, homoiothermic)",
+      "Ectothermic (cold-blooded, poikilothermic)",
+      "Poikilothermic with variable temperature",
+      "Partially endothermic only in flight"
+    ],
+    "answer": 0,
+    "explanation": "Birds are endothermic (warm-blooded) — they maintain a constant high body temperature regardless of the environment. This, combined with high metabolic rate and air sacs, supports the enormous energy demands of flight.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Which feature is UNIQUE to mammals and not found in any other vertebrate class?",
+    "options": [
+      "Mammary glands that produce milk to nourish young",
+      "Four-chambered heart",
+      "Endothermy (warm-bloodedness)",
+      "Internal fertilization"
+    ],
+    "answer": 0,
+    "explanation": "Mammary glands are the defining feature of Class Mammalia — the name itself comes from 'mamma' (breast). While birds also have four-chambered hearts and are endothermic, only mammals have mammary glands.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Phylum Platyhelminthes (flatworms) are described as acoelomate, meaning they:",
+    "options": [
+      "Have a true coelom lined by mesoderm",
+      "Have no body cavity (no coelom)",
+      "Have a pseudocoelom only",
+      "Have multiple body cavities"
+    ],
+    "answer": 1,
+    "explanation": "Acoelomate means the organism lacks a true body cavity between the body wall and gut. Platyhelminthes have solid mesoderm filling this space. Compare: Nematoda are pseudocoelomate; Annelida–Chordata are eucoelomate.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Nematoda (roundworms) differ from Annelida (segmented worms) in that Nematoda:",
+    "options": [
+      "Have a closed circulatory system",
+      "Are unsegmented and pseudocoelomate",
+      "Have setae for locomotion",
+      "Are always free-living, never parasitic"
+    ],
+    "answer": 1,
+    "explanation": "Nematodes are cylindrical, unsegmented worms with a pseudocoelom (body cavity not fully lined by mesoderm). Annelids have true segmentation (metamerism), a true coelom, and a closed circulatory system.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The water vascular system, which operates tube feet for locomotion, is characteristic of Phylum:",
+    "options": [
+      "Mollusca",
+      "Echinodermata",
+      "Annelida",
+      "Arthropoda"
+    ],
+    "answer": 1,
+    "explanation": "The water vascular system is unique to Echinodermata (starfish, sea urchins, sea cucumbers). Seawater enters through the madreporite and is pumped through canals to operate hydraulic tube feet for movement and feeding.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The phylum with the LARGEST number of known animal species, owing to its chitinous exoskeleton and jointed appendages, is:",
+    "options": [
+      "Chordata",
+      "Arthropoda",
+      "Mollusca",
+      "Nematoda"
+    ],
+    "answer": 1,
+    "explanation": "Arthropoda is the largest animal phylum by species count (over 1 million described). It includes insects, spiders, crustaceans, and millipedes — all unified by their chitinous exoskeleton and jointed appendages.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "In cladistics, modern taxonomy groups birds WITHIN Reptilia because:",
+    "options": [
+      "Birds have scales on their legs like reptiles",
+      "The traditional Reptilia is paraphyletic if birds are excluded — cladistics requires monophyletic groups",
+      "Birds lay eggs like reptiles",
+      "Birds are ectothermic like most reptiles"
+    ],
+    "answer": 1,
+    "explanation": "Cladistics demands monophyletic groups (all descendants of a common ancestor). Traditional Reptilia is paraphyletic because it includes the common ancestor but excludes birds. Modern cladistics places birds within Reptilia (as Archosauria).",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The lateral line system in fish is used primarily to:",
+    "options": [
+      "Regulate buoyancy",
+      "Detect pressure changes and vibrations in the water",
+      "Filter food particles",
+      "Excrete excess salts"
+    ],
+    "answer": 1,
+    "explanation": "The lateral line is a mechanosensory system running along the fish's side. It detects water pressure changes, vibrations, and movement — helping fish sense predators, prey, and school with other fish in murky water.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Cutaneous respiration in adult amphibians refers to:",
+    "options": [
+      "Breathing only through gills",
+      "Gas exchange occurring through the moist skin",
+      "Breathing through the swim bladder",
+      "Respiration via book lungs"
+    ],
+    "answer": 1,
+    "explanation": "Cutaneous respiration = gas exchange through the skin. Amphibians have thin, moist, highly vascularised skin that allows oxygen and CO₂ to diffuse in and out. This supplements lung breathing, especially during hibernation.",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "The Subphylum Cephalochordata (e.g., Amphioxus/Branchiostoma) differs from vertebrates in that it:",
+    "options": [
+      "Has no notochord at any stage",
+      "Retains the notochord throughout life but never develops a true vertebral column",
+      "Has a well-developed skull and brain",
+      "Is exclusively terrestrial"
+    ],
+    "answer": 1,
+    "explanation": "Cephalochordates (lancelets like Branchiostoma) are fish-like marine animals that retain the notochord from head to tail throughout their entire lives — they never develop a vertebral column or true skull (unlike Vertebrata).",
+    "difficulty": "medium",
+    "year": "2026"
+  },
+  {
+    "q": "Reptiles are described as ectothermic. This means they:",
+    "options": [
+      "Generate heat internally to maintain constant body temperature",
+      "Rely on external environmental heat sources to regulate body temperature",
+      "Cannot survive in hot climates",
+      "Maintain body temperature through metabolic heat alone"
+    ],
+    "answer": 1,
+    "explanation": "Ectothermic ('cold-blooded') animals rely on external h",
+    "difficulty": "medium",
+    "year": "2026"
+  }
+]
