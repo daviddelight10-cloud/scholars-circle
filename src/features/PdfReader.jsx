@@ -810,14 +810,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     requestAnimationFrame(() => {
       if (scrollMode === "vertical") {
         container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
-        if (container.scrollWidth > container.clientWidth) {
-          container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
-        }
       } else if (scrollMode === "horizontal") {
         container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
-        if (container.scrollHeight > container.clientHeight) {
-          container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
-        }
       }
     });
   };
@@ -2460,9 +2454,23 @@ ${extractedText}
       const dist = Math.hypot(dx, dy);
       const ratio = dist / pinchStartDistRef.current;
       if (scrollMode !== "single") {
-        // Continuous mode: no CSS transform — just track visual scale for badge, commit on pinch end
+        // Continuous mode: visual feedback via CSS transform, commit on pinch end
         const visualScale = Math.max(0.5, Math.min(3, ratio));
-        panZoomRef.current = { scale: visualScale, x: 0, y: 0 };
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const container = viewerRef.current;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          const focalX = midX - rect.left - rect.width / 2;
+          const focalY = midY - rect.top - rect.height / 2;
+          const startPz = pinchStartPanZoomRef.current;
+          const scaleDelta = visualScale / (startPz.scale || 1);
+          const newX = (startPz.x || 0) * scaleDelta + focalX * (1 - scaleDelta);
+          const newY = (startPz.y || 0) * scaleDelta + focalY * (1 - scaleDelta);
+          applyPanZoom({ scale: visualScale, x: newX, y: newY });
+        } else {
+          applyPanZoom({ scale: visualScale, x: 0, y: 0 });
+        }
       } else {
         const startPz = pinchStartPanZoomRef.current;
         const newScale = Math.max(1, Math.min(5, startPz.scale * ratio));
@@ -2899,7 +2907,7 @@ ${extractedText}
       overflowX: "auto",
       overflowY: userZoomed ? "auto" : "hidden",
       position: "relative",
-      scrollSnapType: userZoomed ? "none" : "x mandatory",
+      scrollSnapType: "x mandatory",
       touchAction: userZoomed ? "auto" : "pan-x",
     },
     pageShadow: {
@@ -4356,7 +4364,7 @@ ${extractedText}
         <button style={s.iconBtn} onClick={handleZoomOut} title="Zoom out">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M8 11h6"/></svg>
         </button>
-        <span style={s.zoomLabel}>{Math.round(scale * (scrollMode === "single" ? panZoom.scale : 1) * 100)}%</span>
+        <span style={s.zoomLabel}>{Math.round(scale * 100)}%</span>
         <button style={s.iconBtn} onClick={handleZoomIn} title="Zoom in">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M11 8v6M8 11h6"/></svg>
         </button>
@@ -4766,7 +4774,7 @@ ${extractedText}
               padding: "4px 16px", fontSize: 13, fontWeight: 600, zIndex: 50,
               pointerEvents: "none", transition: "opacity 0.3s ease",
             }}>
-              {Math.round(scale * (scrollMode === "single" ? panZoom.scale : 1) * 100)}%
+              {Math.round(scale * panZoom.scale * 100)}%
             </div>
           )}
 
@@ -4774,7 +4782,7 @@ ${extractedText}
           <div
             ref={panZoomContentRef}
             style={{
-              transform: scrollMode === "single" ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
+              transform: (scrollMode === "single" || pinchActive) ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
               transformOrigin: "center center",
               transition: pinchActive || isPanning ? "none" : "transform 0.2s ease-out",
               willChange: "transform",
@@ -4991,7 +4999,7 @@ ${extractedText}
                 <button style={s.navBtn} onClick={handleZoomOut} title="Zoom out">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
                 </button>
-                <span style={s.zoomChip}>{Math.round(scale * (scrollMode === "single" ? panZoom.scale : 1) * 100)}%</span>
+                <span style={s.zoomChip}>{Math.round(scale * 100)}%</span>
                 <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                 </button>
