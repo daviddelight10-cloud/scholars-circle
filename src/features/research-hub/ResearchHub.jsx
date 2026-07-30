@@ -445,13 +445,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     const allMcqs = allItems.filter(f => f.variants.mcq).map(f => f.variants.mcq);
 
     return {
-      materials: allItems,
+      materials: sourceFiles,
       summaries: allItems.filter(f => f.variants.summary),
       flashcards: allItems.filter(f => f.variants.flashcard),
       mcqs: allItems.filter(f => f.variants.mcq),
       allMcqResources: allMcqs,
       counts: {
-        materials: allItems.length,
+        materials: sourceFiles.length,
         summaries: summaryCount,
         flashcards: flashcardCount,
         mcqs: mcqCount,

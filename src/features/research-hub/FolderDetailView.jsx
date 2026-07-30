@@ -260,8 +260,8 @@ export default function FolderDetailView({
         {folderDetail && (
           <button
             onClick={() => onUploadToFolder(folderDetail.id)}
-            className="cs-addbtn mb-[22px] inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 text-[14px] font-bold transition-all active:scale-95"
-            style={{ color: "#1A1200", border: "none" }}
+            className="cs-addbtn mb-[22px] inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-bold transition-all active:scale-95"
+            style={{ color: "#1A1200", border: "none", background: "linear-gradient(135deg, #b8860b, #FFD700)" }}
           >
             📎 Add to space
           </button>
