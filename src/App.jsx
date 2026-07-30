@@ -1661,9 +1661,12 @@ function App() {
 
   // Detect Supabase PASSWORD_RECOVERY event (user clicked reset link in email)
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         setResetPasswordMode(true);
+      }
+      if (event === "TOKEN_REFRESHED" && session) {
+        setToken(session.access_token);
       }
     });
     return () => data?.subscription?.unsubscribe();

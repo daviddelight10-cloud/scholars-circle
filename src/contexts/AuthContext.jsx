@@ -102,6 +102,20 @@ export function AuthProvider({ children }) {
       } else if (session) {
         dispatch({ type: "SET_SESSION", payload: session });
         dispatch({ type: "SET_TOKEN", payload: session.access_token });
+
+        // Keep localStorage token in sync with Supabase session refreshes.
+        // Many components read the token from localStorage; without this,
+        // they use a stale/expired JWT after Supabase auto-refreshes.
+        try {
+          const authRaw = localStorage.getItem("scholars-circle-auth");
+          if (authRaw) {
+            const authParsed = JSON.parse(authRaw);
+            if (authParsed.authToken !== session.access_token) {
+              authParsed.authToken = session.access_token;
+              localStorage.setItem("scholars-circle-auth", JSON.stringify(authParsed));
+            }
+          }
+        } catch {}
       }
     });
 
