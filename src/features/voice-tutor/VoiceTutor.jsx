@@ -7,7 +7,7 @@ import ConceptsDrawer from "./ConceptsDrawer.jsx";
 import TranscriptOverlay from "./TranscriptOverlay.jsx";
 import { COLORS, FONTS, VOICE_STATES, VOICE_MODES, SESSION_TIMEOUT_SEC, hexToRgba } from "./voiceConfig.js";
 
-const VOICE_OPTIONS = ["Aoede", "Puck", "Charon", "Kore", "Fenrir"];
+const VOICE_OPTIONS = ["Achird", "Sulafat", "Puck", "Leda", "Aoede"];
 
 const ICONS = {
   mic: '<rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0014 0M12 18v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
@@ -50,7 +50,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
   const [showMaterials, setShowMaterials] = useState(false);
   const [showConcepts, setShowConcepts] = useState(false);
   const [textInput, setTextInput] = useState("");
-  const [voiceName, setVoiceName] = useState("Aoede");
+  const [voiceName, setVoiceName] = useState("Achird");
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const [showDocPicker, setShowDocPicker] = useState(false);
   const [docSearch, setDocSearch] = useState("");

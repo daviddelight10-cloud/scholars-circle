@@ -490,7 +490,7 @@ export function useVoiceSession() {
     endSessionRef.current = endSession;
   }, [endSession]);
 
-  const startSession = useCallback(async (resourceId, mode = "teach", voiceName = "Aoede", currentPage = null, pageText = "") => {
+  const startSession = useCallback(async (resourceId, mode = "teach", voiceName = "Achird", currentPage = null, pageText = "") => {
     setError(null);
     setTranscript([]);
     transcriptRef.current = [];
