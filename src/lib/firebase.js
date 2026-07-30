@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getMessaging, isSupported } from "firebase/messaging";
+import { getMessaging, isSupported, onMessage } from "firebase/messaging";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
 
 const firebaseConfig = {
@@ -31,6 +31,32 @@ export async function getFirebaseMessaging() {
   messagingSupported = await isSupported();
   if (!messagingSupported) return null;
   messaging = getMessaging(app);
+
+  // Foreground message handler — when the app is open, FCM delivers here
+  // instead of the service worker. We must manually show the notification.
+  onMessage(messaging, (payload) => {
+    console.log("[firebase] Foreground message:", payload);
+    const title = payload.notification?.title || payload.data?.title || "Scholar's Circle";
+    const body = payload.notification?.body || payload.data?.body || "You have a new notification";
+    const tag = payload.data?.tag || payload.notification?.tag || "default";
+    const requireInteraction = payload.data?.requireInteraction === "true";
+
+    if (Notification.permission === "granted") {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(title, {
+          body,
+          icon: "/icon-192.png",
+          badge: "/icon-96.png",
+          tag,
+          requireInteraction,
+          data: payload.data || {},
+        }).catch((err) => {
+          console.warn("[firebase] Foreground showNotification failed:", err);
+        });
+      }).catch(() => {});
+    }
+  });
+
   return messaging;
 }
 
