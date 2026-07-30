@@ -727,7 +727,7 @@ router.get("/:token", optionalAuth, async (req, res) => {
 // Auto-bookmarks for the creator so it appears in "My Space"
 router.post("/study-tool-save", requireAuth, async (req, res) => {
   try {
-    const { title, subject, contentType, description, mcqData, flashcardData, fileBuffer, fileName, isPublic, folderId } = req.body;
+    const { title, subject, contentType, description, mcqData, flashcardData, fileBuffer, fileName, isPublic, folderId, sourceResourceId } = req.body;
 
     if (!title || !contentType) {
       return res.status(400).json({ error: "Title and content type are required" });
@@ -804,7 +804,7 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
     const resource = await prisma.resource.create({
       data: {
         title,
-        subject: folder?.courseCode || finalSubject,
+        subject: finalSubject || folder?.courseCode || "",
         contentType,
         fileUrl,
         storagePath,
@@ -818,6 +818,7 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
         flashcardData: parsedFlashcardData,
         status,
         folderId: folderId || null,
+        sourceResourceId: sourceResourceId || null,
         resourceDepts: folderDeptIds.length > 0 ? {
           create: folderDeptIds.map((deptId) => ({ departmentId: deptId })),
         } : undefined,

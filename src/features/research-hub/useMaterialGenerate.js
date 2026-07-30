@@ -380,6 +380,7 @@ export function useMaterialGenerate() {
           contentType: "mcq",
           mcqData: JSON.stringify(rows),
           folderId: resource.folderId || null,
+          sourceResourceId: resource.id,
           isPublic: false,
         });
       } else if (kind === "flashcards") {
@@ -391,6 +392,7 @@ export function useMaterialGenerate() {
           contentType: "flashcard_deck",
           flashcardData: JSON.stringify(cards),
           folderId: resource.folderId || null,
+          sourceResourceId: resource.id,
           isPublic: false,
         });
       } else if (kind === "summary") {
@@ -405,6 +407,7 @@ export function useMaterialGenerate() {
           fileName,
           description: summaryText,
           folderId: resource.folderId || null,
+          sourceResourceId: resource.id,
           isPublic: false,
         });
       }

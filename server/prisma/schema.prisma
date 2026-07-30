@@ -1434,6 +1434,9 @@ model Resource {
   university  University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
   folderId    String?
   folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  sourceResourceId String?
+  sourceResource   Resource?  @relation("SourceResource", fields: [sourceResourceId], references: [id], onDelete: SetNull)
+  derivedResources Resource[]  @relation("SourceResource")
   avgRating   Float    @default(0)
   ratingCount Int      @default(0)
   flagCount   Int      @default(0)
@@ -1457,6 +1460,7 @@ model Resource {
   @@index([uploadedBy])
   @@index([folderId])
   @@index([universityId])
+  @@index([sourceResourceId])
 }
 
 model ResourceView {

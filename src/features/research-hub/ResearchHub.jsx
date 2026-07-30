@@ -398,15 +398,54 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return combined;
   }, [folderDetail]);
 
+  const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
+
   const folderCategorized = useMemo(() => {
-    const materials = [], summaries = [], flashcards = [], mcqs = [];
+    const sourceFiles = [];
+    const derivedBySource = {};
+
     for (const r of folderResources) {
-      if (r.contentType === "mcq") mcqs.push(r);
-      else if (r.contentType === "flashcard_deck") flashcards.push(r);
-      else if (r.title?.startsWith("[AI] Summary")) summaries.push(r);
-      else materials.push(r);
+      if (r.sourceResourceId) {
+        if (!derivedBySource[r.sourceResourceId]) derivedBySource[r.sourceResourceId] = [];
+        derivedBySource[r.sourceResourceId].push(r);
+      }
     }
-    return { materials, summaries, flashcards, mcqs };
+
+    for (const r of folderResources) {
+      if (r.sourceResourceId) continue;
+      if (!FILE_TYPES.includes(r.contentType)) continue;
+
+      const derived = derivedBySource[r.id] || [];
+      const variants = { summary: null, mcq: null, flashcard: null };
+      for (const d of derived) {
+        if (d.contentType === "mcq") variants.mcq = d;
+        else if (d.contentType === "flashcard_deck") variants.flashcard = d;
+        else if (d.contentType === "pdf" && d.fileName?.startsWith("[AI] Summary")) variants.summary = d;
+        else if (d.contentType === "pdf" && d.description && d.title === r.title) variants.summary = d;
+      }
+
+      sourceFiles.push({ ...r, variants });
+    }
+
+    const summaryCount = sourceFiles.filter(f => f.variants.summary).length;
+    const flashcardCount = sourceFiles.filter(f => f.variants.flashcard).length;
+    const mcqCount = sourceFiles.filter(f => f.variants.mcq).length;
+
+    const allMcqs = sourceFiles.filter(f => f.variants.mcq).map(f => f.variants.mcq);
+
+    return {
+      materials: sourceFiles,
+      summaries: sourceFiles.filter(f => f.variants.summary),
+      flashcards: sourceFiles.filter(f => f.variants.flashcard),
+      mcqs: sourceFiles.filter(f => f.variants.mcq),
+      allMcqResources: allMcqs,
+      counts: {
+        materials: sourceFiles.length,
+        summaries: summaryCount,
+        flashcards: flashcardCount,
+        mcqs: mcqCount,
+      },
+    };
   }, [folderResources]);
 
   const folderIsOwner = useMemo(() => {
@@ -652,6 +691,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     if (data.fileBuffer) body.fileBuffer = data.fileBuffer;
     if (data.fileName) body.fileName = data.fileName;
     if (data.folderId) body.folderId = data.folderId;
+    if (data.sourceResourceId) body.sourceResourceId = data.sourceResourceId;
     body.isPublic = data.isPublic !== undefined ? data.isPublic : true;
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
@@ -850,7 +890,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onSpacedReview={(resourceIds) => startSpacedReview(null, resourceIds)}
         onAdaptiveDrill={(resourceIds) => startAdaptiveDrill(null, resourceIds)}
         onExamSimulation={(resourceIds) => startExamSimulation(null, resourceIds)}
-        onPracticeAll={() => startFolderPractice(folderDetail, folderCategorized.mcqs)}
+        onPracticeAll={() => startFolderPractice(folderDetail, folderCategorized.allMcqResources)}
         onGenerate={handleGenerateFromMaterial}
         onStudyWithVoice={handleStudyWithVoice}
         generatingId={generatingId}

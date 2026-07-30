@@ -180,3 +180,70 @@
     display: none !important;
   }
 }
+
+/* ── Course Space Redesign ──────────────────────────────────────────── */
+
+/* Filename truncation */
+.cs-filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Variant chip row — scrollable on mobile, wrap on desktop */
+.cs-variants {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex-wrap: nowrap;
+}
+.cs-variants::-webkit-scrollbar {
+  display: none;
+}
+@media (min-width: 641px) {
+  .cs-variants {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+/* Filter chip row — scrollable on mobile */
+.cs-chiprow {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.cs-chiprow::-webkit-scrollbar {
+  display: none;
+}
+
+/* Grid responsive breakpoints */
+@media (max-width: 1024px) {
+  .cs-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+@media (max-width: 640px) {
+  .cs-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Header row — stack on small screens */
+@media (max-width: 640px) {
+  .cs-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .cs-titleblock {
+    flex-wrap: wrap;
+  }
+}
+
+/* Small phones — tighten spacing */
+@media (max-width: 380px) {
+  .cs-titleblock h1 {
+    font-size: 22px !important;
+  }
+}
