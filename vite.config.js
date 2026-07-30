@@ -11,6 +11,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-icons': ['lucide-react'],
+          'vendor-firebase': ['firebase/app', 'firebase/messaging'],
         },
       },
     },

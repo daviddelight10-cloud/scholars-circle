@@ -1,17 +1,16 @@
-// Web Push client helpers.
-// Handles permission, subscribing to the browser's push service, and syncing
-// the subscription with our backend.
+// FCM Push client helpers.
+// Handles permission, getting an FCM token via Firebase Messaging, and syncing
+// the token with our backend.
 
 import { API_BASE } from "./constants.js";
+import { getFirebaseMessaging, isMessagingSupported } from "./firebase.js";
+import { getToken, deleteToken } from "firebase/messaging";
 
-/** True if the browser supports web push at all. */
-export function isPushSupported() {
-  return (
-    typeof window !== "undefined" &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window
-  );
+/** True if the browser supports FCM web push at all. */
+export async function isPushSupported() {
+  if (typeof window === "undefined") return false;
+  if (!("serviceWorker" in navigator) || !("Notification" in window)) return false;
+  return await isMessagingSupported();
 }
 
 /** Current notification permission ("default" | "granted" | "denied" | "unsupported"). */
@@ -37,24 +36,15 @@ export function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const out = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; i++) out[i] = rawData.charCodeAt(i);
-  return out;
-}
-
-let cachedVapidKey = null;
-async function fetchVapidKey() {
-  if (cachedVapidKey) return cachedVapidKey;
-  const r = await fetch(`${API_BASE}/push/vapid-public-key`);
+let cachedFcmConfig = null;
+async function fetchFcmConfig() {
+  if (cachedFcmConfig) return cachedFcmConfig;
+  const r = await fetch(`${API_BASE}/push/fcm-config`);
   if (!r.ok) throw new Error("Cannot reach push server");
   const data = await r.json();
-  if (!data.enabled || !data.key) throw new Error("Push notifications not configured on the server");
-  cachedVapidKey = data.key;
-  return cachedVapidKey;
+  if (!data.enabled || !data.vapidKey) throw new Error("Push notifications not configured on the server");
+  cachedFcmConfig = data;
+  return cachedFcmConfig;
 }
 
 /** Request browser permission. Returns the new permission state. */
@@ -66,12 +56,13 @@ export async function requestPushPermission() {
 }
 
 /**
- * Subscribe to push notifications and register the subscription with the backend.
+ * Subscribe to push notifications via FCM and register the token with the backend.
  * @param {string} token - JWT for authentication.
- * @returns {Promise<{ok: boolean, reason?: string, endpoint?: string}>}
+ * @returns {Promise<{ok: boolean, reason?: string, fcmToken?: string}>}
  */
 export async function subscribeToPush(token) {
-  if (!isPushSupported()) return { ok: false, reason: "unsupported" };
+  const supported = await isPushSupported();
+  if (!supported) return { ok: false, reason: "unsupported" };
   if (isIOS() && !isStandalone()) {
     return { ok: false, reason: "ios_needs_install" };
   }
@@ -79,26 +70,25 @@ export async function subscribeToPush(token) {
   const perm = await requestPushPermission();
   if (perm !== "granted") return { ok: false, reason: perm };
 
-  let registration;
+  const messaging = await getFirebaseMessaging();
+  if (!messaging) return { ok: false, reason: "messaging_unsupported" };
+
+  const config = await fetchFcmConfig();
+
+  let fcmToken;
   try {
-    registration = await navigator.serviceWorker.ready;
-  } catch {
-    return { ok: false, reason: "no_service_worker" };
-  }
-
-  const vapidKey = await fetchVapidKey();
-
-  // Reuse existing subscription if present, otherwise create a new one.
-  let sub = await registration.pushManager.getSubscription();
-  if (!sub) {
-    sub = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey)
+    fcmToken = await getToken(messaging, {
+      vapidKey: config.vapidKey,
+      serviceWorkerRegistration: await navigator.serviceWorker.ready,
     });
+  } catch (err) {
+    console.error("[push] getToken failed:", err);
+    return { ok: false, reason: "token_error" };
   }
+
+  if (!fcmToken) return { ok: false, reason: "no_token" };
 
   // Send to server
-  const json = sub.toJSON();
   const r = await fetch(`${API_BASE}/push/subscribe`, {
     method: "POST",
     headers: {
@@ -106,8 +96,8 @@ export async function subscribeToPush(token) {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify({
-      endpoint: json.endpoint,
-      keys: json.keys,
+      fcmToken,
+      platform: "web",
       userAgent: navigator.userAgent
     })
   });
@@ -117,26 +107,31 @@ export async function subscribeToPush(token) {
   }
 
   localStorage.setItem("sc_push_subscribed", "1");
-  return { ok: true, endpoint: json.endpoint };
+  return { ok: true, fcmToken };
 }
 
 /** Unsubscribe from push notifications and tell the server. */
 export async function unsubscribeFromPush(token) {
-  if (!isPushSupported()) return { ok: true };
+  const supported = await isPushSupported();
+  if (!supported) return { ok: true };
   try {
-    const registration = await navigator.serviceWorker.ready;
-    const sub = await registration.pushManager.getSubscription();
-    if (sub) {
-      const endpoint = sub.endpoint;
-      await sub.unsubscribe();
-      await fetch(`${API_BASE}/push/unsubscribe`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ endpoint })
-      }).catch(() => {});
+    const messaging = await getFirebaseMessaging();
+    if (messaging) {
+      const currentToken = await getToken(messaging, {
+        vapidKey: cachedFcmConfig?.vapidKey,
+      }).catch(() => null);
+
+      if (currentToken) {
+        await deleteToken(messaging);
+        await fetch(`${API_BASE}/push/unsubscribe`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ fcmToken: currentToken })
+        }).catch(() => {});
+      }
     }
     localStorage.removeItem("sc_push_subscribed");
     return { ok: true };
@@ -171,13 +166,17 @@ export async function sendTestPush(token) {
   return await r.json();
 }
 
-/** True if this browser/user has an active push subscription. */
+/** True if this browser/user has an active FCM token. */
 export async function hasActiveSubscription() {
-  if (!isPushSupported()) return false;
+  const supported = await isPushSupported();
+  if (!supported) return false;
   try {
-    const registration = await navigator.serviceWorker.ready;
-    const sub = await registration.pushManager.getSubscription();
-    return !!sub;
+    const messaging = await getFirebaseMessaging();
+    if (!messaging) return false;
+    const config = await fetchFcmConfig().catch(() => null);
+    if (!config) return false;
+    const token = await getToken(messaging, { vapidKey: config.vapidKey }).catch(() => null);
+    return !!token;
   } catch {
     return false;
   }

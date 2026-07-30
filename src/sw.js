@@ -3,6 +3,8 @@ import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
+import { initializeApp } from "firebase/app";
+import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
 self.skipWaiting();
 cleanupOutdatedCaches();
@@ -69,9 +71,41 @@ registerRoute(
   new NetworkFirst({ cacheName: "api-cache", networkTimeoutSeconds: 6 })
 );
 
-// ============ PUSH NOTIFICATION SUPPORT ============
+// ============ FCM PUSH NOTIFICATION SUPPORT ============
 
-// Handle push events (notifications from server).
+// Initialize Firebase in the service worker for background message handling.
+const firebaseApp = initializeApp({
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
+});
+
+try {
+  const messaging = getMessaging(firebaseApp);
+
+  // Handle data-only messages (messages without a notification payload).
+  // When a notification payload IS present, FCM automatically displays it.
+  onBackgroundMessage(messaging, (payload) => {
+    console.log("[sw] FCM background message:", payload);
+    const { title, body, ...rest } = payload.data || {};
+    if (title || body) {
+      self.registration.showNotification(title || "Scholar's Circle", {
+        body: body || "You have a new notification",
+        icon: "/icon-192.png",
+        badge: "/icon-96.png",
+        data: rest,
+      });
+    }
+  });
+} catch (err) {
+  console.warn("[sw] Firebase Messaging init failed:", err);
+}
+
+// Handle push events as a fallback (e.g. if FCM doesn't auto-display).
 // CRITICAL: this handler MUST always call showNotification, otherwise browsers
 // will eventually unsubscribe the device (Chrome enforces "user-visible push only").
 self.addEventListener('push', (event) => {

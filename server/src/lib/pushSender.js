@@ -1,28 +1,11 @@
-// Web Push helper: sends notifications to one user or many users.
-// Auto-cleans dead subscriptions (HTTP 404/410 from Apple/Google/Mozilla push services).
-import webpush from "web-push";
 import { prisma } from "../db.js";
+import { initFirebase, isFirebaseInitialized, getMessaging } from "./firebaseAdmin.js";
 
 let configured = false;
 
 export function configurePush() {
-  const pub = process.env.VAPID_PUBLIC_KEY;
-  const priv = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || "mailto:admin@scholars-circle.app";
-
-  if (!pub || !priv) {
-    console.warn("[push] VAPID keys missing — push notifications disabled. Run `node server/scripts/generate-vapid.js`.");
-    return false;
-  }
-  try {
-    webpush.setVapidDetails(subject, pub, priv);
-    configured = true;
-    console.log("[push] Web Push configured.");
-    return true;
-  } catch (err) {
-    console.error("[push] Failed to configure VAPID:", err.message);
-    return false;
-  }
+  configured = initFirebase();
+  return configured;
 }
 
 export function isPushConfigured() {
@@ -30,8 +13,7 @@ export function isPushConfigured() {
 }
 
 /**
- * Send a single push notification to a userId.
- * Payload should be a small JSON object (max ~4KB).
+ * Send a single push notification to a userId via FCM.
  * @param {string} userId
  * @param {{title:string, body:string, tag?:string, data?:object, requireInteraction?:boolean, actions?:Array}} payload
  * @param {{category?:string}} options - optional, will respect user preferences
@@ -51,29 +33,54 @@ export async function sendPushToUser(userId, payload, options = {}) {
   const subs = await prisma.pushSubscription.findMany({ where: { userId } });
   if (subs.length === 0) return { sent: 0, skipped: "no_subscriptions" };
 
+  const messaging = getMessaging();
+  if (!messaging) return { sent: 0, skipped: "messaging_unavailable" };
+
   let sent = 0;
   const deadIds = [];
+
   await Promise.all(
     subs.map(async (s) => {
       try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify(payload),
-          { TTL: 60 * 60 * 24 } // 24h
-        );
+        const message = {
+          token: s.fcmToken,
+          notification: {
+            title: payload.title,
+            body: payload.body || "",
+          },
+          data: stringifyData(payload.data),
+          webpush: {
+            notification: {
+              tag: payload.tag || "default",
+              requireInteraction: !!payload.requireInteraction,
+              icon: "/icon-192.png",
+              badge: "/icon-96.png",
+              ...(Array.isArray(payload.actions) && payload.actions.length > 0
+                ? { actions: payload.actions }
+                : {}),
+            },
+            fcmOptions: {
+              link: payload.data?.tab ? `/?tab=${payload.data.tab}` : "/",
+            },
+          },
+        };
+
+        await messaging.send(message);
         sent++;
-        // Mark as recently used (best-effort, ignore failure)
         prisma.pushSubscription.update({
           where: { id: s.id },
-          data: { lastUsed: new Date() }
+          data: { lastUsed: new Date() },
         }).catch(() => {});
       } catch (err) {
-        const status = err.statusCode;
-        if (status === 404 || status === 410) {
-          // Subscription gone — clean up
+        const code = err.code || err.errorInfo?.code || "";
+        if (
+          code.includes("UNREGISTERED") ||
+          code.includes("INVALID_ARGUMENT") ||
+          code.includes("registration-token-not-registered")
+        ) {
           deadIds.push(s.id);
         } else {
-          console.warn(`[push] send failed for sub ${s.id}: ${status} ${err.body || err.message}`);
+          console.warn(`[push] FCM send failed for sub ${s.id}: ${code} ${err.message}`);
         }
       }
     })
@@ -96,6 +103,15 @@ export async function sendPushToUsers(userIds, payload, options = {}) {
   );
   return {
     sent: results.reduce((sum, r) => sum + (r.sent || 0), 0),
-    users: results.length
+    users: results.length,
   };
+}
+
+function stringifyData(data) {
+  if (!data) return {};
+  const out = {};
+  for (const [key, value] of Object.entries(data)) {
+    out[key] = typeof value === "string" ? value : JSON.stringify(value);
+  }
+  return out;
 }

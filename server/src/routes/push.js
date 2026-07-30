@@ -6,29 +6,29 @@ import { runMotivationNow } from "../lib/studyReminderJob.js";
 
 const router = Router();
 
-// Public: VAPID public key (clients need this to subscribe).
-router.get("/vapid-public-key", (_req, res) => {
-  const key = process.env.VAPID_PUBLIC_KEY || "";
+// Public: FCM config (clients need VAPID key + senderId to subscribe via Firebase Messaging).
+router.get("/fcm-config", (_req, res) => {
   res.json({
-    key,
-    enabled: Boolean(key) && isPushConfigured()
+    vapidKey: process.env.FCM_WEB_VAPID_KEY || "",
+    senderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "",
+    enabled: isPushConfigured()
   });
 });
 
-// Save a new subscription for the authenticated user.
+// Save a new FCM token subscription for the authenticated user.
 router.post("/subscribe", requireAuth, async (req, res) => {
   try {
-    const { endpoint, keys, userAgent } = req.body || {};
-    if (!endpoint || !keys?.p256dh || !keys?.auth) {
-      return res.status(400).json({ error: "Invalid subscription payload" });
+    const { fcmToken, platform, userAgent } = req.body || {};
+    if (!fcmToken) {
+      return res.status(400).json({ error: "fcmToken required" });
     }
     const userId = req.user.sub;
 
-    // Upsert by endpoint (one device = one endpoint)
+    // Upsert by fcmToken (one device = one token)
     await prisma.pushSubscription.upsert({
-      where: { endpoint },
-      update: { userId, p256dh: keys.p256dh, auth: keys.auth, userAgent: userAgent || null, lastUsed: new Date() },
-      create: { userId, endpoint, p256dh: keys.p256dh, auth: keys.auth, userAgent: userAgent || null }
+      where: { fcmToken },
+      update: { userId, platform: platform || "web", userAgent: userAgent || null, lastUsed: new Date() },
+      create: { userId, fcmToken, platform: platform || "web", userAgent: userAgent || null }
     });
 
     res.json({ ok: true });
@@ -38,12 +38,12 @@ router.post("/subscribe", requireAuth, async (req, res) => {
   }
 });
 
-// Remove a subscription (called on permission revoke or sign-out).
+// Remove a subscription by FCM token (called on permission revoke or sign-out).
 router.post("/unsubscribe", requireAuth, async (req, res) => {
   try {
-    const { endpoint } = req.body || {};
-    if (!endpoint) return res.status(400).json({ error: "endpoint required" });
-    await prisma.pushSubscription.deleteMany({ where: { endpoint, userId: req.user.sub } });
+    const { fcmToken } = req.body || {};
+    if (!fcmToken) return res.status(400).json({ error: "fcmToken required" });
+    await prisma.pushSubscription.deleteMany({ where: { fcmToken, userId: req.user.sub } });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

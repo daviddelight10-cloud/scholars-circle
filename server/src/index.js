@@ -43,7 +43,7 @@ import { prisma } from "./db.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { verifySupabaseToken } from "./lib/verifySupabaseToken.js";
 
-// Initialize Web Push (VAPID). Safe to call even if keys are missing.
+// Initialize Firebase Admin for FCM push notifications. Safe to call even if credentials are missing.
 configurePush();
 // Start daily motivation + reminder cron (no-op if no subscribers yet).
 startStudyReminderJob();

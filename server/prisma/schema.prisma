@@ -256,14 +256,13 @@ model AnnouncementComment {
   @@index([parentId])
 }
 
-// ============ WEB PUSH NOTIFICATIONS ============
+// ============ FCM PUSH NOTIFICATIONS ============
 model PushSubscription {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
+  fcmToken  String   @unique
+  platform  String   @default("web")
   userAgent String?
   createdAt DateTime @default(now())
   lastUsed  DateTime @default(now())

@@ -37,7 +37,7 @@ export function PushPermissionBanner({ token }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!isPushSupported()) return;
+      if (!(await isPushSupported())) return;
       if (localStorage.getItem(SUPPRESS_KEY) === "1") return;
       const perm = getPermission();
       if (perm === "granted") {
@@ -162,6 +162,7 @@ export function NotificationSettings({ token }) {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [pushSupported, setPushSupported] = useState(false);
 
   async function refresh() {
     try {
@@ -179,7 +180,13 @@ export function NotificationSettings({ token }) {
     }
   }
 
-  useEffect(() => { if (token) refresh(); }, [token]);
+  useEffect(() => {
+    (async () => {
+      const supported = await isPushSupported();
+      setPushSupported(supported);
+      if (supported && token) await refresh();
+    })();
+  }, [token]);
 
   async function enable() {
     setBusy("enable");
@@ -274,7 +281,7 @@ export function NotificationSettings({ token }) {
     }
   }
 
-  if (!isPushSupported()) {
+  if (!pushSupported) {
     return (
       <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
