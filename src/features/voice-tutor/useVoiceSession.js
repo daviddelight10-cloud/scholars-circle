@@ -228,13 +228,8 @@ export function useVoiceSession() {
           pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
 
-        const base64 = arrayBufferToBase64(pcm16.buffer);
-
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: WS_MESSAGE_TYPES.AUDIO,
-            data: base64,
-          }));
+          wsRef.current.send(pcm16.buffer);
         }
       };
 
@@ -548,7 +543,7 @@ export function useVoiceSession() {
       startTimer();
 
       const wsBase = getWsBase();
-      const wsUrl = `${wsBase}/api/voice-session/${data.sessionId}/ws?token=${encodeURIComponent(token)}`;
+      const wsUrl = `${wsBase}/api/voice-session/${data.sessionId}/ws?ticket=${encodeURIComponent(data.ticket)}`;
       wsUrlRef.current = wsUrl;
 
       // Local function to set up WS handlers — reused for reconnection
@@ -593,6 +588,13 @@ export function useVoiceSession() {
 
             case WS_MESSAGE_TYPES.SERVER_CONTENT:
               const sc = msg.data;
+              if (sc.interrupted) {
+                stopPlayback();
+                if (stateRef.current === VOICE_STATES.SPEAKING) {
+                  setState(VOICE_STATES.READY);
+                }
+                break;
+              }
               if (sc.inputTranscription) {
                 addToTranscript("user", sc.inputTranscription.text);
               }
@@ -628,6 +630,12 @@ export function useVoiceSession() {
               setState(VOICE_STATES.ENDED);
               stopMic();
               stopTimer();
+              break;
+
+            case "mode_switching":
+              stopPlayback();
+              stopMic();
+              setState(VOICE_STATES.CONNECTING);
               break;
 
             case WS_MESSAGE_TYPES.SESSION_TIMEOUT:
@@ -680,10 +688,25 @@ export function useVoiceSession() {
             isReconnectingRef.current = true;
             reconnectAttemptsRef.current = attempt;
 
-            reconnectTimerRef.current = setTimeout(() => {
+            reconnectTimerRef.current = setTimeout(async () => {
               if (stateRef.current === VOICE_STATES.ENDED || stateRef.current === VOICE_STATES.ERROR) return;
               try {
-                const newWs = new WebSocket(wsUrlRef.current);
+                // Fetch a fresh single-use ticket for reconnection
+                const jwtToken = getAuthToken();
+                const ticketRes = await fetch(`${API_BASE}/api/voice-session/${data.sessionId}/ticket`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(jwtToken ? { Authorization: `Bearer ${jwtToken}` } : {}),
+                  },
+                });
+                if (!ticketRes.ok) throw new Error("Failed to refresh ticket");
+                const { ticket: freshTicket } = await ticketRes.json();
+                const wsBase = getWsBase();
+                const freshWsUrl = `${wsBase}/api/voice-session/${data.sessionId}/ws?ticket=${encodeURIComponent(freshTicket)}`;
+                wsUrlRef.current = freshWsUrl;
+
+                const newWs = new WebSocket(freshWsUrl);
                 wsRef.current = newWs;
                 setupWs(newWs);
               } catch (reconnectErr) {
@@ -822,6 +845,16 @@ export function useVoiceSession() {
     }
   }, []);
 
+  const switchMode = useCallback((newMode) => {
+    if (!newMode) return;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "mode_switch",
+        mode: newMode,
+      }));
+    }
+  }, []);
+
   return {
     state,
     error,
@@ -842,6 +875,7 @@ export function useVoiceSession() {
     toggleHandsFree,
     sendText,
     sendPageChange,
+    switchMode,
     setError,
     stopPlayback,
     getAudioData,

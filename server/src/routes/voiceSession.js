@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "crypto";
 import { requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db.js";
 import { logSecurityEvent } from "../lib/logger.js";
@@ -19,8 +20,30 @@ import { WebSocket } from "ws";
 const router = Router();
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
+const TICKET_TTL_MS = 45 * 1000;
 
 const activeSessions = new Map();
+const ticketStore = new Map();
+
+export function generateTicket(sessionId, userId) {
+  const ticket = crypto.randomUUID();
+  ticketStore.set(ticket, {
+    sessionId,
+    userId,
+    expiresAt: Date.now() + TICKET_TTL_MS,
+    used: false,
+  });
+  return ticket;
+}
+
+export function consumeTicket(ticket) {
+  const entry = ticketStore.get(ticket);
+  if (!entry) return null;
+  ticketStore.delete(ticket);
+  if (entry.used || Date.now() > entry.expiresAt) return null;
+  entry.used = true;
+  return { sessionId: entry.sessionId, userId: entry.userId };
+}
 
 export function getActiveSession(sessionId) {
   return activeSessions.get(sessionId);
@@ -39,6 +62,132 @@ export function deleteActiveSession(sessionId) {
 
 export function getActiveSessions() {
   return activeSessions;
+}
+
+export function rebuildGeminiSession(session, newMode) {
+  // Close existing Gemini WS
+  if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+    try { session.geminiWs.close(); } catch {}
+  }
+
+  // Build new system prompt for the requested mode
+  const pageText = "";
+  const systemPrompt = buildVoiceSystemPrompt(
+    session.chunks,
+    newMode,
+    session.resourceTitle,
+    pageText,
+  );
+  session.systemPrompt = systemPrompt;
+  session.mode = newMode;
+  session.setupComplete = false;
+
+  const geminiWsUrl = getGeminiLiveWsUrl();
+  const geminiWsOptions = getGeminiLiveWsOptions();
+  const model = getLiveModel();
+  const sessionId = session.id;
+
+  console.log(`Reconnecting to Gemini Live for mode switch: model=${model}, mode=${newMode}`);
+
+  const geminiWs = new WebSocket(geminiWsUrl, geminiWsOptions);
+  let geminiSetupError = null;
+  session.geminiWs = geminiWs;
+
+  geminiWs.on("open", () => {
+    console.log(`Gemini Live WebSocket connected for mode switch session ${sessionId}`);
+    const setupMessage = {
+      setup: {
+        model: `models/${model}`,
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: session.voiceName,
+              },
+            },
+          },
+        },
+        systemInstruction: {
+          parts: [{ text: systemPrompt }],
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+      },
+    };
+    geminiWs.send(JSON.stringify(setupMessage));
+  });
+
+  geminiWs.on("message", (data) => {
+    let msg;
+    try {
+      msg = JSON.parse(data.toString());
+    } catch {
+      return;
+    }
+
+    if (msg.error) {
+      console.error(`Gemini API error for mode-switch session ${sessionId}:`, JSON.stringify(msg.error));
+      geminiSetupError = new Error(`Gemini API error: ${msg.error.message || JSON.stringify(msg.error)}`);
+      return;
+    }
+
+    if (msg.setupComplete) {
+      session.setupComplete = true;
+      console.log(`Gemini Live setup complete for mode-switch session ${sessionId}`);
+      if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+        session.clientWs.send(JSON.stringify({ type: "setup_complete" }));
+      }
+      resetSessionTimeout(sessionId);
+      return;
+    }
+
+    if (msg.serverContent) {
+      const sc = msg.serverContent;
+      if (sc.inputTranscription) {
+        session.transcript.push({ role: "user", text: sc.inputTranscription.text, ts: Date.now() });
+      }
+      if (sc.outputTranscription) {
+        session.transcript.push({ role: "tutor", text: sc.outputTranscription.text, ts: Date.now() });
+      }
+      if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+        session.clientWs.send(JSON.stringify({ type: "server_content", data: sc }));
+      }
+      session.lastActivityAt = Date.now();
+      resetSessionTimeout(sessionId);
+    }
+
+    if (msg.toolCall) {
+      if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+        session.clientWs.send(JSON.stringify({ type: "tool_call", data: msg.toolCall }));
+      }
+    }
+  });
+
+  geminiWs.on("error", (err) => {
+    console.error(`Gemini Live WebSocket error for mode-switch session ${sessionId}:`, err.message);
+    geminiSetupError = err;
+    if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({
+        type: "error",
+        message: "Voice tutor connection error during mode switch.",
+      }));
+    }
+  });
+
+  geminiWs.on("close", (code, reason) => {
+    const reasonStr = reason?.toString() || 'none';
+    console.log(`Gemini Live WebSocket closed for mode-switch session ${sessionId}. Code: ${code}, Reason: ${reasonStr}`);
+    if (!session.setupComplete && !geminiSetupError) {
+      geminiSetupError = new Error(`Gemini WebSocket closed early (code: ${code}, reason: ${reasonStr})`);
+    }
+    if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({ type: "session_ended", message: "Gemini session closed" }));
+      session.clientWs.close();
+    }
+    endSessionInDB(sessionId, "ended", session.transcript);
+    deleteActiveSession(sessionId);
+  });
 }
 
 async function endSessionInDB(sessionId, status = "ended", transcript = null) {
@@ -180,10 +329,13 @@ router.post("/start", requireAuth, async (req, res) => {
       geminiWs,
       clientWs: null,
       startTime: Date.now(),
+      lastActivityAt: Date.now(),
       transcript: [],
       timeoutId: null,
       setupComplete: false,
       systemPrompt,
+      chunks,
+      voiceName,
       resourceTitle: resource.title,
       currentPage: currentPage || null,
     };
@@ -268,6 +420,7 @@ router.post("/start", requireAuth, async (req, res) => {
             data: sc,
           }));
         }
+        session.lastActivityAt = Date.now();
         resetSessionTimeout(sessionId);
       }
 
@@ -340,8 +493,11 @@ router.post("/start", requireAuth, async (req, res) => {
 
     logSecurityEvent(req.user.sub, "voice_session_start", { sessionId, resourceId, mode }, req);
 
+    const ticket = generateTicket(sessionId, req.user.sub);
+
     return res.json({
       sessionId,
+      ticket,
       mode,
       resourceTitle: resource.title,
       materials: {
@@ -380,6 +536,19 @@ router.post("/:id/end", requireAuth, async (req, res) => {
   logSecurityEvent(req.user.sub, "voice_session_end", { sessionId: id }, req);
 
   return res.json({ ok: true, durationSec: Math.round((Date.now() - session.startTime) / 1000) });
+});
+
+// POST /api/voice-session/:id/ticket — issue a fresh single-use WS ticket for reconnection
+router.post("/:id/ticket", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const session = activeSessions.get(id);
+
+  if (!session || session.userId !== req.user.sub) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+
+  const ticket = generateTicket(id, req.user.sub);
+  return res.json({ ticket, expiresAt: Date.now() + TICKET_TTL_MS });
 });
 
 // GET /api/voice-session/:id/status

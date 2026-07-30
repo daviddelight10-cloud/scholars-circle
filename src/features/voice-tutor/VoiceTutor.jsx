@@ -369,7 +369,12 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                 <button
                   key={key}
                   className={`sc-vt-mode-btn ${mode === key ? "active" : ""}`}
-                  onClick={() => setMode(key)}
+                  onClick={() => {
+                    setMode(key);
+                    if (isActive && voice.switchMode) {
+                      voice.switchMode(key);
+                    }
+                  }}
                 >
                   <ModeIcon svgPath={m.icon} size={16} />
                   {m.label}

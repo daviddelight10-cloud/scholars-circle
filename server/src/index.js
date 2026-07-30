@@ -34,7 +34,7 @@ import profileRoutes from "./routes/profile.js";
 import topicsRoutes from "./routes/topics.js";
 import masteryRoutes from "./routes/mastery.js";
 import paymentRoutes from "./routes/payment.js";
-import voiceSessionRoutes, { getActiveSession, deleteActiveSession } from "./routes/voiceSession.js";
+import voiceSessionRoutes, { getActiveSession, deleteActiveSession, getActiveSessions, consumeTicket, rebuildGeminiSession } from "./routes/voiceSession.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
@@ -158,43 +158,24 @@ async function handleVoiceWsUpgrade(request, socket, head) {
     return;
   }
 
-  const sessionId = voiceWsMatch[1];
-
   const url = new URL(request.url, `http://${request.headers.host}`);
-  const token = url.searchParams.get("token");
+  const ticket = url.searchParams.get("ticket");
 
-  if (!token) {
+  if (!ticket) {
     socket.destroy();
     return;
   }
 
-  let userId = null;
-  try {
-    const decoded = await verifySupabaseToken(token);
-    const supabaseId = decoded.sub;
-
-    // Fast path: prismaId in app_metadata
-    if (decoded.app_metadata?.prismaId) {
-      userId = decoded.app_metadata.prismaId;
-    } else if (supabaseId) {
-      // Slow path: DB lookup
-      const user = await prisma.user.findUnique({
-        where: { supabaseId },
-        select: { id: true },
-      });
-      if (user) userId = user.id;
-    }
-  } catch {
+  const ticketInfo = consumeTicket(ticket);
+  if (!ticketInfo) {
     socket.destroy();
     return;
   }
 
-  if (!userId) {
-    socket.destroy();
-    return;
-  }
+  const sessionId = ticketInfo.sessionId;
+  const userId = ticketInfo.userId;
 
-  const session = getActiveSession(sessionId);
+  const session = getActiveSession(ticketInfo.sessionId);
   if (!session || session.userId !== userId) {
     socket.destroy();
     return;
@@ -216,52 +197,67 @@ async function handleVoiceWsUpgrade(request, socket, head) {
       ws.send(JSON.stringify({ type: "setup_complete" }));
     }
 
-    ws.on("message", (data) => {
+    ws.on("message", (data, isBinary) => {
       if (!session.setupComplete) return;
+      session.lastActivityAt = Date.now();
+
+      // Binary frames = raw PCM audio from client mic
+      if (isBinary) {
+        if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+          const audioMsg = {
+            realtimeInput: {
+              audio: {
+                data: data.toString("base64"),
+                mimeType: "audio/pcm;rate=16000",
+              },
+            },
+          };
+          session.geminiWs.send(JSON.stringify(audioMsg));
+        }
+        return;
+      }
+
+      // Text frames = JSON control messages
+      let parsed;
+      try {
+        parsed = JSON.parse(data.toString());
+      } catch {
+        return;
+      }
 
       // Handle ping/pong keepalive
-      try {
-        const parsed = JSON.parse(data.toString());
-        if (parsed.type === "ping") {
-          ws.send(JSON.stringify({ type: "pong", t: parsed.t }));
-          return;
-        }
-      } catch {}
+      if (parsed.type === "ping") {
+        ws.send(JSON.stringify({ type: "pong", t: parsed.t }));
+        return;
+      }
+
+      // Handle mode switch — opens a new Gemini session with fresh system instructions
+      if (parsed.type === "mode_switch" && parsed.mode) {
+        const validModes = ["teach", "quiz", "discuss"];
+        if (!validModes.includes(parsed.mode)) return;
+        console.log(`Mode switch requested for session ${sessionId}: ${session.mode} -> ${parsed.mode}`);
+        ws.send(JSON.stringify({ type: "mode_switching", from: session.mode, to: parsed.mode }));
+        rebuildGeminiSession(session, parsed.mode);
+        return;
+      }
 
       if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
-        try {
-          const parsed = JSON.parse(data.toString());
-          if (parsed.type === "audio" && parsed.data) {
-            const audioMsg = {
-              realtimeInput: {
-                audio: {
-                  data: parsed.data,
-                  mimeType: "audio/pcm;rate=16000",
-                },
-              },
-            };
-            session.geminiWs.send(JSON.stringify(audioMsg));
-          } else if (parsed.type === "text" && parsed.text) {
-            const textMsg = {
-              clientContent: {
-                turns: [{ parts: [{ text: parsed.text }] }],
-              },
-            };
-            session.geminiWs.send(JSON.stringify(textMsg));
-          } else if (parsed.type === "interrupt") {
-            const interruptMsg = {
-              clientContent: { turns: [] },
-            };
-            session.geminiWs.send(JSON.stringify(interruptMsg));
-          } else if (parsed.type === "page_change" && parsed.page) {
-            const pageMsg = buildPageContextMessage(parsed.page, parsed.text || "");
-            session.geminiWs.send(JSON.stringify(pageMsg));
-            session.currentPage = parsed.page;
-          }
-        } catch {
-          if (session.geminiWs.readyState === WebSocket.OPEN) {
-            session.geminiWs.send(data.toString());
-          }
+        if (parsed.type === "text" && parsed.text) {
+          const textMsg = {
+            clientContent: {
+              turns: [{ parts: [{ text: parsed.text }] }],
+            },
+          };
+          session.geminiWs.send(JSON.stringify(textMsg));
+        } else if (parsed.type === "interrupt") {
+          const interruptMsg = {
+            clientContent: { turns: [] },
+          };
+          session.geminiWs.send(JSON.stringify(interruptMsg));
+        } else if (parsed.type === "page_change" && parsed.page) {
+          const pageMsg = buildPageContextMessage(parsed.page, parsed.text || "");
+          session.geminiWs.send(JSON.stringify(pageMsg));
+          session.currentPage = parsed.page;
         }
       }
     });
@@ -284,6 +280,54 @@ async function handleVoiceWsUpgrade(request, socket, head) {
     });
   });
 }
+
+// ── Zombie session sweep ──────────────────────────────────────────────────────
+// Closes upstream Gemini Live connections that are idle or have no active client,
+// preventing wasted API spend on leaked sessions.
+const ZOMBIE_SWEEP_INTERVAL_MS = 30 * 1000;
+const ZOMBIE_IDLE_THRESHOLD_MS = 120 * 1000;
+
+let zombieSessionsSwept = 0;
+
+setInterval(() => {
+  const sessions = getActiveSessions();
+  const now = Date.now();
+  for (const [sessionId, session] of sessions) {
+    const clientConnected = session.clientWs && session.clientWs.readyState === WebSocket.OPEN;
+    const idleMs = now - (session.lastActivityAt || session.startTime);
+
+    // Case 1: Client disconnected, no grace timer running (grace expired but not cleaned up)
+    const graceActive = session.graceTimerId !== null && session.graceTimerId !== undefined;
+    if (!clientConnected && !graceActive) {
+      console.warn(`Zombie session ${sessionId} swept: client disconnected, no grace timer. idle ${Math.round(idleMs / 1000)}s`);
+      if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+        try { session.geminiWs.close(); } catch {}
+      }
+      zombieSessionsSwept++;
+      deleteActiveSession(sessionId);
+      continue;
+    }
+
+    // Case 2: Client connected but no activity for 120s
+    if (clientConnected && idleMs > ZOMBIE_IDLE_THRESHOLD_MS) {
+      console.warn(`Zombie session ${sessionId} swept: idle ${Math.round(idleMs / 1000)}s with client connected`);
+      if (session.clientWs && session.clientWs.readyState === WebSocket.OPEN) {
+        try {
+          session.clientWs.send(JSON.stringify({ type: "session_timeout", message: "Session ended due to inactivity" }));
+          session.clientWs.close();
+        } catch {}
+      }
+      if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+        try { session.geminiWs.close(); } catch {}
+      }
+      zombieSessionsSwept++;
+      deleteActiveSession(sessionId);
+    }
+  }
+  if (zombieSessionsSwept > 0 && sessions.size === 0) {
+    console.log(`Zombie sweep: ${zombieSessionsSwept} total sessions swept so far`);
+  }
+}, ZOMBIE_SWEEP_INTERVAL_MS);
 
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);

@@ -1,7 +1,7 @@
 class MicProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.bufferSize = 2048; // Lower buffer size for lower latency
+    this.bufferSize = 640; // 40ms at 16kHz — consistent chunk cadence for VAD accuracy
     this.buffer = new Float32Array(this.bufferSize);
     this.bufferIndex = 0;
   }
