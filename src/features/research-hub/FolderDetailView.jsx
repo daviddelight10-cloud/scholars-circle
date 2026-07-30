@@ -112,6 +112,7 @@ function FileCard({ file, isBookmarked, bookmarkBusy, onOpen, onToggleBookmark, 
               </button>
             );
           }
+          if (file.standalone) return null;
           return (
             <button
               key={vt.key}
