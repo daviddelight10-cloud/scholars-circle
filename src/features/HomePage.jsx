@@ -93,14 +93,17 @@ export default function HomePage() {
   const isMobile = windowWidth < 768;
 
   useEffect(() => {
+    const root = document.getElementById('root');
     const onScroll = () => {
-      const h = document.documentElement;
-      const max = h.scrollHeight - h.clientHeight;
-      setScrollPct(max > 0 ? (h.scrollTop / max) * 100 : 0);
-      setIsScrolled(h.scrollTop > 30);
+      if (!root) return;
+      const max = root.scrollHeight - root.clientHeight;
+      setScrollPct(max > 0 ? (root.scrollTop / max) * 100 : 0);
+      setIsScrolled(root.scrollTop > 30);
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    if (root) {
+      root.addEventListener('scroll', onScroll, { passive: true });
+      return () => root.removeEventListener('scroll', onScroll);
+    }
   }, []);
 
   useEffect(() => {
