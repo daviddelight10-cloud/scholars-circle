@@ -1452,6 +1452,7 @@ model Resource {
   pdfFlashcards    PdfFlashcard[]
   resourceDepts    ResourceDepartment[]
   voiceSessions    VoiceSession[]
+  topicMatches     DocumentTopicMatch[]
 
   @@index([contentType])
   @@index([subject])
@@ -1699,6 +1700,47 @@ model VoiceSession {
   endedAt     DateTime?
 
   @@index([userId, status])
+  @@index([resourceId])
+}
+
+// ============ CURRICULUM TOPIC SKELETON ============
+model CurriculumTopic {
+  id                   String   @id @default(cuid())
+  courseCode           String
+  title                String
+  description          String?
+  displayOrder         Int      @default(0)
+  prerequisiteIds      String[] @default([])
+  source               String   @default("outline")
+  verified             Boolean  @default(false)
+  corroboratingUserIds String[] @default([])
+  disputeUserIds       String[] @default([])
+  avgConfidence        Float    @default(0)
+  createdBy            String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  documentMatches      DocumentTopicMatch[]
+
+  @@unique([courseCode, title])
+  @@index([courseCode])
+  @@index([verified])
+}
+
+model DocumentTopicMatch {
+  id          String   @id @default(cuid())
+  userId      String
+  resourceId  String
+  topicId     String
+  confidence  Float    @default(0)
+  matchSource String   @default("ai")
+  createdAt   DateTime @default(now())
+
+  resource    Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  topic       CurriculumTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resourceId, topicId])
+  @@index([userId, topicId])
   @@index([resourceId])
 }
 

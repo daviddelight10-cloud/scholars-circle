@@ -4,6 +4,8 @@ import { useUserData } from "../contexts/UserDataContext";
 import { getMyProfile } from "../lib/profileApi.js";
 import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
+import TopicSkeletonCard from "./home/TopicSkeletonCard.jsx";
+import TopicSkeletonView from "./home/TopicSkeletonView.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -381,6 +383,8 @@ export default function Dashboard({
   const { lastActivity, srData } = useUserData();
   const [fsrsStats, setFsrsStats] = useState(null);
   const [showDailyReview, setShowDailyReview] = useState(false);
+  const [showSkeletonView, setShowSkeletonView] = useState(false);
+  const [skeletonCourse, setSkeletonCourse] = useState("");
 
   const fetchFsrsStats = useCallback(async () => {
     try {
@@ -586,6 +590,14 @@ export default function Dashboard({
           </div>
         </div>
 
+        {/* Topic Skeleton card */}
+        <div style={{ marginTop: 22, maxWidth: 480 }}>
+          <TopicSkeletonCard
+            onOpenSkeleton={(course) => { setSkeletonCourse(course || ""); setShowSkeletonView(true); }}
+            token={token}
+          />
+        </div>
+
         {/* Lower grid: main content + sidebar */}
         <div className="sc-lower-grid" style={{ marginTop: 0 }}>
           <div className="sc-lower-main">
@@ -624,6 +636,15 @@ export default function Dashboard({
             onOpenPdf={onOpenResource}
           />
         </div>
+      )}
+
+      {/* Topic Skeleton overlay */}
+      {showSkeletonView && (
+        <TopicSkeletonView
+          courseCode={skeletonCourse}
+          onExit={() => setShowSkeletonView(false)}
+          onOpenResource={onOpenResource}
+        />
       )}
     </div>
   );

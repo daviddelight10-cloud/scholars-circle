@@ -26,6 +26,7 @@ import { supabase } from "./lib/supabaseClient.js";
 
 
 import { callAI } from "./lib/aiClient";
+import { generateSkeleton } from "./lib/skeletonGenerator";
 
 
 
@@ -8814,7 +8815,15 @@ function App() {
 
           onOpenLearn={() => { setAiDefaultView("learn"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
-          onOpenStudy={(topic, mode, attachment) => { setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiKey(k => k + 1); setTab("aitutor"); }}
+          onOpenStudy={(topic, mode, attachment) => {
+            setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiKey(k => k + 1); setTab("aitutor");
+            if (mode === "auto-roadmap") {
+              const outlineText = attachment?.content || "";
+              generateSkeleton({ courseName: topic, outlineText, onProgress: () => {} })
+                .then((result) => { console.log("Skeleton generated:", result.topics.length, "topics"); })
+                .catch((err) => { console.warn("Skeleton generation failed:", err.message); });
+            }
+          }}
 
           onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerToken(shareToken); }}
 

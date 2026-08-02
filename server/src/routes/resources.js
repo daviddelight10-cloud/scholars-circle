@@ -853,6 +853,18 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
       update: {},
     }).catch(() => {});
 
+    // Background: queue document-topic matching if a curriculum skeleton exists
+    const courseCode = resource.subject || folder?.courseCode;
+    if (courseCode) {
+      prisma.curriculumTopic.count({ where: { courseCode } })
+        .then((topicCount) => {
+          if (topicCount > 0) {
+            console.log(`[TopicMatcher] Resource ${resource.id} has ${topicCount} curriculum topics for course ${courseCode} — client-side matching recommended`);
+          }
+        })
+        .catch(() => {});
+    }
+
     res.status(201).json(resource);
   } catch (error) {
     console.error("Error saving study tool:", error);
@@ -1614,6 +1626,18 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         resourceDepts: { include: { department: { select: { id: true, name: true } } } },
       },
     });
+
+    // Background: queue document-topic matching if a curriculum skeleton exists
+    const uploadCourseCode = resource.subject || folder?.courseCode;
+    if (uploadCourseCode) {
+      prisma.curriculumTopic.count({ where: { courseCode: uploadCourseCode } })
+        .then((topicCount) => {
+          if (topicCount > 0) {
+            console.log(`[TopicMatcher] Resource ${resource.id} has ${topicCount} curriculum topics for course ${uploadCourseCode} — client-side matching recommended`);
+          }
+        })
+        .catch(() => {});
+    }
 
     res.status(201).json(resource);
   } catch (error) {
