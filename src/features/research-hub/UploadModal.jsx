@@ -239,7 +239,7 @@ export default function UploadModal({
                 ✨ Generate MCQs from a file with AI
               </div>
               <p style={{ fontSize: fontSize.xs, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 1.5 }}>
-                Upload a PDF, DOCX, TXT, PPTX, or image — AI will extract and generate up to {MAX_QUESTIONS} questions automatically, or a specific number you choose below. Large documents are split into sections and processed in parallel for speed.
+                Upload a PDF, DOCX, TXT, PPTX, or image — AI will extract and generate up to {MAX_QUESTIONS} questions automatically, or a specific number you choose below. If your document already contains questions, AI will extract them as-is instead of generating new ones. Large documents are split into sections and processed in parallel for speed.
               </p>
 
               <div style={{ marginBottom: spacing.sm }}>

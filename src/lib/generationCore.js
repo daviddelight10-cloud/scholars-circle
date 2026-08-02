@@ -8,7 +8,33 @@ export const CONCURRENCY_LIMIT = 3;
 export const MAX_CHUNKS = 20;
 export const MIN_CHUNK_SIZE = 5000;
 
-export function buildMcqPrompt(text, questionCount) {
+export function buildMcqPrompt(text, questionCount, { extractMode = false } = {}) {
+  if (extractMode) {
+    return `You are an expert exam MCQ extractor. Extract ALL multiple-choice questions that already exist in this content and format them properly.
+
+"""
+${text}
+"""
+
+CRITICAL INSTRUCTIONS:
+1. Return ONLY a valid JSON array. No markdown, no code blocks, no extra text.
+2. Extract ONLY the questions that already exist in the content — do NOT generate new questions.
+3. If no questions are found in this section, return an empty array [].
+4. Each extracted question must have exactly 4 options (A, B, C, D) and one correct answer.
+5. Preserve the original question text, options, and correct answer as written in the document.
+6. Include the explanation only if one is provided in the document; otherwise leave it empty.
+
+Format:
+[
+  {
+    "question": "Question text?",
+    "options": {"A":"...","B":"...","C":"...","D":"..."},
+    "correct": "A",
+    "explanation": "Brief explanation."
+  }
+]`;
+  }
+
   return `You are an expert exam MCQ generator for university students. Generate exactly ${questionCount} multiple-choice questions based on this content:
 
 """
@@ -22,7 +48,6 @@ CRITICAL INSTRUCTIONS:
 4. Questions should test understanding and application, not just memorization.
 5. Include a brief explanation for each question.
 6. Cover the breadth of the content — don't repeat similar questions.
-7. If the content already contains questions, extract and format them properly.
 
 Format:
 [
@@ -68,6 +93,41 @@ CONTENT:
 """
 ${text}
 """`;
+}
+
+/**
+ * Heuristic detection of existing MCQs in extracted text.
+ * Counts option markers (A), B., (C), D:) and numbered question stems.
+ * Returns estimated count, or 0 if below confidence threshold.
+ */
+export function countExistingMcqs(text) {
+  if (!text || text.trim().length < 100) return 0;
+
+  // Count option-marker lines: A), B., (C), D:, a) etc.
+  const optionMarkerRe = /^\s*\(?[A-Da-d][\)\.:)]\s+\S/gm;
+  const optionMatches = text.match(optionMarkerRe) || [];
+  const optionGroups = Math.floor(optionMatches.length / 4);
+
+  // Count numbered question stems: "1.", "Q1.", "Question 1:", etc. followed by text ending with ?
+  const questionStemRe = /^\s*(?:\d+[\)\.:)]\s+.*\?|Q\d+[\)\.:)]?\s+.*\?|Question\s*\d+[\)\.:)]?\s+.*\?)/gim;
+  const questionStems = text.match(questionStemRe) || [];
+
+  const estimated = Math.max(optionGroups, questionStems.length);
+  return estimated >= 5 ? estimated : 0;
+}
+
+/**
+ * Remove duplicate MCQ rows by normalized question text.
+ * Keeps first occurrence of each unique question.
+ */
+export function dedupeMcqs(rows) {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const key = row.question.toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function mapAiMcqsToRows(parsed) {
@@ -136,6 +196,13 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
 
   if (!text.trim()) throw new Error("No text could be extracted from this material.");
 
+  // ── Extraction mode: detect existing MCQs in the document ───────────────
+  // When the document already contains MCQs (e.g. a question bank), extract
+  // them as-is instead of generating new ones. This prevents over-generation
+  // where a 100-question document would otherwise produce 200+ questions.
+  const existingCount = countExistingMcqs(text);
+  const useExtractMode = !customCount && existingCount >= 5;
+
   // Determine chunk count from BOTH text length and desired question count,
   // so a large custom count still gets enough chunks to stay within the
   // per-call token budget (QUESTIONS_PER_CHUNK questions max per AI call).
@@ -145,10 +212,16 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / desiredChunks));
   const chunks = chunkText(text, chunkSize);
   const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
-  const targetCount = customCount ? Math.min(customCount, totalPossible) : Math.min(MAX_QUESTIONS, totalPossible);
+  const targetCount = useExtractMode
+    ? Math.min(existingCount, MAX_QUESTIONS)
+    : customCount ? Math.min(customCount, totalPossible) : Math.min(MAX_QUESTIONS, totalPossible);
   const questionsPerChunk = Math.min(QUESTIONS_PER_CHUNK, Math.ceil(targetCount / chunks.length));
 
-  onProgress?.(`Generating MCQs from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
+  if (useExtractMode) {
+    onProgress?.(`Extracting ~${existingCount} existing questions from ${chunks.length} section${chunks.length > 1 ? "s" : ""}…`);
+  } else {
+    onProgress?.(`Generating MCQs from ${chunks.length} section${chunks.length > 1 ? "s" : ""}… (up to ${targetCount} questions)`);
+  }
 
   if (customCount && targetCount < customCount) {
     const w = `⚠️ Requested ${customCount} questions, but this document can only support ~${targetCount} given its length — generating the maximum achievable.`;
@@ -162,9 +235,16 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     const batchEnd = Math.min(batchStart + CONCURRENCY_LIMIT, chunks.length);
     const batchPromises = [];
     for (let idx = batchStart; idx < batchEnd; idx++) {
-      const count = idx === chunks.length - 1 ? Math.min(QUESTIONS_PER_CHUNK, targetCount - (questionsPerChunk * (chunks.length - 1))) : questionsPerChunk;
-      const requested = Math.max(5, count);
-      const prompt = buildMcqPrompt(chunks[idx], requested);
+      let prompt;
+      let requested;
+      if (useExtractMode) {
+        prompt = buildMcqPrompt(chunks[idx], 0, { extractMode: true });
+        requested = 0;
+      } else {
+        const count = idx === chunks.length - 1 ? Math.min(QUESTIONS_PER_CHUNK, targetCount - (questionsPerChunk * (chunks.length - 1))) : questionsPerChunk;
+        requested = Math.max(5, count);
+        prompt = buildMcqPrompt(chunks[idx], requested);
+      }
       batchPromises.push(
         callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
           .then((raw) => {
@@ -182,10 +262,16 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     chunkResults.push(...batchResults);
   }
 
-  let allRows = chunkResults.flatMap((r) => r.rows).slice(0, targetCount);
+  let allRows = chunkResults.flatMap((r) => r.rows);
+
+  // Deduplicate in extraction mode (AI may extract the same question from overlapping chunks)
+  if (useExtractMode) {
+    allRows = dedupeMcqs(allRows);
+  }
+  allRows = allRows.slice(0, targetCount);
 
   // Adaptive retry: if total < 50% of target, retry underproducing chunks with halved counts
-  if (allRows.length < targetCount * 0.5 && allRows.length < MAX_QUESTIONS) {
+  if (!useExtractMode && allRows.length < targetCount * 0.5 && allRows.length < MAX_QUESTIONS) {
     const underproducing = chunkResults
       .map((r, idx) => ({ idx, requested: r.requested, produced: r.rows.length, error: r.error }))
       .filter((r) => r.produced < r.requested * 0.5);
@@ -215,7 +301,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
 
   // Build warning if chunks underproduced
   const failedChunks = chunkResults.filter((r) => r.rows.length === 0).length;
-  const lowChunks = chunkResults.filter((r) => r.rows.length > 0 && r.rows.length < r.requested * 0.5).length;
+  const lowChunks = chunkResults.filter((r) => r.requested > 0 && r.rows.length > 0 && r.rows.length < r.requested * 0.5).length;
   if (failedChunks > 0 || lowChunks > 0) {
     const parts = [];
     if (failedChunks > 0) parts.push(`${failedChunks} section${failedChunks > 1 ? "s" : ""} failed`);
