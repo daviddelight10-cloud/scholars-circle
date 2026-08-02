@@ -50,7 +50,7 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 8192,
           },
         };
         break;
@@ -68,6 +68,7 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
         requestBody = {
           model: openrouterModel,
           messages: [{ role: "user", content: prompt }],
+          max_tokens: 8192,
         };
         break;
 
@@ -82,6 +83,7 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
         requestBody = {
           model: openaiModel,
           messages: [{ role: "user", content: prompt }],
+          max_tokens: 8192,
         };
         break;
 
@@ -250,7 +252,7 @@ router.post("/generate-multimodal", requireAuth, aiRateLimit, async (req, res) =
           contents: geminiContents,
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 8192,
           },
         };
         break;

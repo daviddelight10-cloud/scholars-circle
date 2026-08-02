@@ -6,11 +6,13 @@ export const QUESTIONS_PER_CHUNK = 50;
 export const MAX_FLASHCARDS = 50;
 export const CONCURRENCY_LIMIT = 3;
 export const MAX_CHUNKS = 20;
+export const EXTRACT_MAX_CHUNKS = 50;
 export const MIN_CHUNK_SIZE = 5000;
 
-export function buildMcqPrompt(text, questionCount, { extractMode = false } = {}) {
+export function buildMcqPrompt(text, questionCount, { extractMode = false, expectedCount = 0 } = {}) {
   if (extractMode) {
-    return `You are an expert exam MCQ extractor. Extract ALL multiple-choice questions that already exist in this content and format them properly.
+    const countHint = expectedCount > 0 ? ` This section contains approximately ${expectedCount} questions — extract ALL of them.` : "";
+    return `You are an expert exam MCQ extractor. Extract ALL multiple-choice questions that already exist in this content and format them properly.${countHint}
 
 """
 ${text}
@@ -211,9 +213,12 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   // Determine chunk count from BOTH text length and desired question count,
   // so a large custom count still gets enough chunks to stay within the
   // per-call token budget (QUESTIONS_PER_CHUNK questions max per AI call).
-  const textBasedChunks = Math.min(MAX_CHUNKS, Math.max(1, Math.ceil(text.length / MIN_CHUNK_SIZE)));
+  const chunkLimit = useExtractMode ? EXTRACT_MAX_CHUNKS : MAX_CHUNKS;
+  const textBasedChunks = Math.min(chunkLimit, Math.max(1, Math.ceil(text.length / MIN_CHUNK_SIZE)));
   const countBasedChunks = customCount ? Math.min(MAX_CHUNKS, Math.ceil(customCount / QUESTIONS_PER_CHUNK)) : 1;
-  const desiredChunks = Math.max(textBasedChunks, countBasedChunks);
+  // In extraction mode, also factor in the detected question count to create enough chunks
+  const extractCountChunks = useExtractMode ? Math.min(chunkLimit, Math.ceil(existingCount / 15)) : 0;
+  const desiredChunks = Math.max(textBasedChunks, countBasedChunks, extractCountChunks);
   const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / desiredChunks));
   const chunks = chunkText(text, chunkSize);
   const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
@@ -243,7 +248,8 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       let prompt;
       let requested;
       if (useExtractMode) {
-        prompt = buildMcqPrompt(chunks[idx], 0, { extractMode: true });
+        const expectedPerChunk = Math.ceil(existingCount / chunks.length);
+        prompt = buildMcqPrompt(chunks[idx], 0, { extractMode: true, expectedCount: expectedPerChunk });
         requested = 0;
       } else {
         const count = idx === chunks.length - 1 ? Math.min(QUESTIONS_PER_CHUNK, targetCount - (questionsPerChunk * (chunks.length - 1))) : questionsPerChunk;
@@ -321,7 +327,8 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
         const retryBatchPromises = [];
         for (let ri = rStart; ri < rEnd; ri++) {
           const r = emptyChunks[ri];
-          const prompt = buildMcqPrompt(chunks[r.idx], 0, { extractMode: true });
+          const expectedPerChunk = Math.ceil(existingCount / chunks.length);
+          const prompt = buildMcqPrompt(chunks[r.idx], 0, { extractMode: true, expectedCount: expectedPerChunk });
           retryBatchPromises.push(
             callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
               .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
