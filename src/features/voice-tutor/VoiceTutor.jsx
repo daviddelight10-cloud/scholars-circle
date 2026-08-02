@@ -519,6 +519,24 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
             {/* Active session: floating action bar */}
             {isActive && (
               <div className="sc-vt-action-bar">
+                {/* Mode switcher — visible on mobile when controls panel is hidden */}
+                <div className="sc-vt-action-modes">
+                  {Object.entries(VOICE_MODES).map(([key, m]) => (
+                    <button
+                      key={key}
+                      className={`sc-vt-action-mode-btn ${mode === key ? "active" : ""}`}
+                      onClick={() => {
+                        setMode(key);
+                        if (voice.switchMode) voice.switchMode(key);
+                      }}
+                      title={m.desc}
+                    >
+                      <ModeIcon svgPath={m.icon} size={14} />
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="sc-vt-action-pill">
                   <button
                     className="sc-vt-action-icon-btn"
