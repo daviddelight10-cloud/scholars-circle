@@ -103,16 +103,21 @@ ${text}
 export function countExistingMcqs(text) {
   if (!text || text.trim().length < 100) return 0;
 
-  // Count option-marker lines: A), B., (C), D:, a) etc.
+  // Count option-marker lines: A), B., (C), D:, a), (a), a. etc.
   const optionMarkerRe = /^\s*\(?[A-Da-d][\)\.:)]\s+\S/gm;
   const optionMatches = text.match(optionMarkerRe) || [];
   const optionGroups = Math.floor(optionMatches.length / 4);
 
-  // Count numbered question stems: "1.", "Q1.", "Question 1:", etc. followed by text ending with ?
-  const questionStemRe = /^\s*(?:\d+[\)\.:)]\s+.*\?|Q\d+[\)\.:)]?\s+.*\?|Question\s*\d+[\)\.:)]?\s+.*\?)/gim;
+  // Count numbered question stems: "1.", "1)", "Q1.", "Question 1:", etc.
+  // Broader: any numbered line that looks like a question (with or without ?)
+  const questionStemRe = /^\s*(?:\d+[\)\.:)]\s+\S|Q\d+[\)\.:)]?\s+\S|Question\s*\d+[\)\.:)]?\s+\S)/gim;
   const questionStems = text.match(questionStemRe) || [];
 
-  const estimated = Math.max(optionGroups, questionStems.length);
+  // Also count lines ending with ? as potential questions
+  const questionMarkRe = /^\s*.+\?\s*$/gm;
+  const questionMarkLines = text.match(questionMarkRe) || [];
+
+  const estimated = Math.max(optionGroups, questionStems.length, Math.floor(questionMarkLines.length / 2));
   return estimated >= 5 ? estimated : 0;
 }
 
@@ -267,8 +272,11 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   // Deduplicate in extraction mode (AI may extract the same question from overlapping chunks)
   if (useExtractMode) {
     allRows = dedupeMcqs(allRows);
+    // In extraction mode, do NOT cap to the heuristic estimate — keep all extracted questions
+    allRows = allRows.slice(0, MAX_QUESTIONS);
+  } else {
+    allRows = allRows.slice(0, targetCount);
   }
-  allRows = allRows.slice(0, targetCount);
 
   // Adaptive retry: if total < 50% of target, retry underproducing chunks with halved counts
   if (!useExtractMode && allRows.length < targetCount * 0.5 && allRows.length < MAX_QUESTIONS) {
@@ -296,6 +304,35 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
         retryRows.push(...batchRetryResults);
       }
       allRows = [...allRows, ...retryRows.flat()].slice(0, targetCount);
+    }
+  }
+
+  // Extraction mode: retry chunks that produced 0 questions
+  if (useExtractMode) {
+    const emptyChunks = chunkResults
+      .map((r, idx) => ({ idx, produced: r.rows.length, error: r.error }))
+      .filter((r) => r.produced === 0);
+
+    if (emptyChunks.length > 0 && allRows.length < MAX_QUESTIONS) {
+      onProgress?.(`Retrying ${emptyChunks.length} section${emptyChunks.length > 1 ? "s" : ""} that produced no questions…`);
+      const retryRows = [];
+      for (let rStart = 0; rStart < emptyChunks.length; rStart += CONCURRENCY_LIMIT) {
+        const rEnd = Math.min(rStart + CONCURRENCY_LIMIT, emptyChunks.length);
+        const retryBatchPromises = [];
+        for (let ri = rStart; ri < rEnd; ri++) {
+          const r = emptyChunks[ri];
+          const prompt = buildMcqPrompt(chunks[r.idx], 0, { extractMode: true });
+          retryBatchPromises.push(
+            callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+              .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
+              .catch(() => [])
+          );
+        }
+        const batchRetryResults = await Promise.all(retryBatchPromises);
+        retryRows.push(...batchRetryResults);
+      }
+      const retryDeduped = dedupeMcqs(retryRows.flat());
+      allRows = dedupeMcqs([...allRows, ...retryDeduped]).slice(0, MAX_QUESTIONS);
     }
   }
 
