@@ -1,6 +1,12 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import {
+  extractSkeletonFromOutline,
+  retroactiveMatchDocuments,
+  checkVerificationThreshold,
+} from "../lib/topicExtractionService.js";
+import { logError } from "../lib/logger.js";
 
 const router = express.Router();
 
@@ -22,17 +28,31 @@ router.get("/:courseCode/topics", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/curriculum/:courseCode/topics — Batch upsert skeleton from AI generation
+// POST /api/curriculum/:courseCode/topics — Generate skeleton server-side
+// Accepts either { topics, source } (client-provided) or { outlineText, courseName } (server-generated)
 router.post("/:courseCode/topics", requireAuth, async (req, res) => {
   try {
     const { courseCode } = req.params;
-    const { topics, source = "ai_inferred" } = req.body;
+    const { topics, source = "ai_inferred", outlineText, courseName } = req.body;
 
+    // Path A: Server-side generation from outline/courseName
+    if (outlineText || courseName) {
+      const result = await extractSkeletonFromOutline({
+        courseCode,
+        outlineText,
+        courseName,
+        userId: req.user.sub,
+      });
+      return res.status(201).json(result.topics);
+    }
+
+    // Path B: Client-provided topics (backward compat — save directly)
     if (!Array.isArray(topics) || topics.length === 0) {
-      return res.status(400).json({ error: "topics array is required" });
+      return res.status(400).json({ error: "topics array or outlineText/courseName is required" });
     }
 
     const verified = source === "outline";
+    const status = verified ? "verified" : "unverified";
     const created = [];
 
     for (const t of topics) {
@@ -44,15 +64,18 @@ router.post("/:courseCode/topics", requireAuth, async (req, res) => {
         update: {
           description: t.description || null,
           displayOrder: t.displayOrder ?? 0,
-          ...(verified && { verified: true, source: "outline" }),
+          subtopics: Array.isArray(t.subtopics) ? t.subtopics : [],
+          ...(verified && { verified: true, source: "outline", status: "verified" }),
         },
         create: {
           courseCode,
           title: t.title.trim(),
           description: t.description || null,
           displayOrder: t.displayOrder ?? 0,
+          subtopics: Array.isArray(t.subtopics) ? t.subtopics : [],
           source,
           verified,
+          status,
           createdBy: req.user.sub,
         },
       });
@@ -130,24 +153,40 @@ router.post("/topics/:id/corroborate", requireAuth, async (req, res) => {
     });
     if (!topic) return res.status(404).json({ error: "Topic not found" });
 
+    // Outline-sourced topics are pre-verified — no corroboration needed
+    if (topic.source === "outline") {
+      return res.json({ ok: true, alreadyVerified: true, topic });
+    }
+
     if (topic.corroboratingUserIds.includes(userId)) {
       return res.json({ ok: true, alreadyCorroborated: true, topic });
     }
 
     const newCorroborating = [...topic.corroboratingUserIds, userId];
     const newDispute = topic.disputeUserIds.filter((id) => id !== userId);
-    const avgConfidence = newCorroborating.length / (newCorroborating.length + newDispute.length);
+
+    // Recompute avgConfidence from actual document_topic_matches
+    const matches = await prisma.documentTopicMatch.findMany({
+      where: { topicId: topic.id },
+      select: { confidence: true },
+    });
+    const avgConfidence = matches.length > 0
+      ? matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length
+      : 0;
 
     const shouldVerify =
       newCorroborating.length >= 5 && avgConfidence > 0.7 && newDispute.length === 0;
+
+    const newStatus = newDispute.length > 0 ? "disputed" : shouldVerify ? "verified" : "unverified";
 
     const updated = await prisma.curriculumTopic.update({
       where: { id: topic.id },
       data: {
         corroboratingUserIds: newCorroborating,
         disputeUserIds: newDispute,
-        avgConfidence,
-        ...(shouldVerify && { verified: true }),
+        avgConfidence: Math.round(avgConfidence * 100) / 100,
+        verified: shouldVerify,
+        status: newStatus,
       },
     });
 
@@ -167,24 +206,35 @@ router.post("/topics/:id/dispute", requireAuth, async (req, res) => {
     });
     if (!topic) return res.status(404).json({ error: "Topic not found" });
 
+    // Outline-sourced topics cannot be disputed
+    if (topic.source === "outline") {
+      return res.status(400).json({ error: "Outline-sourced topics cannot be disputed" });
+    }
+
     if (topic.disputeUserIds.includes(userId)) {
       return res.json({ ok: true, alreadyDisputed: true, topic });
     }
 
     const newDispute = [...topic.disputeUserIds, userId];
     const newCorroborating = topic.corroboratingUserIds.filter((id) => id !== userId);
-    const avgConfidence =
-      newCorroborating.length + newDispute.length > 0
-        ? newCorroborating.length / (newCorroborating.length + newDispute.length)
-        : 0;
+
+    // Recompute avgConfidence from actual document_topic_matches
+    const matches = await prisma.documentTopicMatch.findMany({
+      where: { topicId: topic.id },
+      select: { confidence: true },
+    });
+    const avgConfidence = matches.length > 0
+      ? matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length
+      : 0;
 
     const updated = await prisma.curriculumTopic.update({
       where: { id: topic.id },
       data: {
         disputeUserIds: newDispute,
         corroboratingUserIds: newCorroborating,
-        avgConfidence,
+        avgConfidence: Math.round(avgConfidence * 100) / 100,
         verified: false,
+        status: "disputed",
       },
     });
 
@@ -235,6 +285,7 @@ router.get("/:courseCode/matches", requireAuth, async (req, res) => {
 });
 
 // POST /api/curriculum/matches — Create/update a document-topic match
+// Also triggers verification threshold check after insert
 router.post("/matches", requireAuth, async (req, res) => {
   try {
     const { resourceId, topicId, confidence, matchSource } = req.body;
@@ -262,6 +313,13 @@ router.post("/matches", requireAuth, async (req, res) => {
         matchSource: matchSource || "ai",
       },
     });
+
+    // Run verification threshold check after match insert
+    try {
+      await checkVerificationThreshold(topicId);
+    } catch (verifyErr) {
+      logError(verifyErr, { context: "checkVerificationThreshold on match insert", topicId });
+    }
 
     res.status(201).json(match);
   } catch (err) {
@@ -380,7 +438,8 @@ router.get("/:courseCode/topic-progress", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/curriculum/:courseCode/retroactive-match — Batch match existing documents
+// POST /api/curriculum/:courseCode/retroactive-match — Server-side batch match
+// Runs AI matching server-side, writes matches authoritatively
 router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
   try {
     const { courseCode } = req.params;
@@ -394,34 +453,38 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "No skeleton exists for this course yet" });
     }
 
-    // Find resources for this course (by subject or folder.courseCode)
-    const resources = await prisma.resource.findMany({
+    // Run matching server-side (async, non-blocking to the response)
+    // For small course sets, process synchronously; for large sets, return immediately
+    const resourceCount = await prisma.resource.count({
       where: {
         OR: [
-          { subject: courseCode },
-          { folder: { courseCode } },
+          { subject: courseCode, uploadedBy: userId },
+          { folder: { courseCode }, uploadedBy: userId },
         ],
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        contentType: true,
-        subject: true,
       },
     });
 
+    if (resourceCount === 0) {
+      return res.json({
+        ok: true,
+        matchCount: 0,
+        resourceCount: 0,
+        message: "No documents found for this course.",
+      });
+    }
+
+    // Run the matching synchronously (user sees progress via polling or SSE in future)
+    const result = await retroactiveMatchDocuments(courseCode, userId);
+
     res.json({
       ok: true,
-      resourceCount: resources.length,
-      topicCount: topics.length,
-      message: "Retroactive matching queued. Use the client-side matcher to process.",
-      resources: resources.map((r) => ({ id: r.id, title: r.title, description: r.description, contentType: r.contentType })),
-      topics: topics.map((t) => ({ id: t.id, title: t.title, description: t.description })),
+      matchCount: result.matchCount,
+      resourceCount: result.resourceCount,
+      message: `Matched ${result.matchCount} document-topic pairs from ${result.resourceCount} documents.`,
     });
   } catch (err) {
-    console.error("Error starting retroactive match:", err.message);
-    res.status(500).json({ error: "Failed to start retroactive matching" });
+    console.error("Error during retroactive matching:", err.message);
+    res.status(500).json({ error: "Failed to run retroactive matching" });
   }
 });
 

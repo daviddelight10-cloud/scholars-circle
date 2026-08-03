@@ -590,8 +590,8 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* Topic Skeleton card */}
-        <div style={{ marginTop: 22, maxWidth: 480 }}>
+        {/* Course Roadmap card — prominent, full width */}
+        <div style={{ marginTop: 22 }}>
           <TopicSkeletonCard
             onOpenSkeleton={(course) => { setSkeletonCourse(course || ""); setShowSkeletonView(true); }}
             token={token}

@@ -1711,7 +1711,9 @@ model CurriculumTopic {
   description          String?
   displayOrder         Int      @default(0)
   prerequisiteIds      String[] @default([])
-  source               String   @default("outline")
+  subtopics            String[] @default([])
+  source               String   @default("ai_inferred")
+  status               String   @default("unverified")
   verified             Boolean  @default(false)
   corroboratingUserIds String[] @default([])
   disputeUserIds       String[] @default([])
@@ -1725,6 +1727,7 @@ model CurriculumTopic {
   @@unique([courseCode, title])
   @@index([courseCode])
   @@index([verified])
+  @@index([status])
 }
 
 model DocumentTopicMatch {

@@ -41,6 +41,61 @@ const PROGRESS_BG = {
   "Mastered": "rgba(61,214,140,0.12)",
 };
 
+/**
+ * Compute progress percentage for a topic from FSRS stats.
+ */
+function progressPct(p) {
+  if (!p || p.totalItems === 0) return 0;
+  return Math.round((p.avgRetrievability || 0) * 100);
+}
+
+/**
+ * Check if a topic is locked (has unmet prerequisites).
+ * A prerequisite is met if its progress label is "Mastered".
+ */
+function isTopicLocked(topic, topics, progress) {
+  if (!topic.prerequisiteIds || topic.prerequisiteIds.length === 0) return false;
+  for (const pid of topic.prerequisiteIds) {
+    const prereq = topics.find((t) => t.id === pid);
+    if (!prereq) continue;
+    const prereqProgress = progress?.[pid];
+    if (!prereqProgress || prereqProgress.label !== "Mastered") return true;
+  }
+  return false;
+}
+
+/**
+ * Find the "Start here" topic — the first topic that:
+ * (a) has no unmet prerequisites,
+ * (b) is not yet mastered,
+ * (c) has material mapped to it (if any matches exist).
+ * If no topic with material matches, falls back to first unlocked non-mastered topic.
+ */
+function findStartHereTopic(topics, progress, matchesByTopic) {
+  const hasMatches = matchesByTopic.size > 0;
+
+  // First pass: prefer topics with material that are unlocked and not mastered
+  if (hasMatches) {
+    for (const topic of topics) {
+      const p = progress?.[topic.id];
+      const isMastered = p?.label === "Mastered";
+      const locked = isTopicLocked(topic, topics, progress);
+      const hasMaterial = matchesByTopic.has(topic.id);
+      if (!isMastered && !locked && hasMaterial) return topic;
+    }
+  }
+
+  // Second pass: first unlocked non-mastered topic
+  for (const topic of topics) {
+    const p = progress?.[topic.id];
+    const isMastered = p?.label === "Mastered";
+    const locked = isTopicLocked(topic, topics, progress);
+    if (!isMastered && !locked) return topic;
+  }
+
+  return null;
+}
+
 export default function TopicSkeletonView({ courseCode: initialCourseCode, onExit, onOpenResource }) {
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(initialCourseCode || "");
@@ -52,7 +107,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
   const [genProgress, setGenProgress] = useState("");
   const [error, setError] = useState("");
   const [matchProgress, setMatchProgress] = useState(null);
-  const [expandedTopic, setExpandedTopic] = useState(null);
+  const [selectedTopicId, setSelectedTopicId] = useState(null);
 
   // Build course list from folders + resource subjects
   useEffect(() => {
@@ -144,6 +199,27 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
 
   const masteredPct = stats ? Math.round((stats.mastered / stats.total) * 100) : 0;
 
+  const startHereTopic = useMemo(() => {
+    if (topics.length === 0) return null;
+    return findStartHereTopic(topics, progress, matchesByTopic);
+  }, [topics, progress, matchesByTopic]);
+
+  const selectedTopic = useMemo(() => {
+    if (!selectedTopicId) return null;
+    return topics.find((t) => t.id === selectedTopicId) || null;
+  }, [selectedTopicId, topics]);
+
+  // Auto-select first topic (or start-here topic) when topics load
+  useEffect(() => {
+    if (topics.length > 0 && !selectedTopicId) {
+      const start = findStartHereTopic(topics, progress, matchesByTopic);
+      setSelectedTopicId(start?.id || topics[0].id);
+    }
+    if (topics.length === 0) {
+      setSelectedTopicId(null);
+    }
+  }, [topics, progress, matchesByTopic, selectedTopicId]);
+
   async function handleGenerate() {
     if (!selectedCourse.trim()) return;
     setGenerating(true);
@@ -221,10 +297,10 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
         }}>←</button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
-            Topic Skeleton
+            Course Roadmap
           </div>
           <div style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>
-            Curriculum roadmap & document matching
+            {selectedCourse || "Select a course"} · {topics.length} topics
           </div>
         </div>
 
@@ -250,7 +326,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
             padding: "8px 14px", fontSize: 11, color: D.blue, cursor: matchProgress ? "not-allowed" : "pointer",
             fontFamily: FONTS.body, fontWeight: 600, whiteSpace: "nowrap",
           }}>
-            {matchProgress ? `Matching ${matchProgress.current}/${matchProgress.total}…` : "🔗 Match Documents"}
+            {matchProgress ? `${matchProgress.label}` : "🔗 Match Docs"}
           </button>
         )}
 
@@ -266,9 +342,15 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
 
       {/* Error banner */}
       {error && (
-        <div style={{ padding: "8px 20px", background: "rgba(255,84,112,0.1)", borderBottom: `0.5px solid ${D.coral}33` }}>
+        <div style={{ padding: "8px 20px", background: "rgba(255,84,112,0.1)", borderBottom: `0.5px solid ${D.coral}33`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: 12, color: D.coral, fontFamily: FONTS.body }}>{error}</span>
-          <button onClick={() => setError("")} style={{ float: "right", background: "none", border: "none", color: D.coral, cursor: "pointer", fontSize: 14 }}>×</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleGenerate} disabled={generating} style={{
+              background: "rgba(255,84,112,0.15)", border: `0.5px solid ${D.coral}44`, borderRadius: 6,
+              padding: "3px 10px", fontSize: 11, color: D.coral, cursor: "pointer", fontFamily: FONTS.body,
+            }}>Retry</button>
+            <button onClick={() => setError("")} style={{ background: "none", border: "none", color: D.coral, cursor: "pointer", fontSize: 14 }}>×</button>
+          </div>
         </div>
       )}
 
@@ -281,17 +363,17 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
         </div>
       )}
 
-      {/* Body */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+      {/* Body — two-column layout: path/timeline + sticky detail panel */}
+      <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
         {loading ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: D.textMid, fontSize: 14, fontFamily: FONTS.body }}>
+          <div style={{ flex: 1, textAlign: "center", padding: "60px 0", color: D.textMid, fontSize: 14, fontFamily: FONTS.body }}>
             Loading skeleton…
           </div>
         ) : topics.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 20px" }}>
+          <div style={{ flex: 1, textAlign: "center", padding: "80px 20px" }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: D.textHi, marginBottom: 8, fontFamily: FONTS.display }}>
-              {selectedCourse ? `No skeleton for ${selectedCourse}` : "Select a course to begin"}
+              {selectedCourse ? `No roadmap for ${selectedCourse}` : "Select a course to begin"}
             </div>
             <div style={{ fontSize: 13, color: D.textMid, fontFamily: FONTS.body, lineHeight: 1.6, marginBottom: 20 }}>
               {selectedCourse
@@ -301,196 +383,169 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
           </div>
         ) : (
           <>
-            {/* Stats summary */}
-            {stats && (
-              <div style={{
-                display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap",
-              }}>
+            {/* Left column — Topic path/timeline */}
+            <div style={{
+              flex: "1 1 45%", overflowY: "auto", padding: "16px 12px 16px 20px",
+              borderRight: `0.5px solid ${D.border}`,
+            }}>
+              {/* Stats summary */}
+              {stats && (
                 <div style={{
-                  flex: "1 1 300px", background: D.panel, border: `0.5px solid ${D.border}`,
-                  borderRadius: 12, padding: "16px 18px",
+                  background: D.panel, border: `0.5px solid ${D.border}`,
+                  borderRadius: 12, padding: "14px 16px", marginBottom: 16,
                 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, color: D.textMid, fontFamily: FONTS.body }}>Overall Mastery</span>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: D.gold, fontFamily: FONTS.display }}>{masteredPct}%</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>Overall Mastery</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: D.gold, fontFamily: FONTS.display }}>{masteredPct}%</span>
                   </div>
-                  <div style={{ height: 8, background: D.ink, borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${masteredPct}%`, background: `linear-gradient(90deg, ${D.gold}, ${D.green})`, borderRadius: 4, transition: "width 0.3s" }} />
+                  <div style={{ height: 6, background: D.ink, borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${masteredPct}%`, background: `linear-gradient(90deg, ${D.gold}, ${D.green})`, borderRadius: 3, transition: "width 0.3s" }} />
                   </div>
-                  <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+                  <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
                     <StatItem label="Mastered" value={stats.mastered} color={D.green} />
                     <StatItem label="Learning" value={stats.learning} color={D.gold} />
                     <StatItem label="Not Started" value={stats.notStarted} color={D.textLow} />
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Topic list */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 800 }}>
-              {topics.map((topic, idx) => {
-                const p = progress?.[topic.id];
-                const topicMatches = matchesByTopic.get(topic.id) || [];
-                const isExpanded = expandedTopic === topic.id;
-                const progressLabel = p?.label || "Not started";
-                const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
-                const progressBg = PROGRESS_BG[progressLabel] || "transparent";
+              {/* Start here banner */}
+              {startHereTopic && (
+                <div onClick={() => setSelectedTopicId(startHereTopic.id)} style={{
+                  background: `linear-gradient(135deg, rgba(245,166,35,0.15), rgba(245,166,35,0.05))`,
+                  border: `1px solid ${D.gold}44`, borderRadius: 10, padding: "12px 16px",
+                  marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
+                }}>
+                  <span style={{ fontSize: 20 }}>👉</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: D.gold, fontFamily: FONTS.mono, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+                      Start Here
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: D.textHi, fontFamily: FONTS.body, marginTop: 2 }}>
+                      {startHereTopic.title}
+                    </div>
+                  </div>
+                  <span style={{ color: D.gold, fontSize: 14 }}>→</span>
+                </div>
+              )}
 
-                return (
-                  <div key={topic.id} style={{
-                    background: D.panel, border: `0.5px solid ${isExpanded ? D.gold + "44" : D.border}`,
-                    borderRadius: 10, overflow: "hidden", transition: "border-color 0.2s",
-                  }}>
-                    {/* Topic row */}
+              {/* Timeline topic list */}
+              <div style={{ position: "relative", paddingLeft: 20 }}>
+                {/* Vertical connecting line */}
+                <div style={{
+                  position: "absolute", left: 9, top: 8, bottom: 8, width: 2,
+                  background: `linear-gradient(to bottom, ${D.border}, ${D.border}, ${D.border})`,
+                }} />
+
+                {topics.map((topic, idx) => {
+                  const p = progress?.[topic.id];
+                  const topicMatches = matchesByTopic.get(topic.id) || [];
+                  const isSelected = selectedTopicId === topic.id;
+                  const isStartHere = startHereTopic?.id === topic.id;
+                  const progressLabel = p?.label || "Not started";
+                  const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
+                  const locked = isTopicLocked(topic, topics, progress);
+                  const pct = progressPct(p);
+                  const dotColor = locked ? D.textLow : progressLabel === "Mastered" ? D.green : isStartHere ? D.gold : progressLabel === "Not started" ? D.textLow : progressColor;
+
+                  return (
                     <div
-                      onClick={() => setExpandedTopic(isExpanded ? null : topic.id)}
+                      key={topic.id}
+                      onClick={() => !locked && setSelectedTopicId(topic.id)}
                       style={{
-                        display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", cursor: "pointer",
+                        position: "relative", display: "flex", alignItems: "flex-start", gap: 12,
+                        padding: "10px 12px", marginBottom: 4, borderRadius: 8, cursor: locked ? "default" : "pointer",
+                        background: isSelected ? "rgba(245,166,35,0.08)" : "transparent",
+                        border: isSelected ? `0.5px solid ${D.gold}33` : "0.5px solid transparent",
+                        transition: "background 0.15s, border-color 0.15s",
+                        opacity: locked ? 0.45 : 1,
                       }}
                     >
-                      {/* Order number */}
-                      <span style={{ fontSize: 12, color: D.textLow, fontFamily: FONTS.mono, width: 24, textAlign: "right" }}>
-                        {topic.displayOrder || idx + 1}
-                      </span>
-
-                      {/* Title + description */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: D.textHi, fontFamily: FONTS.body }}>
-                          {topic.title}
-                        </div>
-                        {topic.description && (
-                          <div style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {topic.description}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Progress badge */}
+                      {/* Timeline dot */}
                       <div style={{
-                        padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 600,
-                        fontFamily: FONTS.body, color: progressColor, background: progressBg,
-                        whiteSpace: "nowrap",
-                      }}>
-                        {progressLabel}
+                        position: "absolute", left: -16, top: 14, width: 12, height: 12, borderRadius: "50%",
+                        background: D.ink, border: `2px solid ${dotColor}`,
+                        boxShadow: isStartHere ? `0 0 8px ${D.gold}66` : "none",
+                        flexShrink: 0, zIndex: 1,
+                      }} />
+
+                      {/* Content */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 12, color: D.textLow, fontFamily: FONTS.mono, flexShrink: 0 }}>
+                            {topic.displayOrder || idx + 1}
+                          </span>
+                          <span style={{
+                            fontSize: 13, fontWeight: 600, fontFamily: FONTS.body,
+                            color: locked ? D.textLow : D.textHi, flex: 1,
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}>
+                            {topic.title}
+                          </span>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div style={{ height: 3, background: D.ink, borderRadius: 2, overflow: "hidden", marginTop: 6, marginRight: 40 }}>
+                          <div style={{
+                            height: "100%", width: `${pct}%`,
+                            background: progressLabel === "Mastered" ? D.green : progressColor,
+                            borderRadius: 2, transition: "width 0.3s",
+                          }} />
+                        </div>
+
+                        {/* Badges row */}
+                        <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                          {isStartHere && (
+                            <Badge text="Start" bg="rgba(245,166,35,0.15)" color={D.gold} />
+                          )}
+                          {progressLabel === "Mastered" && (
+                            <Badge text="✓ Done" bg="rgba(61,214,140,0.12)" color={D.green} />
+                          )}
+                          {locked && (
+                            <Badge text="🔒 Locked" bg="rgba(86,94,110,0.15)" color={D.textLow} />
+                          )}
+                          {topicMatches.length > 0 && (
+                            <Badge text={`${topicMatches.length} docs`} bg="rgba(79,142,247,0.1)" color={D.blue} />
+                          )}
+                          {topic.status === "disputed" && (
+                            <Badge text="⚠ Disputed" bg="rgba(255,84,112,0.1)" color={D.coral} />
+                          )}
+                          {topic.source === "outline" ? (
+                            <Badge text="Outline" bg="rgba(61,214,140,0.08)" color={D.green} />
+                          ) : topic.source === "ai_added" ? (
+                            <Badge text="AI Added" bg="rgba(245,166,35,0.08)" color={D.gold} />
+                          ) : (
+                            <Badge text="AI" bg="rgba(245,166,35,0.06)" color={D.textMid} />
+                          )}
+                        </div>
                       </div>
-
-                      {/* Verified badge */}
-                      {topic.verified ? (
-                        <span style={{ fontSize: 10, color: D.green, fontFamily: FONTS.body }} title="Verified">✓</span>
-                      ) : (
-                        <span style={{ fontSize: 10, color: D.gold, fontFamily: FONTS.body }} title="AI-inferred">AI</span>
-                      )}
-
-                      {/* Expand arrow */}
-                      <span style={{ color: D.textLow, fontSize: 12, transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "none" }}>
-                        ›
-                      </span>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                    {/* Expanded content */}
-                    {isExpanded && (
-                      <div style={{ padding: "0 16px 14px 52px", borderTop: `0.5px solid ${D.border}` }}>
-                        {/* Prerequisites */}
-                        {topic.prerequisiteIds && topic.prerequisiteIds.length > 0 && (
-                          <div style={{ marginTop: 10, marginBottom: 10 }}>
-                            <span style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600 }}>
-                              Prerequisites:
-                            </span>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                              {topic.prerequisiteIds.map((pid) => {
-                                const prereq = topics.find((t) => t.id === pid);
-                                return prereq ? (
-                                  <span key={pid} style={{
-                                    fontSize: 10, color: D.blue, background: "rgba(79,142,247,0.1)",
-                                    padding: "2px 8px", borderRadius: 8, fontFamily: FONTS.body,
-                                  }}>
-                                    {prereq.title}
-                                  </span>
-                                ) : null;
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* FSRS details */}
-                        {p && p.totalItems > 0 && (
-                          <div style={{ marginBottom: 10, fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>
-                            {p.totalItems} review items · Avg stability: {p.avgStability} · Retrievability: {Math.round(p.avgRetrievability * 100)}% · {p.masteredCount} mastered
-                          </div>
-                        )}
-
-                        {/* Matched documents */}
-                        {topicMatches.length > 0 && (
-                          <div style={{ marginBottom: 10 }}>
-                            <span style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600 }}>
-                              Matched documents ({topicMatches.length}):
-                            </span>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
-                              {topicMatches.map((m) => (
-                                <div key={m.id} style={{
-                                  display: "flex", alignItems: "center", gap: 8,
-                                  padding: "6px 10px", background: D.ink, borderRadius: 6,
-                                }}>
-                                  <span style={{ fontSize: 11, color: D.textHi, fontFamily: FONTS.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {m.resource?.title || "Unknown"}
-                                  </span>
-                                  <span style={{ fontSize: 9, color: D.textLow, fontFamily: FONTS.body }}>
-                                    {m.resource?.contentType}
-                                  </span>
-                                  <span style={{ fontSize: 9, color: D.gold, fontFamily: FONTS.body }}>
-                                    {Math.round(m.confidence * 100)}%
-                                  </span>
-                                  {m.resource?.shareToken && onOpenResource && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); onOpenResource(m.resource.shareToken); }}
-                                      style={{
-                                        background: "none", border: `0.5px solid ${D.border}`, borderRadius: 4,
-                                        padding: "2px 8px", fontSize: 10, color: D.blue, cursor: "pointer",
-                                        fontFamily: FONTS.body,
-                                      }}
-                                    >
-                                      Open
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Verification controls (only for AI-inferred topics) */}
-                        {!topic.verified && topic.source !== "outline" && (
-                          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleCorroborate(topic.id); }}
-                              style={{
-                                background: "rgba(61,214,140,0.1)", border: `0.5px solid ${D.green}44`,
-                                borderRadius: 6, padding: "5px 12px", fontSize: 11, color: D.green,
-                                cursor: "pointer", fontFamily: FONTS.body, fontWeight: 600,
-                              }}
-                            >
-                              ✓ Corroborate
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDispute(topic.id); }}
-                              style={{
-                                background: "rgba(255,84,112,0.1)", border: `0.5px solid ${D.coral}44`,
-                                borderRadius: 6, padding: "5px 12px", fontSize: 11, color: D.coral,
-                                cursor: "pointer", fontFamily: FONTS.body, fontWeight: 600,
-                              }}
-                            >
-                              ✗ Dispute
-                            </button>
-                            <span style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body, alignSelf: "center" }}>
-                              {topic.corroboratingUserIds?.length || 0} corroborations · {topic.disputeUserIds?.length || 0} disputes
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Right column — Sticky detail panel */}
+            <div style={{
+              flex: "1 1 55%", overflowY: "auto", padding: "20px",
+            }}>
+              {selectedTopic ? (
+                <TopicDetailPanel
+                  topic={selectedTopic}
+                  topics={topics}
+                  progress={progress?.[selectedTopic.id]}
+                  matches={matchesByTopic.get(selectedTopic.id) || []}
+                  onOpenResource={onOpenResource}
+                  onCorroborate={handleCorroborate}
+                  onDispute={handleDispute}
+                  locked={isTopicLocked(selectedTopic, topics, progress)}
+                  isStartHere={startHereTopic?.id === selectedTopic.id}
+                />
+              ) : (
+                <div style={{ textAlign: "center", padding: "60px 20px", color: D.textMid, fontSize: 13, fontFamily: FONTS.body }}>
+                  Select a topic from the path to see details
+                </div>
+              )}
             </div>
           </>
         )}
@@ -502,8 +557,262 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
 function StatItem({ label, value, color }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      <span style={{ fontSize: 18, fontWeight: 700, color, fontFamily: FONTS.display }}>{value}</span>
-      <span style={{ fontSize: 10, color: D.textMid, fontFamily: FONTS.body }}>{label}</span>
+      <span style={{ fontSize: 16, fontWeight: 700, color, fontFamily: FONTS.display }}>{value}</span>
+      <span style={{ fontSize: 9, color: D.textMid, fontFamily: FONTS.body }}>{label}</span>
+    </div>
+  );
+}
+
+function Badge({ text, bg, color }) {
+  return (
+    <span style={{
+      fontSize: 9, fontWeight: 600, fontFamily: FONTS.body, color,
+      background: bg, padding: "2px 7px", borderRadius: 8, whiteSpace: "nowrap",
+    }}>
+      {text}
+    </span>
+  );
+}
+
+function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onCorroborate, onDispute, locked, isStartHere }) {
+  const p = progress;
+  const progressLabel = p?.label || "Not started";
+  const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
+  const pct = progressPct(p);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Section 1: Identity & Status */}
+      <div style={{
+        background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "18px 20px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.mono }}>
+            #{topic.displayOrder}
+          </span>
+          {isStartHere && (
+            <span style={{
+              fontSize: 9, fontWeight: 600, color: D.gold, background: "rgba(245,166,35,0.15)",
+              padding: "2px 8px", borderRadius: 8, fontFamily: FONTS.body,
+            }}>START HERE</span>
+          )}
+          {topic.source === "outline" && (
+            <span style={{
+              fontSize: 9, fontWeight: 600, color: D.green, background: "rgba(61,214,140,0.1)",
+              padding: "2px 8px", borderRadius: 8, fontFamily: FONTS.body,
+            }}>OUTLINE</span>
+          )}
+          {topic.status === "disputed" && (
+            <span style={{
+              fontSize: 9, fontWeight: 600, color: D.coral, background: "rgba(255,84,112,0.1)",
+              padding: "2px 8px", borderRadius: 8, fontFamily: FONTS.body,
+            }}>DISPUTED</span>
+          )}
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display, marginBottom: 4 }}>
+          {topic.title}
+        </div>
+        {topic.description && (
+          <div style={{ fontSize: 13, color: D.textMid, fontFamily: FONTS.body, lineHeight: 1.5 }}>
+            {topic.description}
+          </div>
+        )}
+
+        {/* Progress bar */}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 10, color: D.textMid, fontFamily: FONTS.body }}>Progress</span>
+            <span style={{ fontSize: 10, fontWeight: 600, color: progressColor, fontFamily: FONTS.body }}>{progressLabel} · {pct}%</span>
+          </div>
+          <div style={{ height: 6, background: D.ink, borderRadius: 3, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", width: `${pct}%`,
+              background: progressLabel === "Mastered" ? D.green : progressColor,
+              borderRadius: 3, transition: "width 0.3s",
+            }} />
+          </div>
+        </div>
+
+        {/* FSRS stats */}
+        {p && p.totalItems > 0 && (
+          <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>
+            <span>{p.totalItems} items</span>
+            <span>Stability: {p.avgStability}</span>
+            <span>Retrievability: {Math.round(p.avgRetrievability * 100)}%</span>
+            <span>{p.masteredCount} mastered</span>
+          </div>
+        )}
+      </div>
+
+      {/* Section 2: Action buttons */}
+      <div style={{ display: "flex", gap: 10 }}>
+        {locked ? (
+          <div style={{
+            flex: 1, textAlign: "center", padding: "12px", background: "rgba(86,94,110,0.1)",
+            border: `0.5px solid ${D.border}`, borderRadius: 8,
+            fontSize: 12, color: D.textLow, fontFamily: FONTS.body,
+          }}>
+            🔒 Locked — complete prerequisites first
+          </div>
+        ) : (
+          <>
+            {matches.length > 0 && onOpenResource && (
+              <button
+                onClick={() => onOpenResource(matches[0].resource?.shareToken)}
+                style={{
+                  flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
+                  borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
+                  color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
+                }}
+              >
+                Start Studying →
+              </button>
+            )}
+            <button
+              onClick={() => onCorroborate(topic.id)}
+              disabled={topic.source === "outline"}
+              style={{
+                flex: 1, background: "rgba(61,214,140,0.1)", border: `0.5px solid ${D.green}44`,
+                borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
+                color: topic.source === "outline" ? D.textLow : D.green,
+                cursor: topic.source === "outline" ? "default" : "pointer", fontFamily: FONTS.body,
+              }}
+            >
+              ✓ Corroborate
+            </button>
+            <button
+              onClick={() => onDispute(topic.id)}
+              disabled={topic.source === "outline"}
+              style={{
+                flex: 1, background: "rgba(255,84,112,0.08)", border: `0.5px solid ${D.coral}33`,
+                borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
+                color: topic.source === "outline" ? D.textLow : D.coral,
+                cursor: topic.source === "outline" ? "default" : "pointer", fontFamily: FONTS.body,
+              }}
+            >
+              ✗ Dispute
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Verification stats */}
+      {topic.source !== "outline" && (
+        <div style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body, textAlign: "center" }}>
+          {topic.corroboratingUserIds?.length || 0} corroborations · {topic.disputeUserIds?.length || 0} disputes
+          {topic.avgConfidence > 0 && ` · Avg confidence: ${Math.round(topic.avgConfidence * 100)}%`}
+        </div>
+      )}
+
+      {/* Section 3: Subtopics checklist */}
+      {topic.subtopics && topic.subtopics.length > 0 && (
+        <div style={{
+          background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
+        }}>
+          <div style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Subtopics
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {topic.subtopics.map((sub, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{
+                  width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${D.border}`,
+                  flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 9, color: D.green,
+                }}>
+                  {pct > 60 ? "✓" : ""}
+                </span>
+                <span style={{ fontSize: 12, color: D.textHi, fontFamily: FONTS.body }}>
+                  {sub}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section 4: Mapped documents */}
+      <div style={{
+        background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
+      }}>
+        <div style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Mapped Documents ({matches.length})
+        </div>
+        {matches.length === 0 ? (
+          <div style={{ fontSize: 12, color: D.textMid, fontFamily: FONTS.body, fontStyle: "italic" }}>
+            No documents matched to this topic yet. Upload materials for this course to auto-match.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {matches.map((m) => (
+              <div key={m.id} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 12px", background: D.ink, borderRadius: 8,
+              }}>
+                <span style={{ fontSize: 11, color: D.textHi, fontFamily: FONTS.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {m.resource?.title || "Unknown"}
+                </span>
+                <span style={{ fontSize: 9, color: D.textLow, fontFamily: FONTS.body }}>
+                  {m.resource?.contentType}
+                </span>
+                <span style={{ fontSize: 9, color: D.gold, fontFamily: FONTS.body }}>
+                  {Math.round(m.confidence * 100)}%
+                </span>
+                {m.resource?.shareToken && onOpenResource && (
+                  <button
+                    onClick={() => onOpenResource(m.resource.shareToken)}
+                    style={{
+                      background: "none", border: `0.5px solid ${D.border}`, borderRadius: 4,
+                      padding: "3px 10px", fontSize: 10, color: D.blue, cursor: "pointer",
+                      fontFamily: FONTS.body,
+                    }}
+                  >
+                    Open
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Section 5: Prerequisite chain (last) */}
+      {topic.prerequisiteIds && topic.prerequisiteIds.length > 0 && (
+        <div style={{
+          background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
+        }}>
+          <div style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Prerequisites
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {topic.prerequisiteIds.map((pid) => {
+              const prereq = topics.find((t) => t.id === pid);
+              if (!prereq) return null;
+              const prereqProgress = progress?.[pid];
+              const prereqMastered = prereqProgress?.label === "Mastered";
+              return (
+                <div key={pid} style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "6px 10px", background: D.ink, borderRadius: 6,
+                }}>
+                  <span style={{ fontSize: 11, color: prereqMastered ? D.green : D.textLow }}>
+                    {prereqMastered ? "✓" : "○"}
+                  </span>
+                  <span style={{ fontSize: 12, color: D.textHi, fontFamily: FONTS.body, flex: 1 }}>
+                    {prereq.title}
+                  </span>
+                  <span style={{
+                    fontSize: 9, fontFamily: FONTS.body,
+                    color: prereqMastered ? D.green : D.textMid,
+                  }}>
+                    {prereqMastered ? "Mastered" : (prereqProgress?.label || "Not started")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

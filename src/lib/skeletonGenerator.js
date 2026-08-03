@@ -1,4 +1,3 @@
-import { callAI, extractJSON } from "./aiClient";
 import { API_BASE } from "./constants";
 
 async function authFetch(url, opts = {}) {
@@ -10,71 +9,8 @@ async function authFetch(url, opts = {}) {
 }
 
 /**
- * Build an outline-extraction prompt for generating a curriculum skeleton
- * from an uploaded course outline / syllabus document.
- */
-function buildOutlineExtractionPrompt(text, courseCode) {
-  return `You are an expert curriculum designer. Extract the complete topic skeleton from this course outline/syllabus.
-
-COURSE CODE: ${courseCode || "Unknown"}
-
-OUTLINE TEXT:
-"""
-${text.slice(0, 12000)}
-"""
-
-Return ONLY a valid JSON object (no markdown, no code blocks):
-{
-  "courseCode": "${courseCode || ""}",
-  "topics": [
-    {
-      "title": "Topic name (concise, 2-6 words)",
-      "description": "1-sentence description of what this topic covers",
-      "displayOrder": 1,
-      "prerequisiteTitles": ["Title of prerequisite topic", ...]
-    }
-  ]
-}
-
-RULES:
-1. Extract ALL topics/modules/units from the outline in their original order.
-2. Set displayOrder starting at 1, incrementing sequentially.
-3. For prerequisiteTitles, list titles of topics that must be understood BEFORE this topic. Use exact titles from the list. Leave empty array if none.
-4. Keep topic titles short (2-6 words).
-5. Descriptions should be 1 sentence, under 20 words.
-6. Return ONLY the JSON object.`;
-}
-
-/**
- * Build a generic skeleton generation prompt for when only a course name is provided.
- */
-function buildGenericSkeletonPrompt(courseName, courseCode) {
-  return `You are an expert curriculum designer. Generate a comprehensive topic skeleton for the course: "${courseName}"${courseCode ? ` (code: ${courseCode})` : ""}.
-
-Return ONLY a valid JSON object (no markdown, no code blocks):
-{
-  "courseCode": "${courseCode || courseName}",
-  "topics": [
-    {
-      "title": "Topic name (concise, 2-6 words)",
-      "description": "1-sentence description of what this topic covers",
-      "displayOrder": 1,
-      "prerequisiteTitles": ["Title of prerequisite topic", ...]
-    }
-  ]
-}
-
-RULES:
-1. Generate 8-20 topics that represent a logical learning progression from fundamentals to advanced.
-2. Set displayOrder starting at 1, incrementing sequentially.
-3. For prerequisiteTitles, list titles of topics that must be understood BEFORE this topic. Use exact titles from the list. Leave empty array if none.
-4. Keep topic titles short (2-6 words).
-5. Descriptions should be 1 sentence, under 20 words.
-6. Return ONLY the JSON object.`;
-}
-
-/**
  * Generate a curriculum skeleton from an outline document or a course name.
+ * Delegates AI generation to the server (server-side API keys, authoritative writes).
  *
  * @param {object} params
  * @param {string} params.courseName - The course name or code
@@ -90,41 +26,18 @@ export async function generateSkeleton({ courseName, outlineText, courseCode, on
 
   onProgress?.(hasOutline ? "Extracting topics from outline…" : "Generating topic skeleton with AI…");
 
-  const prompt = hasOutline
-    ? buildOutlineExtractionPrompt(outlineText, effectiveCourseCode)
-    : buildGenericSkeletonPrompt(courseName, effectiveCourseCode);
-
-  const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
-  const parsed = extractJSON(raw, "object");
-
-  if (!parsed || !Array.isArray(parsed.topics) || parsed.topics.length === 0) {
-    throw new Error("AI couldn't generate a valid topic skeleton. Try again.");
-  }
-
-  const topics = parsed.topics
-    .filter((t) => t && t.title && t.title.trim())
-    .map((t, idx) => ({
-      title: t.title.trim(),
-      description: t.description || null,
-      displayOrder: t.displayOrder || idx + 1,
-      prerequisiteTitles: Array.isArray(t.prerequisiteTitles) ? t.prerequisiteTitles : [],
-    }));
-
-  if (topics.length === 0) {
-    throw new Error("No topics were extracted. Try with a different outline or course name.");
-  }
-
-  onProgress?.(`Generated ${topics.length} topics — saving to curriculum…`);
-
-  // Save to server
+  // Delegate to server — it calls AI, parses, saves, and returns saved topics
   const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(effectiveCourseCode)}/topics`, {
     method: "POST",
-    body: JSON.stringify({ topics, source }),
+    body: JSON.stringify({
+      outlineText: hasOutline ? outlineText : undefined,
+      courseName: courseName || effectiveCourseCode,
+    }),
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to save skeleton to server");
+    throw new Error(err.error || "Failed to generate skeleton on server");
   }
 
   const savedTopics = await res.json();

@@ -8,6 +8,8 @@ import { uploadFile, deleteFile } from "../lib/supabaseStorage.js";
 import { sm2, computeQuality, computeDueDate, updateUniversalStreak } from "../lib/sm2.js";
 import { fsrsRate, fsrsNewCard, intervalLabel, stateLabel, isMastered } from "../lib/fsrs.js";
 import { pptxToPdf } from "../lib/pptxToPdf.js";
+import { matchDocumentToSkeleton } from "../lib/topicExtractionService.js";
+import { logError } from "../lib/logger.js";
 
 const router = express.Router();
 
@@ -853,13 +855,21 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
       update: {},
     }).catch(() => {});
 
-    // Background: queue document-topic matching if a curriculum skeleton exists
+    // Background: auto-match document to curriculum topics if a skeleton exists
     const courseCode = resource.subject || folder?.courseCode;
     if (courseCode) {
       prisma.curriculumTopic.count({ where: { courseCode } })
-        .then((topicCount) => {
+        .then(async (topicCount) => {
           if (topicCount > 0) {
-            console.log(`[TopicMatcher] Resource ${resource.id} has ${topicCount} curriculum topics for course ${courseCode} — client-side matching recommended`);
+            try {
+              await matchDocumentToSkeleton(
+                { id: resource.id, title: resource.title, description: resource.description, contentType: resource.contentType },
+                courseCode,
+                req.user.sub
+              );
+            } catch (matchErr) {
+              logError(matchErr, { context: "auto-match on study-tool-save", resourceId: resource.id, courseCode });
+            }
           }
         })
         .catch(() => {});
@@ -1627,13 +1637,21 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
       },
     });
 
-    // Background: queue document-topic matching if a curriculum skeleton exists
+    // Background: auto-match document to curriculum topics if a skeleton exists
     const uploadCourseCode = resource.subject || folder?.courseCode;
     if (uploadCourseCode) {
       prisma.curriculumTopic.count({ where: { courseCode: uploadCourseCode } })
-        .then((topicCount) => {
+        .then(async (topicCount) => {
           if (topicCount > 0) {
-            console.log(`[TopicMatcher] Resource ${resource.id} has ${topicCount} curriculum topics for course ${uploadCourseCode} — client-side matching recommended`);
+            try {
+              await matchDocumentToSkeleton(
+                { id: resource.id, title: resource.title, description: resource.description, contentType: resource.contentType },
+                uploadCourseCode,
+                req.user.sub
+              );
+            } catch (matchErr) {
+              logError(matchErr, { context: "auto-match on file upload", resourceId: resource.id, courseCode: uploadCourseCode });
+            }
           }
         })
         .catch(() => {});

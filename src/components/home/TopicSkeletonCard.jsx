@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { fetchSkeleton, fetchTopicProgress } from "../../lib/skeletonGenerator";
+import { fetchSkeleton, fetchTopicProgress, generateSkeleton } from "../../lib/skeletonGenerator";
 import { listFolders } from "../../lib/foldersApi";
 import { FONTS } from "../../lib/theme";
 
@@ -30,10 +30,10 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [skeleton, setSkeleton] = useState(null);
   const [progress, setProgress] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState("");
 
-  // Build course list from folders + resource subjects
+  // Build course list from folders + resource subjects, auto-select first course
   useEffect(() => {
     async function loadCourses() {
       const courseSet = new Set();
@@ -67,6 +67,10 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
       } catch {}
 
       setCourses(courseList);
+      // Auto-select first available course
+      if (courseList.length > 0 && !selectedCourse) {
+        setSelectedCourse(courseList[0]);
+      }
     }
     loadCourses();
   }, []);
@@ -78,7 +82,6 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
       setProgress(null);
       return;
     }
-    setLoading(true);
     async function load() {
       try {
         const topics = await fetchSkeleton(selectedCourse);
@@ -92,8 +95,6 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
       } catch (err) {
         setSkeleton(null);
         setProgress(null);
-      } finally {
-        setLoading(false);
       }
     }
     load();
@@ -113,6 +114,31 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
   }, [skeleton, progress]);
 
   const masteredPct = stats ? Math.round((stats.mastered / stats.total) * 100) : 0;
+
+  // Card state: "empty" | "processing" | "ready"
+  const cardState = generating ? "processing" : (skeleton && skeleton.length > 0) ? "ready" : "empty";
+
+  async function handleQuickGenerate(e) {
+    e.stopPropagation();
+    if (!selectedCourse.trim() || generating) return;
+    setGenerating(true);
+    setGenProgress("Generating roadmap…");
+    try {
+      const result = await generateSkeleton({
+        courseName: selectedCourse,
+        onProgress: setGenProgress,
+      });
+      setSkeleton(result.topics);
+      setGenProgress("");
+      // Fetch progress for the new skeleton
+      const prog = await fetchTopicProgress(selectedCourse);
+      setProgress(prog);
+    } catch (err) {
+      setGenProgress("");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   return (
     <div style={{
@@ -135,14 +161,14 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 18,
         }}>
-          📋
+          �️
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
-            Topic Skeleton
+            Course Roadmap
           </div>
           <div style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>
-            {skeleton ? `${skeleton.length} topics` : "Build a learning roadmap"}
+            {cardState === "ready" ? `${skeleton.length} topics · ${masteredPct}% mastered` : cardState === "processing" ? "Building your roadmap…" : "Build a learning roadmap"}
           </div>
         </div>
       </div>
@@ -152,8 +178,6 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
         <input
           value={selectedCourse}
           onChange={(e) => setSelectedCourse(e.target.value)}
-          onFocus={() => setShowDropdown(true)}
-          onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
           placeholder="Select or type a course…"
           list="skeletonCourseOptions"
           style={{
@@ -169,12 +193,20 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
         </datalist>
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div style={{ fontSize: 11, color: D.textMid, textAlign: "center", padding: "12px 0" }}>
-          Loading skeleton…
+      {/* Content — three-state card */}
+      {cardState === "processing" ? (
+        /* Processing state */
+        <div style={{ textAlign: "center", padding: "20px 0" }}>
+          <div style={{ fontSize: 28, marginBottom: 8, animation: "spin 1s linear infinite", display: "inline-block" }}>⚙️</div>
+          <div style={{ fontSize: 12, color: D.gold, fontFamily: FONTS.body, marginBottom: 4 }}>
+            {genProgress || "Generating roadmap…"}
+          </div>
+          <div style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body }}>
+            This may take a few seconds
+          </div>
         </div>
-      ) : stats ? (
+      ) : cardState === "ready" ? (
+        /* Ready state */
         <>
           {/* Progress bar */}
           <div style={{ marginBottom: 10 }}>
@@ -217,10 +249,23 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
           )}
         </>
       ) : (
-        <div style={{ fontSize: 11, color: D.textMid, textAlign: "center", padding: "8px 0", fontFamily: FONTS.body, lineHeight: 1.5 }}>
-          {selectedCourse
-            ? "No skeleton yet — click to build one with AI"
-            : "Select a course to view or build your topic roadmap"}
+        /* Empty state */
+        <div style={{ textAlign: "center", padding: "12px 0" }}>
+          <div style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body, lineHeight: 1.5, marginBottom: 10 }}>
+            {selectedCourse
+              ? "No roadmap yet — build one with AI"
+              : "Select a course to build your topic roadmap"}
+          </div>
+          {selectedCourse && (
+            <button onClick={handleQuickGenerate} disabled={generating} style={{
+              background: "linear-gradient(135deg, #b8860b, #F5A623)",
+              border: "none", borderRadius: 8, padding: "8px 18px",
+              fontSize: 12, fontWeight: 600, color: "#0a0a0a",
+              cursor: "pointer", fontFamily: FONTS.body,
+            }}>
+              Build Roadmap
+            </button>
+          )}
         </div>
       )}
     </div>
