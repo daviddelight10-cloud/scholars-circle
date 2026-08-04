@@ -41,7 +41,7 @@ async function callAIServerSide(prompt) {
   const requestBody = {
     model: AI_MODEL,
     messages: [{ role: "user", content: prompt }],
-    max_tokens: 8192,
+    max_tokens: 16384,
   };
 
   const response = await fetch(apiUrl, {
@@ -110,7 +110,7 @@ COURSE CODE: ${courseCode || "Unknown"}
 
 OUTLINE TEXT:
 """
-${text.slice(0, 12000)}
+${text.slice(0, 8000)}
 """
 
 Return ONLY a valid JSON object (no markdown, no code blocks):
@@ -231,8 +231,18 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
     ? buildOutlineExtractionPrompt(outlineText, effectiveCourseCode)
     : buildGenericSkeletonPrompt(courseName || effectiveCourseCode, effectiveCourseCode);
 
-  const raw = await callAIServerSide(prompt);
-  const parsed = extractJSON(raw, "object");
+  let raw = await callAIServerSide(prompt);
+  let parsed = extractJSON(raw, "object");
+
+  // Retry once if parsing failed (AI sometimes truncates or wraps in extra text)
+  if (!parsed || !Array.isArray(parsed.topics) || parsed.topics.length === 0) {
+    logInfo(`[topicExtractionService] First AI response unparseable, retrying with shorter input…`);
+    const shorterPrompt = hasOutline
+      ? buildOutlineExtractionPrompt(outlineText.slice(0, 4000), effectiveCourseCode)
+      : prompt;
+    raw = await callAIServerSide(shorterPrompt);
+    parsed = extractJSON(raw, "object");
+  }
 
   if (!parsed || !Array.isArray(parsed.topics) || parsed.topics.length === 0) {
     throw new Error("AI couldn't generate a valid topic skeleton. Try again.");
@@ -254,6 +264,23 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
 
   const verified = source === "outline";
   const status = verified ? "verified" : "unverified";
+
+  // Delete existing topics for this courseCode so regeneration replaces instead of appending
+  const existingTopics = await prisma.curriculumTopic.findMany({
+    where: { courseCode: effectiveCourseCode },
+    select: { id: true },
+  });
+  if (existingTopics.length > 0) {
+    const existingTopicIds = existingTopics.map((t) => t.id);
+    await prisma.documentTopicMatch.deleteMany({
+      where: { topicId: { in: existingTopicIds } },
+    });
+    await prisma.curriculumTopic.deleteMany({
+      where: { courseCode: effectiveCourseCode },
+    });
+    logInfo(`[topicExtractionService] Deleted ${existingTopics.length} old topics for ${effectiveCourseCode} (regeneration)`);
+  }
+
   const created = [];
 
   for (const t of topics) {
