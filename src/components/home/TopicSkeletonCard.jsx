@@ -49,6 +49,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  const [manualEntry, setManualEntry] = useState(false);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -268,22 +269,51 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
 
       {/* Course selector */}
       <div style={{ position: "relative", marginBottom: 10 }} onClick={(e) => e.stopPropagation()}>
-        <input
-          value={selectedCourse}
-          onChange={(e) => setSelectedCourse(e.target.value)}
-          placeholder="Select or type a course…"
-          list="skeletonCourseOptions"
-          style={{
-            width: "100%", boxSizing: "border-box",
-            background: D.ink, border: `0.5px solid ${D.border}`,
-            borderRadius: 8, padding: "8px 12px",
-            fontSize: 12, color: D.textHi, fontFamily: FONTS.body,
-            outline: "none",
-          }}
-        />
-        <datalist id="skeletonCourseOptions">
-          {courses.map((c) => <option key={c} value={c} />)}
-        </datalist>
+        {!manualEntry && courses.length > 0 ? (
+          <select
+            value={courses.includes(selectedCourse) ? selectedCourse : ""}
+            onChange={(e) => {
+              if (e.target.value === "__custom__") { setManualEntry(true); setSelectedCourse(""); }
+              else setSelectedCourse(e.target.value);
+            }}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: D.ink, border: `0.5px solid ${D.border}`,
+              borderRadius: 8, padding: "8px 12px",
+              fontSize: 12, color: D.textHi, fontFamily: FONTS.body,
+              outline: "none", cursor: "pointer",
+            }}
+          >
+            <option value="" disabled>Select a course…</option>
+            {courses.map((c) => <option key={c} value={c}>{c}</option>)}
+            <option value="__custom__">+ Type a different course…</option>
+          </select>
+        ) : (
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              placeholder="Type a course code…"
+              autoFocus={manualEntry}
+              style={{
+                flex: 1, boxSizing: "border-box",
+                background: D.ink, border: `0.5px solid ${D.border}`,
+                borderRadius: 8, padding: "8px 12px",
+                fontSize: 12, color: D.textHi, fontFamily: FONTS.body,
+                outline: "none",
+              }}
+            />
+            {courses.length > 0 && (
+              <button onClick={() => setManualEntry(false)} style={{
+                background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 8,
+                padding: "8px 10px", fontSize: 11, color: D.textMid, cursor: "pointer", fontFamily: FONTS.body,
+                whiteSpace: "nowrap",
+              }}>
+                List
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content — three-state card */}
