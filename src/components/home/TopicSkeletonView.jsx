@@ -242,15 +242,19 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
 
   async function handleRetroactiveMatch() {
     if (!selectedCourse.trim()) return;
-    setMatchProgress({ current: 0, total: 0, label: "Starting…" });
+    setMatchProgress({ current: 0, total: 0, label: "Matching documents…" });
+    setError("");
     try {
       const result = await retroactiveMatch(selectedCourse, (idx, total, name) => {
         setMatchProgress({ current: idx, total, label: name });
       });
-      setMatchProgress({ current: result.resourceCount, total: result.resourceCount, label: `Done — ${result.matchCount} matches` });
+      setMatchProgress({ current: result.resourceCount, total: result.resourceCount, label: `Done — ${result.matchCount} matches${result.errorCount ? ` (${result.errorCount} failed)` : ""}` });
       // Reload matches
       const mtch = await fetchTopicMatches(selectedCourse);
       setMatches(mtch);
+      if (result.errorCount > 0 && result.matchCount > 0) {
+        setError(`${result.errorCount} document(s) failed to match — the AI service may be slow. ${result.matchCount} were matched successfully.`);
+      }
       setTimeout(() => setMatchProgress(null), 3000);
     } catch (err) {
       setError(err.message);

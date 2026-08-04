@@ -17,7 +17,7 @@ async function authFetch(url, opts = {}) {
  * @returns {Promise<{matchCount: number, resourceCount: number}>}
  */
 export async function retroactiveMatch(courseCode, onProgress, folderId) {
-  onProgress?.(0, 0, "Starting server-side matching…");
+  onProgress?.(0, 0, "Matching documents…");
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000);
@@ -45,11 +45,17 @@ export async function retroactiveMatch(courseCode, onProgress, folderId) {
 
   const data = await res.json();
 
-  onProgress?.(data.resourceCount || 0, data.resourceCount || 0, `Done — ${data.matchCount || 0} matches`);
+  const errorCount = data.errorCount || 0;
+  if (errorCount > 0 && data.matchCount === 0) {
+    throw new Error(data.message || "Matching failed — the AI service may be unavailable. Try again later.");
+  }
+
+  onProgress?.(data.resourceCount || 0, data.resourceCount || 0, `Done — ${data.matchCount || 0} matches${errorCount ? ` (${errorCount} failed)` : ""}`);
 
   return {
     matchCount: data.matchCount || 0,
     resourceCount: data.resourceCount || 0,
     topicCount: data.topicCount || 0,
+    errorCount,
   };
 }

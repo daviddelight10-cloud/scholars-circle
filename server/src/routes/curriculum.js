@@ -481,11 +481,12 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
       ok: true,
       matchCount: result.matchCount,
       resourceCount: result.resourceCount,
-      message: `Matched ${result.matchCount} document-topic pairs from ${result.resourceCount} documents.`,
+      errorCount: result.errorCount || 0,
+      message: `Matched ${result.matchCount} document-topic pairs from ${result.resourceCount} documents${result.errorCount ? ` (${result.errorCount} failed)` : ""}.`,
     });
   } catch (err) {
     console.error("Error during retroactive matching:", err.message);
-    res.status(500).json({ error: "Failed to run retroactive matching" });
+    res.status(500).json({ error: err.message || "Failed to run retroactive matching" });
   }
 });
 

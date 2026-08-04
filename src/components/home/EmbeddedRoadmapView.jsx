@@ -192,14 +192,18 @@ export default function EmbeddedRoadmapView({
 
   async function handleRetroactiveMatch() {
     if (!courseCode.trim()) return;
-    setMatchProgress({ current: 0, total: 0, label: "Starting…" });
+    setMatchProgress({ current: 0, total: 0, label: "Matching documents…" });
+    setError("");
     try {
       const result = await retroactiveMatch(courseCode, (idx, total, name) => {
         setMatchProgress({ current: idx, total, label: name });
       }, folderId);
-      setMatchProgress({ current: result.resourceCount, total: result.resourceCount, label: `Done — ${result.matchCount} matches` });
+      setMatchProgress({ current: result.resourceCount, total: result.resourceCount, label: `Done — ${result.matchCount} matches${result.errorCount ? ` (${result.errorCount} failed)` : ""}` });
       const mtch = await fetchTopicMatches(courseCode);
       setMatches(mtch);
+      if (result.errorCount > 0 && result.matchCount > 0) {
+        setError(`${result.errorCount} document(s) failed to match — the AI service may be slow. ${result.matchCount} were matched successfully.`);
+      }
       setTimeout(() => setMatchProgress(null), 3000);
     } catch (err) {
       setError(err.message);

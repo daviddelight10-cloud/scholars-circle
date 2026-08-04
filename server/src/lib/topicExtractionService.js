@@ -185,7 +185,7 @@ RULES:
  */
 function buildMatchingPrompt(resourceTitle, resourceDescription, resourceType, topics) {
   const topicList = topics
-    .map((t, i) => `${i + 1}. ${t.title}${t.description ? ` — ${t.description}` : ""}`)
+    .map((t) => `- ID: ${t.id} | ${t.title}${t.description ? ` — ${t.description}` : ""}`)
     .join("\n");
 
   return `You are an expert at matching study materials to curriculum topics.
@@ -195,14 +195,14 @@ DOCUMENT:
 - Type: ${resourceType}
 - Description/Content: ${(resourceDescription || "No description available").slice(0, 3000)}
 
-CURRICULUM TOPICS:
+CURRICULUM TOPICS (use the exact ID value from each line):
 ${topicList}
 
 Match this document to the most relevant curriculum topics (1-3 topics max).
 
 Return ONLY a valid JSON array (no markdown):
 [
-  { "topicId": "topic-id-from-list", "confidence": 0.95 }
+  { "topicId": "<exact-id-from-list-above>", "confidence": 0.95 }
 ]
 
 RULES:
@@ -210,7 +210,7 @@ RULES:
 2. Confidence should be 0.0-1.0, where 1.0 means perfect match.
 3. Only include matches with confidence >= 0.5.
 4. Return at most 3 matches.
-5. Use the exact topicId values from the list above.
+5. Use the exact topicId (the ID value) from the list above.
 6. If no topics are relevant, return an empty array [].`;
 }
 
@@ -385,22 +385,27 @@ export async function matchDocumentToSkeleton(resource, courseCode, userId) {
   if (!Array.isArray(matches)) return 0;
 
   const validMatches = matches
-    .filter((m) => m && m.topicId && typeof m.confidence === "number" && m.confidence >= CONFIDENCE_THRESHOLD)
+    .filter((m) => m && typeof m.confidence === "number" && m.confidence >= CONFIDENCE_THRESHOLD)
     .slice(0, 3);
 
   let matchCount = 0;
 
   for (const match of validMatches) {
-    // Verify the topicId actually belongs to this course
-    const topicExists = topics.find((t) => t.id === match.topicId);
-    if (!topicExists) continue;
+    // Try to find the topic by ID first, then by title as fallback
+    let topic = topics.find((t) => t.id === match.topicId);
+    if (!topic && match.topicId) {
+      // AI might have returned a title or index instead of UUID
+      const titleLower = String(match.topicId).toLowerCase().trim();
+      topic = topics.find((t) => t.title.toLowerCase().trim() === titleLower);
+    }
+    if (!topic) continue;
 
     await prisma.documentTopicMatch.upsert({
       where: {
         userId_resourceId_topicId: {
           userId,
           resourceId: resource.id,
-          topicId: match.topicId,
+          topicId: topic.id,
         },
       },
       update: {
@@ -410,7 +415,7 @@ export async function matchDocumentToSkeleton(resource, courseCode, userId) {
       create: {
         userId,
         resourceId: resource.id,
-        topicId: match.topicId,
+        topicId: topic.id,
         confidence: match.confidence,
         matchSource: "ai",
       },
@@ -418,7 +423,7 @@ export async function matchDocumentToSkeleton(resource, courseCode, userId) {
     matchCount++;
 
     // Run verification check after each match insert
-    await checkVerificationThreshold(match.topicId);
+    await checkVerificationThreshold(topic.id);
   }
 
   // If no matches above threshold, propose a new topic (ai_added)
@@ -643,6 +648,8 @@ export async function retroactiveMatchDocuments(courseCode, userId, folderId, on
   }
 
   let matchCount = 0;
+  let errorCount = 0;
+  let lastError = null;
 
   for (let i = 0; i < resources.length; i++) {
     const resource = resources[i];
@@ -652,6 +659,8 @@ export async function retroactiveMatchDocuments(courseCode, userId, folderId, on
       const count = await matchDocumentToSkeleton(resource, courseCode, userId);
       matchCount += count;
     } catch (err) {
+      errorCount++;
+      lastError = err;
       logError(err, {
         context: "retroactiveMatchDocuments",
         resourceId: resource.id,
@@ -666,7 +675,13 @@ export async function retroactiveMatchDocuments(courseCode, userId, folderId, on
     userId,
     resourceCount: resources.length,
     matchCount,
+    errorCount,
   });
 
-  return { matchCount, resourceCount: resources.length };
+  // If ALL documents failed to match, surface the error
+  if (errorCount === resources.length && resources.length > 0) {
+    throw new Error(lastError?.message || "All documents failed to match");
+  }
+
+  return { matchCount, resourceCount: resources.length, errorCount };
 }
