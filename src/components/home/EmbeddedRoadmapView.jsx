@@ -130,7 +130,13 @@ export default function EmbeddedRoadmapView({
   useEffect(() => {
     if (topics.length > 0 && !selectedTopicId) {
       const start = findStartHereTopic(topics, progress, matchesByTopic);
-      setSelectedTopicId(start?.id || topics[0].id);
+      if (start) {
+        setSelectedTopicId(start.id);
+      } else {
+        // findStartHereTopic returned null — find first unlocked topic
+        const firstUnlocked = topics.find((t) => !isTopicLocked(t, topics, progress));
+        if (firstUnlocked) setSelectedTopicId(firstUnlocked.id);
+      }
     }
     if (topics.length === 0) setSelectedTopicId(null);
   }, [topics, progress, matchesByTopic, selectedTopicId]);

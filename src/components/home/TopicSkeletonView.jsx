@@ -177,7 +177,12 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
   useEffect(() => {
     if (topics.length > 0 && !selectedTopicId) {
       const start = findStartHereTopic(topics, progress, matchesByTopic);
-      setSelectedTopicId(start?.id || topics[0].id);
+      if (start) {
+        setSelectedTopicId(start.id);
+      } else {
+        const firstUnlocked = topics.find((t) => !isTopicLocked(t, topics, progress));
+        if (firstUnlocked) setSelectedTopicId(firstUnlocked.id);
+      }
     }
     if (topics.length === 0) {
       setSelectedTopicId(null);

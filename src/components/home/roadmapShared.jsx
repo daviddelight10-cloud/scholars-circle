@@ -287,14 +287,15 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
                 </span>
                 {m.resource?.shareToken && onOpenResource && (
                   <button
-                    onClick={() => onOpenResource(m.resource.shareToken)}
+                    onClick={() => { if (!locked) onOpenResource(m.resource.shareToken); }}
+                    disabled={locked}
                     style={{
-                      background: "none", border: `0.5px solid ${D.border}`, borderRadius: 4,
-                      padding: "3px 10px", fontSize: 10, color: D.blue, cursor: "pointer",
-                      fontFamily: FONTS.body,
+                      background: "none", border: `0.5px solid ${locked ? D.border : D.border}`, borderRadius: 4,
+                      padding: "3px 10px", fontSize: 10, color: locked ? D.textLow : D.blue,
+                      cursor: locked ? "not-allowed" : "pointer", fontFamily: FONTS.body,
                     }}
                   >
-                    Open
+                    {locked ? "🔒" : "Open"}
                   </button>
                 )}
               </div>
