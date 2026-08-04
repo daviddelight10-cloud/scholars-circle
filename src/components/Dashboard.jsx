@@ -644,6 +644,7 @@ export default function Dashboard({
           courseCode={skeletonCourse}
           onExit={() => setShowSkeletonView(false)}
           onOpenResource={onOpenResource}
+          onStartStudying={(topic) => { onOpenStudy?.(topic.title, "auto-roadmap", null); setShowSkeletonView(false); }}
         />
       )}
     </div>

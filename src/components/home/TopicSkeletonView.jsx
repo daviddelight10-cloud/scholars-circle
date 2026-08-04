@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   fetchSkeleton,
   fetchTopicProgress,
@@ -9,6 +9,7 @@ import {
 } from "../../lib/skeletonGenerator";
 import { retroactiveMatch } from "../../lib/topicMatcher";
 import { listFolders } from "../../lib/foldersApi";
+import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
 
 const D = {
@@ -96,7 +97,7 @@ function findStartHereTopic(topics, progress, matchesByTopic) {
   return null;
 }
 
-export default function TopicSkeletonView({ courseCode: initialCourseCode, onExit, onOpenResource }) {
+export default function TopicSkeletonView({ courseCode: initialCourseCode, onExit, onOpenResource, onStartStudying }) {
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(initialCourseCode || "");
   const [topics, setTopics] = useState([]);
@@ -108,6 +109,9 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
   const [error, setError] = useState("");
   const [matchProgress, setMatchProgress] = useState(null);
   const [selectedTopicId, setSelectedTopicId] = useState(null);
+  const [outlineFileName, setOutlineFileName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Build course list from folders + resource subjects
   useEffect(() => {
@@ -220,14 +224,16 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
     }
   }, [topics, progress, matchesByTopic, selectedTopicId]);
 
-  async function handleGenerate() {
+  async function handleGenerate(outlineText) {
     if (!selectedCourse.trim()) return;
     setGenerating(true);
     setError("");
-    setGenProgress("Generating topic skeleton with AI…");
+    const hasOutline = outlineText && outlineText.trim().length > 50;
+    setGenProgress(hasOutline ? "Extracting topics from syllabus…" : "Generating topic skeleton with AI…");
     try {
       const result = await generateSkeleton({
         courseName: selectedCourse,
+        outlineText: hasOutline ? outlineText : undefined,
         onProgress: setGenProgress,
       });
       setTopics(result.topics);
@@ -243,7 +249,34 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
       setError(err.message);
     } finally {
       setGenerating(false);
+      setOutlineFileName("");
       setTimeout(() => setGenProgress(""), 3000);
+    }
+  }
+
+  async function handleOutlineUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file || !selectedCourse.trim() || generating) return;
+    setUploading(true);
+    setOutlineFileName(file.name);
+    setGenProgress(`Extracting text from ${file.name}…`);
+    try {
+      const { text } = await extractFileText(file);
+      if (!text || text.trim().length < 50) {
+        setError("Could not extract enough text from the file. Try a different file or use Build Roadmap without an outline.");
+        setOutlineFileName("");
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      setUploading(false);
+      await handleGenerate(text);
+    } catch (err) {
+      setError(`Failed to extract text: ${err.message}`);
+      setOutlineFileName("");
+      setUploading(false);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -330,11 +363,32 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
           </button>
         )}
 
-        <button onClick={handleGenerate} disabled={generating || !selectedCourse.trim()} style={{
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx,.txt"
+          style={{ display: "none" }}
+          onChange={handleOutlineUpload}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={generating || uploading || !selectedCourse.trim()}
+          title="Upload a course syllabus/outline for higher-quality generation"
+          style={{
+            background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 8,
+            padding: "8px 12px", fontSize: 14, color: D.blue,
+            cursor: (generating || uploading) ? "not-allowed" : "pointer",
+            fontFamily: FONTS.body, whiteSpace: "nowrap",
+          }}
+        >
+          📎
+        </button>
+
+        <button onClick={() => handleGenerate()} disabled={generating || uploading || !selectedCourse.trim()} style={{
           background: generating ? "rgba(245,166,35,0.15)" : "linear-gradient(135deg, #b8860b, #F5A623)",
           border: "none", borderRadius: 8, padding: "8px 16px",
           fontSize: 12, fontWeight: 600, color: generating ? D.gold : "#0a0a0a",
-          cursor: generating ? "not-allowed" : "pointer", fontFamily: FONTS.body, whiteSpace: "nowrap",
+          cursor: (generating || uploading) ? "not-allowed" : "pointer", fontFamily: FONTS.body, whiteSpace: "nowrap",
         }}>
           {generating ? "Generating…" : topics.length > 0 ? "Regenerate" : "Build Roadmap"}
         </button>
@@ -370,15 +424,52 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
             Loading skeleton…
           </div>
         ) : topics.length === 0 ? (
-          <div style={{ flex: 1, textAlign: "center", padding: "80px 20px" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
+          /* B2: Guided empty state onboarding */
+          <div style={{ flex: 1, overflowY: "auto", padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>�️</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: D.textHi, marginBottom: 8, fontFamily: FONTS.display }}>
               {selectedCourse ? `No roadmap for ${selectedCourse}` : "Select a course to begin"}
             </div>
-            <div style={{ fontSize: 13, color: D.textMid, fontFamily: FONTS.body, lineHeight: 1.6, marginBottom: 20 }}>
-              {selectedCourse
-                ? "Click \"Build Roadmap\" to generate an AI-powered topic skeleton, or upload a course outline via the Smart Study input."
-                : "Type a course code above or select from your folders to build a curriculum roadmap."}
+            <div style={{ fontSize: 13, color: D.textMid, fontFamily: FONTS.body, lineHeight: 1.6, marginBottom: 28, textAlign: "center", maxWidth: 400 }}>
+              Build a personalized learning roadmap from your course syllabus or let AI generate one.
+            </div>
+
+            {/* Step-by-step guide */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 440, width: "100%" }}>
+              {/* Step 1: Upload syllabus */}
+              <OnboardingStep
+                number={1}
+                title="Upload your course syllabus (optional)"
+                description="PDF, DOCX, or TXT — AI extracts topics directly from it"
+                icon="📎"
+                done={outlineFileName !== ""}
+                actionLabel={outlineFileName || "Choose File"}
+                onAction={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                disabled={!selectedCourse.trim() || generating || uploading}
+              />
+              {/* Step 2: Enter course name */}
+              <OnboardingStep
+                number={2}
+                title="Enter or select a course code"
+                description="Type a course code or pick from your folders"
+                icon="📚"
+                done={!!selectedCourse.trim()}
+                actionLabel={selectedCourse || "Type a course above ↑"}
+                onAction={null}
+                disabled={true}
+              />
+              {/* Step 3: Build roadmap */}
+              <OnboardingStep
+                number={3}
+                title="Build your roadmap"
+                description="AI generates an ordered topic skeleton with prerequisites"
+                icon="✨"
+                done={false}
+                actionLabel={generating ? "Generating…" : "Build Roadmap →"}
+                onAction={(e) => { e.stopPropagation(); handleGenerate(); }}
+                disabled={!selectedCourse.trim() || generating || uploading}
+                highlight={true}
+              />
             </div>
           </div>
         ) : (
@@ -482,6 +573,21 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                           }}>
                             {topic.title}
                           </span>
+                          {/* B5: Quick-study icon for unlocked topics with docs */}
+                          {!locked && topicMatches.length > 0 && onStartStudying && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onStartStudying(topic); }}
+                              title="Study this topic now"
+                              style={{
+                                background: "rgba(245,166,35,0.12)", border: `0.5px solid ${D.gold}33`,
+                                borderRadius: 6, padding: "2px 8px", fontSize: 10, color: D.gold,
+                                cursor: "pointer", fontFamily: FONTS.body, fontWeight: 600, flexShrink: 0,
+                                opacity: isSelected ? 1 : 0.7,
+                              }}
+                            >
+                              ▶
+                            </button>
+                          )}
                         </div>
 
                         {/* Progress bar */}
@@ -536,6 +642,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                   progress={progress?.[selectedTopic.id]}
                   matches={matchesByTopic.get(selectedTopic.id) || []}
                   onOpenResource={onOpenResource}
+                  onStartStudying={onStartStudying}
                   onCorroborate={handleCorroborate}
                   onDispute={handleDispute}
                   locked={isTopicLocked(selectedTopic, topics, progress)}
@@ -574,11 +681,16 @@ function Badge({ text, bg, color }) {
   );
 }
 
-function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onCorroborate, onDispute, locked, isStartHere }) {
+function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, onCorroborate, onDispute, locked, isStartHere }) {
   const p = progress;
   const progressLabel = p?.label || "Not started";
   const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
   const pct = progressPct(p);
+
+  // B3: Estimated study time — 5 min per subtopic + 10 min per document
+  const subtopicCount = (topic.subtopics?.length || 0);
+  const estMinutes = (subtopicCount * 5) + (matches.length * 10);
+  const estTimeStr = estMinutes >= 60 ? `${Math.floor(estMinutes / 60)}h ${estMinutes % 60}m` : `~${estMinutes}m`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -642,6 +754,13 @@ function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, on
             <span>{p.masteredCount} mastered</span>
           </div>
         )}
+
+        {/* B3: Estimated study time */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>
+          <span style={{ fontSize: 12 }}>⏱️</span>
+          <span>Estimated study time: <strong style={{ color: D.gold }}>{estTimeStr}</strong></span>
+          <span style={{ color: D.textLow, fontSize: 10 }}>({subtopicCount} subtopics · {matches.length} docs)</span>
+        </div>
       </div>
 
       {/* Section 2: Action buttons */}
@@ -656,9 +775,9 @@ function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, on
           </div>
         ) : (
           <>
-            {matches.length > 0 && onOpenResource && (
+            {matches.length > 0 && onStartStudying && (
               <button
-                onClick={() => onOpenResource(matches[0].resource?.shareToken)}
+                onClick={() => onStartStudying(topic)}
                 style={{
                   flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
                   borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
@@ -812,6 +931,69 @@ function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, on
             })}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function OnboardingStep({ number, title, description, icon, done, actionLabel, onAction, disabled, highlight }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 14,
+      padding: "14px 16px", borderRadius: 12,
+      background: highlight ? "rgba(245,166,35,0.06)" : D.panel,
+      border: done ? `0.5px solid ${D.green}33` : highlight ? `0.5px solid ${D.gold}33` : `0.5px solid ${D.border}`,
+      transition: "border-color 0.2s, background 0.2s",
+    }}>
+      {/* Step number / done check */}
+      <div style={{
+        width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: done ? "rgba(61,214,140,0.15)" : highlight ? "rgba(245,166,35,0.15)" : D.ink,
+        border: done ? `1px solid ${D.green}44` : highlight ? `1px solid ${D.gold}44` : `1px solid ${D.border}`,
+        fontSize: 12, fontWeight: 700, fontFamily: FONTS.display,
+        color: done ? D.green : highlight ? D.gold : D.textMid,
+      }}>
+        {done ? "✓" : number}
+      </div>
+
+      {/* Text content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: D.textHi, fontFamily: FONTS.body, display: "flex", alignItems: "center", gap: 6 }}>
+          <span>{icon}</span>
+          <span>{title}</span>
+        </div>
+        <div style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body, marginTop: 2 }}>
+          {description}
+        </div>
+      </div>
+
+      {/* Action button */}
+      {onAction && (
+        <button
+          onClick={onAction}
+          disabled={disabled}
+          style={{
+            background: highlight ? "linear-gradient(135deg, #b8860b, #F5A623)" : D.ink,
+            border: highlight ? "none" : `0.5px solid ${D.border}`,
+            borderRadius: 8, padding: "8px 14px",
+            fontSize: 11, fontWeight: 600,
+            color: highlight ? "#0a0a0a" : done ? D.green : D.textMid,
+            cursor: disabled ? "not-allowed" : "pointer",
+            fontFamily: FONTS.body, whiteSpace: "nowrap", flexShrink: 0,
+            opacity: disabled ? 0.5 : 1,
+          }}
+        >
+          {actionLabel}
+        </button>
+      )}
+      {!onAction && (
+        <span style={{
+          fontSize: 11, color: done ? D.green : D.textLow, fontFamily: FONTS.body,
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120,
+        }}>
+          {actionLabel}
+        </span>
       )}
     </div>
   );

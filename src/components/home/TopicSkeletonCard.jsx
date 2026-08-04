@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
-import { fetchSkeleton, fetchTopicProgress, generateSkeleton } from "../../lib/skeletonGenerator";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { fetchSkeleton, fetchTopicProgress, fetchTopicMatches, generateSkeleton } from "../../lib/skeletonGenerator";
 import { listFolders } from "../../lib/foldersApi";
+import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
 
 const D = {
@@ -32,6 +33,9 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
   const [progress, setProgress] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState("");
+  const [matches, setMatches] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Build course list from folders + resource subjects, auto-select first course
   useEffect(() => {
@@ -87,14 +91,20 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
         const topics = await fetchSkeleton(selectedCourse);
         setSkeleton(topics);
         if (topics.length > 0) {
-          const prog = await fetchTopicProgress(selectedCourse);
+          const [prog, mtch] = await Promise.all([
+            fetchTopicProgress(selectedCourse),
+            fetchTopicMatches(selectedCourse),
+          ]);
           setProgress(prog);
+          setMatches(mtch);
         } else {
           setProgress(null);
+          setMatches([]);
         }
       } catch (err) {
         setSkeleton(null);
         setProgress(null);
+        setMatches([]);
       }
     }
     load();
@@ -114,9 +124,26 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
   }, [skeleton, progress]);
 
   const masteredPct = stats ? Math.round((stats.mastered / stats.total) * 100) : 0;
+  const docCount = useMemo(() => new Set(matches.map((m) => m.resourceId)).size, [matches]);
+
+  // Find the topic to continue with — first in-progress, or first not-started
+  const continueTopic = useMemo(() => {
+    if (!skeleton || skeleton.length === 0) return null;
+    // First pass: find a topic that's in progress (Learning/Reviewing/New)
+    for (const t of skeleton) {
+      const p = progress?.[t.id];
+      if (p && (p.label === "Learning" || p.label === "Reviewing" || p.label === "New")) return t;
+    }
+    // Second pass: first not-started
+    for (const t of skeleton) {
+      const p = progress?.[t.id];
+      if (!p || p.label === "Not started") return t;
+    }
+    return null;
+  }, [skeleton, progress]);
 
   // Card state: "empty" | "processing" | "ready"
-  const cardState = generating ? "processing" : (skeleton && skeleton.length > 0) ? "ready" : "empty";
+  const cardState = (generating || uploading) ? "processing" : (skeleton && skeleton.length > 0) ? "ready" : "empty";
 
   async function handleQuickGenerate(e) {
     e.stopPropagation();
@@ -130,13 +157,54 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
       });
       setSkeleton(result.topics);
       setGenProgress("");
-      // Fetch progress for the new skeleton
-      const prog = await fetchTopicProgress(selectedCourse);
+      // Fetch progress and matches for the new skeleton
+      const [prog, mtch] = await Promise.all([
+        fetchTopicProgress(selectedCourse),
+        fetchTopicMatches(selectedCourse),
+      ]);
       setProgress(prog);
+      setMatches(mtch);
     } catch (err) {
       setGenProgress("");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleOutlineUpload(e) {
+    e.stopPropagation();
+    const file = e.target.files?.[0];
+    if (!file || !selectedCourse.trim() || generating) return;
+    setUploading(true);
+    setGenProgress("Extracting outline text…");
+    try {
+      const { text } = await extractFileText(file);
+      if (!text || text.trim().length < 50) {
+        setGenProgress("");
+        setUploading(false);
+        return;
+      }
+      setGenerating(true);
+      setGenProgress("Generating roadmap from syllabus…");
+      const result = await generateSkeleton({
+        courseName: selectedCourse,
+        outlineText: text,
+        onProgress: setGenProgress,
+      });
+      setSkeleton(result.topics);
+      setGenProgress("");
+      const [prog, mtch] = await Promise.all([
+        fetchTopicProgress(selectedCourse),
+        fetchTopicMatches(selectedCourse),
+      ]);
+      setProgress(prog);
+      setMatches(mtch);
+    } catch (err) {
+      setGenProgress("");
+    } finally {
+      setUploading(false);
+      setGenerating(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -168,7 +236,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
             Course Roadmap
           </div>
           <div style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>
-            {cardState === "ready" ? `${skeleton.length} topics · ${masteredPct}% mastered` : cardState === "processing" ? "Building your roadmap…" : "Build a learning roadmap"}
+            {cardState === "ready" ? `${skeleton.length} topics · ${docCount} docs · ${masteredPct}% mastered` : cardState === "processing" ? "Building your roadmap…" : "Build a learning roadmap"}
           </div>
         </div>
       </div>
@@ -226,6 +294,26 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
             <StatPill label="Not started" value={stats.notStarted} color={D.textLow} />
           </div>
 
+          {/* Continue where you left off */}
+          {continueTopic && (
+            <div onClick={(e) => { e.stopPropagation(); onOpenSkeleton?.(selectedCourse); }} style={{
+              display: "flex", alignItems: "center", gap: 8, marginTop: 10,
+              padding: "10px 12px", background: "rgba(245,166,35,0.08)",
+              border: `0.5px solid ${D.gold}33`, borderRadius: 8, cursor: "pointer",
+            }}>
+              <span style={{ fontSize: 14 }}>{progress?.[continueTopic.id]?.label === "Not started" || !progress?.[continueTopic.id] ? "▶" : "↻"}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, color: D.gold, fontFamily: FONTS.mono, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+                  {progress?.[continueTopic.id]?.label === "Not started" || !progress?.[continueTopic.id] ? "Start Here" : "Continue"}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: D.textHi, fontFamily: FONTS.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {continueTopic.title}
+                </div>
+              </div>
+              <span style={{ color: D.gold, fontSize: 12 }}>→</span>
+            </div>
+          )}
+
           {/* Topic preview (first 3) */}
           {skeleton && skeleton.length > 0 && (
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -257,14 +345,31 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
               : "Select a course to build your topic roadmap"}
           </div>
           {selectedCourse && (
-            <button onClick={handleQuickGenerate} disabled={generating} style={{
-              background: "linear-gradient(135deg, #b8860b, #F5A623)",
-              border: "none", borderRadius: 8, padding: "8px 18px",
-              fontSize: 12, fontWeight: 600, color: "#0a0a0a",
-              cursor: "pointer", fontFamily: FONTS.body,
-            }}>
-              Build Roadmap
-            </button>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
+              <button onClick={handleQuickGenerate} disabled={generating || uploading} style={{
+                background: "linear-gradient(135deg, #b8860b, #F5A623)",
+                border: "none", borderRadius: 8, padding: "8px 18px",
+                fontSize: 12, fontWeight: 600, color: "#0a0a0a",
+                cursor: "pointer", fontFamily: FONTS.body,
+              }}>
+                Build Roadmap
+              </button>
+              <span style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body }}>or</span>
+              <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} disabled={generating || uploading} style={{
+                background: "none", border: `0.5px solid ${D.border}`, borderRadius: 8, padding: "8px 14px",
+                fontSize: 12, fontWeight: 600, color: D.blue, cursor: "pointer", fontFamily: FONTS.body,
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                📎 Upload Syllabus
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.txt"
+                style={{ display: "none" }}
+                onChange={handleOutlineUpload}
+              />
+            </div>
           )}
         </div>
       )}
