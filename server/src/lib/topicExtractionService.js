@@ -44,21 +44,34 @@ async function callAIServerSide(prompt) {
     max_tokens: 16384,
   };
 
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(requestBody),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[topicExtractionService] AI Provider Error:`, errorText);
-    throw new Error(`AI provider error: ${response.status} ${response.statusText}`);
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[topicExtractionService] AI Provider Error:`, errorText);
+      throw new Error(`AI provider error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content || "";
+    return text;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("AI request timed out after 30 seconds");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = await response.json();
-  const text = data.choices?.[0]?.message?.content || "";
-  return text;
 }
 
 /**

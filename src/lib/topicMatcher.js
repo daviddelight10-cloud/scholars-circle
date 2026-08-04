@@ -19,10 +19,24 @@ async function authFetch(url, opts = {}) {
 export async function retroactiveMatch(courseCode, onProgress, folderId) {
   onProgress?.(0, 0, "Starting server-side matching…");
 
-  const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/retroactive-match`, {
-    method: "POST",
-    body: JSON.stringify({ folderId: folderId || undefined }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  let res;
+  try {
+    res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/retroactive-match`, {
+      method: "POST",
+      body: JSON.stringify({ folderId: folderId || undefined }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === "AbortError") {
+      throw new Error("Matching timed out — the server took too long. Try again with fewer documents.");
+    }
+    throw err;
+  }
+  clearTimeout(timeout);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
