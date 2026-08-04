@@ -290,8 +290,8 @@ export default function FolderDetailView({
         )}
 
         {/* Filter chips + Roadmap toggle */}
-        <div className="cs-chiprow mb-5 flex items-center gap-2">
-          <div className="flex gap-2">
+        <div className="cs-chiprow mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+          <div className="flex flex-wrap gap-2">
             {chips.map((chip) => (
               <button
                 key={chip.key}
@@ -315,10 +315,10 @@ export default function FolderDetailView({
           </div>
 
           {showRoadmapToggle && (
-            <div className="ml-auto flex items-center gap-1 rounded-[10px] border border-hub-border bg-hub-surface p-0.5">
+            <div className="flex w-full items-center gap-1 rounded-[10px] border border-hub-border bg-hub-surface p-0.5 sm:ml-auto sm:w-auto">
               <button
                 onClick={() => setFilesViewMode("topic")}
-                className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all ${
+                className={`flex-1 rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all sm:flex-none ${
                   filesViewMode === "topic"
                     ? "bg-gold-dim text-gold border border-gold-border"
                     : "text-hub-text-dim hover:text-hub-text-muted border border-transparent"
@@ -328,7 +328,7 @@ export default function FolderDetailView({
               </button>
               <button
                 onClick={() => setFilesViewMode("flat")}
-                className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all ${
+                className={`flex-1 rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all sm:flex-none ${
                   filesViewMode === "flat"
                     ? "bg-gold-dim text-gold border border-gold-border"
                     : "text-hub-text-dim hover:text-hub-text-muted border border-transparent"
