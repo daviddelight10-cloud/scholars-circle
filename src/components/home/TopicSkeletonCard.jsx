@@ -50,6 +50,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
   const fileInputRef = useRef(null);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
   const [manualEntry, setManualEntry] = useState(false);
+  const [courseGroups, setCourseGroups] = useState({ preset: [], user: [], folder: [] });
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -75,7 +76,18 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
         }
       } catch {}
 
+      // From preset subjects (same list as Upload Wizard — always available)
+      const presetCourses = [];
+      for (const s of PRESET_SUBJECTS) {
+        if (s === "Custom") continue;
+        if (!courseSet.has(s)) {
+          courseSet.add(s);
+          presetCourses.push(s);
+        }
+      }
+
       // From live resource subjects (not stale localStorage cache)
+      const userCourses = [];
       try {
         const res = await authFetch(`${API_BASE}/api/resources`);
         if (res.ok) {
@@ -88,7 +100,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
             const isOwn = r.uploadedBy && currentUserId && String(r.uploadedBy) === currentUserId;
             if (isPreset || isOwn) {
               courseSet.add(r.subject);
-              courseList.push(r.subject);
+              userCourses.push(r.subject);
             }
           }
           // Update cache for other consumers
@@ -96,7 +108,10 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
         }
       } catch {}
 
-      setCourses(courseList);
+      // Presets first, then user-specific courses, then folder codes (already in courseList)
+      const folderCourses = courseList.filter((c) => !presetCourses.includes(c) && !userCourses.includes(c));
+      setCourses([...presetCourses, ...userCourses, ...folderCourses]);
+      setCourseGroups({ preset: presetCourses, user: userCourses, folder: folderCourses });
       // Auto-select first available course
       if (courseList.length > 0 && !selectedCourse) {
         setSelectedCourse(courseList[0]);
@@ -270,24 +285,49 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
       {/* Course selector */}
       <div style={{ position: "relative", marginBottom: 10 }} onClick={(e) => e.stopPropagation()}>
         {!manualEntry && courses.length > 0 ? (
-          <select
-            value={courses.includes(selectedCourse) ? selectedCourse : ""}
-            onChange={(e) => {
-              if (e.target.value === "__custom__") { setManualEntry(true); setSelectedCourse(""); }
-              else setSelectedCourse(e.target.value);
-            }}
-            style={{
-              width: "100%", boxSizing: "border-box",
-              background: D.ink, border: `0.5px solid ${D.border}`,
-              borderRadius: 8, padding: "8px 12px",
-              fontSize: 12, color: D.textHi, fontFamily: FONTS.body,
-              outline: "none", cursor: "pointer",
-            }}
-          >
-            <option value="" disabled>Select a course…</option>
-            {courses.map((c) => <option key={c} value={c}>{c}</option>)}
-            <option value="__custom__">+ Type a different course…</option>
-          </select>
+          <div style={{ position: "relative", width: "100%" }}>
+            <select
+              value={courses.includes(selectedCourse) ? selectedCourse : ""}
+              onChange={(e) => {
+                if (e.target.value === "__custom__") { setManualEntry(true); setSelectedCourse(""); }
+                else setSelectedCourse(e.target.value);
+              }}
+              style={{
+                width: "100%", boxSizing: "border-box",
+                background: `linear-gradient(180deg, ${D.panel}, ${D.ink})`,
+                border: `0.5px solid ${D.border}`,
+                borderRadius: 10, padding: "10px 36px 10px 14px",
+                fontSize: 13, color: D.textHi, fontFamily: FONTS.body,
+                outline: "none", cursor: "pointer",
+                appearance: "none", WebkitAppearance: "none", MozAppearance: "none",
+                transition: "border-color 0.2s, box-shadow 0.2s",
+              }}
+              onFocus={(e) => { e.target.style.borderColor = D.gold + "66"; e.target.style.boxShadow = `0 0 0 3px ${D.gold}1A`; }}
+              onBlur={(e) => { e.target.style.borderColor = D.border; e.target.style.boxShadow = "none"; }}
+            >
+              <option value="" disabled>Select a course…</option>
+              {courseGroups.preset.length > 0 && (
+                <optgroup label="Subjects">
+                  {courseGroups.preset.map((c) => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+              )}
+              {courseGroups.user.length > 0 && (
+                <optgroup label="My Uploads">
+                  {courseGroups.user.map((c) => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+              )}
+              {courseGroups.folder.length > 0 && (
+                <optgroup label="My Folders">
+                  {courseGroups.folder.map((c) => <option key={c} value={c}>{c}</option>)}
+                </optgroup>
+              )}
+              <option value="__custom__">+ Type a different course…</option>
+            </select>
+            <span style={{
+              position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+              pointerEvents: "none", fontSize: 10, color: D.textMid,
+            }}>▼</span>
+          </div>
         ) : (
           <div style={{ display: "flex", gap: 6 }}>
             <input
