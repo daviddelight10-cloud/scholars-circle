@@ -172,8 +172,8 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
       </div>
 
       {/* Section 2: Action buttons */}
-      <div style={{ display: "flex", gap: 10 }}>
-        {locked ? (
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        {locked && matches.length === 0 ? (
           <div style={{
             flex: 1, textAlign: "center", padding: "12px", background: "rgba(86,94,110,0.1)",
             border: `0.5px solid ${D.border}`, borderRadius: 8,
@@ -183,6 +183,15 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
           </div>
         ) : (
           <>
+            {locked && matches.length > 0 && (
+              <span style={{
+                fontSize: 10, fontWeight: 600, color: D.gold, background: "rgba(245,166,35,0.12)",
+                padding: "4px 10px", borderRadius: 8, fontFamily: FONTS.body,
+                display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
+              }}>
+                🔒 Locked · content available
+              </span>
+            )}
             {matches.length > 0 && onStartStudying && (
               <button
                 onClick={() => onStartStudying(topic)}
@@ -287,15 +296,15 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
                 </span>
                 {m.resource?.shareToken && onOpenResource && (
                   <button
-                    onClick={() => { if (!locked) onOpenResource(m.resource.shareToken); }}
-                    disabled={locked}
+                    onClick={() => { if (!(locked && matches.length === 0)) onOpenResource(m.resource.shareToken); }}
+                    disabled={locked && matches.length === 0}
                     style={{
-                      background: "none", border: `0.5px solid ${locked ? D.border : D.border}`, borderRadius: 4,
-                      padding: "3px 10px", fontSize: 10, color: locked ? D.textLow : D.blue,
-                      cursor: locked ? "not-allowed" : "pointer", fontFamily: FONTS.body,
+                      background: "none", border: `0.5px solid ${(locked && matches.length === 0) ? D.border : D.border}`, borderRadius: 4,
+                      padding: "3px 10px", fontSize: 10, color: (locked && matches.length === 0) ? D.textLow : D.blue,
+                      cursor: (locked && matches.length === 0) ? "not-allowed" : "pointer", fontFamily: FONTS.body,
                     }}
                   >
-                    {locked ? "🔒" : "Open"}
+                    {(locked && matches.length === 0) ? "🔒" : "Open"}
                   </button>
                 )}
               </div>
@@ -415,38 +424,42 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
   const isStartHere = startHereTopic?.id === topic.id;
   const progressLabel = p?.label || "Not started";
   const locked = isTopicLocked(topic, topics, progress);
+  const contentAccessible = !locked || topicMatches.length > 0;
   const isCurrent = isStartHere || (!locked && progressLabel === "Not started" && topicMatches.length > 0);
   const nodeClass = isCurrent ? "cs-topic-node cs-topic-node-current" : "cs-topic-node cs-topic-node-upcoming";
 
   return (
     <div
       key={topic.id}
-      onClick={() => { if (!locked) onSelectTopic(topic.id); }}
+      onClick={() => { if (contentAccessible) onSelectTopic(topic.id); }}
       style={{
         position: "relative", display: "flex", alignItems: "center", gap: 14,
-        padding: "15px 4px", cursor: locked ? "default" : "pointer",
+        padding: "15px 4px", cursor: contentAccessible ? "pointer" : "default",
         borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
         background: isSelected ? "rgba(245,166,35,0.06)" : "transparent",
         transition: "background 0.15s",
-        opacity: locked ? 0.45 : 1,
+        opacity: !contentAccessible ? 0.45 : (locked ? 0.8 : 1),
+        ...(locked && contentAccessible && !isSelected ? { boxShadow: "inset 2px 0 0 rgba(245,166,35,0.25)" } : {}),
       }}
     >
-      <div className={nodeClass}>
-        {topic.displayOrder || idx + 1}
+      <div className={nodeClass} style={locked ? { opacity: 0.6 } : {}}>
+        {locked ? "🔒" : (topic.displayOrder || idx + 1)}
       </div>
       {!isLast && <div className="cs-topic-line" />}
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, fontFamily: FONTS.body, color: locked ? D.textLow : D.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, fontFamily: FONTS.body, color: !contentAccessible ? D.textLow : D.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {topic.title}
         </div>
         <div style={{ fontSize: 11, color: D.textLow, marginTop: 2, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
           {locked ? "Locked" : progressLabel}
-          {topicMatches.length > 0 && <span style={{ color: D.blue }}>· {topicMatches.length} docs</span>}
+          {topicMatches.length > 0 && (
+            <span style={{ color: contentAccessible ? D.blue : D.textLow }}>· {topicMatches.length} docs{locked && contentAccessible ? " · available" : ""}</span>
+          )}
         </div>
       </div>
 
-      {!locked && topicMatches.length > 0 && onStartStudying && (
+      {contentAccessible && topicMatches.length > 0 && onStartStudying && (
         <button
           onClick={(e) => { e.stopPropagation(); onStartStudying(topic); }}
           title="Study this topic now"

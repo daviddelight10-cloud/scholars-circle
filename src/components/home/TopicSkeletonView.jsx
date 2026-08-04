@@ -180,8 +180,12 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
       if (start) {
         setSelectedTopicId(start.id);
       } else {
-        const firstUnlocked = topics.find((t) => !isTopicLocked(t, topics, progress));
-        if (firstUnlocked) setSelectedTopicId(firstUnlocked.id);
+        const firstAccessible = topics.find((t) => {
+          const isLocked = isTopicLocked(t, topics, progress);
+          const hasDocs = matchesByTopic.has(t.id);
+          return !isLocked || hasDocs;
+        });
+        if (firstAccessible) setSelectedTopicId(firstAccessible.id);
       }
     }
     if (topics.length === 0) {

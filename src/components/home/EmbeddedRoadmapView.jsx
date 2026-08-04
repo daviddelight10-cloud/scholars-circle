@@ -133,9 +133,13 @@ export default function EmbeddedRoadmapView({
       if (start) {
         setSelectedTopicId(start.id);
       } else {
-        // findStartHereTopic returned null — find first unlocked topic
-        const firstUnlocked = topics.find((t) => !isTopicLocked(t, topics, progress));
-        if (firstUnlocked) setSelectedTopicId(firstUnlocked.id);
+        // findStartHereTopic returned null — find first topic with content (even if locked)
+        const firstAccessible = topics.find((t) => {
+          const isLocked = isTopicLocked(t, topics, progress);
+          const hasDocs = matchesByTopic.has(t.id);
+          return !isLocked || hasDocs;
+        });
+        if (firstAccessible) setSelectedTopicId(firstAccessible.id);
       }
     }
     if (topics.length === 0) setSelectedTopicId(null);
