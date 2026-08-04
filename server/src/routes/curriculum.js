@@ -444,6 +444,7 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
   try {
     const { courseCode } = req.params;
     const userId = req.user.sub;
+    const { folderId } = req.body || {};
 
     const topics = await prisma.curriculumTopic.findMany({
       where: { courseCode },
@@ -453,16 +454,16 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "No skeleton exists for this course yet" });
     }
 
-    // Run matching server-side (async, non-blocking to the response)
-    // For small course sets, process synchronously; for large sets, return immediately
-    const resourceCount = await prisma.resource.count({
-      where: {
-        OR: [
-          { subject: courseCode, uploadedBy: userId },
-          { folder: { courseCode }, uploadedBy: userId },
-        ],
-      },
-    });
+    // Count resources — folder-scoped if folderId provided, else fallback to subject/courseCode OR
+    const countWhere = folderId
+      ? { folderId, uploadedBy: userId }
+      : {
+          OR: [
+            { subject: courseCode, uploadedBy: userId },
+            { folder: { courseCode }, uploadedBy: userId },
+          ],
+        };
+    const resourceCount = await prisma.resource.count({ where: countWhere });
 
     if (resourceCount === 0) {
       return res.json({
@@ -474,7 +475,7 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
     }
 
     // Run the matching synchronously (user sees progress via polling or SSE in future)
-    const result = await retroactiveMatchDocuments(courseCode, userId);
+    const result = await retroactiveMatchDocuments(courseCode, userId, folderId);
 
     res.json({
       ok: true,

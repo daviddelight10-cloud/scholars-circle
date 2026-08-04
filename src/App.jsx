@@ -522,6 +522,16 @@ function App() {
     return () => window.removeEventListener("sc-open-research-hub", handleOpenResearchHub);
   }, []);
 
+  // Listen for "Start Studying" from embedded roadmap in Research Hub folders
+  useEffect(() => {
+    const handleOpenStudy = (e) => {
+      const { topic, mode } = e.detail || {};
+      setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "auto-roadmap"); setAiStudyAttachment(null); setAiKey(k => k + 1); setTab("aitutor");
+    };
+    window.addEventListener("sc-open-study", handleOpenStudy);
+    return () => window.removeEventListener("sc-open-study", handleOpenStudy);
+  }, []);
+
 
 
   // Refs for signup form to avoid stale closure issues

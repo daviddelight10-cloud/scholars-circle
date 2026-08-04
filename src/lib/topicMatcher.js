@@ -16,11 +16,12 @@ async function authFetch(url, opts = {}) {
  * @param {function} [onProgress] - Progress callback (kept for backward compat, not called server-side)
  * @returns {Promise<{matchCount: number, resourceCount: number}>}
  */
-export async function retroactiveMatch(courseCode, onProgress) {
+export async function retroactiveMatch(courseCode, onProgress, folderId) {
   onProgress?.(0, 0, "Starting server-side matching…");
 
   const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/retroactive-match`, {
     method: "POST",
+    body: JSON.stringify({ folderId: folderId || undefined }),
   });
 
   if (!res.ok) {

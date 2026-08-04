@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import EmptyState from "./EmptyState";
 import LoadingState from "./LoadingState";
 import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
+import EmbeddedRoadmapView from "../../components/home/EmbeddedRoadmapView";
+import { fetchSkeleton } from "../../lib/skeletonGenerator";
 
 const emptyStateConfig = {
   materials: { icon: "📄", message: "No materials in this space yet.", cta: "Upload PDFs, notes, or other files to get started." },
@@ -172,10 +175,29 @@ export default function FolderDetailView({
   onSpacedReview, onAdaptiveDrill, onExamSimulation, onPracticeAll,
   onGenerate, onStudyWithVoice, generatingId, genProgress, genErrorId, genError, onRetry, onDismissGenError,
   uploadModal, createFolderModal, bookmarkPicker,
+  onStartStudying,
 }) {
   const counts = folderCategorized.counts || { materials: 0, summaries: 0, flashcards: 0, mcqs: 0 };
   const currentList = folderCategorized[activeFolderTab] || [];
   const emptyCfg = emptyStateConfig[activeFolderTab] || emptyStateConfig.materials;
+
+  const [filesViewMode, setFilesViewMode] = useState("flat");
+
+  // Check if a skeleton exists for this folder's courseCode to set default toggle mode
+  useEffect(() => {
+    if (!folderDetail?.courseCode) { setFilesViewMode("flat"); return; }
+    let cancelled = false;
+    fetchSkeleton(folderDetail.courseCode)
+      .then((topics) => {
+        if (cancelled) return;
+        setFilesViewMode(topics.length > 0 ? "topic" : "flat");
+      })
+      .catch(() => { if (!cancelled) setFilesViewMode("flat"); });
+    return () => { cancelled = true; };
+  }, [folderDetail?.courseCode]);
+
+  const showRoadmapToggle = activeFolderTab === "materials" && folderDetail?.courseCode;
+  const folderResources = folderCategorized.materials || [];
 
   const chips = [
     { key: "materials", label: "📄 Files", count: counts.materials },
@@ -267,28 +289,55 @@ export default function FolderDetailView({
           </button>
         )}
 
-        {/* Filter chips */}
-        <div className="cs-chiprow mb-5 flex gap-2">
-          {chips.map((chip) => (
-            <button
-              key={chip.key}
-              onClick={() => setActiveFolderTab(chip.key)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13.5px] font-semibold transition-all active:scale-95 ${
-                activeFolderTab === chip.key
-                  ? "border-hub-text-dim bg-hub-bg text-hub-text"
-                  : "border-hub-border bg-hub-surface text-hub-text-muted"
-              }`}
-            >
-              {chip.label}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
-                  activeFolderTab === chip.key ? "bg-gold text-[#1A1200]" : "bg-hub-bg text-hub-text-dim"
+        {/* Filter chips + Roadmap toggle */}
+        <div className="cs-chiprow mb-5 flex items-center gap-2">
+          <div className="flex gap-2">
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                onClick={() => setActiveFolderTab(chip.key)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13.5px] font-semibold transition-all active:scale-95 ${
+                  activeFolderTab === chip.key
+                    ? "border-hub-text-dim bg-hub-bg text-hub-text"
+                    : "border-hub-border bg-hub-surface text-hub-text-muted"
                 }`}
               >
-                {chip.count}
-              </span>
-            </button>
-          ))}
+                {chip.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
+                    activeFolderTab === chip.key ? "bg-gold text-[#1A1200]" : "bg-hub-bg text-hub-text-dim"
+                  }`}
+                >
+                  {chip.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {showRoadmapToggle && (
+            <div className="ml-auto flex items-center gap-1 rounded-[10px] border border-hub-border bg-hub-surface p-0.5">
+              <button
+                onClick={() => setFilesViewMode("topic")}
+                className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all ${
+                  filesViewMode === "topic"
+                    ? "bg-gold-dim text-gold border border-gold-border"
+                    : "text-hub-text-dim hover:text-hub-text-muted border border-transparent"
+                }`}
+              >
+                🗺️ By Topic
+              </button>
+              <button
+                onClick={() => setFilesViewMode("flat")}
+                className={`rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all ${
+                  filesViewMode === "flat"
+                    ? "bg-gold-dim text-gold border border-gold-border"
+                    : "text-hub-text-dim hover:text-hub-text-muted border border-transparent"
+                }`}
+              >
+                📄 All Files
+              </button>
+            </div>
+          )}
         </div>
 
         {/* MCQ session actions (only on MCQs tab) */}
@@ -328,9 +377,17 @@ export default function FolderDetailView({
           </>
         )}
 
-        {/* Grid */}
+        {/* Grid or Roadmap */}
         {folderLoading ? (
           <LoadingState grid count={4} />
+        ) : activeFolderTab === "materials" && filesViewMode === "topic" && folderDetail?.courseCode ? (
+          <EmbeddedRoadmapView
+            courseCode={folderDetail.courseCode}
+            folderId={folderDetail.id}
+            folderResources={folderResources}
+            onOpenResource={onOpen}
+            onStartStudying={onStartStudying}
+          />
         ) : currentList.length > 0 ? (
           <div className="cs-grid grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))" }}>
             {currentList.map((file, i) => (

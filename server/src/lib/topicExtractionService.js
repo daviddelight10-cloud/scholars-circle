@@ -592,7 +592,7 @@ export async function checkVerificationThreshold(topicId) {
  * @param {function} [onProgress] - Optional progress callback (currentIndex, total, resourceName)
  * @returns {Promise<{matchCount: number, resourceCount: number}>}
  */
-export async function retroactiveMatchDocuments(courseCode, userId, onProgress) {
+export async function retroactiveMatchDocuments(courseCode, userId, folderId, onProgress) {
   const topics = await prisma.curriculumTopic.findMany({
     where: { courseCode },
     select: { id: true, title: true, description: true },
@@ -603,14 +603,19 @@ export async function retroactiveMatchDocuments(courseCode, userId, onProgress) 
   }
 
   // Find resources for this course that belong to the user
-  // (by subject match or folder.courseCode match)
+  // Prefer folder-scoped query when folderId is provided (unambiguous);
+  // fall back to subject/courseCode OR-query for backward compat
+  const where = folderId
+    ? { folderId, uploadedBy: userId }
+    : {
+        OR: [
+          { subject: courseCode, uploadedBy: userId },
+          { folder: { courseCode }, uploadedBy: userId },
+        ],
+      };
+
   const resources = await prisma.resource.findMany({
-    where: {
-      OR: [
-        { subject: courseCode, uploadedBy: userId },
-        { folder: { courseCode }, uploadedBy: userId },
-      ],
-    },
+    where,
     select: {
       id: true,
       title: true,

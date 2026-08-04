@@ -115,6 +115,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       } else if (tab) {
         setActiveTab(tab);
       }
+      if (e.detail?.folderId) {
+        setTimeout(() => openFolder(e.detail.folderId), 300);
+      }
       if (e.detail?.openUpload) {
         setTimeout(() => openUpload(), 300);
       }
@@ -913,6 +916,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         uploadModal={uploadWizard}
         createFolderModal={createFolderModal}
         bookmarkPicker={bookmarkPicker}
+        onStartStudying={(topic) => {
+          window.dispatchEvent(new CustomEvent("sc-open-study", { detail: { topic: topic.title, mode: "auto-roadmap" } }));
+        }}
       />
     );
   }
