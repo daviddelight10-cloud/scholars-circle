@@ -1,17 +1,18 @@
 import { FONTS } from "../../lib/theme";
 
 export const D = {
-  ink: "#07090D",
-  panel: "rgba(255,255,255,0.05)",
+  ink: "#0A0D13",
+  ink2: "#10141C",
+  panel: "rgba(255,255,255,0.045)",
   panel2: "rgba(255,255,255,0.03)",
   border: "rgba(255,255,255,0.09)",
   gold: "#F5A623",
   blue: "#4F8EF7",
   green: "#3DD68C",
   coral: "#FF5470",
-  textHi: "#F5F7FB",
-  textMid: "#9AA2B2",
-  textLow: "#565E6E",
+  textHi: "#F3F5F8",
+  textMid: "#9199A8",
+  textLow: "#5D6472",
 };
 
 export const PROGRESS_COLORS = {
@@ -406,98 +407,57 @@ export function OnboardingStep({ number, title, description, icon, done, actionL
 /**
  * Render a single timeline topic row (shared between standalone and embedded views).
  */
-export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic, selectedTopicId, startHereTopic, onSelectTopic, onStartStudying, isMobile }) {
+export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic, selectedTopicId, startHereTopic, onSelectTopic, onStartStudying, isMobile, isLast }) {
   const p = progress?.[topic.id];
   const topicMatches = matchesByTopic.get(topic.id) || [];
   const isSelected = selectedTopicId === topic.id;
   const isStartHere = startHereTopic?.id === topic.id;
   const progressLabel = p?.label || "Not started";
-  const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
   const locked = isTopicLocked(topic, topics, progress);
-  const pct = progressPct(p);
-  const dotColor = locked ? D.textLow : progressLabel === "Mastered" ? D.green : isStartHere ? D.gold : progressLabel === "Not started" ? D.textLow : progressColor;
+  const isCurrent = isStartHere || (!locked && progressLabel === "Not started" && topicMatches.length > 0);
+  const nodeClass = isCurrent ? "cs-topic-node cs-topic-node-current" : "cs-topic-node cs-topic-node-upcoming";
 
   return (
     <div
       key={topic.id}
       onClick={() => { if (!locked) onSelectTopic(topic.id); }}
       style={{
-        position: "relative", display: "flex", alignItems: "flex-start", gap: 12,
-        padding: "10px 12px", marginBottom: 4, borderRadius: 8, cursor: locked ? "default" : "pointer",
-        background: isSelected ? "rgba(245,166,35,0.08)" : "transparent",
-        border: isSelected ? `0.5px solid ${D.gold}33` : "0.5px solid transparent",
-        transition: "background 0.15s, border-color 0.15s",
+        position: "relative", display: "flex", alignItems: "center", gap: 14,
+        padding: "15px 4px", cursor: locked ? "default" : "pointer",
+        borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
+        background: isSelected ? "rgba(245,166,35,0.06)" : "transparent",
+        transition: "background 0.15s",
         opacity: locked ? 0.45 : 1,
       }}
     >
-      <div style={{
-        position: "absolute", left: -16, top: 14, width: 12, height: 12, borderRadius: "50%",
-        background: D.ink, border: `2px solid ${dotColor}`,
-        boxShadow: isStartHere ? `0 0 8px ${D.gold}66` : "none",
-        flexShrink: 0, zIndex: 1,
-      }} />
+      <div className={nodeClass}>
+        {topic.displayOrder || idx + 1}
+      </div>
+      {!isLast && <div className="cs-topic-line" />}
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 12, color: D.textLow, fontFamily: FONTS.mono, flexShrink: 0 }}>
-            {topic.displayOrder || idx + 1}
-          </span>
-          <span style={{
-            fontSize: 13, fontWeight: 600, fontFamily: FONTS.body,
-            color: locked ? D.textLow : D.textHi, flex: 1,
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>
-            {topic.title}
-          </span>
-          {!locked && topicMatches.length > 0 && onStartStudying && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onStartStudying(topic); }}
-              title="Study this topic now"
-              style={{
-                background: "rgba(245,166,35,0.12)", border: `0.5px solid ${D.gold}33`,
-                borderRadius: 6, padding: "2px 8px", fontSize: 10, color: D.gold,
-                cursor: "pointer", fontFamily: FONTS.body, fontWeight: 600, flexShrink: 0,
-                opacity: isSelected ? 1 : 0.7,
-              }}
-            >
-              ▶
-            </button>
-          )}
+        <div style={{ fontSize: 13.5, fontWeight: 600, fontFamily: FONTS.body, color: locked ? D.textLow : D.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {topic.title}
         </div>
-
-        <div style={{ height: 3, background: D.ink, borderRadius: 2, overflow: "hidden", marginTop: 6, marginRight: 40 }}>
-          <div style={{
-            height: "100%", width: `${pct}%`,
-            background: progressLabel === "Mastered" ? D.green : progressColor,
-            borderRadius: 2, transition: "width 0.3s",
-          }} />
-        </div>
-
-        <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-          {isStartHere && (
-            <Badge text="Start" bg="rgba(245,166,35,0.15)" color={D.gold} />
-          )}
-          {progressLabel === "Mastered" && (
-            <Badge text="✓ Done" bg="rgba(61,214,140,0.12)" color={D.green} />
-          )}
-          {locked && (
-            <Badge text="🔒 Locked" bg="rgba(86,94,110,0.15)" color={D.textLow} />
-          )}
-          {topicMatches.length > 0 && (
-            <Badge text={`${topicMatches.length} docs`} bg="rgba(79,142,247,0.1)" color={D.blue} />
-          )}
-          {topic.status === "disputed" && (
-            <Badge text="⚠ Disputed" bg="rgba(255,84,112,0.1)" color={D.coral} />
-          )}
-          {topic.source === "outline" ? (
-            <Badge text="Outline" bg="rgba(61,214,140,0.08)" color={D.green} />
-          ) : topic.source === "ai_added" ? (
-            <Badge text="AI Added" bg="rgba(245,166,35,0.08)" color={D.gold} />
-          ) : (
-            <Badge text="AI" bg="rgba(245,166,35,0.06)" color={D.textMid} />
-          )}
+        <div style={{ fontSize: 11, color: D.textLow, marginTop: 2, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+          {locked ? "Locked" : progressLabel}
+          {topicMatches.length > 0 && <span style={{ color: D.blue }}>· {topicMatches.length} docs</span>}
         </div>
       </div>
+
+      {!locked && topicMatches.length > 0 && onStartStudying && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onStartStudying(topic); }}
+          title="Study this topic now"
+          style={{
+            background: "rgba(245,166,35,0.12)", border: `0.5px solid ${D.gold}33`,
+            borderRadius: 6, padding: "2px 8px", fontSize: 10, color: D.gold,
+            cursor: "pointer", fontFamily: FONTS.body, fontWeight: 600, flexShrink: 0,
+          }}
+        >
+          ▶
+        </button>
+      )}
     </div>
   );
 }

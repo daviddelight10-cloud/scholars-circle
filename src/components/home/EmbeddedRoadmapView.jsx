@@ -12,8 +12,13 @@ import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
 import {
   D, isTopicLocked, findStartHereTopic,
-  StatItem, TopicDetailPanel, OnboardingStep, TimelineTopicRow,
+  TopicDetailPanel, OnboardingStep, TimelineTopicRow,
 } from "./roadmapShared";
+
+const RING_SIZE = 104;
+const RING_STROKE = 9;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRC = 2 * Math.PI * RING_RADIUS;
 
 const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
 
@@ -220,46 +225,53 @@ export default function EmbeddedRoadmapView({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {/* Toolbar */}
+      {/* Roadmap header — section title + actions */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
-        padding: "10px 0", marginBottom: 4,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginTop: 28, marginBottom: 12,
       }}>
-        <div style={{ flex: 1, minWidth: 120 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
+        <div>
+          <span style={{ fontSize: 17, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
             Roadmap
           </span>
-          <span style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body, marginLeft: 8 }}>
+          <div style={{ fontSize: 12, color: D.textLow, fontFamily: FONTS.body, marginTop: 2 }}>
             {topics.length} topics · {stats?.mastered || 0} mastered
-          </span>
+          </div>
         </div>
 
         {topics.length > 0 && (
-          <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
-            background: D.panel, border: `0.5px solid ${D.blue}`, borderRadius: 8,
-            padding: "6px 12px", fontSize: 11, color: D.blue, cursor: matchProgress ? "not-allowed" : "pointer",
-            fontFamily: FONTS.body, fontWeight: 600, whiteSpace: "nowrap",
-          }}>
-            {matchProgress ? `${matchProgress.label}` : "🔗 Match Docs"}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: D.panel, border: `1px solid rgba(79,142,247,0.3)`,
+              backdropFilter: "blur(14px)", borderRadius: 100,
+              padding: "8px 12px", fontSize: 12, fontWeight: 600, color: D.blue,
+              cursor: matchProgress ? "not-allowed" : "pointer",
+              fontFamily: FONTS.body, whiteSpace: "nowrap",
+            }}>
+              {matchProgress ? `${matchProgress.label}` : "🔗 Match Docs"}
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt"
+              style={{ display: "none" }}
+              onChange={handleOutlineUpload}
+            />
+
+            <button onClick={() => topics.length > 0 ? setShowRegenPrompt(true) : fileInputRef.current?.click()} disabled={generating || uploading} style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34, borderRadius: 100, border: "none",
+              background: generating ? "rgba(245,166,35,0.15)" : "linear-gradient(135deg, #F5A623, #E08E12)",
+              color: generating ? D.gold : "#1a1206",
+              cursor: (generating || uploading) ? "not-allowed" : "pointer",
+              fontSize: 14, fontWeight: 600, fontFamily: FONTS.body,
+            }}>
+              {generating ? "⋯" : "↻"}
+            </button>
+          </div>
         )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.docx,.txt"
-          style={{ display: "none" }}
-          onChange={handleOutlineUpload}
-        />
-
-        <button onClick={() => topics.length > 0 ? setShowRegenPrompt(true) : fileInputRef.current?.click()} disabled={generating || uploading} style={{
-          background: generating ? "rgba(245,166,35,0.15)" : "linear-gradient(135deg, #b8860b, #F5A623)",
-          border: "none", borderRadius: 8, padding: "6px 14px",
-          fontSize: 11, fontWeight: 600, color: generating ? D.gold : "#0a0a0a",
-          cursor: (generating || uploading) ? "not-allowed" : "pointer", fontFamily: FONTS.body, whiteSpace: "nowrap",
-        }}>
-          {generating ? "…" : topics.length > 0 ? "Regenerate" : "Build Roadmap"}
-        </button>
       </div>
 
       {/* Error banner */}
@@ -382,53 +394,33 @@ export default function EmbeddedRoadmapView({
             flex: isMobile ? (showDetailMobile ? "0 0 auto" : "1 1 auto") : "1 1 45%",
             display: isMobile && showDetailMobile ? "none" : "block",
           }}>
-            {/* Stats summary */}
+            {/* Mastery card — circular ring + legend */}
             {stats && (
-              <div style={{
-                background: D.panel, border: `0.5px solid ${D.border}`,
-                borderRadius: 12, padding: "14px 16px", marginBottom: 16,
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>Overall Mastery</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: D.gold, fontFamily: FONTS.display }}>{masteredPct}%</span>
-                </div>
-                <div style={{ height: 6, background: D.ink, borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${masteredPct}%`, background: `linear-gradient(90deg, ${D.gold}, ${D.green})`, borderRadius: 3, transition: "width 0.3s" }} />
-                </div>
-                <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
-                  <StatItem label="Mastered" value={stats.mastered} color={D.green} />
-                  <StatItem label="Learning" value={stats.learning} color={D.gold} />
-                  <StatItem label="Not Started" value={stats.notStarted} color={D.textLow} />
-                </div>
-              </div>
+              <MasteryRing stats={stats} masteredPct={masteredPct} />
             )}
 
-            {/* Start here banner */}
+            {/* Start here banner — glass with gold accent */}
             {startHereTopic && (
-              <div onClick={() => { setSelectedTopicId(startHereTopic.id); if (isMobile) setShowDetailMobile(true); }} style={{
-                background: `linear-gradient(135deg, rgba(245,166,35,0.15), rgba(245,166,35,0.05))`,
-                border: `1px solid ${D.gold}44`, borderRadius: 10, padding: "12px 16px",
-                marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", gap: 10,
-              }}>
+              <div
+                className="cs-start-banner"
+                onClick={() => { setSelectedTopicId(startHereTopic.id); if (isMobile) setShowDetailMobile(true); }}
+                style={{ marginBottom: 16 }}
+              >
                 <span style={{ fontSize: 20 }}>👉</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 11, color: D.gold, fontFamily: FONTS.mono, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+                  <span style={{ fontSize: 10, color: D.gold, fontFamily: FONTS.mono, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 3 }}>
                     Start Here
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: D.textHi, fontFamily: FONTS.body, marginTop: 2 }}>
+                  </span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
                     {startHereTopic.title}
-                  </div>
+                  </span>
                 </div>
-                <span style={{ color: D.gold, fontSize: 14 }}>→</span>
+                <span style={{ color: D.gold, fontSize: 18, marginLeft: "auto" }}>→</span>
               </div>
             )}
 
-            {/* Timeline topic list */}
-            <div style={{ position: "relative", paddingLeft: 20 }}>
-              <div style={{
-                position: "absolute", left: 9, top: 8, bottom: 8, width: 2,
-                background: `linear-gradient(to bottom, ${D.border}, ${D.border}, ${D.border})`,
-              }} />
+            {/* Timeline topic list — connecting line + nodes */}
+            <div className="cs-topic-list" style={{ marginTop: 16 }}>
               {topics.map((topic, idx) => (
                 <TimelineTopicRow
                   key={topic.id}
@@ -442,6 +434,7 @@ export default function EmbeddedRoadmapView({
                   onSelectTopic={(id) => { setSelectedTopicId(id); if (isMobile) setShowDetailMobile(true); }}
                   onStartStudying={onStartStudying}
                   isMobile={isMobile}
+                  isLast={idx === topics.length - 1}
                 />
               ))}
             </div>
@@ -531,6 +524,74 @@ export default function EmbeddedRoadmapView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MasteryRing({ stats, masteredPct }) {
+  const [offset, setOffset] = useState(RING_CIRC);
+  const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+  useEffect(() => {
+    const target = RING_CIRC - (RING_CIRC * masteredPct) / 100;
+    if (reducedMotion) {
+      setOffset(target);
+    } else {
+      const timer = setTimeout(() => setOffset(target), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [masteredPct, reducedMotion]);
+
+  return (
+    <div style={{
+      background: D.panel, border: `1px solid ${D.border}`,
+      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+      borderRadius: 20, padding: 22, marginBottom: 16,
+      display: "flex", alignItems: "center", gap: 20,
+    }}>
+      <div style={{ position: "relative", width: RING_SIZE, height: RING_SIZE, flexShrink: 0 }}>
+        <svg width={RING_SIZE} height={RING_SIZE} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS}
+            fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={RING_STROKE} />
+          <circle className="cs-ring-fg" cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS}
+            strokeDasharray={RING_CIRC} strokeDashoffset={offset} />
+        </svg>
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        }}>
+          <span style={{ fontFamily: FONTS.mono, fontSize: 19, fontWeight: 600, color: D.textHi }}>
+            {masteredPct}%
+          </span>
+          <span style={{ fontSize: 9.5, color: D.textLow, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>
+            mastery
+          </span>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 9, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12.5 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: D.textMid }}>
+            <span style={{ width: 8, height: 8, borderRadius: 100, background: D.green, flexShrink: 0 }} />
+            Mastered
+          </div>
+          <span style={{ fontFamily: FONTS.mono, fontWeight: 600, color: D.textHi }}>{stats.mastered}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12.5 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: D.textMid }}>
+            <span style={{ width: 8, height: 8, borderRadius: 100, background: D.gold, flexShrink: 0 }} />
+            Learning
+          </div>
+          <span style={{ fontFamily: FONTS.mono, fontWeight: 600, color: D.textHi }}>{stats.learning}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12.5 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: D.textMid }}>
+            <span style={{ width: 8, height: 8, borderRadius: 100, background: D.textLow, flexShrink: 0 }} />
+            Not started
+          </div>
+          <span style={{ fontFamily: FONTS.mono, fontWeight: 600, color: D.textHi }}>{stats.notStarted}</span>
+        </div>
+      </div>
     </div>
   );
 }

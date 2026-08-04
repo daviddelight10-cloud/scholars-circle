@@ -200,57 +200,35 @@ export default function FolderDetailView({
   const folderResources = folderCategorized.materials || [];
 
   const chips = [
-    { key: "materials", label: "📄 Files", count: counts.materials },
-    { key: "summaries", label: "✎ Summary", count: counts.summaries },
-    { key: "flashcards", label: "🎴 Cards", count: counts.flashcards },
-    { key: "mcqs", label: "✎ MCQs", count: counts.mcqs },
+    { key: "materials", label: "📄 Files", icon: "📄", shortLabel: "Files", count: counts.materials },
+    { key: "summaries", label: "📝 Summary", icon: "📝", shortLabel: "Summary", count: counts.summaries },
+    { key: "flashcards", label: "🎴 Cards", icon: "🗂️", shortLabel: "Cards", count: counts.flashcards },
+    { key: "mcqs", label: "✎ MCQs", icon: "✍️", shortLabel: "MCQs", count: counts.mcqs },
   ];
 
   return (
     <>
       <div className="mx-auto max-w-[1080px] p-5 sm:p-6" style={{ paddingBottom: "80px" }}>
-        {/* Back button */}
-        <button
-          onClick={onClose}
-          className="mb-4 inline-flex items-center gap-1.5 rounded-[10px] border border-hub-border bg-hub-surface px-3.5 py-2 text-[13.5px] font-semibold text-hub-text-muted transition-all active:scale-95"
-        >
-          ← My Space
-        </button>
+        {/* Top bar — glass back pill + icon buttons */}
+        <div className="mb-[22px] flex items-center justify-between">
+          <button
+            onClick={onClose}
+            className="cs-glass-pill inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold text-[#9199A8] transition-all active:scale-95"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" className="h-4 w-4">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            My Space
+          </button>
 
-        {/* Header row */}
-        <div className="cs-header-row mb-[18px] flex items-center justify-between">
-          <div className="cs-titleblock flex flex-wrap items-center gap-3">
-            <h1 className="m-0 text-[28px] font-extrabold text-gold" style={{ fontFamily: "'Syne', sans-serif" }}>
-              {folderDetail?.courseCode || folderDetail?.name || "Loading…"}
-            </h1>
-            {folderDetail?.level && (
-              <span
-                className="rounded-lg border px-2.5 py-1 text-[12px] font-semibold"
-                style={{ fontFamily: "'JetBrains Mono', monospace", color: "#F5A623", borderColor: "rgba(245,166,35,0.4)", background: "rgba(245,166,35,0.08)" }}
-              >
-                {folderDetail.level}
-              </span>
-            )}
-            {folderDetail?.semester && (
-              <span
-                className="rounded-lg border px-2.5 py-1 text-[12px] font-semibold"
-                style={{ fontFamily: "'JetBrains Mono', monospace", color: "#3DD68C", borderColor: "rgba(61,214,140,0.4)", background: "rgba(61,214,140,0.08)" }}
-              >
-                {folderDetail.semester}
-              </span>
-            )}
-          </div>
           {folderDetail && (
             <div className="flex shrink-0 gap-2">
               {!folderIsOwner && folderDetail.visibility !== "private" && (
                 <button
                   onClick={() => onToggleFolderBookmark(folderDetail)}
                   disabled={folderBookmarkBusyId === folderDetail.id}
-                  className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-hub-border bg-hub-surface transition-all active:scale-90"
-                  style={{
-                    color: folderBookmarkedIds?.has(folderDetail.id) ? "#F5A623" : "#8B93A7",
-                    opacity: folderBookmarkBusyId === folderDetail.id ? 0.5 : 1,
-                  }}
+                  className="cs-glass-icon-btn text-[#5D6472]"
+                  style={{ opacity: folderBookmarkBusyId === folderDetail.id ? 0.5 : 1 }}
                   title={folderBookmarkedIds?.has(folderDetail.id) ? "Remove from my space" : "Save to my space"}
                 >
                   {folderBookmarkedIds?.has(folderDetail.id) ? "★" : "☆"}
@@ -259,8 +237,7 @@ export default function FolderDetailView({
               {folderDetail.visibility === "link" && (
                 <button
                   onClick={() => onShareFolder(folderDetail)}
-                  className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-hub-border bg-hub-surface text-base transition-all active:scale-90"
-                  style={{ color: "#8B93A7" }}
+                  className="cs-glass-icon-btn text-[#5D6472]"
                 >
                   ⤴
                 </button>
@@ -268,76 +245,140 @@ export default function FolderDetailView({
               {folderIsOwner && (
                 <button
                   onClick={() => onDeleteFolder(folderDetail.id)}
-                  className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-hub-border bg-hub-surface text-base transition-all active:scale-90"
-                  style={{ color: "#FF5470" }}
+                  className="cs-glass-icon-btn text-[#5D6472]"
                 >
-                  🗑
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+                    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0l-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
+                  </svg>
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* Add to space button */}
+        {/* Hero header */}
+        <div className="mb-5">
+          <span
+            className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.08em] text-[#4F8EF7]"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Course Space
+          </span>
+          <h1
+            className="m-0 text-[clamp(28px,8vw,38px)] font-extrabold leading-[1.05] tracking-[-0.01em] text-[#F3F5F8]"
+            style={{ fontFamily: "'Syne', sans-serif", wordBreak: "break-word" }}
+          >
+            {folderDetail?.courseCode || folderDetail?.name || "Loading…"}
+          </h1>
+
+          {/* Badge row */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {folderDetail?.level && (
+              <span
+                className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[12px] font-medium"
+                style={{ fontFamily: "'JetBrains Mono', monospace", color: "#F5A623", background: "rgba(245,166,35,0.10)", border: "1px solid rgba(245,166,35,0.30)" }}
+              >
+                {folderDetail.level}
+              </span>
+            )}
+            {folderDetail?.semester && (
+              <span
+                className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[12px] font-medium"
+                style={{ fontFamily: "'JetBrains Mono', monospace", color: "#3DD68C", background: "rgba(61,214,140,0.08)", border: "1px solid rgba(61,214,140,0.28)" }}
+              >
+                {folderDetail.semester}
+              </span>
+            )}
+          </div>
+
+          {/* Meta row */}
+          <div className="mt-2.5 flex items-center gap-3.5 text-[12.5px] text-[#9199A8]">
+            <span className="flex items-center gap-1.5">🧬 {folderDetail?.topicCount || 0} topics</span>
+            <span className="h-1 w-1 rounded-full bg-[#5D6472]" />
+            <span>{folderDetail?.masteryPct || 0}% mastered</span>
+          </div>
+        </div>
+
+        {/* Primary CTA — the only gold surface at top */}
         {folderDetail && (
           <button
             onClick={() => onUploadToFolder(folderDetail.id)}
-            className="cs-addbtn mb-[22px] inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-bold transition-all active:scale-95"
-            style={{ color: "#1A1200", border: "none", background: "linear-gradient(135deg, #b8860b, #FFD700)" }}
+            className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-2xl px-5 py-3.5 text-[15px] font-bold transition-all active:scale-95"
+            style={{
+              color: "#141008",
+              border: "none",
+              background: "linear-gradient(135deg, #F5A623, #E08E12)",
+              boxShadow: "0 8px 24px -8px rgba(245,166,35,0.45)",
+            }}
           >
-            📎 Add to space
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" className="h-[17px] w-[17px]">
+              <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l7.78-7.78" />
+            </svg>
+            Add to space
           </button>
         )}
 
-        {/* Filter chips + Roadmap toggle */}
-        <div className="cs-chiprow mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-          <div className="flex flex-wrap gap-2">
-            {chips.map((chip) => (
-              <button
-                key={chip.key}
-                onClick={() => setActiveFolderTab(chip.key)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13.5px] font-semibold transition-all active:scale-95 ${
-                  activeFolderTab === chip.key
-                    ? "border-hub-text-dim bg-hub-bg text-hub-text"
-                    : "border-hub-border bg-hub-surface text-hub-text-muted"
-                }`}
+        {/* Stat pill row — horizontal scroll */}
+        <div className="cs-stat-scroll mb-[18px]">
+          {chips.map((chip) => (
+            <div
+              key={chip.key}
+              className="cs-stat-pill"
+              onClick={() => setActiveFolderTab(chip.key)}
+              style={{ cursor: "pointer" }}
+            >
+              <span className="text-[14px]">{chip.icon}</span>
+              <span className="text-[12px] font-semibold text-[#9199A8]">{chip.shortLabel}</span>
+              <span
+                className="ml-auto text-[12px] font-semibold"
+                style={{ fontFamily: "'JetBrains Mono', monospace", color: chip.count > 0 ? "#3DD68C" : "#5D6472" }}
               >
-                {chip.label}
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
-                    activeFolderTab === chip.key ? "bg-gold text-[#1A1200]" : "bg-hub-bg text-hub-text-dim"
-                  }`}
-                >
-                  {chip.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {showRoadmapToggle && (
-            <div className="flex w-full items-center gap-1 rounded-[10px] border border-hub-border bg-hub-surface p-0.5 sm:ml-auto sm:w-auto">
-              <button
-                onClick={() => setFilesViewMode("topic")}
-                className={`flex-1 rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all sm:flex-none ${
-                  filesViewMode === "topic"
-                    ? "bg-gold-dim text-gold border border-gold-border"
-                    : "text-hub-text-dim hover:text-hub-text-muted border border-transparent"
-                }`}
-              >
-                🗺️ By Topic
-              </button>
-              <button
-                onClick={() => setFilesViewMode("flat")}
-                className={`flex-1 rounded-[8px] px-3 py-1.5 text-[11.5px] font-semibold transition-all sm:flex-none ${
-                  filesViewMode === "flat"
-                    ? "bg-gold-dim text-gold border border-gold-border"
-                    : "text-hub-text-dim hover:text-hub-text-muted border border-transparent"
-                }`}
-              >
-                📄 All Files
-              </button>
+                {chip.count}
+              </span>
             </div>
-          )}
+          ))}
+        </div>
+
+        {/* Segmented control — By Topic / All Files */}
+        {showRoadmapToggle && (
+          <div className="cs-segment mb-5">
+            <button
+              onClick={() => setFilesViewMode("topic")}
+              className={filesViewMode === "topic" ? "cs-segment-active" : ""}
+            >
+              🗺️ By Topic
+            </button>
+            <button
+              onClick={() => setFilesViewMode("flat")}
+              className={filesViewMode === "flat" ? "cs-segment-active" : ""}
+            >
+              📄 All Files
+            </button>
+          </div>
+        )}
+
+        {/* Filter chips — secondary tab row */}
+        <div className="cs-chiprow mb-5 flex flex-wrap gap-2">
+          {chips.map((chip) => (
+            <button
+              key={chip.key}
+              onClick={() => setActiveFolderTab(chip.key)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13.5px] font-semibold transition-all active:scale-95 ${
+                activeFolderTab === chip.key
+                  ? "border-hub-text-dim bg-hub-bg text-hub-text"
+                  : "border-hub-border bg-hub-surface text-hub-text-muted"
+              }`}
+            >
+              {chip.label}
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
+                  activeFolderTab === chip.key ? "bg-gold text-[#1A1200]" : "bg-hub-bg text-hub-text-dim"
+                }`}
+              >
+                {chip.count}
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* MCQ session actions (only on MCQs tab) */}

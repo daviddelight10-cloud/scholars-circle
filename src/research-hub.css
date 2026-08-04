@@ -207,9 +207,8 @@
   }
 }
 
-/* Filter chip row — scrollable on mobile */
+/* Filter chip row */
 .cs-chiprow {
-  overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -229,21 +228,168 @@
   }
 }
 
-/* Header row — stack on small screens */
-@media (max-width: 640px) {
-  .cs-header-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .cs-titleblock {
-    flex-wrap: wrap;
+/* ── Glass Design System ───────────────────────────────────────────── */
+
+/* Glass surface utility */
+.cs-glass {
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Glass pill (back button, icon buttons) */
+.cs-glass-pill {
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Circular glass icon button */
+.cs-glass-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+}
+.cs-glass-icon-btn:hover {
+  color: #FF5470;
+  border-color: rgba(255,84,112,0.35);
+}
+.cs-glass-icon-btn:active {
+  color: #FF5470;
+  border-color: rgba(255,84,112,0.35);
+}
+
+/* Stat pill row — horizontal scroll */
+.cs-stat-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.cs-stat-scroll::-webkit-scrollbar { display: none; }
+
+.cs-stat-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 11px 10px;
+  border-radius: 13px;
+  white-space: nowrap;
+}
+
+/* Segmented control */
+.cs-segment {
+  display: flex;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 13px;
+  padding: 4px;
+}
+.cs-segment button {
+  flex: 1;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9199A8;
+  border-radius: 10px;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.cs-segment button.cs-segment-active {
+  background: rgba(79,142,247,0.14);
+  color: #4F8EF7;
+  border-color: rgba(79,142,247,0.3);
+}
+
+/* Mastery ring */
+.cs-ring-fg {
+  fill: none;
+  stroke: #F5A623;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-ring-fg {
+    transition: stroke-dashoffset 0.01ms !important;
   }
 }
 
-/* Small phones — tighten spacing */
-@media (max-width: 380px) {
-  .cs-titleblock h1 {
-    font-size: 22px !important;
-  }
+/* Start Here banner — glass with gold accent */
+.cs-start-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(120deg, rgba(245,166,35,0.10), rgba(245,166,35,0.02));
+  border: 1px solid rgba(245,166,35,0.25);
+  border-left: 3px solid #F5A623;
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.cs-start-banner:hover {
+  background: linear-gradient(120deg, rgba(245,166,35,0.14), rgba(245,166,35,0.04));
+}
+
+/* Topic list — connecting line */
+.cs-topic-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.cs-topic-line {
+  position: absolute;
+  left: 18px;
+  top: 43px;
+  bottom: -15px;
+  width: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
+/* Topic node styles */
+.cs-topic-node {
+  width: 28px;
+  height: 28px;
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  z-index: 1;
+}
+.cs-topic-node-current {
+  background: #0A0D13;
+  border: 2px solid #F5A623;
+  color: #F5A623;
+}
+.cs-topic-node-upcoming {
+  background: #0A0D13;
+  border: 2px solid rgba(255,255,255,0.12);
+  color: #5D6472;
 }
