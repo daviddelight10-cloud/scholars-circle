@@ -207,15 +207,6 @@
   }
 }
 
-/* Filter chip row */
-.cs-chiprow {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.cs-chiprow::-webkit-scrollbar {
-  display: none;
-}
-
 /* Grid responsive breakpoints */
 @media (max-width: 1024px) {
   .cs-grid {

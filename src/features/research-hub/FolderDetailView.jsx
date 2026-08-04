@@ -325,7 +325,12 @@ export default function FolderDetailView({
               key={chip.key}
               className="cs-stat-pill"
               onClick={() => setActiveFolderTab(chip.key)}
-              style={{ cursor: "pointer" }}
+              style={{
+                cursor: "pointer",
+                ...(activeFolderTab === chip.key
+                  ? { border: "1px solid rgba(79,142,247,0.3)", background: "rgba(79,142,247,0.08)" }
+                  : {}),
+              }}
             >
               <span className="text-[14px]">{chip.icon}</span>
               <span className="text-[12px] font-semibold text-[#9199A8]">{chip.shortLabel}</span>
@@ -356,30 +361,6 @@ export default function FolderDetailView({
             </button>
           </div>
         )}
-
-        {/* Filter chips — secondary tab row */}
-        <div className="cs-chiprow mb-5 flex flex-wrap gap-2">
-          {chips.map((chip) => (
-            <button
-              key={chip.key}
-              onClick={() => setActiveFolderTab(chip.key)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-[11px] border px-3.5 py-2 text-[13.5px] font-semibold transition-all active:scale-95 ${
-                activeFolderTab === chip.key
-                  ? "border-hub-text-dim bg-hub-bg text-hub-text"
-                  : "border-hub-border bg-hub-surface text-hub-text-muted"
-              }`}
-            >
-              {chip.label}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
-                  activeFolderTab === chip.key ? "bg-gold text-[#1A1200]" : "bg-hub-bg text-hub-text-dim"
-                }`}
-              >
-                {chip.count}
-              </span>
-            </button>
-          ))}
-        </div>
 
         {/* MCQ session actions (only on MCQs tab) */}
         {activeFolderTab === "mcqs" && !folderLoading && currentList.length > 0 && (
