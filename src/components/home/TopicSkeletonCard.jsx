@@ -305,23 +305,23 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
               onFocus={(e) => { e.target.style.borderColor = D.gold + "66"; e.target.style.boxShadow = `0 0 0 3px ${D.gold}1A`; }}
               onBlur={(e) => { e.target.style.borderColor = D.border; e.target.style.boxShadow = "none"; }}
             >
-              <option value="" disabled>Select a course…</option>
+              <option value="" disabled style={{ background: D.ink, color: D.textMid }}>Select a course…</option>
               {courseGroups.preset.length > 0 && (
-                <optgroup label="Subjects">
-                  {courseGroups.preset.map((c) => <option key={c} value={c}>{c}</option>)}
+                <optgroup label="Subjects" style={{ background: D.ink, color: D.gold }}>
+                  {courseGroups.preset.map((c) => <option key={c} value={c} style={{ background: D.ink, color: D.textHi }}>{c}</option>)}
                 </optgroup>
               )}
               {courseGroups.user.length > 0 && (
-                <optgroup label="My Uploads">
-                  {courseGroups.user.map((c) => <option key={c} value={c}>{c}</option>)}
+                <optgroup label="My Uploads" style={{ background: D.ink, color: D.blue }}>
+                  {courseGroups.user.map((c) => <option key={c} value={c} style={{ background: D.ink, color: D.textHi }}>{c}</option>)}
                 </optgroup>
               )}
               {courseGroups.folder.length > 0 && (
-                <optgroup label="My Folders">
-                  {courseGroups.folder.map((c) => <option key={c} value={c}>{c}</option>)}
+                <optgroup label="My Folders" style={{ background: D.ink, color: D.green }}>
+                  {courseGroups.folder.map((c) => <option key={c} value={c} style={{ background: D.ink, color: D.textHi }}>{c}</option>)}
                 </optgroup>
               )}
-              <option value="__custom__">+ Type a different course…</option>
+              <option value="__custom__" style={{ background: D.ink, color: D.textMid }}>+ Type a different course…</option>
             </select>
             <span style={{
               position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",

@@ -128,6 +128,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
   const [showDetailMobile, setShowDetailMobile] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
   const [courseGroups, setCourseGroups] = useState({ preset: [], user: [], folder: [] });
+  const [showRegenPrompt, setShowRegenPrompt] = useState(false);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -399,23 +400,23 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
               onFocus={(e) => { e.target.style.borderColor = D.gold + "66"; e.target.style.boxShadow = `0 0 0 3px ${D.gold}1A`; }}
               onBlur={(e) => { e.target.style.borderColor = D.border; e.target.style.boxShadow = "none"; }}
             >
-              <option value="" disabled>Select a course…</option>
+              <option value="" disabled style={{ background: D.ink, color: D.textMid }}>Select a course…</option>
               {courseGroups.preset.length > 0 && (
-                <optgroup label="Subjects">
-                  {courseGroups.preset.map((c) => <option key={c} value={c}>{c}</option>)}
+                <optgroup label="Subjects" style={{ background: D.ink, color: D.gold }}>
+                  {courseGroups.preset.map((c) => <option key={c} value={c} style={{ background: D.ink, color: D.textHi }}>{c}</option>)}
                 </optgroup>
               )}
               {courseGroups.user.length > 0 && (
-                <optgroup label="My Uploads">
-                  {courseGroups.user.map((c) => <option key={c} value={c}>{c}</option>)}
+                <optgroup label="My Uploads" style={{ background: D.ink, color: D.blue }}>
+                  {courseGroups.user.map((c) => <option key={c} value={c} style={{ background: D.ink, color: D.textHi }}>{c}</option>)}
                 </optgroup>
               )}
               {courseGroups.folder.length > 0 && (
-                <optgroup label="My Folders">
-                  {courseGroups.folder.map((c) => <option key={c} value={c}>{c}</option>)}
+                <optgroup label="My Folders" style={{ background: D.ink, color: D.green }}>
+                  {courseGroups.folder.map((c) => <option key={c} value={c} style={{ background: D.ink, color: D.textHi }}>{c}</option>)}
                 </optgroup>
               )}
-              <option value="__custom__">+ Type a different course…</option>
+              <option value="__custom__" style={{ background: D.ink, color: D.textMid }}>+ Type a different course…</option>
             </select>
             <span style={{
               position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
@@ -478,7 +479,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
           📎
         </button>
 
-        <button onClick={() => handleGenerate()} disabled={generating || uploading || !selectedCourse.trim()} style={{
+        <button onClick={() => topics.length > 0 ? setShowRegenPrompt(true) : fileInputRef.current?.click()} disabled={generating || uploading || !selectedCourse.trim()} style={{
           background: generating ? "rgba(245,166,35,0.15)" : "linear-gradient(135deg, #b8860b, #F5A623)",
           border: "none", borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px",
           fontSize: isMobile ? 11 : 12, fontWeight: 600, color: generating ? D.gold : "#0a0a0a",
@@ -508,6 +509,51 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
           <span style={{ fontSize: 12, color: D.gold, fontFamily: FONTS.body }}>
             {genProgress || (matchProgress ? `${matchProgress.label} (${matchProgress.current}/${matchProgress.total})` : "")}
           </span>
+        </div>
+      )}
+
+      {/* Regenerate prompt — ask user to upload outline */}
+      {showRegenPrompt && (
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 100, background: "rgba(7,9,13,0.7)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }} onClick={() => setShowRegenPrompt(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: `linear-gradient(160deg, ${D.panel}, ${D.ink})`,
+            border: `0.5px solid ${D.gold}33`, borderRadius: 16, padding: 28,
+            maxWidth: 420, width: "100%", textAlign: "center",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🔄</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display, marginBottom: 6 }}>
+              Regenerate Roadmap
+            </div>
+            <div style={{ fontSize: 12, color: D.textMid, fontFamily: FONTS.body, lineHeight: 1.5, marginBottom: 20 }}>
+              Upload your course outline for a more accurate roadmap, or regenerate from AI.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => { setShowRegenPrompt(false); fileInputRef.current?.click(); }} style={{
+                background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none", borderRadius: 10,
+                padding: "12px 20px", fontSize: 13, fontWeight: 600, color: "#0a0a0a",
+                cursor: "pointer", fontFamily: FONTS.body, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+                📎 Upload Course Outline
+              </button>
+              <button onClick={() => { setShowRegenPrompt(false); handleGenerate(); }} style={{
+                background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 10,
+                padding: "12px 20px", fontSize: 13, fontWeight: 500, color: D.textMid,
+                cursor: "pointer", fontFamily: FONTS.body, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}>
+                ✨ Generate without outline
+              </button>
+              <button onClick={() => setShowRegenPrompt(false)} style={{
+                background: "none", border: "none", color: D.textLow, cursor: "pointer",
+                fontSize: 12, fontFamily: FONTS.body, padding: "4px",
+              }}>
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
