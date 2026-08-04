@@ -595,6 +595,7 @@ export default function Dashboard({
           <TopicSkeletonCard
             onOpenSkeleton={(course) => { setSkeletonCourse(course || ""); setShowSkeletonView(true); }}
             token={token}
+            authUser={authUser}
           />
         </div>
 
@@ -645,6 +646,7 @@ export default function Dashboard({
           onExit={() => setShowSkeletonView(false)}
           onOpenResource={onOpenResource}
           onStartStudying={(topic) => { onOpenStudy?.(topic.title, "auto-roadmap", null); setShowSkeletonView(false); }}
+          authUser={authUser}
         />
       )}
     </div>

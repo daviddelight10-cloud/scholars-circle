@@ -2,7 +2,19 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { fetchSkeleton, fetchTopicProgress, fetchTopicMatches, generateSkeleton } from "../../lib/skeletonGenerator";
 import { listFolders } from "../../lib/foldersApi";
 import { extractFileText } from "../../lib/extractFileText";
+import { API_BASE } from "../../lib/constants";
+import { PRESET_SUBJECTS } from "../../features/research-hub/constants";
 import { FONTS } from "../../lib/theme";
+
+const PRESET_SET = new Set(PRESET_SUBJECTS.filter((s) => s !== "Custom"));
+
+async function authFetch(url, opts = {}) {
+  let token = null;
+  try { token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken; } catch {}
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...opts, headers, credentials: "include" });
+}
 
 const D = {
   ink: "#07090D",
@@ -26,7 +38,7 @@ const PROGRESS_COLORS = {
   "Mastered": D.green,
 };
 
-export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
+export default function TopicSkeletonCard({ onOpenSkeleton, token, authUser }) {
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [skeleton, setSkeleton] = useState(null);
@@ -36,8 +48,15 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
   const [matches, setMatches] = useState([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
 
-  // Build course list from folders + resource subjects, auto-select first course
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Build course list from folders + live resource subjects, auto-select first course
   useEffect(() => {
     async function loadCourses() {
       const courseSet = new Set();
@@ -55,18 +74,24 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
         }
       } catch {}
 
-      // From resource subjects (cached in localStorage)
+      // From live resource subjects (not stale localStorage cache)
       try {
-        const cached = localStorage.getItem("sc_resources_list");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const resources = parsed.data || parsed;
+        const res = await authFetch(`${API_BASE}/api/resources`);
+        if (res.ok) {
+          const resources = await res.json();
+          const currentUserId = authUser?.id ? String(authUser.id) : null;
           for (const r of resources) {
-            if (r.subject && !courseSet.has(r.subject)) {
+            if (!r.subject || courseSet.has(r.subject)) continue;
+            // Preset subjects: show to everyone. Custom subjects: only to the user who added them.
+            const isPreset = PRESET_SET.has(r.subject);
+            const isOwn = r.uploadedBy && currentUserId && String(r.uploadedBy) === currentUserId;
+            if (isPreset || isOwn) {
               courseSet.add(r.subject);
               courseList.push(r.subject);
             }
           }
+          // Update cache for other consumers
+          try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: resources, ts: Date.now() })); } catch {}
         }
       } catch {}
 
@@ -213,7 +238,7 @@ export default function TopicSkeletonCard({ onOpenSkeleton, token }) {
       background: `linear-gradient(160deg, ${D.panel}, ${D.panel2})`,
       border: `0.5px solid ${D.border}`,
       borderRadius: 16,
-      padding: "16px 18px",
+      padding: isMobile ? "12px 14px" : "16px 18px",
       cursor: "pointer",
       transition: "border-color 0.2s, transform 0.15s",
     }}

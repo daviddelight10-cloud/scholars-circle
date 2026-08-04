@@ -10,7 +10,19 @@ import {
 import { retroactiveMatch } from "../../lib/topicMatcher";
 import { listFolders } from "../../lib/foldersApi";
 import { extractFileText } from "../../lib/extractFileText";
+import { API_BASE } from "../../lib/constants";
+import { PRESET_SUBJECTS } from "../../features/research-hub/constants";
 import { FONTS } from "../../lib/theme";
+
+const PRESET_SET = new Set(PRESET_SUBJECTS.filter((s) => s !== "Custom"));
+
+async function authFetch(url, opts = {}) {
+  let token = null;
+  try { token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken; } catch {}
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...opts, headers, credentials: "include" });
+}
 
 const D = {
   ink: "#07090D",
@@ -97,7 +109,7 @@ function findStartHereTopic(topics, progress, matchesByTopic) {
   return null;
 }
 
-export default function TopicSkeletonView({ courseCode: initialCourseCode, onExit, onOpenResource, onStartStudying }) {
+export default function TopicSkeletonView({ courseCode: initialCourseCode, onExit, onOpenResource, onStartStudying, authUser }) {
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(initialCourseCode || "");
   const [topics, setTopics] = useState([]);
@@ -112,8 +124,16 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
   const [outlineFileName, setOutlineFileName] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  const [showDetailMobile, setShowDetailMobile] = useState(false);
 
-  // Build course list from folders + resource subjects
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Build course list from folders + live resource subjects
   useEffect(() => {
     async function loadCourses() {
       const courseSet = new Set();
@@ -128,17 +148,22 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
           }
         }
       } catch {}
+      // From live resource subjects (not stale localStorage cache)
       try {
-        const cached = localStorage.getItem("sc_resources_list");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const resources = parsed.data || parsed;
+        const res = await authFetch(`${API_BASE}/api/resources`);
+        if (res.ok) {
+          const resources = await res.json();
+          const currentUserId = authUser?.id ? String(authUser.id) : null;
           for (const r of resources) {
-            if (r.subject && !courseSet.has(r.subject)) {
+            if (!r.subject || courseSet.has(r.subject)) continue;
+            const isPreset = PRESET_SET.has(r.subject);
+            const isOwn = r.uploadedBy && currentUserId && String(r.uploadedBy) === currentUserId;
+            if (isPreset || isOwn) {
               courseSet.add(r.subject);
               courseList.push(r.subject);
             }
           }
+          try { localStorage.setItem("sc_resources_list", JSON.stringify({ data: resources, ts: Date.now() })); } catch {}
         }
       } catch {}
       setCourses(courseList);
@@ -320,16 +345,17 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: D.ink, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 12, padding: "14px 20px",
+        display: "flex", alignItems: "center", gap: isMobile ? 8 : 12,
+        padding: isMobile ? "10px 12px" : "14px 20px",
         borderBottom: `0.5px solid ${D.border}`,
         background: "rgba(10,12,18,0.95)", backdropFilter: "blur(10px)",
-        flexShrink: 0,
+        flexShrink: 0, flexWrap: isMobile ? "wrap" : "nowrap",
       }}>
         <button onClick={onExit} style={{
           background: "none", border: "none", color: D.textMid, fontSize: 20, cursor: "pointer", padding: "4px 8px",
         }}>←</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 100 : undefined }}>
+          <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
             Course Roadmap
           </div>
           <div style={{ fontSize: 11, color: D.textMid, fontFamily: FONTS.body }}>
@@ -346,7 +372,8 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
           style={{
             background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 8,
             padding: "8px 14px", fontSize: 12, color: D.textHi, fontFamily: FONTS.body,
-            outline: "none", width: 200,
+            outline: "none", width: isMobile ? "100%" : 200,
+            boxSizing: "border-box",
           }}
         />
         <datalist id="skeletonViewCourses">
@@ -356,10 +383,10 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
         {topics.length > 0 && (
           <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
             background: D.panel, border: `0.5px solid ${D.blue}`, borderRadius: 8,
-            padding: "8px 14px", fontSize: 11, color: D.blue, cursor: matchProgress ? "not-allowed" : "pointer",
+            padding: isMobile ? "6px 10px" : "8px 14px", fontSize: isMobile ? 10 : 11, color: D.blue, cursor: matchProgress ? "not-allowed" : "pointer",
             fontFamily: FONTS.body, fontWeight: 600, whiteSpace: "nowrap",
           }}>
-            {matchProgress ? `${matchProgress.label}` : "🔗 Match Docs"}
+            {matchProgress ? `${matchProgress.label}` : isMobile ? "🔗" : "🔗 Match Docs"}
           </button>
         )}
 
@@ -386,11 +413,11 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
 
         <button onClick={() => handleGenerate()} disabled={generating || uploading || !selectedCourse.trim()} style={{
           background: generating ? "rgba(245,166,35,0.15)" : "linear-gradient(135deg, #b8860b, #F5A623)",
-          border: "none", borderRadius: 8, padding: "8px 16px",
-          fontSize: 12, fontWeight: 600, color: generating ? D.gold : "#0a0a0a",
+          border: "none", borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px",
+          fontSize: isMobile ? 11 : 12, fontWeight: 600, color: generating ? D.gold : "#0a0a0a",
           cursor: (generating || uploading) ? "not-allowed" : "pointer", fontFamily: FONTS.body, whiteSpace: "nowrap",
         }}>
-          {generating ? "Generating…" : topics.length > 0 ? "Regenerate" : "Build Roadmap"}
+          {generating ? "…" : topics.length > 0 ? (isMobile ? "Rebuild" : "Regenerate") : "Build Roadmap"}
         </button>
       </div>
 
@@ -418,14 +445,14 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
       )}
 
       {/* Body — two-column layout: path/timeline + sticky detail panel */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: isMobile ? "column" : "row" }}>
         {loading ? (
           <div style={{ flex: 1, textAlign: "center", padding: "60px 0", color: D.textMid, fontSize: 14, fontFamily: FONTS.body }}>
             Loading skeleton…
           </div>
         ) : topics.length === 0 ? (
           /* B2: Guided empty state onboarding */
-          <div style={{ flex: 1, overflowY: "auto", padding: "40px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "24px 12px" : "40px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>�️</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: D.textHi, marginBottom: 8, fontFamily: FONTS.display }}>
               {selectedCourse ? `No roadmap for ${selectedCourse}` : "Select a course to begin"}
@@ -476,8 +503,12 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
           <>
             {/* Left column — Topic path/timeline */}
             <div style={{
-              flex: "1 1 45%", overflowY: "auto", padding: "16px 12px 16px 20px",
-              borderRight: `0.5px solid ${D.border}`,
+              flex: isMobile ? (showDetailMobile ? "0 0 auto" : "1 1 auto") : "1 1 45%",
+              overflowY: "auto", padding: isMobile ? "12px 10px" : "16px 12px 16px 20px",
+              borderRight: isMobile ? "none" : `0.5px solid ${D.border}`,
+              borderBottom: isMobile ? `0.5px solid ${D.border}` : "none",
+              display: isMobile && showDetailMobile ? "none" : "block",
+              maxHeight: isMobile ? "100%" : undefined,
             }}>
               {/* Stats summary */}
               {stats && (
@@ -542,7 +573,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                   return (
                     <div
                       key={topic.id}
-                      onClick={() => !locked && setSelectedTopicId(topic.id)}
+                      onClick={() => { if (!locked) { setSelectedTopicId(topic.id); if (isMobile) setShowDetailMobile(true); } }}
                       style={{
                         position: "relative", display: "flex", alignItems: "flex-start", gap: 12,
                         padding: "10px 12px", marginBottom: 4, borderRadius: 8, cursor: locked ? "default" : "pointer",
@@ -633,8 +664,20 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
 
             {/* Right column — Sticky detail panel */}
             <div style={{
-              flex: "1 1 55%", overflowY: "auto", padding: "20px",
+              flex: isMobile ? "1 1 auto" : "1 1 55%", overflowY: "auto",
+              padding: isMobile ? "12px 10px" : "20px",
+              display: isMobile && !showDetailMobile ? "none" : "block",
             }}>
+              {/* Mobile back-to-list button */}
+              {isMobile && showDetailMobile && (
+                <button onClick={() => setShowDetailMobile(false)} style={{
+                  background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 8,
+                  padding: "6px 12px", fontSize: 11, color: D.textMid, cursor: "pointer",
+                  fontFamily: FONTS.body, marginBottom: 12, display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  ← Back to list
+                </button>
+              )}
               {selectedTopic ? (
                 <TopicDetailPanel
                   topic={selectedTopic}
