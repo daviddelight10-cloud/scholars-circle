@@ -45,9 +45,53 @@ function extractJSON(text) {
   return null;
 }
 
-async function aiRoadmap(topic, aiConfig) {
+// ─── Context helpers ──────────────────────────────────────────────────────────
+function buildContextBlock(ctx) {
+  if (!ctx) return "";
+  const parts = [];
+  if (ctx.matches?.length > 0) {
+    const docList = ctx.matches.map(m => `- "${m.title}" (${m.contentType})`).join("\n");
+    parts.push(`The student has these study materials available:\n${docList}\nBase your roadmap sections on the content of these materials where relevant.`);
+  }
+  if (ctx.subtopics?.length > 0) {
+    parts.push(`The curriculum defines these subtopics that should be covered:\n${ctx.subtopics.map(s => `- ${s}`).join("\n")}\nStructure your roadmap to cover each of these subtopics.`);
+  }
+  if (ctx.prerequisiteTitles?.length > 0) {
+    parts.push(`The student has already studied these prerequisite topics: ${ctx.prerequisiteTitles.join(", ")}. You can reference and build upon these.`);
+  }
+  if (ctx.progress) {
+    const p = ctx.progress;
+    if (p.avgRetrievability > 0) {
+      const pct = Math.round(p.avgRetrievability * 100);
+      parts.push(`The student's current mastery: ${p.label} (${pct}% retrievability, ${p.totalItems} review items). ${pct > 70 ? "Focus on advanced application and edge cases." : pct > 30 ? "Balance review of fundamentals with new concepts." : "Start from fundamentals and build up carefully."}`);
+    }
+  }
+  return parts.length > 0 ? `\n\nContext:\n${parts.join("\n\n")}` : "";
+}
+
+function buildDifficultyLevel(ctx) {
+  if (!ctx?.progress) return "";
+  const r = ctx.progress.avgRetrievability || 0;
+  if (r > 0.7) return " Generate challenging application-level questions that test deep understanding.";
+  if (r > 0.3) return " Generate moderate-difficulty questions mixing recall and application.";
+  return " Generate easier recall-focused questions to build foundational understanding.";
+}
+
+function buildPrevSectionBlock(prevSection, studiedTitles) {
+  const parts = [];
+  if (prevSection) {
+    parts.push(`The student just finished studying "${prevSection.title}". Connect this explanation to what they just learned.`);
+  }
+  if (studiedTitles?.length > 0) {
+    parts.push(`Sections already covered: ${studiedTitles.join(", ")}. Reference these where relevant to reinforce learning.`);
+  }
+  return parts.length > 0 ? `\n\n${parts.join(" ")}` : "";
+}
+
+async function aiRoadmap(topic, aiConfig, ctx) {
+  const ctxBlock = buildContextBlock(ctx);
   const raw = await callAI(
-    `You are an expert educator. Generate a structured learning roadmap for: "${topic}"
+    `You are an expert educator. Generate a structured learning roadmap for: "${topic}"${ctxBlock}
 Reply ONLY with valid JSON (no markdown):
 {"title":"topic title","description":"2-sentence engaging overview of what the student will learn","sections":[{"id":1,"title":"Section title","summary":"1 sentence describing what this covers"},{"id":2,"title":"...","summary":"..."}]}
 Include 5-7 sections, from fundamentals to advanced. Keep summaries under 12 words.`,
@@ -56,18 +100,24 @@ Include 5-7 sections, from fundamentals to advanced. Keep summaries under 12 wor
   return extractJSON(raw);
 }
 
-async function aiExplain(topic, section, aiConfig) {
+async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitles) {
+  const ctxBlock = buildContextBlock(ctx);
+  const prevBlock = buildPrevSectionBlock(prevSection, studiedTitles);
+  const docHint = ctx?.matches?.length > 0
+    ? ` Reference the student's materials (${ctx.matches.map(m => m.title).join(", ")}) where relevant.`
+    : "";
   return await callAI(
-    `You are an expert tutor teaching "${topic}". Explain this section thoroughly: "${section.title}"
+    `You are an expert tutor teaching "${topic}". Explain this section thoroughly: "${section.title}"${ctxBlock}${prevBlock}${docHint}
 Write 4-5 paragraphs covering: core concept + clear definition, how it works with a concrete example, real-world relevance, connection to "${topic}".
 Plain text only — no markdown headers or bullet symbols.`,
     aiConfig
   );
 }
 
-async function aiQuestion(topic, section, explanation, aiConfig) {
+async function aiQuestion(topic, section, explanation, aiConfig, ctx) {
+  const diffLevel = buildDifficultyLevel(ctx);
   const raw = await callAI(
-    `Based on an explanation of "${section.title}" (part of "${topic}"), generate ONE deep comprehension question that tests understanding, not just recall.
+    `Based on an explanation of "${section.title}" (part of "${topic}"), generate ONE deep comprehension question that tests understanding, not just recall.${diffLevel}
 Reply ONLY with valid JSON: {"question":"...","hint":"a subtle clue — do not give the answer"}`,
     aiConfig
   );
@@ -84,9 +134,11 @@ Give 2-3 sentences of constructive feedback. Note what was correct, what was mis
   );
 }
 
-async function aiFlashcards(topic, sections, aiConfig) {
+async function aiFlashcards(topic, sections, aiConfig, ctx) {
+  const ctxBlock = buildContextBlock(ctx);
+  const diffLevel = buildDifficultyLevel(ctx);
   const raw = await callAI(
-    `Create flashcards for "${topic}" covering these sections: ${sections.map(s => s.title).join(", ")}.
+    `Create flashcards for "${topic}" covering these sections: ${sections.map(s => s.title).join(", ")}.${ctxBlock}${diffLevel}
 Reply ONLY with a valid JSON array:
 [{"front":"Term or question (concise)","back":"Definition or answer (concise)"},...]
 Include 8-12 cards. Mix: term definitions, process steps, application questions. Keep each card under 25 words per side.`,
@@ -228,7 +280,7 @@ const LAUNCH_MSGS = {
   "quiz":         "Building roadmap and preparing quiz\u2026",
 };
 
-export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null }) {
+export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");
   const [topic, setTopic]               = useState(initialTopic);
@@ -299,7 +351,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       }
       // No cache — generate via AI
       setLoadingMsg("Building your learning roadmap\u2026");
-      const result = await aiRoadmap(topicStr, aiConfig);
+      const result = await aiRoadmap(topicStr, aiConfig, studyContext);
       if (result?.sections?.length) {
         setRoadmap(result); setStudied(new Set()); setPhase("roadmap"); setFromCache(false);
         const entry = { topic: cacheTopic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
@@ -328,7 +380,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       // No cache — generate via AI
       setLoadingMsg("Generating flashcards\u2026");
       const fakeSection = [{ id: 1, title: initialTopic }];
-      const cards = await aiFlashcards(initialTopic, fakeSection, aiConfig);
+      const cards = await aiFlashcards(initialTopic, fakeSection, aiConfig, studyContext);
       if (cards?.length) {
         setFlashcards(cards); setFromCache(false);
         // Save to cache
@@ -353,7 +405,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       } else {
         // No cache — generate via AI
         setLoadingMsg("Building roadmap\u2026");
-        result = await aiRoadmap(topicStr, aiConfig);
+        result = await aiRoadmap(topicStr, aiConfig, studyContext);
         if (result?.sections?.length) {
           setFromCache(false);
           saveStudyCache(cacheTopic, { roadmap: result });
@@ -377,7 +429,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           } else {
             setSectionStep("question");
             setLoading(true); setLoadingMsg("Generating a comprehension question\u2026");
-            const q = await aiQuestion(initialTopic, firstSection, cachedExp.text, aiConfig);
+            const q = await aiQuestion(initialTopic, firstSection, cachedExp.text, aiConfig, studyContext);
             setQData(q);
             saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { question: q } } });
           }
@@ -386,14 +438,14 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       }
       // No cache — generate explanation via AI
       setLoadingMsg("Generating explanation\u2026");
-      const text = await aiExplain(initialTopic, firstSection, aiConfig);
+      const text = await aiExplain(initialTopic, firstSection, aiConfig, studyContext);
       setExplanation(text);
       setStudied(new Set([firstSection.id]));
       saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { text } } });
       if (mode === "quiz") {
         setSectionStep("question");
         setLoadingMsg("Generating a comprehension question\u2026");
-        const q = await aiQuestion(initialTopic, firstSection, text, aiConfig);
+        const q = await aiQuestion(initialTopic, firstSection, text, aiConfig, studyContext);
         setQData(q);
         saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { question: q } } });
       }
@@ -422,7 +474,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       const fullTopic = pastedContent.trim()
         ? `${topic}\n\nContext provided by student:\n${pastedContent.slice(0, 2000)}`
         : topic;
-      const result = await aiRoadmap(fullTopic, aiConfig);
+      const result = await aiRoadmap(fullTopic, aiConfig, studyContext);
       if (result?.sections?.length) {
         setRoadmap(result);
         setStudied(new Set());
@@ -456,7 +508,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       }
       // No cache — generate via AI
       setLoadingMsg("Generating explanation…");
-      const text = await aiExplain(topic, section, aiConfig);
+      const studiedTitles = roadmap ? roadmap.sections.filter(s => studied.has(s.id)).map(s => s.title) : [];
+      const prevSection = roadmap ? roadmap.sections.filter(s => studied.has(s.id)).pop() : null;
+      const text = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles);
       setExplanation(text);
       setStudied(prev => new Set([...prev, section.id]));
       // Save to cache
@@ -468,7 +522,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setSectionStep("question");
     setLoading(true); setLoadingMsg("Generating a comprehension question…");
     try {
-      const q = await aiQuestion(topic, activeSection, explanation, aiConfig);
+      const q = await aiQuestion(topic, activeSection, explanation, aiConfig, studyContext);
       setQData(q);
       // Save question to cache
       if (activeSection) {
@@ -502,7 +556,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       }
       // No cache — generate via AI
       setLoadingMsg("Generating flashcards…");
-      const cards = await aiFlashcards(topic, sections || roadmap?.sections || [], aiConfig);
+      const cards = await aiFlashcards(topic, sections || roadmap?.sections || [], aiConfig, studyContext);
       setFlashcards(cards);
       // Save to cache
       if (cards?.length) {

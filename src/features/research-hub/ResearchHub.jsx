@@ -916,8 +916,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         uploadModal={uploadWizard}
         createFolderModal={createFolderModal}
         bookmarkPicker={bookmarkPicker}
-        onStartStudying={(topic) => {
-          window.dispatchEvent(new CustomEvent("sc-open-study", { detail: { topic: topic.title, mode: "auto-roadmap" } }));
+        onStartStudying={(topicCtx) => {
+          const detail = {
+            topic: topicCtx.title || (typeof topicCtx === "string" ? topicCtx : ""),
+            mode: "auto-roadmap",
+            context: typeof topicCtx === "object" ? topicCtx : null,
+          };
+          window.dispatchEvent(new CustomEvent("sc-open-study", { detail }));
         }}
       />
     );

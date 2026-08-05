@@ -645,7 +645,12 @@ export default function Dashboard({
           courseCode={skeletonCourse}
           onExit={() => setShowSkeletonView(false)}
           onOpenResource={onOpenResource}
-          onStartStudying={(topic) => { onOpenStudy?.(topic.title, "auto-roadmap", null); setShowSkeletonView(false); }}
+          onStartStudying={(topicCtx) => {
+            const title = typeof topicCtx === "string" ? topicCtx : topicCtx?.title;
+            const context = typeof topicCtx === "object" ? topicCtx : null;
+            onOpenStudy?.(title, "auto-roadmap", null, context);
+            setShowSkeletonView(false);
+          }}
           authUser={authUser}
         />
       )}

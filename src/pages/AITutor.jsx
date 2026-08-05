@@ -10,6 +10,7 @@ function AITutor({
   aiStudyTopic,
   aiStudyMode,
   aiStudyAttachment,
+  aiStudyContext,
   aiConfig: aiConfigProp,
   subjects: subjectsProp,
   onExit,
@@ -30,6 +31,7 @@ function AITutor({
       studyTopic={aiStudyTopic}
       studyMode={aiStudyMode}
       studyAttachment={aiStudyAttachment}
+      studyContext={aiStudyContext}
       aiConfig={aiConfig}
       subjects={subjects}
       onExit={onExit}

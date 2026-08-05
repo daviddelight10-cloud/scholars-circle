@@ -525,8 +525,8 @@ function App() {
   // Listen for "Start Studying" from embedded roadmap in Research Hub folders
   useEffect(() => {
     const handleOpenStudy = (e) => {
-      const { topic, mode } = e.detail || {};
-      setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "auto-roadmap"); setAiStudyAttachment(null); setAiKey(k => k + 1); setTab("aitutor");
+      const { topic, mode, context } = e.detail || {};
+      setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "auto-roadmap"); setAiStudyAttachment(null); setAiStudyContext(context || null); setAiKey(k => k + 1); setTab("aitutor");
     };
     window.addEventListener("sc-open-study", handleOpenStudy);
     return () => window.removeEventListener("sc-open-study", handleOpenStudy);
@@ -980,6 +980,7 @@ function App() {
   const [aiStudyMode, setAiStudyMode] = useState("input");
 
   const [aiStudyAttachment, setAiStudyAttachment] = useState(null);
+  const [aiStudyContext, setAiStudyContext] = useState(null);
 
   const [showDemoTour, setShowDemoTour] = useState(false);
 
@@ -8825,8 +8826,8 @@ function App() {
 
           onOpenLearn={() => { setAiDefaultView("learn"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
-          onOpenStudy={(topic, mode, attachment) => {
-            setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiKey(k => k + 1); setTab("aitutor");
+          onOpenStudy={(topic, mode, attachment, context) => {
+            setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiStudyContext(context || null); setAiKey(k => k + 1); setTab("aitutor");
             if (mode === "auto-roadmap") {
               const outlineText = attachment?.content || "";
               generateSkeleton({ courseName: topic, outlineText, onProgress: () => {} })
@@ -9875,6 +9876,7 @@ function App() {
           aiStudyTopic={aiStudyTopic}
           aiStudyMode={aiStudyMode}
           aiStudyAttachment={aiStudyAttachment}
+          aiStudyContext={aiStudyContext}
           aiConfig={aiConfig}
           subjects={subjects}
           onExit={() => setTab("today")}

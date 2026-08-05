@@ -173,6 +173,36 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
     return topics.find((t) => t.id === selectedTopicId) || null;
   }, [selectedTopicId, topics]);
 
+  // Enrich onStartStudying with roadmap context (matches, subtopics, progress, prerequisites)
+  const handleStartStudying = useCallback((topic) => {
+    if (!topic) return;
+    const topicMatches = matchesByTopic.get(topic.id) || [];
+    const topicProgress = progress?.[topic.id] || null;
+    const prerequisiteTitles = (topic.prerequisiteIds || [])
+      .map(pid => topics.find(t => t.id === pid))
+      .filter(Boolean)
+      .map(t => t.title);
+    const enriched = {
+      title: topic.title,
+      description: topic.description || "",
+      subtopics: topic.subtopics || [],
+      matches: topicMatches.map(m => ({
+        title: m.resource?.title || "",
+        contentType: m.resource?.contentType || "",
+        subject: m.resource?.subject || "",
+      })),
+      progress: topicProgress ? {
+        label: topicProgress.label,
+        avgRetrievability: topicProgress.avgRetrievability || 0,
+        totalItems: topicProgress.totalItems || 0,
+        masteredCount: topicProgress.masteredCount || 0,
+        avgStability: topicProgress.avgStability || 0,
+      } : null,
+      prerequisiteTitles,
+    };
+    onStartStudying(enriched);
+  }, [matchesByTopic, progress, topics, onStartStudying]);
+
   // Auto-select first topic (or start-here topic) when topics load
   useEffect(() => {
     if (topics.length > 0 && !selectedTopicId) {
@@ -615,7 +645,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                     selectedTopicId={selectedTopicId}
                     startHereTopic={startHereTopic}
                     onSelectTopic={(id) => { setSelectedTopicId(id); if (isMobile) setShowDetailMobile(true); }}
-                    onStartStudying={onStartStudying}
+                    onStartStudying={handleStartStudying}
                     isMobile={isMobile}
                   />
                 ))}
@@ -645,7 +675,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                   progress={progress?.[selectedTopic.id]}
                   matches={matchesByTopic.get(selectedTopic.id) || []}
                   onOpenResource={onOpenResource}
-                  onStartStudying={onStartStudying}
+                  onStartStudying={handleStartStudying}
                   onCorroborate={handleCorroborate}
                   onDispute={handleDispute}
                   locked={isTopicLocked(selectedTopic, topics, progress)}
