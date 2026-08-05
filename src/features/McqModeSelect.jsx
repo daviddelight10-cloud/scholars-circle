@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { getWeakSpots } from "../lib/studyHistory.js";
 
 const MODE_DATA = {
   practice: {
@@ -38,6 +39,7 @@ const MODE_DATA = {
 export default function McqModeSelect({ resource, onBack, onSelect, onQuizComplete }) {
   const [mode, setMode] = useState("practice");
   const [fadeKey, setFadeKey] = useState(0);
+  const [sessionType, setSessionType] = useState("all");
 
   const questionCount = useMemo(() => {
     if (!resource?.mcqData) return 0;
@@ -48,7 +50,24 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
     return 0;
   }, [resource]);
 
-  const practiceTime = Math.max(5, Math.round(questionCount * 0.5));
+  const weakSpots = useMemo(() => {
+    if (!resource?.id) return [];
+    return getWeakSpots(resource.id);
+  }, [resource]);
+
+  const weakCount = weakSpots.length;
+  const showSessionOptions = mode === "practice" && questionCount > 20;
+
+  const sessionQuestionCount = useMemo(() => {
+    if (mode !== "practice") return questionCount;
+    if (sessionType === "weak") return Math.min(weakCount, questionCount);
+    if (sessionType === "quick10") return Math.min(10, questionCount);
+    if (sessionType === "quick20") return Math.min(20, questionCount);
+    if (sessionType === "quick30") return Math.min(30, questionCount);
+    return questionCount;
+  }, [mode, sessionType, questionCount, weakCount]);
+
+  const practiceTime = Math.max(5, Math.round(sessionQuestionCount * 0.5));
   const examTime = Math.max(10, Math.round(questionCount * 1.5));
 
   const d = MODE_DATA[mode];
@@ -57,6 +76,14 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
     if (m === mode) return;
     setMode(m);
     setFadeKey((k) => k + 1);
+  };
+
+  const handleStart = () => {
+    if (mode === "practice" && showSessionOptions) {
+      onSelect(mode, { sessionType, questionCount: sessionQuestionCount });
+    } else {
+      onSelect(mode, { sessionType: "all", questionCount });
+    }
   };
 
   return (
@@ -272,7 +299,7 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
           </div>
 
           {/* Pills */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22, position: "relative", zIndex: 2 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: showSessionOptions ? 16 : 22, position: "relative", zIndex: 2 }}>
             {d.pills.map((p) => (
               <span
                 key={p}
@@ -294,9 +321,71 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
             ))}
           </div>
 
+          {/* Session options (practice mode only, 20+ questions) */}
+          {showSessionOptions && (
+            <div style={{ marginBottom: 22, position: "relative", zIndex: 2 }}>
+              <div style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "#5C6472",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 10,
+              }}>
+                Session Size
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <SessionOption
+                  label="All questions"
+                  count={questionCount}
+                  selected={sessionType === "all"}
+                  accent={d.accent}
+                  onClick={() => setSessionType("all")}
+                />
+                {weakCount > 0 && (
+                  <SessionOption
+                    label="Weak spots only"
+                    count={weakCount}
+                    selected={sessionType === "weak"}
+                    accent="#FF6B5E"
+                    badge="missed"
+                    onClick={() => setSessionType("weak")}
+                  />
+                )}
+                {questionCount > 10 && (
+                  <SessionOption
+                    label="Quick 10"
+                    count={Math.min(10, questionCount)}
+                    selected={sessionType === "quick10"}
+                    accent={d.accent}
+                    onClick={() => setSessionType("quick10")}
+                  />
+                )}
+                {questionCount > 20 && (
+                  <SessionOption
+                    label="Quick 20"
+                    count={Math.min(20, questionCount)}
+                    selected={sessionType === "quick20"}
+                    accent={d.accent}
+                    onClick={() => setSessionType("quick20")}
+                  />
+                )}
+                {questionCount > 30 && (
+                  <SessionOption
+                    label="Quick 30"
+                    count={Math.min(30, questionCount)}
+                    selected={sessionType === "quick30"}
+                    accent={d.accent}
+                    onClick={() => setSessionType("quick30")}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
           {/* CTA button */}
           <button
-            onClick={() => onSelect(mode)}
+            onClick={handleStart}
             style={{
               width: "100%",
               padding: 16,
@@ -321,7 +410,7 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
             onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
             onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           >
-            {d.cta}
+            {mode === "practice" && showSessionOptions ? `Start — ${sessionQuestionCount} Questions →` : d.cta}
           </button>
         </div>
 
@@ -343,13 +432,58 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
           from { opacity: 0; transform: translateY(4px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @media (min-width: 768px) {
-          .mcq-mode-select-container { max-width: 480px; }
-        }
-        @media (min-width: 1024px) {
-          .mcq-mode-select-container { max-width: 520px; }
-        }
       `}</style>
     </div>
+  );
+}
+
+function SessionOption({ label, count, selected, accent, badge, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "10px 14px",
+        borderRadius: 10,
+        border: `1px solid ${selected ? accent : "rgba(255,255,255,0.08)"}`,
+        background: selected ? `${accent}15` : "rgba(255,255,255,0.02)",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+      }}
+    >
+      <span style={{
+        fontSize: 13.5,
+        fontWeight: 600,
+        color: selected ? accent : "#9AA3B2",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}>
+        {label}
+        {badge && (
+          <span style={{
+            fontSize: 10,
+            fontWeight: 700,
+            padding: "2px 7px",
+            borderRadius: 999,
+            background: "rgba(255,107,94,0.15)",
+            color: "#FF6B5E",
+            border: "0.5px solid rgba(255,107,94,0.3)",
+          }}>
+            {badge}
+          </span>
+        )}
+      </span>
+      <span style={{
+        fontSize: 12.5,
+        fontWeight: 700,
+        fontFamily: "'JetBrains Mono', monospace",
+        color: selected ? accent : "#5C6472",
+      }}>
+        {count}
+      </span>
+    </button>
   );
 }

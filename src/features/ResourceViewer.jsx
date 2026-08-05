@@ -28,6 +28,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [toast, setToast] = useState(null);
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
   const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam"
+  const [mcqSessionConfig, setMcqSessionConfig] = useState(null); // { sessionType, questionCount }
 
   // Auth form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -308,12 +309,12 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
       case "mcq":
         if (!mcqMode) {
-          return <McqModeSelect resource={resource} onBack={handleBack} onSelect={(mode) => setMcqMode(mode)} onQuizComplete={onQuizComplete} />;
+          return <McqModeSelect resource={resource} onBack={handleBack} onSelect={(mode, sessionConfig) => { setMcqSessionConfig(sessionConfig); setMcqMode(mode); }} onQuizComplete={onQuizComplete} />;
         }
         if (mcqMode === "exam") {
           return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
         }
-        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} sessionConfig={mcqSessionConfig} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
 
       case "flashcard_deck":
         return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;

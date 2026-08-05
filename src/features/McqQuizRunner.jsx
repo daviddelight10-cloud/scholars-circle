@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { X, Flag, SkipForward, RotateCcw, Share2, Clock, CheckCircle2, XCircle, ChevronRight, ChevronLeft, Trophy, Zap, BarChart3, Flame, Sparkles, Send } from "lucide-react";
+import { X, Flag, SkipForward, RotateCcw, Share2, Clock, CheckCircle2, XCircle, Trophy, Zap, BarChart3, Flame, Sparkles, Send } from "lucide-react";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import { copyShareToken } from "../lib/researchUtils.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { callAI } from "../lib/aiClient.js";
+import { recordPracticeResult, getWeakSpotQuestions } from "../lib/studyHistory.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
@@ -41,23 +42,6 @@ function formatTime(ms) {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-const fullscreenStyle = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 9999,
-  background: "#060818",
-  display: "flex",
-  flexDirection: "column",
-};
-
-const backBtnStyle = {
-  display: "flex", alignItems: "center", gap: "8px",
-  padding: "8px 12px", background: "#111328",
-  border: "0.5px solid #2a2d4a", borderRadius: "8px",
-  fontSize: "13px", color: "#7b82b8", cursor: "pointer",
-  marginBottom: "20px",
-};
-
 function useIsMobile(breakpoint = 640) {
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth <= breakpoint : false
@@ -70,7 +54,7 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComplete, switchMode, onStreakUpdate, onXpUpdate }) {
+export default function McqQuizRunner({ resource, shareToken, sessionConfig, onBack, onQuizComplete, switchMode, onStreakUpdate, onXpUpdate }) {
   const isMobile = useIsMobile();
   const rawQuestions = useMemo(() => {
     const raw = resource.mcqData;
@@ -126,9 +110,22 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
 
   useEffect(() => {
     if (rawQuestions.length > 0) {
-      prepareQuestions(rawQuestions);
+      let qs = rawQuestions;
+      const sType = sessionConfig?.sessionType;
+      if (sType === "weak" && resource?.id) {
+        // getWeakSpotQuestions returns [weak..., rest...] — take only weak portion
+        const weakCount = sessionConfig?.questionCount || qs.length;
+        qs = getWeakSpotQuestions(resource.id, rawQuestions).slice(0, weakCount);
+      } else if (sType === "quick10") {
+        qs = shuffleArray(rawQuestions).slice(0, Math.min(10, rawQuestions.length));
+      } else if (sType === "quick20") {
+        qs = shuffleArray(rawQuestions).slice(0, Math.min(20, rawQuestions.length));
+      } else if (sType === "quick30") {
+        qs = shuffleArray(rawQuestions).slice(0, Math.min(30, rawQuestions.length));
+      }
+      prepareQuestions(qs);
     }
-  }, [rawQuestions, prepareQuestions]);
+  }, [rawQuestions, prepareQuestions, sessionConfig, resource]);
 
   useEffect(() => {
     questionStartRef.current = Date.now();
@@ -191,6 +188,14 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
   const submitQuiz = async () => {
     setSubmitting(true);
     setSubmitError("");
+
+    // Track weak spots locally for future "weak spots only" sessions
+    if (resource?.id) {
+      try {
+        recordPracticeResult(resource.id, shuffledQuestions, answers);
+      } catch {}
+    }
+
     try {
       const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
       const token = authData.authToken;
@@ -343,11 +348,33 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
 
   if (rawQuestions.length === 0) {
     return (
-      <div style={{ ...fullscreenStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <ExitButton onBack={onBack} />
-        <div style={{ fontSize: "32px", marginBottom: "12px" }}>📭</div>
-        <div style={{ fontSize: "15px", marginBottom: "16px", color: "#7b82b8" }}>This quiz has no questions yet.</div>
-        <button onClick={onBack} style={backBtnStyle}>← Back to Research Hub</button>
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "radial-gradient(circle at 12% -8%, rgba(76,141,255,0.10), transparent 42%), radial-gradient(circle at 100% 0%, rgba(232,184,75,0.06), transparent 38%), #0A0D13",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        fontFamily: "Manrope, sans-serif", color: "#F2F4F8",
+      }}>
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{
+              position: "fixed", top: 16, right: 20, zIndex: 10000,
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#9AA3B2", cursor: "pointer",
+            }}
+          >
+            <X size={16} />
+          </button>
+        )}
+        <div style={{ fontSize: "32px", marginBottom: "12px" }}>{"\u{1F4ED}"}</div>
+        <div style={{ fontSize: "15px", marginBottom: "16px", color: "#9AA3B2" }}>This quiz has no questions yet.</div>
+        <button onClick={onBack} style={{
+          padding: "12px 24px", borderRadius: 14,
+          background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+          fontSize: 14, fontWeight: 700, color: "#9AA3B2", cursor: "pointer",
+        }}>{"\u2190 Back to Research Hub"}</button>
       </div>
     );
   }
@@ -366,88 +393,129 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
     const hasWrongQuestions = wrongCount > 0;
 
     return (
-      <div style={{ ...fullscreenStyle, overflowY: "auto" }}>
-        <ExitButton onBack={onBack} />
-        <div style={{ maxWidth: "640px", margin: "0 auto", padding: isMobile ? "50px 12px 32px" : "60px 20px 40px" }}>
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 9999, overflowY: "auto",
+        background: "radial-gradient(circle at 12% -8%, rgba(76,141,255,0.10), transparent 42%), radial-gradient(circle at 100% 0%, rgba(232,184,75,0.06), transparent 38%), #0A0D13",
+        fontFamily: "Manrope, sans-serif", color: "#F2F4F8",
+      }}>
+        {onBack && (
+          <button
+            onClick={onBack}
+            title="Exit (Esc)"
+            style={{
+              position: "fixed", top: 16, right: 20, zIndex: 10000,
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.07)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#9AA3B2", cursor: "pointer",
+            }}
+          >
+            <X size={16} />
+          </button>
+        )}
+        <div style={{ maxWidth: "640px", margin: "0 auto", padding: isMobile ? "50px 16px 32px" : "60px 24px 40px" }}>
           <div style={{
-            background: "#0d0f20",
-            border: "0.5px solid #1e2245",
-            borderRadius: isMobile ? "12px" : "16px",
-            padding: isMobile ? "24px 16px" : "32px 24px",
+            background: "linear-gradient(165deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01))",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: isMobile ? 20 : 24,
+            padding: isMobile ? "28px 20px" : "36px 28px",
             textAlign: "center",
+            backdropFilter: "blur(18px)", position: "relative", overflow: "hidden",
           }}>
-            <div style={{ fontSize: isMobile ? "32px" : "40px", marginBottom: "8px" }}>
-              {score === totalQuestions ? "🏆" : score >= totalQuestions / 2 ? "🎉" : "📚"}
+            <div style={{
+              position: "absolute", top: "-30%", right: "-20%",
+              width: 200, height: 200, borderRadius: "50%",
+              background: score >= totalQuestions / 2
+                ? "radial-gradient(circle, rgba(62,207,142,0.12), transparent 70%)"
+                : "radial-gradient(circle, rgba(255,107,94,0.10), transparent 70%)",
+              pointerEvents: "none",
+            }} />
+
+            <div style={{ fontSize: isMobile ? "32px" : "40px", marginBottom: "8px", position: "relative", zIndex: 2 }}>
+              {score === totalQuestions ? "\u{1F3C6}" : score >= totalQuestions / 2 ? "\u{1F389}" : "\u{1F4DA}"}
             </div>
-            <div style={{ fontSize: isMobile ? "18px" : "22px", fontWeight: 700, color: "#e8eaf6", marginBottom: "4px" }}>
+            <div style={{
+              fontFamily: "'Syne', sans-serif", fontWeight: 700,
+              fontSize: isMobile ? 18 : 22, color: "#F2F4F8", marginBottom: "4px", position: "relative", zIndex: 2,
+            }}>
               Quiz Complete!
             </div>
-            <div style={{ fontSize: isMobile ? "24px" : "28px", fontWeight: 800, color: score >= totalQuestions / 2 ? "#66bb6a" : "#ffb74d", marginBottom: "16px" }}>
+            <div style={{
+              fontFamily: "'Syne', sans-serif", fontWeight: 800,
+              fontSize: isMobile ? 24 : 28,
+              color: score >= totalQuestions / 2 ? "#3ECF8E" : "#E8B84B",
+              marginBottom: 16, position: "relative", zIndex: 2,
+            }}>
               {score} / {totalQuestions}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? "8px" : "10px", marginBottom: "16px" }}>
-              <StatCard icon={<Zap size={16} />} label="XP Earned" value={`+${xpEarned}`} color="#f5a623" />
-              <StatCard icon={<Clock size={16} />} label="Total Time" value={formatTime(totalTime)} color="#7986cb" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? "8px" : "10px", marginBottom: "16px", position: "relative", zIndex: 2 }}>
+              <StatCard icon={<Zap size={16} />} label="XP Earned" value={`+${xpEarned}`} color="#E8B84B" />
+              <StatCard icon={<Clock size={16} />} label="Total Time" value={formatTime(totalTime)} color="#4C8DFF" />
               {totalXp != null && (
-                <StatCard icon={<BarChart3 size={16} />} label="Total XP" value={`${totalXp} ${level != null ? `(Lv ${level})` : ""}`} color="#7986cb" />
+                <StatCard icon={<BarChart3 size={16} />} label="Total XP" value={`${totalXp} ${level != null ? `(Lv ${level})` : ""}`} color="#4C8DFF" />
               )}
               {percentile != null && (
-                <StatCard icon={<Trophy size={16} />} label="Percentile" value={`Top ${100 - percentile}%`} color="#66bb6a" />
+                <StatCard icon={<Trophy size={16} />} label="Percentile" value={`Top ${100 - percentile}%`} color="#3ECF8E" />
               )}
               {rank != null && totalTakers != null && (
-                <StatCard icon={<Trophy size={16} />} label="Rank" value={`#${rank} / ${totalTakers}`} color="#DAA520" />
+                <StatCard icon={<Trophy size={16} />} label="Rank" value={`#${rank} / ${totalTakers}`} color="#E8B84B" />
               )}
               {streak != null && streak > 0 && (
-                <StatCard icon={<Flame size={16} />} label="Streak" value={`${streak} day${streak > 1 ? "s" : ""}`} color="#ff7043" />
+                <StatCard icon={<Flame size={16} />} label="Streak" value={`${streak} day${streak > 1 ? "s" : ""}`} color="#FF6B5E" />
               )}
             </div>
 
             {submitError && (
-              <div style={{ fontSize: "11px", color: "#ffb74d", marginBottom: "16px", lineHeight: 1.4 }}>
+              <div style={{ fontSize: "11px", color: "#E8B84B", marginBottom: "16px", lineHeight: 1.4, position: "relative", zIndex: 2 }}>
                 {submitError}
               </div>
             )}
 
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", position: "relative", zIndex: 2 }}>
               <button onClick={() => setShowReview(!showReview)} style={{
-                flex: "1 1 100%", padding: "12px", background: "#0f1128", border: "0.5px solid #252860",
-                borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#7986cb", cursor: "pointer",
+                flex: "1 1 100%", padding: "13px", background: "rgba(76,141,255,0.08)", border: "1px solid rgba(76,141,255,0.25)",
+                borderRadius: 14, fontSize: 14, fontWeight: 700, color: "#4C8DFF", cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                fontFamily: "Manrope, sans-serif",
               }}>
                 {showReview ? "Hide Review" : "Review All Questions"}
               </button>
               <button onClick={handleRetake} style={{
-                flex: 1, padding: "12px", background: "#1a1a1a", border: "0.5px solid #B8860B",
-                borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#FFD700", cursor: "pointer",
+                flex: 1, padding: "13px", background: "rgba(62,207,142,0.08)", border: "1px solid rgba(62,207,142,0.25)",
+                borderRadius: 14, fontSize: 14, fontWeight: 700, color: "#3ECF8E", cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                fontFamily: "Manrope, sans-serif",
               }}>
                 <RotateCcw size={16} /> Retake All
               </button>
               {hasWrongQuestions && (
                 <button onClick={handleRetryWrong} style={{
-                  flex: 1, padding: "12px", background: "#2a0a0a", border: "0.5px solid #6a2a2a",
-                  borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#ef9a9a", cursor: "pointer",
+                  flex: 1, padding: "13px", background: "rgba(255,107,94,0.08)", border: "1px solid rgba(255,107,94,0.25)",
+                  borderRadius: 14, fontSize: 14, fontWeight: 700, color: "#FF6B5E", cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  fontFamily: "Manrope, sans-serif",
                 }}>
                   <RotateCcw size={16} /> Retry Wrong ({wrongCount})
                 </button>
               )}
               <button onClick={onBack} style={{
-                flex: 1, padding: "12px", background: "#0f1128", border: "0.5px solid #252860",
-                borderRadius: "10px", fontSize: "14px", fontWeight: 700, color: "#7986cb", cursor: "pointer",
+                flex: 1, padding: "13px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 14, fontSize: 14, fontWeight: 700, color: "#9AA3B2", cursor: "pointer",
+                fontFamily: "Manrope, sans-serif",
               }}>
-                ← Back to Hub
+                {"\u2190"} Back to Hub
               </button>
             </div>
           </div>
 
           {shareToken && (
             <button onClick={handleShare} style={{
-              width: "100%", marginTop: "16px", padding: "12px",
-              background: "#0f1128", border: "0.5px solid #252860", borderRadius: "10px",
-              fontSize: "13px", fontWeight: 600, color: "#7986cb", cursor: "pointer",
+              width: "100%", marginTop: "16px", padding: "13px",
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14,
+              fontSize: 13, fontWeight: 600, color: "#9AA3B2", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+              fontFamily: "Manrope, sans-serif",
             }}>
               <Share2 size={16} /> Share this quiz
             </button>
@@ -461,42 +529,43 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                 const wasSkipped = skipped.has(i) && !locked[i];
                 return (
                   <div key={i} style={{
-                    marginBottom: isMobile ? "8px" : "12px", padding: isMobile ? "12px" : "16px",
-                    background: "#0d0f20", border: `0.5px solid ${isCorrect ? "#2a6a3a" : wasSkipped ? "#3a3d60" : "#6a2a2a"}`,
-                    borderRadius: "10px",
+                    marginBottom: isMobile ? "8px" : "12px", padding: isMobile ? "14px" : "18px",
+                    background: "linear-gradient(165deg, rgba(255,255,255,0.025), rgba(255,255,255,0.005))",
+                    border: `1px solid ${isCorrect ? "rgba(62,207,142,0.25)" : wasSkipped ? "rgba(255,255,255,0.07)" : "rgba(255,107,94,0.25)"}`,
+                    borderRadius: 16,
                   }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "8px" }}>
-                      {isCorrect ? <CheckCircle2 size={isMobile ? 14 : 16} style={{ color: "#66bb6a", flexShrink: 0, marginTop: 2 }} /> : wasSkipped ? <SkipForward size={isMobile ? 14 : 16} style={{ color: "#7b82b8", flexShrink: 0, marginTop: 2 }} /> : <XCircle size={isMobile ? 14 : 16} style={{ color: "#ef5350", flexShrink: 0, marginTop: 2 }} />}
-                      <span style={{ fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#c5c9e8", lineHeight: 1.4 }}>Q{i + 1}. {q.question}</span>
+                      {isCorrect ? <CheckCircle2 size={isMobile ? 14 : 16} style={{ color: "#3ECF8E", flexShrink: 0, marginTop: 2 }} /> : wasSkipped ? <SkipForward size={isMobile ? 14 : 16} style={{ color: "#9AA3B2", flexShrink: 0, marginTop: 2 }} /> : <XCircle size={isMobile ? 14 : 16} style={{ color: "#FF6B5E", flexShrink: 0, marginTop: 2 }} />}
+                      <span style={{ fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#F2F4F8", lineHeight: 1.4 }}>Q{i + 1}. {q.question}</span>
                     </div>
                     {Object.entries(q.options).map(([key, val]) => {
                       const isCorrectOpt = key === q.correct;
                       const isUserPick = userAnswer === key;
                       return (
                         <div key={key} style={{
-                          display: "flex", alignItems: "center", gap: "6px",
-                          padding: isMobile ? "6px 10px" : "8px 12px", marginBottom: "4px", borderRadius: "6px",
-                          background: isCorrectOpt ? "rgba(76,175,80,0.12)" : isUserPick ? "rgba(244,67,54,0.12)" : "transparent",
-                          border: `0.5px solid ${isCorrectOpt ? "#2a6a3a" : isUserPick ? "#6a2a2a" : "#1e2245"}`,
+                          display: "flex", alignItems: "center", gap: "8px",
+                          padding: isMobile ? "8px 10px" : "10px 12px", marginBottom: "4px", borderRadius: 10,
+                          background: isCorrectOpt ? "rgba(62,207,142,0.08)" : isUserPick ? "rgba(255,107,94,0.08)" : "transparent",
+                          border: `1px solid ${isCorrectOpt ? "rgba(62,207,142,0.2)" : isUserPick ? "rgba(255,107,94,0.2)" : "rgba(255,255,255,0.05)"}`,
                         }}>
-                          <span style={{ fontSize: isMobile ? "11px" : "12px", fontWeight: 700, color: isCorrectOpt ? "#66bb6a" : isUserPick ? "#ef5350" : "#5a6090", minWidth: "18px" }}>{key}.</span>
-                          <span style={{ fontSize: isMobile ? "12px" : "13px", color: isCorrectOpt ? "#a5d6a7" : isUserPick ? "#ef9a9a" : "#DAA520", flex: 1 }}>{val}</span>
-                          {isCorrectOpt && <CheckCircle2 size={isMobile ? 12 : 14} style={{ color: "#66bb6a" }} />}
-                          {isUserPick && !isCorrectOpt && <XCircle size={isMobile ? 12 : 14} style={{ color: "#ef5350" }} />}
+                          <span style={{ fontSize: isMobile ? "11px" : "12px", fontWeight: 700, color: isCorrectOpt ? "#3ECF8E" : isUserPick ? "#FF6B5E" : "#565F6D", minWidth: "18px" }}>{key}.</span>
+                          <span style={{ fontSize: isMobile ? "12px" : "13px", color: isCorrectOpt ? "#3ECF8E" : isUserPick ? "#FF6B5E" : "#9AA3B2", flex: 1 }}>{val}</span>
+                          {isCorrectOpt && <CheckCircle2 size={isMobile ? 12 : 14} style={{ color: "#3ECF8E" }} />}
+                          {isUserPick && !isCorrectOpt && <XCircle size={isMobile ? 12 : 14} style={{ color: "#FF6B5E" }} />}
                         </div>
                       );
                     })}
                     {q.explanation && (
                       <div style={{
-                        marginTop: "8px", padding: isMobile ? "8px 10px" : "10px 12px",
-                        background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-                        fontSize: isMobile ? "11px" : "12px", color: "#DAA520", lineHeight: 1.5,
+                        marginTop: "8px", padding: isMobile ? "10px 12px" : "12px 14px",
+                        background: "rgba(76,141,255,0.06)", border: "1px solid rgba(76,141,255,0.2)", borderRadius: 12,
+                        fontSize: isMobile ? "11px" : "12px", color: "#9AA3B2", lineHeight: 1.5,
                       }}>
-                        <span style={{ fontWeight: 700, color: "#7986cb" }}>Explanation: </span>
+                        <span style={{ fontWeight: 700, color: "#4C8DFF" }}>Explanation: </span>
                         {q.explanation}
                       </div>
                     )}
-                    <div style={{ marginTop: "6px", fontSize: isMobile ? "10px" : "11px", color: "#4a5080" }}>
+                    <div style={{ marginTop: "6px", fontSize: isMobile ? "10px" : "11px", color: "#565F6D" }}>
                       Time: {formatTime(timePerQuestion.current[i])}
                       {flagged.has(i) && " · Flagged"}
                     </div>
@@ -508,10 +577,10 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                           onClick={() => getAIExplain(i)}
                           style={{
                             display: "flex", alignItems: "center", gap: "6px",
-                            padding: isMobile ? "6px 12px" : "7px 14px",
-                            background: "rgba(218,165,32,0.12)", border: "0.5px solid rgba(218,165,32,0.3)",
-                            borderRadius: "8px", fontSize: isMobile ? "11px" : "12px", fontWeight: 700,
-                            color: "#DAA520", cursor: "pointer",
+                            padding: isMobile ? "7px 12px" : "8px 14px",
+                            background: "rgba(76,141,255,0.1)", border: "1px solid rgba(76,141,255,0.3)",
+                            borderRadius: 10, fontSize: isMobile ? "11px" : "12px", fontWeight: 700,
+                            color: "#4C8DFF", cursor: "pointer",
                           }}
                         >
                           <Sparkles size={isMobile ? 12 : 14} /> AI Explain
@@ -521,45 +590,45 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                       {aiExplainData[i]?.loading && (
                         <div style={{
                           marginTop: "6px", padding: "8px 12px",
-                          background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
-                          borderRadius: "8px", fontSize: "11px", color: "#DAA520",
+                          background: "rgba(76,141,255,0.06)", border: "1px solid rgba(76,141,255,0.2)",
+                          borderRadius: 10, fontSize: "11px", color: "#4C8DFF",
                         }}>
-                          ⏳ Getting AI explanation…
+                          {"\u23F3"} Getting AI explanation…
                         </div>
                       )}
 
                       {aiExplainData[i]?.explanation && !aiExplainData[i]?.loading && (
                         <div style={{
-                          marginTop: "6px", padding: isMobile ? "8px 10px" : "10px 12px",
-                          background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
-                          borderRadius: "8px",
+                          marginTop: "6px", padding: isMobile ? "10px 12px" : "12px 14px",
+                          background: "rgba(76,141,255,0.06)", border: "1px solid rgba(76,141,255,0.22)",
+                          borderRadius: 12,
                         }}>
                           <div style={{
-                            fontSize: "10px", fontWeight: 700, color: "#DAA520",
+                            fontSize: "10px", fontWeight: 700, color: "#4C8DFF",
                             textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px",
                             display: "flex", alignItems: "center", gap: "4px",
                           }}>
                             <Sparkles size={11} /> AI Explanation
                           </div>
-                          <div style={{ fontSize: isMobile ? "11px" : "12px", color: "#c5c9e8", lineHeight: 1.6 }}>
+                          <div style={{ fontSize: isMobile ? "11px" : "12px", color: "#9AA3B2", lineHeight: 1.6 }}>
                             <MarkdownText>{aiExplainData[i].explanation}</MarkdownText>
                           </div>
 
                           {aiExplainData[i].followUps?.map((fu, fi) => (
                             <div key={fi} style={{ marginTop: "8px" }}>
-                              <div style={{ fontSize: "11px", color: "#7986cb", fontWeight: 600, marginBottom: "2px" }}>
+                              <div style={{ fontSize: "11px", color: "#4C8DFF", fontWeight: 600, marginBottom: "2px" }}>
                                 Q: {fu.question}
                               </div>
                               <div style={{
-                                fontSize: "11px", color: "#c5c9e8", lineHeight: 1.5,
-                                padding: "5px 8px", background: "rgba(0,0,0,0.2)", borderRadius: "6px",
+                                fontSize: "11px", color: "#9AA3B2", lineHeight: 1.5,
+                                padding: "6px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 8,
                               }}>
                                 {fu.answer}
                               </div>
                             </div>
                           ))}
 
-                          <div style={{ display: "flex", gap: "5px", marginTop: "8px" }}>
+                          <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
                             <input
                               value={i === currentIndex ? followUpInput : ""}
                               onChange={(e) => { setCurrentIndex(i); setFollowUpInput(e.target.value); }}
@@ -567,19 +636,19 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                               placeholder="Ask a follow-up…"
                               disabled={aiFollowUpLoading}
                               style={{
-                                flex: 1, padding: isMobile ? "6px 8px" : "7px 10px",
-                                background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "6px",
-                                color: "#c5c9e8", fontSize: "11px", outline: "none",
+                                flex: 1, padding: isMobile ? "7px 10px" : "8px 12px",
+                                background: "#12161F", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8,
+                                color: "#F2F4F8", fontSize: "11px", outline: "none", fontFamily: "Manrope, sans-serif",
                               }}
                             />
                             <button
                               onClick={() => { setCurrentIndex(i); askFollowUp(i); }}
                               disabled={aiFollowUpLoading || (i === currentIndex && !followUpInput.trim())}
                               style={{
-                                padding: isMobile ? "6px 8px" : "7px 10px",
-                                background: aiFollowUpLoading ? "#0f1128" : "rgba(218,165,32,0.15)",
-                                border: "0.5px solid rgba(218,165,32,0.3)", borderRadius: "6px",
-                                color: "#DAA520", cursor: "pointer",
+                                padding: isMobile ? "7px 10px" : "8px 12px",
+                                background: aiFollowUpLoading ? "#12161F" : "rgba(76,141,255,0.15)",
+                                border: "1px solid rgba(76,141,255,0.3)", borderRadius: 8,
+                                color: "#4C8DFF", cursor: "pointer",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 opacity: aiFollowUpLoading ? 0.5 : 1,
                               }}
@@ -588,7 +657,7 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
                             </button>
                           </div>
                           {aiFollowUpLoading && i === currentIndex && (
-                            <div style={{ fontSize: "10px", color: "#5a6090", marginTop: "3px" }}>⏳ Thinking…</div>
+                            <div style={{ fontSize: "10px", color: "#565F6D", marginTop: "3px" }}>{"\u23F3"} Thinking…</div>
                           )}
                         </div>
                       )}
@@ -606,8 +675,8 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
           {shareToast && (
             <div style={{
               position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
-              background: "#0f2a1a", border: "0.5px solid #2a6a3a", color: "#a5d6a7",
-              padding: "10px 20px", borderRadius: "20px", fontSize: "13px", fontWeight: 600, zIndex: 10001,
+              background: "rgba(62,207,142,0.15)", border: "1px solid rgba(62,207,142,0.3)", color: "#3ECF8E",
+              padding: "10px 20px", borderRadius: 20, fontSize: 13, fontWeight: 600, zIndex: 10001,
             }}>
               {shareToast}
             </div>
@@ -625,316 +694,490 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
   const isSkipped = skipped.has(currentIndex);
   const progressPct = ((currentIndex + (isLocked || isSkipped ? 1 : 0)) / totalQuestions) * 100;
   const elapsedThisQ = isLocked ? timePerQuestion.current[currentIndex] : Date.now() - questionStartRef.current;
+  const isCorrect = isLocked && selectedAnswer === q.correct;
+
+  const ink = "#0A0D13";
+  const inkRaised = "#12161F";
+  const cardBorder = "rgba(255,255,255,0.07)";
+  const textHi = "#F2F4F8";
+  const textMid = "#9AA3B2";
+  const textLow = "#565F6D";
+  const blue = "#4C8DFF";
+  const gold = "#E8B84B";
+  const coral = "#FF6B5E";
+  const green = "#3ECF8E";
+
+  const pad = isMobile ? "0 20px" : "0 36px";
+  const maxW = isMobile ? "640px" : "720px";
 
   return (
-    <div style={fullscreenStyle}>
-      <ExitButton onBack={onBack} />
-
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: `radial-gradient(circle at 12% -8%, rgba(76,141,255,0.10), transparent 42%), radial-gradient(circle at 100% 0%, rgba(232,184,75,0.06), transparent 38%), ${ink}`,
+      display: "flex", justifyContent: "center",
+      fontFamily: "Manrope, sans-serif", color: textHi,
+    }}>
+      {/* App shell */}
       <div style={{
-        display: "flex", alignItems: "center", gap: isMobile ? "6px" : "10px",
-        padding: isMobile ? "8px 44px 8px 12px" : "12px 52px 12px 20px",
-        background: "#0a0c1e", borderBottom: "0.5px solid #1e2245",
-        flexShrink: 0,
+        width: "100%", maxWidth: 1180, height: "100dvh",
+        display: "flex", flexDirection: "column", position: "relative",
       }}>
-        <span style={{ fontSize: isMobile ? "11px" : "13px", fontWeight: 600, color: "#DAA520", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {resource.title}
-        </span>
-        <span style={{ fontSize: isMobile ? "10px" : "12px", color: "#5a6090", display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-          <Clock size={isMobile ? 11 : 13} /> {formatTime(elapsedThisQ)}
-        </span>
-        <span style={{ fontSize: isMobile ? "10px" : "12px", fontWeight: 600, color: "#66bb6a", flexShrink: 0 }}>
-          {score}/{totalQuestions}
-        </span>
-      </div>
 
-      <div style={{ padding: isMobile ? "8px 12px 0" : "12px 20px 0", flexShrink: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-          <span style={{ fontSize: isMobile ? "11px" : "12px", fontWeight: 600, color: "#7b82b8" }}>
-            Q{currentIndex + 1}/{totalQuestions}
-            {retryWrongOnly && <span style={{ marginLeft: 6, color: "#ef9a9a" }}>(wrong only)</span>}
-          </span>
-        </div>
-        <div style={{ height: "4px", background: "#0a0c1e", borderRadius: "4px", overflow: "hidden" }}>
-          <div style={{
-            height: "100%", width: `${progressPct}%`,
-            background: "linear-gradient(90deg, #B8860B, #5c6bc0)",
-            borderRadius: "4px", transition: "width 0.3s ease",
-          }} />
-        </div>
-        {(!isMobile || totalQuestions <= 20) && (
-          <div style={{ display: "flex", gap: "3px", marginTop: "6px", flexWrap: "wrap" }}>
-            {shuffledQuestions.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => goToQuestion(i)}
-                style={{
-                  width: isMobile ? "8px" : "10px", height: isMobile ? "8px" : "10px", borderRadius: "50%",
-                  border: "none", cursor: "pointer", padding: 0,
-                  background: i === currentIndex ? "#5c6bc0"
-                    : locked[i] ? (answers[i] === shuffledQuestions[i].correct ? "#4caf50" : "#ef5350")
-                    : skipped.has(i) ? "#5a6090"
-                    : flagged.has(i) ? "#ff7043"
-                    : "#1e2245",
-                }}
-                title={`Q${i + 1}`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px" : "20px", maxWidth: "700px", margin: "0 auto", width: "100%" }}>
+        {/* ─── Top bar ─── */}
         <div style={{
-          background: "#0d0f20",
-          border: "0.5px solid #1e2245",
-          borderRadius: isMobile ? "10px" : "12px",
-          padding: isMobile ? "14px" : "20px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: isMobile ? "calc(16px + env(safe-area-inset-top)) 20px 14px" : "24px 36px 16px",
+          flexShrink: 0,
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
-            <div style={{ fontSize: isMobile ? "14px" : "16px", fontWeight: 600, color: "#e8eaf6", lineHeight: 1.5, flex: 1 }}>
-              {q.question}
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11, letterSpacing: "0.06em", fontWeight: 500,
+              color: gold, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              maxWidth: isMobile ? 220 : 400,
+            }}>
+              {(resource.title || "QUIZ").toUpperCase()}
             </div>
-            <button onClick={handleFlag} style={{
-              background: "none", border: "none", cursor: "pointer", padding: "4px",
-              color: isFlagged ? "#ff7043" : "#3a3d60", flexShrink: 0,
-            }} title="Flag for review">
-              <Flag size={isMobile ? 16 : 18} fill={isFlagged ? "#ff7043" : "none"} />
-            </button>
+            {retryWrongOnly && (
+              <div style={{ fontSize: 10.5, color: coral, fontWeight: 600 }}>WRONG-ONLY RETRY</div>
+            )}
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 5,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, fontWeight: 500, color: textMid,
+            }}>
+              {"\u23F1"} {formatTime(elapsedThisQ)}
+            </div>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 5,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, fontWeight: 500, color: green,
+            }}>
+              {"\u25CF"} {score}/{totalQuestions}
+            </div>
+            {onBack && (
+              <button
+                onClick={onBack}
+                title="Exit (Esc)"
+                style={{
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.06)", border: `1px solid ${cardBorder}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: textMid, cursor: "pointer", fontSize: 15, flexShrink: 0,
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? "6px" : "8px" }}>
-            {Object.entries(q.options).map(([key, value]) => {
-              const isSelected = selectedAnswer === key;
-              const isCorrectOption = key === q.correct;
-              const showCorrect = isLocked && isCorrectOption;
-              const showWrong = isLocked && isSelected && !isCorrectOption;
+        {/* ─── Progress: EKG pulse line ─── */}
+        <div style={{ padding: isMobile ? "0 20px 6px" : "0 36px 8px", flexShrink: 0 }}>
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8,
+          }}>
+            <div style={{
+              fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: 13.5, color: textHi,
+            }}>
+              Q{currentIndex + 1} <span style={{ color: textLow, fontWeight: 600 }}>/ {totalQuestions}</span>
+            </div>
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10.5, letterSpacing: "0.06em",
+              padding: "3px 9px", borderRadius: 20,
+              background: "rgba(76,141,255,0.1)", color: blue,
+              border: "1px solid rgba(76,141,255,0.25)",
+            }}>
+              {sessionConfig?.sessionType === "weak" ? "WEAK SPOTS" :
+               sessionConfig?.sessionType === "quick10" ? "QUICK 10" :
+               sessionConfig?.sessionType === "quick20" ? "QUICK 20" :
+               sessionConfig?.sessionType === "quick30" ? "QUICK 30" : "PRACTICE"}
+            </div>
+          </div>
+          {/* EKG track */}
+          <div style={{ position: "relative", height: 26, width: "100%", overflow: "hidden" }}>
+            <div style={{ position: "absolute", inset: 0, borderBottom: "1.5px solid rgba(255,255,255,0.06)" }} />
+            <div style={{
+              position: "absolute", top: 0, bottom: 0, left: 0,
+              width: `${Math.max(2, progressPct)}%`,
+              overflow: "hidden",
+              transition: "width 0.5s cubic-bezier(0.65,0,0.35,1)",
+            }}>
+              <svg width="1600" height="26" viewBox="0 0 1600 26" fill="none" style={{ display: "block", height: 26 }}>
+                <path d="M0 13 H60 L75 13 L85 3 L95 23 L105 13 L120 13 H180
+                         H240 L255 13 L265 3 L275 23 L285 13 H300
+                         H360 L375 13 L385 3 L395 23 L405 13 H420
+                         H480 L495 13 L505 3 L515 23 L525 13 H540
+                         H600 L615 13 L625 3 L635 23 L645 13 H660
+                         H720 L735 13 L745 3 L755 23 L765 13 H780
+                         H840 L855 13 L865 3 L875 23 L885 13 H900
+                         H960 L975 13 L985 3 L995 23 L1005 13 H1020
+                         H1080 L1095 13 L1105 3 L1115 23 L1125 13 H1140
+                         H1200 L1215 13 L1225 3 L1235 23 L1245 13 H1260
+                         H1320 L1335 13 L1345 3 L1355 23 L1365 13 H1380
+                         H1440 L1455 13 L1465 3 L1475 23 L1485 13 H1600"
+                      stroke="url(#ekgGrad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                <defs>
+                  <linearGradient id="ekgGrad" x1="0" y1="0" x2="1600" y2="0" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor={gold}/>
+                    <stop offset="100%" stopColor={blue}/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          </div>
+        </div>
 
-              return (
-                <div
-                  key={key}
-                  onClick={() => handleSelectAnswer(key)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px",
-                    padding: isMobile ? "10px 12px" : "12px 14px", borderRadius: "10px",
-                    border: showCorrect ? "1px solid #2a6a3a" : showWrong ? "1px solid #6a2a2a" : "0.5px solid #1e2245",
-                    background: showCorrect ? "#0f2a1a" : showWrong ? "#2a0f0f" : isSelected ? "#0f1240" : "transparent",
-                    cursor: isLocked ? "default" : "pointer",
-                    transition: "all 0.15s",
-                    opacity: isLocked && !isSelected && !isCorrectOption ? 0.5 : 1,
-                  }}
-                >
-                  <div style={{
-                    width: isMobile ? "24px" : "28px", height: isMobile ? "24px" : "28px", borderRadius: "6px",
-                    background: showCorrect ? "#2a6a3a" : showWrong ? "#6a2a2a" : "#12142a",
-                    border: showCorrect ? "1px solid #3a8a4a" : showWrong ? "1px solid #8a3a3a" : "0.5px solid #252860",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: isMobile ? "11px" : "12px", fontWeight: 700,
-                    color: showCorrect ? "#a5d6a7" : showWrong ? "#ef9a9a" : "#5a6090",
-                    flexShrink: 0,
-                  }}>
-                    {key}
-                  </div>
-                  <span style={{
-                    fontSize: isMobile ? "13px" : "14px",
-                    color: showCorrect ? "#a5d6a7" : showWrong ? "#ef9a9a" : "#c5c9e8",
-                    flex: 1,
-                  }}>
-                    {value}
-                  </span>
-                  {showCorrect && <CheckCircle2 size={isMobile ? 16 : 18} style={{ color: "#66bb6a" }} />}
-                  {showWrong && <XCircle size={isMobile ? 16 : 18} style={{ color: "#ef5350" }} />}
+        {/* ─── Scrollable middle zone ─── */}
+        <div style={{
+          flex: 1, minHeight: 0, overflowY: "auto", padding: "0 0 8px",
+          WebkitOverflowScrolling: "touch",
+        }}>
+          <div style={{
+            display: "flex", flexDirection: "column",
+            padding: isMobile ? "0 20px" : "0 36px",
+            maxWidth: maxW, margin: "0 auto", width: "100%",
+          }}>
+            {/* Question card */}
+            <div style={{
+              marginTop: isMobile ? 16 : 22,
+              background: "linear-gradient(165deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01))",
+              border: `1px solid ${cardBorder}`,
+              borderRadius: isMobile ? 24 : 28,
+              padding: isMobile ? "26px 22px 22px" : "36px 34px 30px",
+              backdropFilter: "blur(18px)", position: "relative", overflow: "hidden",
+            }}>
+              {/* Card glow */}
+              <div style={{
+                position: "absolute", top: "-40%", right: "-30%",
+                width: 220, height: 220, borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(76,141,255,0.12), transparent 70%)",
+                pointerEvents: "none",
+              }} />
+
+              {/* Question header */}
+              <div style={{
+                display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14,
+                position: "relative", zIndex: 2, marginBottom: 18,
+              }}>
+                <div style={{
+                  fontFamily: "'Syne', sans-serif", fontWeight: 700,
+                  fontSize: isMobile ? 19 : 22, lineHeight: 1.4, letterSpacing: "-0.005em",
+                }}>
+                  {q.question}
                 </div>
-              );
-            })}
-          </div>
-
-          {isLocked && q.explanation && (
-            <div style={{
-              marginTop: isMobile ? "12px" : "16px", padding: isMobile ? "10px 12px" : "14px",
-              background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-              fontSize: isMobile ? "12px" : "13px", color: "#DAA520", lineHeight: 1.6,
-            }}>
-              <span style={{ fontWeight: 700, color: "#7986cb" }}>Explanation: </span>
-              {q.explanation}
-            </div>
-          )}
-
-          {isLocked && !q.explanation && (
-            <div style={{
-              marginTop: "12px", padding: "10px 14px",
-              background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-              fontSize: "12px", color: "#4a5080", fontStyle: "italic",
-            }}>
-              No explanation provided for this question.
-            </div>
-          )}
-
-          {/* AI Explain button + follow-up chat */}
-          {isLocked && (
-            <div style={{ marginTop: "12px" }}>
-              {!aiExplainData[currentIndex] && (
                 <button
-                  onClick={() => getAIExplain(currentIndex)}
+                  onClick={handleFlag}
                   style={{
-                    display: "flex", alignItems: "center", gap: "6px",
-                    padding: isMobile ? "8px 14px" : "8px 16px",
-                    background: "rgba(218,165,32,0.12)", border: "0.5px solid rgba(218,165,32,0.3)",
-                    borderRadius: "8px", fontSize: isMobile ? "12px" : "13px", fontWeight: 700,
-                    color: "#DAA520", cursor: "pointer",
+                    flexShrink: 0, width: 34, height: 34, borderRadius: 10,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: isFlagged ? "rgba(232,184,75,0.08)" : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${isFlagged ? "rgba(232,184,75,0.4)" : cardBorder}`,
+                    color: isFlagged ? gold : textLow, cursor: "pointer",
+                    fontSize: 15, transition: "color 0.2s, border-color 0.2s",
                   }}
+                  title="Flag for review"
                 >
-                  <Sparkles size={isMobile ? 13 : 15} /> AI Explain
+                  <Flag size={15} fill={isFlagged ? gold : "none"} />
                 </button>
-              )}
+              </div>
 
-              {aiExplainData[currentIndex]?.loading && (
-                <div style={{
-                  marginTop: "8px", padding: "10px 14px",
-                  background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
-                  borderRadius: "8px", fontSize: "12px", color: "#DAA520",
-                }}>
-                  ⏳ Getting AI explanation…
-                </div>
-              )}
+              {/* Options */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, position: "relative", zIndex: 2 }}>
+                {Object.entries(q.options).map(([key, value]) => {
+                  const isSelected = selectedAnswer === key;
+                  const isCorrectOption = key === q.correct;
+                  const showCorrect = isLocked && isCorrectOption;
+                  const showWrong = isLocked && isSelected && !isCorrectOption;
+                  const isDim = isLocked && !isSelected && !isCorrectOption;
 
-              {aiExplainData[currentIndex]?.explanation && !aiExplainData[currentIndex]?.loading && (
-                <div style={{
-                  marginTop: "8px", padding: isMobile ? "10px 12px" : "12px 14px",
-                  background: "rgba(218,165,32,0.08)", border: "0.5px solid rgba(218,165,32,0.2)",
-                  borderRadius: "10px",
-                }}>
-                  <div style={{
-                    fontSize: "11px", fontWeight: 700, color: "#DAA520",
-                    textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "6px",
-                    display: "flex", alignItems: "center", gap: "4px",
-                  }}>
-                    <Sparkles size={12} /> AI Explanation
-                  </div>
-                  <div style={{ fontSize: isMobile ? "12px" : "13px", color: "#c5c9e8", lineHeight: 1.7 }}>
-                    <MarkdownText>{aiExplainData[currentIndex].explanation}</MarkdownText>
-                  </div>
+                  let borderColor = cardBorder;
+                  let bgColor = "rgba(255,255,255,0.02)";
+                  let badgeBg = "rgba(255,255,255,0.04)";
+                  let badgeColor = textMid;
+                  let badgeBorder = cardBorder;
 
-                  {/* Follow-up Q&A history */}
-                  {aiExplainData[currentIndex].followUps?.map((fu, fi) => (
-                    <div key={fi} style={{ marginTop: "10px" }}>
-                      <div style={{
-                        fontSize: "12px", color: "#7986cb", fontWeight: 600, marginBottom: "3px",
-                      }}>
-                        Q: {fu.question}
-                      </div>
-                      <div style={{
-                        fontSize: "12px", color: "#c5c9e8", lineHeight: 1.6,
-                        padding: "6px 10px", background: "rgba(0,0,0,0.2)", borderRadius: "6px",
-                      }}>
-                        {fu.answer}
-                      </div>
-                    </div>
-                  ))}
+                  if (!isLocked && isSelected) {
+                    borderColor = blue; bgColor = "rgba(76,141,255,0.08)";
+                    badgeBg = blue; badgeColor = "#fff"; badgeBorder = blue;
+                  }
+                  if (showCorrect) {
+                    borderColor = green; bgColor = "rgba(62,207,142,0.08)";
+                    badgeBg = green; badgeColor = ink; badgeBorder = green;
+                  }
+                  if (showWrong) {
+                    borderColor = coral; bgColor = "rgba(255,107,94,0.08)";
+                    badgeBg = coral; badgeColor = ink; badgeBorder = coral;
+                  }
 
-                  {/* Follow-up input */}
-                  <div style={{ display: "flex", gap: "6px", marginTop: "10px" }}>
-                    <input
-                      value={followUpInput}
-                      onChange={(e) => setFollowUpInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !aiFollowUpLoading) askFollowUp(currentIndex); }}
-                      placeholder="Ask a follow-up question…"
-                      disabled={aiFollowUpLoading}
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => handleSelectAnswer(key)}
                       style={{
-                        flex: 1, padding: isMobile ? "8px 10px" : "8px 12px",
-                        background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px",
-                        color: "#c5c9e8", fontSize: "12px", outline: "none",
-                      }}
-                    />
-                    <button
-                      onClick={() => askFollowUp(currentIndex)}
-                      disabled={aiFollowUpLoading || !followUpInput.trim()}
-                      style={{
-                        padding: isMobile ? "8px 10px" : "8px 12px",
-                        background: aiFollowUpLoading || !followUpInput.trim() ? "#0f1128" : "rgba(218,165,32,0.15)",
-                        border: "0.5px solid rgba(218,165,32,0.3)", borderRadius: "8px",
-                        color: "#DAA520", cursor: aiFollowUpLoading || !followUpInput.trim() ? "default" : "pointer",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        opacity: aiFollowUpLoading || !followUpInput.trim() ? 0.5 : 1,
+                        display: "flex", alignItems: "center", gap: 14,
+                        padding: isMobile ? "15px 16px" : "17px 18px",
+                        borderRadius: 16,
+                        border: `1.5px solid ${borderColor}`,
+                        background: bgColor,
+                        cursor: isLocked ? "default" : "pointer",
+                        transition: "border-color 0.2s ease, background 0.2s ease, transform 0.12s ease",
+                        opacity: isDim ? 0.45 : 1,
                       }}
                     >
-                      <Send size={isMobile ? 13 : 15} />
-                    </button>
-                  </div>
-                  {aiFollowUpLoading && (
-                    <div style={{ fontSize: "11px", color: "#5a6090", marginTop: "4px" }}>⏳ Thinking…</div>
+                      <div style={{
+                        width: 30, height: 30, borderRadius: 9,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, fontSize: 13,
+                        color: badgeColor, background: badgeBg,
+                        border: `1px solid ${badgeBorder}`, flexShrink: 0,
+                      }}>
+                        {key}
+                      </div>
+                      <span style={{
+                        fontSize: isMobile ? 14.5 : 15, lineHeight: 1.45, color: textHi, flex: 1,
+                      }}>
+                        {value}
+                      </span>
+                      {showCorrect && <CheckCircle2 size={17} style={{ color: green, flexShrink: 0 }} />}
+                      {showWrong && <XCircle size={17} style={{ color: coral, flexShrink: 0 }} />}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Explanation panel (slide-open) */}
+              {isLocked && (
+                <div style={{
+                  maxHeight: isLocked ? 600 : 0, overflow: "hidden",
+                  marginTop: isLocked ? 16 : 0, opacity: isLocked ? 1 : 0,
+                  transition: "max-height 0.4s ease, margin-top 0.4s ease, opacity 0.3s ease",
+                  position: "relative", zIndex: 2,
+                }}>
+                  {/* Built-in explanation */}
+                  {q.explanation && (
+                    <div style={{
+                      borderRadius: 16,
+                      border: "1px solid rgba(76,141,255,0.22)",
+                      background: "rgba(76,141,255,0.06)",
+                      padding: "16px 16px",
+                      marginBottom: 12,
+                    }}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 7,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase",
+                        color: blue, marginBottom: 8, fontWeight: 500,
+                      }}>
+                        <Sparkles size={12} /> Explanation
+                      </div>
+                      <div style={{ fontSize: 13.5, lineHeight: 1.6, color: textMid }}>
+                        {q.explanation}
+                      </div>
+                    </div>
                   )}
+
+                  {/* AI Explain button + follow-up chat */}
+                  <div style={{ marginTop: 4 }}>
+                    {!aiExplainData[currentIndex] && (
+                      <button
+                        onClick={() => getAIExplain(currentIndex)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 7,
+                          padding: "10px 16px",
+                          background: "rgba(76,141,255,0.1)", border: "1px solid rgba(76,141,255,0.3)",
+                          borderRadius: 12, fontSize: 13, fontWeight: 700,
+                          color: blue, cursor: "pointer",
+                        }}
+                      >
+                        <Sparkles size={15} /> AI Explain
+                      </button>
+                    )}
+
+                    {aiExplainData[currentIndex]?.loading && (
+                      <div style={{
+                        marginTop: 8, padding: "12px 16px",
+                        background: "rgba(76,141,255,0.06)", border: "1px solid rgba(76,141,255,0.2)",
+                        borderRadius: 12, fontSize: 12.5, color: blue,
+                      }}>
+                        {"\u23F3"} Getting AI explanation…
+                      </div>
+                    )}
+
+                    {aiExplainData[currentIndex]?.explanation && !aiExplainData[currentIndex]?.loading && (
+                      <div style={{
+                        marginTop: 8, padding: "16px",
+                        background: "rgba(76,141,255,0.06)", border: "1px solid rgba(76,141,255,0.22)",
+                        borderRadius: 16,
+                      }}>
+                        <div style={{
+                          display: "flex", alignItems: "center", gap: 7,
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase",
+                          color: blue, marginBottom: 8, fontWeight: 500,
+                        }}>
+                          <Sparkles size={12} /> AI Explanation
+                        </div>
+                        <div style={{ fontSize: 13.5, lineHeight: 1.7, color: textMid }}>
+                          <MarkdownText>{aiExplainData[currentIndex].explanation}</MarkdownText>
+                        </div>
+
+                        {/* Follow-up Q&A history */}
+                        {aiExplainData[currentIndex].followUps?.map((fu, fi) => (
+                          <div key={fi} style={{ marginTop: 10 }}>
+                            <div style={{ fontSize: 12, color: blue, fontWeight: 600, marginBottom: 3 }}>
+                              Q: {fu.question}
+                            </div>
+                            <div style={{
+                              fontSize: 12.5, lineHeight: 1.6, color: textMid,
+                              padding: "8px 12px", background: "rgba(0,0,0,0.2)", borderRadius: 8,
+                            }}>
+                              {fu.answer}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Follow-up input */}
+                        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                          <input
+                            value={followUpInput}
+                            onChange={(e) => setFollowUpInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter" && !aiFollowUpLoading) askFollowUp(currentIndex); }}
+                            placeholder="Ask a follow-up question…"
+                            disabled={aiFollowUpLoading}
+                            style={{
+                              flex: 1, padding: "10px 14px",
+                              background: inkRaised, border: `1px solid ${cardBorder}`, borderRadius: 10,
+                              color: textHi, fontSize: 13, outline: "none", fontFamily: "Manrope, sans-serif",
+                            }}
+                          />
+                          <button
+                            onClick={() => askFollowUp(currentIndex)}
+                            disabled={aiFollowUpLoading || !followUpInput.trim()}
+                            style={{
+                              padding: "10px 14px",
+                              background: aiFollowUpLoading || !followUpInput.trim() ? inkRaised : "rgba(76,141,255,0.15)",
+                              border: "1px solid rgba(76,141,255,0.3)", borderRadius: 10,
+                              color: blue, cursor: aiFollowUpLoading || !followUpInput.trim() ? "default" : "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              opacity: aiFollowUpLoading || !followUpInput.trim() ? 0.5 : 1,
+                            }}
+                          >
+                            <Send size={15} />
+                          </button>
+                        </div>
+                        {aiFollowUpLoading && (
+                          <div style={{ fontSize: 11, color: textLow, marginTop: 4 }}>{"\u23F3"} Thinking…</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
-          )}
 
-          {isLocked ? (
-            <div style={{ display: "flex", gap: "10px", marginTop: isMobile ? "12px" : "16px" }}>
-              {currentIndex > 0 && (
-                <button
-                  onClick={handlePrev}
-                  disabled={submitting}
-                  style={{
-                    padding: isMobile ? "10px" : "12px",
-                    background: "transparent", border: "0.5px solid #2a2d4a", borderRadius: "10px",
-                    fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#5a6090", cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                    opacity: submitting ? 0.5 : 1,
-                  }}
-                >
-                  <ChevronLeft size={isMobile ? 13 : 15} /> Prev
-                </button>
-              )}
+            {/* Mastery row */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6,
+              margin: "14px 0 0",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10.5, color: textLow,
+            }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: isLocked ? (isCorrect ? green : coral) : blue,
+              }} />
+              {isLocked
+                ? (isCorrect ? "Correct" : selectedAnswer ? "Incorrect" : "Skipped")
+                : "Not yet answered"}
+              {isFlagged && <span style={{ marginLeft: 6, color: gold }}>{"\u2691"} Flagged</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* ─── Bottom controls (pinned) ─── */}
+        <div style={{
+          flexShrink: 0,
+          padding: isMobile ? "14px 20px calc(16px + env(safe-area-inset-bottom))" : "18px 36px 28px",
+          background: `linear-gradient(0deg, ${ink} 55%, rgba(10,13,19,0))`,
+        }}>
+          <div style={{ display: "flex", gap: 10, maxWidth: maxW, margin: "0 auto" }}>
+            {/* Prev button */}
+            <button
+              onClick={handlePrev}
+              disabled={currentIndex === 0 || submitting}
+              style={{
+                flex: "0 0 92px",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                padding: isMobile ? "16px 0" : "17px 0",
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.04)",
+                border: `1px solid ${cardBorder}`,
+                color: currentIndex === 0 ? textLow : textMid,
+                fontWeight: 700, fontSize: 14, cursor: currentIndex === 0 ? "not-allowed" : "pointer",
+                opacity: currentIndex === 0 ? 0.4 : 1,
+                transition: "background 0.2s",
+                fontFamily: "Manrope, sans-serif",
+              }}
+              onMouseEnter={(e) => { if (currentIndex > 0) e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+            >
+              {"\u2039"} Prev
+            </button>
+
+            {/* Next / Skip / Submit button */}
+            {isLocked ? (
               <button
                 onClick={handleNext}
                 disabled={submitting}
                 style={{
-                  flex: 1, padding: isMobile ? "10px" : "12px",
-                  background: submitting ? "#0f1128" : "#1a1a1a",
-                  border: "0.5px solid #B8860B", borderRadius: "10px",
-                  fontSize: isMobile ? "13px" : "14px", fontWeight: 700, color: "#FFD700",
-                  cursor: submitting ? "not-allowed" : "pointer",
-                  opacity: submitting ? 0.5 : 1,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                  flex: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: isMobile ? "16px 0" : "17px 0",
+                  borderRadius: 16, border: "none",
+                  background: submitting ? textLow : (isCorrect ? green : coral),
+                  color: submitting ? "rgba(255,255,255,0.5)" : ink,
+                  fontWeight: 700, fontSize: 14.5, cursor: submitting ? "not-allowed" : "pointer",
+                  boxShadow: isCorrect ? "0 8px 24px -8px rgba(62,207,142,0.5)" : "0 8px 24px -8px rgba(255,107,94,0.5)",
+                  transition: "background 0.25s ease, color 0.25s ease",
+                  fontFamily: "Manrope, sans-serif",
                 }}
               >
-                {submitting ? "Submitting..." : currentIndex < totalQuestions - 1 ? "Next" : "See Results"}
-                {!submitting && <ChevronRight size={isMobile ? 14 : 16} />}
+                {submitting ? "Submitting..." : currentIndex < totalQuestions - 1
+                  ? (isCorrect ? "Correct — Continue →" : "Continue →")
+                  : (isCorrect ? "Correct — See Results →" : "See Results →")}
               </button>
-            </div>
-          ) : (
-            <div style={{ display: "flex", gap: "10px", marginTop: isMobile ? "12px" : "16px" }}>
-              {currentIndex > 0 && (
-                <button
-                  onClick={handlePrev}
-                  style={{
-                      padding: isMobile ? "10px" : "12px",
-                      background: "transparent", border: "0.5px solid #2a2d4a", borderRadius: "10px",
-                      fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#5a6090", cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                  }}
-                >
-                  <ChevronLeft size={isMobile ? 13 : 15} /> Prev
-                </button>
-              )}
+            ) : (
               <button
                 onClick={handleSkip}
                 style={{
-                  flex: 1, padding: isMobile ? "10px" : "12px",
-                  background: "transparent", border: "0.5px solid #2a2d4a", borderRadius: "10px",
-                  fontSize: isMobile ? "12px" : "13px", fontWeight: 600, color: "#5a6090", cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                  flex: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: isMobile ? "16px 0" : "17px 0",
+                  borderRadius: 16, border: "none",
+                  background: textLow, color: "rgba(255,255,255,0.5)",
+                  fontWeight: 700, fontSize: 14.5, cursor: "pointer",
+                  transition: "background 0.25s ease, color 0.25s ease",
+                  fontFamily: "Manrope, sans-serif",
                 }}
               >
-                <SkipForward size={isMobile ? 13 : 15} /> Skip
+                <SkipForward size={16} /> Skip Question
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
+        {/* Keyboard hint */}
         {!isMobile && (
-          <div style={{ marginTop: "12px", textAlign: "center", fontSize: "11px", color: "#3a3d60" }}>
-            Press A–D to select · Enter to skip/next · Esc to exit
+          <div style={{
+            position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
+            fontSize: 10, color: "rgba(86,95,109,0.6)", pointerEvents: "none",
+          }}>
+            A–D select · Enter skip/next · Esc exit
           </div>
         )}
       </div>
@@ -942,37 +1185,17 @@ export default function McqQuizRunner({ resource, shareToken, onBack, onQuizComp
   );
 }
 
-function ExitButton({ onBack }) {
-  if (!onBack) return null;
-  return (
-    <button
-      onClick={onBack}
-      title="Exit (Esc)"
-      style={{
-        position: "fixed", top: 12, right: 12, zIndex: 10000,
-        width: 36, height: 36, borderRadius: "50%",
-        background: "rgba(0,0,0,0.5)", border: "none",
-        color: "#fff", cursor: "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        backdropFilter: "blur(4px)",
-      }}
-    >
-      <X size={18} />
-    </button>
-  );
-}
-
 function StatCard({ icon, label, value, color }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: "10px",
-      padding: "10px 14px", background: "#0a0c1e",
-      border: "0.5px solid #1e2245", borderRadius: "10px",
+      padding: "10px 14px", background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12,
     }}>
       <div style={{ color, flexShrink: 0 }}>{icon}</div>
       <div>
-        <div style={{ fontSize: "11px", color: "#5a6090", fontWeight: 600 }}>{label}</div>
-        <div style={{ fontSize: "14px", fontWeight: 700, color }}>{value}</div>
+        <div style={{ fontSize: 11, color: "#565F6D", fontWeight: 600 }}>{label}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color }}>{value}</div>
       </div>
     </div>
   );
