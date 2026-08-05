@@ -94,7 +94,7 @@ async function aiRoadmap(topic, aiConfig, ctx) {
     `You are an expert educator. Generate a structured learning roadmap for: "${topic}"${ctxBlock}
 Reply ONLY with valid JSON (no markdown):
 {"title":"topic title","description":"2-sentence engaging overview of what the student will learn","sections":[{"id":1,"title":"Section title","summary":"1 sentence describing what this covers"},{"id":2,"title":"...","summary":"..."}]}
-Include 5-7 sections, from fundamentals to advanced. Keep summaries under 12 words.`,
+Include 5-7 sections, from fundamentals to advanced. Keep summaries under 12 words. Use clear, specific section titles (not generic like "Introduction").`,
     aiConfig
   );
   return extractJSON(raw);
@@ -108,8 +108,19 @@ async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitl
     : "";
   return await callAI(
     `You are an expert tutor teaching "${topic}". Explain this section thoroughly: "${section.title}"${ctxBlock}${prevBlock}${docHint}
-Write 4-5 paragraphs covering: core concept + clear definition, how it works with a concrete example, real-world relevance, connection to "${topic}".
-Plain text only — no markdown headers or bullet symbols.`,
+
+Format your response using markdown for clarity and visual structure:
+- Use ## subheadings to break up your explanation into logical parts (e.g. "## Core Concept", "## How It Works", "## Real-World Application")
+- Use **bold** for key terms, definitions, and important phrases the student should remember
+- Use *italic* for emphasis on subtle points
+- Use bullet lists (- item) for enumerations, steps, or comparisons
+- Use > blockquote for real-world examples, "did you know?" facts, or memorable analogies
+- Use code blocks (triple backticks) for:
+  - ASCII diagrams when explaining processes, hierarchies, or relationships (e.g. flow arrows, tree structures)
+  - Formulas, equations, or code snippets
+- Use LaTeX math notation ($...$ inline, $$...$$ display) for mathematical expressions
+- Keep paragraphs concise (3-5 sentences each)
+- Aim for 4-6 well-structured sections total`,
     aiConfig
   );
 }
@@ -129,7 +140,12 @@ async function aiEvaluate(topic, section, question, answer, aiConfig) {
     `Topic: "${topic}" — Section: "${section.title}"
 Question: "${question}"
 Student answer: "${answer}"
-Give 2-3 sentences of constructive feedback. Note what was correct, what was missing, and reinforce the key concept. Be encouraging.`,
+
+Format your feedback using markdown:
+- Start with **✓ Correct:** followed by what the student got right (1 sentence)
+- Then **△ Missing:** followed by what was overlooked or incomplete (1 sentence)
+- End with **★ Tip:** followed by a key insight or way to remember the concept (1 sentence)
+Keep it concise and encouraging.`,
     aiConfig
   );
 }
@@ -819,9 +835,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
             explanation && (
               <div className="gs-animate" style={{
                 background:D.card, border:`0.5px solid ${D.line}`,
-                borderRadius:16, padding:"16px",
-                fontSize:13, color:"#FFD700", lineHeight:1.8,
-                fontFamily:"Manrope,sans-serif", marginBottom:12, whiteSpace:"pre-wrap",
+                borderRadius:16, padding:"20px 22px",
+                fontSize:13.5, color:"#FFD700", lineHeight:1.75,
+                fontFamily:"Manrope,sans-serif", marginBottom:12,
               }}>
                 <MarkdownText>{explanation}</MarkdownText>
               </div>
@@ -893,7 +909,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                   <div style={{ fontSize:10, color:"#81c784", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
                     ✦ AI Feedback
                   </div>
-                  <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.7, fontFamily:"Manrope,sans-serif" }}>
+                  <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.75, fontFamily:"Manrope,sans-serif", padding:"4px 0" }}>
                     <MarkdownText>{feedback}</MarkdownText>
                   </div>
                 </>,

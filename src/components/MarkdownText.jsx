@@ -10,7 +10,13 @@ const PALETTES = {
     heading: "#e8eaf6",
     mathColor: "#e8eaf6",
     blockquoteBorder: "#B8860B",
+    blockquoteBg: "rgba(184,134,11,0.06)",
+    blockquoteText: "#c8b560",
     codeText: "#b0bec5",
+    boldColor: "#FFD700",
+    italicColor: "#9fa8da",
+    listBullet: "#B8860B",
+    headingBorder: "#1e2140",
   },
   light: {
     text: "#2D2823",
@@ -21,7 +27,13 @@ const PALETTES = {
     heading: "#1a1a2e",
     mathColor: "#2D2823",
     blockquoteBorder: "#C23B3B",
+    blockquoteBg: "rgba(194,59,59,0.05)",
+    blockquoteText: "#8a3030",
     codeText: "#3F3A33",
+    boldColor: "#1a1a2e",
+    italicColor: "#555",
+    listBullet: "#C23B3B",
+    headingBorder: "#d4d0c5",
   },
 };
 
@@ -131,9 +143,9 @@ function renderInline(text) {
   // Inline math $...$
   html = html.replace(/\$([^$\n]+)\$/g, (_, m) => renderMath("$" + m + "$", false));
   // Bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:__BOLD_COLOR__">$1</strong>');
   // Italic
-  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
+  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em style="color:__ITALIC_COLOR__">$1</em>');
   // Inline code
   html = html.replace(/`([^`]+)`/g, `<code style="background:__CODE_BG__;border:0.5px solid __CODE_BORDER__;border-radius:4px;padding:1px 5px;font-size:12px;font-family:monospace">$1</code>`);
   return html;
@@ -143,7 +155,9 @@ function renderInlineWithTheme(text, P) {
   return renderInline(text)
     .replace(/__MATH_COLOR__/g, P.mathColor)
     .replace(/__CODE_BG__/g, P.codeBg)
-    .replace(/__CODE_BORDER__/g, P.codeBorder);
+    .replace(/__CODE_BORDER__/g, P.codeBorder)
+    .replace(/__BOLD_COLOR__/g, P.boldColor)
+    .replace(/__ITALIC_COLOR__/g, P.italicColor);
 }
 
 export default function MarkdownText({ children, style, theme = "dark" }) {
@@ -161,9 +175,9 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
       elements.push(
         <pre key={elements.length} style={{
           background: P.codeBg, border: `0.5px solid ${P.codeBorder}`,
-          borderRadius: 8, padding: "10px 12px", overflowX: "auto",
-          fontSize: 12, fontFamily: "monospace", color: P.codeText,
-          margin: "8px 0", whiteSpace: "pre",
+          borderRadius: 10, padding: "12px 14px", overflowX: "auto",
+          fontSize: 12.5, fontFamily: "'Cascadia Code','Fira Code','Consolas',monospace", color: P.codeText,
+          margin: "10px 0", whiteSpace: "pre", lineHeight: 1.5,
         }}>{lines.join("\n")}</pre>
       );
       continue;
@@ -180,7 +194,7 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
       // Empty line
       if (!trimmed) {
         if (listItems.length > 0) {
-          elements.push(<ul key={elements.length} style={{ margin: "6px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 3 }}>{li}</li>)}</ul>);
+          elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
           listItems = [];
         }
         i++;
@@ -189,20 +203,20 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
 
       // Headings
       if (trimmed.startsWith("### ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "6px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ fontSize: 14, fontWeight: 700, color: P.heading, margin: "10px 0 4px", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(4), P) }} />);
+        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        elements.push(<div key={elements.length} style={{ fontSize: 14, fontWeight: 700, color: P.heading, margin: "12px 0 5px", paddingBottom: 3, borderBottom: `0.5px solid ${P.headingBorder}`, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(4), P) }} />);
         i++;
         continue;
       }
       if (trimmed.startsWith("## ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "6px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ fontSize: 15, fontWeight: 700, color: P.heading, margin: "12px 0 6px", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(3), P) }} />);
+        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        elements.push(<div key={elements.length} style={{ fontSize: 15.5, fontWeight: 700, color: P.heading, margin: "14px 0 6px", paddingBottom: 4, borderBottom: `0.5px solid ${P.headingBorder}`, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(3), P) }} />);
         i++;
         continue;
       }
       if (trimmed.startsWith("# ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "6px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ fontSize: 16, fontWeight: 800, color: P.heading, margin: "14px 0 6px", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P) }} />);
+        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        elements.push(<div key={elements.length} style={{ fontSize: 17, fontWeight: 800, color: P.heading, margin: "16px 0 8px", paddingBottom: 5, borderBottom: `0.5px solid ${P.headingBorder}`, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P) }} />);
         i++;
         continue;
       }
@@ -215,27 +229,27 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
         continue;
       }
 
-      // Blockquote
+      // Blockquote — render as callout box
       if (trimmed.startsWith("> ")) {
-        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "6px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ borderLeft: `3px solid ${P.blockquoteBorder}`, paddingLeft: 10, margin: "6px 0", color: P.muted, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P) }} />);
+        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        elements.push(<div key={elements.length} style={{ background: P.blockquoteBg, borderLeft: `3px solid ${P.blockquoteBorder}`, borderRadius: "0 8px 8px 0", padding: "8px 12px", margin: "8px 0", color: P.blockquoteText, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P) }} />);
         i++;
         continue;
       }
 
       // Regular paragraph
       if (listItems.length > 0) {
-        elements.push(<ul key={elements.length} style={{ margin: "6px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 3 }}>{li}</li>)}</ul>);
+        elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
         listItems = [];
       }
-      elements.push(<div key={elements.length} style={{ margin: "4px 0", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(line, P) }} />);
+      elements.push(<div key={elements.length} style={{ margin: "6px 0", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(line, P) }} />);
       i++;
     }
 
     if (listItems.length > 0) {
-      elements.push(<ul key={elements.length} style={{ margin: "6px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 3 }}>{li}</li>)}</ul>);
+      elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
     }
   }
 
-  return <div style={{ fontSize: 13.5, lineHeight: 1.7, color: P.text, fontFamily: "Manrope,sans-serif", wordBreak: "break-word", overflowWrap: "anywhere" }}>{elements}</div>;
+  return <div style={{ fontSize: 13.5, lineHeight: 1.75, color: P.text, fontFamily: "Manrope,sans-serif", wordBreak: "break-word", overflowWrap: "anywhere" }}>{elements}</div>;
 }
