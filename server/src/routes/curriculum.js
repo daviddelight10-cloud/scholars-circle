@@ -259,7 +259,11 @@ router.get("/:courseCode/matches", requireAuth, async (req, res) => {
     if (topicIds.length === 0) return res.json([]);
 
     const matches = await prisma.documentTopicMatch.findMany({
-      where: { userId, topicId: { in: topicIds } },
+      where: {
+        userId,
+        topicId: { in: topicIds },
+        resource: { sourceResourceId: null },
+      },
       include: {
         resource: {
           select: {
@@ -360,9 +364,13 @@ router.get("/:courseCode/topic-progress", requireAuth, async (req, res) => {
     const topicIds = topics.map((t) => t.id);
     if (topicIds.length === 0) return res.json({});
 
-    // Get all matched resource IDs grouped by topic
+    // Get all matched resource IDs grouped by topic (exclude AI-generated variants)
     const matches = await prisma.documentTopicMatch.findMany({
-      where: { userId, topicId: { in: topicIds } },
+      where: {
+        userId,
+        topicId: { in: topicIds },
+        resource: { sourceResourceId: null },
+      },
       select: { topicId: true, resourceId: true },
     });
 
@@ -487,6 +495,30 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Error during retroactive matching:", err.message);
     res.status(500).json({ error: err.message || "Failed to run retroactive matching" });
+  }
+});
+
+// POST /api/curriculum/cleanup-variant-matches — Remove DocumentTopicMatch entries for AI-generated variant resources
+router.post("/cleanup-variant-matches", requireAuth, async (req, res) => {
+  try {
+    // Find all DocumentTopicMatch entries where the matched resource has a sourceResourceId (i.e. it's a variant)
+    const variantMatches = await prisma.documentTopicMatch.findMany({
+      where: { resource: { sourceResourceId: { not: null } } },
+      select: { id: true },
+    });
+
+    if (variantMatches.length === 0) {
+      return res.json({ deleted: 0, message: "No variant matches to clean up." });
+    }
+
+    await prisma.documentTopicMatch.deleteMany({
+      where: { id: { in: variantMatches.map((m) => m.id) } },
+    });
+
+    res.json({ deleted: variantMatches.length, message: `Removed ${variantMatches.length} variant document-topic matches.` });
+  } catch (err) {
+    console.error("Error cleaning up variant matches:", err.message);
+    res.status(500).json({ error: err.message || "Failed to clean up variant matches" });
   }
 });
 

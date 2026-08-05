@@ -856,8 +856,10 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
     }).catch(() => {});
 
     // Background: auto-match document to curriculum topics if a skeleton exists
+    // Skip for AI-generated variants (MCQs, flashcards, summaries) — they inherit
+    // topic matching from their source resource via sourceResourceId
     const courseCode = resource.subject || folder?.courseCode;
-    if (courseCode) {
+    if (courseCode && !sourceResourceId) {
       prisma.curriculumTopic.count({ where: { courseCode } })
         .then(async (topicCount) => {
           if (topicCount > 0) {
