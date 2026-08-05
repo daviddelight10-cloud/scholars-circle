@@ -34,6 +34,22 @@ const MODE_DATA = {
     pillBg: "rgba(255,107,94,0.06)",
     pillBorder: "rgba(255,107,94,0.3)",
   },
+  arcade: {
+    icon: "\u26A1",
+    title: "Arcade Mode",
+    desc: "Fast-paced lane-runner game. Dodge wrong answers, grab power-ups, and chase high scores.",
+    pills: ["Real-time gameplay", "Power-ups & streaks", "Spaced repetition", "Missed question review"],
+    cta: "Start Arcade Mode \u2192",
+    hint: "Gamified review \u2014 great for quick, engaging study sessions.",
+    accent: "#E8B84B",
+    accentBg: "rgba(232,184,75,0.05)",
+    accentBorder: "rgba(232,184,75,0.22)",
+    glow: "rgba(232,184,75,0.16)",
+    iconBg: "rgba(232,184,75,0.12)",
+    iconBorder: "rgba(232,184,75,0.3)",
+    pillBg: "rgba(232,184,75,0.06)",
+    pillBorder: "rgba(232,184,75,0.3)",
+  },
 };
 
 export default function McqModeSelect({ resource, onBack, onSelect, onQuizComplete }) {
@@ -58,6 +74,8 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
   const weakCount = weakSpots.length;
   const showSessionOptions = mode === "practice" && questionCount > 20;
 
+  const modeIndex = mode === "practice" ? 0 : mode === "exam" ? 1 : 2;
+
   const sessionQuestionCount = useMemo(() => {
     if (mode !== "practice") return questionCount;
     if (sessionType === "weak") return Math.min(weakCount, questionCount);
@@ -79,12 +97,20 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
   };
 
   const handleStart = () => {
-    if (mode === "practice" && showSessionOptions) {
+    if (mode === "arcade") {
+      onSelect("arcade", { sessionType: "all", questionCount });
+    } else if (mode === "practice" && showSessionOptions) {
       onSelect(mode, { sessionType, questionCount: sessionQuestionCount });
     } else {
       onSelect(mode, { sessionType: "all", questionCount });
     }
   };
+
+  const modeTabs = [
+    { key: "practice", label: "Practice", icon: "\u{1F3AF}" },
+    { key: "exam", label: "Exam", icon: "\u{1F393}" },
+    { key: "arcade", label: "Arcade", icon: "\u26A1" },
+  ];
 
   return (
     <div style={{
@@ -164,7 +190,7 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
             color: "#E8B84B",
             fontSize: 12.5,
           }}>
-            ~{mode === "practice" ? practiceTime : examTime} min
+            ~{mode === "practice" ? practiceTime : mode === "arcade" ? Math.max(3, Math.round(questionCount * 0.3)) : examTime} min
           </span>
         </div>
 
@@ -184,61 +210,40 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
             top: 4,
             bottom: 4,
             left: 4,
-            width: "calc(50% - 4px)",
+            width: "calc(33.333% - 2.67px)",
             borderRadius: 10,
             background: d.accent,
-            transform: mode === "exam" ? "translateX(100%)" : "translateX(0)",
+            transform: `translateX(${modeIndex * 100}%)`,
             transition: "transform 0.32s cubic-bezier(0.65,0,0.35,1), background 0.32s ease",
             zIndex: 1,
           }} />
-          <button
-            onClick={() => handleSetMode("practice")}
-            style={{
-              flex: 1,
-              position: "relative",
-              zIndex: 2,
-              background: "none",
-              border: "none",
-              padding: "12px 0",
-              fontFamily: "'Manrope', sans-serif",
-              fontWeight: 700,
-              fontSize: 14.5,
-              color: mode === "practice" ? "#0A0D13" : "#9AA3B2",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 7,
-              borderRadius: 10,
-              transition: "color 0.25s ease",
-            }}
-          >
-            {"\u{1F3AF}"} Practice
-          </button>
-          <button
-            onClick={() => handleSetMode("exam")}
-            style={{
-              flex: 1,
-              position: "relative",
-              zIndex: 2,
-              background: "none",
-              border: "none",
-              padding: "12px 0",
-              fontFamily: "'Manrope', sans-serif",
-              fontWeight: 700,
-              fontSize: 14.5,
-              color: mode === "exam" ? "#0A0D13" : "#9AA3B2",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 7,
-              borderRadius: 10,
-              transition: "color 0.25s ease",
-            }}
-          >
-            {"\u{1F393}"} Exam
-          </button>
+          {modeTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleSetMode(tab.key)}
+              style={{
+                flex: 1,
+                position: "relative",
+                zIndex: 2,
+                background: "none",
+                border: "none",
+                padding: "12px 0",
+                fontFamily: "'Manrope', sans-serif",
+                fontWeight: 700,
+                fontSize: 13.5,
+                color: mode === tab.key ? "#0A0D13" : "#9AA3B2",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                borderRadius: 10,
+                transition: "color 0.25s ease",
+              }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Mode card */}

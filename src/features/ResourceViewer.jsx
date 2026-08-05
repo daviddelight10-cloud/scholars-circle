@@ -7,6 +7,7 @@ import McqModeSelect from "./McqModeSelect.jsx";
 import McqQuizRunner from "./McqQuizRunner.jsx";
 import McqExamRunner from "./McqExamRunner.jsx";
 import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
+import FlashcardRunner from "./FlashcardRunner.jsx";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 
 import { API_BASE } from "../lib/constants";
@@ -27,7 +28,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState(null);
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
-  const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam"
+  const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam" | "arcade"
   const [mcqSessionConfig, setMcqSessionConfig] = useState(null); // { sessionType, questionCount }
 
   // Auth form state
@@ -310,6 +311,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       case "mcq":
         if (!mcqMode) {
           return <McqModeSelect resource={resource} onBack={handleBack} onSelect={(mode, sessionConfig) => { setMcqSessionConfig(sessionConfig); setMcqMode(mode); }} onQuizComplete={onQuizComplete} />;
+        }
+        if (mcqMode === "arcade") {
+          return <FlashcardRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
         }
         if (mcqMode === "exam") {
           return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
