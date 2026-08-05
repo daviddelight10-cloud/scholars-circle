@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { recordPracticeResult } from "../lib/studyHistory.js";
+import { recordPracticeResult, getWeakSpotQuestions } from "../lib/studyHistory.js";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -13,6 +13,8 @@ const CARD_W = 160;
 const MAX_LIVES = 3;
 const POWERUP_SPAWN_CHANCE = 0.28;
 const MAX_SHIELDS = 2;
+const WARMUP_QUESTIONS = 3;
+const MAX_REVIEW_QUEUE = 5;
 
 /* ── MCQ → game question mapping ────────────────────────────── */
 function mcqToGameQuestion(mcq, index) {
@@ -132,11 +134,17 @@ export default function FlashcardRunner({
   const [toast, setToast] = useState({ text: "", type: "", show: false });
   const [hudState, setHudState] = useState({ score: 0, streak: 0, combo: 1, lives: MAX_LIVES });
   const [questionDisplay, setQuestionDisplay] = useState({ text: "", label: "", isReview: false });
+  const [sessionMode, setSessionMode] = useState("standard");
+  const [customCount, setCustomCount] = useState(15);
+  const [explanationDisplay, setExplanationDisplay] = useState({ text: "", correctAnswer: "", isCorrect: false, show: false });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const toastTimeoutRef = useRef(null);
+  const explanationTimeoutRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0, active: false });
 
   /* Parse MCQ data */
-  const gameQuestions = useMemo(() => {
+  const rawParsed = useMemo(() => {
     const raw = resource?.mcqData;
     if (!raw) return [];
     let parsed = raw;
@@ -144,12 +152,32 @@ export default function FlashcardRunner({
       try { parsed = JSON.parse(raw); } catch { return []; }
     }
     if (!Array.isArray(parsed)) return [];
-    return shuffleArray(parsed).map((mcq, i) => mcqToGameQuestion(mcq, i));
+    return parsed;
   }, [resource]);
+
+  const gameQuestions = useMemo(() => {
+    if (!rawParsed.length) return [];
+    let sorted = rawParsed;
+    if (resource?.id) {
+      try {
+        sorted = getWeakSpotQuestions(resource.id, rawParsed);
+      } catch {
+        sorted = shuffleArray(rawParsed);
+      }
+    } else {
+      sorted = shuffleArray(rawParsed);
+    }
+    return sorted.map((mcq, i) => mcqToGameQuestion(mcq, i));
+  }, [rawParsed, resource]);
 
   const G = useRef(null);
 
   function initState() {
+    const targetCount = sessionMode === "quick" ? 10
+      : sessionMode === "standard" ? 20
+      : sessionMode === "custom" ? Math.min(customCount, gameQuestions.length)
+      : Infinity;
+    const starCount = isMobile ? 50 : 90;
     G.current = {
       score: 0, streak: 0, bestStreak: 0,
       lives: MAX_LIVES,
@@ -165,8 +193,11 @@ export default function FlashcardRunner({
       answerMap: {}, timePerQuestion: {}, questionStartTime: 0,
       correctCount: 0, totalCount: 0,
       lastTime: 0, paused: false,
+      warmupRemaining: WARMUP_QUESTIONS,
+      targetCount,
+      missTracker: {},
     };
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < starCount; i++) {
       G.current.stars.push({
         x: Math.random(), y: Math.random() * 0.4,
         r: Math.random() * 1.2 + 0.3,
@@ -197,15 +228,24 @@ export default function FlashcardRunner({
     const g = G.current;
     if (!g) return;
 
+    // Check session target
+    if (g.totalCount >= g.targetCount) {
+      endGame();
+      return;
+    }
+
     let q;
+    let isReview = false;
+    // Find most overdue review item
     const dueIdx = g.reviewQueue.findIndex(r => r.dueAt <= g.questionIndex);
-    const isReview = dueIdx !== -1;
-    if (isReview) {
+    if (dueIdx !== -1) {
       q = g.reviewQueue.splice(dueIdx, 1)[0].question;
+      isReview = true;
     } else if (g.questionIndex < gameQuestions.length) {
       q = gameQuestions[g.questionIndex];
     } else if (g.reviewQueue.length > 0) {
       q = g.reviewQueue.shift().question;
+      isReview = true;
     } else {
       endGame();
       return;
@@ -250,9 +290,13 @@ export default function FlashcardRunner({
     }
 
     setPowerupBadges({ shield: g.shieldCount, slowmo: g.slowmoActive });
+    // Build label with warm-up indicator
+    const warmupLabel = g.warmupRemaining > 0
+      ? `Warm-Up · ${WARMUP_QUESTIONS - g.warmupRemaining + 1}/${WARMUP_QUESTIONS} · `
+      : "";
     setQuestionDisplay({
       text: q.q,
-      label: (isReview ? "↻ Review · " : "") + (q.label || "Question"),
+      label: warmupLabel + (isReview ? "↻ Review · " : "") + (q.label || "Question"),
       isReview,
     });
   }
@@ -274,12 +318,15 @@ export default function FlashcardRunner({
     g.answered = true;
     g.answerCorrect = correct;
     g.totalCount++;
+    if (g.warmupRemaining > 0) g.warmupRemaining--;
     const elapsed = performance.now() - g.questionStartTime;
     const qIdx = g.currentQ.index;
     const playerLane = Math.round(g.player.lane);
     g.timePerQuestion[qIdx] = elapsed;
     const px = getLaneX(g.player.lane, 0);
     const py = g.player.y;
+    const qHash = g.currentQ.q;
+    const hasExplanation = !!g.currentQ.explanation;
 
     if (!correct) {
       g.missedThisRun.push({
@@ -288,10 +335,33 @@ export default function FlashcardRunner({
         yourAnswer: g.answers[playerLane]?.text || "—",
         explanation: g.currentQ.explanation,
       });
-      g.reviewQueue.push({
-        question: g.currentQ,
-        dueAt: g.questionIndex + 6 + Math.floor(Math.random() * 4),
-      });
+      // Adaptive: track miss count per question, resurface sooner if missed more
+      if (g.reviewQueue.length < MAX_REVIEW_QUEUE) {
+        g.missTracker[qHash] = (g.missTracker[qHash] || 0) + 1;
+        const missCount = g.missTracker[qHash];
+        const interval = Math.max(2, 8 - missCount * 2) + Math.floor(Math.random() * 2);
+        g.reviewQueue.push({
+          question: g.currentQ,
+          dueAt: g.questionIndex + interval,
+          missCount,
+        });
+      }
+    }
+
+    // Show explanation flash
+    function showExplanation() {
+      if (hasExplanation) {
+        setExplanationDisplay({
+          text: g.currentQ.explanation,
+          correctAnswer: g.currentQ.a,
+          isCorrect: correct,
+          show: true,
+        });
+        if (explanationTimeoutRef.current) clearTimeout(explanationTimeoutRef.current);
+        explanationTimeoutRef.current = setTimeout(() => {
+          setExplanationDisplay((prev) => ({ ...prev, show: false }));
+        }, 1700);
+      }
     }
 
     // Shield absorbs wrong answer
@@ -304,7 +374,8 @@ export default function FlashcardRunner({
       g.flashColor = "#00E5FF"; g.flashAlpha = 0.25;
       setPowerupBadges({ shield: g.shieldCount, slowmo: g.slowmoActive });
       updateUI();
-      setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, 950);
+      const delay = hasExplanation ? 1800 : 950;
+      setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, delay);
       return;
     }
 
@@ -337,12 +408,21 @@ export default function FlashcardRunner({
       if (g.lives <= 0) {
         audioRef.current?.gameOver();
         updateUI();
-        setTimeout(() => endGame(), 900);
+        showExplanation();
+        setTimeout(() => endGame(), 1800);
         return;
       }
     }
+    showExplanation();
     updateUI();
-    setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, 950);
+    const delay = hasExplanation ? 1800 : 950;
+    setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, delay);
+  }
+
+  function dismissExplanation() {
+    if (explanationTimeoutRef.current) clearTimeout(explanationTimeoutRef.current);
+    setExplanationDisplay((prev) => ({ ...prev, show: false }));
+    if (G.current && !G.current.paused) spawnNextQuestion();
   }
 
   function showToast(text, type) {
@@ -357,7 +437,10 @@ export default function FlashcardRunner({
     const g = G.current;
     if (!g) return;
     const combo = 1 + Math.min(g.streak * 0.1, 2);
-    setHudState({ score: g.score, streak: g.streak, combo, lives: g.lives });
+    setHudState({
+      score: g.score, streak: g.streak, combo, lives: g.lives,
+      progress: g.totalCount, target: g.targetCount,
+    });
   }
 
   function getCanvasHeight() {
@@ -399,7 +482,8 @@ export default function FlashcardRunner({
   function spawnParticles(x, y, color, count) {
     const g = G.current;
     if (!g) return;
-    for (let i = 0; i < count; i++) {
+    const actualCount = isMobile ? Math.round(count * 0.7) : count;
+    for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = Math.random() * 6 + 2;
       g.particles.push({
@@ -448,6 +532,7 @@ export default function FlashcardRunner({
     };
     setFinalStats(stats);
     setMissedReview([...g.missedThisRun]);
+    setExplanationDisplay({ text: "", correctAnswer: "", isCorrect: false, show: false });
     setGameState("gameover");
     submitResults(g);
   }
@@ -504,10 +589,39 @@ export default function FlashcardRunner({
     setPowerupBadges({ shield: 0, slowmo: false });
     setFinalStats(null);
     setMissedReview([]);
-    setHudState({ score: 0, streak: 0, combo: 1, lives: MAX_LIVES });
+    setExplanationDisplay({ text: "", correctAnswer: "", isCorrect: false, show: false });
+    const target = sessionMode === "quick" ? 10
+      : sessionMode === "standard" ? 20
+      : sessionMode === "custom" ? Math.min(customCount, gameQuestions.length)
+      : Infinity;
+    setHudState({ score: 0, streak: 0, combo: 1, lives: MAX_LIVES, progress: 0, target });
     setGameState("playing");
     setTimeout(() => spawnNextQuestion(), 50);
   }
+
+  /* ── Fullscreen ─────────────────────────────────────────── */
+  function toggleFullscreen() {
+    const el = containerRef.current?.parentElement || document.documentElement;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  /* ── Mobile detection ───────────────────────────────────── */
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   /* ── Input: lane switching (not instant answer) ─────────── */
   function moveLane(dir) {
@@ -558,7 +672,8 @@ export default function FlashcardRunner({
     const t = e.touches[0];
     const dx = t.clientX - ts.x;
     const dy = t.clientY - ts.y;
-    if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
+    const threshold = isMobile ? 40 : 30;
+    if (Math.abs(dx) > threshold && Math.abs(dx) > Math.abs(dy)) {
       moveLane(dx > 0 ? 1 : -1);
       ts.active = false;
     }
@@ -571,7 +686,8 @@ export default function FlashcardRunner({
     const t = e.changedTouches[0];
     const dx = t.clientX - ts.x;
     const dy = t.clientY - ts.y;
-    if (Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+    const tapThreshold = isMobile ? 40 : 30;
+    if (Math.abs(dx) < tapThreshold && Math.abs(dy) < tapThreshold) {
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       const tapX = t.clientX - rect.left;
@@ -625,8 +741,9 @@ export default function FlashcardRunner({
       // Card approach
       if (g.cardSpawned) {
         if (!g.answered) {
-          const baseSpeed = 0.0065;
-          const speedBoost = Math.min(g.streak * 0.0003, 0.004);
+          const isWarmup = g.warmupRemaining > 0;
+          const baseSpeed = isWarmup ? 0.0033 : 0.0065;
+          const speedBoost = isWarmup ? 0 : Math.min(g.streak * 0.0003, 0.004);
           const slowmoMul = g.slowmoActive ? 0.55 : 1;
           g.cardDepth -= (baseSpeed + speedBoost) * slowmoMul * dt;
 
@@ -1157,7 +1274,7 @@ export default function FlashcardRunner({
   if (gameQuestions.length === 0) {
     return (
       <div style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: "#06080f",
         display: "flex",
         flexDirection: "column",
@@ -1187,7 +1304,7 @@ export default function FlashcardRunner({
   /* ── Render ─────────────────────────────────────────────── */
   return (
     <div style={{
-      minHeight: "100vh",
+      minHeight: "100dvh",
       background: "#06080f",
       display: "flex",
       flexDirection: "column",
@@ -1195,6 +1312,8 @@ export default function FlashcardRunner({
       color: "#F2F4F8",
       position: "relative",
       overflow: "hidden",
+      overscrollBehavior: "none",
+      paddingTop: "env(safe-area-inset-top)",
     }}>
       {/* Header */}
       <div style={{
@@ -1223,7 +1342,7 @@ export default function FlashcardRunner({
           cursor: "pointer",
         }}>← Back</button>
         <div style={{
-          fontSize: 13,
+          fontSize: "clamp(11px, 3vw, 13px)",
           fontWeight: 700,
           color: "#FFB627",
           textAlign: "center",
@@ -1231,17 +1350,28 @@ export default function FlashcardRunner({
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
-          padding: "0 12px",
+          padding: "0 8px",
         }}>⚡ {resource?.title || "Arcade"}</div>
-        <button onClick={() => setMuted((m) => !m)} style={{
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 10,
-          padding: "8px 12px",
-          fontSize: 16,
-          cursor: "pointer",
-          color: muted ? "#5C6472" : "#9AA3B2",
-        }}>{muted ? "🔇" : "🔊"}</button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={toggleFullscreen} style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 10,
+            padding: "8px 10px",
+            fontSize: 14,
+            cursor: "pointer",
+            color: "#9AA3B2",
+          }}>{isFullscreen ? "🗗" : "⛶"}</button>
+          <button onClick={() => setMuted((m) => !m)} style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 10,
+            padding: "8px 10px",
+            fontSize: 14,
+            cursor: "pointer",
+            color: muted ? "#5C6472" : "#9AA3B2",
+          }}>{muted ? "🔇" : "🔊"}</button>
+        </div>
       </div>
 
       {/* Canvas container */}
@@ -1251,6 +1381,7 @@ export default function FlashcardRunner({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        overflow: "hidden",
       }}>
         <canvas
           ref={canvasRef}
@@ -1265,7 +1396,7 @@ export default function FlashcardRunner({
         {/* ── HTML HUD overlay ── */}
         {gameState === "playing" && (
           <>
-            {/* Top-left: score + lives */}
+            {/* Top-left: score + progress + lives */}
             <div style={{
               position: "absolute",
               top: 12,
@@ -1274,7 +1405,7 @@ export default function FlashcardRunner({
               pointerEvents: "none",
             }}>
               <div style={{
-                fontSize: 26,
+                fontSize: "clamp(20px, 5vw, 26px)",
                 fontWeight: 800,
                 color: "#F2F4F8",
                 textShadow: "0 2px 8px rgba(0,0,0,0.8)",
@@ -1287,7 +1418,7 @@ export default function FlashcardRunner({
                 textTransform: "uppercase",
                 letterSpacing: "0.1em",
                 marginTop: 2,
-              }}>Score</div>
+              }}>Score{hudState.target !== Infinity && hudState.target > 0 ? ` · Q ${hudState.progress || 0}/${hudState.target}` : ""}</div>
               <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                 {Array.from({ length: MAX_LIVES }).map((_, i) => (
                   <div key={i} style={{
@@ -1314,7 +1445,7 @@ export default function FlashcardRunner({
                 textAlign: "right",
               }}>
                 <div style={{
-                  fontSize: 22,
+                  fontSize: "clamp(18px, 4.5vw, 22px)",
                   fontWeight: 800,
                   color: hudState.streak >= 5 ? "#FFB627" : "#00E5FF",
                   textShadow: `0 0 12px ${hudState.streak >= 5 ? "rgba(255,182,39,0.6)" : "rgba(0,229,255,0.6)"}`,
@@ -1385,16 +1516,16 @@ export default function FlashcardRunner({
             {questionDisplay.text && (
               <div style={{
                 position: "absolute",
-                top: "12%",
+                top: isMobile ? "8%" : "12%",
                 left: "50%",
                 transform: "translateX(-50%)",
                 zIndex: 5,
                 pointerEvents: "none",
-                maxWidth: "90%",
+                maxWidth: "92%",
                 textAlign: "center",
               }}>
                 <div style={{
-                  fontSize: 10,
+                  fontSize: "clamp(8px, 2.5vw, 10px)",
                   fontWeight: 700,
                   color: questionDisplay.isReview ? "#FFB627" : "#5C6472",
                   textTransform: "uppercase",
@@ -1402,7 +1533,7 @@ export default function FlashcardRunner({
                   marginBottom: 6,
                 }}>{questionDisplay.label}</div>
                 <div style={{
-                  fontSize: 15,
+                  fontSize: "clamp(13px, 3.5vw, 15px)",
                   fontWeight: 600,
                   color: "#F2F4F8",
                   lineHeight: 1.4,
@@ -1411,16 +1542,66 @@ export default function FlashcardRunner({
               </div>
             )}
 
+            {/* Explanation flash overlay */}
+            {explanationDisplay.show && (
+              <div
+                onClick={dismissExplanation}
+                style={{
+                  position: "absolute",
+                  top: "42%",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 9,
+                  maxWidth: "88%",
+                  width: 400,
+                  background: "rgba(13,20,36,0.95)",
+                  border: `1px solid ${explanationDisplay.isCorrect ? "rgba(74,222,128,0.4)" : "rgba(239,68,68,0.4)"}`,
+                  borderRadius: 14,
+                  padding: "16px 20px",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  animation: " explanationFadeIn 0.3s ease-out",
+                  boxShadow: `0 8px 32px ${explanationDisplay.isCorrect ? "rgba(74,222,128,0.15)" : "rgba(239,68,68,0.15)"}`,
+                }}>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: explanationDisplay.isCorrect ? "#4ADE80" : "#EF4444",
+                  marginBottom: 8,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}>{explanationDisplay.isCorrect ? "✓ Correct!" : "✗ Wrong!"}</div>
+                <div style={{
+                  fontSize: 12,
+                  color: "#9AA3B2",
+                  marginBottom: 6,
+                }}>Correct answer: <span style={{ color: "#4ADE80", fontWeight: 700 }}>{explanationDisplay.correctAnswer}</span></div>
+                {explanationDisplay.text && (
+                  <div style={{
+                    fontSize: "clamp(11px, 3vw, 13px)",
+                    color: "#F2F4F8",
+                    lineHeight: 1.5,
+                    opacity: 0.9,
+                  }}>{explanationDisplay.text.length > 200 ? explanationDisplay.text.slice(0, 200) + "…" : explanationDisplay.text}</div>
+                )}
+                <div style={{
+                  fontSize: 10,
+                  color: "#5C6472",
+                  marginTop: 10,
+                }}>Tap to continue →</div>
+              </div>
+            )}
+
             {/* Toast */}
             {toast.show && (
               <div style={{
                 position: "absolute",
-                top: "38%",
+                top: "34%",
                 left: "50%",
                 transform: "translateX(-50%)",
                 zIndex: 8,
                 pointerEvents: "none",
-                fontSize: toast.type === "streak" ? 28 : 24,
+                fontSize: toast.type === "streak" ? "clamp(22px, 6vw, 28px)" : "clamp(18px, 5vw, 24px)",
                 fontWeight: 800,
                 color: toast.type === "correct" ? "#4ADE80"
                   : toast.type === "wrong" ? "#EF4444"
@@ -1436,18 +1617,46 @@ export default function FlashcardRunner({
               }}>{toast.text}</div>
             )}
 
-            {/* Bottom hint */}
-            <div style={{
-              position: "absolute",
-              bottom: 12,
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 5,
-              pointerEvents: "none",
-              fontSize: 11,
-              color: "rgba(140,160,220,0.4)",
-              fontWeight: 600,
-            }}>← / A &nbsp;&nbsp; D / → &nbsp;&nbsp;·&nbsp;&nbsp; Swipe to switch lanes</div>
+            {/* Bottom hint — hidden on mobile */}
+            {!isMobile && (
+              <div style={{
+                position: "absolute",
+                bottom: 12,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 5,
+                pointerEvents: "none",
+                fontSize: 11,
+                color: "rgba(140,160,220,0.4)",
+                fontWeight: 600,
+              }}>← / A &nbsp;&nbsp; D / → &nbsp;&nbsp;·&nbsp;&nbsp; Swipe to switch lanes</div>
+            )}
+
+            {/* Mobile lane indicator */}
+            {isMobile && (
+              <div style={{
+                position: "absolute",
+                bottom: 16,
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 5,
+                pointerEvents: "none",
+                display: "flex",
+                gap: 8,
+              }}>
+                {Array.from({ length: LANES }).map((_, i) => (
+                  <div key={i} style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: Math.round(G.current?.player?.lane || 0) === i
+                      ? "#FFB627"
+                      : "rgba(255,255,255,0.15)",
+                    transition: "background 0.15s ease",
+                  }} />
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -1465,12 +1674,13 @@ export default function FlashcardRunner({
             WebkitBackdropFilter: "blur(4px)",
             zIndex: 20,
             padding: 24,
+            overflowY: "auto",
           }}>
-            <div style={{ fontSize: 56, marginBottom: 12 }}>⚡</div>
+            <div style={{ fontSize: "clamp(40px, 12vw, 56px)", marginBottom: 12 }}>⚡</div>
             <h1 style={{
               fontFamily: "'Syne', sans-serif",
               fontWeight: 800,
-              fontSize: 28,
+              fontSize: "clamp(22px, 6vw, 28px)",
               marginBottom: 8,
               textAlign: "center",
               margin: 0,
@@ -1480,7 +1690,7 @@ export default function FlashcardRunner({
               backgroundClip: "text",
             }}>Arcade Mode</h1>
             <div style={{
-              fontSize: 14,
+              fontSize: "clamp(12px, 3.5vw, 14px)",
               color: "#9AA3B2",
               textAlign: "center",
               marginBottom: 4,
@@ -1489,8 +1699,85 @@ export default function FlashcardRunner({
             <div style={{
               fontSize: 12,
               color: "#5C6472",
-              marginBottom: 28,
+              marginBottom: 20,
             }}>{gameQuestions.length} questions · 3 lives</div>
+
+            {/* Session mode selector */}
+            <div style={{
+              display: "flex",
+              gap: 6,
+              marginBottom: 8,
+              flexWrap: "wrap",
+              justifyContent: "center",
+              maxWidth: 380,
+            }}>
+              {[
+                { mode: "quick", label: "Quick", sub: "10 Q" },
+                { mode: "standard", label: "Standard", sub: "20 Q" },
+                { mode: "endless", label: "Endless", sub: "∞" },
+                { mode: "custom", label: "Custom", sub: "Choose" },
+              ].map((opt) => (
+                <button
+                  key={opt.mode}
+                  onClick={() => setSessionMode(opt.mode)}
+                  style={{
+                    padding: "10px 16px",
+                    borderRadius: 12,
+                    border: sessionMode === opt.mode
+                      ? "1px solid rgba(255,182,39,0.5)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                    background: sessionMode === opt.mode
+                      ? "rgba(255,182,39,0.12)"
+                      : "rgba(255,255,255,0.03)",
+                    color: sessionMode === opt.mode ? "#FFB627" : "#9AA3B2",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 2,
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{opt.label}</span>
+                  <span style={{ fontSize: 10, opacity: 0.7 }}>{opt.sub}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Custom count input */}
+            {sessionMode === "custom" && (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 20,
+              }}>
+                <span style={{ fontSize: 12, color: "#9AA3B2" }}>Questions:</span>
+                <input
+                  type="number"
+                  min={5}
+                  max={gameQuestions.length}
+                  value={customCount}
+                  onChange={(e) => setCustomCount(Math.max(5, Math.min(gameQuestions.length, parseInt(e.target.value) || 5)))}
+                  style={{
+                    width: 60,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.04)",
+                    color: "#F2F4F8",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    textAlign: "center",
+                    outline: "none",
+                  }}
+                />
+                <span style={{ fontSize: 10, color: "#5C6472" }}>(max {gameQuestions.length})</span>
+              </div>
+            )}
+
+            {sessionMode !== "custom" && <div style={{ marginBottom: 20 }} />}
+
             <button onClick={startGame} style={{
               padding: "16px 40px",
               borderRadius: 14,
@@ -1529,7 +1816,7 @@ export default function FlashcardRunner({
               maxWidth: 300,
               lineHeight: 1.6,
             }}>
-              Switch to the correct answer lane before the card reaches you. Missed questions resurface later. Collect power-ups for shields and slow-mo!
+              Switch to the correct answer lane before the card reaches you. Missed questions resurface sooner if you keep getting them wrong. First 3 questions are warm-up!
             </div>
           </div>
         )}
@@ -1548,15 +1835,16 @@ export default function FlashcardRunner({
             WebkitBackdropFilter: "blur(6px)",
             zIndex: 20,
             padding: "24px 16px",
+            paddingBottom: "calc(24px + env(safe-area-inset-bottom))",
             overflowY: "auto",
           }}>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>
+            <div style={{ fontSize: "clamp(36px, 10vw, 48px)", marginBottom: 8 }}>
               {finalStats.accuracy >= 70 ? "🏆" : finalStats.accuracy >= 50 ? "📊" : "🎮"}
             </div>
             <h2 style={{
               fontFamily: "'Syne', sans-serif",
               fontWeight: 800,
-              fontSize: 24,
+              fontSize: "clamp(20px, 5.5vw, 24px)",
               marginBottom: 20,
               margin: 0,
               background: "linear-gradient(135deg, #FF5E7E, #FFB627)",
@@ -1568,7 +1856,7 @@ export default function FlashcardRunner({
             {/* Stat tiles */}
             <div style={{
               display: "flex",
-              gap: 10,
+              gap: 8,
               marginBottom: 20,
               flexWrap: "wrap",
               justifyContent: "center",
@@ -1584,11 +1872,11 @@ export default function FlashcardRunner({
                   border: "1px solid rgba(255,255,255,0.08)",
                   borderTop: `2px solid ${s.color}`,
                   borderRadius: 12,
-                  padding: "12px 18px",
+                  padding: "10px 14px",
                   textAlign: "center",
-                  minWidth: 72,
+                  minWidth: 68,
                 }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.val}</div>
+                  <div style={{ fontSize: "clamp(16px, 4vw, 20px)", fontWeight: 800, color: s.color }}>{s.val}</div>
                   <div style={{ fontSize: 9, color: "#5C6472", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>{s.label}</div>
                 </div>
               ))}
@@ -1669,11 +1957,15 @@ export default function FlashcardRunner({
         )}
       </div>
 
-      {/* Toast keyframe animation */}
+      {/* Keyframe animations */}
       <style>{`
         @keyframes toastPop {
           0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
           50% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+          100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+        @keyframes explanationFadeIn {
+          0% { transform: translateX(-50%) scale(0.85); opacity: 0; }
           100% { transform: translateX(-50%) scale(1); opacity: 1; }
         }
       `}</style>
