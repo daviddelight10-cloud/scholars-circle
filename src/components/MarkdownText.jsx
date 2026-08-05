@@ -2,20 +2,20 @@ import React from "react";
 
 const PALETTES = {
   dark: {
-    text: "#FFD700",
+    text: "#e8eaf6",
     muted: "#9e9e9e",
     accent: "#7986cb",
     codeBg: "#0d0f1f",
     codeBorder: "#1e2140",
-    heading: "#e8eaf6",
+    heading: "#f5f5f5",
     mathColor: "#e8eaf6",
-    blockquoteBorder: "#B8860B",
-    blockquoteBg: "rgba(184,134,11,0.06)",
-    blockquoteText: "#c8b560",
+    blockquoteBorder: "#7986cb",
+    blockquoteBg: "rgba(121,134,203,0.08)",
+    blockquoteText: "#b0bec5",
     codeText: "#b0bec5",
-    boldColor: "#FFD700",
+    boldColor: "#f5f5f5",
     italicColor: "#9fa8da",
-    listBullet: "#B8860B",
+    listBullet: "#7986cb",
     headingBorder: "#1e2140",
   },
   light: {

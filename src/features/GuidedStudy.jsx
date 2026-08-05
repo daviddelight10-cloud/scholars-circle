@@ -187,11 +187,11 @@ function Btn({ children, onClick, variant = "primary", disabled, style: extra })
     ...extra,
   };
   const variants = {
-    primary:  { background: D.accent, border:`0.5px solid ${D.border}`, color:"#FFD700" },
+    primary:  { background: D.accent, border:`0.5px solid ${D.border}`, color:"#e8eaf6" },
     ghost:    { background:"transparent", border:`0.5px solid ${D.line}`, color:D.muted },
     red:      { background:"#1a0808", border:"0.5px solid #4a1010", color:"#ef9a9a" },
     green:    { background:"#0a1f10", border:"0.5px solid #1a4a25", color:"#81c784" },
-    yellow:   { background:"#1f1000", border:"0.5px solid #4a2a00", color:"#ffb74d" },
+    yellow:   { background:"#0d1526", border:"0.5px solid #2a3a6a", color:"#9fa8da" },
   };
   return (
     <button onClick={disabled ? undefined : onClick} style={{ ...base, ...variants[variant] }}
@@ -217,7 +217,7 @@ function SectionCard({ section, index, studied, onStudy }) {
         border:`0.5px solid ${studied ? D.border : "#2a2d4a"}`,
         display:"flex", alignItems:"center", justifyContent:"center",
         fontSize:11, fontWeight:700,
-        color: studied ? "#FFD700" : D.muted,
+        color: studied ? "#e8eaf6" : D.muted,
         fontFamily:"Manrope,sans-serif",
       }}>
         {studied ? "✓" : index + 1}
@@ -253,7 +253,7 @@ function FlipCard({ card, flipped, onFlip }) {
           display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center",
         }}>
           <div style={{ fontSize:9, color:D.hint, marginBottom:10, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif" }}>QUESTION / TERM</div>
-          <div style={{ fontSize:14, fontWeight:600, color:"#FFD700", lineHeight:1.55, fontFamily:"Manrope,sans-serif" }}>{card.front}</div>
+          <div style={{ fontSize:14, fontWeight:600, color:"#e8eaf6", lineHeight:1.55, fontFamily:"Manrope,sans-serif" }}>{card.front}</div>
           <div style={{ fontSize:9, color:D.hint, marginTop:14, fontFamily:"Manrope,sans-serif" }}>tap to reveal ↩</div>
         </div>
         {/* Back */}
@@ -618,7 +618,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8,
         }}>
           <span style={{ fontSize:16 }}>📶</span>
-          <span style={{ fontSize:12, color:"#ffb74d", fontFamily:"Manrope,sans-serif" }}>You're offline — please reconnect to use AI features.</span>
+          <span style={{ fontSize:12, color:"#9fa8da", fontFamily:"Manrope,sans-serif" }}>You're offline — please reconnect to use AI features.</span>
         </div>
       )}
 
@@ -836,7 +836,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
               <div className="gs-animate" style={{
                 background:D.card, border:`0.5px solid ${D.line}`,
                 borderRadius:16, padding:"20px 22px",
-                fontSize:13.5, color:"#FFD700", lineHeight:1.75,
+                fontSize:13.5, color:"#e8eaf6", lineHeight:1.75,
                 fontFamily:"Manrope,sans-serif", marginBottom:12,
               }}>
                 <MarkdownText>{explanation}</MarkdownText>
