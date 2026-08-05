@@ -8888,7 +8888,7 @@ function App() {
               <ResourceViewer
                 token={homeViewerToken}
                 initialPage={homeViewerPage}
-                onBack={() => { setHomeViewerToken(null); setHomeViewerPage(null); setTab("research-hub"); }}
+                onBack={() => { setHomeViewerToken(null); setHomeViewerPage(null); setTab("research-hub"); window.dispatchEvent(new CustomEvent("sc-practice-complete")); }}
               />
             </Suspense>
           </ErrorBoundary>

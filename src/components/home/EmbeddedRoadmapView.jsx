@@ -28,6 +28,7 @@ export default function EmbeddedRoadmapView({
   folderResources,
   onOpenResource,
   onStartStudying,
+  onGenerate,
 }) {
   const [topics, setTopics] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -81,6 +82,17 @@ export default function EmbeddedRoadmapView({
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // Refresh progress when user returns from a practice session
+  useEffect(() => {
+    const handlePracticeComplete = () => {
+      if (courseCode) {
+        fetchTopicProgress(courseCode).then(setProgress).catch(() => {});
+      }
+    };
+    window.addEventListener("sc-practice-complete", handlePracticeComplete);
+    return () => window.removeEventListener("sc-practice-complete", handlePracticeComplete);
+  }, [courseCode]);
+
   const matchesByTopic = useMemo(() => {
     const map = new Map();
     for (const m of matches) {
@@ -101,6 +113,24 @@ export default function EmbeddedRoadmapView({
       (r) => FILE_TYPES.includes(r.contentType) && !r.sourceResourceId && !matchedResourceIds.has(r.id)
     );
   }, [folderResources, matchedResourceIds]);
+
+  // Build a map of resourceId -> variants for quick lookup in TopicDetailPanel
+  const resourceVariantsMap = useMemo(() => {
+    const map = new Map();
+    for (const r of folderResources) {
+      if (r.variants) map.set(r.id, r.variants);
+    }
+    return map;
+  }, [folderResources]);
+
+  // Build a map of resourceId -> full resource object (for onGenerate which needs fileName, folderId, etc.)
+  const resourceByIdMap = useMemo(() => {
+    const map = new Map();
+    for (const r of folderResources) {
+      map.set(r.id, r);
+    }
+    return map;
+  }, [folderResources]);
 
   const stats = useMemo(() => {
     if (topics.length === 0) return null;
@@ -529,6 +559,9 @@ export default function EmbeddedRoadmapView({
                 onDispute={handleDispute}
                 locked={isTopicLocked(selectedTopic, topics, progress)}
                 isStartHere={startHereTopic?.id === selectedTopic.id}
+                resourceVariantsMap={resourceVariantsMap}
+                resourceByIdMap={resourceByIdMap}
+                onGenerate={onGenerate}
               />
             ) : (
               <div style={{ textAlign: "center", padding: "60px 20px", color: D.textMid, fontSize: 13, fontFamily: FONTS.body }}>

@@ -36,6 +36,7 @@ import masteryRoutes from "./routes/mastery.js";
 import paymentRoutes from "./routes/payment.js";
 import voiceSessionRoutes, { getActiveSession, deleteActiveSession, getActiveSessions, consumeTicket, rebuildGeminiSession } from "./routes/voiceSession.js";
 import curriculumRoutes from "./routes/curriculum.js";
+import studyCacheRoutes from "./routes/studyCache.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
@@ -141,6 +142,7 @@ app.use("/api/mastery", masteryRoutes);
 app.use("/payment", paymentRoutes);
 app.use("/api/voice-session", voiceSessionRoutes);
 app.use("/api/curriculum", curriculumRoutes);
+app.use("/api/study-cache", studyCacheRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

@@ -90,15 +90,26 @@ export function Badge({ text, bg, color }) {
   );
 }
 
-export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, onCorroborate, onDispute, locked, isStartHere }) {
+export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, onCorroborate, onDispute, locked, isStartHere, resourceVariantsMap, resourceByIdMap, onGenerate }) {
   const p = progress;
   const progressLabel = p?.label || "Not started";
   const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
   const pct = progressPct(p);
+  const contentAccessible = !locked || matches.length > 0;
 
   const subtopicCount = (topic.subtopics?.length || 0);
   const estMinutes = (subtopicCount * 5) + (matches.length * 10);
   const estTimeStr = estMinutes >= 60 ? `${Math.floor(estMinutes / 60)}h ${estMinutes % 60}m` : `~${estMinutes}m`;
+
+  // Collect all study materials from matched documents
+  const studyMaterials = matches.map(m => {
+    const variants = resourceVariantsMap?.get(m.resourceId) || { summary: null, mcq: null, flashcard: null };
+    return { match: m, variants };
+  });
+  const hasFlashcards = studyMaterials.some(sm => sm.variants?.flashcard);
+  const hasMcqs = studyMaterials.some(sm => sm.variants?.mcq);
+  const hasSummary = studyMaterials.some(sm => sm.variants?.summary);
+  const hasAnyMaterial = hasFlashcards || hasMcqs || hasSummary;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -201,7 +212,19 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
                   color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
                 }}
               >
-                Start Studying →
+                {hasAnyMaterial ? "Practice Materials →" : "Practice with AI Tutor →"}
+              </button>
+            )}
+            {!matches.length && onStartStudying && (
+              <button
+                onClick={() => onStartStudying(topic)}
+                style={{
+                  flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
+                  borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
+                  color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
+                }}
+              >
+                Practice with AI Tutor →
               </button>
             )}
             <button
@@ -261,6 +284,99 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
                 <span style={{ fontSize: 12, color: D.textHi, fontFamily: FONTS.body }}>
                   {sub}
                 </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section 3b: Study Materials (flashcards, MCQs, summaries from matched docs) */}
+      {contentAccessible && matches.length > 0 && (resourceVariantsMap || onGenerate) && (
+        <div style={{
+          background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
+        }}>
+          <div style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Study Materials
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {studyMaterials.map(({ match: m, variants }) => (
+              <div key={m.id} style={{
+                padding: "10px 12px", background: D.ink, borderRadius: 8,
+                display: "flex", flexDirection: "column", gap: 6,
+              }}>
+                <div style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body, fontStyle: "italic" }}>
+                  from: {m.resource?.title || "Unknown"}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {/* Summary */}
+                  {variants?.summary ? (
+                    <button
+                      onClick={() => onOpenResource?.(variants.summary.shareToken)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        background: "rgba(79,142,247,0.1)", border: `0.5px solid ${D.blue}33`,
+                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                        color: D.blue, cursor: "pointer", fontFamily: FONTS.body,
+                      }}
+                    >📝 Summary · Open</button>
+                  ) : onGenerate ? (
+                    <button
+                      onClick={() => onGenerate?.(resourceByIdMap?.get(m.resourceId) || m.resource, "summary")}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        background: "transparent", border: `0.5px dashed ${D.border}`,
+                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                        color: D.textLow, cursor: "pointer", fontFamily: FONTS.body,
+                      }}
+                    >+ Summary</button>
+                  ) : null}
+
+                  {/* Flashcards */}
+                  {variants?.flashcard ? (
+                    <button
+                      onClick={() => onOpenResource?.(variants.flashcard.shareToken)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        background: "rgba(61,214,140,0.1)", border: `0.5px solid ${D.green}33`,
+                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                        color: D.green, cursor: "pointer", fontFamily: FONTS.body,
+                      }}
+                    >🎴 Flashcards · Study</button>
+                  ) : onGenerate ? (
+                    <button
+                      onClick={() => onGenerate?.(resourceByIdMap?.get(m.resourceId) || m.resource, "flashcards")}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        background: "transparent", border: `0.5px dashed ${D.border}`,
+                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                        color: D.textLow, cursor: "pointer", fontFamily: FONTS.body,
+                      }}
+                    >+ Flashcards</button>
+                  ) : null}
+
+                  {/* MCQs */}
+                  {variants?.mcq ? (
+                    <button
+                      onClick={() => onOpenResource?.(variants.mcq.shareToken)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        background: "rgba(245,166,35,0.1)", border: `0.5px solid ${D.gold}33`,
+                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                        color: D.gold, cursor: "pointer", fontFamily: FONTS.body,
+                      }}
+                    >✎ MCQs · Practice</button>
+                  ) : onGenerate ? (
+                    <button
+                      onClick={() => onGenerate?.(resourceByIdMap?.get(m.resourceId) || m.resource, "mcqs")}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        background: "transparent", border: `0.5px dashed ${D.border}`,
+                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                        color: D.textLow, cursor: "pointer", fontFamily: FONTS.body,
+                      }}
+                    >+ MCQs</button>
+                  ) : null}
+                </div>
               </div>
             ))}
           </div>

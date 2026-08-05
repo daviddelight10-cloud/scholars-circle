@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { callAI } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { getStudyCache, saveStudyCache, clearStudyCache } from "../lib/studyCache.js";
 
 // ─── Session history helpers ────────────────────────────────────────────────────
 const SESSIONS_KEY = "sc_guided_sessions";
@@ -251,6 +252,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   const [isOnline, setIsOnline]         = useState(navigator.onLine);
   const [showHistory, setShowHistory]   = useState(false);
   const [sessions, setSessions]         = useState(() => loadSessions());
+  const [fromCache, setFromCache]       = useState(false);
   const mountedRef                      = useRef(true);
 
   // ── Online/offline listener ──
@@ -285,51 +287,115 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
   async function autoRoadmap(topicStr) {
     if (offlineCheck()) return;
-    setAutoError(""); setLoading(true); setLoadingMsg("Building your learning roadmap\u2026");
+    setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap\u2026");
+    const cacheTopic = initialTopic || topicStr;
     try {
+      // Try cache first
+      const cached = await getStudyCache(cacheTopic);
+      if (cached?.roadmap?.sections?.length && mountedRef.current) {
+        setRoadmap(cached.roadmap); setStudied(new Set()); setPhase("roadmap"); setFromCache(true);
+        setLoading(false);
+        return;
+      }
+      // No cache — generate via AI
+      setLoadingMsg("Building your learning roadmap\u2026");
       const result = await aiRoadmap(topicStr, aiConfig);
       if (result?.sections?.length) {
-        setRoadmap(result); setStudied(new Set()); setPhase("roadmap");
-        const entry = { topic: initialTopic || topicStr, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
+        setRoadmap(result); setStudied(new Set()); setPhase("roadmap"); setFromCache(false);
+        const entry = { topic: cacheTopic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
         saveSession(entry); setSessions(loadSessions());
+        // Save to cache
+        saveStudyCache(cacheTopic, { roadmap: result });
       } else setAutoError("Couldn't parse the roadmap \u2014 please try again.");
     } catch (e) {
       setAutoError("AI request failed: " + (e?.message || "check your connection"));
-    } finally { setLoading(false); }
+    } finally { if (mountedRef.current) setLoading(false); }
   }
 
   async function autoFlashcards(topicStr) {
     if (offlineCheck()) return;
     setAutoError(""); setFlashcards([]); setCardIdx(0); setFlipped(false);
-    setPhase("flashcards"); setLoading(true); setLoadingMsg("Generating flashcards\u2026");
+    setPhase("flashcards"); setLoading(true); setLoadingMsg("Loading cached flashcards\u2026");
+    const cacheTopic = initialTopic || topicStr;
     try {
+      // Try cache first
+      const cached = await getStudyCache(cacheTopic);
+      if (cached?.flashcards?.length && mountedRef.current) {
+        setFlashcards(cached.flashcards); setFromCache(true);
+        setLoading(false);
+        return;
+      }
+      // No cache — generate via AI
+      setLoadingMsg("Generating flashcards\u2026");
       const fakeSection = [{ id: 1, title: initialTopic }];
       const cards = await aiFlashcards(initialTopic, fakeSection, aiConfig);
-      if (cards?.length) setFlashcards(cards);
-      else setAutoError("Couldn't generate flashcards \u2014 please try again.");
+      if (cards?.length) {
+        setFlashcards(cards); setFromCache(false);
+        // Save to cache
+        saveStudyCache(cacheTopic, { flashcards: cards });
+      } else setAutoError("Couldn't generate flashcards \u2014 please try again.");
     } catch (e) {
       setAutoError("AI request failed: " + (e?.message || "check your connection"));
-    } finally { setLoading(false); }
+    } finally { if (mountedRef.current) setLoading(false); }
   }
 
   async function autoExplain(topicStr, mode) {
     if (offlineCheck()) return;
-    setAutoError(""); setLoading(true); setLoadingMsg("Building roadmap\u2026");
+    setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap\u2026");
+    const cacheTopic = initialTopic || topicStr;
     try {
-      const result = await aiRoadmap(topicStr, aiConfig);
+      // Try cache first for roadmap
+      let result = null;
+      const cached = await getStudyCache(cacheTopic);
+      if (cached?.roadmap?.sections?.length) {
+        result = cached.roadmap;
+        setFromCache(true);
+      } else {
+        // No cache — generate via AI
+        setLoadingMsg("Building roadmap\u2026");
+        result = await aiRoadmap(topicStr, aiConfig);
+        if (result?.sections?.length) {
+          setFromCache(false);
+          saveStudyCache(cacheTopic, { roadmap: result });
+        }
+      }
       if (!result?.sections?.length) { setAutoError("Couldn't build a roadmap \u2014 please try again."); return; }
       setRoadmap(result); setStudied(new Set());
       const firstSection = result.sections[0];
       setActive(firstSection); setSectionStep("explain"); setPhase("section");
+      // Try cache for explanation
+      const sectionKey = String(firstSection.id);
+      const cachedExp = cached?.explanations?.[sectionKey];
+      if (cachedExp?.text) {
+        setExplanation(cachedExp.text);
+        setStudied(new Set([firstSection.id]));
+        setLoading(false);
+        if (mode === "quiz") {
+          if (cachedExp?.question) {
+            setQData(cachedExp.question);
+            setSectionStep("question");
+          } else {
+            setSectionStep("question");
+            setLoading(true); setLoadingMsg("Generating a comprehension question\u2026");
+            const q = await aiQuestion(initialTopic, firstSection, cachedExp.text, aiConfig);
+            setQData(q);
+            saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { question: q } } });
+          }
+        }
+        return;
+      }
+      // No cache — generate explanation via AI
       setLoadingMsg("Generating explanation\u2026");
       const text = await aiExplain(initialTopic, firstSection, aiConfig);
       setExplanation(text);
       setStudied(new Set([firstSection.id]));
+      saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { text } } });
       if (mode === "quiz") {
         setSectionStep("question");
         setLoadingMsg("Generating a comprehension question\u2026");
         const q = await aiQuestion(initialTopic, firstSection, text, aiConfig);
         setQData(q);
+        saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { question: q } } });
       }
     } catch (e) {
       setAutoError("AI request failed: " + (e?.message || "check your connection"));
@@ -340,8 +406,19 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   async function handleRoadmap() {
     if (!topic.trim()) return;
     if (offlineCheck()) return;
-    setLoading(true); setLoadingMsg("Building your learning roadmap…");
+    setLoading(true); setLoadingMsg("Loading cached roadmap…");
     try {
+      // Try cache first (only if no pasted content — pasted content means custom context)
+      if (!pastedContent.trim()) {
+        const cached = await getStudyCache(topic);
+        if (cached?.roadmap?.sections?.length) {
+          setRoadmap(cached.roadmap); setStudied(new Set()); setPhase("roadmap"); setFromCache(true);
+          setLoading(false);
+          return;
+        }
+      }
+      // No cache — generate via AI
+      setLoadingMsg("Building your learning roadmap…");
       const fullTopic = pastedContent.trim()
         ? `${topic}\n\nContext provided by student:\n${pastedContent.slice(0, 2000)}`
         : topic;
@@ -349,9 +426,13 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       if (result?.sections?.length) {
         setRoadmap(result);
         setStudied(new Set());
-        setPhase("roadmap");
+        setPhase("roadmap"); setFromCache(false);
         const entry = { topic: topic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
         saveSession(entry); setSessions(loadSessions());
+        // Save to cache (only if no pasted content — pasted content is custom)
+        if (!pastedContent.trim()) {
+          saveStudyCache(topic, { roadmap: result });
+        }
       }
     } finally { setLoading(false); }
   }
@@ -361,11 +442,25 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setSectionStep("explain");
     setExplanation(""); setQData(null); setUserAnswer(""); setFeedback("");
     setPhase("section");
-    setLoading(true); setLoadingMsg("Generating explanation…");
+    setLoading(true); setLoadingMsg("Loading explanation…");
     try {
+      // Try cache for this section's explanation
+      const cached = await getStudyCache(topic);
+      const sectionKey = String(section.id);
+      const cachedExp = cached?.explanations?.[sectionKey];
+      if (cachedExp?.text) {
+        setExplanation(cachedExp.text);
+        setStudied(prev => new Set([...prev, section.id]));
+        setLoading(false);
+        return;
+      }
+      // No cache — generate via AI
+      setLoadingMsg("Generating explanation…");
       const text = await aiExplain(topic, section, aiConfig);
       setExplanation(text);
       setStudied(prev => new Set([...prev, section.id]));
+      // Save to cache
+      saveStudyCache(topic, { explanations: { [sectionKey]: { text } } });
     } finally { setLoading(false); }
   }
 
@@ -375,6 +470,11 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     try {
       const q = await aiQuestion(topic, activeSection, explanation, aiConfig);
       setQData(q);
+      // Save question to cache
+      if (activeSection) {
+        const sectionKey = String(activeSection.id);
+        saveStudyCache(topic, { explanations: { [sectionKey]: { question: q } } });
+      }
     } finally { setLoading(false); }
   }
 
@@ -391,10 +491,23 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   async function handleFlashcards(sections) {
     setFlashcards([]); setCardIdx(0); setFlipped(false);
     setPhase("flashcards");
-    setLoading(true); setLoadingMsg("Generating flashcards…");
+    setLoading(true); setLoadingMsg("Loading flashcards…");
     try {
+      // Try cache first
+      const cached = await getStudyCache(topic);
+      if (cached?.flashcards?.length) {
+        setFlashcards(cached.flashcards);
+        setLoading(false);
+        return;
+      }
+      // No cache — generate via AI
+      setLoadingMsg("Generating flashcards…");
       const cards = await aiFlashcards(topic, sections || roadmap?.sections || [], aiConfig);
       setFlashcards(cards);
+      // Save to cache
+      if (cards?.length) {
+        saveStudyCache(topic, { flashcards: cards });
+      }
     } finally { setLoading(false); }
   }
 
@@ -529,7 +642,14 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
               {sessions.map((s, i) => (
                 <div
                   key={i}
-                  onClick={() => { setTopic(s.topic); setShowHistory(false); }}
+                  onClick={async () => {
+                    setTopic(s.topic); setShowHistory(false);
+                    // Try to load from cache directly
+                    const cached = await getStudyCache(s.topic);
+                    if (cached?.roadmap?.sections?.length) {
+                      setRoadmap(cached.roadmap); setStudied(new Set()); setPhase("roadmap"); setFromCache(true);
+                    }
+                  }}
                   style={{
                     padding:"10px 14px", borderBottom: i < sessions.length-1 ? `0.5px solid ${D.line}` : "none",
                     cursor:"pointer", display:"flex", flexDirection:"column", gap:3,
@@ -599,6 +719,22 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
         <Btn variant="yellow" onClick={() => handleFlashcards(roadmap.sections)}>🃏 Generate all flashcards</Btn>
         <Btn variant="ghost" onClick={() => { setPhase("input"); setRoadmap(null); }}>← New topic</Btn>
+        {fromCache && (
+          <Btn variant="ghost" onClick={async () => {
+            await clearStudyCache(topic);
+            setFromCache(false);
+            setLoading(true); setLoadingMsg("Regenerating roadmap…");
+            try {
+              const result = await aiRoadmap(topic, aiConfig);
+              if (result?.sections?.length) {
+                setRoadmap(result); setStudied(new Set());
+                saveStudyCache(topic, { roadmap: result });
+              }
+            } catch (e) {
+              setAutoError("AI request failed: " + (e?.message || "check your connection"));
+            } finally { setLoading(false); }
+          }}>↻ Regenerate</Btn>
+        )}
       </div>
     </>
   );

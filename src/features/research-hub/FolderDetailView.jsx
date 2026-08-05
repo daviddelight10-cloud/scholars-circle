@@ -409,6 +409,7 @@ export default function FolderDetailView({
             folderResources={folderResources}
             onOpenResource={onOpen}
             onStartStudying={onStartStudying}
+            onGenerate={onGenerate}
           />
         ) : currentList.length > 0 ? (
           <div className="cs-grid grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))" }}>
