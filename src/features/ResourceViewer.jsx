@@ -33,6 +33,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam" | "arcade"
   const [mcqSessionConfig, setMcqSessionConfig] = useState(null); // { sessionType, questionCount }
   const [flashcardMode, setFlashcardMode] = useState(null); // null | "study" | "matching"
+  const [matchGameMode, setMatchGameMode] = useState("flip"); // "flip" | "visible"
 
   // Auth form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -328,9 +329,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           return <FlashcardDeckRunner resource={resource} onBack={() => setFlashcardMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
         }
         if (flashcardMode === "matching") {
-          return <MatchingPairsGame resource={resource} flashcardData={resource.flashcardData} onBack={() => setFlashcardMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+          return <MatchingPairsGame resource={resource} flashcardData={resource.flashcardData} gameMode={matchGameMode} onBack={() => setFlashcardMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
         }
-        return <FlashcardModeSelect resource={resource} onBack={handleBack} onSelect={(mode) => setFlashcardMode(mode)} />;
+        return <FlashcardModeSelect resource={resource} onBack={handleBack} onSelect={(mode, subMode) => { setFlashcardMode(mode); if (subMode) setMatchGameMode(subMode); }} />;
 
       case "tutorial_question":
         return (

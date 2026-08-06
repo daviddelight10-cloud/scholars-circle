@@ -177,7 +177,7 @@ function clearProgress(resourceId) {
 }
 
 /* ── Component ─────────────────────────────────────────────── */
-export default function MatchingPairsGame({ resource, flashcardData, onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
+export default function MatchingPairsGame({ resource, flashcardData, gameMode = "flip", onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
   const audioRef = useRef(null);
   const confettiCanvasRef = useRef(null);
   const { burst } = useConfetti(confettiCanvasRef);
@@ -217,6 +217,9 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
   const [locked, setLocked] = useState(false);
   const [matchStreak, setMatchStreak] = useState(0);
   const [mismatchedPair, setMismatchedPair] = useState(null);
+  const [selectedSet, setSelectedSet] = useState([]); // for visible mode
+  const [removingSet, setRemovingSet] = useState(new Set()); // for visible mode removal anim
+  const [wrongPair, setWrongPair] = useState(null); // for visible mode wrong anim
   const [soundOn, setSoundOn] = useState(true);
   const [streakToast, setStreakToast] = useState({ show: false, msg: "" });
   const [xpToast, setXpToast] = useState({ show: false, amount: 0 });
@@ -297,6 +300,9 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
     setLocked(false);
     setMatchStreak(0);
     setMismatchedPair(null);
+    setSelectedSet([]);
+    setRemovingSet(new Set());
+    setWrongPair(null);
     setGameState("playing");
 
     // Start timer
@@ -350,7 +356,7 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
         if (isMatch) {
           const newStreak = matchStreak + 1;
           setMatchStreak(newStreak);
-          setMatchedSet(prev => new Set(prev).add(a.idx, b.idx));
+          setMatchedSet(prev => { const s = new Set(prev); s.add(a.idx); s.add(b.idx); return s; });
           playSound("match");
           vibrate(newStreak >= 2 ? [30, 40, 30] : 25);
 
@@ -363,9 +369,10 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
 
           if (newStreak >= 2) showStreakToastMsg(`🔥 ${newStreak} in a row!`);
 
-          // Check if level complete
+          // Check if level complete (compute from current matchedSet + the 2 we just added)
           const totalPairs = deck.length / 2;
-          if (matchedSet.size / 2 + 1 >= totalPairs) {
+          const newMatchedCount = matchedSet.size / 2 + 1;
+          if (newMatchedCount >= totalPairs) {
             // Level complete!
             setTimeout(() => completeLevel(), 300);
           }
@@ -381,6 +388,77 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
         setFlipped([]);
         setLocked(false);
       }, 600);
+    }
+  }
+
+  // Handle card select (visible mode)
+  function handleSelect(idx) {
+    if (locked) return;
+    if (matchedSet.has(idx)) return;
+    if (removingSet.has(idx)) return;
+
+    // Toggle off if already selected
+    const alreadyIdx = selectedSet.indexOf(idx);
+    if (alreadyIdx !== -1) {
+      setSelectedSet(selectedSet.filter(i => i !== idx));
+      return;
+    }
+    if (selectedSet.length === 2) return;
+
+    playSound("flip");
+    const newSelected = [...selectedSet, idx];
+    setSelectedSet(newSelected);
+
+    if (newSelected.length === 2) {
+      setMoves(m => m + 1);
+      setLocked(true);
+      const [aIdx, bIdx] = newSelected;
+      const cardA = deck[aIdx];
+      const cardB = deck[bIdx];
+      const isMatch = cardA.pairId === cardB.pairId && cardA.type !== cardB.type;
+
+      if (isMatch) {
+        const newStreak = matchStreak + 1;
+        setMatchStreak(newStreak);
+        playSound("match");
+        vibrate(newStreak >= 2 ? [30, 40, 30] : 25);
+
+        // Confetti at card position
+        const cardEl = document.querySelector(`[data-card-idx="${aIdx}"]`);
+        if (cardEl) {
+          const rect = cardEl.getBoundingClientRect();
+          burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 14);
+        }
+
+        if (newStreak >= 2) showStreakToastMsg(`🔥 ${newStreak} in a row!`);
+
+        // Add to matched set, start removal animation
+        setMatchedSet(prev => { const s = new Set(prev); s.add(aIdx); s.add(bIdx); return s; });
+        setRemovingSet(prev => { const s = new Set(prev); s.add(aIdx); s.add(bIdx); return s; });
+        setSelectedSet([]);
+
+        // Check level complete
+        const totalPairs = deck.length / 2;
+        const newMatchedCount = matchedSet.size / 2 + 1;
+        if (newMatchedCount >= totalPairs) {
+          setTimeout(() => completeLevel(), 600);
+        }
+
+        // Unlock after removal animation
+        setTimeout(() => {
+          setLocked(false);
+        }, 600);
+      } else {
+        setMatchStreak(0);
+        setWrongPair([aIdx, bIdx]);
+        playSound("mismatch");
+        vibrate(60);
+        setTimeout(() => {
+          setWrongPair(null);
+          setSelectedSet([]);
+          setLocked(false);
+        }, 500);
+      }
     }
   }
 
@@ -682,53 +760,43 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
       <div style={{
         width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh",
         display: "flex", flexDirection: "column",
-        padding: "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))",
+        padding: isMobile
+          ? "max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom))"
+          : "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))",
       }}>
         {/* ── Playing screen ── */}
         {gameState === "playing" && deck.length > 0 && (
           <>
-            {/* Topbar */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* Topbar — compact */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 6, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button onClick={() => setShowExitConfirm(true)} style={{
-                  width: 34, height: 34, borderRadius: 10,
+                  width: 30, height: 30, borderRadius: 8,
                   background: "rgba(255,255,255,0.04)", border: `1px solid ${cardBorder}`,
                   color: textDim, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 16, cursor: "pointer", flexShrink: 0,
+                  fontSize: 14, cursor: "pointer", flexShrink: 0,
                 }}>✕</button>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: textDim }}>
-                  Matching Pairs
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>
+                  Lv {currentLevel + 1}/{totalLevels}
                 </span>
               </div>
-              <div style={{ display: "flex", gap: 14, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, alignItems: "center" }}>
                 <span style={{ color: green }}>{matchedPairs}/{totalPairs}</span>
-                <span style={{ color: blue }}>{moves} moves</span>
+                <span style={{ color: blue }}>{moves}</span>
                 <span style={{ color: gold }}>{fmtTime(seconds)}</span>
                 <button onClick={toggleSound} style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
                   color: soundOn ? blue : textDim,
                   border: `1px solid ${soundOn ? "rgba(0,229,255,0.35)" : cardBorder}`,
-                  background: "transparent", padding: "4px 8px", borderRadius: 8, cursor: "pointer",
+                  background: "transparent", padding: "3px 6px", borderRadius: 6, cursor: "pointer",
                 }}>{soundOn ? "🔊" : "🔇"}</button>
               </div>
             </div>
 
-            {/* Level indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-              <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: "-0.01em" }}>
-                Level {currentLevel + 1}
-              </h1>
-              <span style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: textDim,
-                border: `1px solid ${cardBorder}`, padding: "2px 8px", borderRadius: 10,
-              }}>{currentLevel + 1} / {totalLevels}</span>
-            </div>
-            <p style={{ color: textDim, fontSize: 13, marginBottom: 10 }}>Tap two cards to flip. Term ↔ definition.</p>
-
             {/* Progress bar */}
             <div style={{
-              height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 4,
-              marginBottom: 14, overflow: "hidden",
+              height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 4,
+              marginBottom: 8, overflow: "hidden", flexShrink: 0,
             }}>
               <div style={{
                 height: "100%", borderRadius: 4,
@@ -740,12 +808,60 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
 
             {/* Card grid */}
             <div style={{
-              display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10,
-              perspective: 800, flex: 1, alignContent: "center",
+              display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+              gap: isMobile ? 6 : 10,
+              perspective: gameMode === "flip" ? 800 : undefined,
+              flex: 1, alignContent: "center",
+              minHeight: 0,
             }}>
               {deck.map((card, idx) => {
-                const isFlipped = flipped.some(f => f.idx === idx);
                 const isMatched = matchedSet.has(idx);
+                const isRemoving = removingSet.has(idx);
+
+                if (gameMode === "visible") {
+                  const isSelected = selectedSet.includes(idx);
+                  const isWrong = wrongPair?.includes(idx);
+                  return (
+                    <div
+                      key={idx}
+                      data-card-idx={idx}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${card.type === "term" ? "Term" : "Definition"}: ${card.text}`}
+                      onClick={() => handleSelect(idx)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSelect(idx); }
+                      }}
+                      style={{
+                        aspectRatio: "1 / 1",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        textAlign: "center", padding: 8,
+                        borderRadius: 10,
+                        background: isMatched ? "rgba(74,222,128,0.15)" : isSelected ? "rgba(0,229,255,0.1)" : isWrong ? "rgba(255,94,126,0.15)" : cardBg,
+                        border: `1.5px solid ${isMatched ? green : isSelected ? blue : isWrong ? coral : cardBorder}`,
+                        borderLeft: `3px solid ${card.type === "term" ? blue : "rgba(255,255,255,0.18)"}`,
+                        color: isMatched ? green : isWrong ? coral : card.type === "term" ? blue : textHi,
+                        fontSize: isMobile ? "clamp(8px, 2.8vw, 11px)" : "clamp(9.5px, 3.1vw, 12px)",
+                        lineHeight: 1.28, fontWeight: 600,
+                        overflow: "hidden", wordBreak: "break-word", hyphens: "auto",
+                        cursor: isMatched || isRemoving || locked ? "default" : "pointer",
+                        userSelect: "none", WebkitTapHighlightColor: "transparent",
+                        boxShadow: isSelected ? "0 0 0 2px rgba(0,229,255,0.25)" : "none",
+                        opacity: isRemoving ? 0 : 1,
+                        transform: isRemoving ? "scale(0.5)" : isMatched ? "scale(1)" : "scale(1)",
+                        pointerEvents: isRemoving ? "none" : "auto",
+                        transition: "border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, opacity 0.32s ease, transform 0.35s cubic-bezier(0.4,0,0.2,1)",
+                        ...(isMatched && !isRemoving ? { animation: "mpPop2 0.4s ease" } : {}),
+                        ...(isWrong ? { animation: "mpShake2 0.35s ease" } : {}),
+                      }}
+                    >
+                      {card.text}
+                    </div>
+                  );
+                }
+
+                // Flip mode rendering (existing 3D card)
+                const isFlipped = flipped.some(f => f.idx === idx);
                 const isMismatched = mismatchedPair?.includes(idx);
                 const showFront = isFlipped || isMatched;
 
@@ -761,18 +877,13 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
                       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleFlip(idx); }
                     }}
                     style={{
-                      aspectRatio: "1 / 1.1",
+                      aspectRatio: "1 / 1",
                       position: "relative",
                       cursor: isMatched || locked ? "default" : "pointer",
-                      borderRadius: 12,
+                      borderRadius: 10,
                     }}
                   >
-                    <div className={
-                      (isFlipped || isMatched ? "mp-flipped" : "") +
-                      (isMatched ? " mp-matched" : "") +
-                      (isMismatched ? " mp-mismatch" : "") +
-                      (isMismatched ? " mp-shake" : "")
-                    } style={{
+                    <div style={{
                       width: "100%", height: "100%", position: "relative",
                       transformStyle: "preserve-3d",
                       transition: "transform 0.4s cubic-bezier(0.4,0,0.2,1)",
@@ -801,7 +912,7 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
                         background: isMatched ? "rgba(74,222,128,0.12)" : isMismatched ? "rgba(255,94,126,0.15)" : cardBg,
                         border: `1px solid ${isMatched ? green : isMismatched ? coral : cardBorder}`,
                         color: isMatched ? green : isMismatched ? coral : card.type === "term" ? blue : textHi,
-                        fontSize: "clamp(9.5px, 3.1vw, 12px)",
+                        fontSize: isMobile ? "clamp(8px, 2.8vw, 11px)" : "clamp(9.5px, 3.1vw, 12px)",
                         lineHeight: 1.28, fontWeight: 600,
                         overflow: "hidden", wordBreak: "break-word", hyphens: "auto",
                         ...(isMatched ? { animation: "mpGlowPulse 0.8s ease" } : {}),
@@ -933,6 +1044,18 @@ export default function MatchingPairsGame({ resource, flashcardData, onBack, onQ
         @keyframes mpXpPop {
           0% { transform: translateX(-50%) translateY(-10px); opacity: 0; }
           100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        @keyframes mpPop2 {
+          0% { transform: scale(1); }
+          40% { transform: scale(1.12); }
+          100% { transform: scale(1); }
+        }
+        @keyframes mpShake2 {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-6px) rotate(-1deg); }
+          40% { transform: translateX(6px) rotate(1deg); }
+          60% { transform: translateX(-4px); }
+          80% { transform: translateX(4px); }
         }
         button:focus-visible {
           outline: 2px solid ${gold};

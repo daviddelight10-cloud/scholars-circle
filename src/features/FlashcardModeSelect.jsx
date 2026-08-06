@@ -35,6 +35,7 @@ const MODE_DATA = {
 
 export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
   const [mode, setMode] = useState("study");
+  const [matchMode, setMatchMode] = useState("flip");
   const [fadeKey, setFadeKey] = useState(0);
   const [savedProgress, setSavedProgress] = useState(null);
 
@@ -63,7 +64,11 @@ export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
   };
 
   const handleStart = () => {
-    onSelect(mode);
+    if (mode === "matching") {
+      onSelect("matching", matchMode);
+    } else {
+      onSelect(mode);
+    }
   };
 
   const modeTabs = [
@@ -220,6 +225,48 @@ export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
             ))}
           </div>
 
+          {/* Sub-mode toggle for matching */}
+          {mode === "matching" && (
+            <div style={{ marginBottom: 16, position: "relative", zIndex: 2 }}>
+              <div style={{
+                display: "flex", gap: 8,
+              }}>
+                <button
+                  onClick={() => setMatchMode("flip")}
+                  style={{
+                    flex: 1, padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                    background: matchMode === "flip" ? "rgba(0,229,255,0.12)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${matchMode === "flip" ? "rgba(0,229,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                    color: matchMode === "flip" ? "#00E5FF" : "#9AA3B2",
+                    fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 13,
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>🃏</span>
+                  <span>Flip (Recall)</span>
+                  <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>Cards face down</span>
+                </button>
+                <button
+                  onClick={() => setMatchMode("visible")}
+                  style={{
+                    flex: 1, padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                    background: matchMode === "visible" ? "rgba(0,229,255,0.12)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${matchMode === "visible" ? "rgba(0,229,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                    color: matchMode === "visible" ? "#00E5FF" : "#9AA3B2",
+                    fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 13,
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>👁</span>
+                  <span>Visible (Quick)</span>
+                  <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>All cards visible</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Saved progress (matching mode only) */}
           {mode === "matching" && savedProgress && (
             <div style={{
@@ -276,7 +323,7 @@ export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
           marginTop: 16,
           lineHeight: 1.5,
         }}>
-          {mode === "study" ? "Best for learning — flip and grade yourself." : "Fun memory game — match terms to definitions across levels."}
+          {mode === "study" ? "Best for learning — flip and grade yourself." : matchMode === "flip" ? "Recall-based — cards start face down. Tests memory." : "Recognition-based — all cards visible. Quick and fun!"}
         </div>
       </div>
 
