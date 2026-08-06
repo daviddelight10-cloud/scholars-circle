@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { recordPracticeResult, getWeakSpotQuestions } from "../lib/studyHistory.js";
+import { callAI, extractJSON } from "../lib/aiClient.js";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
@@ -9,7 +10,7 @@ const LANES = 3;
 const CENTER_LANE = (LANES - 1) / 2;
 const START_LANE = Math.floor(CENTER_LANE);
 const CARD_W_DESKTOP = 160;
-const CARD_W_MOBILE = 120;
+const CARD_W_MOBILE = 155;
 const MAX_LIVES = 3;
 const POWERUP_SPAWN_CHANCE = 0.28;
 const MAX_SHIELDS = 2;
@@ -22,6 +23,10 @@ const SPEED_OPTIONS = [
   { label: "1.5x", value: 1.5 },
 ];
 const DEFAULT_SPEED_IDX = 1;
+const ARCADE_BATCH_SIZE = 30;
+const ARCADE_MAX_ANSWER_CHARS = 20;
+const ARCADE_MAX_QUESTION_CHARS = 80;
+const ARCADE_CACHE_PREFIX = "sc_arcade_short_";
 
 /* ── MCQ → game question mapping ────────────────────────────── */
 function mcqToGameQuestion(mcq, index) {
@@ -58,6 +63,120 @@ function shuffleArray(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+/* ── AI short-answer generation for arcade mode ─────────────── */
+function getArcadeCacheKey(resourceId, questionCount) {
+  return `${ARCADE_CACHE_PREFIX}${resourceId}_${questionCount}`;
+}
+
+function loadArcadeCache(resourceId, questionCount) {
+  try {
+    const key = getArcadeCacheKey(resourceId, questionCount);
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > 7 * 24 * 60 * 60 * 1000) { localStorage.removeItem(key); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function saveArcadeCache(resourceId, questionCount, data) {
+  try {
+    localStorage.setItem(getArcadeCacheKey(resourceId, questionCount), JSON.stringify({ data, ts: Date.now() }));
+  } catch {}
+}
+
+function buildShortenPrompt(mcqs) {
+  const items = mcqs.map((m, i) => {
+    const opts = m.options || {};
+    const optArr = Array.isArray(opts) ? opts : Object.values(opts);
+    const correctIdx = typeof m.correct === "string" ? m.correct.charCodeAt(0) - 65 : (m.correct || 0);
+    return `${i + 1}. Q: ${m.question}\n   A: ${optArr[0] || ""}\n   B: ${optArr[1] || ""}\n   C: ${optArr[2] || ""}\n   D: ${optArr[3] || ""}\n   Correct: ${["A","B","C","D"][correctIdx] || "A"}`;
+  }).join("\n\n");
+
+  return `You are an expert at simplifying quiz questions for a fast-paced arcade game. Rewrite each question below so that:
+1. Every answer option is AT MOST ${ARCADE_MAX_ANSWER_CHARS} characters — use single words, short phrases, or abbreviations (e.g. "Carbon", "Mitosis", "H2O", "True", "1923").
+2. The question text is AT MOST ${ARCADE_MAX_QUESTION_CHARS} characters — keep the core meaning but make it concise.
+3. Keep exactly 4 options (A, B, C, D) and preserve which one is correct.
+4. Do NOT change the subject matter — just shorten the wording.
+5. If an answer is already ≤${ARCADE_MAX_ANSWER_CHARS} chars, keep it as-is.
+
+Return ONLY a valid JSON array. No markdown, no code fences, no extra text.
+Each item: {"index": number (1-based), "question": string, "options": {"A":"...","B":"...","C":"...","D":"..."}, "correct": "A"|"B"|"C"|"D"}
+
+Questions to shorten:
+${items}`;
+}
+
+async function generateShortAnswers(rawParsed, resourceId, onProgress) {
+  const questionCount = rawParsed.length;
+
+  // Check cache first
+  const cached = loadArcadeCache(resourceId, questionCount);
+  if (cached) return cached;
+
+  // Batch process
+  const batches = [];
+  for (let i = 0; i < rawParsed.length; i += ARCADE_BATCH_SIZE) {
+    batches.push(rawParsed.slice(i, i + ARCADE_BATCH_SIZE));
+  }
+
+  const resultMap = new Map(); // global index → shortened mcq
+
+  for (let b = 0; b < batches.length; b++) {
+    onProgress?.(`Shortening answers… (${Math.min((b + 1) * ARCADE_BATCH_SIZE, rawParsed.length)}/${rawParsed.length})`);
+    const prompt = buildShortenPrompt(batches[b]);
+    const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+    const parsed = extractJSON(raw, "array");
+
+    for (const item of parsed) {
+      const batchIdx = (item.index || 1) - 1;
+      const origMcq = batches[b][batchIdx];
+      if (!origMcq) continue;
+
+      const globalIdx = b * ARCADE_BATCH_SIZE + batchIdx;
+      const origOpts = origMcq.options || {};
+      const origOptArr = Array.isArray(origOpts) ? origOpts : Object.values(origOpts);
+      const origCorrectIdx = typeof origMcq.correct === "string"
+        ? origMcq.correct.charCodeAt(0) - 65
+        : (origMcq.correct || 0);
+
+      const newOpts = item.options || {};
+      const newOptArr = [
+        newOpts.A || origOptArr[0] || "",
+        newOpts.B || origOptArr[1] || "",
+        newOpts.C || origOptArr[2] || "",
+        newOpts.D || origOptArr[3] || "",
+      ];
+
+      // Truncate any answer that's still too long
+      const truncated = newOptArr.map(o => o.length > ARCADE_MAX_ANSWER_CHARS
+        ? o.slice(0, ARCADE_MAX_ANSWER_CHARS - 1) + "…" : o);
+
+      // Map correct index — AI should preserve it, but verify
+      let newCorrectIdx = origCorrectIdx;
+      if (item.correct && typeof item.correct === "string") {
+        const idx = ["A","B","C","D"].indexOf(item.correct.toUpperCase());
+        if (idx >= 0) newCorrectIdx = idx;
+      }
+
+      resultMap.set(globalIdx, {
+        ...origMcq,
+        question: (item.question || origMcq.question).slice(0, ARCADE_MAX_QUESTION_CHARS),
+        options: { A: truncated[0], B: truncated[1], C: truncated[2], D: truncated[3] },
+        correct: ["A","B","C","D"][newCorrectIdx],
+        explanation: origMcq.explanation || "",
+      });
+    }
+  }
+
+  // Build final array, filling missing indices with originals
+  const allResults = rawParsed.map((orig, i) => resultMap.get(i) || orig);
+
+  // Save cache
+  saveArcadeCache(resourceId, questionCount, allResults);
+  return allResults;
 }
 
 /* ── Audio system (Web Audio API — ported from prototype) ──── */
@@ -149,6 +268,11 @@ export default function FlashcardRunner({
   const [isPaused, setIsPaused] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(DEFAULT_SPEED_IDX);
   const [playerLaneDisplay, setPlayerLaneDisplay] = useState(START_LANE);
+  const [arcadeLoading, setArcadeLoading] = useState(false);
+  const [arcadeError, setArcadeError] = useState("");
+  const [arcadeProgress, setArcadeProgress] = useState("");
+  const [shortQuestions, setShortQuestions] = useState(null);
+  const arcadeLoadingRef = useRef(false);
   const toastTimeoutRef = useRef(null);
   const explanationTimeoutRef = useRef(null);
   const spawnTimeoutRef = useRef(null);
@@ -171,19 +295,20 @@ export default function FlashcardRunner({
   }, [resource]);
 
   const gameQuestions = useMemo(() => {
-    if (!rawParsed.length) return [];
-    let sorted = rawParsed;
+    const source = shortQuestions || rawParsed;
+    if (!source.length) return [];
+    let sorted = source;
     if (resource?.id) {
       try {
-        sorted = getWeakSpotQuestions(resource.id, rawParsed);
+        sorted = getWeakSpotQuestions(resource.id, source);
       } catch {
-        sorted = shuffleArray(rawParsed);
+        sorted = shuffleArray(source);
       }
     } else {
-      sorted = shuffleArray(rawParsed);
+      sorted = shuffleArray(source);
     }
     return sorted.map((mcq, i) => mcqToGameQuestion(mcq, i));
-  }, [rawParsed, resource]);
+  }, [rawParsed, resource, shortQuestions]);
 
   const G = useRef(null);
 
@@ -489,7 +614,8 @@ export default function FlashcardRunner({
 
   function getLaneSep() {
     const W = getCanvasWidth();
-    return Math.min(W * 0.3, 220);
+    const minSep = cardWidthRef.current + 20;
+    return Math.max(minSep, Math.min(W * 0.3, 220));
   }
 
   function getLaneX(lane, depth) {
@@ -615,7 +741,37 @@ export default function FlashcardRunner({
   }
 
   /* ── Start game ─────────────────────────────────────────── */
-  function startGame() {
+  async function startGame() {
+    // If we already have short questions, start immediately
+    if (shortQuestions) {
+      beginGame();
+      return;
+    }
+
+    // Generate short answers via AI
+    if (arcadeLoadingRef.current) return;
+    arcadeLoadingRef.current = true;
+    setArcadeLoading(true);
+    setArcadeError("");
+    setArcadeProgress("Preparing arcade questions…");
+
+    try {
+      const shortened = await generateShortAnswers(rawParsed, resource?.id, setArcadeProgress);
+      setShortQuestions(shortened);
+      setArcadeLoading(false);
+      setArcadeProgress("");
+      arcadeLoadingRef.current = false;
+      // Start game after state updates
+      setTimeout(() => beginGame(), 50);
+    } catch (err) {
+      setArcadeLoading(false);
+      setArcadeProgress("");
+      setArcadeError(err.message || "Failed to generate arcade questions. Please try again.");
+      arcadeLoadingRef.current = false;
+    }
+  }
+
+  function beginGame() {
     if (!audioRef.current) audioRef.current = createAudioSystem();
     audioRef.current.start();
     if (spawnTimeoutRef.current) clearTimeout(spawnTimeoutRef.current);
@@ -1918,23 +2074,78 @@ export default function FlashcardRunner({
 
             {sessionMode !== "custom" && <div style={{ marginBottom: 20 }} />}
 
-            <button onClick={startGame} style={{
-              padding: "16px 40px",
-              borderRadius: 14,
-              border: "none",
-              background: "linear-gradient(135deg, #FF5E7E, #FFB627)",
-              color: "#06080f",
-              fontSize: 16,
-              fontWeight: 800,
-              cursor: "pointer",
-              marginBottom: 24,
-              transition: "transform 0.15s ease",
-              boxShadow: "0 4px 24px rgba(255,94,126,0.3)",
-            }}
-            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
-            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-            >Start Running →</button>
+            {/* Arcade loading state */}
+            {arcadeLoading && (
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 14,
+                marginBottom: 24,
+              }}>
+                <div style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  border: "3px solid rgba(255,182,39,0.2)",
+                  borderTopColor: "#FFB627",
+                  animation: "arcadeSpin 0.8s linear infinite",
+                }} />
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#FFB627" }}>
+                  {arcadeProgress || "Preparing…"}
+                </div>
+              </div>
+            )}
+
+            {/* Arcade error state */}
+            {arcadeError && !arcadeLoading && (
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 14,
+                marginBottom: 24,
+              }}>
+                <div style={{
+                  fontSize: 13,
+                  color: "#FF6B5E",
+                  textAlign: "center",
+                  maxWidth: 300,
+                  lineHeight: 1.5,
+                }}>{arcadeError}</div>
+                <button onClick={startGame} style={{
+                  padding: "12px 28px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,107,94,0.4)",
+                  background: "rgba(255,107,94,0.1)",
+                  color: "#FF6B5E",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}>Retry</button>
+              </div>
+            )}
+
+            {/* Normal start button */}
+            {!arcadeLoading && !arcadeError && (
+              <button onClick={startGame} style={{
+                padding: "16px 40px",
+                borderRadius: 14,
+                border: "none",
+                background: "linear-gradient(135deg, #FF5E7E, #FFB627)",
+                color: "#06080f",
+                fontSize: 16,
+                fontWeight: 800,
+                cursor: "pointer",
+                marginBottom: 24,
+                transition: "transform 0.15s ease",
+                boxShadow: "0 4px 24px rgba(255,94,126,0.3)",
+              }}
+              onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
+              onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+              >Start Running →</button>
+            )}
             <div style={{
               display: "flex",
               gap: 16,
@@ -1956,7 +2167,7 @@ export default function FlashcardRunner({
               maxWidth: 300,
               lineHeight: 1.6,
             }}>
-              Switch to the correct answer lane before the card reaches you. Missed questions resurface sooner if you keep getting them wrong. First 3 questions are warm-up! Use the speed button to slow down or speed up.
+              Switch to the correct answer lane before the card reaches you. Questions are shortened for fast-paced play. Missed questions resurface sooner. First 3 are warm-up! Use the speed button to slow down or speed up.
             </div>
           </div>
         )}
@@ -2113,6 +2324,9 @@ export default function FlashcardRunner({
         @keyframes explanationFadeIn {
           0% { transform: translateX(-50%) scale(0.85); opacity: 0; }
           100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+        @keyframes arcadeSpin {
+          to { transform: rotate(360deg); }
         }
         button:focus-visible {
           outline: 2px solid #FFB627;
