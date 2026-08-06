@@ -393,6 +393,7 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
             onClick={handleStart}
             style={{
               width: "100%",
+              boxSizing: "border-box",
               padding: 16,
               borderRadius: 14,
               border: `1.5px solid ${d.accent}`,
