@@ -447,6 +447,8 @@ function SessionOption({ label, count, selected, accent, badge, onClick }) {
     <button
       onClick={onClick}
       style={{
+        width: "100%",
+        boxSizing: "border-box",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
