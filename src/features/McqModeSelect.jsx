@@ -72,7 +72,7 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
   }, [resource]);
 
   const weakCount = weakSpots.length;
-  const showSessionOptions = mode === "practice" && questionCount > 20;
+  const showSessionOptions = mode === "practice" && questionCount > 5;
 
   const modeIndex = mode === "practice" ? 0 : mode === "exam" ? 1 : 2;
 
@@ -82,6 +82,7 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
     if (sessionType === "quick10") return Math.min(10, questionCount);
     if (sessionType === "quick20") return Math.min(20, questionCount);
     if (sessionType === "quick30") return Math.min(30, questionCount);
+    if (sessionType === "survival") return questionCount;
     return questionCount;
   }, [mode, sessionType, questionCount, weakCount]);
 
@@ -383,6 +384,14 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
                     onClick={() => setSessionType("quick30")}
                   />
                 )}
+                <SessionOption
+                  label="🔥 Streak Survival"
+                  count={questionCount}
+                  selected={sessionType === "survival"}
+                  accent="#FF5E7E"
+                  badge="endless"
+                  onClick={() => setSessionType("survival")}
+                />
               </div>
             </div>
           )}
@@ -415,7 +424,11 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
             onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
             onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           >
-            {mode === "practice" && showSessionOptions ? `Start — ${sessionQuestionCount} Questions →` : d.cta}
+            {mode === "practice" && showSessionOptions
+              ? sessionType === "survival"
+                ? "Start Streak Survival →"
+                : `Start — ${sessionQuestionCount} Questions →`
+              : d.cta}
           </button>
         </div>
 

@@ -5,6 +5,7 @@ import { copyShareToken } from "../lib/researchUtils.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { callAI } from "../lib/aiClient.js";
 import { recordPracticeResult, getWeakSpotQuestions } from "../lib/studyHistory.js";
+import McqSurvivalRunner from "./McqSurvivalRunner.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
@@ -65,6 +66,21 @@ export default function McqQuizRunner({ resource, shareToken, sessionConfig, onB
     }
     return [];
   }, [resource]);
+
+  // Survival mode — render dedicated component
+  if (sessionConfig?.sessionType === "survival" && rawQuestions.length > 0) {
+    return (
+      <McqSurvivalRunner
+        resource={resource}
+        shareToken={shareToken}
+        questions={rawQuestions}
+        onBack={onBack}
+        onQuizComplete={onQuizComplete}
+        onStreakUpdate={onStreakUpdate}
+        onXpUpdate={onXpUpdate}
+      />
+    );
+  }
 
   const [shuffledQuestions, setShuffledQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
