@@ -585,7 +585,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       background: "#06080f",
       display: "flex",
       flexDirection: "column",
-      overflow: "hidden",
+      overflowY: "auto",
+      overflowX: "hidden",
     } : { padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
       {/* Back button — hidden for flashcard decks and MCQs (they have their own) */}
       {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && (
