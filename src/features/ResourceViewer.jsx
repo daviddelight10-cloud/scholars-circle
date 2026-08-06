@@ -575,8 +575,18 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const isPremiumResource = resource?.isPremium || trialInfo?.isPremium || false;
   const allowed = trialInfo ? trialInfo.allowed : (user?.isActivated ?? true);
 
+  const isMcqContent = resource?.contentType === "mcq";
+
   return (
-    <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
+    <div style={isMcqContent ? {
+      position: "fixed",
+      inset: 0,
+      zIndex: 9999,
+      background: "#06080f",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+    } : { padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
       {/* Back button — hidden for flashcard decks and MCQs (they have their own) */}
       {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && (
         <button
@@ -676,9 +686,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
       {/* Content or Auth Overlay */}
       {authCase === "loggedin" && (allowed || (!trialInfo && !isPremiumResource)) ? (
-        <div style={{ marginBottom: "16px" }}>{renderContent()}</div>
+        <div style={isMcqContent ? { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 } : { marginBottom: "16px" }}>{renderContent()}</div>
       ) : authCase !== "loggedin" ? (
-        <div style={{ marginBottom: "16px" }}>{renderAuthOverlay()}</div>
+        <div style={isMcqContent ? { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 } : { marginBottom: "16px" }}>{renderAuthOverlay()}</div>
       ) : null}
 
       {/* Share button — not rendered for MCQ or flashcard decks (they own their own back/share) */}
