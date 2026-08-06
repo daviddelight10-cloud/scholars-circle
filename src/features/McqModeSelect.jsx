@@ -119,12 +119,11 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      justifyContent: "center",
       padding: "32px 16px 60px",
       fontFamily: "Manrope, sans-serif",
       color: "#F2F4F8",
     }}>
-      <div style={{ width: "100%", maxWidth: 480 }}>
+      <div style={{ width: "100%", maxWidth: 480, margin: "auto 0" }}>
         {/* Back button */}
         <button
           onClick={onBack}
