@@ -5,16 +5,23 @@ const API_BASE =
   import.meta.env.VITE_API_BASE ||
   import.meta.env.VITE_API_BASE_URL ||
   "https://scholars-circle-production.up.railway.app";
-const XP_PER_CORRECT = 20;
 const LANES = 3;
 const CENTER_LANE = (LANES - 1) / 2;
 const START_LANE = Math.floor(CENTER_LANE);
-const CARD_W = 160;
+const CARD_W_DESKTOP = 160;
+const CARD_W_MOBILE = 120;
 const MAX_LIVES = 3;
 const POWERUP_SPAWN_CHANCE = 0.28;
 const MAX_SHIELDS = 2;
 const WARMUP_QUESTIONS = 3;
 const MAX_REVIEW_QUEUE = 5;
+const SPEED_OPTIONS = [
+  { label: "0.5x", value: 0.5 },
+  { label: "0.75x", value: 0.75 },
+  { label: "1x", value: 1 },
+  { label: "1.5x", value: 1.5 },
+];
+const DEFAULT_SPEED_IDX = 1;
 
 /* ── MCQ → game question mapping ────────────────────────────── */
 function mcqToGameQuestion(mcq, index) {
@@ -132,16 +139,24 @@ export default function FlashcardRunner({
   const [missedReview, setMissedReview] = useState([]);
   const [powerupBadges, setPowerupBadges] = useState({ shield: 0, slowmo: false });
   const [toast, setToast] = useState({ text: "", type: "", show: false });
-  const [hudState, setHudState] = useState({ score: 0, streak: 0, combo: 1, lives: MAX_LIVES });
+  const [hudState, setHudState] = useState({ score: 0, streak: 0, combo: 1, lives: MAX_LIVES, progress: 0, target: 0 });
   const [questionDisplay, setQuestionDisplay] = useState({ text: "", label: "", isReview: false });
   const [sessionMode, setSessionMode] = useState("standard");
   const [customCount, setCustomCount] = useState(15);
   const [explanationDisplay, setExplanationDisplay] = useState({ text: "", correctAnswer: "", isCorrect: false, show: false });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speedIdx, setSpeedIdx] = useState(DEFAULT_SPEED_IDX);
+  const [playerLaneDisplay, setPlayerLaneDisplay] = useState(START_LANE);
   const toastTimeoutRef = useRef(null);
   const explanationTimeoutRef = useRef(null);
+  const spawnTimeoutRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0, active: false });
+  const ctxRef = useRef(null);
+  const cachedGradientsRef = useRef({});
+  const cardWidthRef = useRef(CARD_W_DESKTOP);
+  const playerLaneDisplayRef = useRef(START_LANE);
 
   /* Parse MCQ data */
   const rawParsed = useMemo(() => {
@@ -196,6 +211,7 @@ export default function FlashcardRunner({
       warmupRemaining: WARMUP_QUESTIONS,
       targetCount,
       missTracker: {},
+      sessionMode,
     };
     for (let i = 0; i < starCount; i++) {
       G.current.stars.push({
@@ -219,8 +235,11 @@ export default function FlashcardRunner({
     canvas.height = rect.height * dpr;
     canvas.style.width = rect.width + "px";
     canvas.style.height = rect.height + "px";
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctxRef.current = ctx;
+    cardWidthRef.current = rect.width < 400 ? CARD_W_MOBILE : CARD_W_DESKTOP;
+    cachedGradientsRef.current = {};
   }, []);
 
   /* ── Spawn next question ────────────────────────────────── */
@@ -268,10 +287,13 @@ export default function FlashcardRunner({
     }
     const canvas = canvasRef.current;
     const ctx = canvas ? canvas.getContext("2d") : null;
-    g.answers = allAnswers.map((text, lane) => ({
-      text, lane, isCorrect: text === q.a,
-      fitFontSize: ctx ? fitAnswerFontSize(ctx, text) : 16,
-    }));
+    g.answers = allAnswers.map((text, lane) => {
+      const fit = ctx ? fitAnswerFontSize(ctx, text) : { fontSize: 16, text };
+      return {
+        text: fit.text, lane, isCorrect: text === q.a,
+        fitFontSize: fit.fontSize,
+      };
+    });
     g.cardDepth = 1.0;
     g.cardSpawned = true;
     g.answered = false;
@@ -302,13 +324,20 @@ export default function FlashcardRunner({
   }
 
   function fitAnswerFontSize(ctx, text) {
+    const cardW = cardWidthRef.current;
     let fontSize = 24;
     ctx.font = `700 ${fontSize}px Sora, sans-serif`;
-    while (ctx.measureText(text).width > CARD_W * 0.85 && fontSize > 8) {
+    while (ctx.measureText(text).width > cardW * 0.85 && fontSize > 8) {
       fontSize -= 1;
       ctx.font = `700 ${fontSize}px Sora, sans-serif`;
     }
-    return fontSize;
+    if (ctx.measureText(text).width > cardW * 0.85) {
+      while (ctx.measureText(text + "…").width > cardW * 0.85 && text.length > 4) {
+        text = text.slice(0, -1);
+      }
+      text = text + "…";
+    }
+    return { fontSize, text };
   }
 
   /* ── Answer question ────────────────────────────────────── */
@@ -375,7 +404,8 @@ export default function FlashcardRunner({
       setPowerupBadges({ shield: g.shieldCount, slowmo: g.slowmoActive });
       updateUI();
       const delay = hasExplanation ? 1800 : 950;
-      setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, delay);
+      if (spawnTimeoutRef.current) clearTimeout(spawnTimeoutRef.current);
+      spawnTimeoutRef.current = setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, delay);
       return;
     }
 
@@ -416,11 +446,13 @@ export default function FlashcardRunner({
     showExplanation();
     updateUI();
     const delay = hasExplanation ? 1800 : 950;
-    setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, delay);
+    if (spawnTimeoutRef.current) clearTimeout(spawnTimeoutRef.current);
+    spawnTimeoutRef.current = setTimeout(() => { if (G.current && !G.current.paused) spawnNextQuestion(); }, delay);
   }
 
   function dismissExplanation() {
     if (explanationTimeoutRef.current) clearTimeout(explanationTimeoutRef.current);
+    if (spawnTimeoutRef.current) clearTimeout(spawnTimeoutRef.current);
     setExplanationDisplay((prev) => ({ ...prev, show: false }));
     if (G.current && !G.current.paused) spawnNextQuestion();
   }
@@ -533,6 +565,7 @@ export default function FlashcardRunner({
     setFinalStats(stats);
     setMissedReview([...g.missedThisRun]);
     setExplanationDisplay({ text: "", correctAnswer: "", isCorrect: false, show: false });
+    setIsPaused(false);
     setGameState("gameover");
     submitResults(g);
   }
@@ -585,11 +618,14 @@ export default function FlashcardRunner({
   function startGame() {
     if (!audioRef.current) audioRef.current = createAudioSystem();
     audioRef.current.start();
+    if (spawnTimeoutRef.current) clearTimeout(spawnTimeoutRef.current);
     initState();
     setPowerupBadges({ shield: 0, slowmo: false });
     setFinalStats(null);
     setMissedReview([]);
     setExplanationDisplay({ text: "", correctAnswer: "", isCorrect: false, show: false });
+    setIsPaused(false);
+    setPlayerLaneDisplay(START_LANE);
     const target = sessionMode === "quick" ? 10
       : sessionMode === "standard" ? 20
       : sessionMode === "custom" ? Math.min(customCount, gameQuestions.length)
@@ -602,18 +638,46 @@ export default function FlashcardRunner({
   /* ── Fullscreen ─────────────────────────────────────────── */
   function toggleFullscreen() {
     const el = containerRef.current?.parentElement || document.documentElement;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      }
     } else {
-      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
     }
   }
 
   useEffect(() => {
-    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const onFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement || !!document.webkitFullscreenElement);
+      setTimeout(() => resizeCanvas(), 100);
+    };
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
-  }, []);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
+  }, [resizeCanvas]);
+
+  /* ── Pause ──────────────────────────────────────────────── */
+  function togglePause() {
+    const g = G.current;
+    if (!g || gameState !== "playing") return;
+    g.paused = !g.paused;
+    setIsPaused(g.paused);
+  }
+
+  /* ── Speed control ───────────────────────────────────────── */
+  function cycleSpeed() {
+    setSpeedIdx((prev) => (prev + 1) % SPEED_OPTIONS.length);
+  }
 
   /* ── Mobile detection ───────────────────────────────────── */
   useEffect(() => {
@@ -707,9 +771,10 @@ export default function FlashcardRunner({
     const g = G.current;
     const canvas = canvasRef.current;
     if (!g || !canvas) return;
-    const ctx = canvas.getContext("2d", { alpha: false });
-    const W = getCanvasWidth();
-    const H = getCanvasHeight();
+    const ctx = ctxRef.current || canvas.getContext("2d", { alpha: false });
+    if (!ctx) return;
+    const W = canvas.getBoundingClientRect().width;
+    const H = canvas.getBoundingClientRect().height;
 
     if (g.paused) {
       rafRef.current = requestAnimationFrame(gameLoop);
@@ -734,18 +799,25 @@ export default function FlashcardRunner({
         const diff = g.player.targetLane - g.player.lane;
         g.player.lane += diff * 0.22;
         if (Math.abs(diff) < 0.01) g.player.lane = g.player.targetLane;
+        // Update lane display state for mobile indicator dots
+        const rounded = Math.round(g.player.lane);
+        if (rounded !== playerLaneDisplayRef.current) {
+          playerLaneDisplayRef.current = rounded;
+          setPlayerLaneDisplay(rounded);
+        }
       }
       g.player.bobPhase += 0.15;
       g.player.y = H * 0.78 + Math.sin(g.player.bobPhase) * 3;
 
-      // Card approach
+      // Card approach — speed controlled by user-selected multiplier
       if (g.cardSpawned) {
         if (!g.answered) {
           const isWarmup = g.warmupRemaining > 0;
-          const baseSpeed = isWarmup ? 0.0033 : 0.0065;
-          const speedBoost = isWarmup ? 0 : Math.min(g.streak * 0.0003, 0.004);
+          const speedMul = SPEED_OPTIONS[speedIdx].value;
+          const baseSpeed = isWarmup ? 0.0028 : 0.0055;
+          const speedBoost = isWarmup ? 0 : Math.min(g.streak * 0.0003, 0.003);
           const slowmoMul = g.slowmoActive ? 0.55 : 1;
-          g.cardDepth -= (baseSpeed + speedBoost) * slowmoMul * dt;
+          g.cardDepth -= (baseSpeed + speedBoost) * speedMul * slowmoMul * dt;
 
           // Power-up collection
           if (g.activePowerUp && !g.activePowerUp.collected && g.cardDepth < 0.4 &&
@@ -815,16 +887,20 @@ export default function FlashcardRunner({
       ctx.translate((Math.random() - 0.5) * g.screenShake, (Math.random() - 0.5) * g.screenShake);
     }
 
-    // Background
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, "#06080f");
-    bg.addColorStop(0.4, "#0d1424");
-    bg.addColorStop(0.7, "#1a2340");
-    bg.addColorStop(1, "#0d1424");
-    ctx.fillStyle = bg;
+    // Background — cached gradient
+    const cg = cachedGradientsRef.current;
+    if (!cg.bg || cg.bgW !== W || cg.bgH !== H) {
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, "#06080f");
+      bg.addColorStop(0.4, "#0d1424");
+      bg.addColorStop(0.7, "#1a2340");
+      bg.addColorStop(1, "#0d1424");
+      cg.bg = bg; cg.bgW = W; cg.bgH = H;
+    }
+    ctx.fillStyle = cg.bg;
     ctx.fillRect(0, 0, W, H);
 
-    // Horizon glow
+    // Horizon glow — recreated per frame (pulsing)
     const horizonY = H * 0.32;
     const glowGrad = ctx.createRadialGradient(W / 2, horizonY, 0, W / 2, horizonY, W * 0.6);
     const pulseI = 0.15 + Math.sin(g.bgPulse) * 0.05;
@@ -883,13 +959,13 @@ export default function FlashcardRunner({
 
     drawPlayer(ctx, W, H, g);
 
-    // Score popups
+    // Score popups — no shadowBlur on mobile for performance
     g.scorePopups.forEach(p => {
       ctx.fillStyle = p.color;
       ctx.globalAlpha = p.life / p.maxLife;
       ctx.font = "bold 22px Sora, sans-serif";
       ctx.textAlign = "center";
-      ctx.shadowColor = p.color; ctx.shadowBlur = 12;
+      if (!isMobile) { ctx.shadowColor = p.color; ctx.shadowBlur = 12; }
       ctx.fillText(p.text, p.x, p.y);
     });
     ctx.shadowBlur = 0; ctx.globalAlpha = 1;
@@ -902,11 +978,14 @@ export default function FlashcardRunner({
       ctx.globalAlpha = 1;
     }
 
-    // Vignette
-    const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.4, W / 2, H / 2, Math.max(W, H) * 0.85);
-    vig.addColorStop(0, "rgba(0,0,0,0)");
-    vig.addColorStop(1, "rgba(0,0,0,0.6)");
-    ctx.fillStyle = vig;
+    // Vignette — cached gradient
+    if (!cg.vig || cg.vigW !== W || cg.vigH !== H) {
+      const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.4, W / 2, H / 2, Math.max(W, H) * 0.85);
+      vig.addColorStop(0, "rgba(0,0,0,0)");
+      vig.addColorStop(1, "rgba(0,0,0,0.6)");
+      cg.vig = vig; cg.vigW = W; cg.vigH = H;
+    }
+    ctx.fillStyle = cg.vig;
     ctx.fillRect(0, 0, W, H);
 
     ctx.restore();
@@ -1010,7 +1089,7 @@ export default function FlashcardRunner({
     const x = getLaneX(lane, depth);
     const y = getDepthY(depth);
     const scale = getDepthScale(depth);
-    const cardW = CARD_W * scale;
+    const cardW = cardWidthRef.current * scale;
     const cardH = 100 * scale;
     if (cardW < 4) return;
 
@@ -1222,7 +1301,7 @@ export default function FlashcardRunner({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState]);
+  }, [gameState, isMobile, speedIdx]);
 
   function g_lastTimeReset() {
     if (G.current) G.current.lastTime = 0;
@@ -1274,6 +1353,7 @@ export default function FlashcardRunner({
   if (gameQuestions.length === 0) {
     return (
       <div style={{
+        minHeight: "100vh",
         minHeight: "100dvh",
         background: "#06080f",
         display: "flex",
@@ -1283,6 +1363,8 @@ export default function FlashcardRunner({
         fontFamily: "Sora, sans-serif",
         color: "#F2F4F8",
         padding: 24,
+        userSelect: "none",
+        WebkitUserSelect: "none",
       }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🎮</div>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>No questions available</div>
@@ -1302,8 +1384,17 @@ export default function FlashcardRunner({
   }
 
   /* ── Render ─────────────────────────────────────────────── */
+  function handleBack() {
+    if (gameState === "playing" && G.current && !G.current.paused) {
+      if (!window.confirm("Leave the game? Your progress will be lost.")) return;
+    }
+    if (spawnTimeoutRef.current) clearTimeout(spawnTimeoutRef.current);
+    onBack();
+  }
+
   return (
     <div style={{
+      minHeight: "100vh",
       minHeight: "100dvh",
       background: "#06080f",
       display: "flex",
@@ -1314,6 +1405,9 @@ export default function FlashcardRunner({
       overflow: "hidden",
       overscrollBehavior: "none",
       paddingTop: "env(safe-area-inset-top)",
+      userSelect: "none",
+      WebkitUserSelect: "none",
+      WebkitTouchCallout: "none",
     }}>
       {/* Header */}
       <div style={{
@@ -1328,7 +1422,7 @@ export default function FlashcardRunner({
         zIndex: 10,
         flexShrink: 0,
       }}>
-        <button onClick={onBack} style={{
+        <button onClick={handleBack} aria-label="Go back" style={{
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -1353,7 +1447,31 @@ export default function FlashcardRunner({
           padding: "0 8px",
         }}>⚡ {resource?.title || "Arcade"}</div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={toggleFullscreen} style={{
+          {gameState === "playing" && (
+            <button onClick={togglePause} aria-label={isPaused ? "Resume" : "Pause"} style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 10,
+              padding: "8px 10px",
+              fontSize: 14,
+              cursor: "pointer",
+              color: isPaused ? "#FFB627" : "#9AA3B2",
+            }}>{isPaused ? "▶" : "⏸"}</button>
+          )}
+          {gameState === "playing" && (
+            <button onClick={cycleSpeed} aria-label="Change speed" style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 10,
+              padding: "8px 10px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              color: "#00E5FF",
+              minWidth: 42,
+            }}>{SPEED_OPTIONS[speedIdx].label}</button>
+          )}
+          <button onClick={toggleFullscreen} aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"} style={{
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 10,
@@ -1362,7 +1480,7 @@ export default function FlashcardRunner({
             cursor: "pointer",
             color: "#9AA3B2",
           }}>{isFullscreen ? "🗗" : "⛶"}</button>
-          <button onClick={() => setMuted((m) => !m)} style={{
+          <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Unmute" : "Mute"} style={{
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 10,
@@ -1560,7 +1678,7 @@ export default function FlashcardRunner({
                   padding: "16px 20px",
                   textAlign: "center",
                   cursor: "pointer",
-                  animation: " explanationFadeIn 0.3s ease-out",
+                  animation: "explanationFadeIn 0.3s ease-out",
                   boxShadow: `0 8px 32px ${explanationDisplay.isCorrect ? "rgba(74,222,128,0.15)" : "rgba(239,68,68,0.15)"}`,
                 }}>
                 <div style={{
@@ -1596,7 +1714,7 @@ export default function FlashcardRunner({
             {toast.show && (
               <div style={{
                 position: "absolute",
-                top: "34%",
+                top: "26%",
                 left: "50%",
                 transform: "translateX(-50%)",
                 zIndex: 8,
@@ -1649,12 +1767,34 @@ export default function FlashcardRunner({
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: Math.round(G.current?.player?.lane || 0) === i
+                    background: playerLaneDisplay === i
                       ? "#FFB627"
                       : "rgba(255,255,255,0.15)",
                     transition: "background 0.15s ease",
                   }} />
                 ))}
+              </div>
+            )}
+
+            {/* Pause overlay */}
+            {isPaused && (
+              <div onClick={togglePause} style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(6,8,15,0.7)",
+                backdropFilter: "blur(4px)",
+                WebkitBackdropFilter: "blur(4px)",
+                zIndex: 15,
+                cursor: "pointer",
+              }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>⏸</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#F2F4F8", marginBottom: 4 }}>Paused</div>
+                  <div style={{ fontSize: 12, color: "#9AA3B2" }}>Tap to resume</div>
+                </div>
               </div>
             )}
           </>
@@ -1816,7 +1956,7 @@ export default function FlashcardRunner({
               maxWidth: 300,
               lineHeight: 1.6,
             }}>
-              Switch to the correct answer lane before the card reaches you. Missed questions resurface sooner if you keep getting them wrong. First 3 questions are warm-up!
+              Switch to the correct answer lane before the card reaches you. Missed questions resurface sooner if you keep getting them wrong. First 3 questions are warm-up! Use the speed button to slow down or speed up.
             </div>
           </div>
         )}
@@ -1852,6 +1992,12 @@ export default function FlashcardRunner({
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
             }}>Run Complete!</h2>
+            <div style={{
+              fontSize: 11,
+              color: "#5C6472",
+              marginBottom: 16,
+              textTransform: "capitalize",
+            }}>{G.current?.sessionMode || sessionMode} mode · Speed {SPEED_OPTIONS[speedIdx].label}</div>
 
             {/* Stat tiles */}
             <div style={{
@@ -1942,7 +2088,7 @@ export default function FlashcardRunner({
                 fontWeight: 800,
                 cursor: "pointer",
               }}>Run Again →</button>
-              <button onClick={onBack} style={{
+              <button onClick={handleBack} style={{
                 padding: "14px 24px",
                 borderRadius: 12,
                 background: "rgba(255,255,255,0.04)",
@@ -1957,7 +2103,7 @@ export default function FlashcardRunner({
         )}
       </div>
 
-      {/* Keyframe animations */}
+      {/* Keyframe animations + a11y */}
       <style>{`
         @keyframes toastPop {
           0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
@@ -1967,6 +2113,14 @@ export default function FlashcardRunner({
         @keyframes explanationFadeIn {
           0% { transform: translateX(-50%) scale(0.85); opacity: 0; }
           100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+        button:focus-visible {
+          outline: 2px solid #FFB627;
+          outline-offset: 2px;
+        }
+        input:focus-visible {
+          outline: 2px solid #FFB627;
+          outline-offset: 2px;
         }
       `}</style>
     </div>
