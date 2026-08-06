@@ -82,7 +82,8 @@ export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      position: "fixed", inset: 0, zIndex: 9999,
+      minHeight: "100dvh",
       background: "radial-gradient(circle at 20% 0%, rgba(76,141,255,0.08), transparent 45%), radial-gradient(circle at 85% 15%, rgba(232,184,75,0.05), transparent 40%), #0A0D13",
       display: "flex",
       flexDirection: "column",
@@ -90,6 +91,7 @@ export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
       padding: "32px 16px 60px",
       fontFamily: "Manrope, sans-serif",
       color: "#F2F4F8",
+      overflowY: "auto",
     }}>
       <div style={{ width: "100%", maxWidth: 480, margin: "auto 0" }}>
         {/* Back button */}

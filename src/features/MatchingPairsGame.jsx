@@ -809,9 +809,13 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
             {/* Card grid */}
             <div style={{
               display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateRows: "repeat(4, minmax(0, 1fr))",
               gap: isMobile ? 6 : 10,
+              maxWidth: isMobile ? "100%" : 460,
+              margin: "0 auto",
+              width: "100%",
               perspective: gameMode === "flip" ? 800 : undefined,
-              flex: 1, alignContent: "center",
+              flex: 1, alignContent: "stretch",
               minHeight: 0,
             }}>
               {deck.map((card, idx) => {
@@ -833,7 +837,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
                         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSelect(idx); }
                       }}
                       style={{
-                        aspectRatio: "1 / 1",
+                        width: "100%", height: "100%",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         textAlign: "center", padding: 8,
                         borderRadius: 10,
@@ -877,7 +881,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
                       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleFlip(idx); }
                     }}
                     style={{
-                      aspectRatio: "1 / 1",
+                      width: "100%", height: "100%",
                       position: "relative",
                       cursor: isMatched || locked ? "default" : "pointer",
                       borderRadius: 10,
