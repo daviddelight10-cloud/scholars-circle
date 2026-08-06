@@ -177,7 +177,7 @@ function clearProgress(resourceId) {
 }
 
 /* ── Component ─────────────────────────────────────────────── */
-export default function MatchingPairsGame({ resource, flashcardData, gameMode = "flip", onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
+export default function MatchingPairsGame({ resource, flashcardData, gameMode = "visible", onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
   const audioRef = useRef(null);
   const confettiCanvasRef = useRef(null);
   const { burst } = useConfetti(confettiCanvasRef);

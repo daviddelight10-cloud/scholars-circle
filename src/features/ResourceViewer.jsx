@@ -33,7 +33,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam" | "arcade"
   const [mcqSessionConfig, setMcqSessionConfig] = useState(null); // { sessionType, questionCount }
   const [flashcardMode, setFlashcardMode] = useState(null); // null | "study" | "matching"
-  const [matchGameMode, setMatchGameMode] = useState("flip"); // "flip" | "visible"
+  const [matchGameMode, setMatchGameMode] = useState("visible"); // "flip" | "visible"
 
   // Auth form state
   const [loginEmail, setLoginEmail] = useState("");

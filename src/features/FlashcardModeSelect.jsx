@@ -35,7 +35,7 @@ const MODE_DATA = {
 
 export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
   const [mode, setMode] = useState("study");
-  const [matchMode, setMatchMode] = useState("flip");
+  const [matchMode, setMatchMode] = useState("visible");
   const [fadeKey, setFadeKey] = useState(0);
   const [savedProgress, setSavedProgress] = useState(null);
 
