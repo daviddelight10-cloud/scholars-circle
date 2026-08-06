@@ -8,6 +8,8 @@ import McqQuizRunner from "./McqQuizRunner.jsx";
 import McqExamRunner from "./McqExamRunner.jsx";
 import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import FlashcardRunner from "./FlashcardRunner.jsx";
+import FlashcardModeSelect from "./FlashcardModeSelect.jsx";
+import MatchingPairsGame from "./MatchingPairsGame.jsx";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 
 import { API_BASE } from "../lib/constants";
@@ -30,6 +32,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
   const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam" | "arcade"
   const [mcqSessionConfig, setMcqSessionConfig] = useState(null); // { sessionType, questionCount }
+  const [flashcardMode, setFlashcardMode] = useState(null); // null | "study" | "matching"
 
   // Auth form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -321,7 +324,13 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         return <McqQuizRunner resource={resource} shareToken={resource.shareToken} sessionConfig={mcqSessionConfig} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
 
       case "flashcard_deck":
-        return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+        if (flashcardMode === "study") {
+          return <FlashcardDeckRunner resource={resource} onBack={() => setFlashcardMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+        }
+        if (flashcardMode === "matching") {
+          return <MatchingPairsGame resource={resource} flashcardData={resource.flashcardData} onBack={() => setFlashcardMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+        }
+        return <FlashcardModeSelect resource={resource} onBack={handleBack} onSelect={(mode) => setFlashcardMode(mode)} />;
 
       case "tutorial_question":
         return (
