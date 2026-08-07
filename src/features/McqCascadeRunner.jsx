@@ -195,6 +195,8 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
   const [wasRevealed, setWasRevealed] = useState(false);
   const [showExplain, setShowExplain] = useState(false);
   const [aiExplainData, setAiExplainData] = useState({ text: "", loading: false });
+  const [followUpInput, setFollowUpInput] = useState("");
+  const [followUpHistory, setFollowUpHistory] = useState([]);
   const [soundOn, setSoundOn] = useState(true);
   const [shake, setShake] = useState(false);
   const [cardFlash, setCardFlash] = useState("");
@@ -285,6 +287,8 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
         setIsLocked(false);
         setShowExplain(false);
         setAiExplainData({ text: "", loading: false });
+        setFollowUpInput("");
+        setFollowUpHistory([]);
         setLevelQueues({ queues, mastery });
         return;
       }
@@ -310,6 +314,8 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     setWasRevealed(false);
     setShowExplain(false);
     setAiExplainData({ text: "", loading: false });
+    setFollowUpInput("");
+    setFollowUpHistory([]);
   }
 
   function handleHint() {
@@ -381,6 +387,9 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       } else {
         currentQ.correctCount++;
         if (currentQ.correctCount >= 2) {
+          for (let i = mastery.length - 1; i >= 0; i--) {
+            if (mastery[i].question === currentQ.question) mastery.splice(i, 1);
+          }
           setRetiredWeakCount(c => c + 1);
           setLevelCorrectCount(c => c + 1);
           playSound("mastery");
@@ -600,6 +609,32 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       setAiExplainData({ text: text || "No explanation generated.", loading: false });
     } catch {
       setAiExplainData({ text: "Could not get AI explanation.", loading: false });
+    }
+  }
+
+  async function handleFollowUp() {
+    if (!followUpInput.trim() || !currentQ) return;
+    const userQ = followUpInput.trim();
+    setFollowUpInput("");
+    setFollowUpHistory(prev => [...prev, { role: "user", text: userQ }]);
+    setFollowUpHistory(prev => [...prev, { role: "ai", text: "", loading: true }]);
+    try {
+      const optionsStr = Object.entries(currentQ.options).map(([k, v]) => `${k}. ${v}`).join("\n");
+      const correctAnswer = currentQ.options[currentQ.correct] || currentQ.correct;
+      const context = `Previous AI explanation: ${aiExplainData.text}\n\nQuestion: ${currentQ.question}\nOptions:\n${optionsStr}\nCorrect answer: ${correctAnswer}`;
+      const prompt = `You are a helpful study tutor. The student received this explanation about an MCQ question:\n\n${context}\n\nThe student asks: ${userQ}\n\nAnswer their follow-up question clearly and concisely (2-4 sentences). Stay on topic.`;
+      const text = await callAI(prompt, { provider: "openrouter" });
+      setFollowUpHistory(prev => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: "ai", text: text || "No response generated.", loading: false };
+        return copy;
+      });
+    } catch {
+      setFollowUpHistory(prev => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: "ai", text: "Could not get a response.", loading: false };
+        return copy;
+      });
     }
   }
 
@@ -872,6 +907,34 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
               <div style={{ fontSize: 13, lineHeight: 1.6, color: textHi, background: "rgba(0,229,255,0.06)", border: "1px solid rgba(0,229,255,0.2)", borderRadius: 10, padding: 12, marginTop: 12 }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: blue, marginBottom: 6, display: "block" }}>AI Explanation</span>
                 {aiExplainData.loading ? <span className="cascade-dots">Thinking</span> : <MarkdownText>{aiExplainData.text}</MarkdownText>}
+                {followUpHistory.map((msg, i) => (
+                  <div key={i} style={{ marginTop: 10, paddingTop: 10, borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(255,255,255,0.1)" }}>
+                    {msg.role === "user" ? (
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: gold, flexShrink: 0, paddingTop: 2 }}>YOU</span>
+                        <span style={{ color: textHi }}>{msg.text}</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: blue, flexShrink: 0, paddingTop: 2 }}>AI</span>
+                        {msg.loading ? <span className="cascade-dots">Thinking</span> : <MarkdownText>{msg.text}</MarkdownText>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!aiExplainData.loading && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <input
+                      type="text"
+                      value={followUpInput}
+                      onChange={(e) => setFollowUpInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleFollowUp(); }}
+                      placeholder="Ask a follow-up question..."
+                      style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: textHi, fontFamily: "Manrope, sans-serif", fontSize: 12, outline: "none" }}
+                    />
+                    <button onClick={handleFollowUp} disabled={!followUpInput.trim()} style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: followUpInput.trim() ? `linear-gradient(135deg, ${blue}, #0aa8c4)` : cardBorder, color: ink, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, cursor: followUpInput.trim() ? "pointer" : "default" }}>Send</button>
+                  </div>
+                )}
               </div>
             )}
 
