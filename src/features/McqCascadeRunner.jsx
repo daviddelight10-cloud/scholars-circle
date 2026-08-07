@@ -605,6 +605,22 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
   const blue = "#00E5FF", gold = "#FFB627", coral = "#FF5E7E", green = "#4ADE80";
   const textHi = "#EAEEF7", textDim = "#8b93a7";
 
+  // ── Start Over confirmation ──
+  if (showStartOverConfirm) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Start over?</div>
+          <div style={{ fontSize: 14, color: textDim, marginBottom: 20 }}>Your saved progress will be erased and you'll begin from Level 1.</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setShowStartOverConfirm(false)} style={{ flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${cardBorder}`, background: "transparent", color: textHi, fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+            <button onClick={confirmStartOver} style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: coral, color: ink, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Start Over</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Resume screen ──
   if (resumeAvailable) {
     const saved = loadProgress(resource?.id || "default");
@@ -624,22 +640,6 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
             <button onClick={handleResume} style={{ width: "100%", padding: 14, borderRadius: 10, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Continue from {levelLabel(savedLevel)} →</button>
             <button onClick={handleStartNew} style={{ width: "100%", padding: 14, borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: `1px solid ${cardBorder}`, color: textDim, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Start Over</button>
             <button onClick={onBack} style={{ width: "100%", padding: 12, borderRadius: 10, cursor: "pointer", background: "transparent", border: "none", color: textDim, fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: 13 }}>← Back</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Start Over confirmation ──
-  if (showStartOverConfirm) {
-    return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
-          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Start over?</div>
-          <div style={{ fontSize: 14, color: textDim, marginBottom: 20 }}>Your saved progress will be erased and you'll begin from Level 1.</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setShowStartOverConfirm(false)} style={{ flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${cardBorder}`, background: "transparent", color: textHi, fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Cancel</button>
-            <button onClick={confirmStartOver} style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: coral, color: ink, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Start Over</button>
           </div>
         </div>
       </div>
