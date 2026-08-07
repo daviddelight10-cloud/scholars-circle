@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { convertToPdf } from "../../lib/convertToPdf";
 import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
-import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText, gold } from "./constants";
 import { PRESET_SUBJECTS } from "./constants";
 
 const ACCEPTED_EXTS = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp";
@@ -224,17 +223,18 @@ export default function UploadWizard({
 
   const renderStepIndicator = () => {
     return (
-      <div style={sharedStyles.stepIndicator}>
+      <div className="mb-4 flex items-center gap-3">
         {STEP_LABELS.map((label, i) => {
           const stepNum = i + 1;
-          let style = sharedStyles.stepDot;
-          if (stepNum === step) style = sharedStyles.stepDotActive;
-          else if (stepNum < step) style = sharedStyles.stepDotDone;
+          const isActive = stepNum === step;
+          const isDone = stepNum < step;
           return (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <div style={style} />
+            <div key={i} className="flex items-center gap-1.5">
+              <div className={`h-2.5 w-2.5 rounded-full transition-all ${
+                isActive ? "bg-gold" : isDone ? "bg-[#22c55e]" : "bg-hub-border"
+              }`} />
               {(stepNum === step || (stepNum === 1 && step > 1)) && (
-                <span style={{ fontSize: fontSize.xs, color: stepNum === step ? goldText : colors.textDim, fontWeight: fontWeight.semibold }}>
+                <span className={`text-[10px] font-semibold ${isActive ? "text-gold" : "text-hub-text-dim"}`}>
                   {label}
                 </span>
               )}
@@ -252,14 +252,14 @@ export default function UploadWizard({
   const allFolders = [...ownFolders, ...sharedFolders];
 
   return (
-    <div style={sharedStyles.overlay} onClick={onClose}>
-      <div style={sharedStyles.wizardModal} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }}>
-          <h2 style={sharedStyles.modalTitle}>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
+      <div className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="m-0 text-xl font-bold text-gold">
             {step === 1 && "Add to your space"}
             {step === 2 && "Details & Save"}
           </h2>
-          <button onClick={onClose} style={sharedStyles.closeBtn}>✕</button>
+          <button onClick={onClose} className="rounded-lg px-2 py-1 text-base text-hub-text-muted transition-colors hover:text-hub-text">✕</button>
         </div>
 
         {renderStepIndicator()}
@@ -272,26 +272,25 @@ export default function UploadWizard({
                 onDrop={handleDrop}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
                 onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
-                style={{
-                  ...sharedStyles.wizardDropzone,
-                  borderColor: dragOver ? goldBorder : file ? colors.successBorder : colors.border,
-                  background: dragOver ? goldDim : "transparent",
-                }}
+                className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition-all ${
+                  dragOver ? "border-gold-border bg-gold-dim" : file ? "border-[#22c55e]/40" : "border-hub-border"
+                }`
+                }
               >
-                <input type="file" accept={ACCEPTED_EXTS} onChange={handleFilePick} style={{ display: "none" }} ref={fileInputRef} />
+                <input type="file" accept={ACCEPTED_EXTS} onChange={handleFilePick} className="hidden" ref={fileInputRef} />
                 {file ? (
                   <>
-                    <div style={{ fontSize: 32 }}>{converting ? "⏳" : "✓"}</div>
-                    <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: converting ? goldText : colors.success }}>{file.name}</div>
-                    <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>{(file.size / 1024).toFixed(0)} KB{converting ? " · converting…" : ""}</div>
+                    <div className="text-3xl">{converting ? "⏳" : "✓"}</div>
+                    <div className="text-sm font-bold" style={{ color: converting ? "#FFD700" : "#22c55e" }}>{file.name}</div>
+                    <div className="text-[10px] text-hub-text-dim">{(file.size / 1024).toFixed(0)} KB{converting ? " · converting…" : ""}</div>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: 36 }}>📎</div>
-                    <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text }}>
+                    <div className="text-4xl">📎</div>
+                    <div className="text-sm font-semibold text-hub-text">
                       {dragOver ? "Drop file here" : "Drop your file here, or tap to browse"}
                     </div>
-                    <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>
+                    <div className="text-[10px] text-hub-text-dim">
                       PDF, DOCX, PPTX, TXT, JPG, PNG · max 50MB
                     </div>
                   </>
@@ -299,49 +298,50 @@ export default function UploadWizard({
               </label>
             ) : (
               <div>
-                <label style={sharedStyles.fieldLabel}>Write your note</label>
+                <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Write your note</label>
                 <textarea
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
                   placeholder="Write or paste your note here…"
                   autoFocus
-                  style={{ ...sharedStyles.input, minHeight: "160px", resize: "vertical", fontFamily: "inherit" }}
+                  className="min-h-[160px] resize-y rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold"
                 />
               </div>
             )}
 
             {converting && (
-              <div style={{ marginTop: spacing.md, textAlign: "center" }}>
-                <div style={{ fontSize: fontSize.sm, color: goldText, marginBottom: spacing.xs }}>{convertProgress || "Converting to PDF…"}</div>
-                <div style={{ height: "4px", background: colors.surface, borderRadius: borderRadius.sm, overflow: "hidden", maxWidth: "300px", margin: "0 auto" }}>
-                  <div style={{ height: "100%", width: "100%", background: `linear-gradient(90deg, transparent, ${gold}, transparent)`, borderRadius: borderRadius.sm, animation: "shimmer 1.5s infinite" }} />
+              <div className="mt-3 text-center">
+                <div className="mb-1 text-[11px] text-gold">{convertProgress || "Converting to PDF…"}</div>
+                <div className="mx-auto h-1 max-w-[300px] overflow-hidden rounded-full bg-hub-surface">
+                  <div className="h-full w-full rounded-full" style={{ background: "linear-gradient(90deg, transparent, #FFD700, transparent)", animation: "shimmer 1.5s infinite" }} />
                 </div>
               </div>
             )}
 
             {convertError && !converting && (
-              <div style={{ fontSize: fontSize.xs, color: colors.danger, marginTop: spacing.md, padding: "6px 10px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
-                {convertError}
-              </div>
+              <div className="mt-3 rounded-md bg-[#ef4444]/10 px-2.5 py-1.5 text-[10px] text-[#ef4444]">{convertError}</div>
             )}
 
             {genError && (
-              <div style={{ fontSize: fontSize.xs, color: colors.danger, marginTop: spacing.md, padding: "6px 10px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
-                {genError}
-              </div>
+              <div className="mt-3 rounded-md bg-[#ef4444]/10 px-2.5 py-1.5 text-[10px] text-[#ef4444]">{genError}</div>
             )}
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg }}>
+            <div className="mt-4 flex items-center justify-between">
               <button
                 onClick={() => { setIsNote(!isNote); setFile(null); setGenError(""); setConvertError(""); }}
-                style={{ background: "none", border: "none", color: colors.textMuted, fontSize: fontSize.sm, cursor: "pointer", padding: 0 }}
+                className="cursor-pointer border-none bg-transparent p-0 text-[11px] text-hub-text-muted"
               >
                 {isNote ? "← Upload a file instead" : "or write a note manually →"}
               </button>
               <button
                 onClick={() => setStep(2)}
                 disabled={!canProceedStep1}
-                style={canProceedStep1 ? sharedStyles.wizardBtnPrimary : sharedStyles.wizardBtnDisabled}
+                className={`rounded-lg px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
+                  canProceedStep1
+                    ? "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                    : "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-60"
+                }`
+                }
               >
                 {converting ? "Converting…" : "Continue →"}
               </button>
@@ -353,49 +353,49 @@ export default function UploadWizard({
         {step === 2 && (
           <>
             {/* Title */}
-            <div style={{ marginBottom: spacing.md }}>
-              <label style={sharedStyles.fieldLabel}>Title</label>
-              <input value={title} onChange={(e) => { setTitle(e.target.value); setTitleError(""); }} placeholder="e.g. Upper Limb — Brachial Plexus" style={{ ...sharedStyles.input, borderColor: titleError ? colors.danger : undefined }} />
-              {titleError && <div style={{ fontSize: fontSize.xs, color: colors.danger, marginTop: spacing.xs }}>{titleError}</div>}
+            <div className="mb-3">
+              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Title</label>
+              <input value={title} onChange={(e) => { setTitle(e.target.value); setTitleError(""); }} placeholder="e.g. Upper Limb — Brachial Plexus" className={`w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${titleError ? "border-[#ef4444]" : "border-hub-border"}`} />
+              {titleError && <div className="mt-1 text-[10px] text-[#ef4444]">{titleError}</div>}
             </div>
 
             {/* Subject — mandatory dropdown */}
-            <div style={{ marginBottom: spacing.md }}>
-              <label style={sharedStyles.fieldLabel}>
-                Subject <span style={{ color: colors.danger }}>*</span>
+            <div className="mb-3">
+              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">
+                Subject <span className="text-[#ef4444]">*</span>
               </label>
               <select
                 value={subject}
                 onChange={(e) => { setSubject(e.target.value); setSubjectError(""); setCustomSubject(""); }}
-                style={{ ...sharedStyles.select, borderColor: !subject ? colors.danger : undefined }}
+                className={`w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${!subject ? "border-[#ef4444]" : "border-hub-border"}`}
               >
                 <option value="" disabled>Select a subject…</option>
                 {PRESET_SUBJECTS.map((s) => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
-              {subjectError && <div style={{ fontSize: fontSize.xs, color: colors.danger, marginTop: spacing.xs }}>{subjectError}</div>}
+              {subjectError && <div className="mt-1 text-[10px] text-[#ef4444]">{subjectError}</div>}
               {subject === "Custom" && (
                 <input
                   value={customSubject}
                   onChange={(e) => { setCustomSubject(e.target.value); setSubjectError(""); }}
                   placeholder="Type your subject/topic name…"
                   autoFocus
-                  style={{ ...sharedStyles.input, marginTop: spacing.sm, borderColor: !customSubject.trim() ? colors.danger : undefined }}
+                  className={`mt-2 w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${!customSubject.trim() ? "border-[#ef4444]" : "border-hub-border"}`}
                 />
               )}
             </div>
 
             {/* Space selector */}
-            <div style={{ marginBottom: spacing.md }}>
-              <label style={sharedStyles.fieldLabel}>
-                Save to space <span style={{ color: colors.danger }}>*</span>
+            <div className="mb-3">
+              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">
+                Save to space <span className="text-[#ef4444]">*</span>
               </label>
-              <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginBottom: spacing.xs }}>
+              <div className="mb-1 text-[10px] text-hub-text-dim">
                 Choose an existing space or create a new one to continue.
               </div>
               {allFolders.length > 0 && (
-                <select value={destFolderId} onChange={(e) => setDestFolderId(e.target.value)} style={{ ...sharedStyles.select, marginBottom: spacing.xs, borderColor: !destFolderId ? colors.danger : undefined }}>
+                <select value={destFolderId} onChange={(e) => setDestFolderId(e.target.value)} className={`mb-1 w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${!destFolderId ? "border-[#ef4444]" : "border-hub-border"}`}>
                   <option value="" disabled>Select a space…</option>
                   {allFolders.map((f) => (
                     <option key={f.id} value={f.id}>{f.name}{f.courseCode ? ` — ${f.courseCode}` : ""}</option>
@@ -405,37 +405,41 @@ export default function UploadWizard({
               {!showNewSpaceInput ? (
                 <button
                   onClick={() => setShowNewSpaceInput(true)}
-                  style={{ background: "none", border: `0.5px solid ${goldBorder}`, color: goldText, fontSize: fontSize.xs, padding: "6px 12px", borderRadius: borderRadius.sm, cursor: "pointer", fontWeight: fontWeight.semibold }}
+                  className="cursor-pointer rounded-md border border-gold-border px-3 py-1.5 text-[10px] font-semibold text-gold"
                 >
                   + Create new space
                 </button>
               ) : (
-                <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md, marginTop: spacing.sm }}>
-                  <div style={{ fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: goldText, marginBottom: spacing.sm }}>New space</div>
+                <div className="mt-2 rounded-lg border border-hub-border bg-hub-bg p-3">
+                  <div className="mb-2 text-[10px] font-bold text-gold">New space</div>
                   <input
                     value={newSpaceName}
                     onChange={(e) => setNewSpaceName(e.target.value)}
                     placeholder="Space name (e.g. Anatomy — Year 1)"
-                    style={{ ...sharedStyles.input, marginBottom: spacing.sm }}
+                    className="mb-2 w-full rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none focus:border-gold"
                     autoFocus
                   />
                   <input
                     value={newSpaceCourseCode}
                     onChange={(e) => setNewSpaceCourseCode(e.target.value)}
                     placeholder="Course code (optional, e.g. BIO 111)"
-                    style={{ ...sharedStyles.input, marginBottom: spacing.sm }}
+                    className="mb-2 w-full rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none focus:border-gold"
                   />
-                  <div style={{ display: "flex", gap: spacing.sm }}>
+                  <div className="flex gap-2">
                     <button
                       onClick={handleCreateSpace}
                       disabled={!newSpaceName.trim() || creatingSpace}
-                      style={{ ...sharedStyles.wizardBtnPrimary, padding: "6px 16px", fontSize: fontSize.xs, opacity: !newSpaceName.trim() || creatingSpace ? 0.5 : 1, cursor: !newSpaceName.trim() || creatingSpace ? "not-allowed" : "pointer" }}
+                      className={`rounded-lg px-4 py-1.5 text-[10px] font-bold transition-all active:scale-95 ${
+                        !newSpaceName.trim() || creatingSpace
+                          ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50"
+                          : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                      }`}
                     >
                       {creatingSpace ? "Creating…" : "Create space ✓"}
                     </button>
                     <button
                       onClick={() => { setShowNewSpaceInput(false); setNewSpaceName(""); setNewSpaceCourseCode(""); }}
-                      style={{ background: "none", border: "none", color: colors.textDim, fontSize: fontSize.xs, cursor: "pointer", padding: "6px 8px" }}
+                      className="cursor-pointer border-none bg-transparent p-1.5 text-[10px] text-hub-text-dim"
                     >
                       Cancel
                     </button>
@@ -445,33 +449,26 @@ export default function UploadWizard({
             </div>
 
             {/* Public / Private toggle */}
-            <div style={{ marginBottom: spacing.lg }}>
-              <label style={sharedStyles.fieldLabel}>Visibility</label>
-              <div style={{
-                display: "flex", alignItems: "center", gap: spacing.sm,
-                background: colors.bg, border: `0.5px solid ${colors.border}`,
-                borderRadius: borderRadius.md, padding: `${spacing.sm} ${spacing.md}`,
-                cursor: "pointer", userSelect: "none",
-              }} onClick={() => setIsPublic((v) => !v)}>
-                <div style={{
-                  width: "44px", height: "24px", borderRadius: "12px",
-                  background: isPublic ? gold : colors.border,
-                  position: "relative", flexShrink: 0,
-                  transition: "background 0.2s ease",
-                }}>
-                  <div style={{
-                    position: "absolute", top: "2px", left: isPublic ? "22px" : "2px",
-                    width: "20px", height: "20px", borderRadius: "50%",
-                    background: "#fff",
-                    transition: "left 0.2s ease",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                  }} />
+            <div className="mb-4">
+              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Visibility</label>
+              <div
+                className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-hub-border bg-hub-bg p-2 px-3"
+                onClick={() => setIsPublic((v) => !v)}
+              >
+                <div
+                  className="relative h-6 w-11 shrink-0 rounded-full transition-colors"
+                  style={{ background: isPublic ? "#FFD700" : "#2a2a2a" }}
+                >
+                  <div
+                    className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
+                    style={{ left: isPublic ? "22px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
+                  />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: isPublic ? goldText : colors.text }}>
+                <div className="flex-1">
+                  <div className={`text-[11px] font-semibold ${isPublic ? "text-gold" : "text-hub-text"}`}>
                     {isPublic ? "🌍 Public — appears in community" : "🔒 Private — only you"}
                   </div>
-                  <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: "2px" }}>
+                  <div className="mt-0.5 text-[10px] text-hub-text-dim">
                     {isPublic ? "Visible to all users in the Community tab" : "Only visible to you in your library"}
                   </div>
                 </div>
@@ -479,12 +476,12 @@ export default function UploadWizard({
             </div>
 
             {/* Summary of what will be saved */}
-            <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.lg }}>
-              <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: goldText, marginBottom: spacing.sm }}>Ready to save</div>
-              <div style={{ fontSize: fontSize.sm, color: colors.text, lineHeight: 1.6 }}>
+            <div className="mb-4 rounded-lg border border-hub-border bg-hub-bg p-3">
+              <div className="mb-2 text-[11px] font-bold text-gold">Ready to save</div>
+              <div className="text-[11px] leading-relaxed text-hub-text">
                 <strong>{title || "Untitled"}</strong> — {finalSubject || "⚠️ No subject"}
               </div>
-              <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: spacing.xs }}>
+              <div className="mt-1 text-[10px] text-hub-text-dim">
                 {isNote ? "📝 Note" : "📄 " + (file?.name || "File")}
                 {" → "}
                 {destFolderId ? allFolders.find((f) => f.id === destFolderId)?.name : "⚠️ No space chosen"}
@@ -494,24 +491,24 @@ export default function UploadWizard({
             </div>
 
             {uploading && (
-              <div style={{ marginBottom: spacing.md }}>
-                <div style={{ height: "6px", background: colors.bg, borderRadius: borderRadius.sm, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: `linear-gradient(90deg, #b8860b, ${gold})`, borderRadius: borderRadius.sm, transition: "width 0.2s" }} />
+              <div className="mb-3">
+                <div className="h-1.5 overflow-hidden rounded-full bg-hub-bg">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#b8860b] to-gold transition-all" style={{ width: `${uploadProgress}%` }} />
                 </div>
-                <div style={{ fontSize: fontSize.xs, color: goldText, textAlign: "center", marginTop: spacing.xs }}>{uploadProgress}%</div>
+                <div className="mt-1 text-center text-[10px] text-gold">{uploadProgress}%</div>
               </div>
             )}
 
             {saveError && !uploading && (
-              <div style={{ fontSize: fontSize.xs, color: colors.danger, marginBottom: spacing.md, padding: "8px 12px", background: colors.dangerBg, borderRadius: borderRadius.sm, display: "flex", alignItems: "center", gap: spacing.sm }}>
-                <span style={{ flex: 1 }}>⚠️ {saveError}</span>
+              <div className="mb-3 flex items-center gap-2 rounded-md bg-[#ef4444]/10 px-3 py-2 text-[10px] text-[#ef4444]">
+                <span className="flex-1">⚠️ {saveError}</span>
                 <button
                   onClick={() => {
                     if (saveError.includes("title")) { setStep(2); }
                     else if (saveError.includes("file") || saveError.includes("note")) setStep(1);
                     setSaveError("");
                   }}
-                  style={{ background: "none", border: `0.5px solid ${colors.danger}`, color: colors.danger, fontSize: fontSize.xs, padding: "4px 10px", borderRadius: borderRadius.sm, cursor: "pointer", whiteSpace: "nowrap" }}
+                  className="shrink-0 cursor-pointer whitespace-nowrap rounded-md border border-[#ef4444] px-2.5 py-1 text-[10px] text-[#ef4444]"
                 >
                   Fix it →
                 </button>
@@ -519,17 +516,21 @@ export default function UploadWizard({
             )}
 
             {uploadError && !uploading && (
-              <div style={{ fontSize: fontSize.xs, color: colors.danger, marginBottom: spacing.md, padding: "8px 12px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
+              <div className="mb-3 rounded-md bg-[#ef4444]/10 px-3 py-2 text-[10px] text-[#ef4444]">
                 ⚠️ {uploadError}
               </div>
             )}
 
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <button onClick={() => setStep(1)} style={sharedStyles.wizardBackBtn} disabled={uploading}>← Back</button>
+            <div className="flex justify-between">
+              <button onClick={() => setStep(1)} disabled={uploading} className="cursor-pointer rounded-lg border border-hub-border px-5 py-3 text-sm font-semibold text-hub-text-muted transition-all active:scale-95 disabled:opacity-50">← Back</button>
               <button
                 onClick={handleSave}
                 disabled={uploading || !canSave()}
-                style={uploading || !canSave() ? sharedStyles.wizardBtnDisabled : sharedStyles.wizardBtnPrimary}
+                className={`rounded-lg px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
+                  uploading || !canSave()
+                    ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-60"
+                    : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                }`}
               >
                 {uploading ? "Saving…" : "Save to space ✓"}
               </button>

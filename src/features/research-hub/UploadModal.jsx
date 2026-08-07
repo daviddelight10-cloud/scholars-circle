@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { extractFileText } from "../../lib/extractFileText";
 import { generateMcqs, MAX_QUESTIONS } from "../../lib/generationCore";
-import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
@@ -153,41 +152,45 @@ export default function UploadModal({
   const removeMcqRow = (index) => setMcqRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
 
   return (
-    <div style={sharedStyles.overlay} onClick={onClose}>
-      <div style={sharedStyles.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xl }}>
-          <h2 style={sharedStyles.modalTitle}>Add material</h2>
-          <button onClick={onClose} style={sharedStyles.closeBtn}>✕</button>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
+      <div className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="m-0 text-xl font-bold text-gold">Add material</h2>
+          <button onClick={onClose} className="rounded-lg px-2 py-1 text-base text-hub-text-muted transition-colors hover:text-hub-text">✕</button>
         </div>
 
-        <div style={sharedStyles.segmentRow}>
+        <div className="mb-4 flex flex-wrap gap-1.5">
           {[["pdf", "PDF"], ["image", "Image"], ["docx", "DOCX"], ["pptx", "PPTX"], ["txt", "TXT"], ["note", "Note"], ["mcq", "MCQ set"]].map(([key, label]) => (
-            <button key={key} onClick={() => setUploadType(key)} style={uploadType === key ? sharedStyles.segActive : sharedStyles.seg}>{label}</button>
+            <button key={key} onClick={() => setUploadType(key)} className={`cursor-pointer rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${
+              uploadType === key ? "bg-gold-dim border border-gold-border text-gold" : "border border-hub-border text-hub-text-dim"
+            }`}>{label}</button>
           ))}
         </div>
 
-        <div style={{ marginBottom: spacing.md }}>
-          <label style={sharedStyles.fieldLabel}>Title</label>
-          <input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder="e.g. Upper Limb — Brachial Plexus Notes" style={sharedStyles.input} />
+        <div className="mb-3">
+          <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Title</label>
+          <input value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder="e.g. Upper Limb — Brachial Plexus Notes" className="w-full rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold" />
         </div>
-        <div style={{ marginBottom: spacing.md }}>
-          <label style={sharedStyles.fieldLabel}>Subject / course code</label>
-          <input list="subjectOptions" value={uploadSubject} onChange={(e) => setUploadSubject(e.target.value)} placeholder="e.g. BIO 111" style={sharedStyles.input} />
+        <div className="mb-3">
+          <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Subject / course code</label>
+          <input list="subjectOptions" value={uploadSubject} onChange={(e) => setUploadSubject(e.target.value)} placeholder="e.g. BIO 111" className="w-full rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold" />
           <datalist id="subjectOptions">{subjects.map((s) => <option key={s} value={s} />)}</datalist>
         </div>
 
         {uploadType === "note" ? (
           <>
-            <div style={{ marginBottom: spacing.md }}>
-              <label style={sharedStyles.fieldLabel}>Note content</label>
+            <div className="mb-3">
+              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Note content</label>
               <textarea
                 value={uploadDescription}
                 onChange={(e) => setUploadDescription(e.target.value)}
                 placeholder="Write your note here…"
-                style={{ ...sharedStyles.input, minHeight: "120px", resize: "vertical", fontFamily: "inherit" }}
+                className="min-h-[120px] resize-y rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold"
               />
             </div>
-            <button onClick={onSubmitFile} disabled={uploading || !uploadDescription.trim()} style={{ ...sharedStyles.submit, opacity: uploading || !uploadDescription.trim() ? 0.5 : 1, cursor: uploading || !uploadDescription.trim() ? "not-allowed" : "pointer" }}>
+            <button onClick={onSubmitFile} disabled={uploading || !uploadDescription.trim()} className={`w-full rounded-lg py-3 text-sm font-bold transition-all active:scale-95 ${
+              uploading || !uploadDescription.trim() ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+            }`}>
               {uploading ? "Uploading..." : "Publish note"}
             </button>
           </>
@@ -197,53 +200,53 @@ export default function UploadModal({
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
-              style={{
-                ...sharedStyles.dropzone,
-                borderColor: dragOver ? colors.borderActive : uploadFile ? colors.successBorder : colors.border,
-                background: dragOver ? "#1a1a00" : colors.bg,
-              }}
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-all ${
+                dragOver ? "border-gold-border bg-gold-dim" : uploadFile ? "border-[#22c55e]/40" : "border-hub-border"
+              }`}
             >
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleFilePick} style={{ display: "none" }} ref={fileInputRef} />
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleFilePick} className="hidden" ref={fileInputRef} />
               {uploadPreview ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: spacing.sm }}>
-                  <img src={uploadPreview} alt="Preview" style={{ maxWidth: "100%", maxHeight: "160px", borderRadius: borderRadius.sm, objectFit: "contain" }} />
-                  <span style={{ fontSize: fontSize.sm, color: colors.success }}>✓ {uploadFile.name}</span>
+                <div className="flex flex-col items-center gap-2">
+                  <img src={uploadPreview} alt="Preview" className="max-h-[160px] max-w-full rounded-md object-contain" />
+                  <span className="text-[11px] text-[#22c55e]">✓ {uploadFile.name}</span>
                 </div>
               ) : uploadFile ? (
-                <span style={{ fontSize: fontSize.base, color: colors.success }}>✓ {uploadFile.name}</span>
+                <span className="text-[13px] text-[#22c55e]">✓ {uploadFile.name}</span>
               ) : (
-                <span style={{ fontSize: fontSize.base, color: colors.textDim }}>
+                <span className="text-[13px] text-hub-text-dim">
                   {dragOver ? "Drop file here" : "Tap to choose or drag a file · PDF, JPG, PNG, DOCX · max 20MB"}
                 </span>
               )}
             </label>
 
             {uploading && (
-              <div style={{ marginBottom: spacing.md }}>
-                <div style={{ height: "6px", background: colors.bg, borderRadius: borderRadius.sm, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #b8860b, #FFD700)", borderRadius: borderRadius.sm, transition: "width 0.2s" }} />
+              <div className="mb-3">
+                <div className="h-1.5 overflow-hidden rounded-full bg-hub-bg">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#b8860b] to-gold transition-all" style={{ width: `${uploadProgress}%` }} />
                 </div>
-                <div style={{ fontSize: fontSize.xs, color: goldText, textAlign: "center", marginTop: spacing.xs }}>{uploadProgress}%</div>
+                <div className="mt-1 text-center text-[10px] text-gold">{uploadProgress}%</div>
               </div>
             )}
 
-            <button onClick={onSubmitFile} disabled={uploading || !uploadFile} style={{ ...sharedStyles.submit, opacity: uploading || !uploadFile ? 0.5 : 1, cursor: uploading || !uploadFile ? "not-allowed" : "pointer" }}>
+            <button onClick={onSubmitFile} disabled={uploading || !uploadFile} className={`mt-3 w-full rounded-lg py-3 text-sm font-bold transition-all active:scale-95 ${
+              uploading || !uploadFile ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+            }`}>
               {uploading ? "Uploading..." : "Upload"}
             </button>
           </>
         ) : (
           <>
             {/* AI Generation Section */}
-            <div style={{ background: colors.bg, border: `0.5px solid ${goldBorder}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md }}>
-              <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: goldText, marginBottom: spacing.sm }}>
+            <div className="mb-3 rounded-lg border border-gold-border bg-hub-bg p-3">
+              <div className="mb-2 text-[11px] font-bold text-gold">
                 ✨ Generate MCQs from a file with AI
               </div>
-              <p style={{ fontSize: fontSize.xs, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 1.5 }}>
+              <p className="mb-2 text-[10px] leading-relaxed text-hub-text-muted">
                 Upload a PDF, DOCX, TXT, PPTX, or image — AI will extract and generate up to {MAX_QUESTIONS} questions automatically, or a specific number you choose below. If your document already contains questions, AI will extract them as-is instead of generating new ones. Large documents are split into sections and processed in parallel for speed.
               </p>
 
-              <div style={{ marginBottom: spacing.sm }}>
-                <label style={{ fontSize: fontSize.xs, color: colors.textMuted, display: "block", marginBottom: 4 }}>
+              <div className="mb-2">
+                <label className="mb-1 block text-[10px] text-hub-text-muted">
                   Number of questions (optional — leave blank for auto)
                 </label>
                 <input
@@ -259,7 +262,7 @@ export default function UploadModal({
                     setAiQuestionCount(Math.max(1, Math.min(MAX_QUESTIONS, num)));
                   }}
                   placeholder={`Auto (up to ${MAX_QUESTIONS})`}
-                  style={{ ...sharedStyles.input, maxWidth: 180 }}
+                  className="w-full max-w-[180px] rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none focus:border-gold"
                 />
               </div>
 
@@ -268,62 +271,48 @@ export default function UploadModal({
                 onDrop={handleAiDrop}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setAiDragOver(true); }}
                 onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setAiDragOver(false); }}
-                style={{
-                  display: "block", textAlign: "center", padding: "16px 12px",
-                  border: `1.5px dashed ${aiDragOver ? colors.borderActive : aiFile ? colors.successBorder : colors.border}`,
-                  borderRadius: borderRadius.md, cursor: "pointer", marginBottom: spacing.sm, transition: "all 0.15s",
-                  background: aiDragOver ? "#1a1a00" : "transparent",
-                }}
+                className={`block cursor-pointer rounded-lg border-1.5 border-dashed p-4 text-center transition-all ${
+                  aiDragOver ? "border-gold-border bg-gold-dim" : aiFile ? "border-[#22c55e]/40" : "border-hub-border"
+                }`}
               >
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleAiFilePick} style={{ display: "none" }} ref={aiFileInputRef} />
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleAiFilePick} className="hidden" ref={aiFileInputRef} />
                 {aiFile ? (
-                  <span style={{ fontSize: fontSize.base, color: colors.success }}>✓ {aiFile.name} ({(aiFile.size / 1024).toFixed(0)} KB)</span>
+                  <span className="text-[13px] text-[#22c55e]">✓ {aiFile.name} ({(aiFile.size / 1024).toFixed(0)} KB)</span>
                 ) : (
-                  <span style={{ fontSize: fontSize.base, color: colors.textDim }}>
+                  <span className="text-[13px] text-hub-text-dim">
                     {aiDragOver ? "Drop file here" : "📎 Tap or drag a file for AI generation"}
                   </span>
                 )}
               </label>
 
               {aiError && (
-                <div style={{ fontSize: fontSize.xs, color: colors.danger, marginBottom: spacing.sm, padding: "6px 10px", background: colors.dangerBg, borderRadius: borderRadius.sm }}>
-                  {aiError}
-                </div>
+                <div className="mb-2 rounded-md bg-[#ef4444]/10 px-2.5 py-1.5 text-[10px] text-[#ef4444]">{aiError}</div>
               )}
 
               {aiProgress && !aiGenerating && (
-                <div style={{ fontSize: fontSize.xs, color: colors.success, marginBottom: spacing.sm, padding: "6px 10px", background: colors.successBg, borderRadius: borderRadius.sm }}>
-                  {aiProgress}
-                </div>
+                <div className="mb-2 rounded-md bg-[#22c55e]/10 px-2.5 py-1.5 text-[10px] text-[#22c55e]">{aiProgress}</div>
               )}
 
               {aiWarning && !aiGenerating && (
-                <div style={{ fontSize: fontSize.xs, color: "#facc15", marginBottom: spacing.sm, padding: "6px 10px", background: "rgba(250, 204, 21, 0.08)", border: "0.5px solid rgba(250, 204, 21, 0.3)", borderRadius: borderRadius.sm }}>
-                  {aiWarning}
-                </div>
+                <div className="mb-2 rounded-md border border-[#facc15]/30 bg-[#facc15]/8 px-2.5 py-1.5 text-[10px] text-[#facc15]">{aiWarning}</div>
               )}
 
               {aiGenerating && (
-                <div style={{ marginBottom: spacing.sm }}>
-                  <div style={{ fontSize: fontSize.xs, color: goldText, textAlign: "center", marginBottom: spacing.xs }}>{aiProgress}</div>
-                  <div style={{ height: "4px", background: colors.surface, borderRadius: borderRadius.sm, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: "100%", background: "linear-gradient(90deg, transparent, #FFD700, transparent)", borderRadius: borderRadius.sm, animation: "shimmer 1.5s infinite" }} />
+                <div className="mb-2">
+                  <div className="mb-1 text-center text-[10px] text-gold">{aiProgress}</div>
+                  <div className="h-1 overflow-hidden rounded-full bg-hub-surface">
+                    <div className="h-full w-full rounded-full" style={{ background: "linear-gradient(90deg, transparent, #FFD700, transparent)", animation: "shimmer 1.5s infinite" }} />
                   </div>
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: spacing.sm }}>
+              <div className="flex gap-2">
                 <button
                   onClick={generateAiMcqs}
                   disabled={aiGenerating || !aiFile}
-                  style={{
-                    flex: 1, padding: "10px", borderRadius: borderRadius.md,
-                    background: aiGenerating || !aiFile ? goldDim : "linear-gradient(135deg, #b8860b, #FFD700)",
-                    border: `0.5px solid ${goldBorder}`,
-                    fontSize: fontSize.base, fontWeight: fontWeight.bold,
-                    color: aiGenerating || !aiFile ? goldText : "#0a0a0a",
-                    cursor: aiGenerating || !aiFile ? "not-allowed" : "pointer",
-                  }}
+                  className={`flex-1 cursor-pointer rounded-lg border border-gold-border py-2.5 text-[13px] font-bold transition-all active:scale-95 ${
+                    aiGenerating || !aiFile ? "cursor-not-allowed bg-gold-dim text-gold opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+                  }`}
                 >
                   {aiGenerating ? "Generating…" : "🤖 Generate MCQs"}
                 </button>
@@ -331,12 +320,7 @@ export default function UploadModal({
                   <button
                     onClick={onSubmitMcq}
                     disabled={uploading}
-                    style={{
-                      padding: "10px 16px", borderRadius: borderRadius.md,
-                      background: goldDim, border: `0.5px solid ${goldBorder}`,
-                      fontSize: fontSize.base, fontWeight: fontWeight.bold, color: goldText,
-                      cursor: uploading ? "not-allowed" : "pointer", whiteSpace: "nowrap",
-                    }}
+                    className="cursor-pointer whitespace-nowrap rounded-lg border border-gold-border bg-gold-dim px-4 py-2.5 text-[13px] font-bold text-gold transition-all active:scale-95"
                   >
                     {uploading ? "Submitting…" : `Quick Submit (${mcqRows.filter((r) => r.question.trim()).length})`}
                   </button>
@@ -345,54 +329,56 @@ export default function UploadModal({
             </div>
 
             {/* Divider */}
-            <div style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md }}>
-              <div style={{ flex: 1, height: "0.5px", background: colors.border }} />
-              <span style={{ fontSize: fontSize.xs, color: colors.textDim, fontWeight: fontWeight.semibold }}>OR ADD MANUALLY</span>
-              <div style={{ flex: 1, height: "0.5px", background: colors.border }} />
+            <div className="mb-3 flex items-center gap-2">
+              <div className="h-px flex-1 bg-hub-border" />
+              <span className="text-[10px] font-semibold text-hub-text-dim">OR ADD MANUALLY</span>
+              <div className="h-px flex-1 bg-hub-border" />
             </div>
 
             {/* MCQ count badge */}
             {mcqRows.filter((r) => r.question.trim()).length > 0 && (
-              <div style={{ fontSize: fontSize.xs, color: goldText, marginBottom: spacing.sm, fontWeight: fontWeight.semibold }}>
+              <div className="mb-2 text-[10px] font-semibold text-gold">
                 {mcqRows.filter((r) => r.question.trim()).length} question{mcqRows.filter((r) => r.question.trim()).length !== 1 ? "s" : ""} ready
               </div>
             )}
 
             {/* Editable MCQ rows */}
             {mcqRows.map((row, i) => (
-              <div key={i} style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.sm }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: spacing.sm }}>
-                  <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Question {i + 1}</span>
-                  {mcqRows.length > 1 && <button onClick={() => removeMcqRow(i)} style={{ background: "none", border: "none", color: "#ef9a9a", fontSize: fontSize.xs, cursor: "pointer" }}>Remove</button>}
+              <div key={i} className="mb-2 rounded-lg border border-hub-border bg-hub-bg p-3">
+                <div className="mb-2 flex justify-between">
+                  <span className="text-[11px] font-semibold text-hub-text-muted">Question {i + 1}</span>
+                  {mcqRows.length > 1 && <button onClick={() => removeMcqRow(i)} className="cursor-pointer border-none bg-transparent text-[10px] text-[#ef9a9a]">Remove</button>}
                 </div>
-                <input value={row.question} onChange={(e) => updateMcqRow(i, { question: e.target.value })} placeholder="Question text" style={{ ...sharedStyles.input, marginBottom: spacing.sm }} />
+                <input value={row.question} onChange={(e) => updateMcqRow(i, { question: e.target.value })} placeholder="Question text" className="mb-2 w-full rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none focus:border-gold" />
                 {Object.entries(row.options).map(([key, value]) => (
-                  <div key={key} style={{ display: "flex", alignItems: "center", gap: spacing.sm, marginBottom: "6px" }}>
-                    <input type="radio" name={`correct-${i}`} checked={row.correct === key} onChange={() => updateMcqRow(i, { correct: key })} title="Mark as correct" style={{ accentColor: colors.borderActive }} />
-                    <span style={{ fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: row.correct === key ? colors.success : colors.textDim, width: "16px" }}>{key}</span>
-                    <input value={value} onChange={(e) => updateMcqOption(i, key, e.target.value)} placeholder={`Option ${key}`} style={{ ...sharedStyles.input, flex: 1 }} />
+                  <div key={key} className="mb-1.5 flex items-center gap-2">
+                    <input type="radio" name={`correct-${i}`} checked={row.correct === key} onChange={() => updateMcqRow(i, { correct: key })} title="Mark as correct" className="accent-gold" />
+                    <span className={`w-4 text-[10px] font-bold ${row.correct === key ? "text-[#22c55e]" : "text-hub-text-dim"}`}>{key}</span>
+                    <input value={value} onChange={(e) => updateMcqOption(i, key, e.target.value)} placeholder={`Option ${key}`} className="flex-1 rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none focus:border-gold" />
                   </div>
                 ))}
-                <textarea value={row.explanation} onChange={(e) => updateMcqRow(i, { explanation: e.target.value })} placeholder="Brief explanation (optional but recommended)" style={{ ...sharedStyles.input, minHeight: "50px", resize: "vertical", marginTop: "6px" }} />
+                <textarea value={row.explanation} onChange={(e) => updateMcqRow(i, { explanation: e.target.value })} placeholder="Brief explanation (optional but recommended)" className="mt-1.5 min-h-[50px] resize-y w-full rounded-lg border border-hub-border bg-hub-bg p-3 text-sm text-hub-text outline-none focus:border-gold" />
               </div>
             ))}
-            <button onClick={addMcqRow} style={{ width: "100%", padding: "10px", borderRadius: borderRadius.lg, border: `1px dashed ${colors.border}`, background: "none", color: colors.textMuted, fontSize: fontSize.base, fontWeight: fontWeight.semibold, cursor: "pointer", marginBottom: spacing.md }}>+ Add another question</button>
+            <button onClick={addMcqRow} className="mb-3 w-full cursor-pointer rounded-xl border border-dashed border-hub-border bg-transparent py-2.5 text-[13px] font-semibold text-hub-text-muted">+ Add another question</button>
 
             {uploading && (
-              <div style={{ marginBottom: spacing.md }}>
-                <div style={{ height: "6px", background: colors.bg, borderRadius: borderRadius.sm, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${uploadProgress}%`, background: "linear-gradient(90deg, #b8860b, #FFD700)", borderRadius: borderRadius.sm, transition: "width 0.2s" }} />
+              <div className="mb-3">
+                <div className="h-1.5 overflow-hidden rounded-full bg-hub-bg">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#b8860b] to-gold transition-all" style={{ width: `${uploadProgress}%` }} />
                 </div>
               </div>
             )}
 
-            <button onClick={onSubmitMcq} disabled={uploading} style={{ ...sharedStyles.submit, opacity: uploading ? 0.5 : 1, cursor: uploading ? "not-allowed" : "pointer" }}>
+            <button onClick={onSubmitMcq} disabled={uploading} className={`w-full rounded-lg py-3 text-sm font-bold transition-all active:scale-95 ${
+              uploading ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+            }`}>
               {uploading ? "Submitting..." : `Submit MCQs (${mcqRows.filter((r) => r.question.trim()).length})`}
             </button>
           </>
         )}
 
-        <p style={sharedStyles.modalFootnote}>
+        <p className="mt-4 text-center text-[10px] leading-relaxed text-hub-text-dim">
           Your upload will appear in My Uploads. Student uploads require moderator approval before going public; teacher/lecturer uploads go live immediately.
         </p>
       </div>

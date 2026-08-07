@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { colors, spacing, fontSize, fontWeight, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -92,137 +91,126 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
     }, 500);
   };
 
-  // Loading state
   if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", border: `2px solid ${colors.border}`, borderTopColor: goldText, animation: "scSpin 0.8s linear infinite", margin: "0 auto 16px" }} />
-        <style>{`@keyframes scSpin{to{transform:rotate(360deg)}}`}</style>
-        <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.textMuted }}>Loading review items…</div>
+      <div className="px-5 py-14 text-center">
+        <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-2 border-hub-border border-t-gold" />
+        <div className="text-sm font-bold text-hub-text-muted">Loading review items…</div>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <div style={{ fontSize: 36, marginBottom: spacing.md }}>⚠️</div>
-        <div style={{ fontSize: fontSize.md, color: "#ef4444", marginBottom: spacing.md }}>{error}</div>
-        <button onClick={fetchDue} style={{ padding: "8px 20px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, cursor: "pointer", fontSize: fontSize.sm, fontWeight: fontWeight.bold }}>Retry</button>
-        <button onClick={onBack} style={{ padding: "8px 20px", borderRadius: 8, background: "none", border: `0.5px solid ${colors.border}`, color: colors.textMuted, cursor: "pointer", fontSize: fontSize.sm, marginLeft: spacing.sm }}>← Back</button>
+      <div className="px-5 py-14 text-center">
+        <div className="mb-3 text-4xl">⚠️</div>
+        <div className="mb-3 text-sm text-[#ef4444]">{error}</div>
+        <button onClick={fetchDue} className="mr-2 cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-5 py-2 text-[11px] font-bold text-gold transition-all active:scale-95">Retry</button>
+        <button onClick={onBack} className="cursor-pointer rounded-lg border border-hub-border px-5 py-2 text-[11px] text-hub-text-muted transition-all active:scale-95">← Back</button>
       </div>
     );
   }
 
-  // Empty state
   if (items.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <div style={{ fontSize: 48, marginBottom: spacing.md }}>✅</div>
-        <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: "#22c55e", marginBottom: spacing.sm }}>All caught up!</div>
-        <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>
+      <div className="px-5 py-14 text-center">
+        <div className="mb-3 text-5xl">✅</div>
+        <div className="mb-2 text-base font-bold text-[#22c55e]">All caught up!</div>
+        <div className="mx-auto max-w-[360px] text-[13px] leading-relaxed text-hub-text-dim">
           No items due for review right now. Open some PDFs or practice MCQs to build your review queue.
         </div>
-        <button onClick={onBack} style={{ marginTop: spacing.lg, padding: "10px 24px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, cursor: "pointer", fontSize: fontSize.sm, fontWeight: fontWeight.bold }}>← Back to Hub</button>
+        <button onClick={onBack} className="mt-4 cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-6 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">← Back to Hub</button>
       </div>
     );
   }
 
-  // Finished state
   if (finished) {
     const accuracy = sessionStats.reviewed > 0 ? Math.round((sessionStats.correct / sessionStats.reviewed) * 100) : 0;
     return (
-      <div style={{ textAlign: "center", padding: "40px 20px" }}>
-        <div style={{ fontSize: 48, marginBottom: spacing.md }}>🎉</div>
-        <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: goldText, marginBottom: spacing.sm }}>Session Complete!</div>
-        <div style={{ display: "flex", gap: spacing.lg, justifyContent: "center", marginTop: spacing.lg, marginBottom: spacing.xl }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: colors.textMuted }}>{sessionStats.reviewed}</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Reviewed</div>
+      <div className="px-5 py-10 text-center">
+        <div className="mb-3 text-5xl">🎉</div>
+        <div className="mb-2 text-base font-bold text-gold">Session Complete!</div>
+        <div className="my-4 flex justify-center gap-4">
+          <div className="text-center">
+            <div className="text-xl font-extrabold text-hub-text-muted">{sessionStats.reviewed}</div>
+            <div className="text-[10px] text-hub-text-dim">Reviewed</div>
           </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: accuracy >= 70 ? "#22c55e" : "#f59e0b" }}>{accuracy}%</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Accuracy</div>
+          <div className="text-center">
+            <div className="text-xl font-extrabold" style={{ color: accuracy >= 70 ? "#22c55e" : "#f59e0b" }}>{accuracy}%</div>
+            <div className="text-[10px] text-hub-text-dim">Accuracy</div>
           </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: goldText }}>{dailyGoal}</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Daily Goal</div>
+          <div className="text-center">
+            <div className="text-xl font-extrabold text-gold">{dailyGoal}</div>
+            <div className="text-[10px] text-hub-text-dim">Daily Goal</div>
           </div>
         </div>
-        <button onClick={onBack} style={{ padding: "10px 24px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, cursor: "pointer", fontSize: fontSize.sm, fontWeight: fontWeight.bold }}>← Back to Hub</button>
+        <button onClick={onBack} className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-6 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">← Back to Hub</button>
       </div>
     );
   }
 
-  // Item type icon
   const typeIcon = { whole_pdf: "📄", page: "📖", flashcard: "🃏", mcq: "❓", legacy_mcq: "❓" }[currentItem?.itemType] || "📚";
   const typeLabel = { whole_pdf: "PDF Review", page: "Page Review", flashcard: "Flashcard", mcq: "MCQ", legacy_mcq: "MCQ" }[currentItem?.itemType] || "Review";
 
-  // Progress
   const progressPct = sessionStats.total > 0 ? Math.round((sessionStats.reviewed / sessionStats.total) * 100) : 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", maxWidth: 600, margin: "0 auto", width: "100%" }}>
+    <div className="mx-auto flex h-full w-full max-w-[600px] flex-col">
       {/* Header */}
-      <div style={{ padding: spacing.md, borderBottom: `0.5px solid ${colors.border}`, flexShrink: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.sm }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", color: colors.textMuted, cursor: "pointer", fontSize: fontSize.sm }}>← Back</button>
-          <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted }}>
+      <div className="shrink-0 border-b border-hub-border p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <button onClick={onBack} className="cursor-pointer text-[11px] text-hub-text-muted">← Back</button>
+          <span className="text-[11px] font-semibold text-hub-text-muted">
             {sessionStats.reviewed}/{sessionStats.total} · Goal: {dailyGoal}
           </span>
-          <span style={{ fontSize: fontSize.xs, color: colors.textDim }}>{typeLabel}</span>
+          <span className="text-[10px] text-hub-text-dim">{typeLabel}</span>
         </div>
-        <div style={{ height: 4, background: colors.bg, borderRadius: 2, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${progressPct}%`, background: `linear-gradient(90deg, ${goldText}, #22c55e)`, borderRadius: 2, transition: "width 0.3s" }} />
+        <div className="h-1 overflow-hidden rounded-full bg-hub-bg">
+          <div className="h-full rounded-full bg-gradient-to-r from-gold to-[#22c55e] transition-all duration-300" style={{ width: `${progressPct}%` }} />
         </div>
       </div>
 
       {/* Card */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: spacing.lg, overflow: "auto" }}>
+      <div className="flex flex-1 flex-col items-center justify-center overflow-auto p-4">
         {/* FSRS state indicator */}
-        <div style={{ textAlign: "center", marginBottom: spacing.md, fontSize: fontSize.xs, color: colors.textDim }}>
+        <div className="mb-3 text-center text-[10px] text-hub-text-dim">
           {STATE_LABELS[currentItem.state] || ""} · {currentItem.reps || 0} reps · {currentItem.lapses > 0 ? `${currentItem.lapses} lapses` : "No lapses"}
         </div>
 
         {/* Topic badge */}
         {currentItem.topic && (
-          <div style={{ textAlign: "center", marginBottom: spacing.sm }}>
-            <span style={{ fontSize: fontSize.xs, color: colors.textDim, background: colors.bg, padding: "2px 10px", borderRadius: 10 }}>{currentItem.topic}</span>
+          <div className="mb-2 text-center">
+            <span className="rounded-full bg-hub-bg px-2.5 py-0.5 text-[10px] text-hub-text-dim">{currentItem.topic}</span>
           </div>
         )}
 
         {/* Card content */}
-        <div style={{
-          background: "#0d0f20", border: `0.5px solid ${colors.border}`, borderRadius: 16,
-          padding: spacing.xl, minHeight: 200, display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", textAlign: "center",
-        }}>
-          <div style={{ fontSize: 32, marginBottom: spacing.md }}>{typeIcon}</div>
+        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-hub-border bg-[#0d0f20] p-6 text-center">
+          <div className="mb-3 text-3xl">{typeIcon}</div>
 
           {currentItem.itemType === "flashcard" ? (
             <>
               {(currentItem.subject || currentItem.resource?.title) && (
-                <div style={{ marginBottom: spacing.sm, fontSize: fontSize.xs, color: colors.textDim }}>
+                <div className="mb-2 text-[10px] text-hub-text-dim">
                   {currentItem.resource?.title}{currentItem.subject && currentItem.resource?.title ? " · " : ""}{currentItem.subject}
                 </div>
               )}
-              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: spacing.md }}>
+              <div className="mb-3 text-sm font-bold text-hub-text">
                 {currentItem.flashcard?.front || "No front text"}
               </div>
               {showAnswer && (
-                <div style={{ fontSize: fontSize.base, color: colors.textMuted, lineHeight: 1.6, padding: spacing.md, background: colors.bg, borderRadius: 8, width: "100%" }}>
+                <div className="w-full rounded-lg bg-hub-bg p-3 text-[13px] leading-relaxed text-hub-text-muted">
                   {currentItem.flashcard?.back || "No back text"}
                 </div>
               )}
             </>
           ) : currentItem.itemType === "mcq" || currentItem.itemType === "legacy_mcq" ? (
             <>
-              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: spacing.md }}>
+              <div className="mb-3 text-sm font-bold text-hub-text">
                 {currentItem.mcq?.question || currentItem.mcq?.q || `Question ${(currentItem.pageIndex || 0) + 1}`}
               </div>
               {showAnswer && currentItem.mcq?.options && (
-                <div style={{ width: "100%", textAlign: "left" }}>
+                <div className="w-full text-left">
                   {(() => {
                     const opts = currentItem.mcq.options;
                     const correctKey = currentItem.mcq?.correct ?? currentItem.mcq?.answer ?? null;
@@ -230,12 +218,9 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                       return opts.map((opt, oi) => {
                         const isCorrect = String.fromCharCode(65 + oi) === correctKey || oi === (currentItem.mcq?.correctIndex ?? currentItem.mcq?.answer);
                         return (
-                          <div key={oi} style={{
-                            padding: "8px 12px", marginBottom: 4, borderRadius: 8,
-                            background: isCorrect ? "#0f2a1a" : colors.bg,
-                            border: `0.5px solid ${isCorrect ? "#22c55e" : colors.border}`,
-                            fontSize: fontSize.sm, color: isCorrect ? "#a5d6a7" : colors.textMuted,
-                          }}>
+                          <div key={oi} className={`mb-1 rounded-lg border p-2 px-3 text-[11px] ${
+                            isCorrect ? "border-[#22c55e] bg-[#0f2a1a] text-[#a5d6a7]" : "border-hub-border bg-hub-bg text-hub-text-muted"
+                          }`}>
                             {String.fromCharCode(65 + oi)}. {opt}
                           </div>
                         );
@@ -244,19 +229,16 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                     return Object.entries(opts).map(([key, val]) => {
                       const isCorrect = key === correctKey;
                       return (
-                        <div key={key} style={{
-                          padding: "8px 12px", marginBottom: 4, borderRadius: 8,
-                          background: isCorrect ? "#0f2a1a" : colors.bg,
-                          border: `0.5px solid ${isCorrect ? "#22c55e" : colors.border}`,
-                          fontSize: fontSize.sm, color: isCorrect ? "#a5d6a7" : colors.textMuted,
-                        }}>
+                        <div key={key} className={`mb-1 rounded-lg border p-2 px-3 text-[11px] ${
+                          isCorrect ? "border-[#22c55e] bg-[#0f2a1a] text-[#a5d6a7]" : "border-hub-border bg-hub-bg text-hub-text-muted"
+                        }`}>
                           {key}. {val}
                         </div>
                       );
                     });
                   })()}
                   {currentItem.mcq?.explanation && (
-                    <div style={{ marginTop: spacing.sm, fontSize: fontSize.xs, color: colors.textDim, fontStyle: "italic" }}>
+                    <div className="mt-2 text-[10px] italic text-hub-text-dim">
                       {currentItem.mcq.explanation}
                     </div>
                   )}
@@ -265,24 +247,20 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
             </>
           ) : (
             <>
-              <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: spacing.sm }}>
+              <div className="mb-2 text-sm font-bold text-hub-text">
                 {currentItem.resource?.title || "Review this content"}
               </div>
-              <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginBottom: spacing.md }}>
+              <div className="mb-3 text-[11px] text-hub-text-dim">
                 {currentItem.itemType === "page" ? `Page ${currentItem.pageIndex}` : "Full document review"}
                 {currentItem.subject ? ` · ${currentItem.subject}` : ""}
               </div>
               {onOpenPdf && currentItem.resource?.shareToken && (
-                <button onClick={() => onOpenPdf(currentItem.resource.shareToken, currentItem.itemType === "page" ? currentItem.pageIndex : null)} style={{
-                  marginBottom: spacing.md, padding: "8px 20px", borderRadius: 8,
-                  background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText,
-                  cursor: "pointer", fontSize: fontSize.sm, fontWeight: fontWeight.bold,
-                }}>
+                <button onClick={() => onOpenPdf(currentItem.resource.shareToken, currentItem.itemType === "page" ? currentItem.pageIndex : null)} className="mb-3 cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-5 py-2 text-[11px] font-bold text-gold transition-all active:scale-95">
                   {currentItem.itemType === "page" ? `📖 Open Page ${currentItem.pageIndex}` : "📄 Open Document"}
                 </button>
               )}
               {showAnswer && (
-                <div style={{ marginTop: spacing.md, fontSize: fontSize.sm, color: colors.textMuted, lineHeight: 1.5 }}>
+                <div className="mt-3 text-[11px] leading-relaxed text-hub-text-muted">
                   How well did you remember the key concepts from this {currentItem.itemType === "page" ? "page" : "document"}?
                   Rate your recall below.
                 </div>
@@ -291,11 +269,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
           )}
 
           {!showAnswer && (
-            <button onClick={() => setShowAnswer(true)} style={{
-              marginTop: spacing.lg, padding: "10px 24px", borderRadius: 8,
-              background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText,
-              cursor: "pointer", fontSize: fontSize.sm, fontWeight: fontWeight.bold,
-            }}>
+            <button onClick={() => setShowAnswer(true)} className="mt-4 cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-6 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">
               {currentItem.itemType === "flashcard" || currentItem.itemType === "mcq" || currentItem.itemType === "legacy_mcq" ? "Show Answer" : "Reveal & Rate"}
             </button>
           )}
@@ -303,18 +277,16 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
 
         {/* Rating buttons */}
         {showAnswer && rating === null && (
-          <div style={{ display: "flex", gap: spacing.sm, justifyContent: "center", marginTop: spacing.lg, flexWrap: "wrap" }}>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             {[1, 2, 3, 4].map(g => (
-              <button key={g} onClick={() => handleRate(g)} style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-                padding: "12px 16px", borderRadius: 12, cursor: "pointer",
+              <button key={g} onClick={() => handleRate(g)} className="flex min-w-[70px] cursor-pointer flex-col items-center gap-1 rounded-xl border px-4 py-3 transition-all active:scale-95" style={{
                 background: g === 1 ? "#2a0a0a" : g === 2 ? "#2a1a0a" : g === 3 ? "#0a2a0a" : "#0a0a2a",
-                border: `0.5px solid ${GRADE_LABELS[g].color}`,
-                color: GRADE_LABELS[g].color, minWidth: 70,
+                borderColor: GRADE_LABELS[g].color,
+                color: GRADE_LABELS[g].color,
               }}>
-                <span style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold }}>{GRADE_LABELS[g].label}</span>
-                <span style={{ fontSize: fontSize.xs, opacity: 0.7 }}>{GRADE_LABELS[g].desc}</span>
-                <span style={{ fontSize: 10, opacity: 0.5 }}>{GRADE_LABELS[g].nextTime}</span>
+                <span className="text-base font-bold">{GRADE_LABELS[g].label}</span>
+                <span className="text-[10px] opacity-70">{GRADE_LABELS[g].desc}</span>
+                <span className="text-[10px] opacity-50">{GRADE_LABELS[g].nextTime}</span>
               </button>
             ))}
           </div>
@@ -322,7 +294,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
 
         {/* Rating feedback */}
         {rating !== null && (
-          <div style={{ textAlign: "center", marginTop: spacing.md, fontSize: fontSize.sm, color: GRADE_LABELS[rating]?.color || colors.textMuted }}>
+          <div className="mt-3 text-center text-[11px]" style={{ color: GRADE_LABELS[rating]?.color || "#888" }}>
             Rated: {GRADE_LABELS[rating]?.label} · Next card…
           </div>
         )}

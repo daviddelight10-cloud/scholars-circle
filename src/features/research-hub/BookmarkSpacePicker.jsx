@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { colors, spacing, fontSize, fontWeight, borderRadius, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
 export default function BookmarkSpacePicker({
   show,
@@ -45,38 +44,31 @@ export default function BookmarkSpacePicker({
   };
 
   return (
-    <div style={sharedStyles.overlay} onClick={handleClose}>
-      <div style={sharedStyles.wizardModal} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }}>
-          <h2 style={sharedStyles.modalTitle}>Add to space</h2>
-          <button onClick={handleClose} style={sharedStyles.closeBtn}>✕</button>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-3" onClick={handleClose}>
+      <div
+        className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="m-0 text-xl font-bold text-gold">Add to space</h2>
+          <button onClick={handleClose} className="rounded-lg px-2 py-1 text-base text-hub-text-muted transition-colors hover:text-hub-text">✕</button>
         </div>
 
-        <div style={{
-          background: colors.bg, border: `0.5px solid ${colors.border}`,
-          borderRadius: borderRadius.md, padding: spacing.md, marginBottom: spacing.md,
-        }}>
-          <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginBottom: "4px" }}>Saving</div>
-          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.text }}>
-            {resource.title}
-          </div>
+        <div className="mb-3 rounded-lg border border-hub-border bg-hub-bg p-3">
+          <div className="mb-1 text-[11px] text-hub-text-dim">Saving</div>
+          <div className="text-sm font-bold text-hub-text">{resource.title}</div>
           {resource.subject && (
-            <div style={{ fontSize: fontSize.xs, color: colors.textMuted, marginTop: "2px" }}>
-              {resource.subject}
-            </div>
+            <div className="mt-0.5 text-[10px] text-hub-text-muted">{resource.subject}</div>
           )}
         </div>
 
-        <div style={{ marginBottom: spacing.md }}>
-          <div style={{ ...sharedStyles.fieldLabel, marginBottom: spacing.sm }}>
-            Choose a space <span style={{ color: goldText }}>*</span>
+        <div className="mb-3">
+          <div className="mb-2 block text-[11px] font-semibold text-hub-text-muted">
+            Choose a space <span className="text-gold">*</span>
           </div>
 
           {allFolders.length === 0 ? (
-            <div style={{
-              fontSize: fontSize.sm, color: colors.textDim, textAlign: "center",
-              padding: spacing.lg, border: `1px dashed ${colors.border}`, borderRadius: borderRadius.md,
-            }}>
+            <div className="rounded-lg border border-dashed border-hub-border p-4 text-center text-[11px] text-hub-text-dim">
               No spaces yet. Create one to save this material.
             </div>
           ) : (
@@ -84,54 +76,48 @@ export default function BookmarkSpacePicker({
               <div
                 key={folder.id}
                 onClick={() => setSelectedFolderId(folder.id)}
-                style={{
-                  ...sharedStyles.choiceCard,
-                  borderColor: selectedFolderId === folder.id ? goldBorder : colors.border,
-                  background: selectedFolderId === folder.id ? goldDim : colors.bg,
-                  marginBottom: spacing.sm,
-                  display: "flex", alignItems: "center", gap: spacing.md,
-                }}
+                className={`mb-2 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-all ${
+                  selectedFolderId === folder.id
+                    ? "border-gold-border bg-gold-dim"
+                    : "border-hub-border bg-hub-bg"
+                }`}
               >
-                <div style={{ fontSize: 24 }}>{folder.visibility === "private" ? "📁" : "📂"}</div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{
-                    fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.text,
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}>
-                    {folder.name}
-                  </div>
+                <div className="text-2xl">{folder.visibility === "private" ? "📁" : "📂"}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-bold text-hub-text">{folder.name}</div>
                   {folder.courseCode && (
-                    <div style={{ fontSize: fontSize.xs, color: colors.textMuted }}>{folder.courseCode}</div>
+                    <div className="text-[10px] text-hub-text-muted">{folder.courseCode}</div>
                   )}
                 </div>
-                {selectedFolderId === folder.id && <div style={{ color: goldText, fontSize: 18, flexShrink: 0 }}>✓</div>}
+                {selectedFolderId === folder.id && <div className="shrink-0 text-lg text-gold">✓</div>}
               </div>
             ))
           )}
 
-          {/* Create new space */}
           <div
             onClick={() => onCreateFolder()}
-            style={{
-              border: `1px dashed ${colors.border}`,
-              borderRadius: borderRadius.md, padding: `${spacing.md} ${spacing.md}`,
-              display: "flex", alignItems: "center", gap: spacing.md, cursor: "pointer",
-              marginTop: spacing.sm,
-            }}
+            className="mt-2 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-hub-border p-3 transition-all hover:border-gold"
           >
-            <div style={{ fontSize: 24, color: colors.textMuted }}>+</div>
-            <div style={{ fontSize: fontSize.sm, color: colors.textMuted, fontWeight: fontWeight.semibold }}>
-              Create new space
-            </div>
+            <div className="text-2xl text-hub-text-muted">+</div>
+            <div className="text-[11px] font-semibold text-hub-text-muted">Create new space</div>
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.lg }}>
-          <button onClick={handleClose} style={sharedStyles.wizardBackBtn}>Cancel</button>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={handleClose}
+            className="rounded-lg border border-hub-border px-5 py-3 text-sm font-semibold text-hub-text-muted transition-all active:scale-95"
+          >
+            Cancel
+          </button>
           <button
             onClick={handleConfirm}
             disabled={busy || !selectedFolderId}
-            style={(busy || !selectedFolderId) ? sharedStyles.wizardBtnDisabled : sharedStyles.wizardBtnPrimary}
+            className={`rounded-lg px-6 py-3 text-sm font-bold transition-all active:scale-95 ${
+              busy || !selectedFolderId
+                ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-60"
+                : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
+            }`}
           >
             {busy ? "Saving…" : "Add to space ✓"}
           </button>

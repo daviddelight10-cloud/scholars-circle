@@ -1,10 +1,6 @@
 import { memo, useState } from "react";
 import { getSubjectColor, getSubjectIcon } from "./subjectColors";
-
-const TYPE_LABELS = {
-  pdf: "📄", mcq: "✎", flashcard_deck: "🎴", note: "📝",
-  image: "🖼", docx: "📝", pptx: "📊", txt: "📃", tutorial_question: "❓",
-};
+import { contentTypeConfig } from "./constants";
 
 const DeskCard = memo(function DeskCard({
   name,
@@ -126,7 +122,7 @@ const DeskCard = memo(function DeskCard({
       <div className="flex flex-wrap items-center gap-1.5">
         {typeEntries.map(([type, count]) => (
           <span key={type} className="flex items-center gap-1 text-[10px] text-hub-text-dim">
-            {TYPE_LABELS[type] || "📎"} {count}
+            {contentTypeConfig[type]?.icon || "📎"} {count}
           </span>
         ))}
         {visibility && (

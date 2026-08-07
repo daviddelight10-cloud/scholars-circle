@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { colors, spacing, fontSize, fontWeight, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -35,9 +34,7 @@ export default function RetentionDashboard({ fsrsStats, fsrsAnalytics, onBack })
 
   if (!fsrsStats) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <div style={{ fontSize: fontSize.md, color: colors.textMuted }}>Loading analytics…</div>
-      </div>
+      <div className="px-5 py-14 text-center text-sm text-hub-text-muted">Loading analytics…</div>
     );
   }
 
@@ -45,16 +42,14 @@ export default function RetentionDashboard({ fsrsStats, fsrsAnalytics, onBack })
   const masteryPct = totalItems > 0 ? Math.round((masteredCount / totalItems) * 100) : 0;
   const retentionPct = Math.round((avgRetrievability || 0) * 100);
 
-  // Subject breakdown sorted by total items
   const subjectEntries = Object.entries(bySubject || {}).sort((a, b) => b[1].total - a[1].total);
 
-  // Daily review heatmap data
   const dailyReviews = fsrsAnalytics?.dailyReviews || {};
   const heatmapDays = Object.entries(dailyReviews).sort((a, b) => a[0].localeCompare(b[0]));
   const maxDaily = Math.max(1, ...Object.values(dailyReviews));
 
   function heatColor(count) {
-    if (count === 0) return colors.bg;
+    if (count === 0) return "#0a0a0a";
     const intensity = count / maxDaily;
     if (intensity < 0.25) return "#0f2a1a";
     if (intensity < 0.5) return "#1a4a1a";
@@ -63,94 +58,88 @@ export default function RetentionDashboard({ fsrsStats, fsrsAnalytics, onBack })
   }
 
   return (
-    <div style={{ padding: spacing.lg, overflowY: "auto", maxHeight: "100%" }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.xl }}>
+    <div className="max-h-full overflow-y-auto p-4">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: "#e8e8e8" }}>Retention Analytics</div>
-          <div style={{ fontSize: fontSize.sm, color: colors.textDim }}>Track your learning and retention</div>
+          <div className="text-base font-bold text-hub-text">Retention Analytics</div>
+          <div className="text-[11px] text-hub-text-dim">Track your learning and retention</div>
         </div>
         {onBack && (
-          <button onClick={onBack} style={{ background: "none", border: "none", color: colors.textMuted, cursor: "pointer", fontSize: fontSize.sm }}>← Back</button>
+          <button onClick={onBack} className="cursor-pointer text-[11px] text-hub-text-muted">← Back</button>
         )}
       </div>
 
-      {/* Stat pills */}
-      <div style={{ display: "flex", gap: spacing.md, flexWrap: "wrap", marginBottom: spacing.xl }}>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: dueCount > 0 ? "#ef4444" : colors.textMuted }}>{dueCount}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Due now</div>
+      <div className="mb-8 flex flex-wrap gap-3">
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold" style={{ color: dueCount > 0 ? "#ef4444" : "#888" }}>{dueCount}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Due now</div>
         </div>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#f59e0b" }}>{learningCount}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Learning</div>
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold text-[#f59e0b]">{learningCount}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Learning</div>
         </div>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#22c55e" }}>{masteredCount}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Mastered</div>
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold text-[#22c55e]">{masteredCount}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Mastered</div>
         </div>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: goldText }}>{totalItems}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Total items</div>
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold text-gold">{totalItems}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Total items</div>
         </div>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#7986cb" }}>{retentionPct}%</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Avg retention</div>
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold text-[#7986cb]">{retentionPct}%</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Avg retention</div>
         </div>
         {streak > 0 && (
-          <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#ff7043" }}>{streak}</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Day streak</div>
+          <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+            <div className="text-xl font-extrabold text-[#ff7043]">{streak}</div>
+            <div className="mt-0.5 text-[10px] text-hub-text-dim">Day streak</div>
           </div>
         )}
       </div>
 
-      {/* Mastery progress bar */}
-      <div style={{ marginBottom: spacing.xl }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Overall Mastery</span>
-          <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: "#22c55e" }}>{masteredCount}/{totalItems} ({masteryPct}%)</span>
+      <div className="mb-8">
+        <div className="mb-1.5 flex justify-between">
+          <span className="text-[11px] font-semibold text-hub-text-muted">Overall Mastery</span>
+          <span className="text-[11px] font-bold text-[#22c55e]">{masteredCount}/{totalItems} ({masteryPct}%)</span>
         </div>
-        <div style={{ height: 10, background: colors.bg, borderRadius: 5, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${masteryPct}%`, background: "linear-gradient(90deg, #22c55e, #4caf50)", borderRadius: 5, transition: "width 0.3s" }} />
+        <div className="h-2.5 overflow-hidden rounded-full bg-hub-bg">
+          <div className="h-full rounded-full bg-gradient-to-r from-[#22c55e] to-[#4caf50] transition-all duration-300" style={{ width: `${masteryPct}%` }} />
         </div>
       </div>
 
-      {/* Daily Goal */}
-      <div style={{ marginBottom: spacing.xl, padding: spacing.md, background: colors.bg, borderRadius: 12, border: `0.5px solid ${colors.border}` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="mb-8 rounded-xl border border-hub-border bg-hub-bg p-3">
+        <div className="flex items-center justify-between">
           <div>
-            <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Daily Review Goal</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Items to review each day</div>
+            <div className="text-[11px] font-semibold text-hub-text-muted">Daily Review Goal</div>
+            <div className="text-[10px] text-hub-text-dim">Items to review each day</div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.sm }}>
+          <div className="flex items-center gap-2">
             {[10, 20, 30, 50].map(g => (
-              <button key={g} onClick={() => saveDailyGoal(g)} disabled={goalSaving} style={{
-                padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontSize: fontSize.xs, fontWeight: fontWeight.semibold,
-                background: dailyGoal === g ? goldDim : "transparent",
-                border: `0.5px solid ${dailyGoal === g ? goldBorder : colors.border}`,
-                color: dailyGoal === g ? goldText : colors.textDim,
-              }}>{g}</button>
+              <button key={g} onClick={() => saveDailyGoal(g)} disabled={goalSaving} className={`cursor-pointer rounded-md border px-3 py-1 text-[10px] font-semibold transition-all ${
+                dailyGoal === g
+                  ? "border-gold-border bg-gold-dim text-gold"
+                  : "border-hub-border text-hub-text-dim"
+              }`}>{g}</button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Subject breakdown */}
       {subjectEntries.length > 0 && (
-        <div style={{ marginBottom: spacing.xl }}>
-          <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted, marginBottom: spacing.md }}>Subject Breakdown</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
+        <div className="mb-8">
+          <div className="mb-3 text-[11px] font-semibold text-hub-text-muted">Subject Breakdown</div>
+          <div className="flex flex-col gap-2">
             {subjectEntries.map(([subject, stats]) => {
               const subMasteryPct = stats.total > 0 ? Math.round((stats.mastered / stats.total) * 100) : 0;
               return (
-                <div key={subject} style={{ padding: spacing.sm, background: colors.bg, borderRadius: 8, border: `0.5px solid ${colors.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: "#e8e8e8" }}>{subject}</span>
-                    <span style={{ fontSize: fontSize.xs, color: colors.textDim }}>{stats.total} items · {stats.due} due</span>
+                <div key={subject} className="rounded-lg border border-hub-border bg-hub-bg p-2">
+                  <div className="mb-1 flex justify-between">
+                    <span className="text-[11px] font-semibold text-hub-text">{subject}</span>
+                    <span className="text-[10px] text-hub-text-dim">{stats.total} items · {stats.due} due</span>
                   </div>
-                  <div style={{ height: 6, background: "#0a0c1e", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${subMasteryPct}%`, background: "linear-gradient(90deg, #22c55e, #4caf50)", borderRadius: 3, transition: "width 0.3s" }} />
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[#0a0c1e]">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[#22c55e] to-[#4caf50] transition-all duration-300" style={{ width: `${subMasteryPct}%` }} />
                   </div>
                 </div>
               );
@@ -159,24 +148,22 @@ export default function RetentionDashboard({ fsrsStats, fsrsAnalytics, onBack })
         </div>
       )}
 
-      {/* Study heatmap */}
       {heatmapDays.length > 0 && (
-        <div style={{ marginBottom: spacing.xl }}>
-          <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted, marginBottom: spacing.md }}>Study Activity (30 days)</div>
-          <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+        <div className="mb-8">
+          <div className="mb-3 text-[11px] font-semibold text-hub-text-muted">Study Activity (30 days)</div>
+          <div className="flex flex-wrap gap-[3px]">
             {heatmapDays.map(([date, count]) => (
-              <div key={date} title={`${date}: ${count} reviews`} style={{
-                width: 14, height: 14, borderRadius: 3,
+              <div key={date} title={`${date}: ${count} reviews`} className="h-3.5 w-3.5 rounded-[3px]" style={{
                 background: heatColor(count),
-                border: count > 0 ? "none" : `0.5px solid #1a1d35`,
+                border: count > 0 ? "none" : "0.5px solid #1a1d35",
               }} />
             ))}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: spacing.sm, fontSize: 10, color: colors.textDim }}>
+          <div className="mt-2 flex justify-between text-[10px] text-hub-text-dim">
             <span>Less</span>
-            <div style={{ display: "flex", gap: 3 }}>
+            <div className="flex gap-[3px]">
               {[0, 0.25, 0.5, 0.75, 1].map(i => (
-                <div key={i} style={{ width: 12, height: 12, borderRadius: 2, background: heatColor(Math.round(i * maxDaily)) }} />
+                <div key={i} className="h-3 w-3 rounded-[2px]" style={{ background: heatColor(Math.round(i * maxDaily)) }} />
               ))}
             </div>
             <span>More</span>
@@ -184,33 +171,31 @@ export default function RetentionDashboard({ fsrsStats, fsrsAnalytics, onBack })
         </div>
       )}
 
-      {/* Streak info */}
-      <div style={{ marginBottom: spacing.xl, padding: spacing.md, background: colors.bg, borderRadius: 12, border: `0.5px solid ${colors.border}` }}>
-        <div style={{ display: "flex", gap: spacing.xl, justifyContent: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#ff7043" }}>{streak || 0}</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Current Streak</div>
+      <div className="mb-8 rounded-xl border border-hub-border bg-hub-bg p-3">
+        <div className="flex justify-center gap-8">
+          <div className="text-center">
+            <div className="text-xl font-extrabold text-[#ff7043]">{streak || 0}</div>
+            <div className="text-[10px] text-hub-text-dim">Current Streak</div>
           </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: goldText }}>{longestStreak || 0}</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Longest Streak</div>
+          <div className="text-center">
+            <div className="text-xl font-extrabold text-gold">{longestStreak || 0}</div>
+            <div className="text-[10px] text-hub-text-dim">Longest Streak</div>
           </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#22c55e" }}>{fsrsAnalytics?.masteredThisPeriod || 0}</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim }}>Mastered (30d)</div>
+          <div className="text-center">
+            <div className="text-xl font-extrabold text-[#22c55e]">{fsrsAnalytics?.masteredThisPeriod || 0}</div>
+            <div className="text-[10px] text-hub-text-dim">Mastered (30d)</div>
           </div>
         </div>
       </div>
 
-      {/* Difficulty by subject */}
       {fsrsAnalytics?.difficultyBySubject && Object.keys(fsrsAnalytics.difficultyBySubject).length > 0 && (
-        <div style={{ marginBottom: spacing.xl }}>
-          <div style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted, marginBottom: spacing.md }}>Difficulty by Subject</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
+        <div className="mb-8">
+          <div className="mb-3 text-[11px] font-semibold text-hub-text-muted">Difficulty by Subject</div>
+          <div className="flex flex-col gap-2">
             {Object.entries(fsrsAnalytics.difficultyBySubject).map(([subject, d]) => (
-              <div key={subject} style={{ display: "flex", justifyContent: "space-between", padding: spacing.sm, background: colors.bg, borderRadius: 8, border: `0.5px solid ${colors.border}` }}>
-                <span style={{ fontSize: fontSize.sm, color: "#e8e8e8" }}>{subject}</span>
-                <span style={{ fontSize: fontSize.sm, color: d.avg > 5 ? "#ef4444" : d.avg > 3 ? "#f59e0b" : "#22c55e", fontWeight: fontWeight.semibold }}>
+              <div key={subject} className="flex justify-between rounded-lg border border-hub-border bg-hub-bg p-2">
+                <span className="text-[11px] text-hub-text">{subject}</span>
+                <span className="text-[11px] font-semibold" style={{ color: d.avg > 5 ? "#ef4444" : d.avg > 3 ? "#f59e0b" : "#22c55e" }}>
                   {d.avg.toFixed(1)} / 10
                 </span>
               </div>

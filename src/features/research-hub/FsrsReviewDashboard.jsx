@@ -1,20 +1,18 @@
-import { colors, spacing, fontSize, fontWeight, sharedStyles, goldDim, goldBorder, goldText } from "./constants";
-
 const TYPE_ICON = { whole_pdf: "📄", page: "📖", flashcard: "🃏", mcq: "❓", legacy_mcq: "❓" };
 const TYPE_LABEL = { whole_pdf: "PDF Review", page: "Page Review", flashcard: "Flashcard", mcq: "MCQ", legacy_mcq: "MCQ" };
 
 export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
-  if (!fsrsStats) return <div style={sharedStyles.emptyState}>Loading FSRS review data...</div>;
+  if (!fsrsStats) return <div className="px-5 py-14 text-center text-sm text-hub-text-dim">Loading FSRS review data...</div>;
 
   const { totalItems, dueCount, learningCount, masteredCount, streak } = fsrsStats;
   const masteryPct = totalItems > 0 ? Math.round((masteredCount / totalItems) * 100) : 0;
 
   if (totalItems === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <div style={{ fontSize: 48, marginBottom: spacing.md }}>📚</div>
-        <div style={{ fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.textMuted, marginBottom: spacing.sm }}>No review items yet</div>
-        <div style={{ fontSize: fontSize.base, color: colors.textDim, maxWidth: 400, margin: "0 auto", lineHeight: 1.5 }}>
+      <div className="px-5 py-14 text-center">
+        <div className="mb-3 text-5xl">📚</div>
+        <div className="mb-1 text-base font-bold text-hub-text-muted">No review items yet</div>
+        <div className="mx-auto max-w-[400px] text-[13px] leading-relaxed text-hub-text-dim">
           Open any PDF, practice MCQs, or study flashcards in the Research Hub. The FSRS algorithm will schedule when to revisit each item for optimal retention.
         </div>
       </div>
@@ -37,52 +35,52 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: spacing.md, flexWrap: "wrap", marginBottom: spacing.xl }}>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: dueCount > 0 ? "#ef4444" : colors.textMuted }}>{dueCount}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Due now</div>
+      <div className="mb-8 flex flex-wrap gap-3">
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold" style={{ color: dueCount > 0 ? "#ef4444" : "#888" }}>{dueCount}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Due now</div>
         </div>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#f59e0b" }}>{learningCount}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Learning</div>
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold text-[#f59e0b]">{learningCount}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Learning</div>
         </div>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#22c55e" }}>{masteredCount}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Mastered</div>
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold text-[#22c55e]">{masteredCount}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Mastered</div>
         </div>
-        <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-          <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: goldText }}>{totalItems}</div>
-          <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Total items</div>
+        <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+          <div className="text-xl font-extrabold text-gold">{totalItems}</div>
+          <div className="mt-0.5 text-[10px] text-hub-text-dim">Total items</div>
         </div>
         {streak > 0 && (
-          <div style={{ ...sharedStyles.statPill, minWidth: 80 }}>
-            <div style={{ fontSize: fontSize.xl, fontWeight: fontWeight.extrabold, color: "#ff7043" }}>{streak}</div>
-            <div style={{ fontSize: fontSize.xs, color: colors.textDim, marginTop: 2 }}>Day streak</div>
+          <div className="flex min-w-[80px] flex-col items-center rounded-xl border border-hub-border bg-hub-surface px-5 py-4 text-center">
+            <div className="text-xl font-extrabold text-[#ff7043]">{streak}</div>
+            <div className="mt-0.5 text-[10px] text-hub-text-dim">Day streak</div>
           </div>
         )}
       </div>
 
-      <div style={{ marginBottom: spacing.xl }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-          <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textMuted }}>Mastery Progress</span>
-          <span style={{ fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: "#22c55e" }}>{masteredCount}/{totalItems} ({masteryPct}%)</span>
+      <div className="mb-8">
+        <div className="mb-1.5 flex justify-between">
+          <span className="text-[11px] font-semibold text-hub-text-muted">Mastery Progress</span>
+          <span className="text-[11px] font-bold text-[#22c55e]">{masteredCount}/{totalItems} ({masteryPct}%)</span>
         </div>
-        <div style={{ height: 8, background: colors.bg, borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${masteryPct}%`, background: "linear-gradient(90deg, #22c55e, #4caf50)", borderRadius: 4, transition: "width 0.3s" }} />
+        <div className="h-2 overflow-hidden rounded-full bg-hub-bg">
+          <div className="h-full rounded-full bg-gradient-to-r from-[#22c55e] to-[#4caf50] transition-all duration-300" style={{ width: `${masteryPct}%` }} />
         </div>
       </div>
 
       {wholePdfs.length > 0 && (
-        <div style={{ marginBottom: spacing.xl }}>
-          <div style={sharedStyles.sectionLabel}>PDFs to Re-read</div>
-          <div style={sharedStyles.grid}>
+        <div className="mb-8">
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">PDFs to Re-read</div>
+          <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
             {wholePdfs.map((item) => (
-              <div key={item.id} style={sharedStyles.card} onClick={() => onOpenPdf(item.resource?.shareToken)}>
-                <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: "6px" }}>{item.resource?.title}</div>
-                <div style={{ fontSize: fontSize.sm, color: colors.textDim }}>{item.resource?.subject}</div>
-                <div style={{ marginTop: spacing.sm, display: "flex", gap: spacing.sm, alignItems: "center" }}>
-                  <span style={{ fontSize: fontSize.xs, color: "#ef4444", fontWeight: fontWeight.semibold }}>Due now</span>
-                  <span style={{ fontSize: fontSize.xs, color: colors.textDim }}>Reps: {item.reps}</span>
+              <div key={item.id} className="cursor-pointer rounded-xl border border-hub-border bg-hub-surface p-3 transition-colors" onClick={() => onOpenPdf(item.resource?.shareToken)}>
+                <div className="mb-1.5 text-sm font-bold text-hub-text">{item.resource?.title}</div>
+                <div className="text-[11px] text-hub-text-dim">{item.resource?.subject}</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[10px] font-semibold text-[#ef4444]">Due now</span>
+                  <span className="text-[10px] text-hub-text-dim">Reps: {item.reps}</span>
                 </div>
               </div>
             ))}
@@ -91,15 +89,15 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
       )}
 
       {duePagesByResource.size > 0 && (
-        <div style={{ marginBottom: spacing.xl }}>
-          <div style={sharedStyles.sectionLabel}>Pages to Review</div>
+        <div className="mb-8">
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">Pages to Review</div>
           {Array.from(duePagesByResource.entries()).map(([resId, group]) => (
-            <div key={resId} style={{ ...sharedStyles.card, marginBottom: 10, cursor: "default" }}>
-              <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8", marginBottom: spacing.sm }}>{group.resource?.title}</div>
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <div key={resId} className="mb-2.5 rounded-xl border border-hub-border bg-hub-surface p-3">
+              <div className="mb-2 text-sm font-bold text-hub-text">{group.resource?.title}</div>
+              <div className="flex flex-wrap gap-1.5">
                 {group.pages.map((p) => (
                   <button key={p.id} onClick={() => onOpenPdf(group.resource?.shareToken, p.pageIndex)}
-                    style={{ padding: "5px 12px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, fontSize: fontSize.sm, fontWeight: fontWeight.semibold, cursor: "pointer" }}>
+                    className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-3 py-1.5 text-[11px] font-semibold text-gold transition-all active:scale-95">
                     p.{p.pageIndex}
                   </button>
                 ))}
@@ -110,13 +108,13 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
       )}
 
       {flashcards.length > 0 && (
-        <div style={{ marginBottom: spacing.xl }}>
-          <div style={sharedStyles.sectionLabel}>Flashcards Due</div>
-          <div style={{ ...sharedStyles.card, cursor: "default" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="mb-8">
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">Flashcards Due</div>
+          <div className="rounded-xl border border-hub-border bg-hub-surface p-3">
+            <div className="flex items-center justify-between">
               <div>
-                <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8" }}>{flashcards.length} flashcard{flashcards.length > 1 ? "s" : ""} due</div>
-                <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginTop: spacing.xs }}>
+                <div className="text-sm font-bold text-hub-text">{flashcards.length} flashcard{flashcards.length > 1 ? "s" : ""} due</div>
+                <div className="mt-0.5 text-[11px] text-hub-text-dim">
                   Across {new Set(flashcards.map((f) => f.resource?.id)).size} resource{new Set(flashcards.map((f) => f.resource?.id)).size > 1 ? "s" : ""}
                 </div>
               </div>
@@ -124,7 +122,7 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
                 const first = flashcards[0];
                 if (first?.resource?.shareToken) onOpenPdf(first.resource.shareToken);
               }}
-                style={{ padding: "8px 16px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, fontSize: fontSize.sm, fontWeight: fontWeight.bold, cursor: "pointer" }}>
+                className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-4 py-2 text-[11px] font-bold text-gold transition-all active:scale-95">
                 Start Review →
               </button>
             </div>
@@ -133,13 +131,13 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
       )}
 
       {mcqs.length > 0 && (
-        <div style={{ marginBottom: spacing.xl }}>
-          <div style={sharedStyles.sectionLabel}>MCQs Due</div>
-          <div style={{ ...sharedStyles.card, cursor: "default" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="mb-8">
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">MCQs Due</div>
+          <div className="rounded-xl border border-hub-border bg-hub-surface p-3">
+            <div className="flex items-center justify-between">
               <div>
-                <div style={{ fontSize: fontSize.base, fontWeight: fontWeight.bold, color: "#e8e8e8" }}>{mcqs.length} MCQ{mcqs.length > 1 ? "s" : ""} due</div>
-                <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginTop: spacing.xs }}>
+                <div className="text-sm font-bold text-hub-text">{mcqs.length} MCQ{mcqs.length > 1 ? "s" : ""} due</div>
+                <div className="mt-0.5 text-[11px] text-hub-text-dim">
                   Across {new Set(mcqs.map((m) => m.resource?.id)).size} resource{new Set(mcqs.map((m) => m.resource?.id)).size > 1 ? "s" : ""}
                 </div>
               </div>
@@ -147,7 +145,7 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
                 const first = mcqs[0];
                 if (first?.resource?.shareToken) onOpenPdf(first.resource.shareToken);
               }}
-                style={{ padding: "8px 16px", borderRadius: 8, background: goldDim, border: `0.5px solid ${goldBorder}`, color: goldText, fontSize: fontSize.sm, fontWeight: fontWeight.bold, cursor: "pointer" }}>
+                className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-4 py-2 text-[11px] font-bold text-gold transition-all active:scale-95">
                 Practice →
               </button>
             </div>
@@ -156,10 +154,10 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
       )}
 
       {dueCount === 0 && totalItems > 0 && (
-        <div style={{ textAlign: "center", padding: "40px 20px" }}>
-          <div style={{ fontSize: 36, marginBottom: spacing.sm }}>✅</div>
-          <div style={{ fontSize: fontSize.md, fontWeight: fontWeight.bold, color: "#22c55e" }}>All caught up!</div>
-          <div style={{ fontSize: fontSize.sm, color: colors.textDim, marginTop: spacing.xs }}>No items due for review right now. Come back later.</div>
+        <div className="px-5 py-10 text-center">
+          <div className="mb-2 text-4xl">✅</div>
+          <div className="text-sm font-bold text-[#22c55e]">All caught up!</div>
+          <div className="mt-1 text-[11px] text-hub-text-dim">No items due for review right now. Come back later.</div>
         </div>
       )}
     </div>

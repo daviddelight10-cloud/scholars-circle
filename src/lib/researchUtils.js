@@ -1,4 +1,5 @@
 // Helper functions for Research Hub feature
+import { contentTypeConfig } from "../features/research-hub/constants";
 
 // Copy share token to clipboard
 export async function copyShareToken(token) {
@@ -28,18 +29,7 @@ export function getSubjectBadgeColor(subject) {
 
 // Get icon for content type
 export function getContentTypeIcon(type) {
-  const icons = {
-    pdf: "📄",
-    note: "📖",
-    mcq: "📝",
-    tutorial_question: "❓",
-    image: "🖼️",
-    docx: "📃",
-    pptx: "📊",
-    txt: "📝",
-    flashcard_deck: "🎴",
-  };
-  return icons[type] || "📄";
+  return contentTypeConfig[type]?.icon || "📄";
 }
 
 // Get icon class for content type

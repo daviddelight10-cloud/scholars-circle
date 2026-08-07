@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { getSubjectColor, getSubjectIcon } from "./subjectColors";
+import { contentTypeConfig } from "./constants";
 
 const SubjectDeckCard = memo(function SubjectDeckCard({ subject, level, resources, fsrsSubjectStats, onClick, index = 0 }) {
   const sc = getSubjectColor(subject);
@@ -78,10 +79,9 @@ const SubjectDeckCard = memo(function SubjectDeckCard({ subject, level, resource
 
       <div className="flex flex-wrap gap-1.5">
         {typeEntries.map(([type, count]) => {
-          const labels = { pdf: "📄", mcq: "❓", flashcard_deck: "🃏", note: "📝", image: "🖼", docx: "📝", pptx: "📊", txt: "📃", tutorial_question: "❓" };
           return (
             <span key={type} className="flex items-center gap-1 text-[10px] text-hub-text-dim">
-              {labels[type] || "📎"} {count}
+              {contentTypeConfig[type]?.icon || "📎"} {count}
             </span>
           );
         })}

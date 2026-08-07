@@ -1,23 +1,7 @@
 import { memo, useState } from "react";
 import { getSubjectColor } from "./subjectColors";
 import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
-
-function formatRelativeDate(dateStr) {
-  if (!dateStr) return null;
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHr / 24);
-  const diffWk = Math.floor(diffDay / 7);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHr < 24) return `${diffHr}h ago`;
-  if (diffDay < 7) return `${diffDay}d ago`;
-  if (diffWk < 4) return `${diffWk}w ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
+import { contentTypeConfig, formatRelativeDate } from "./constants";
 
 function McqProgressRing({ practiced, pct, progress }) {
   const size = 28;
@@ -48,18 +32,6 @@ function McqProgressRing({ practiced, pct, progress }) {
   );
 }
 
-const TYPE_CONFIG = {
-  pdf: { label: "PDF", icon: "📄" },
-  image: { label: "Image", icon: "🖼" },
-  docx: { label: "DOCX", icon: "📝" },
-  pptx: { label: "PPT", icon: "📊" },
-  txt: { label: "Text", icon: "📃" },
-  note: { label: "Note", icon: "📝" },
-  mcq: { label: "MCQ", icon: "✎" },
-  flashcard_deck: { label: "Flashcards", icon: "🎴" },
-  tutorial_question: { label: "Tutorial Q", icon: "❓" },
-};
-
 const GENERATABLE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note"];
 
 const FAB_ACTIONS = [
@@ -86,7 +58,7 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
   const pct = progress && progress.total > 0 ? Math.round((progress.bestScore / progress.total) * 100) : 0;
   const practiced = progress != null;
   const relDate = formatRelativeDate(resource.createdAt);
-  const typeConfig = TYPE_CONFIG[resource.contentType] || TYPE_CONFIG.note;
+  const typeConfig = contentTypeConfig[resource.contentType] || contentTypeConfig.note;
   const sourceName = resource.fileName || resource.sourcePdf || null;
   const delay = `${Math.min(index * 40, 400)}ms`;
 
