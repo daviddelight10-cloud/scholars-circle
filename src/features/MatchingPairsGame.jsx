@@ -207,6 +207,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
   const [completedLevels, setCompletedLevels] = useState([]);
   const [levelStats, setLevelStats] = useState({}); // { levelIndex: { moves, seconds, bestMoves, bestSeconds } }
   const [resumeAvailable, setResumeAvailable] = useState(false);
+  const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
 
   // Per-round state
   const [deck, setDeck] = useState([]);
@@ -337,11 +338,16 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
 
   // Start fresh
   function handleStartNew() {
+    setShowStartOverConfirm(true);
+  }
+
+  function confirmStartOver() {
     clearProgress(resource?.id || "default");
     setCompletedLevels([]);
     setLevelStats({});
     setCurrentLevel(0);
     setResumeAvailable(false);
+    setShowStartOverConfirm(false);
     startLevel(0);
   }
 
@@ -637,6 +643,22 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
     // Auto-start if no resume option
     // This handles the initial load — start level 0
     // But if resumeAvailable is true, show the choice screen
+  }
+
+  // Start Over confirmation
+  if (showStartOverConfirm) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Start over?</div>
+          <div style={{ fontSize: 14, color: textDim, marginBottom: 20 }}>Your saved progress will be erased and you'll begin from Level 1.</div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setShowStartOverConfirm(false)} style={{ flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${cardBorder}`, background: "transparent", color: textHi, fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+            <button onClick={confirmStartOver} style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: coral, color: ink, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Start Over</button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Resume / Start screen
