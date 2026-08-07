@@ -214,6 +214,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
   const [pingAnim, setPingAnim] = useState(null);
   const [resumeAvailable, setResumeAvailable] = useState(false);
   const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(true);
 
   const totalQuestions = allQuestions.length;
   const levelLabel = (idx) => idx >= numLevels ? "Mastery" : `Level ${idx + 1}`;
@@ -246,6 +247,11 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       pickNext();
     }
   }, [gameState, currentQ, resumeAvailable]);
+
+  // Auto-expand rail when animations fire
+  useEffect(() => {
+    if (chipAnim || pingAnim) setRailCollapsed(false);
+  }, [chipAnim, pingAnim]);
 
   function playSound(fn) {
     if (!audioRef.current) audioRef.current = createAudioSystem();
@@ -736,52 +742,75 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
           </div>
         </div>
 
-        {/* Rail */}
-        <div ref={railRef} style={{ position: "relative", background: "radial-gradient(circle at 20% 85%, rgba(0,229,255,0.08), transparent 42%), radial-gradient(circle at 75% 10%, rgba(74,222,128,0.09), transparent 46%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))", border: `1px solid ${cardBorder}`, borderRadius: 16, height: isMobile ? 120 : 140, overflow: "hidden", flexShrink: 0, marginBottom: 10 }}>
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-            <defs>
-              <linearGradient id="cascadeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#00E5FF" />
-                <stop offset="45%" stopColor="#FFB627" />
-                <stop offset="75%" stopColor="#FF5E7E" />
-                <stop offset="100%" stopColor="#4ADE80" />
-              </linearGradient>
-            </defs>
-            <path d={pathD} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="0.6 2.4" vectorEffect="non-scaling-stroke" />
-            <path d={pathD} fill="none" stroke="url(#cascadeGrad)" strokeWidth="1.3" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ strokeDasharray: 1000, strokeDashoffset: 1000 * (1 - progress), transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
-          </svg>
-          {railPoints.map((p, i) => {
-            const isActive = i === activeIdx;
-            const isDone = i < activeIdx;
-            const isMastery = i === numLevels;
-            const color = getLevelColor(i, totalNodes);
-            const count = i === currentLevelIdx ? (levelQueues.queues[i]?.length || 0) + (i >= numLevels ? levelQueues.mastery.length : 0) : (i >= numLevels ? levelQueues.mastery.length : levelQueues.queues[i]?.length || 0);
-            return (
-              <div key={i} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, zIndex: 3 }}>
-                <div style={{
-                  width: isMastery ? 36 : 30, height: isMastery ? 36 : 30, borderRadius: "50%",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: isMastery ? 16 : 12, fontWeight: 700,
-                  background: isActive ? color : isDone ? "rgba(74,222,128,0.1)" : cardBg,
-                  border: `2px solid ${isActive ? color : isDone ? green : cardBorder}`,
-                  color: isActive ? ink : isDone ? green : textDim,
-                  opacity: isActive || isDone ? 1 : 0.5,
-                  boxShadow: isActive ? `0 0 12px ${color}66` : "none",
-                  transition: "all 0.3s ease",
-                  position: "relative",
-                }}>
-                  {isDone ? "✓" : isMastery ? "★" : i + 1}
-                  {count > 0 && <span style={{ position: "absolute", top: -5, right: -5, fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: ink, background: gold, borderRadius: 20, minWidth: 14, height: 14, padding: "0 3px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 0 2px ${ink}` }}>{count}</span>}
+        {/* Rail (collapsible) */}
+        {railCollapsed ? (
+          <div onClick={() => setRailCollapsed(false)} style={{ position: "relative", background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))", border: `1px solid ${cardBorder}`, borderRadius: 12, height: 36, overflow: "hidden", flexShrink: 0, marginBottom: 10, cursor: "pointer", display: "flex", alignItems: "center", padding: "0 12px", gap: 10 }}>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+              <defs>
+                <linearGradient id="cascadeGradMini" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#00E5FF" />
+                  <stop offset="45%" stopColor="#FFB627" />
+                  <stop offset="75%" stopColor="#FF5E7E" />
+                  <stop offset="100%" stopColor="#4ADE80" />
+                </linearGradient>
+              </defs>
+              <path d={pathD} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              <path d={pathD} fill="none" stroke="url(#cascadeGradMini)" strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ strokeDasharray: 1000, strokeDashoffset: 1000 * (1 - progress), transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+            </svg>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: textDim, zIndex: 2, whiteSpace: "nowrap" }}>{levelLabel(currentLevelIdx)}</span>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: getLevelColor(activeIdx, totalNodes), zIndex: 2, whiteSpace: "nowrap" }}>{Math.round(progress * 100)}%</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: textDim, zIndex: 2 }}>▾</span>
+          </div>
+        ) : (
+          <div ref={railRef} style={{ position: "relative", background: "radial-gradient(circle at 20% 85%, rgba(0,229,255,0.08), transparent 42%), radial-gradient(circle at 75% 10%, rgba(74,222,128,0.09), transparent 46%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))", border: `1px solid ${cardBorder}`, borderRadius: 16, height: isMobile ? 120 : 140, overflow: "hidden", flexShrink: 0, marginBottom: 10 }}>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+              <defs>
+                <linearGradient id="cascadeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#00E5FF" />
+                  <stop offset="45%" stopColor="#FFB627" />
+                  <stop offset="75%" stopColor="#FF5E7E" />
+                  <stop offset="100%" stopColor="#4ADE80" />
+                </linearGradient>
+              </defs>
+              <path d={pathD} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.1" strokeLinecap="round" strokeDasharray="0.6 2.4" vectorEffect="non-scaling-stroke" />
+              <path d={pathD} fill="none" stroke="url(#cascadeGrad)" strokeWidth="1.3" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ strokeDasharray: 1000, strokeDashoffset: 1000 * (1 - progress), transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
+            </svg>
+            {railPoints.map((p, i) => {
+              const isActive = i === activeIdx;
+              const isDone = i < activeIdx;
+              const isMastery = i === numLevels;
+              const color = getLevelColor(i, totalNodes);
+              const count = i === currentLevelIdx ? (levelQueues.queues[i]?.length || 0) + (i >= numLevels ? levelQueues.mastery.length : 0) : (i >= numLevels ? levelQueues.mastery.length : levelQueues.queues[i]?.length || 0);
+              return (
+                <div key={i} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, zIndex: 3 }}>
+                  <div style={{
+                    width: isMastery ? 36 : 30, height: isMastery ? 36 : 30, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: isMastery ? 16 : 12, fontWeight: 700,
+                    background: isActive ? color : isDone ? "rgba(74,222,128,0.1)" : cardBg,
+                    border: `2px solid ${isActive ? color : isDone ? green : cardBorder}`,
+                    color: isActive ? ink : isDone ? green : textDim,
+                    opacity: isActive || isDone ? 1 : 0.5,
+                    boxShadow: isActive ? `0 0 12px ${color}66` : "none",
+                    transition: "all 0.3s ease",
+                    position: "relative",
+                  }}>
+                    {isDone ? "✓" : isMastery ? "★" : i + 1}
+                    {count > 0 && <span style={{ position: "absolute", top: -5, right: -5, fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700, color: ink, background: gold, borderRadius: 20, minWidth: 14, height: 14, padding: "0 3px", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 0 2px ${ink}` }}>{count}</span>}
+                  </div>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 7, color: isActive ? color : isDone ? green : textDim, textTransform: "uppercase", whiteSpace: "nowrap", fontWeight: isActive ? 700 : 400 }}>{isMastery ? "Mastery" : `L${i + 1}`}</span>
                 </div>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 7, color: isActive ? color : isDone ? green : textDim, textTransform: "uppercase", whiteSpace: "nowrap", fontWeight: isActive ? 700 : 400 }}>{isMastery ? "Mastery" : `L${i + 1}`}</span>
-              </div>
-            );
-          })}
-          {/* Chip animation */}
-          {chipAnim && <CascadeChip from={railPoints[chipAnim.from]} to={railPoints[Math.min(chipAnim.to, railPoints.length - 1)]} color={chipAnim.color} key={chipAnim.ts} onComplete={() => setChipAnim(null)} />}
-          {/* Ping animation */}
-          {pingAnim && <CascadePing point={railPoints[Math.min(pingAnim.idx, railPoints.length - 1)]} color={pingAnim.color} double={pingAnim.double} key={pingAnim.ts} onComplete={() => setPingAnim(null)} />}
-        </div>
+              );
+            })}
+            {/* Chip animation */}
+            {chipAnim && <CascadeChip from={railPoints[chipAnim.from]} to={railPoints[Math.min(chipAnim.to, railPoints.length - 1)]} color={chipAnim.color} key={chipAnim.ts} onComplete={() => setChipAnim(null)} />}
+            {/* Ping animation */}
+            {pingAnim && <CascadePing point={railPoints[Math.min(pingAnim.idx, railPoints.length - 1)]} color={pingAnim.color} double={pingAnim.double} key={pingAnim.ts} onComplete={() => setPingAnim(null)} />}
+            {/* Collapse button */}
+            <button onClick={() => setRailCollapsed(true)} style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 6, background: "rgba(255,255,255,0.06)", border: `1px solid ${cardBorder}`, color: textDim, cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 }}>▴</button>
+          </div>
+        )}
 
         {/* Question card */}
         {currentQ && gameState === "playing" && !showLevelComplete && (
