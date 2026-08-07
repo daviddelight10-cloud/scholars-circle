@@ -6,6 +6,7 @@ import MarkdownText from "../components/MarkdownText.jsx";
 import { callAI } from "../lib/aiClient.js";
 import { recordPracticeResult, getWeakSpotQuestions } from "../lib/studyHistory.js";
 import McqSurvivalRunner from "./McqSurvivalRunner.jsx";
+import McqCascadeRunner from "./McqCascadeRunner.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
@@ -71,6 +72,21 @@ export default function McqQuizRunner({ resource, shareToken, sessionConfig, onB
   if (sessionConfig?.sessionType === "survival" && rawQuestions.length > 0) {
     return (
       <McqSurvivalRunner
+        resource={resource}
+        shareToken={shareToken}
+        questions={rawQuestions}
+        onBack={onBack}
+        onQuizComplete={onQuizComplete}
+        onStreakUpdate={onStreakUpdate}
+        onXpUpdate={onXpUpdate}
+      />
+    );
+  }
+
+  // Cascade mode (replaces practice) — render dedicated component
+  if (rawQuestions.length > 0) {
+    return (
+      <McqCascadeRunner
         resource={resource}
         shareToken={shareToken}
         questions={rawQuestions}

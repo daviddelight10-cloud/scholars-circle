@@ -4,11 +4,11 @@ import { getWeakSpots } from "../lib/studyHistory.js";
 const MODE_DATA = {
   practice: {
     icon: "\u{1F3AF}",
-    title: "Practice Mode",
-    desc: "Instant feedback, AI explanations, retry wrong answers, and navigate back anytime.",
-    pills: ["Instant scoring", "AI explanations", "Retry wrong answers", "Previous button"],
-    cta: "Start Practice Mode \u2192",
-    hint: "Best for first pass through a topic \u2014 see explanations as you go.",
+    title: "Weak Spot Cascade",
+    desc: "Level-based progression with dynamic question queues. Missed questions cascade to the next level and re-ask at the end of each level.",
+    pills: ["Dynamic levels", "Weak-spot cascade", "Visual level map", "AI explanations"],
+    cta: "Start Cascade \u2192",
+    hint: "Master every question \u2014 missed ones follow you until you nail them twice.",
     accent: "#3ECF8E",
     accentBg: "rgba(62,207,142,0.05)",
     accentBorder: "rgba(62,207,142,0.22)",
@@ -72,19 +72,11 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
   }, [resource]);
 
   const weakCount = weakSpots.length;
-  const showSessionOptions = mode === "practice" && questionCount > 5;
+  const showSessionOptions = false;
 
   const modeIndex = mode === "practice" ? 0 : mode === "exam" ? 1 : 2;
 
-  const sessionQuestionCount = useMemo(() => {
-    if (mode !== "practice") return questionCount;
-    if (sessionType === "weak") return Math.min(weakCount, questionCount);
-    if (sessionType === "quick10") return Math.min(10, questionCount);
-    if (sessionType === "quick20") return Math.min(20, questionCount);
-    if (sessionType === "quick30") return Math.min(30, questionCount);
-    if (sessionType === "survival") return questionCount;
-    return questionCount;
-  }, [mode, sessionType, questionCount, weakCount]);
+  const sessionQuestionCount = useMemo(() => questionCount, [questionCount]);
 
   const practiceTime = Math.max(5, Math.round(sessionQuestionCount * 0.5));
   const examTime = Math.max(10, Math.round(questionCount * 1.5));
@@ -100,15 +92,13 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
   const handleStart = () => {
     if (mode === "arcade") {
       onSelect("arcade", { sessionType: "all", questionCount });
-    } else if (mode === "practice" && showSessionOptions) {
-      onSelect(mode, { sessionType, questionCount: sessionQuestionCount });
     } else {
       onSelect(mode, { sessionType: "all", questionCount });
     }
   };
 
   const modeTabs = [
-    { key: "practice", label: "Practice", icon: "\u{1F3AF}" },
+    { key: "practice", label: "Cascade", icon: "\u{1F3AF}" },
     { key: "exam", label: "Exam", icon: "\u{1F393}" },
     { key: "arcade", label: "Arcade", icon: "\u26A1" },
   ];
@@ -424,11 +414,7 @@ export default function McqModeSelect({ resource, onBack, onSelect, onQuizComple
             onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
             onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
           >
-            {mode === "practice" && showSessionOptions
-              ? sessionType === "survival"
-                ? "Start Streak Survival →"
-                : `Start — ${sessionQuestionCount} Questions →`
-              : d.cta}
+            {d.cta}
           </button>
         </div>
 
