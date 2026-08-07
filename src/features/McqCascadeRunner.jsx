@@ -804,9 +804,9 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
               );
             })}
             {/* Chip animation */}
-            {chipAnim && <CascadeChip from={railPoints[chipAnim.from]} to={railPoints[Math.min(chipAnim.to, railPoints.length - 1)]} color={chipAnim.color} key={chipAnim.ts} onComplete={() => setChipAnim(null)} />}
+            {chipAnim && <CascadeChip from={railPoints[chipAnim.from]} to={railPoints[Math.min(chipAnim.to, railPoints.length - 1)]} color={chipAnim.color} key={chipAnim.ts} onComplete={() => { setChipAnim(null); setRailCollapsed(true); }} />}
             {/* Ping animation */}
-            {pingAnim && <CascadePing point={railPoints[Math.min(pingAnim.idx, railPoints.length - 1)]} color={pingAnim.color} double={pingAnim.double} key={pingAnim.ts} onComplete={() => setPingAnim(null)} />}
+            {pingAnim && <CascadePing point={railPoints[Math.min(pingAnim.idx, railPoints.length - 1)]} color={pingAnim.color} double={pingAnim.double} key={pingAnim.ts} onComplete={() => { setPingAnim(null); setRailCollapsed(true); }} />}
             {/* Collapse button */}
             <button onClick={() => setRailCollapsed(true)} style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 6, background: "rgba(255,255,255,0.06)", border: `1px solid ${cardBorder}`, color: textDim, cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 }}>▴</button>
           </div>
