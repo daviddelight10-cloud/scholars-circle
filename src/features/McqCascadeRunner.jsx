@@ -63,6 +63,7 @@ function createAudioSystem() {
     complete() { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.25, "triangle", 0.14, i * 0.1)); },
     cascade() { tone(440, 0.08, "sine", 0.1); tone(587.33, 0.12, "sine", 0.1, 0.05); },
     mastery() { [659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.2, "triangle", 0.14, i * 0.08)); },
+    hint() { tone(523.25, 0.08, "sine", 0.1); tone(659.25, 0.1, "sine", 0.08, 0.04); },
     setMuted(m) { muted = m; }, isMuted() { return muted; }, ensureCtx,
   };
 }
@@ -177,6 +178,8 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
   const [currentQ, setCurrentQ] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [isLocked, setIsLocked] = useState(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState(new Set());
+  const [wasRevealed, setWasRevealed] = useState(false);
   const [showExplain, setShowExplain] = useState(false);
   const [aiExplainData, setAiExplainData] = useState({ text: "", loading: false });
   const [soundOn, setSoundOn] = useState(true);
@@ -284,8 +287,57 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     setCurrentQ(q);
     setSelectedAnswer(null);
     setIsLocked(false);
+    setEliminatedOptions(new Set());
+    setWasRevealed(false);
     setShowExplain(false);
     setAiExplainData({ text: "", loading: false });
+  }
+
+  function handleHint() {
+    if (isLocked || !currentQ) return;
+    playSound("hint");
+    const wrongKeys = Object.keys(currentQ.options).filter(k => k !== currentQ.correct && !eliminatedOptions.has(k));
+    if (wrongKeys.length <= 1) return;
+    const target = wrongKeys[Math.floor(Math.random() * wrongKeys.length)];
+    setEliminatedOptions(prev => new Set(prev).add(target));
+  }
+
+  function handleReveal() {
+    if (isLocked || !currentQ) return;
+    setIsLocked(true);
+    setWasRevealed(true);
+    setSelectedAnswer(null);
+
+    const answeredAt = currentLevelIdx;
+    const { queues, mastery } = levelQueues;
+
+    if (!currentQ.weak) {
+      setWeakTouchedIds(prev => new Set(prev).add(currentQ._id));
+    }
+    currentQ.weak = true;
+
+    if (answeredAt >= numLevels) {
+      mastery.push(currentQ);
+      addLog(`👁 Revealed at Mastery — loops back.`, "coral");
+      setPingAnim({ idx: answeredAt, color: "#FF5E7E", double: false, ts: Date.now() });
+    } else {
+      const nextIdx = answeredAt + 1;
+      if (queues[nextIdx]) {
+        queues[nextIdx].push(currentQ);
+      } else {
+        mastery.push(currentQ);
+      }
+      queues[answeredAt].push({ ...currentQ, _id: currentQ._id + "_r", weak: true, correctCount: 0 });
+      addLog(`👁 Revealed — cascades to ${levelLabel(nextIdx)} + re-ask at end of ${levelLabel(answeredAt)}.`, "coral");
+      setChipAnim({ from: answeredAt, to: nextIdx >= numLevels ? numLevels : nextIdx, color: "#FF5E7E", ts: Date.now() });
+      playSound("cascade");
+    }
+
+    playSound("wrong");
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+    setLevelQueues({ queues, mastery });
+    saveState();
   }
 
   function handleAnswer(optionKey) {
@@ -473,6 +525,8 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     setTotalCorrectCount(0);
     setLogEntries([]);
     setResumeAvailable(false);
+    setEliminatedOptions(new Set());
+    setWasRevealed(false);
     setGameState("playing");
     setShowLevelComplete(false);
   }
@@ -712,14 +766,16 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
               {Object.entries(currentQ.options).map(([key, value]) => {
                 const isCorrectOpt = key === currentQ.correct;
                 const isSelected = selectedAnswer === key;
+                const isEliminated = eliminatedOptions.has(key);
                 const showCorrect = isLocked && isCorrectOpt;
                 const showWrong = isLocked && isSelected && !isCorrectOpt;
                 let borderColor = cardBorder, bgColor = cardBg, textColor = textHi;
                 if (!isLocked && isSelected) { borderColor = blue; bgColor = "rgba(0,229,255,0.08)"; }
                 if (showCorrect) { borderColor = green; bgColor = "rgba(74,222,128,0.15)"; textColor = green; }
                 if (showWrong) { borderColor = coral; bgColor = "rgba(255,94,126,0.15)"; textColor = coral; }
+                if (isEliminated) { borderColor = cardBorder; bgColor = "transparent"; textColor = textDim; }
                 return (
-                  <button key={key} onClick={() => handleAnswer(key)} disabled={isLocked} style={{ padding: "12px 14px", background: bgColor, border: `1px solid ${borderColor}`, color: textColor, fontSize: 14, textAlign: "left", fontWeight: 500, borderRadius: 10, cursor: isLocked ? "default" : "pointer", fontFamily: "Manrope, sans-serif", transition: "opacity 0.25s, border-color 0.25s, background 0.25s", display: "flex", alignItems: "center", gap: 10, opacity: isLocked && !showCorrect && !showWrong ? 0.5 : 1 }}>
+                  <button key={key} onClick={() => handleAnswer(key)} disabled={isLocked || isEliminated} style={{ padding: "12px 14px", background: bgColor, border: `1px solid ${borderColor}`, color: textColor, fontSize: 14, textAlign: "left", fontWeight: 500, borderRadius: 10, cursor: isLocked || isEliminated ? "default" : "pointer", fontFamily: "Manrope, sans-serif", transition: "opacity 0.25s, border-color 0.25s, background 0.25s", display: "flex", alignItems: "center", gap: 10, opacity: isEliminated ? 0.3 : (isLocked && !showCorrect && !showWrong ? 0.5 : 1), textDecoration: isEliminated ? "line-through" : "none" }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 13, opacity: 0.7, minWidth: 18 }}>{key}</span>
                     <span style={{ flex: 1 }}>{value}</span>
                     {showCorrect && <span style={{ color: green }}>✓</span>}
@@ -729,10 +785,18 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
               })}
             </div>
 
+            {/* Hint / Reveal (before answering) */}
+            {!isLocked && (
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button onClick={handleHint} style={{ flex: 1, padding: "11px 10px", borderRadius: 10, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, cursor: "pointer", border: `1px solid ${cardBorder}`, background: "transparent", color: textDim }}>💡 Hint (50/50)</button>
+                <button onClick={handleReveal} style={{ flex: 1, padding: "11px 10px", borderRadius: 10, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, cursor: "pointer", border: `1px solid ${cardBorder}`, background: "transparent", color: textDim }}>👁 Reveal answer</button>
+              </div>
+            )}
+
             {/* AI Explain */}
             {isLocked && !showExplain && (
               <div style={{ marginTop: 12 }}>
-                <button onClick={handleExplain} style={{ padding: "10px", borderRadius: 10, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, cursor: "pointer", border: "1px solid rgba(255,182,39,0.35)", background: "rgba(255,182,39,0.08)", color: gold, width: "100%" }}>✨ AI Explain</button>
+                <button onClick={handleExplain} style={{ padding: "10px", borderRadius: 10, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, cursor: "pointer", border: "1px solid rgba(255,182,39,0.35)", background: "rgba(255,182,39,0.08)", color: gold, width: "100%" }}>✨ Ask AI</button>
               </div>
             )}
             {showExplain && (
