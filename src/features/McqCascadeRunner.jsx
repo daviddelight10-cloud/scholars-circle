@@ -198,12 +198,15 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
   const [soundOn, setSoundOn] = useState(true);
   const [shake, setShake] = useState(false);
   const [cardFlash, setCardFlash] = useState("");
-  const [logEntries, setLogEntries] = useState([]);
   const [knownCount, setKnownCount] = useState(0);
   const [retiredWeakCount, setRetiredWeakCount] = useState(0);
   const [weakTouchedIds, setWeakTouchedIds] = useState(new Set());
   const [levelCorrectCount, setLevelCorrectCount] = useState(0);
   const [totalCorrectCount, setTotalCorrectCount] = useState(0);
+  const [totalXp, setTotalXp] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [showLevelTransition, setShowLevelTransition] = useState(false);
+  const [levelTransitionData, setLevelTransitionData] = useState(null);
   const [showLevelComplete, setShowLevelComplete] = useState(false);
   const [levelCompleteData, setLevelCompleteData] = useState(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -249,13 +252,9 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     audioRef.current[fn]();
   }
 
-  function addLog(text, color) {
-    setLogEntries(prev => [...prev, { text, color, id: Date.now() + Math.random() }]);
-  }
-
   function saveState() {
     saveProgress(resource?.id || "default", {
-      currentLevelIdx, knownCount, retiredWeakCount, totalCorrectCount,
+      currentLevelIdx, knownCount, retiredWeakCount, totalCorrectCount, totalXp,
       weakTouchedIds: [...weakTouchedIds],
     });
   }
@@ -321,6 +320,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     setIsLocked(true);
     setWasRevealed(true);
     setSelectedAnswer(null);
+    setCurrentStreak(0);
 
     const answeredAt = currentLevelIdx;
     const { queues, mastery } = levelQueues;
@@ -332,7 +332,6 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
 
     if (answeredAt >= numLevels) {
       mastery.push(currentQ);
-      addLog(`👁 Revealed at Mastery — loops back.`, "coral");
       setPingAnim({ idx: answeredAt, color: "#FF5E7E", double: false, ts: Date.now() });
     } else {
       const nextIdx = answeredAt + 1;
@@ -342,7 +341,6 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
         mastery.push(currentQ);
       }
       queues[answeredAt].push({ ...currentQ, _id: currentQ._id + "_r", weak: true, correctCount: 0 });
-      addLog(`👁 Revealed — cascades to ${levelLabel(nextIdx)} + re-ask at end of ${levelLabel(answeredAt)}.`, "coral");
       setChipAnim({ from: answeredAt, to: nextIdx >= numLevels ? numLevels : nextIdx, color: "#FF5E7E", ts: Date.now() });
       playSound("cascade");
     }
@@ -368,15 +366,15 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       setCardFlash("correct");
       setTimeout(() => setCardFlash(""), 500);
       setTotalCorrectCount(c => c + 1);
+      setTotalXp(x => x + XP_PER_CORRECT);
+      setCurrentStreak(s => s + 1);
 
       if (!currentQ.weak) {
-        addLog(`✓ "${currentQ.question.slice(0, 40)}..." correct — known!`, "green");
         setKnownCount(c => c + 1);
         setLevelCorrectCount(c => c + 1);
       } else {
         currentQ.correctCount++;
         if (currentQ.correctCount >= 2) {
-          addLog(`✓ "${currentQ.question.slice(0, 40)}..." mastered (2/2) — retired!`, "green");
           setRetiredWeakCount(c => c + 1);
           setLevelCorrectCount(c => c + 1);
           playSound("mastery");
@@ -384,14 +382,10 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
           const rect = qcardRef.current?.getBoundingClientRect();
           if (rect) burst(rect.left + rect.width / 2, rect.top, 20);
         } else if (answeredAt >= numLevels) {
-          // At mastery, correct 1/2 — requeue
           mastery.push(currentQ);
-          addLog(`✓ Correct at Mastery (1/2) — one more to confirm.`, "gold");
           setPingAnim({ idx: answeredAt, color: "#FFB627", double: false, ts: Date.now() });
         } else {
-          // Jump to mastery
           mastery.push(currentQ);
-          addLog(`✓ Correct (1/2) — jumps to Mastery, still weak.`, "gold");
           setChipAnim({ from: answeredAt, to: numLevels, color: "#FFB627", ts: Date.now() });
           playSound("cascade");
         }
@@ -402,6 +396,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       setTimeout(() => setCardFlash(""), 500);
       setShake(true);
       setTimeout(() => setShake(false), 400);
+      setCurrentStreak(0);
 
       if (!currentQ.weak) {
         setWeakTouchedIds(prev => new Set(prev).add(currentQ._id));
@@ -409,21 +404,16 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       currentQ.weak = true;
 
       if (answeredAt >= numLevels) {
-        // Miss at mastery — loop back
         mastery.push(currentQ);
-        addLog(`✕ Missed at Mastery — loops back.`, "coral");
         setPingAnim({ idx: answeredAt, color: "#FF5E7E", double: false, ts: Date.now() });
       } else {
-        // Cascade to next level
         const nextIdx = answeredAt + 1;
         if (queues[nextIdx]) {
           queues[nextIdx].push(currentQ);
         } else {
           mastery.push(currentQ);
         }
-        // Also re-ask at end of current level
         queues[answeredAt].push({ ...currentQ, _id: currentQ._id + "_r", weak: true, correctCount: 0 });
-        addLog(`✕ Missed — cascades to ${levelLabel(nextIdx)} + re-ask at end of ${levelLabel(answeredAt)}.`, "coral");
         setChipAnim({ from: answeredAt, to: nextIdx >= numLevels ? numLevels : nextIdx, color: "#FF5E7E", ts: Date.now() });
         playSound("cascade");
       }
@@ -454,22 +444,25 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
   async function handleLevelComplete() {
     const levelBonus = BASE_LEVEL_BONUS * Math.pow(2, currentLevelIdx);
     const xpFromCorrect = levelCorrectCount * XP_PER_CORRECT;
-    const totalXp = xpFromCorrect + levelBonus;
+    const levelTotalXp = xpFromCorrect + levelBonus;
+
+    setTotalXp(x => x + levelBonus);
 
     playSound("levelUp");
     const rect = qcardRef.current?.getBoundingClientRect();
     if (rect) burst(rect.left + rect.width / 2, rect.top, 30);
 
-    setLevelCompleteData({ levelIdx: currentLevelIdx, xpFromCorrect, levelBonus, totalXp, correctCount: levelCorrectCount });
+    setLevelCompleteData({ levelIdx: currentLevelIdx, xpFromCorrect, levelBonus, totalXp: levelTotalXp, correctCount: levelCorrectCount });
     setShowLevelComplete(true);
 
     // Submit to backend
-    await submitLevel(currentLevelIdx, levelCorrectCount, totalXp);
+    await submitLevel(currentLevelIdx, levelCorrectCount, levelTotalXp);
   }
 
   function handleAdvanceLevel() {
     setShowLevelComplete(false);
     setLevelCorrectCount(0);
+    setCurrentStreak(0);
     let nextIdx = currentLevelIdx + 1;
 
     // Skip empty levels with no mastery questions
@@ -484,7 +477,13 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     if (nextIdx >= numLevels && mastery.length === 0) {
       showCompletion();
     } else {
-      pickNext(nextIdx);
+      const color = getLevelColor(Math.min(nextIdx, numLevels), totalNodes);
+      setLevelTransitionData({ label: levelLabel(nextIdx), color });
+      setShowLevelTransition(true);
+      setTimeout(() => {
+        setShowLevelTransition(false);
+        pickNext(nextIdx);
+      }, 1200);
     }
   }
 
@@ -537,7 +536,10 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     setWeakTouchedIds(new Set());
     setLevelCorrectCount(0);
     setTotalCorrectCount(0);
-    setLogEntries([]);
+    setTotalXp(0);
+    setCurrentStreak(0);
+    setShowLevelTransition(false);
+    setLevelTransitionData(null);
     setResumeAvailable(false);
     setEliminatedOptions(new Set());
     setWasRevealed(false);
@@ -552,6 +554,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       setKnownCount(saved.knownCount || 0);
       setRetiredWeakCount(saved.retiredWeakCount || 0);
       setTotalCorrectCount(saved.totalCorrectCount || 0);
+      setTotalXp(saved.totalXp || 0);
       setWeakTouchedIds(new Set(saved.weakTouchedIds || []));
       setResumeAvailable(false);
       // Rebuild queues from saved state — simpler: just restart from saved level
@@ -726,6 +729,8 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>{levelLabel(currentLevelIdx)}</span>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+            {currentStreak >= 2 && <span style={{ color: "#FF6B35", fontWeight: 700 }}>🔥{currentStreak}</span>}
+            <span style={{ color: gold, fontWeight: 700 }}>+{totalXp} XP</span>
             <span style={{ color: green }}>{knownCount + retiredWeakCount}/{totalQuestions}</span>
             <button onClick={toggleSound} style={{ fontSize: 10, color: soundOn ? blue : textDim, border: `1px solid ${soundOn ? "rgba(0,229,255,0.35)" : cardBorder}`, background: "transparent", padding: "3px 7px", borderRadius: 6, cursor: "pointer" }}>{soundOn ? "🔊" : "🔇"}</button>
           </div>
@@ -785,7 +790,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", padding: "3px 8px", borderRadius: 6, fontWeight: 600, color: getLevelColor(activeIdx, totalNodes), background: getLevelColor(activeIdx, totalNodes) + "1A", border: `1px solid ${getLevelColor(activeIdx, totalNodes)}55` }}>{levelLabel(currentLevelIdx).toUpperCase()}</span>
               {currentQ.weak && (
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: gold, background: "rgba(255,182,39,0.1)", border: "1px solid rgba(255,182,39,0.3)", padding: "3px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                <span className="cascade-weak-pulse" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: gold, background: "rgba(255,182,39,0.1)", border: "1px solid rgba(255,182,39,0.3)", padding: "3px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4 }}>
                   WEAK SPOT
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: currentQ.correctCount >= 1 ? gold : "rgba(255,182,39,0.25)" }} />
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: currentQ.correctCount >= 2 ? gold : "rgba(255,182,39,0.25)" }} />
@@ -848,12 +853,13 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
           </div>
         )}
 
-        {/* Log panel */}
-        {logEntries.length > 0 && (
-          <div style={{ background: "linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005))", border: `1px solid ${cardBorder}`, borderRadius: 12, padding: "10px 12px", maxHeight: 120, overflowY: "auto", display: "flex", flexDirection: "column-reverse", gap: 6, flexShrink: 0, marginTop: 8 }}>
-            {logEntries.slice(-5).map(entry => (
-              <div key={entry.id} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.4, padding: "6px 8px", borderRadius: 6, borderLeft: `2px solid ${entry.color === "green" ? green : entry.color === "gold" ? gold : coral}`, background: "rgba(255,255,255,0.02)", color: entry.color === "green" ? "#c8f5d8" : entry.color === "gold" ? "#ffe4ad" : "#ffc9d4" }}>{entry.text}</div>
-            ))}
+        {/* Level transition overlay */}
+        {showLevelTransition && levelTransitionData && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(10,13,19,0.7)", backdropFilter: "blur(6px)" }}>
+            <div className="cascade-level-slide" style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: levelTransitionData.color, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>Now entering</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 42, fontWeight: 800, color: levelTransitionData.color, textShadow: `0 0 30px ${levelTransitionData.color}55` }}>{levelTransitionData.label}</div>
+            </div>
           </div>
         )}
       </div>
@@ -867,6 +873,10 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
         .cascade-wrong-flash { animation: cascadeWrongGlow 0.5s ease; }
         @keyframes cascadeDots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} 100%{content:'.'} }
         .cascade-dots::after { content: '\\00a0'; animation: cascadeDots 1.2s steps(4,end) infinite; }
+        @keyframes cascadeLevelSlide { 0%{opacity:0;transform:translateX(60px)} 30%{opacity:1;transform:translateX(0)} 70%{opacity:1;transform:translateX(0)} 100%{opacity:0;transform:translateX(-30px)} }
+        .cascade-level-slide { animation: cascadeLevelSlide 1.2s cubic-bezier(0.4,0,0.2,1); }
+        @keyframes cascadeWeakPulse { 0%,100%{border-color:rgba(255,182,39,0.3);box-shadow:0 0 0 0 rgba(255,182,39,0)} 50%{border-color:rgba(255,182,39,0.6);box-shadow:0 0 8px 2px rgba(255,182,39,0.15)} }
+        .cascade-weak-pulse { animation: cascadeWeakPulse 1.5s ease-in-out infinite; }
         button:focus-visible { outline: 2px solid ${gold}; outline-offset: 2px; }
       `}</style>
     </div>
