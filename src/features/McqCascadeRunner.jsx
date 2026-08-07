@@ -5,7 +5,17 @@ import MarkdownText from "../components/MarkdownText.jsx";
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
 const BASE_LEVEL_BONUS = 100;
-const QUESTIONS_PER_LEVEL = 5;
+const FIRST_LEVEL_SIZE = 5;
+const LEVEL_SIZE = 10;
+
+function questionsForLevel(idx) {
+  return idx === 0 ? FIRST_LEVEL_SIZE : LEVEL_SIZE;
+}
+
+function levelIndexForQuestion(qIdx) {
+  if (qIdx < FIRST_LEVEL_SIZE) return 0;
+  return 1 + Math.floor((qIdx - FIRST_LEVEL_SIZE) / LEVEL_SIZE);
+}
 
 function shuffleArray(arr) {
   const a = [...arr];
@@ -159,7 +169,10 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     return shuffleArray(questions.map(shuffleOptions));
   }, [questions]);
 
-  const numLevels = Math.max(1, Math.ceil(allQuestions.length / QUESTIONS_PER_LEVEL));
+  const numLevels = useMemo(() => {
+    if (allQuestions.length <= FIRST_LEVEL_SIZE) return 1;
+    return 1 + Math.ceil((allQuestions.length - FIRST_LEVEL_SIZE) / LEVEL_SIZE);
+  }, [allQuestions]);
   const totalNodes = numLevels + 1; // +1 for mastery
   const railPoints = useMemo(() => buildRailPoints(numLevels), [numLevels]);
   const pathD = useMemo(() => buildSmoothPath(railPoints), [railPoints]);
@@ -170,7 +183,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     const queues = Array.from({ length: numLevels }, () => []);
     const mastery = [];
     allQuestions.forEach((q, i) => {
-      const lvl = Math.floor(i / QUESTIONS_PER_LEVEL);
+      const lvl = levelIndexForQuestion(i);
       if (lvl < numLevels) queues[lvl].push({ ...q, _id: i, weak: false, correctCount: 0 });
     });
     return { queues, mastery };
@@ -513,7 +526,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
     const queues = Array.from({ length: numLevels }, () => []);
     const mastery = [];
     allQuestions.forEach((q, i) => {
-      const lvl = Math.floor(i / QUESTIONS_PER_LEVEL);
+      const lvl = levelIndexForQuestion(i);
       if (lvl < numLevels) queues[lvl].push({ ...q, _id: i, weak: false, correctCount: 0 });
     });
     setLevelQueues({ queues, mastery });
@@ -545,7 +558,7 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
       const queues = Array.from({ length: numLevels }, () => []);
       const mastery = [];
       allQuestions.forEach((q, i) => {
-        const lvl = Math.floor(i / QUESTIONS_PER_LEVEL);
+        const lvl = levelIndexForQuestion(i);
         if (lvl >= saved.currentLevelIdx && lvl < numLevels) {
           queues[lvl].push({ ...q, _id: i, weak: false, correctCount: 0 });
         }
