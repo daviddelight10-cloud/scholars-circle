@@ -266,6 +266,18 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  // Auto-start first level if no resume screen needed
+  useEffect(() => {
+    if (deck.length === 0 && gameState === "playing" && !resumeAvailable && levelSlices.length > 0) {
+      const saved = loadProgress(resource?.id || "default");
+      if (saved && saved.currentLevel != null && saved.currentLevel < totalLevels && saved.completedLevels?.length > 0) {
+        setResumeAvailable(true);
+        return;
+      }
+      startLevel(currentLevel);
+    }
+  }, [deck.length, gameState, resumeAvailable, levelSlices, currentLevel, resource, totalLevels]);
+
   function playSound(fn) {
     if (!audioRef.current) audioRef.current = createAudioSystem();
     audioRef.current[fn]();
@@ -688,18 +700,6 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
       </div>
     );
   }
-
-  // Auto-start first level if no resume screen needed
-  useEffect(() => {
-    if (deck.length === 0 && gameState === "playing" && !resumeAvailable && levelSlices.length > 0) {
-      const saved = loadProgress(resource?.id || "default");
-      if (saved && saved.currentLevel != null && saved.currentLevel < totalLevels && saved.completedLevels?.length > 0) {
-        setResumeAvailable(true);
-        return;
-      }
-      startLevel(currentLevel);
-    }
-  }, [deck.length, gameState, resumeAvailable, levelSlices, currentLevel, resource, totalLevels]);
 
   return (
     <div style={{
