@@ -45,7 +45,7 @@ async function callAIServerSide(prompt) {
   };
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 90000);
 
   try {
     const response = await fetch(apiUrl, {
@@ -66,7 +66,7 @@ async function callAIServerSide(prompt) {
     return text;
   } catch (err) {
     if (err.name === "AbortError") {
-      throw new Error("AI request timed out after 30 seconds");
+      throw new Error("AI request timed out after 90 seconds");
     }
     throw err;
   } finally {

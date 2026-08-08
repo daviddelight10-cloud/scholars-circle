@@ -299,6 +299,15 @@ export default function EmbeddedRoadmapView({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      {/* Hidden file input — always rendered so ref is available in empty state */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.docx,.txt"
+        style={{ display: "none" }}
+        onChange={handleOutlineUpload}
+      />
+
       {/* Roadmap header — section title + actions */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -325,14 +334,6 @@ export default function EmbeddedRoadmapView({
             }}>
               {matchProgress ? `${matchProgress.label}` : "🔗 Match Docs"}
             </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.txt"
-              style={{ display: "none" }}
-              onChange={handleOutlineUpload}
-            />
 
             <button onClick={() => topics.length > 0 ? setShowRegenPrompt(true) : fileInputRef.current?.click()} disabled={generating || uploading} style={{
               display: "flex", alignItems: "center", justifyContent: "center",
