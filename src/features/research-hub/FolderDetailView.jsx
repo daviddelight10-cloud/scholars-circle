@@ -168,11 +168,32 @@ export default function FolderDetailView({
   const showTopicsTab = !!folderDetail?.courseCode;
 
   const chips = [
-    { key: "materials", label: "📄 Files", icon: "📄", shortLabel: "Files", count: counts.materials },
-    ...(showTopicsTab ? [{ key: "topics", label: "�️ My Topic", icon: "�️", shortLabel: "My Topic", count: folderDetail?.topicCount || 0 }] : []),
-    { key: "summaries", label: "📝 Summary", icon: "📝", shortLabel: "Summary", count: counts.summaries },
-    { key: "flashcards", label: "🎴 Cards", icon: "🗂️", shortLabel: "Cards", count: counts.flashcards },
-    { key: "mcqs", label: "✎ MCQs", icon: "✍️", shortLabel: "MCQs", count: counts.mcqs },
+    { key: "materials", shortLabel: "Files", count: counts.materials, icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+      </svg>
+    ) },
+    ...(showTopicsTab ? [{ key: "topics", shortLabel: "My Topic", count: folderDetail?.topicCount || 0, icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
+        <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
+      </svg>
+    ) }] : []),
+    { key: "summaries", shortLabel: "Summary", count: counts.summaries, icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
+        <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    ) },
+    { key: "flashcards", shortLabel: "Cards", count: counts.flashcards, icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
+        <rect x="3" y="4" width="18" height="13" rx="2" /><path d="M7 20h10" />
+      </svg>
+    ) },
+    { key: "mcqs", shortLabel: "MCQs", count: counts.mcqs, icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
+        <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    ) },
   ];
 
   return (
@@ -301,7 +322,7 @@ export default function FolderDetailView({
                   : {}),
               }}
             >
-              <span className="text-[14px]">{chip.icon}</span>
+              <span className="flex items-center justify-center text-[#9199A8]">{chip.icon}</span>
               <span className="text-[12px] font-semibold text-[#9199A8]">{chip.shortLabel}</span>
               <span
                 className="ml-auto text-[12px] font-semibold"
