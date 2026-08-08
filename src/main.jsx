@@ -82,14 +82,11 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return;
     refreshing = true;
-    setTimeout(() => window.location.reload(), 100);
+    window.location.reload();
   });
 } else {
   console.log('Service Worker not supported in this browser');
 }
-
-// Clear chunk-reload flag — app mounted successfully, no stale chunks
-sessionStorage.removeItem("_chunkReloadAttempted");
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

@@ -53,25 +53,18 @@ export function pickAdaptiveQuestion(pool, wrongCounts, mastery) {
   return weighted[Math.floor(Math.random() * weighted.length)];
 }
 
-export async function api(path, { token, method = "GET", body, timeout = 15000 } = {}) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-      signal: controller.signal,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "API request failed");
-    return data;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+export async function api(path, { token, method = "GET", body } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "API request failed");
+  return data;
 }
 
 export async function syncUserDataToBackend(token, data) {

@@ -1666,11 +1666,7 @@ function App() {
   useEffect(() => {
     if (booted && authRestored) {
       setLoadingOverlay(false);
-      return;
     }
-    // Safety net: force-hide overlay after 15s no matter what
-    const t = setTimeout(() => setLoadingOverlay(false), 15000);
-    return () => clearTimeout(t);
   }, [booted, authRestored]);
 
 
@@ -6183,7 +6179,7 @@ function App() {
         `}</style>
 
         {loadingOverlay && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,13,19,0.85)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,13,19,0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
             <img src="/loading.png" alt="Loading" style={{ width: 64, height: 64, borderRadius: 14 }} />
             <span style={{ color: '#9AA3B5', fontSize: 14, fontFamily: 'JetBrains Mono, monospace' }}>Loading...</span>
           </div>

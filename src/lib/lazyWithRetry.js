@@ -1,6 +1,8 @@
+let _chunkReloadAttempted = false;
+
 function clearCachesAndReload() {
-  if (sessionStorage.getItem("_chunkReloadAttempted")) return;
-  sessionStorage.setItem("_chunkReloadAttempted", "1");
+  if (_chunkReloadAttempted) return;
+  _chunkReloadAttempted = true;
   console.warn("[chunk-recovery] Stale chunk detected — reloading with cache-bust…");
   if ("caches" in window) {
     caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
