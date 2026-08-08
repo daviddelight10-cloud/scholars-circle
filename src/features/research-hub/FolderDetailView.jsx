@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import EmptyState from "./EmptyState";
 import LoadingState from "./LoadingState";
 import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
 import EmbeddedRoadmapView from "../../components/home/EmbeddedRoadmapView";
-import { fetchSkeleton } from "../../lib/skeletonGenerator";
 import { formatRelativeDate } from "./constants";
 
 const emptyStateConfig = {
@@ -15,7 +14,7 @@ const emptyStateConfig = {
 
 const VARIANT_TYPES = [
   { key: "mcq", label: "MCQs", chipLabel: "MCQ", color: "#F5A623", genKind: "mcqs" },
-  { key: "flashcard", label: "Flashcards", chipLabel: "Flashcards", color: "#3DD68C", genKind: "flashcards" },
+  { key: "flashcard", label: "Flashcards", chipLabel: "Flashcards", color: "#3DD68C", genKind: "mcqs" },
   { key: "summary", label: "Summary", chipLabel: "Summary", color: "#4F8EF7", genKind: "summary" },
 ];
 
@@ -165,26 +164,12 @@ export default function FolderDetailView({
   const currentList = folderCategorized[activeFolderTab] || [];
   const emptyCfg = emptyStateConfig[activeFolderTab] || emptyStateConfig.materials;
 
-  const [filesViewMode, setFilesViewMode] = useState("flat");
-
-  // Check if a skeleton exists for this folder's courseCode to set default toggle mode
-  useEffect(() => {
-    if (!folderDetail?.courseCode) { setFilesViewMode("flat"); return; }
-    let cancelled = false;
-    fetchSkeleton(folderDetail.courseCode)
-      .then((topics) => {
-        if (cancelled) return;
-        setFilesViewMode(topics.length > 0 ? "topic" : "flat");
-      })
-      .catch(() => { if (!cancelled) setFilesViewMode("flat"); });
-    return () => { cancelled = true; };
-  }, [folderDetail?.courseCode]);
-
-  const showRoadmapToggle = activeFolderTab === "materials" && folderDetail?.courseCode;
   const folderResources = folderCategorized.materials || [];
+  const showTopicsTab = !!folderDetail?.courseCode;
 
   const chips = [
     { key: "materials", label: "📄 Files", icon: "📄", shortLabel: "Files", count: counts.materials },
+    ...(showTopicsTab ? [{ key: "topics", label: "�️ My Topic", icon: "�️", shortLabel: "My Topic", count: folderDetail?.topicCount || 0 }] : []),
     { key: "summaries", label: "📝 Summary", icon: "📝", shortLabel: "Summary", count: counts.summaries },
     { key: "flashcards", label: "🎴 Cards", icon: "🗂️", shortLabel: "Cards", count: counts.flashcards },
     { key: "mcqs", label: "✎ MCQs", icon: "✍️", shortLabel: "MCQs", count: counts.mcqs },
@@ -328,24 +313,6 @@ export default function FolderDetailView({
           ))}
         </div>
 
-        {/* Segmented control — By Topic / All Files */}
-        {showRoadmapToggle && (
-          <div className="cs-segment mb-5">
-            <button
-              onClick={() => setFilesViewMode("topic")}
-              className={filesViewMode === "topic" ? "cs-segment-active" : ""}
-            >
-              🗺️ By Topic
-            </button>
-            <button
-              onClick={() => setFilesViewMode("flat")}
-              className={filesViewMode === "flat" ? "cs-segment-active" : ""}
-            >
-              📄 All Files
-            </button>
-          </div>
-        )}
-
         {/* MCQ session actions (only on MCQs tab) */}
         {activeFolderTab === "mcqs" && !folderLoading && currentList.length > 0 && (
           <>
@@ -386,7 +353,7 @@ export default function FolderDetailView({
         {/* Grid or Roadmap */}
         {folderLoading ? (
           <LoadingState grid count={4} />
-        ) : activeFolderTab === "materials" && filesViewMode === "topic" && folderDetail?.courseCode ? (
+        ) : activeFolderTab === "topics" && folderDetail?.courseCode ? (
           <EmbeddedRoadmapView
             courseCode={folderDetail.courseCode}
             folderId={folderDetail.id}

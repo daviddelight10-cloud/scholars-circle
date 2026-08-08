@@ -361,6 +361,22 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
 }
 
 /**
+ * Convert MCQ rows into flashcards.
+ * front = question text, back = correct option text only (no explanation).
+ * Produces one flashcard per MCQ — same count.
+ */
+export function mcqsToFlashcards(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((r) => r && r.question && r.options && r.correct)
+    .map((r) => ({
+      front: r.question,
+      back: r.options[r.correct] || "",
+    }))
+    .filter((fc) => fc.front.trim() && fc.back.trim());
+}
+
+/**
  * Generate flashcards from extracted text/images.
  * @param {string} text - Extracted text
  * @param {string[]} images - Array of image data URLs

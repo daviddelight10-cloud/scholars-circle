@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { extractFileText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
-import { generateMcqs, generateFlashcards, generateSummary } from "../../lib/generationCore";
+import { generateMcqs, generateFlashcards, generateSummary, mcqsToFlashcards } from "../../lib/generationCore";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const FETCH_TIMEOUT_MS = 30_000;
@@ -82,9 +82,10 @@ function summaryToPdfBuffer(title, subject, summaryText) {
  *  - generatingId: resource id currently generating (or null)
  *  - genProgress: progress message string
  *  - genError: error message string
- *  - generate: async (resource, kind, onSave) => void
+ *  - generate: async (resource, kind, onSave, existingMcqData) => void
  *      kind: "mcqs" | "flashcards" | "summary"
  *      onSave: (payload) => void  — called with the study-tool-save payload
+ *      existingMcqData: array of existing MCQ rows (for reuse), optional
  */
 export function useMaterialGenerate() {
   const [generatingId, setGeneratingId] = useState(null);
@@ -96,7 +97,7 @@ export function useMaterialGenerate() {
   const lastKindRef = useRef(null);
   const lastOnSaveRef = useRef(null);
 
-  const generate = useCallback(async (resource, kind, onSave) => {
+  const generate = useCallback(async (resource, kind, onSave, existingMcqData) => {
     if (!resource || !onSave) return;
     if (activeRef.current) return; // prevent concurrent generations
     activeRef.current = resource.id;
@@ -106,38 +107,54 @@ export function useMaterialGenerate() {
     setGeneratingId(resource.id);
     setGenError("");
     setGenErrorId(null);
-    setGenProgress("Extracting text from material…");
 
     try {
-      const { text, images } = await extractResourceText(resource);
       const baseTitle = resource.title || "Material";
       const baseSubject = resource.subject || "";
 
-      if (kind === "mcqs") {
-        const { rows } = await generateMcqs(text, images, setGenProgress);
-        setGenProgress(`Generated ${rows.length} questions ✓ — saving…`);
+      if (kind === "mcqs" || kind === "flashcards") {
+        // Combined generation: MCQs first, then flashcards derived from MCQs
+        let mcqRows = null;
+
+        if (existingMcqData && Array.isArray(existingMcqData) && existingMcqData.length > 0) {
+          mcqRows = existingMcqData;
+          setGenProgress(`Using ${mcqRows.length} existing MCQs — generating flashcards…`);
+        } else {
+          setGenProgress("Extracting text from material…");
+          const { text, images } = await extractResourceText(resource);
+          setGenProgress("Generating MCQs + Flashcards…");
+          const { rows } = await generateMcqs(text, images, setGenProgress);
+          mcqRows = rows;
+        }
+
+        const flashcards = mcqsToFlashcards(mcqRows);
+        setGenProgress(`Generated ${mcqRows.length} MCQs + ${flashcards.length} flashcards ✓ — saving…`);
+
+        // Save MCQs first
         onSave({
           title: `${baseTitle} — MCQs`,
           subject: baseSubject,
           contentType: "mcq",
-          mcqData: JSON.stringify(rows),
+          mcqData: JSON.stringify(mcqRows),
           folderId: resource.folderId || null,
           sourceResourceId: resource.id,
           isPublic: false,
         });
-      } else if (kind === "flashcards") {
-        const cards = await generateFlashcards(text, images, setGenProgress);
-        setGenProgress(`Generated ${cards.length} flashcards ✓ — saving…`);
+
+        // Save flashcards second (derived from MCQs)
         onSave({
           title: `${baseTitle} — Flashcards`,
           subject: baseSubject,
           contentType: "flashcard_deck",
-          flashcardData: JSON.stringify(cards),
+          flashcardData: JSON.stringify(flashcards),
           folderId: resource.folderId || null,
           sourceResourceId: resource.id,
           isPublic: false,
+          isSecondary: true,
         });
       } else if (kind === "summary") {
+        setGenProgress("Extracting text from material…");
+        const { text, images } = await extractResourceText(resource);
         const summaryText = await generateSummary(text, images, setGenProgress);
         setGenProgress("Generating formatted PDF…");
         const { fileBuffer, fileName } = summaryToPdfBuffer(baseTitle, baseSubject, summaryText);
@@ -169,7 +186,7 @@ export function useMaterialGenerate() {
     const kind = lastKindRef.current;
     const onSave = lastOnSaveRef.current;
     if (resource && kind && onSave) {
-      generate(resource, kind, onSave);
+      generate(resource, kind, onSave, null);
     }
   }, [generate]);
 

@@ -738,10 +738,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           setUploading(false);
           setShowUploadWizard(false);
           showToast("Saved MCQs + Flashcards to space ✓");
-        } else if (!data.isSecondary && data.contentType === "mcq" && data.title.includes(" — Flashcards")) {
-          setUploading(false);
-          setShowUploadWizard(false);
-          showToast("Saved to space ✓");
+        } else if (data.contentType === "mcq" && !data.isSecondary) {
+          // First save of combined MCQs+Flashcards — don't reset uploading, second save will follow
         } else {
           setUploading(false);
           const toastMsg = data.contentType === "mcq" ? "MCQs saved to space ✓"
@@ -773,7 +771,18 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }, []);
 
   const handleGenerateFromMaterial = useCallback((resource, kind) => {
-    generateFromMaterial(resource, kind, handleWizardStudyToolSave);
+    let existingMcqData = null;
+    if (resource.variants?.mcq?.mcqData) {
+      try {
+        const parsed = typeof resource.variants.mcq.mcqData === "string"
+          ? JSON.parse(resource.variants.mcq.mcqData)
+          : resource.variants.mcq.mcqData;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          existingMcqData = parsed;
+        }
+      } catch {}
+    }
+    generateFromMaterial(resource, kind, handleWizardStudyToolSave, existingMcqData);
   }, [generateFromMaterial, handleWizardStudyToolSave]);
 
   const subjects = useMemo(() => {
