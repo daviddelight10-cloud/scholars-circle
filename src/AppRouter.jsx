@@ -12,6 +12,18 @@ const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/Reso
 const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
 const BlogPost = lazyWithRetry(() => import('./blog/BlogPost'));
 
+function RequireAuth({ children }) {
+  const authData = localStorage.getItem('scholars-circle-auth');
+  if (!authData) return <Navigate to="/signup" replace />;
+  try {
+    const parsed = JSON.parse(authData);
+    if (!parsed.authUser) return <Navigate to="/signup" replace />;
+  } catch {
+    return <Navigate to="/signup" replace />;
+  }
+  return children;
+}
+
 const PageLoader = () => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#0A0D13' }}>
     <div style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -53,9 +65,9 @@ export default function AppRouter() {
       {/* Main app route */}
       <Route path="/app" element={<App />} />
 
-      {/* Research Hub routes */}
-      <Route path="/resources" element={<ResearchHub />} />
-      <Route path="/resources/:token" element={<ResourceViewer />} />
+      {/* Research Hub routes - requires auth */}
+      <Route path="/resources" element={<RequireAuth><ResearchHub /></RequireAuth>} />
+      <Route path="/resources/:token" element={<RequireAuth><ResourceViewer /></RequireAuth>} />
       <Route path="/teacher/resources" element={<TeacherResourcesHub />} />
       <Route path="/teacher/resources/upload" element={<ResourceUploadForm />} />
 

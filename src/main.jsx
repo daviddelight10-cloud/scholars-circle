@@ -3,6 +3,10 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import AppRouter from "./AppRouter";
 import { ToastProvider } from "./components/Toast";
+import { AuthProvider } from "./contexts/AuthContext";
+import { UserDataProvider } from "./contexts/UserDataContext";
+import { UIProvider } from "./contexts/UIContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./styles.css";
 
 // Stale SW chunk recovery — global error listeners + lazyWithRetry wrapper
@@ -91,9 +95,17 @@ if ('serviceWorker' in navigator) {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <ToastProvider>
-        <AppRouter />
-      </ToastProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <UserDataProvider>
+            <UIProvider>
+              <ToastProvider>
+                <AppRouter />
+              </ToastProvider>
+            </UIProvider>
+          </UserDataProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>
 );

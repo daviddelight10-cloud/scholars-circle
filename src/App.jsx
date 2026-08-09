@@ -148,7 +148,7 @@ const NotificationSettings = lazyWithRetry(() => import("./features/Notification
 
 const PremiumPage = lazyWithRetry(() => import("./features/PremiumPage.jsx"));
 
-const ClinicalCases = lazyWithRetry(() => import("./features/clinicalCases/ClinicalCases.jsx"));
+const ClinicalCases = lazyWithRetry(() => import("./features/clinicalCases/VirtualPatient.jsx"));
 const OSCEPrep = lazyWithRetry(() => import("./features/osce/OSCEPrep.jsx"));
 const DrugReference = lazyWithRetry(() => import("./features/drugReference/DrugReference.jsx"));
 const LabValues = lazyWithRetry(() => import("./features/labValues/LabValues.jsx"));
@@ -9565,7 +9565,11 @@ function App() {
       {tab === "clinical-cases" && (
         <ErrorBoundary>
           <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
-            <ClinicalCases />
+            <ClinicalCases
+              aiConfig={aiConfig}
+              stats={stats}
+              updateStats={(partial) => setStats((s) => ({ ...s, ...partial }))}
+            />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -10220,17 +10224,11 @@ function App() {
 
 
 
-// Wrap App with Context providers
+// Wrap App with ErrorBoundary (providers are now in main.jsx)
 function AppWithProviders() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <UserDataProvider>
-          <UIProvider>
-            <App />
-          </UIProvider>
-        </UserDataProvider>
-      </AuthProvider>
+      <App />
     </ErrorBoundary>
   );
 }
