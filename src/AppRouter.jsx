@@ -9,6 +9,8 @@ const ResourceViewer = lazyWithRetry(() => import('./features/ResourceViewer'));
 const TeacherResourcesHub = lazyWithRetry(() => import('./features/TeacherResourcesHub'));
 const SharedFolderView = lazyWithRetry(() => import('./features/SharedFolderView'));
 const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
+const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
+const BlogPost = lazyWithRetry(() => import('./blog/BlogPost'));
 
 const PageLoader = () => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', background: '#0A0D13' }}>
@@ -59,6 +61,10 @@ export default function AppRouter() {
 
       {/* Shared folder route */}
       <Route path="/folders/:shareToken" element={<SharedFolderView />} />
+
+      {/* Blog routes */}
+      <Route path="/blog" element={<BlogList />} />
+      <Route path="/blog/:slug" element={<BlogPost />} />
 
       {/* Catch all - redirect to landing page */}
       <Route path="*" element={<Navigate to="/" replace />} />

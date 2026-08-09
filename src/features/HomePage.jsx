@@ -254,6 +254,9 @@ export default function HomePage() {
                 onMouseEnter={e => e.currentTarget.style.color = text}
                 onMouseLeave={e => e.currentTarget.style.color = textDim}>{l.label}</a>
             ))}
+            <Link to="/resources" style={{ fontSize: '0.92rem', color: textDim, fontWeight: 600, transition: 'color 0.15s ease' }}
+              onMouseEnter={e => e.currentTarget.style.color = text}
+              onMouseLeave={e => e.currentTarget.style.color = textDim}>Resources</Link>
           </nav>
           <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <Link to="/login" className="btn btn-ghost btn-sm">Log in</Link>
@@ -272,6 +275,7 @@ export default function HomePage() {
             ].map(l => (
               <a key={l.label} href={l.href} onClick={() => setMenuOpen(false)} style={{ fontSize: '0.95rem', color: textDim, fontWeight: 600, padding: '6px 0' }}>{l.label}</a>
             ))}
+            <Link to="/resources" onClick={() => setMenuOpen(false)} style={{ fontSize: '0.95rem', color: textDim, fontWeight: 600, padding: '6px 0' }}>Resources</Link>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <Link to="/login" onClick={() => setMenuOpen(false)} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>Log in</Link>
               <Link to="/signup" onClick={() => setMenuOpen(false)} className="btn btn-primary btn-sm" style={{ flex: 1 }}>Start free trial</Link>
@@ -568,8 +572,9 @@ export default function HomePage() {
             <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 0%, rgba(245,166,35,0.12), transparent 60%)', pointerEvents: 'none' }} />
             <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, marginBottom: 14, position: 'relative', fontFamily: 'Syne, sans-serif' }}>Exams don't wait. Neither should you.</h2>
             <p style={{ color: textDim, marginBottom: 30, fontSize: '1.05rem', position: 'relative' }}>Start free. No card. Watch your first mastery ring fill up before your next lecture.</p>
-            <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 14, position: 'relative', flexWrap: 'wrap' }}>
               <Link to="/signup" className="btn btn-primary btn-lg">Start your 2-day free trial →</Link>
+              <Link to="/resources" className="btn btn-ghost btn-lg">Browse resources</Link>
             </div>
           </div>
         </div>
@@ -586,12 +591,26 @@ export default function HomePage() {
               </Link>
               <p style={{ color: textFaint, fontSize: '0.88rem', marginTop: 8, maxWidth: 280 }}>Built by MBBS students, for students. Spaced repetition, AI-generated practice, and a study group that actually shows up.</p>
             </div>
-            <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-              {['Features', 'How it works', 'Pricing', 'Log in'].map(l => (
-                <a key={l} href={l === 'Log in' ? '/login' : `#${l.toLowerCase().replace(/ /g, '')}`} style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
-                  onMouseEnter={e => e.currentTarget.style.color = text}
-                  onMouseLeave={e => e.currentTarget.style.color = textDim}>{l}</a>
-              ))}
+            <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Link to="/features" style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.color = text}
+                onMouseLeave={e => e.currentTarget.style.color = textDim}>Features</Link>
+              <a href="#how" style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.color = text}
+                onMouseLeave={e => e.currentTarget.style.color = textDim}>How it works</a>
+              <Link to="/pricing" style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.color = text}
+                onMouseLeave={e => e.currentTarget.style.color = textDim}>Pricing</Link>
+              <Link to="/resources" style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.color = text}
+                onMouseLeave={e => e.currentTarget.style.color = textDim}>Resources</Link>
+              <Link to="/blog" style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.color = text}
+                onMouseLeave={e => e.currentTarget.style.color = textDim}>Blog</Link>
+              <Link to="/login" style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.color = text}
+                onMouseLeave={e => e.currentTarget.style.color = textDim}>Log in</Link>
+              <Link to="/signup" className="btn btn-primary btn-sm" style={{ marginLeft: 4 }}>Start free</Link>
             </div>
           </div>
           <div style={{ marginTop: 36, paddingTop: 20, borderTop: `1px solid ${line}`, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', color: textFaint, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>

@@ -45,8 +45,8 @@ export default function Footer() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: 2 }}>
               <li><Link to="/features" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Features</Link></li>
               <li><Link to="/pricing" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Pricing</Link></li>
-              <li><Link to="/mobile" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Mobile App</Link></li>
-              <li><Link to="/integrations" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Integrations</Link></li>
+              <li><Link to="/resources" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Resources</Link></li>
+              <li><Link to="/signup" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Start Free Trial</Link></li>
             </ul>
           </div>
 
@@ -55,9 +55,9 @@ export default function Footer() {
             <h4 style={{ color: '#fff', fontWeight: 600, marginBottom: '16px' }}>Resources</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: 2 }}>
               <li><Link to="/blog" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Blog</Link></li>
-              <li><Link to="/help" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Help Center</Link></li>
-              <li><Link to="/guides" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Study Guides</Link></li>
-              <li><Link to="/api" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>API Docs</Link></li>
+              <li><Link to="/resources" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Resources</Link></li>
+              <li><a href="mailto:dsilearn1@gmail.com" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Help & Support</a></li>
+              <li><a href="https://wa.me/2349028617178" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>WhatsApp Support</a></li>
             </ul>
           </div>
 
@@ -65,8 +65,7 @@ export default function Footer() {
           <div>
             <h4 style={{ color: '#fff', fontWeight: 600, marginBottom: '16px' }}>Company</h4>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: 2 }}>
-              <li><Link to="/about" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>About Us</Link></li>
-              <li><Link to="/careers" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Careers</Link></li>
+              <li><a href="mailto:dsilearn1@gmail.com" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>About Us</a></li>
               <li><a href="https://wa.me/2349028617178" target="_blank" rel="noopener noreferrer" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>WhatsApp</a></li>
               <li><a href="mailto:dsilearn1@gmail.com" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Email</a></li>
               <li><Link to="/privacy" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Privacy Policy</Link></li>
@@ -89,7 +88,6 @@ export default function Footer() {
           <div style={{ display: 'flex', gap: '24px' }}>
             <Link to="/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Privacy</Link>
             <Link to="/terms" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Terms</Link>
-            <Link to="/cookies" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Cookies</Link>
           </div>
         </div>
       </div>
