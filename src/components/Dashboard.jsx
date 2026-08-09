@@ -136,97 +136,6 @@ function HeroCard({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions, onR
   );
 }
 
-function VoiceTutorCard({ onOpenVoice }) {
-  return (
-    <div onClick={onOpenVoice} style={{
-      background: `radial-gradient(circle at 85% -10%, rgba(79,142,247,0.22), transparent 55%), linear-gradient(160deg, ${D.panel}, ${D.panel2})`,
-      border: "1px solid rgba(79,142,247,0.22)", borderRadius: 24, padding: 20,
-      position: "relative", overflow: "hidden", display: "flex", alignItems: "center", gap: 16, cursor: "pointer",
-    }}>
-      <div style={{ width: 64, height: 64, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="sc-voice-ring" style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(79,142,247,0.35)" }} />
-        <div className="sc-voice-ring sc-voice-ring-delay" style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(79,142,247,0.35)" }} />
-        <div style={{
-          width: 52, height: 52, borderRadius: "50%",
-          background: "radial-gradient(circle at 32% 28%, #CFE0FF, #4F8EF7 55%, #17407a)",
-          boxShadow: "0 0 0 1px rgba(79,142,247,0.25), 0 0 24px rgba(79,142,247,0.5)", position: "relative",
-        }}>
-          <div style={{ position: "absolute", inset: 11, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.65), transparent 70%)", opacity: 0.65 }} />
-        </div>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <h3 style={{ fontSize: 14, fontFamily: FONTS.display, fontWeight: 700, color: D.textHi, margin: 0 }}>Talk it through out loud</h3>
-        <p style={{ fontSize: 11, color: D.textMid, marginTop: 2, margin: 0 }}>Live, spoken conversation — barge in anytime</p>
-        <div className="sc-voice-wave" style={{ display: "flex", alignItems: "center", gap: "2.5px", marginTop: 10, height: 16 }}>
-          <span /><span /><span /><span /><span /><span />
-        </div>
-      </div>
-      <button style={{
-        flexShrink: 0, display: "flex", alignItems: "center", gap: 7,
-        background: "linear-gradient(135deg, #7DAAFF, #4F8EF7)", color: "#0B1B3A",
-        border: "none", borderRadius: 30, padding: "11px 16px",
-        fontFamily: FONTS.body, fontWeight: 800, fontSize: "12.5px", cursor: "pointer",
-        boxShadow: "0 8px 20px -6px rgba(79,142,247,0.55)",
-      }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0014 0M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-        Tap to talk
-      </button>
-    </div>
-  );
-}
-
-function ChatTutorCard({ onOpenAI }) {
-  const [input, setInput] = useState("");
-  const chips = ["Explain the brachial plexus", "Quiz me on GST 115"];
-  return (
-    <div style={{
-      background: `linear-gradient(160deg, ${D.panel}, ${D.panel2})`,
-      border: `1px solid ${D.border}`, borderRadius: 22, padding: 18, position: "relative", overflow: "hidden",
-    }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", position: "relative" }}>
-        <div style={{
-          width: 46, height: 46, borderRadius: "50%", flexShrink: 0, position: "relative",
-          background: "radial-gradient(circle at 32% 28%, #FFE3A8, #F5A623 55%, #9c5f08)",
-          boxShadow: "0 0 0 1px rgba(245,166,35,0.2), 0 0 22px rgba(245,166,35,0.45)",
-        }}>
-          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1.5px solid rgba(245,166,35,0.3)" }} />
-          <div style={{ position: "absolute", inset: 10, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.6), transparent 70%)", opacity: 0.6 }} />
-        </div>
-        <div>
-          <h3 style={{ fontSize: 14, fontFamily: FONTS.display, fontWeight: 700, color: D.textHi, margin: 0 }}>Ask the Circle</h3>
-          <p style={{ fontSize: 11, color: D.textMid, marginTop: 2, margin: 0 }}>Grounded in your own course material</p>
-        </div>
-      </div>
-      <div style={{
-        marginTop: 16, display: "flex", alignItems: "center", gap: 9,
-        background: "rgba(0,0,0,0.25)", border: `1px solid ${D.border}`, borderRadius: 15, padding: "12px 12px 12px 15px",
-      }}>
-        <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && input.trim()) { onOpenAI(input); setInput(""); } }}
-          placeholder="What do you want explained today?"
-          style={{ flex: 1, background: "none", border: "none", color: D.textHi, fontSize: 13, outline: "none", fontFamily: FONTS.body }}
-        />
-        <button onClick={() => { if (input.trim()) { onOpenAI(input); setInput(""); } }} style={{
-          width: 32, height: 32, borderRadius: "50%", border: "none", cursor: "pointer", flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: D.blue, color: "#fff", boxShadow: "0 4px 12px rgba(79,142,247,0.3)",
-        }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 11l18-8-8 18-2-8-8-2z" fill="#fff"/></svg>
-        </button>
-      </div>
-      <div style={{ display: "flex", gap: 7, marginTop: 12, flexWrap: "wrap" }}>
-        {chips.map((chip) => (
-          <button key={chip} onClick={() => onOpenAI(chip)} style={{
-            fontSize: "10.5px", color: D.textMid, background: "rgba(255,255,255,0.045)",
-            border: `1px solid ${D.border}`, padding: "7px 11px", borderRadius: 20,
-            fontWeight: 500, cursor: "pointer", fontFamily: FONTS.body,
-          }}>{chip}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ForYouSection({ items, onOpenAll, onOpenItem }) {
   const list = (items && items.length > 0)
     ? items.map((r) => ({ id: r.id, title: r.title, subject: r.subject, tag: r.contentType === "mcq" ? "MCQ" : r.contentType === "pdf" ? "PDF" : "Note", shareToken: r.shareToken }))
@@ -244,7 +153,7 @@ function ForYouSection({ items, onOpenAll, onOpenItem }) {
           border: `1px solid ${D.border}`, borderRadius: 18, padding: "24px 16px",
           textAlign: "center", color: D.textLow, fontSize: "12px",
         }}>
-          No department materials yet. Materials from your department will appear here.
+          No materials yet. Resources from your school and courses will appear here.
         </div>
       ) : (
         <div className="sc-scroll-row" style={{ display: "flex", gap: 11, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
@@ -438,8 +347,10 @@ export default function Dashboard({
         if (cancelled) return;
         const deptId = userProfile?.departmentId || userProfile?.department?.id;
         const deptName = userProfile?.department?.name || userProfile?.department;
-        const deptResources = resources.filter((r) => {
-          if (r.status === "rejected") return false;
+        const userUniId = userProfile?.universityId || userProfile?.university?.id;
+        const userCourses = Array.isArray(userProfile?.courses) ? userProfile.courses : [];
+
+        const matchesDept = (r) => {
           if (deptId && r.resourceDepts) {
             return r.resourceDepts.some((rd) => String(rd.department?.id) === String(deptId));
           }
@@ -448,11 +359,34 @@ export default function Dashboard({
             return r.resourceDepts.some((rd) => rd.department?.name === deptName);
           }
           return false;
+        };
+        const matchesCourse = (r) => userCourses.length > 0 && userCourses.some((c) => r.subject && r.subject.toLowerCase() === c.toLowerCase());
+        const matchesSchool = (r) => userUniId && r.universityId && String(r.universityId) === String(userUniId);
+
+        const deptResources = resources.filter((r) => {
+          if (r.status === "rejected") return false;
+          return matchesDept(r);
         });
-        const forYou = deptResources
-          .filter((r) => r.uploader?.role !== "STUDENT" || r.status === "approved")
-          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+
+        const forYou = resources
+          .filter((r) => {
+            if (r.status === "rejected") return false;
+            if (r.status === "pending" && r.uploader?.id !== authUser?.id) return false;
+            return matchesDept(r) || matchesCourse(r);
+          })
+          .map((r) => {
+            let tier = 4;
+            if (matchesSchool(r) && matchesDept(r) && matchesCourse(r)) tier = 1;
+            else if (matchesDept(r) && matchesCourse(r)) tier = 2;
+            else if (matchesCourse(r)) tier = 3;
+            return { ...r, _tier: tier };
+          })
+          .sort((a, b) => {
+            if (a._tier !== b._tier) return a._tier - b._tier;
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+          })
           .slice(0, 6);
+
         setResourceCounts({ dept: deptResources.length, public: resources.length, saved, uploads });
         setForYouPreview(forYou);
       } catch {}
@@ -482,8 +416,6 @@ export default function Dashboard({
     onOpenTab?.("research-hub");
   }, [onOpenTab, onOpenResource]);
 
-  const handleOpenAI = useCallback((topic) => { onOpenAI?.(topic); }, [onOpenAI]);
-
   const openResearchHub = useCallback((tab, subTab) => {
     window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { tab, subTab } }));
   }, []);
@@ -495,17 +427,6 @@ export default function Dashboard({
   return (
     <div style={{ fontFamily: FONTS.body, color: D.textHi, position: "relative", minHeight: "100vh" }}>
       <style>{`
-        @keyframes sc-pulse { 0% { transform: scale(1); opacity: 0.7; } 70% { transform: scale(1.35); opacity: 0; } 100% { opacity: 0; } }
-        @keyframes sc-waveMove { 0%, 100% { transform: scaleY(0.4); opacity: 0.4; } 50% { transform: scaleY(1); opacity: 0.9; } }
-        .sc-voice-ring { animation: sc-pulse 2.6s ease-in-out infinite; }
-        .sc-voice-ring-delay { animation-delay: 1.3s; }
-        .sc-voice-wave span { width: 2.5px; border-radius: 2px; background: ${D.blue}; opacity: 0.55; animation: sc-waveMove 1.4s ease-in-out infinite; }
-        .sc-voice-wave span:nth-child(1) { height: 5px; animation-delay: 0s; }
-        .sc-voice-wave span:nth-child(2) { height: 11px; animation-delay: 0.15s; }
-        .sc-voice-wave span:nth-child(3) { height: 16px; animation-delay: 0.3s; }
-        .sc-voice-wave span:nth-child(4) { height: 9px; animation-delay: 0.45s; }
-        .sc-voice-wave span:nth-child(5) { height: 14px; animation-delay: 0.6s; }
-        .sc-voice-wave span:nth-child(6) { height: 6px; animation-delay: 0.75s; }
         .sc-scroll-row::-webkit-scrollbar, .sc-pill-row::-webkit-scrollbar { display: none; }
         @media (min-width: 640px) {
           .sc-scroll-row { overflow-x: visible; flex-wrap: wrap; }
@@ -514,9 +435,6 @@ export default function Dashboard({
           .sc-lib-pill { flex: 1 1 200px; }
         }
         @media (min-width: 980px) {
-          .sc-top-grid { display: grid; grid-template-columns: minmax(320px, 440px) 1fr; gap: 22px; align-items: stretch; }
-          .sc-tutors-col { display: flex; flex-direction: column; gap: 22px; }
-          .sc-tutors-col > div { flex: 1; }
           .sc-lower-grid { display: grid; grid-template-columns: 1fr 360px; gap: 30px; align-items: start; }
           .sc-sidebar-col { position: sticky; top: 24px; }
           .sc-foryou-card { flex: 1 1 220px; }
@@ -541,7 +459,7 @@ export default function Dashboard({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 14 }}>
           <div>
             <h1 style={{ fontFamily: FONTS.display, fontWeight: 700, fontSize: 25, letterSpacing: "-0.015em", lineHeight: 1.15, color: D.textHi, margin: 0, textShadow: "0 2px 10px rgba(0,0,0,0.3)" }}>
-              {greeting},<br />master
+              {greeting},<br />{userName}
             </h1>
             <p style={{ color: D.textMid, fontSize: "12.5px", marginTop: 5, fontWeight: 500, margin: 0 }}>
               You're ahead of yesterday's pace.
@@ -575,8 +493,8 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* Top grid: Hero + Tutors */}
-        <div className="sc-top-grid" style={{ marginTop: 22 }}>
+        {/* Top: Hero card (full width) */}
+        <div style={{ marginTop: 22 }}>
           <HeroCard
             fsrsStats={fsrsStats}
             sm2DueCount={sm2DueCount}
@@ -584,10 +502,6 @@ export default function Dashboard({
             onReviewQuestions={onStartSpaced}
             onReviewReadings={handleReviewReadings}
           />
-          <div className="sc-tutors-col" style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 22 }}>
-            <VoiceTutorCard onOpenVoice={() => onOpenTab?.("voice-tutor")} />
-            <ChatTutorCard onOpenAI={handleOpenAI} />
-          </div>
         </div>
 
         {/* Course Roadmap card — prominent, full width */}

@@ -84,6 +84,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
       goals: confidence <= 2 ? "Catch up and build confidence" : confidence >= 4 ? "Maintain and excel" : "Improve steadily",
       targetGrade: "A",
       studyHoursPerDay: Math.round(dailyMinutes / 60 * 10) / 10,
+      courses: selectedSubjects,
     }).catch(() => {});
     onComplete({
       selectedSubjects,
@@ -94,6 +95,7 @@ export function OnboardingWizard({ subjects, onComplete, onSkip }) {
       yearLevel,
       institution: uniName,
       universityId: uniId,
+      courses: selectedSubjects,
     });
   }
 

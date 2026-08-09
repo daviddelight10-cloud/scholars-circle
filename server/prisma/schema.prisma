@@ -1307,6 +1307,7 @@ model UserProfile {
   targetGrade     String?
   studyHoursPerDay Int     @default(2)
   isUniversityStudent Boolean @default(true)
+  courses        String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

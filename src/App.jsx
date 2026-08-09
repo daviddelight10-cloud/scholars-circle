@@ -7217,6 +7217,8 @@ function App() {
 
                 universityId: data.universityId || null,
 
+                courses: data.courses || data.selectedSubjects || [],
+
               });
 
             }
@@ -8267,7 +8269,7 @@ function App() {
 
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "discuss", "cheatsheet", "outline", "profile", "premium", "voice-tutor", ...(isFaculty ? ["classroom", "lecturers", "studygroups", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "discuss", "cheatsheet", "outline", "profile", "premium", "aitutor", "voice-tutor", ...(isFaculty ? ["classroom", "lecturers", "studygroups", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
           onClick={() => { setShowMobileMenu(!showMobileMenu); setFabOpen(false); }}
 
@@ -8375,6 +8377,28 @@ function App() {
             </div>
             </>
             )}
+
+
+
+            {/* Section: AI Tools */}
+
+            <div className="mobile-menu-section-label"><Bot size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> AI Tools</div>
+
+            <div className="mobile-menu-grid">
+
+              <button className={tab === "aitutor" ? "active" : ""} onClick={() => { setTab("aitutor"); setShowMobileMenu(false); }}>
+
+                <Bot size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> AI Tutor
+
+              </button>
+
+              <button className={tab === "voice-tutor" ? "active" : ""} onClick={() => { setTab("voice-tutor"); setShowMobileMenu(false); }}>
+
+                <Mic size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Voice Tutor
+
+              </button>
+
+            </div>
 
 
 
@@ -8594,11 +8618,6 @@ function App() {
 
               ["today", "Home", HomeIcon],
 
-
-              ["aitutor", "AI Tutor", Bot],
-
-              ["voice-tutor", "Voice Tutor", Mic],
-
             ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
 
               <button
@@ -8606,6 +8625,38 @@ function App() {
                 key={id}
 
                 className={`app-sidebar-item ${["today", "dashboard"].includes(tab) && id === "today" ? "active" : tab === id ? "active" : ""}`}
+
+                onClick={() => setTab(id)}
+
+              >
+
+                <Icon size={18} className="app-sidebar-icon" />
+
+                <span className="app-sidebar-text">{label}</span>
+
+              </button>
+
+            ))}
+
+          </div>
+
+          <div className="app-sidebar-section">
+
+            <span className="app-sidebar-label">AI Tools</span>
+
+            {[
+
+              ["aitutor", "AI Tutor", Bot],
+
+              ["voice-tutor", "Voice Tutor", Mic],
+
+            ].map(([id, label, Icon]) => (
+
+              <button
+
+                key={id}
+
+                className={`app-sidebar-item ${tab === id ? "active" : ""}`}
 
                 onClick={() => setTab(id)}
 

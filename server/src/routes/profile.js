@@ -53,6 +53,7 @@ router.put("/", requireAuth, async (req, res) => {
       departmentId,
       yearLevel,
       semester,
+      courses,
     } = req.body;
 
     const data = {
@@ -72,6 +73,7 @@ router.put("/", requireAuth, async (req, res) => {
       targetGrade,
       studyHoursPerDay: studyHoursPerDay ? Number(studyHoursPerDay) : undefined,
       isUniversityStudent: isUniversityStudent !== undefined ? Boolean(isUniversityStudent) : undefined,
+      ...(Array.isArray(courses) && { courses }),
     };
 
     // Remove undefined values

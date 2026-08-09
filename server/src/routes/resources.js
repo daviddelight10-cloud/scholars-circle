@@ -64,7 +64,7 @@ async function generateShareToken() {
 // GET /api/resources - List resources with filters
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const { search, type, subject, department, level, semester } = req.query;
+    const { search, type, subject, department, level, semester, universityId } = req.query;
 
     const where = {
       ...(search && {
@@ -77,6 +77,7 @@ router.get("/", requireAuth, async (req, res) => {
       ...(subject && subject !== "all" && { subject }),
       ...(level && level !== "all" && { level }),
       ...(semester && semester !== "all" && { semester }),
+      ...(universityId && universityId !== "all" && { universityId }),
       ...(department && department !== "all" && {
         OR: [
           { department },

@@ -64,6 +64,7 @@ const EMPTY_PROFILE = {
   goals: "",
   targetGrade: "",
   studyHoursPerDay: 2,
+  courses: [],
   joinedAt: null,
   updatedAt: null
 };
@@ -101,6 +102,7 @@ export function useStudentProfile(authUserId) {
           goals: p.goals || "",
           targetGrade: p.targetGrade || "",
           studyHoursPerDay: p.studyHoursPerDay ?? 2,
+          courses: Array.isArray(p.courses) ? p.courses : [],
         };
         setProfile(merged);
         saveProfile(merged);
@@ -138,6 +140,7 @@ export function useStudentProfile(authUserId) {
       goals: next.goals,
       targetGrade: next.targetGrade,
       studyHoursPerDay: next.studyHoursPerDay,
+      ...(Array.isArray(next.courses) && next.courses.length > 0 ? { courses: next.courses } : {}),
     }).catch(() => {});
   };
 
