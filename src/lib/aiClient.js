@@ -221,6 +221,65 @@ export async function callAIMultimodal(prompt, imageOrImages, history = [], aiCo
   return data.text || "";
 }
 
+// Chat-style AI call with system prompt + conversation history.
+// Routes through the same backend proxy as callAI, but sends system + messages
+// fields instead of a single prompt string. Returns plain text string.
+export async function callAIChat({ system, messages, provider, model } = {}) {
+  const status = await getProxyStatus();
+
+  if (status?.enabled) {
+    const useProvider = provider || status.defaultProvider || "openrouter";
+    const useModel = model || (useProvider === "gemini" ? "gemini-2.5-flash" :
+                               useProvider === "openrouter" ? "google/gemini-2.5-flash" :
+                               "gpt-4o-mini");
+
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const token = authData.authToken;
+
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    let res;
+    try {
+      res = await fetch(`${API_BASE}/ai-proxy/generate`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ system, messages, provider: useProvider, model: useModel }),
+        signal: AbortSignal.timeout(120000),
+      });
+    } catch (netErr) {
+      if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
+        throw new Error("AI request timed out. Please try again.");
+      }
+      throw new Error("Network error reaching AI service. Please check your connection.");
+    }
+
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (!res.ok) {
+      if (res.status === 429) {
+        window.dispatchEvent(new CustomEvent("sc-open-premium"));
+        const err = new Error(data?.error || "Daily AI limit reached. Upgrade for unlimited access!");
+        err.isLimitError = true;
+        throw err;
+      }
+      throw new Error(data?.error || `AI service error (${res.status})`);
+    }
+    return data.text || "";
+  }
+
+  // Fallback: concatenate system + messages into a single prompt for callAI
+  const parts = [];
+  if (system) parts.push(system);
+  if (messages && messages.length) {
+    for (const m of messages) {
+      parts.push(`${m.role === "assistant" ? "Assistant" : "User"}: ${m.content}`);
+    }
+  }
+  return callAI(parts.join("\n\n"), { provider, model });
+}
+
 // Helper for the common pattern of asking AI for a JSON array/object response.
 export function extractJSON(raw, kind = "object") {
   if (!raw || typeof raw !== "string") throw new Error("AI returned empty response.");
