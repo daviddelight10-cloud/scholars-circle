@@ -227,6 +227,9 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [historyStack, setHistoryStack] = useState([]);
+  const [reviewingCard, setReviewingCard] = useState(null);
+  const [reviewingFlipped, setReviewingFlipped] = useState(false);
 
   const totalCards = allCards.length;
   const levelLabel = (idx) => idx >= numLevels ? "Mastery" : `Level ${idx + 1}`;
@@ -272,14 +275,17 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
     const onKey = (e) => {
       if (e.key === " " || e.key === "Spacebar") {
         e.preventDefault();
-        if (rating == null) setFlipped(f => !f);
+        if (reviewingCard) { setReviewingFlipped(f => !f); return; }
+        setFlipped(f => !f);
+      } else if (e.key === "ArrowLeft" && !reviewingCard) {
+        handlePrevious();
       } else if (flipped && rating == null && ["1", "2", "3", "4"].includes(e.key)) {
         handleRate(parseInt(e.key, 10));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flipped, rating, gameState, loading, totalCards, showLevelComplete, showLevelTransition]);
+  }, [flipped, rating, gameState, loading, totalCards, showLevelComplete, showLevelTransition, reviewingCard, historyStack]);
 
   function playSound(fn) {
     if (!audioRef.current) audioRef.current = createAudioSystem();
@@ -296,6 +302,11 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   function pickNext(overrideLevelIdx) {
     const { queues, mastery } = levelQueues;
     const baseLevel = overrideLevelIdx != null ? overrideLevelIdx : currentLevelIdx;
+
+    if (currentCard) {
+      setHistoryStack(prev => [...prev, { card: { ...currentCard }, rating, levelIdx: currentLevelIdx }]);
+    }
+
     let lvl = baseLevel;
 
     while (lvl < numLevels && queues[lvl].length === 0) {
@@ -427,6 +438,18 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
 
     setLevelQueues({ queues, mastery });
     saveState();
+  }
+
+  function handlePrevious() {
+    if (historyStack.length === 0 || reviewingCard) return;
+    const prev = historyStack[historyStack.length - 1];
+    setReviewingCard(prev);
+    setReviewingFlipped(true);
+  }
+
+  function handleBackFromReview() {
+    setReviewingCard(null);
+    setReviewingFlipped(false);
   }
 
   function handleContinue() {
@@ -835,10 +858,10 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
             {/* 3D Flip Card */}
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <div
-                onClick={() => rating == null && setFlipped(f => !f)}
+                onClick={() => setFlipped(f => !f)}
                 style={{
                   perspective: "1400px",
-                  cursor: rating == null ? "pointer" : "default",
+                  cursor: "pointer",
                   width: "100%",
                   maxWidth: "760px",
                   minHeight: "320px",
@@ -989,10 +1012,53 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
               </div>
             )}
 
-            {/* Continue button */}
+            {/* Previous + Continue buttons */}
             {rating != null && (
-              <button onClick={handleContinue} style={{ width: "100%", padding: 13, marginTop: 14, borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink }}>Continue →</button>
+              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                <button onClick={handlePrevious} disabled={historyStack.length === 0} style={{ padding: "13px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: historyStack.length === 0 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: historyStack.length === 0 ? "rgba(139,147,167,0.4)" : textDim, opacity: historyStack.length === 0 ? 0.5 : 1 }}>← Prev</button>
+                <button onClick={handleContinue} style={{ flex: 1, padding: 13, borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink }}>Continue →</button>
+              </div>
             )}
+            {rating == null && historyStack.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <button onClick={handlePrevious} style={{ width: "100%", padding: 10, borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.03)", color: textDim }}>← Previous card</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Review previous card overlay */}
+        {reviewingCard && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+            <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", padding: "max(14px, env(safe-area-inset-top)) clamp(12px, 4vw, 20px) max(14px, env(safe-area-inset-bottom))" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>Previous · {levelLabel(reviewingCard.levelIdx)}</span>
+                <button onClick={handleBackFromReview} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: textDim, cursor: "pointer", fontSize: 12, fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>Back to current →</button>
+              </div>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div onClick={() => setReviewingFlipped(f => !f)} style={{ perspective: "1400px", cursor: "pointer", width: "100%", maxWidth: "760px", minHeight: "320px", filter: `drop-shadow(0 24px 50px rgba(0,0,0,0.4)) drop-shadow(0 6px 14px ${sc.bg})` }}>
+                  <div style={{ position: "relative", width: "100%", minHeight: "320px", transformStyle: "preserve-3d", transition: "transform 0.5s cubic-bezier(0.4,0.0,0.2,1)", transform: reviewingFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
+                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", background: "rgba(15,17,36,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: `0.5px solid ${sc.border}`, borderLeft: `4px solid ${sc.accent}`, borderRadius: "24px", padding: "48px 36px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: sc.text, marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, padding: "5px 14px", borderRadius: "999px", background: sc.bg, border: `0.5px solid ${sc.border}` }}>Front</div>
+                      <div style={{ fontSize: 22, fontWeight: 600, color: "#eef0fb", lineHeight: 1.65 }}>{reviewingCard.card.front}</div>
+                      <div style={{ fontSize: 13, color: "#565c8f", marginTop: 28 }}>👆 Tap to flip</div>
+                    </div>
+                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)", background: "rgba(14,20,17,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: `0.5px solid ${sc.border}`, borderLeft: `4px solid ${sc.accent}`, borderRadius: "24px", padding: "48px 36px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "#66bb6a", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, padding: "5px 14px", borderRadius: "999px", background: "rgba(102,187,106,0.12)", border: "0.5px solid rgba(102,187,106,0.35)" }}>Back</div>
+                      <div style={{ fontSize: 18, fontWeight: 500, color: "#b9e8bb", lineHeight: 1.65 }}>{reviewingCard.card.back}</div>
+                      {reviewingCard.rating != null && (
+                        <div style={{ marginTop: 20, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.color || textDim, padding: "4px 12px", borderRadius: 8, background: (GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.bg || "rgba(255,255,255,0.05)"), border: `1px solid ${GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.border || cardBorder}` }}>
+                          {GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.icon} {GRADE_CONFIG.find(g => g.grade === reviewingCard.rating)?.label}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ textAlign: "center", marginTop: 14, flexShrink: 0 }}>
+                <button onClick={handleBackFromReview} style={{ padding: "12px 28px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Back to current card →</button>
+              </div>
+            </div>
           </div>
         )}
 
