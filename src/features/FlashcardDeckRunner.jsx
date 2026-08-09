@@ -228,8 +228,10 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   const [railCollapsed, setRailCollapsed] = useState(true);
   const [loading, setLoading] = useState(true);
   const [historyStack, setHistoryStack] = useState([]);
-  const [reviewingCard, setReviewingCard] = useState(null);
+  const [reviewIndex, setReviewIndex] = useState(-1);
   const [reviewingFlipped, setReviewingFlipped] = useState(false);
+
+  const reviewingCard = reviewIndex >= 0 && reviewIndex < historyStack.length ? historyStack[reviewIndex] : null;
 
   const totalCards = allCards.length;
   const levelLabel = (idx) => idx >= numLevels ? "Mastery" : `Level ${idx + 1}`;
@@ -277,8 +279,10 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
         e.preventDefault();
         if (reviewingCard) { setReviewingFlipped(f => !f); return; }
         setFlipped(f => !f);
-      } else if (e.key === "ArrowLeft" && !reviewingCard) {
-        handlePrevious();
+      } else if (e.key === "ArrowLeft" && historyStack.length > 0) {
+        if (reviewingCard) { handleReviewOlder(); } else { handlePrevious(); }
+      } else if (e.key === "ArrowRight" && reviewingCard) {
+        handleReviewNewer();
       } else if (flipped && rating == null && ["1", "2", "3", "4"].includes(e.key)) {
         handleRate(parseInt(e.key, 10));
       }
@@ -441,14 +445,29 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   }
 
   function handlePrevious() {
-    if (historyStack.length === 0 || reviewingCard) return;
-    const prev = historyStack[historyStack.length - 1];
-    setReviewingCard(prev);
+    if (historyStack.length === 0) return;
+    setReviewIndex(historyStack.length - 1);
     setReviewingFlipped(true);
   }
 
+  function handleReviewOlder() {
+    if (reviewIndex > 0) {
+      setReviewIndex(reviewIndex - 1);
+      setReviewingFlipped(true);
+    }
+  }
+
+  function handleReviewNewer() {
+    if (reviewIndex < historyStack.length - 1) {
+      setReviewIndex(reviewIndex + 1);
+      setReviewingFlipped(true);
+    } else {
+      handleBackFromReview();
+    }
+  }
+
   function handleBackFromReview() {
-    setReviewingCard(null);
+    setReviewIndex(-1);
     setReviewingFlipped(false);
   }
 
@@ -1032,7 +1051,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
           <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", overflowY: "auto" }}>
             <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", padding: "max(14px, env(safe-area-inset-top)) clamp(12px, 4vw, 20px) max(14px, env(safe-area-inset-bottom))" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>Previous · {levelLabel(reviewingCard.levelIdx)}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>Card {reviewIndex + 1} / {historyStack.length} · {levelLabel(reviewingCard.levelIdx)}</span>
                 <button onClick={handleBackFromReview} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: textDim, cursor: "pointer", fontSize: 12, fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>Back to current →</button>
               </div>
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1055,8 +1074,10 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
                   </div>
                 </div>
               </div>
-              <div style={{ textAlign: "center", marginTop: 14, flexShrink: 0 }}>
-                <button onClick={handleBackFromReview} style={{ padding: "12px 28px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Back to current card →</button>
+              <div style={{ display: "flex", gap: 8, marginTop: 14, flexShrink: 0 }}>
+                <button onClick={handleReviewOlder} disabled={reviewIndex <= 0} style={{ padding: "12px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: reviewIndex <= 0 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: reviewIndex <= 0 ? "rgba(139,147,167,0.4)" : textDim, opacity: reviewIndex <= 0 ? 0.5 : 1 }}>← Older</button>
+                <button onClick={handleBackFromReview} style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${blue}, #0aa8c4)`, color: ink, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Back to current →</button>
+                <button onClick={handleReviewNewer} disabled={reviewIndex >= historyStack.length - 1} style={{ padding: "12px 18px", borderRadius: 10, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, cursor: reviewIndex >= historyStack.length - 1 ? "default" : "pointer", border: `1px solid ${cardBorder}`, background: "rgba(255,255,255,0.04)", color: reviewIndex >= historyStack.length - 1 ? "rgba(139,147,167,0.4)" : textDim, opacity: reviewIndex >= historyStack.length - 1 ? 0.5 : 1 }}>Newer →</button>
               </div>
             </div>
           </div>
