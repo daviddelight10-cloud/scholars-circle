@@ -96,6 +96,50 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/folders/community — List all shared+link folders community-wide (excluding own)
+router.get("/community", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { search } = req.query;
+
+    const where = {
+      ownerId: { not: userId },
+      visibility: { in: ["shared", "link"] },
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { courseCode: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+
+    const folders = await prisma.folder.findMany({
+      where,
+      include: {
+        folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
+        owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
+        _count: { select: { resources: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    // Check which ones the user has bookmarked
+    const bookmarks = await prisma.folderBookmark.findMany({
+      where: { userId },
+      select: { folderId: true },
+    });
+    const bookmarkedIds = new Set(bookmarks.map((b) => b.folderId));
+
+    res.json(folders.map((f) => ({ ...f, isBookmarked: bookmarkedIds.has(f.id) })));
+  } catch (error) {
+    console.error("Error listing community folders:", error);
+    res.status(500).json({ error: "Failed to list community folders" });
+  }
+});
+
 // GET /api/folders — List folders visible to the caller
 router.get("/", requireAuth, async (req, res) => {
   try {
@@ -452,7 +496,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/folders/:id/bookmark — Bookmark (save) a folder to my space
+// POST /api/folders/:id/bookmark — Bookmark (save) a folder + all its resources to my space
 router.post("/:id/bookmark", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -477,21 +521,49 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
       update: {},
     });
 
-    res.status(201).json(bookmark);
+    // Cascade: bookmark all approved resources inside the folder
+    const resources = await prisma.resource.findMany({
+      where: { folderId: id, status: "approved" },
+      select: { id: true },
+    });
+    if (resources.length > 0) {
+      await prisma.resourceBookmark.createMany({
+        data: resources.map((r) => ({ userId, resourceId: r.id })),
+        skipDuplicates: true,
+      });
+    }
+
+    res.status(201).json({ ...bookmark, resourcesBookmarked: resources.length });
   } catch (error) {
     console.error("Error bookmarking folder:", error);
     res.status(500).json({ error: "Failed to bookmark folder" });
   }
 });
 
-// DELETE /api/folders/:id/bookmark — Remove folder bookmark
+// DELETE /api/folders/:id/bookmark — Remove folder bookmark + unbookmark its resources
 router.delete("/:id/bookmark", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    await prisma.folderBookmark.deleteMany({
-      where: { folderId: id, userId: req.user.sub },
+    const userId = req.user.sub;
+
+    // Cascade: unbookmark all approved resources inside the folder
+    const resources = await prisma.resource.findMany({
+      where: { folderId: id, status: "approved" },
+      select: { id: true },
     });
-    res.json({ success: true });
+    if (resources.length > 0) {
+      await prisma.resourceBookmark.deleteMany({
+        where: {
+          userId,
+          resourceId: { in: resources.map((r) => r.id) },
+        },
+      });
+    }
+
+    await prisma.folderBookmark.deleteMany({
+      where: { folderId: id, userId },
+    });
+    res.json({ success: true, resourcesUnbookmarked: resources.length });
   } catch (error) {
     console.error("Error removing folder bookmark:", error);
     res.status(500).json({ error: "Failed to remove bookmark" });

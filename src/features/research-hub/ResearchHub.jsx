@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { copyShareToken } from "../../lib/researchUtils";
-import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder } from "../../lib/foldersApi";
+import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder } from "../../lib/foldersApi";
 import { getMyProfile } from "../../lib/profileApi.js";
 import { setUserDepartment } from "../../lib/departments.js";
 import ResourceViewer from "../ResourceViewer";
@@ -18,6 +18,7 @@ import LibraryView from "./LibraryView.jsx";
 import DepartmentView from "./DepartmentView.jsx";
 import SubTabBar from "./SubTabBar.jsx";
 import EmptyState from "./EmptyState.jsx";
+import { FolderCard } from "./FolderGrid.jsx";
 import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
 import SpacedReviewSession from "../SpacedReviewSession.jsx";
@@ -35,6 +36,7 @@ const communityTabs = [
   { key: "pdf", label: "PDF", icon: "📕", color: "#EF4444" },
   { key: "mcq", label: "MCQ", icon: "✎", color: "#3DD68C" },
   { key: "flashcard", label: "Flashcard", icon: "🎴", color: "#4F8EF7" },
+  { key: "folders", label: "Folders", icon: "📁", color: "#8B5CF6" },
 ];
 
 const communityEmptyStates = {
@@ -42,6 +44,7 @@ const communityEmptyStates = {
   pdf: { icon: "📕", title: "No PDFs found", message: "Try adjusting your filters or search." },
   mcq: { icon: "✎", title: "No MCQ sets yet", message: "Generate MCQs from a material or upload your own." },
   flashcard: { icon: "🎴", title: "No flashcard decks yet", message: "Generate flashcards from a material or upload your own." },
+  folders: { icon: "📁", title: "No shared folders yet", message: "When teachers create shared folders, they'll appear here for you to bookmark." },
 };
 
 const emptyMessages = {
@@ -82,6 +85,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [folders, setFolders] = useState({ own: [], shared: [], bookmarked: [] });
   const [folderBookmarkedIds, setFolderBookmarkedIds] = useState(new Set());
   const [folderBookmarkBusyId, setFolderBookmarkBusyId] = useState(null);
+  const [communityFolders, setCommunityFolders] = useState([]);
   const [activeFolder, setActiveFolder] = useState(null);
   const [folderDetail, setFolderDetail] = useState(null);
   const [folderLoading, setFolderLoading] = useState(false);
@@ -104,6 +108,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     fetchFsrsStats();
     fetchFsrsAnalytics();
     fetchFolders();
+    fetchCommunityFolders();
     fetchBookmarks();
     fetchMcqProgress();
     fetchUserProfile();
@@ -166,6 +171,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   useEffect(() => {
     if (activeTab === "library" || activeTab === "community") {
       fetchBookmarks();
+    }
+    if (activeTab === "community") {
+      fetchCommunityFolders();
     }
   }, [activeTab, communitySubTab]);
 
@@ -251,6 +259,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       setFolders(data);
       const bmIds = new Set((data.bookmarked || []).map((f) => f.id));
       setFolderBookmarkedIds(bmIds);
+    } catch {}
+  };
+
+  const fetchCommunityFolders = async (searchTerm) => {
+    try {
+      const data = await listCommunityFolders(searchTerm);
+      setCommunityFolders(data);
     } catch {}
   };
 
@@ -352,12 +367,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     try {
       if (isBookmarked) {
         await apiUnbookmarkFolder(folder.id);
-        showToast("Removed from your space");
+        showToast("Removed folder + resources from your space");
       } else {
-        await apiBookmarkFolder(folder.id);
-        showToast("Added to your space ★");
+        const result = await apiBookmarkFolder(folder.id);
+        const count = result?.resourcesBookmarked;
+        showToast(count > 0 ? `Folder + ${count} resources added to your space ✓` : "Folder added to your space ✓");
       }
       fetchFolders();
+      fetchCommunityFolders();
+      fetchBookmarks();
     } catch {
       // Revert on error
       setFolderBookmarkedIds((prev) => {
@@ -1129,7 +1147,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           {/* Segmented control — Materials / PDF / MCQ / Flashcard */}
           <div className="mb-6 flex gap-1 rounded-xl border border-hub-border bg-hub-bg p-1">
             {communityTabs.map((tab) => {
-              const count = communityCategorized.counts[tab.key] || 0;
+              const count = tab.key === "folders" ? communityFolders.length : (communityCategorized.counts[tab.key] || 0);
               const isActive = activeFilter === tab.key;
               return (
                 <button
@@ -1261,6 +1279,25 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                     />
                   );
                 })}
+              </div>
+            )
+          ) : activeFilter === "folders" ? (
+            communityFolders.length === 0 ? (
+              <EmptyState icon={communityEmptyStates.folders.icon} title={communityEmptyStates.folders.title} message={communityEmptyStates.folders.message} />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {communityFolders.map((folder, i) => (
+                  <FolderCard
+                    key={folder.id}
+                    folder={folder}
+                    shared
+                    onClick={() => openFolder(folder.id)}
+                    index={i}
+                    isBookmarked={folderBookmarkedIds.has(folder.id)}
+                    bookmarkBusy={folderBookmarkBusyId === folder.id}
+                    onToggleBookmark={handleToggleFolderBookmark}
+                  />
+                ))}
               </div>
             )
           ) : null}

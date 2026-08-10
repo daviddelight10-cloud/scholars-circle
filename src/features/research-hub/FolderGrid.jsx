@@ -1,7 +1,7 @@
 import { getSubjectColor } from "./subjectColors";
 import EmptyState from "./EmptyState";
 
-function FolderCard({ folder, onClick, shared = false, index = 0 }) {
+export function FolderCard({ folder, onClick, shared = false, index = 0, isBookmarked, bookmarkBusy, onToggleBookmark }) {
   const itemCount = folder._count?.resources ?? 0;
   const sc = getSubjectColor(folder.courseCode || folder.name);
   const delay = `${Math.min(index * 40, 400)}ms`;
@@ -41,19 +41,34 @@ function FolderCard({ folder, onClick, shared = false, index = 0 }) {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span
-          className="rounded px-2 py-0.5 text-[10px]"
-          style={{
-            background: folder.visibility === "private" ? "#1a0808" : "#0f2a1a",
-            color: folder.visibility === "private" ? "#ef9a9a" : "#a5d6a7",
-            border: `0.5px solid ${folder.visibility === "private" ? "#4a1010" : "#2a6a3a"}`,
-          }}
-        >
-          {folder.visibility === "private" ? "🔒 Private" : folder.visibility === "link" ? "🔗 Link" : "👥 Shared"}
-        </span>
-        {shared && folder.owner?.username && (
-          <span className="text-[10px] text-hub-text-dim">by {folder.owner.username}</span>
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className="rounded px-2 py-0.5 text-[10px]"
+            style={{
+              background: folder.visibility === "private" ? "#1a0808" : "#0f2a1a",
+              color: folder.visibility === "private" ? "#ef9a9a" : "#a5d6a7",
+              border: `0.5px solid ${folder.visibility === "private" ? "#4a1010" : "#2a6a3a"}`,
+            }}
+          >
+            {folder.visibility === "private" ? "🔒 Private" : folder.visibility === "link" ? "🔗 Link" : "👥 Shared"}
+          </span>
+          {shared && folder.owner?.username && (
+            <span className="text-[10px] text-hub-text-dim">by {folder.owner.username}</span>
+          )}
+        </div>
+        {onToggleBookmark && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleBookmark(folder); }}
+            disabled={bookmarkBusy}
+            title={isBookmarked ? "Remove from your space" : "Add to your space"}
+            className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-lg border border-hub-border bg-transparent text-sm transition-all active:scale-90"
+            style={isBookmarked
+              ? { color: "#F5A623", borderColor: "rgba(245,166,35,0.4)", background: "rgba(245,166,35,0.08)" }
+              : { color: "#5A6178" }}
+          >
+            {isBookmarked ? "★" : "☆"}
+          </button>
         )}
       </div>
     </div>

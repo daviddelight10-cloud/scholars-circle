@@ -18,6 +18,15 @@ export async function listFolders() {
   return res.json();
 }
 
+export async function listCommunityFolders(search) {
+  const url = search
+    ? `${API_BASE}/api/folders/community?search=${encodeURIComponent(search)}`
+    : `${API_BASE}/api/folders/community`;
+  const res = await authFetch(url);
+  if (!res.ok) throw new Error("Failed to load community folders");
+  return res.json();
+}
+
 export async function createFolder(data) {
   const res = await authFetch(`${API_BASE}/api/folders`, {
     method: "POST",
