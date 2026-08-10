@@ -92,7 +92,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderCourseCode, setNewFolderCourseCode] = useState("");
-  const [newFolderVisibility, setNewFolderVisibility] = useState("private");
+  const [newFolderVisibility, setNewFolderVisibility] = useState("link");
   const [newFolderLevel, setNewFolderLevel] = useState("");
   const [newFolderSemester, setNewFolderSemester] = useState("");
   const [newFolderDeptIds, setNewFolderDeptIds] = useState([]);
