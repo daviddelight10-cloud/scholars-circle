@@ -64,7 +64,7 @@ async function generateShareToken() {
 // GET /api/resources - List resources with filters
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const { search, type, subject, department, level, semester, universityId } = req.query;
+    const { search, type, subject, department, level, semester, universityId, courseCode } = req.query;
 
     const where = {
       ...(search && {
@@ -78,6 +78,7 @@ router.get("/", requireAuth, async (req, res) => {
       ...(level && level !== "all" && { level }),
       ...(semester && semester !== "all" && { semester }),
       ...(universityId && universityId !== "all" && { universityId }),
+      ...(courseCode && courseCode !== "all" && { courseCode }),
       ...(department && department !== "all" && {
         OR: [
           { department },
@@ -1516,7 +1517,7 @@ router.post("/convert-pptx", requireAuth, upload.single("file"), async (req, res
 // POST /api/resources - Create new resource (any authenticated user)
 router.post("/", requireAuth, upload.single("file"), async (req, res) => {
   try {
-    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId, universityId, isPublic } = req.body;
+    const { title, subject, contentType, description, isPremium, mcqData, department, level, semester, departmentIds, folderId, universityId, isPublic, courseCode, tags } = req.body;
 
     if (!title || !contentType) {
       return res.status(400).json({ error: "Title and content type are required" });
@@ -1627,6 +1628,8 @@ router.post("/", requireAuth, upload.single("file"), async (req, res) => {
         department: finalDept,
         level: finalLevel,
         semester: finalSemester,
+        courseCode: courseCode || null,
+        tags: tags ? (typeof tags === "string" ? JSON.parse(tags) : tags) : [],
         universityId: finalUniversityId,
         folderId: folderId || null,
         resourceDepts: parsedDeptIds.length > 0 ? {

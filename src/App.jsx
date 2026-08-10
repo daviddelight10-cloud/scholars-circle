@@ -32,6 +32,7 @@ import { generateSkeleton } from "./lib/skeletonGenerator";
 
 const TeacherQuestionManager = lazyWithRetry(() => import("./features/TeacherQuestionManager.jsx"));
 const DepartmentManager = lazyWithRetry(() => import("./components/teacher/DepartmentManager.jsx"));
+const UniversityManager = lazyWithRetry(() => import("./components/teacher/UniversityManager.jsx"));
 
 import { getDepartments, getUserDepartment } from "./lib/departments.js";
 
@@ -8269,7 +8270,7 @@ function App() {
 
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "discuss", "cheatsheet", "outline", "profile", "premium", "aitutor", "voice-tutor", ...(isFaculty ? ["classroom", "lecturers", "studygroups", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "discuss", "cheatsheet", "outline", "profile", "premium", "aitutor", "voice-tutor", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "studygroups", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
           onClick={() => { setShowMobileMenu(!showMobileMenu); setFabOpen(false); }}
 
@@ -8556,6 +8557,18 @@ function App() {
 
                   </button>
 
+                  <button className={tab === "universities" ? "active" : ""} onClick={() => { setTab("universities"); setShowMobileMenu(false); }}>
+
+                    <Building2 size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Universities
+
+                  </button>
+
+                  <button className={tab === "departments" ? "active" : ""} onClick={() => { setTab("departments"); setShowMobileMenu(false); }}>
+
+                    <Building2 size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Departments
+
+                  </button>
+
                   {isTeacher && (
 
                     <>
@@ -8787,6 +8800,8 @@ function App() {
                 ["teacher-resources", "Teacher Resources", Laptop],
 
                 ["campus-comm", "Announcements", Megaphone],
+
+                ["universities", "Universities", Building2],
 
                 ["departments", "Departments", Building2],
 
@@ -9583,6 +9598,12 @@ function App() {
       {tab === "departments" && isTeacher && (
         <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
         <DepartmentManager />
+        </Suspense>
+      )}
+
+      {tab === "universities" && isFaculty && (
+        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <UniversityManager />
         </Suspense>
       )}
 

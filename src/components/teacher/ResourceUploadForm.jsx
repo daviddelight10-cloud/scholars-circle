@@ -17,6 +17,8 @@ export default function ResourceUploadForm() {
     isPremium: false,
     level: "",
     semester: "",
+    courseCode: "",
+    tags: "",
   });
   const [departments, setDepartments] = useState([]);
   const [selectedDeptIds, setSelectedDeptIds] = useState([]);
@@ -188,6 +190,8 @@ export default function ResourceUploadForm() {
       if (selectedDeptIds.length > 0) formDataToSend.append("departmentIds", JSON.stringify(selectedDeptIds));
       if (formData.level) formDataToSend.append("level", formData.level);
       if (formData.semester) formDataToSend.append("semester", formData.semester);
+      if (formData.courseCode) formDataToSend.append("courseCode", formData.courseCode);
+      if (formData.tags) formDataToSend.append("tags", JSON.stringify(formData.tags.split(",").map(t => t.trim()).filter(Boolean)));
       if (userProfile?.universityId) formDataToSend.append("universityId", userProfile.universityId);
 
       if (isMcqType) {
@@ -326,6 +330,46 @@ export default function ResourceUploadForm() {
             ))}
           </select>
         </div>
+
+        {/* Course Code + Tags */}
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 200px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Course Code
+            </label>
+            <input
+              type="text"
+              name="courseCode"
+              value={formData.courseCode}
+              onChange={handleInputChange}
+              placeholder="e.g. PHY 111"
+              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
+            />
+          </div>
+          <div style={{ flex: "1 1 300px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Tags (comma-separated)
+            </label>
+            <input
+              type="text"
+              name="tags"
+              value={formData.tags}
+              onChange={handleInputChange}
+              placeholder="e.g. midterm, past-questions, cardiology"
+              style={{ width: "100%", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px", padding: "10px 14px", fontSize: "14px", color: "#DAA520", outline: "none" }}
+            />
+          </div>
+        </div>
+
+        {/* University badge */}
+        {userProfile?.universityId && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "8px" }}>
+            <span style={{ fontSize: "11px", color: "#4a5080" }}>University:</span>
+            <span style={{ fontSize: "12px", color: "#DAA520", fontWeight: 600 }}>
+              {userProfile?.institution || "Your University"}
+            </span>
+          </div>
+        )}
 
         {/* Department / Level / Semester */}
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>

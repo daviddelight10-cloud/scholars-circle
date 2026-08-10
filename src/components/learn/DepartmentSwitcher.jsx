@@ -82,8 +82,22 @@ export default function DepartmentSwitcher({ activeDept, activeYearLevel, active
       setNewUniName("");
       setStep("dept");
       loadDepartments(uni.id);
-    } catch {
-      // ignore
+    } catch (err) {
+      if (err.message && err.message.includes("already exists")) {
+        // Backend found a duplicate — fetch and select it instead
+        try {
+          const all = await getUniversities(newUniName.trim());
+          const match = all.find(u => u.name.toLowerCase() === newUniName.trim().toLowerCase());
+          if (match) {
+            setSelectedUni(match);
+            setShowUniCreate(false);
+            setNewUniName("");
+            setStep("dept");
+            loadDepartments(match.id);
+            return;
+          }
+        } catch {}
+      }
     }
   }
 

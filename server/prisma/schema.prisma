@@ -1430,6 +1430,8 @@ model Resource {
   department  String?
   level       String?
   semester    String?
+  courseCode  String?
+  tags        String[] @default([])
   universityId String?
   university  University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
   folderId    String?

@@ -72,9 +72,16 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER", "ADMIN"), async
   try {
     const { name, type, country, city } = req.body;
     if (!name) return res.status(400).json({ error: "name is required" });
+
+    // Case-insensitive duplicate check before creating
+    const existing = await prisma.university.findFirst({
+      where: { name: { equals: name.trim(), mode: "insensitive" } },
+    });
+    if (existing) return res.status(409).json({ error: "University already exists", existing });
+
     const uni = await prisma.university.create({
       data: {
-        name,
+        name: name.trim(),
         type: type || "university",
         country: country || "Nigeria",
         city: city || null,
@@ -83,6 +90,37 @@ router.post("/", requireAuth, requireRole("TEACHER", "LECTURER", "ADMIN"), async
     res.status(201).json(uni);
   } catch (err) {
     if (err.code === "P2002") return res.status(409).json({ error: "University already exists" });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/universities/:id — TEACHER/LECTURER/ADMIN only
+router.put("/:id", requireAuth, requireRole("TEACHER", "LECTURER", "ADMIN"), async (req, res) => {
+  try {
+    const { name, type, country, city } = req.body;
+    if (!name) return res.status(400).json({ error: "name is required" });
+
+    const existing = await prisma.university.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: "University not found" });
+
+    // Check for duplicate name (case-insensitive, excluding self)
+    const dup = await prisma.university.findFirst({
+      where: { name: { equals: name.trim(), mode: "insensitive" }, NOT: { id: req.params.id } },
+    });
+    if (dup) return res.status(409).json({ error: "Another university with this name already exists" });
+
+    const updated = await prisma.university.update({
+      where: { id: req.params.id },
+      data: {
+        name: name.trim(),
+        ...(type && { type }),
+        ...(country && { country }),
+        ...(city !== undefined && { city: city || null }),
+      },
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err.code === "P2002") return res.status(409).json({ error: "University name already exists" });
     res.status(500).json({ error: err.message });
   }
 });

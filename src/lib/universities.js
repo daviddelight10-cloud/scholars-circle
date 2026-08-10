@@ -45,6 +45,18 @@ export async function createUniversity(name, type = "university", country = "Nig
   return res.json();
 }
 
+export async function updateUniversity(id, { name, type, country, city } = {}) {
+  const res = await authFetch(`${BASE}/api/universities/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ name, type, country, city }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to update university");
+  }
+  return res.json();
+}
+
 export async function createUniversityDepartment(universityId, name, icon) {
   const res = await authFetch(`${BASE}/api/universities/${universityId}/departments`, {
     method: "POST",

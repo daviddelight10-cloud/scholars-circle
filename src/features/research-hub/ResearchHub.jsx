@@ -818,11 +818,29 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       });
     }
     const sorted = [...list];
-    if (sortBy === "views") sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
-    else if (sortBy === "recent") sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    else if (sortBy === "bookmarks") sorted.sort((a, b) => (b._count?.bookmarks || 0) - (a._count?.bookmarks || 0));
+    // Priority sort: same university + same level first, then same university, then same level
+    const userUniId = userProfile?.universityId || userProfile?.university?.id;
+    const userLevel = userProfile?.level;
+    if (userUniId || userLevel) {
+      sorted.sort((a, b) => {
+        const aSameUni = userUniId && a.universityId && String(a.universityId) === String(userUniId);
+        const bSameUni = userUniId && b.universityId && String(b.universityId) === String(userUniId);
+        const aSameLevel = userLevel && a.level === userLevel;
+        const bSameLevel = userLevel && b.level === userLevel;
+        const aTier = (aSameUni && aSameLevel) ? 1 : aSameUni ? 2 : aSameLevel ? 3 : 4;
+        const bTier = (bSameUni && bSameLevel) ? 1 : bSameUni ? 2 : bSameLevel ? 3 : 4;
+        if (aTier !== bTier) return aTier - bTier;
+        if (sortBy === "views") return (b.viewCount || 0) - (a.viewCount || 0);
+        if (sortBy === "bookmarks") return (b._count?.bookmarks || 0) - (a._count?.bookmarks || 0);
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      });
+    } else {
+      if (sortBy === "views") sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
+      else if (sortBy === "recent") sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      else if (sortBy === "bookmarks") sorted.sort((a, b) => (b._count?.bookmarks || 0) - (a._count?.bookmarks || 0));
+    }
     return sorted;
-  }, [tabResources, search, activeFilter, filters, sortBy]);
+  }, [tabResources, search, activeFilter, filters, sortBy, userProfile]);
 
   const uploadWizard = (
     <UploadWizard
