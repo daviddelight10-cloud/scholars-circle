@@ -138,6 +138,13 @@ export function fsrsRate(card, grade, now = new Date(), w = DEFAULT_W) {
     intervalDays = 1; // Relearning: see again tomorrow
   }
 
+  // Apply interval fuzzing (jitter) for review-state items to prevent clustering.
+  // ±15% random jitter, only for intervals > 2 days (short intervals need precision).
+  if (state === 2 && intervalDays > 2) {
+    const jitter = 0.85 + Math.random() * 0.3; // 0.85 to 1.15
+    intervalDays = Math.max(1, Math.round(intervalDays * jitter));
+  }
+
   // Clamp interval
   intervalDays = Math.max(1, Math.min(MAX_INTERVAL, intervalDays));
 

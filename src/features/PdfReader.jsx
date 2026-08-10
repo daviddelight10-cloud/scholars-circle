@@ -479,6 +479,33 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [aiUsage, setAiUsage] = useState(null);
   const pageEnterTimeRef = useRef(Date.now());
 
+  // Page Quiz state (AI-generated questions for current page)
+  const [pageQuizOpen, setPageQuizOpen] = useState(false);
+  const [pageQuizQuestions, setPageQuizQuestions] = useState(null);
+  const [pageQuizLoading, setPageQuizLoading] = useState(false);
+  const [pageQuizAnswers, setPageQuizAnswers] = useState({});
+  const [pageQuizRevealed, setPageQuizRevealed] = useState(false);
+  const [pageQuizGenerating, setPageQuizGenerating] = useState(false);
+  const [pageQuizError, setPageQuizError] = useState(null);
+  const visitedPagesRef = useRef(new Set());
+  const backgroundQueueRef = useRef(null);
+
+  // Lazy generation: generate questions for current page on first visit, queue rest
+  useEffect(() => {
+    if (!propResourceId || !numPages || loading) return;
+    if (visitedPagesRef.current.has(currentPage)) return;
+    visitedPagesRef.current.add(currentPage);
+
+    // Generate for current page immediately
+    generatePageQuiz([currentPage]);
+
+    // Queue background generation for remaining pages (only once)
+    if (!backgroundQueueRef.current) {
+      backgroundQueueRef.current = true;
+      queueBackgroundGeneration([currentPage]);
+    }
+  }, [currentPage, propResourceId, numPages, loading]);
+
   // ── Voice Tutor state ──────────────────────────────────────────────────────
   const voice = useVoiceSession();
   const [voiceMode, setVoiceMode] = useState("teach");
@@ -1905,6 +1932,122 @@ ${extractedText}
       });
       fetchFsrsStatus();
     } catch {}
+  };
+
+  const fetchPageQuiz = async () => {
+    if (!propResourceId) return;
+    setPageQuizLoading(true);
+    setPageQuizQuestions(null);
+    setPageQuizAnswers({});
+    setPageQuizRevealed(false);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/page-questions/${propResourceId}/${currentPage}`, {
+        headers: getFsrsAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.questions && data.questions.length > 0) {
+          setPageQuizQuestions(data.questions);
+        }
+      }
+    } catch {}
+    setPageQuizLoading(false);
+  };
+
+  // Generate questions for specific pages with real text (lazy, incremental)
+  const generatePageQuiz = async (pageIndices) => {
+    if (!propResourceId || pageQuizGenerating) return;
+    setPageQuizGenerating(true);
+    setPageQuizError(null);
+    try {
+      const pages = pageIndices || [currentPage];
+      const pagesWithText = [];
+      for (const p of pages) {
+        try {
+          const text = await getPageText(p);
+          if (text.trim()) pagesWithText.push({ pageIndex: p, text });
+        } catch {}
+      }
+      if (pagesWithText.length === 0) { setPageQuizGenerating(false); setPageQuizError("No text could be extracted from this page."); return; }
+
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/page-questions/generate`, {
+        method: "POST",
+        headers: getFsrsAuthHeaders(),
+        body: JSON.stringify({ resourceId: propResourceId, pages: pagesWithText }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPageQuizError(data.error || "Generation failed. Please try again.");
+      } else if (data.failedPages && data.failedPages.length > 0) {
+        const failedForCurrent = data.failedPages.find(f => f.pageIndex === (pageIndices || [currentPage])[0]);
+        if (failedForCurrent) {
+          setPageQuizError(`Generation failed for this page: ${failedForCurrent.error}. Try regenerating.`);
+        } else {
+          setPageQuizError(`${data.failedPages.length} page(s) failed generation. Questions loaded for successful pages.`);
+        }
+      }
+      await fetchPageQuiz();
+    } catch (err) {
+      setPageQuizError("Network error during question generation. Please try again.");
+    }
+    setPageQuizGenerating(false);
+  };
+
+  // Queue background generation for remaining pages
+  const queueBackgroundGeneration = async (skipPages) => {
+    if (!propResourceId) return;
+    const skipSet = new Set(skipPages || []);
+    const allPages = [];
+    for (let p = 1; p <= Math.min(numPages, 50); p++) {
+      if (!skipSet.has(p)) allPages.push(p);
+    }
+    if (allPages.length === 0) return;
+
+    // Process in small batches with delays to avoid rate limiting
+    for (let i = 0; i < allPages.length; i += 5) {
+      const batch = allPages.slice(i, i + 5);
+      const pagesWithText = [];
+      for (const p of batch) {
+        try {
+          const text = await getPageText(p);
+          if (text.trim()) pagesWithText.push({ pageIndex: p, text });
+        } catch {}
+      }
+      if (pagesWithText.length === 0) continue;
+      try {
+        await fetch(`${API_BASE}/api/resources/fsrs/page-questions/generate`, {
+          method: "POST",
+          headers: getFsrsAuthHeaders(),
+          body: JSON.stringify({ resourceId: propResourceId, pages: pagesWithText }),
+        });
+      } catch {}
+      // Small delay between batches
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  };
+
+  // Regenerate questions for current page (delete + recreate)
+  const regeneratePageQuiz = async () => {
+    if (!propResourceId || pageQuizGenerating) return;
+    setPageQuizGenerating(true);
+    setPageQuizError(null);
+    try {
+      await fetch(`${API_BASE}/api/resources/fsrs/page-questions/${propResourceId}?pageIndex=${currentPage}`, {
+        method: "DELETE",
+        headers: getFsrsAuthHeaders(),
+      });
+      await generatePageQuiz([currentPage]);
+    } catch {
+      setPageQuizError("Failed to regenerate questions. Please try again.");
+    }
+    setPageQuizGenerating(false);
+  };
+
+  const openPageQuiz = () => {
+    setPageQuizOpen(true);
+    setFsrsRatingBar(false);
+    setFsrsWholePdfRating(false);
+    fetchPageQuiz();
   };
 
   const fetchFsrsStatus = async () => {
@@ -4463,11 +4606,22 @@ ${extractedText}
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
             </button>
 
+            {/* Page Quiz (AI-generated questions) */}
+            {propResourceId && (
+              <button
+                style={{ ...s.iconBtn, color: pageQuizOpen ? T.accent : T.muted, background: pageQuizOpen ? T.hover : "none" }}
+                onClick={() => { setPageQuizOpen((v) => !v); setFsrsRatingBar(false); setFsrsWholePdfRating(false); if (!pageQuizOpen) fetchPageQuiz(); }}
+                title="Page Quiz (AI questions)"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </button>
+            )}
+
             {/* FSRS Rate Page */}
             {propResourceId && (
               <button
                 style={{ ...s.iconBtn, color: fsrsRatingBar ? T.accent : T.muted, background: fsrsRatingBar ? T.hover : "none" }}
-                onClick={() => { setFsrsRatingBar((v) => !v); setFsrsWholePdfRating(false); }}
+                onClick={() => { setFsrsRatingBar((v) => !v); setFsrsWholePdfRating(false); setPageQuizOpen(false); }}
                 title="Rate this page (FSRS)"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
@@ -6244,6 +6398,129 @@ ${extractedText}
               </div>
               <button onClick={() => setFsrsWholePdfRating(false)}
                 style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 14, padding: 2, alignSelf: "flex-end" }}>✕</button>
+            </div>
+          )}
+
+          {/* Page Quiz Panel (AI-generated questions — study aid, does NOT update FSRS) */}
+          {pageQuizOpen && !loading && !loadError && (
+            <div style={{
+              position: "absolute", bottom: isMobile ? 60 : 16, left: "50%", transform: "translateX(-50%)",
+              background: T.toolbar, border: `0.5px solid ${T.border}`, borderRadius: 14,
+              padding: "14px 20px", display: "flex", flexDirection: "column", gap: 8, zIndex: 30,
+              boxShadow: `0 4px 20px ${T.shadow}`, maxWidth: isMobile ? "94%" : 500,
+              maxHeight: isMobile ? "70vh" : "60vh", overflowY: "auto",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: T.text, fontWeight: 700 }}>📝 Page {currentPage} Quiz</span>
+                <button onClick={() => setPageQuizOpen(false)}
+                  style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
+              </div>
+
+              {pageQuizError && !pageQuizGenerating && (
+                <div style={{ padding: "10px 12px", borderRadius: 8, background: "#2a0a0a", border: "0.5px solid #ef4444", color: "#ef9a9a", fontSize: 11, marginBottom: 4 }}>
+                  ⚠️ {pageQuizError}
+                </div>
+              )}
+
+              {pageQuizLoading ? (
+                <div style={{ textAlign: "center", padding: "20px 0", color: T.muted, fontSize: 12 }}>
+                  <div style={{ width: 20, height: 20, border: `2px solid ${T.border}`, borderTopColor: "#f59e0b", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 8px" }} />
+                  Loading questions…
+                </div>
+              ) : pageQuizGenerating ? (
+                <div style={{ textAlign: "center", padding: "20px 0", color: T.muted, fontSize: 12 }}>
+                  <div style={{ width: 20, height: 20, border: `2px solid ${T.border}`, borderTopColor: "#f59e0b", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 8px" }} />
+                  AI is generating questions from this page's content…
+                </div>
+              ) : pageQuizQuestions && pageQuizQuestions.length > 0 ? (
+                <>
+                  {pageQuizQuestions.filter(q => q.questionType === "mcq").map((q, qi) => {
+                    const selected = pageQuizAnswers[q.id];
+                    const opts = q.options || {};
+                    return (
+                      <div key={q.id} style={{ background: T.hover, borderRadius: 10, padding: "10px 12px", border: `0.5px solid ${T.border}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 6 }}>
+                          {qi + 1}. {q.question}
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {Object.entries(opts).map(([key, val]) => {
+                            const isSelected = selected === key;
+                            const isCorrect = pageQuizRevealed && key === q.correctAnswer;
+                            const isWrong = pageQuizRevealed && isSelected && key !== q.correctAnswer;
+                            let bg = T.bg;
+                            let border = `0.5px solid ${T.border}`;
+                            let color = T.muted;
+                            if (pageQuizRevealed) {
+                              if (isCorrect) { bg = "#0f2a1a"; border = "0.5px solid #22c55e"; color = "#a5d6a7"; }
+                              else if (isWrong) { bg = "#2a0a0a"; border = "0.5px solid #ef4444"; color = "#ef9a9a"; }
+                            } else if (isSelected) {
+                              bg = "rgba(245,158,11,0.15)"; border = "0.5px solid #f59e0b"; color = "#f59e0b";
+                            }
+                            return (
+                              <button
+                                key={key}
+                                onClick={() => { if (!pageQuizRevealed) setPageQuizAnswers(prev => ({ ...prev, [q.id]: key })); }}
+                                disabled={pageQuizRevealed}
+                                style={{
+                                  padding: "5px 10px", borderRadius: 6, border, background: bg, color,
+                                  fontSize: 10, textAlign: "left", cursor: pageQuizRevealed ? "default" : "pointer",
+                                  fontWeight: isSelected ? 600 : 400,
+                                }}>
+                                <b>{key}.</b> {val}
+                                {pageQuizRevealed && isCorrect && " ✓"}
+                                {pageQuizRevealed && isWrong && " ✗"}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {pageQuizRevealed && q.explanation && (
+                          <div style={{ marginTop: 6, fontSize: 9, color: T.muted, fontStyle: "italic" }}>{q.explanation}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {pageQuizQuestions.filter(q => q.questionType === "short_answer").map((q, qi) => (
+                    <div key={q.id} style={{ background: T.hover, borderRadius: 10, padding: "10px 12px", border: `0.5px solid ${T.border}` }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 4 }}>✏️ {q.question}</div>
+                      {pageQuizRevealed ? (
+                        <div style={{ background: "#0f2a1a", border: "0.5px solid #22c55e", borderRadius: 6, padding: "6px 10px", fontSize: 10, color: "#a5d6a7" }}>
+                          <b style={{ fontSize: 9, textTransform: "uppercase" }}>Model Answer:</b> {q.correctAnswer || "See explanation"}
+                          {q.explanation && <div style={{ marginTop: 3, opacity: 0.7 }}>{q.explanation}</div>}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 10, color: T.muted, fontStyle: "italic" }}>Think about your answer, then reveal.</div>
+                      )}
+                    </div>
+                  ))}
+
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4, flexWrap: "wrap" }}>
+                    {!pageQuizRevealed ? (
+                      <button onClick={() => setPageQuizRevealed(true)}
+                        style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid #f59e0b", background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                        Reveal Answers
+                      </button>
+                    ) : (
+                      <button onClick={() => { setPageQuizRevealed(false); setPageQuizAnswers({}); }}
+                        style={{ padding: "6px 16px", borderRadius: 8, border: `0.5px solid ${T.border}`, background: T.hover, color: T.muted, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                        Try Again
+                      </button>
+                    )}
+                    <button onClick={regeneratePageQuiz} disabled={pageQuizGenerating}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: `0.5px solid ${T.border}`, background: "transparent", color: T.muted, fontSize: 10, fontWeight: 500, cursor: pageQuizGenerating ? "not-allowed" : "pointer", opacity: pageQuizGenerating ? 0.5 : 1 }}>
+                      🔄 Regenerate
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: "center", padding: "16px 0" }}>
+                  <div style={{ fontSize: 12, color: T.muted, marginBottom: 8 }}>No questions generated for this page yet.</div>
+                  <button onClick={() => generatePageQuiz([currentPage])} disabled={pageQuizGenerating}
+                    style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #f59e0b", background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontSize: 11, fontWeight: 600, cursor: pageQuizGenerating ? "not-allowed" : "pointer", opacity: pageQuizGenerating ? 0.5 : 1 }}>
+                    🧠 Generate Questions for This Page
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

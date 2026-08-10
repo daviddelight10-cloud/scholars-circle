@@ -36,7 +36,6 @@ export default function LibraryView({
   resourcesError,
   onRetry,
   currentUserId,
-  fsrsStats,
   folders,
   bookmarkedIds,
   bookmarkFolderMap,
@@ -50,9 +49,6 @@ export default function LibraryView({
   folderBookmarkedIds,
   folderBookmarkBusyId,
   onToggleFolderBookmark,
-  onSpacedReview,
-  onAdaptiveDrill,
-  onExamSimulation,
 }) {
   const [search, setSearch] = useState("");
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -90,7 +86,6 @@ export default function LibraryView({
         subject={selectedSubject.subject}
         level={selectedSubject.level}
         resources={selectedSubject.resources}
-        fsrsSubjectStats={fsrsStats?.bySubject?.[selectedSubject.subject]}
         onBack={() => setSelectedSubject(null)}
         onOpen={onOpen}
         onToggleBookmark={onToggleBookmark}
@@ -98,9 +93,6 @@ export default function LibraryView({
         bookmarkedIds={bookmarkedIds}
         bookmarkBusyId={bookmarkBusyId}
         mcqProgress={mcqProgress}
-        onStudySubject={() => onSpacedReview?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
-        onAdaptiveDrill={() => onAdaptiveDrill?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
-        onExamSimulation={() => onExamSimulation?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
         backLabel="My Space"
       />
     );
@@ -181,7 +173,6 @@ export default function LibraryView({
             key={s.subject}
             subject={s.subject}
             resources={s.resources}
-            fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
             onClick={() => setSelectedSubject({
               subject: s.subject,
               resources: s.resources,

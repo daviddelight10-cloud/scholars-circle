@@ -1102,31 +1102,39 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const where = { userId: req.user.sub, dueAt: { lte: now } };
     if (subjectFilter) where.subject = subjectFilter;
 
+    // Fetch ALL due items (not just `limit`) so we can prioritize properly before capping
     const items = await prisma.pdfReviewItem.findMany({
       where,
       include: {
         resource: { select: { id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true, mcqData: true } },
       },
       orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
-      take: limit,
     });
 
-    // Interleave: sort by priority (lapsed first, then by due date), then rotate item types
-    const priorityOrder = { whole_pdf: 0, page: 1, mcq: 2, legacy_mcq: 2, flashcard: 3 };
+    // Priority sort: lapsed first, then weakest stability, then highest difficulty, then earliest due
     items.sort((a, b) => {
-      const pa = (a.lapses > 0 ? 0 : 1);
-      const pb = (b.lapses > 0 ? 0 : 1);
+      const pa = a.lapses > 0 ? 0 : 1;
+      const pb = b.lapses > 0 ? 0 : 1;
       if (pa !== pb) return pa - pb;
+      // Weakest stability first (lower = more likely to forget)
+      if (a.stability !== b.stability) return a.stability - b.stability;
+      // Highest difficulty first (harder items need more attention)
+      if (a.difficulty !== b.difficulty) return b.difficulty - a.difficulty;
       return new Date(a.dueAt) - new Date(b.dueAt);
     });
 
+    // Apply daily cap after sorting — most important items first
+    const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
+    const dailyCap = Math.min(dailyGoal || limit, limit);
+    const cappedItems = items.slice(0, dailyCap);
+
     // Fetch flashcard data
-    const flashcardIds = items.filter((i) => i.itemType === "flashcard").map((f) => f.flashcardId).filter(Boolean);
+    const flashcardIds = cappedItems.filter((i) => i.itemType === "flashcard").map((f) => f.flashcardId).filter(Boolean);
     const fcData = await prisma.pdfFlashcard.findMany({ where: { id: { in: flashcardIds } } });
     const fcMap = new Map(fcData.map((f) => [f.id, f]));
 
     // Enrich items
-    const enriched = items.map((i) => {
+    const enriched = cappedItems.map((i) => {
       const base = {
         id: i.id,
         itemType: i.itemType,
@@ -1161,13 +1169,12 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
       byTopic[key].push(item);
     }
 
-    const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
-
     res.json({
       items: enriched,
       byTopic,
       totalDue: items.length,
       dailyGoal,
+      dailyCap,
       dailyProgress: Math.min(items.length, dailyGoal),
     });
   } catch (error) {
@@ -2222,6 +2229,319 @@ router.post("/folders/:folderId/quiz-attempts", requireAuth, async (req, res) =>
   } catch (error) {
     console.error("Error saving folder quiz attempt:", error);
     res.status(500).json({ error: "Failed to save folder quiz attempt" });
+  }
+});
+
+// ============ FSRS PAGE REVIEW QUESTIONS (AI-generated) ============
+
+// Subject-specific prompt templates
+const SUBJECT_PROMPTS = {
+  medical: "You are an expert medical educator creating review questions for medical, nursing, and health sciences students.",
+  engineering: "You are an expert engineering educator creating review questions for engineering and technology students.",
+  science: "You are an expert science educator creating review questions for biology, chemistry, and physics students.",
+  humanities: "You are an expert humanities educator creating review questions for arts, history, and social science students.",
+  business: "You are an expert business educator creating review questions for business, economics, and management students.",
+  general: "You are an expert educator creating review questions for university students.",
+};
+
+function getSubjectPrompt(subject) {
+  const s = (subject || "").toLowerCase();
+  if (s.includes("med") || s.includes("nurs") || s.includes("health") || s.includes("anatomy") || s.includes("physio") || s.includes("pharm") || s.includes("bio") || s.includes("patho")) return SUBJECT_PROMPTS.medical;
+  if (s.includes("engin") || s.includes("tech") || s.includes("computer") || s.includes("program")) return SUBJECT_PROMPTS.engineering;
+  if (s.includes("chem") || s.includes("physic") || s.includes("math") || s.includes("stat")) return SUBJECT_PROMPTS.science;
+  if (s.includes("hist") || s.includes("art") || s.includes("philo") || s.includes("socio") || s.includes("polit")) return SUBJECT_PROMPTS.humanities;
+  if (s.includes("econ") || s.includes("busin") || s.includes("manag") || s.includes("market") || s.includes("financ") || s.includes("account")) return SUBJECT_PROMPTS.business;
+  return SUBJECT_PROMPTS.general;
+}
+
+// ── POST /api/resources/fsrs/page-questions/generate ──
+// Generate AI questions (MCQ + short-answer) for pages with real text.
+// Accepts { resourceId, pages: [{ pageIndex, text }], subject? }
+// Skips pages that already have questions (supports lazy/incremental generation).
+router.post("/fsrs/page-questions/generate", requireAuth, aiRateLimit, async (req, res) => {
+  try {
+    const { resourceId, pages, subject } = req.body;
+    if (!resourceId || !pages || !Array.isArray(pages) || pages.length === 0) {
+      return res.status(400).json({ error: "resourceId and pages array are required" });
+    }
+
+    const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
+    if (!resource) return res.status(404).json({ error: "Resource not found" });
+
+    // Filter out pages that already have questions
+    const existingPageIndices = new Set(
+      (await prisma.pageReviewQuestion.findMany({
+        where: { resourceId },
+        select: { pageIndex: true },
+        distinct: ["pageIndex"],
+      })).map(r => r.pageIndex)
+    );
+
+    const newPages = pages.filter(p => !existingPageIndices.has(p.pageIndex));
+    if (newPages.length === 0) {
+      return res.json({ generated: false, message: "All pages already have questions", skippedCount: pages.length });
+    }
+
+    const pagesToProcess = newPages.slice(0, 50); // Cap at 50 new pages for cost control
+    let totalGenerated = 0;
+    const failedPages = [];
+    const subjectRole = getSubjectPrompt(subject || resource.subject || "");
+
+    // Process pages in batches of 3, with retry (2 attempts per batch)
+    for (let i = 0; i < pagesToProcess.length; i += 3) {
+      const batch = pagesToProcess.slice(i, i + 3);
+      let batchSuccess = false;
+      let batchError = null;
+
+      for (let attempt = 0; attempt < 2 && !batchSuccess; attempt++) {
+        const prompt = `${subjectRole} For each page below, generate exactly 5 questions — 3 multiple-choice (MCQ) and 2 short-answer — based ONLY on the provided page text.
+
+FORMAT — return as a JSON object with page numbers as keys:
+{
+  "PAGE_INDEX": [
+    {"type": "mcq", "question": "...", "options": {"A": "...", "B": "...", "C": "...", "D": "..."}, "correct": "A", "explanation": "..."},
+    {"type": "mcq", "question": "...", "options": {"A": "...", "B": "...", "C": "...", "D": "..."}, "correct": "B", "explanation": "..."},
+    {"type": "mcq", "question": "...", "options": {"A": "...", "B": "...", "C": "...", "D": "..."}, "correct": "C", "explanation": "..."},
+    {"type": "short_answer", "question": "...", "modelAnswer": "...", "explanation": "..."},
+    {"type": "short_answer", "question": "...", "modelAnswer": "...", "explanation": "..."}
+  ]
+}
+
+Rules:
+- MCQs must have exactly 4 options (A, B, C, D) with one clearly correct answer
+- Questions must be based on the actual page text provided — do NOT invent unrelated content
+- Test understanding and application, not just recall
+- Short-answer questions should require 1-3 sentence responses
+- Include brief explanations for all questions
+- Return ONLY the JSON object, no markdown or extra text
+
+PAGES:
+${batch.map(p => `--- PAGE ${p.pageIndex} ---\n${(p.text || "").slice(0, 4000)}`).join("\n\n")}`;
+
+        try {
+          const aiRes = await fetch(`${process.env.API_BASE || "http://localhost:4000"}/ai-proxy/generate-multimodal`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: req.headers.authorization || "" },
+            body: JSON.stringify({
+              prompt,
+              provider: "openrouter",
+              model: "google/gemini-2.5-flash",
+            }),
+          });
+
+          if (!aiRes || !aiRes.ok) {
+            batchError = `AI request failed: ${aiRes ? aiRes.status : "no response"}`;
+            if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+
+          const aiData = await aiRes.json();
+          const rawText = aiData.text || "";
+          let pageQuestions;
+          try {
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            pageQuestions = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+          } catch {
+            batchError = "Failed to parse AI response as JSON";
+            if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+
+          batchSuccess = true;
+          for (const [pageStr, questions] of Object.entries(pageQuestions)) {
+            const pageIndex = parseInt(pageStr, 10);
+            if (isNaN(pageIndex) || !Array.isArray(questions)) continue;
+
+            for (let qi = 0; qi < questions.length; qi++) {
+              const q = questions[qi];
+              const isMcq = q.type === "mcq";
+              await prisma.pageReviewQuestion.create({
+                data: {
+                  resourceId,
+                  pageIndex,
+                  questionType: isMcq ? "mcq" : "short_answer",
+                  question: q.question || "",
+                  options: isMcq && q.options ? q.options : null,
+                  correctAnswer: isMcq ? (q.correct || null) : (q.modelAnswer || null),
+                  explanation: q.explanation || null,
+                  order: qi,
+                },
+              }).catch(() => {});
+              totalGenerated++;
+            }
+          }
+        } catch (err) {
+          batchError = err.message || "Unknown error";
+          if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+
+      if (!batchSuccess) {
+        for (const p of batch) failedPages.push({ pageIndex: p.pageIndex, error: batchError });
+      }
+    }
+
+    res.json({
+      generated: true,
+      pageCount: pagesToProcess.length,
+      questionCount: totalGenerated,
+      skippedCount: pages.length - pagesToProcess.length,
+      failedPages: failedPages.length > 0 ? failedPages : undefined,
+      allSuccess: failedPages.length === 0,
+    });
+  } catch (error) {
+    console.error("Error generating page questions:", error);
+    res.status(500).json({ error: "Failed to generate page questions" });
+  }
+});
+
+// ── DELETE /api/resources/fsrs/page-questions/:resourceId ──
+// Delete all questions for a resource, or for a specific page (?pageIndex=N)
+router.delete("/fsrs/page-questions/:resourceId", requireAuth, async (req, res) => {
+  try {
+    const { resourceId } = req.params;
+    const pageIndex = req.query.pageIndex ? parseInt(req.query.pageIndex, 10) : null;
+
+    const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
+    if (!resource) return res.status(404).json({ error: "Resource not found" });
+
+    // Only the uploader can regenerate questions
+    if (resource.uploadedBy !== req.user.sub) {
+      return res.status(403).json({ error: "Only the resource owner can regenerate questions" });
+    }
+
+    const where = pageIndex != null && !isNaN(pageIndex)
+      ? { resourceId, pageIndex }
+      : { resourceId };
+
+    const { count } = await prisma.pageReviewQuestion.deleteMany({ where });
+    res.json({ deleted: true, count, resourceId, pageIndex });
+  } catch (error) {
+    console.error("Error deleting page questions:", error);
+    res.status(500).json({ error: "Failed to delete page questions" });
+  }
+});
+
+// ── GET /api/resources/fsrs/page-questions/:resourceId/:pageIndex ──
+router.get("/fsrs/page-questions/:resourceId/:pageIndex", requireAuth, async (req, res) => {
+  try {
+    const { resourceId, pageIndex } = req.params;
+    const pageNum = parseInt(pageIndex, 10);
+    if (isNaN(pageNum)) return res.status(400).json({ error: "Invalid pageIndex" });
+
+    const questions = await prisma.pageReviewQuestion.findMany({
+      where: { resourceId, pageIndex: pageNum },
+      orderBy: { order: "asc" },
+    });
+
+    res.json({ questions, pageIndex: pageNum, resourceId });
+  } catch (error) {
+    console.error("Error fetching page questions:", error);
+    res.status(500).json({ error: "Failed to fetch page questions" });
+  }
+});
+
+// ── POST /api/resources/fsrs/page-questions/rate ──
+// Rate a page review: 50% MCQ correctness + 50% short-answer self-assessment
+router.post("/fsrs/page-questions/rate", requireAuth, async (req, res) => {
+  try {
+    const { resourceId, pageIndex, answers, saAssessments } = req.body;
+    if (!resourceId || pageIndex == null || !Array.isArray(answers)) {
+      return res.status(400).json({ error: "resourceId, pageIndex, and answers array are required" });
+    }
+
+    const mcqQuestions = await prisma.pageReviewQuestion.findMany({
+      where: { resourceId, pageIndex, questionType: "mcq" },
+    });
+    const saQuestions = await prisma.pageReviewQuestion.findMany({
+      where: { resourceId, pageIndex, questionType: "short_answer" },
+    });
+
+    if (mcqQuestions.length === 0 && saQuestions.length === 0) {
+      return res.status(404).json({ error: "No questions found for this page" });
+    }
+
+    // ── MCQ score (50%) ──
+    let mcqCorrect = 0;
+    for (const ans of answers) {
+      const question = mcqQuestions.find(q => q.id === ans.questionId);
+      if (question && question.correctAnswer === ans.selectedAnswer) mcqCorrect++;
+    }
+    const mcqPct = mcqQuestions.length > 0 ? mcqCorrect / mcqQuestions.length : 1;
+
+    // ── Short-answer score (50%) ──
+    // saAssessments: [{ questionId, rating: "yes"|"partial"|"no" }]
+    let saScore = 1; // default if no SA questions
+    if (saQuestions.length > 0 && saAssessments && Array.isArray(saAssessments)) {
+      let saTotal = 0;
+      for (const sa of saAssessments) {
+        if (sa.rating === "yes") saTotal += 1;
+        else if (sa.rating === "partial") saTotal += 0.5;
+        // "no" = 0
+      }
+      saScore = saTotal / saQuestions.length;
+    }
+
+    // ── Combined 50/50 score ──
+    const combinedPct = (mcqPct * 0.5) + (saScore * 0.5);
+
+    // Map to FSRS grade
+    let grade;
+    if (combinedPct >= 0.8) grade = 4;       // Easy
+    else if (combinedPct >= 0.6) grade = 3;  // Good
+    else if (combinedPct >= 0.4) grade = 2;  // Hard
+    else grade = 1;                           // Again
+
+    // Update FSRS state
+    const existing = await prisma.pdfReviewItem.findUnique({
+      where: {
+        userId_resourceId_itemType_pageIndex_flashcardId: {
+          userId: req.user.sub, resourceId, itemType: "page", pageIndex, flashcardId: "none",
+        },
+      },
+    }).catch(() => null);
+
+    const card = existing
+      ? { state: existing.state, stability: existing.stability, difficulty: existing.difficulty, reps: existing.reps, lapses: existing.lapses, lastReviewAt: existing.lastReviewAt }
+      : fsrsNewCard();
+
+    const result = fsrsRate(card, grade, new Date());
+
+    await prisma.pdfReviewItem.upsert({
+      where: {
+        userId_resourceId_itemType_pageIndex_flashcardId: {
+          userId: req.user.sub, resourceId, itemType: "page", pageIndex, flashcardId: "none",
+        },
+      },
+      create: {
+        userId: req.user.sub, resourceId, itemType: "page", pageIndex, flashcardId: "none",
+        state: result.state, stability: result.stability, difficulty: result.difficulty,
+        reps: result.reps, lapses: result.lapses,
+        lastReviewAt: result.lastReviewAt, nextReviewAt: result.nextReviewDate, dueAt: result.nextReviewDate,
+      },
+      update: {
+        state: result.state, stability: result.stability, difficulty: result.difficulty,
+        reps: result.reps, lapses: result.lapses,
+        lastReviewAt: result.lastReviewAt, nextReviewAt: result.nextReviewDate, dueAt: result.nextReviewDate,
+      },
+    }).catch(() => {});
+
+    res.json({
+      grade,
+      gradeLabel: { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" }[grade],
+      nextReviewAt: result.nextReviewDate,
+      intervalLabel: intervalLabel(result.intervalDays),
+      stateLabel: stateLabel(result.state),
+      mcqScore: mcqCorrect,
+      mcqTotal: mcqQuestions.length,
+      mcqPct: Math.round(mcqPct * 100),
+      saScore: Math.round(saScore * 100),
+      saTotal: saQuestions.length,
+      combinedPct: Math.round(combinedPct * 100),
+    });
+  } catch (error) {
+    console.error("Error rating page questions:", error);
+    res.status(500).json({ error: "Failed to rate page questions" });
   }
 });
 

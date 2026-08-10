@@ -41,7 +41,6 @@ export default function DepartmentView({
   onRetry,
   currentUserId,
   userProfile,
-  fsrsStats,
   folders,
   bookmarkedIds,
   bookmarkBusyId,
@@ -51,9 +50,6 @@ export default function DepartmentView({
   onShare,
   onOpenFolder,
   onCreateFolder,
-  onSpacedReview,
-  onAdaptiveDrill,
-  onExamSimulation,
 }) {
   const [search, setSearch] = useState("");
   const [expandedLevels, setExpandedLevels] = useState({});
@@ -119,7 +115,6 @@ export default function DepartmentView({
         subject={selectedSubject.subject}
         level={selectedSubject.level}
         resources={selectedSubject.resources}
-        fsrsSubjectStats={fsrsStats?.bySubject?.[selectedSubject.subject]}
         onBack={() => setSelectedSubject(null)}
         onOpen={onOpen}
         onToggleBookmark={onToggleBookmark}
@@ -127,9 +122,6 @@ export default function DepartmentView({
         bookmarkedIds={bookmarkedIds}
         bookmarkBusyId={bookmarkBusyId}
         mcqProgress={mcqProgress}
-        onStudySubject={() => onSpacedReview?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
-        onAdaptiveDrill={() => onAdaptiveDrill?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
-        onExamSimulation={() => onExamSimulation?.(selectedSubject.subject, selectedSubject.resources.filter(r => r.contentType === 'mcq').map(r => r.id))}
         backLabel="Department"
       />
     );
@@ -179,10 +171,6 @@ export default function DepartmentView({
           grouped.map((levelGroup) => {
             const isExpanded = expandedLevels[levelGroup.level] !== false;
             const totalItems = levelGroup.subjects.reduce((sum, s) => sum + s.resources.length, 0);
-            const totalDue = levelGroup.subjects.reduce((sum, s) => {
-              const stats = fsrsStats?.bySubject?.[s.subject];
-              return sum + (stats?.due || 0);
-            }, 0);
 
             return (
               <div key={levelGroup.level} className="mb-8">
@@ -194,9 +182,6 @@ export default function DepartmentView({
                     <span className="text-sm">{isExpanded ? "▼" : "▶"}</span>
                     <span>{levelGroup.level} Level</span>
                     <span className="rounded-full bg-hub-bg px-2.5 py-0.5 text-[10px] font-semibold text-hub-text-dim">{totalItems} items</span>
-                    {totalDue > 0 && (
-                      <span className="due-pulse rounded-full border border-coral-300 bg-coral-100 px-2.5 py-0.5 text-[10px] font-bold text-coral-400">{totalDue} due</span>
-                    )}
                   </div>
                 </button>
 
@@ -208,7 +193,6 @@ export default function DepartmentView({
                         subject={s.subject}
                         level={levelGroup.level}
                         resources={s.resources}
-                        fsrsSubjectStats={fsrsStats?.bySubject?.[s.subject]}
                         onClick={() => setSelectedSubject({
                           subject: s.subject,
                           level: levelGroup.level,

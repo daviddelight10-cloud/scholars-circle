@@ -1688,6 +1688,22 @@ model FolderQuizAttempt {
   @@index([mode])
 }
 
+// ============ FSRS PAGE REVIEW QUESTIONS (AI-generated) ============
+model PageReviewQuestion {
+  id            String   @id @default(cuid())
+  resourceId    String
+  pageIndex     Int
+  questionType  String   // "mcq" | "short_answer"
+  question      String
+  options       Json?    // { A: "...", B: "...", C: "...", D: "..." } for MCQ, null for short_answer
+  correctAnswer String?  // "A" for MCQ, model answer text for short_answer
+  explanation   String?
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([resourceId, pageIndex])
+}
+
 // ============ VOICE TUTOR (Gemini Live API) ============
 model VoiceSession {
   id          String   @id @default(cuid())

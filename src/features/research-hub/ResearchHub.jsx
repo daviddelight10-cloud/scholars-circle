@@ -1087,7 +1087,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           resourcesError={resourcesError}
           onRetry={fetchResources}
           currentUserId={getCurrentUserId()}
-          fsrsStats={fsrsStats}
           folders={folders}
           bookmarkedIds={bookmarkedIds}
           bookmarkFolderMap={bookmarkFolderMap}
@@ -1101,9 +1100,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           folderBookmarkedIds={folderBookmarkedIds}
           folderBookmarkBusyId={folderBookmarkBusyId}
           onToggleFolderBookmark={handleToggleFolderBookmark}
-          onSpacedReview={startSpacedReview}
-          onAdaptiveDrill={startAdaptiveDrill}
-          onExamSimulation={startExamSimulation}
         />
       ) : (
         <>
@@ -1124,7 +1120,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
               onRetry={fetchResources}
               currentUserId={getCurrentUserId()}
               userProfile={userProfile}
-              fsrsStats={fsrsStats}
               folders={folders}
               bookmarkedIds={bookmarkedIds}
               bookmarkBusyId={bookmarkBusyId}
@@ -1134,9 +1129,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
               onShare={handleShare}
               onOpenFolder={openFolder}
               onCreateFolder={() => setShowCreateFolder(true)}
-              onSpacedReview={startSpacedReview}
-              onAdaptiveDrill={startAdaptiveDrill}
-              onExamSimulation={startExamSimulation}
             />
           ) : (
             <>
