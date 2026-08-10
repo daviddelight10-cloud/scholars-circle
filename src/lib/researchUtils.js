@@ -50,6 +50,7 @@ export function getContentTypeIconClass(type) {
 
 // Format view count
 export function formatViewCount(count) {
+  if (count == null) return "0";
   if (count >= 1000) {
     return `${(count / 1000).toFixed(1)}k`;
   }

@@ -52,6 +52,7 @@ export default function MaterialCard({
   showBookmark = true,
   relevanceTier = null,
 }) {
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const icon = getContentTypeIcon(file.contentType);
   const relDate = formatRelativeDate(file.createdAt);
   const fileName = file.fileName || file.title || "";
@@ -113,6 +114,11 @@ export default function MaterialCard({
             {file.courseCode}
           </span>
         )}
+        {file.subject && (
+          <span className="rounded px-2 py-0.5 text-[10px] font-semibold" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#5A6178", background: "rgba(90,97,120,0.08)" }}>
+            {file.subject}
+          </span>
+        )}
         <span>👁 {formatViewCount(file.viewCount || 0)}</span>
         {relDate && <span>· {relDate}</span>}
       </div>
@@ -159,7 +165,7 @@ export default function MaterialCard({
         </div>
       )}
 
-      {/* Bottom row: Open + (optional star) + share */}
+      {/* Bottom row: Open + star + share */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => onOpen(file.shareToken)}
@@ -167,17 +173,21 @@ export default function MaterialCard({
         >
           Open
         </button>
-        {showBookmark && (
-          <button
-            onClick={() => onToggleBookmark(file)}
-            disabled={bookmarkBusy}
-            title={isBookmarked ? "Remove from your space" : "Add to your space"}
-            className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border border-hub-border bg-transparent text-sm transition-all active:scale-90"
-            style={isBookmarked ? { color: "#F5A623", borderColor: "rgba(245,166,35,0.4)", background: "rgba(245,166,35,0.08)" } : { color: "#5A6178" }}
-          >
-            {isBookmarked ? "★" : "☆"}
-          </button>
-        )}
+        <button
+          onClick={() => {
+            if (!showBookmark && isBookmarked) {
+              setConfirmRemove(true);
+            } else {
+              onToggleBookmark(file);
+            }
+          }}
+          disabled={bookmarkBusy}
+          title={isBookmarked ? "Remove from your space" : "Add to your space"}
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border border-hub-border bg-transparent text-sm transition-all active:scale-90"
+          style={isBookmarked ? { color: "#F5A623", borderColor: "rgba(245,166,35,0.4)", background: "rgba(245,166,35,0.08)" } : { color: "#5A6178" }}
+        >
+          {isBookmarked ? "★" : "☆"}
+        </button>
         <button
           onClick={() => onShare(file.shareToken)}
           className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border border-hub-border bg-transparent text-sm transition-all active:scale-90"
@@ -186,6 +196,34 @@ export default function MaterialCard({
           ⤴
         </button>
       </div>
+
+      {/* Confirmation popup for removing from My Space */}
+      {confirmRemove && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-hub-surface/95 backdrop-blur-sm">
+          <div className="mx-3 rounded-xl border border-hub-border bg-hub-bg p-4 text-center">
+            <p className="mb-1 text-[13px] font-bold text-hub-text">Remove from your space?</p>
+            <p className="mb-3 text-[11px] text-hub-text-dim">This will remove the material and its MCQs, flashcards, and summary.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmRemove(false)}
+                className="flex-1 rounded-lg border border-hub-border bg-hub-surface py-2 text-[12px] font-semibold text-hub-text transition-all active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmRemove(false);
+                  onToggleBookmark(file);
+                }}
+                disabled={bookmarkBusy}
+                className="flex-1 rounded-lg border border-coral-400 bg-coral-100 py-2 text-[12px] font-bold text-coral-400 transition-all active:scale-95"
+              >
+                {bookmarkBusy ? "Removing…" : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

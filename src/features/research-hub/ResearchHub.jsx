@@ -164,7 +164,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }, []);
 
   useEffect(() => {
-    if (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) {
+    if (activeTab === "library" || activeTab === "community") {
       fetchBookmarks();
     }
   }, [activeTab, communitySubTab]);
@@ -1219,7 +1219,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {communityCategorized.mcqs.map((item, i) => {
-                  const mcqRes = item.variants?.mcq || item;
+                  const variant = item.variants?.mcq;
+                  const mcqRes = variant ? { ...item, ...variant, derivedResources: undefined } : item;
                   return (
                     <ResourceCard
                       key={mcqRes.id}
@@ -1243,7 +1244,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {communityCategorized.flashcards.map((item, i) => {
-                  const fcRes = item.variants?.flashcard || item;
+                  const variant = item.variants?.flashcard;
+                  const fcRes = variant ? { ...item, ...variant, derivedResources: undefined } : item;
                   return (
                     <ResourceCard
                       key={fcRes.id}
