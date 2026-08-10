@@ -41,7 +41,7 @@ const FAB_ACTIONS = [
   { id: "voice", icon: "🎙️", label: "Study with Voice Tutor" },
 ];
 
-const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookmarkBusy, onOpen, onToggleBookmark, onShare, mcqProgress, index = 0, onGenerate, onStudyWithVoice, generatingId, genProgress, genErrorId, genError, onRetry, onDismissGenError }) {
+const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookmarkBusy, onOpen, onToggleBookmark, onShare, mcqProgress, index = 0, onGenerate, onStudyWithVoice, generatingId, genProgress, genErrorId, genError, onRetry, onDismissGenError, showBookmark = true, relevanceTier = null }) {
   const [hovered, setHovered] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const isGeneratable = GENERATABLE_TYPES.includes(resource.contentType);
@@ -89,6 +89,11 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
           {isPremium && (
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(245,166,35,0.14)", color: "#f5a623" }}>Premium</span>
           )}
+          {relevanceTier === 1 || relevanceTier === 2 ? (
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(79,142,247,0.10)", color: "#4F8EF7", border: "0.5px solid rgba(79,142,247,0.30)" }}>Your School</span>
+          ) : relevanceTier === 3 ? (
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(61,214,140,0.08)", color: "#3DD68C", border: "0.5px solid rgba(61,214,140,0.28)" }}>Your Level</span>
+          ) : null}
           <span
             className="rounded px-2 py-0.5 text-[10px] font-bold"
             style={{ background: sc.bg, color: sc.text, border: `0.5px solid ${sc.border}` }}
@@ -119,18 +124,20 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
       </div>
 
       <div className="flex gap-2">
-        <button onClick={() => onOpen(resource.shareToken)} className="flex-1 rounded-lg border border-gold-border bg-gold-dim px-2 py-1.5 text-[10px] font-semibold text-gold transition-all active:scale-95">
+        <button onClick={() => onOpen(resource.shareToken)} className={`rounded-lg border border-gold-border bg-gold-dim px-2 py-1.5 text-[10px] font-semibold text-gold transition-all active:scale-95 ${showBookmark ? "flex-1" : "flex-1"}`}>
           Open
         </button>
-        <button
-          onClick={() => onToggleBookmark(resource)}
-          disabled={bookmarkBusy}
-          title={isBookmarked ? "Remove from your space" : "Add to your space"}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-hub-border bg-hub-bg text-sm transition-all active:scale-90"
-          style={{ color: isBookmarked ? "#f5a623" : "#5a6090" }}
-        >
-          {isBookmarked ? "★" : "☆"}
-        </button>
+        {showBookmark && (
+          <button
+            onClick={() => onToggleBookmark(resource)}
+            disabled={bookmarkBusy}
+            title={isBookmarked ? "Remove from your space" : "Add to your space"}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-hub-border bg-hub-bg text-sm transition-all active:scale-90"
+            style={{ color: isBookmarked ? "#f5a623" : "#5a6090" }}
+          >
+            {isBookmarked ? "★" : "☆"}
+          </button>
+        )}
         <button onClick={() => onShare(resource.shareToken)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-hub-border bg-hub-bg text-sm transition-all active:scale-90">
           🔗
         </button>

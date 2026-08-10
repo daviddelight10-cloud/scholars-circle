@@ -7,6 +7,8 @@ import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
 
 import ResourceCard from "./ResourceCard";
+import MaterialCard from "./MaterialCard.jsx";
+import { categorizeResources } from "./lib/categorize.js";
 import FilterBar from "./FilterBar";
 import FolderDetailView from "./FolderDetailView";
 import UploadWizard from "./UploadWizard";
@@ -28,8 +30,19 @@ import "../../research-hub.css";
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const CACHE_TTL = 5 * 60 * 1000;
 
-const filterTypes = ["all", "note", "pdf", "mcq", "tutorial_question"];
-const filterLabels = { all: "All", note: "Notes", pdf: "PDF", mcq: "MCQ", tutorial_question: "Tutorial Q" };
+const communityTabs = [
+  { key: "materials", label: "Materials", icon: "📄", color: "#F5A623" },
+  { key: "pdf", label: "PDF", icon: "📕", color: "#EF4444" },
+  { key: "mcq", label: "MCQ", icon: "✎", color: "#3DD68C" },
+  { key: "flashcard", label: "Flashcard", icon: "🎴", color: "#4F8EF7" },
+];
+
+const communityEmptyStates = {
+  materials: { icon: "📄", title: "No materials yet", message: "Be the first to share study materials for your course." },
+  pdf: { icon: "📕", title: "No PDFs found", message: "Try adjusting your filters or search." },
+  mcq: { icon: "✎", title: "No MCQ sets yet", message: "Generate MCQs from a material or upload your own." },
+  flashcard: { icon: "🎴", title: "No flashcard decks yet", message: "Generate flashcards from a material or upload your own." },
+};
 
 const emptyMessages = {
   "public": "No resources found. Try a different search or clear filters.",
@@ -42,7 +55,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [resourcesError, setResourcesError] = useState(null);
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("materials");
   const [sortBy, setSortBy] = useState("recent");
   const [activeTab, setActiveTab] = useState("library");
   const [communitySubTab, setCommunitySubTab] = useState("all");
@@ -518,18 +531,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   const toggleBookmark = useCallback((resource) => {
     const isBookmarked = bookmarkedIds.has(resource.id);
+    // Collect derived resource IDs for optimistic bundle update
+    const derivedIds = (resource.derivedResources || []).map((r) => r.id);
+    const allIds = [resource.id, ...derivedIds];
     if (isBookmarked) {
       // Unbookmark directly — no picker needed
       setBookmarkBusyId(resource.id);
       const prevIds = bookmarkedIds;
       setBookmarkedIds((prev) => {
         const next = new Set(prev);
-        next.delete(resource.id);
+        allIds.forEach((id) => next.delete(id));
         return next;
       });
       setBookmarkFolderMap((prev) => {
         const next = { ...prev };
-        delete next[resource.id];
+        allIds.forEach((id) => delete next[id]);
         return next;
       });
       fetch(`${API_BASE}/api/resources/${resource.id}/bookmark`, {
@@ -555,13 +571,19 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const handleBookmarkWithFolder = useCallback(async (resource, folderId) => {
     setBookmarkBusyId(resource.id);
     const prevIds = bookmarkedIds;
+    const derivedIds = (resource.derivedResources || []).map((r) => r.id);
+    const allIds = [resource.id, ...derivedIds];
     setBookmarkedIds((prev) => {
       const next = new Set(prev);
-      next.add(resource.id);
+      allIds.forEach((id) => next.add(id));
       return next;
     });
     if (folderId) {
-      setBookmarkFolderMap((prev) => ({ ...prev, [resource.id]: folderId }));
+      setBookmarkFolderMap((prev) => {
+        const next = { ...prev };
+        allIds.forEach((id) => { next[id] = folderId; });
+        return next;
+      });
     }
     try {
       const res = await fetch(`${API_BASE}/api/resources/${resource.id}/bookmark`, {
@@ -570,7 +592,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         body: JSON.stringify({ folderId: folderId || null }),
       });
       if (res.ok) {
-        showToast(folderId ? "Added to space ✓" : "Added to your space ✓");
+        const hasDerived = derivedIds.length > 0;
+        showToast(folderId ? (hasDerived ? "Added material + MCQs + Flashcards to space ✓" : "Added to space ✓") : (hasDerived ? "Added material + MCQs + Flashcards to your space ✓" : "Added to your space ✓"));
         fetchBookmarks();
         if (folderId && activeFolder === folderId) fetchFolderDetail(folderId);
       } else {
@@ -798,23 +821,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const visibleResources = useMemo(() => {
     let list = (tabResources || []).filter((r) => {
       const matchesSearch = search === "" || r.title.toLowerCase().includes(search.toLowerCase()) || r.subject.toLowerCase().includes(search.toLowerCase());
-      const matchesType = activeFilter === "all" || r.contentType === activeFilter;
       const matchesUni = filters.university === "all" || r.university?.name === filters.university;
       const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
       const matchesLevel = filters.level === "all" || r.level === filters.level;
       const matchesSemester = filters.semester === "all" || r.semester === filters.semester;
       const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
-      return matchesSearch && matchesType && matchesUni && matchesDept && matchesLevel && matchesSemester && matchesSubject;
+      return matchesSearch && matchesUni && matchesDept && matchesLevel && matchesSemester && matchesSubject;
     });
     if (list.length === 0 && filters.semester !== "all" && (tabResources || []).length > 0) {
       list = (tabResources || []).filter((r) => {
         const matchesSearch = search === "" || r.title.toLowerCase().includes(search.toLowerCase()) || r.subject.toLowerCase().includes(search.toLowerCase());
-        const matchesType = activeFilter === "all" || r.contentType === activeFilter;
         const matchesUni = filters.university === "all" || r.university?.name === filters.university;
         const matchesDept = filters.department === "all" || r.department === filters.department || (r.resourceDepts && r.resourceDepts.some((rd) => rd.department.name === filters.department));
         const matchesLevel = filters.level === "all" || r.level === filters.level;
         const matchesSubject = filters.subject === "all" || r.subject === filters.subject;
-        return matchesSearch && matchesType && matchesUni && matchesDept && matchesLevel && matchesSubject;
+        return matchesSearch && matchesUni && matchesDept && matchesLevel && matchesSubject;
       });
     }
     const sorted = [...list];
@@ -840,7 +861,57 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       else if (sortBy === "bookmarks") sorted.sort((a, b) => (b._count?.bookmarks || 0) - (a._count?.bookmarks || 0));
     }
     return sorted;
-  }, [tabResources, search, activeFilter, filters, sortBy, userProfile]);
+  }, [tabResources, search, filters, sortBy, userProfile]);
+
+  // Compute relevance tier per resource for badges + section headers
+  const resourceTiers = useMemo(() => {
+    const userUniId = userProfile?.universityId || userProfile?.university?.id;
+    const userLevel = userProfile?.level;
+    const tierMap = {};
+    for (const r of visibleResources) {
+      const sameUni = userUniId && r.universityId && String(r.universityId) === String(userUniId);
+      const sameLevel = userLevel && r.level === userLevel;
+      tierMap[r.id] = (sameUni && sameLevel) ? 1 : sameUni ? 2 : sameLevel ? 3 : 4;
+    }
+    return tierMap;
+  }, [visibleResources, userProfile]);
+
+  // Categorize community resources for the new tab system
+  const communityCategorized = useMemo(() => {
+    if (activeTab !== "community") return { materials: [], pdfs: [], mcqs: [], flashcards: [], counts: { materials: 0, pdf: 0, mcq: 0, flashcard: 0 } };
+    const cats = categorizeResources(visibleResources);
+    const pdfs = cats.materials.filter((r) => r.contentType === "pdf");
+    return {
+      materials: cats.materials,
+      pdfs,
+      mcqs: cats.mcqs,
+      flashcards: cats.flashcards,
+      counts: {
+        materials: cats.materials.length,
+        pdf: pdfs.length,
+        mcq: cats.mcqs.length,
+        flashcard: cats.flashcards.length,
+      },
+    };
+  }, [visibleResources, activeTab]);
+
+  // Group resources by tier for section headers
+  const communitySections = useMemo(() => {
+    if (activeTab !== "community" || activeFilter !== "materials") return [];
+    const sections = [
+      { tier: 1, label: "From your university", items: [] },
+      { tier: 2, label: null, items: [] }, // merged with tier 1
+      { tier: 3, label: "Your level, other schools", items: [] },
+      { tier: 4, label: "More from the community", items: [] },
+    ];
+    for (const r of communityCategorized.materials) {
+      const tier = resourceTiers[r.id] || 4;
+      if (tier === 1 || tier === 2) sections[0].items.push(r);
+      else if (tier === 3) sections[2].items.push(r);
+      else sections[3].items.push(r);
+    }
+    return sections.filter((s) => s.items.length > 0);
+  }, [communityCategorized, resourceTiers, activeTab, activeFilter]);
 
   const uploadWizard = (
     <UploadWizard
@@ -1038,10 +1109,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             />
           ) : (
             <>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          {/* Sticky search + sort row */}
+          <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-hub-border bg-hub-surface/95 px-3 py-2.5 backdrop-blur">
             <div className="flex min-h-[40px] flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2">
               <span className="text-lg text-hub-text-dim">🔍</span>
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search notes, PDFs, MCQs…"
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search materials, MCQs, flashcards…"
                 className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
             </div>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
@@ -1054,43 +1126,142 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
           <FilterBar filters={filters} setFilters={setFilters} resources={communityResources} />
 
-          <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-            {filterTypes.map((type) => (
-              <button key={type} onClick={() => setActiveFilter(type)} className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all active:scale-95 ${
-                activeFilter === type
-                  ? "border border-gold-border bg-gold-dim text-gold"
-                  : "border border-hub-border bg-hub-bg text-hub-text-muted"
-              }`}>
-                {filterLabels[type]}
-              </button>
-            ))}
+          {/* Segmented control — Materials / PDF / MCQ / Flashcard */}
+          <div className="mb-6 flex gap-1 rounded-xl border border-hub-border bg-hub-bg p-1">
+            {communityTabs.map((tab) => {
+              const count = communityCategorized.counts[tab.key] || 0;
+              const isActive = activeFilter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveFilter(tab.key)}
+                  className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg px-2 py-2 text-[11px] font-bold transition-all active:scale-95 ${
+                    isActive ? "bg-hub-surface text-hub-text" : "text-hub-text-muted hover:text-hub-text"
+                  }`}
+                  style={isActive ? { boxShadow: `inset 0 -2px 0 ${tab.color}` } : {}}
+                >
+                  <span className="text-base">{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  {count > 0 && (
+                    <span className="text-[9px] font-semibold" style={{ color: tab.color, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-
-          <div className="mb-4 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">Community</div>
 
           {resourcesLoading ? (
             <LoadingState grid count={4} />
           ) : resourcesError ? (
             <ErrorState message={resourcesError} onRetry={fetchResources} />
-          ) : visibleResources.length === 0 ? (
-            <EmptyState icon="📭" title="No results" message={emptyMessages["public"]} />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {visibleResources.map((resource, i) => (
-                <ResourceCard
-                  key={resource.id}
-                  resource={resource}
-                  isBookmarked={bookmarkedIds.has(resource.id)}
-                  bookmarkBusy={bookmarkBusyId === resource.id}
-                  onOpen={handleOpen}
-                  onToggleBookmark={toggleBookmark}
-                  onShare={handleShare}
-                  mcqProgress={mcqProgress}
-                  index={i}
-                />
-              ))}
-            </div>
-          )}
+          ) : activeFilter === "materials" ? (
+            communityCategorized.materials.length === 0 ? (
+              <EmptyState icon={communityEmptyStates.materials.icon} title={communityEmptyStates.materials.title} message={communityEmptyStates.materials.message} />
+            ) : (
+              <div className="space-y-6">
+                {communitySections.map((section, si) => (
+                  <div key={si}>
+                    {section.label && (
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">{section.label}</span>
+                        <span className="h-px flex-1 bg-hub-border" />
+                      </div>
+                    )}
+                    <div className="cs-grid grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))" }}>
+                      {section.items.map((file, i) => (
+                        <MaterialCard
+                          key={file.id}
+                          file={file}
+                          isBookmarked={bookmarkedIds.has(file.id)}
+                          bookmarkBusy={bookmarkBusyId === file.id}
+                          onOpen={handleOpen}
+                          onToggleBookmark={toggleBookmark}
+                          onShare={handleShare}
+                          onGenerate={handleGenerateFromMaterial}
+                          generatingId={generatingId}
+                          genProgress={genProgress}
+                          index={i}
+                          showBookmark={true}
+                          relevanceTier={resourceTiers[file.id] || null}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : activeFilter === "pdf" ? (
+            communityCategorized.pdfs.length === 0 ? (
+              <EmptyState icon={communityEmptyStates.pdf.icon} title={communityEmptyStates.pdf.title} message={communityEmptyStates.pdf.message} />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {communityCategorized.pdfs.map((resource, i) => (
+                  <ResourceCard
+                    key={resource.id}
+                    resource={resource}
+                    isBookmarked={bookmarkedIds.has(resource.id)}
+                    bookmarkBusy={bookmarkBusyId === resource.id}
+                    onOpen={handleOpen}
+                    onToggleBookmark={toggleBookmark}
+                    onShare={handleShare}
+                    mcqProgress={mcqProgress}
+                    index={i}
+                    relevanceTier={resourceTiers[resource.id] || null}
+                  />
+                ))}
+              </div>
+            )
+          ) : activeFilter === "mcq" ? (
+            communityCategorized.mcqs.length === 0 ? (
+              <EmptyState icon={communityEmptyStates.mcq.icon} title={communityEmptyStates.mcq.title} message={communityEmptyStates.mcq.message} />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {communityCategorized.mcqs.map((item, i) => {
+                  const mcqRes = item.variants?.mcq || item;
+                  return (
+                    <ResourceCard
+                      key={mcqRes.id}
+                      resource={mcqRes}
+                      isBookmarked={bookmarkedIds.has(mcqRes.id)}
+                      bookmarkBusy={bookmarkBusyId === mcqRes.id}
+                      onOpen={handleOpen}
+                      onToggleBookmark={toggleBookmark}
+                      onShare={handleShare}
+                      mcqProgress={mcqProgress}
+                      index={i}
+                      relevanceTier={resourceTiers[item.id] || null}
+                    />
+                  );
+                })}
+              </div>
+            )
+          ) : activeFilter === "flashcard" ? (
+            communityCategorized.flashcards.length === 0 ? (
+              <EmptyState icon={communityEmptyStates.flashcard.icon} title={communityEmptyStates.flashcard.title} message={communityEmptyStates.flashcard.message} />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {communityCategorized.flashcards.map((item, i) => {
+                  const fcRes = item.variants?.flashcard || item;
+                  return (
+                    <ResourceCard
+                      key={fcRes.id}
+                      resource={fcRes}
+                      isBookmarked={bookmarkedIds.has(fcRes.id)}
+                      bookmarkBusy={bookmarkBusyId === fcRes.id}
+                      onOpen={handleOpen}
+                      onToggleBookmark={toggleBookmark}
+                      onShare={handleShare}
+                      mcqProgress={mcqProgress}
+                      index={i}
+                      relevanceTier={resourceTiers[item.id] || null}
+                    />
+                  );
+                })}
+              </div>
+            )
+          ) : null}
             </>
           )}
         </>

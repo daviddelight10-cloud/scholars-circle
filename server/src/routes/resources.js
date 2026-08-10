@@ -101,8 +101,12 @@ router.get("/", requireAuth, async (req, res) => {
       },
       include: {
         uploader: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true, type: true } },
         _count: { select: { bookmarks: true } },
         resourceDepts: { include: { department: { select: { id: true, name: true } } } },
+        derivedResources: {
+          select: { id: true, contentType: true, title: true, shareToken: true, mcqData: true, flashcardData: true, fileName: true, description: true }
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -153,6 +157,7 @@ router.get("/bookmarks", requireAuth, async (req, res) => {
 });
 
 // POST /api/resources/:id/bookmark - Bookmark a resource (optionally into a folder)
+// Cascades to derived resources (MCQs, Flashcards, Summaries) so bundling works
 router.post("/:id/bookmark", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -169,26 +174,49 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
       }
     }
 
-    const bookmark = await prisma.resourceBookmark.upsert({
-      where: { resourceId_userId: { resourceId: id, userId: req.user.sub } },
-      create: { resourceId: id, userId: req.user.sub, folderId: folderId || null },
-      update: { folderId: folderId || null },
+    // Fetch derived resources for cascade bookmarking
+    const source = await prisma.resource.findUnique({
+      where: { id },
+      select: { derivedResources: { select: { id: true } } },
     });
-    res.status(201).json(bookmark);
+    const derivedIds = source?.derivedResources?.map((r) => r.id) || [];
+
+    // Bookmark the source + all derived resources in a transaction
+    const allIds = [id, ...derivedIds];
+    await prisma.$transaction(
+      allIds.map((rid) =>
+        prisma.resourceBookmark.upsert({
+          where: { resourceId_userId: { resourceId: rid, userId: req.user.sub } },
+          create: { resourceId: rid, userId: req.user.sub, folderId: folderId || null },
+          update: { folderId: folderId || null },
+        })
+      )
+    );
+
+    res.status(201).json({ success: true, bookmarkedIds: allIds });
   } catch (error) {
     console.error("Error bookmarking resource:", error);
     res.status(500).json({ error: "Failed to bookmark resource" });
   }
 });
 
-// DELETE /api/resources/:id/bookmark - Remove bookmark
+// DELETE /api/resources/:id/bookmark - Remove bookmark (cascades to derived resources)
 router.delete("/:id/bookmark", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    await prisma.resourceBookmark.deleteMany({
-      where: { resourceId: id, userId: req.user.sub },
+
+    // Fetch derived resources for cascade un-bookmarking
+    const source = await prisma.resource.findUnique({
+      where: { id },
+      select: { derivedResources: { select: { id: true } } },
     });
-    res.json({ success: true });
+    const derivedIds = source?.derivedResources?.map((r) => r.id) || [];
+    const allIds = [id, ...derivedIds];
+
+    await prisma.resourceBookmark.deleteMany({
+      where: { resourceId: { in: allIds }, userId: req.user.sub },
+    });
+    res.json({ success: true, removedIds: allIds });
   } catch (error) {
     console.error("Error removing bookmark:", error);
     res.status(500).json({ error: "Failed to remove bookmark" });

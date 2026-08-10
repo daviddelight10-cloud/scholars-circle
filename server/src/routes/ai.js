@@ -24,16 +24,28 @@ router.get("/status", (_req, res) => {
 });
 
 // Individual provider call helpers. Each returns { ok, text, status, error, retriable }.
-async function tryGemini(prompt, model) {
+async function tryGemini(prompt, model, system, messages) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return { ok: false, status: 503, error: "No Gemini key", retriable: true };
   try {
+    const body = { generationConfig: { maxOutputTokens: 8192 } };
+    if (system) {
+      body.systemInstruction = { parts: [{ text: system }] };
+    }
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+      body.contents = messages.map(m => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+    } else {
+      body.contents = [{ parts: [{ text: prompt }] }];
+    }
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model || DEFAULT_GEMINI_MODEL)}:generateContent?key=${key}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 8192 } }),
+        body: JSON.stringify(body),
       }
     );
     const data = await r.json().catch(() => ({}));
@@ -50,10 +62,17 @@ async function tryGemini(prompt, model) {
   }
 }
 
-async function tryOpenRouter(prompt, model) {
+async function tryOpenRouter(prompt, model, system, messages) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) return { ok: false, status: 503, error: "No OpenRouter key", retriable: true };
   try {
+    const msgs = [];
+    if (system) msgs.push({ role: "system", content: system });
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+      msgs.push(...messages.map(m => ({ role: m.role, content: m.content })));
+    } else {
+      msgs.push({ role: "user", content: prompt });
+    }
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -64,7 +83,7 @@ async function tryOpenRouter(prompt, model) {
       },
       body: JSON.stringify({
         model: model || DEFAULT_OPENROUTER_MODEL,
-        messages: [{ role: "user", content: prompt }],
+        messages: msgs,
         max_tokens: 8192,
       }),
     });
@@ -81,14 +100,21 @@ async function tryOpenRouter(prompt, model) {
   }
 }
 
-async function tryOpenAI(prompt, model) {
+async function tryOpenAI(prompt, model, system, messages) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return { ok: false, status: 503, error: "No OpenAI key", retriable: true };
   try {
+    const input = [];
+    if (system) input.push({ role: "developer", content: system });
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+      input.push(...messages.map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })));
+    } else {
+      input.push({ role: "user", content: prompt });
+    }
     const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: model || DEFAULT_OPENAI_MODEL, input: prompt }),
+      body: JSON.stringify({ model: model || DEFAULT_OPENAI_MODEL, input }),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
@@ -112,9 +138,11 @@ function providersAvailable() {
 }
 
 router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
-  const { prompt, provider, model } = req.body || {};
-  if (!prompt || typeof prompt !== "string") {
-    return res.status(400).json({ error: "prompt is required" });
+  const { prompt, provider, model, system, messages } = req.body || {};
+  const hasPrompt = prompt && typeof prompt === "string";
+  const hasMessages = messages && Array.isArray(messages) && messages.length > 0;
+  if (!hasPrompt && !hasMessages) {
+    return res.status(400).json({ error: "prompt or messages is required" });
   }
 
   const available = providersAvailable();
@@ -130,9 +158,9 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
   const errors = [];
   for (const p of tryOrder) {
     let result;
-    if (p === "gemini") result = await tryGemini(prompt, p === provider ? model : null);
-    else if (p === "openrouter") result = await tryOpenRouter(prompt, p === provider ? model : null);
-    else if (p === "openai") result = await tryOpenAI(prompt, p === provider ? model : null);
+    if (p === "gemini") result = await tryGemini(prompt, p === provider ? model : null, system, messages);
+    else if (p === "openrouter") result = await tryOpenRouter(prompt, p === provider ? model : null, system, messages);
+    else if (p === "openai") result = await tryOpenAI(prompt, p === provider ? model : null, system, messages);
     else continue;
 
     if (result.ok) {

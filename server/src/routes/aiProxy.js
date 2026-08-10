@@ -28,10 +28,12 @@ router.get("/usage", requireAuth, async (req, res) => {
 // POST /ai-proxy/generate - Proxy AI requests to keep API keys server-side
 router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
   try {
-    const { prompt, provider, model } = req.body;
+    const { prompt, provider, model, system, messages } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
+    const hasPrompt = prompt && typeof prompt === "string";
+    const hasMessages = messages && Array.isArray(messages) && messages.length > 0;
+    if (!hasPrompt && !hasMessages) {
+      return res.status(400).json({ error: "Prompt or messages is required" });
     }
 
     // Get API key from environment based on provider
@@ -47,12 +49,22 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
         apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
         headers = { "Content-Type": "application/json" };
         requestBody = {
-          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 8192,
           },
         };
+        if (system) {
+          requestBody.systemInstruction = { parts: [{ text: system }] };
+        }
+        if (hasMessages) {
+          requestBody.contents = messages.map(m => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }],
+          }));
+        } else {
+          requestBody.contents = [{ parts: [{ text: prompt }] }];
+        }
         break;
 
       case "openrouter":
@@ -65,11 +77,20 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
           "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
           "X-Title": "Scholar's Circle",
         };
-        requestBody = {
-          model: openrouterModel,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 8192,
-        };
+        {
+          const msgs = [];
+          if (system) msgs.push({ role: "system", content: system });
+          if (hasMessages) {
+            msgs.push(...messages.map(m => ({ role: m.role, content: m.content })));
+          } else {
+            msgs.push({ role: "user", content: prompt });
+          }
+          requestBody = {
+            model: openrouterModel,
+            messages: msgs,
+            max_tokens: 8192,
+          };
+        }
         break;
 
       case "openai":
@@ -80,11 +101,20 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
         };
-        requestBody = {
-          model: openaiModel,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 8192,
-        };
+        {
+          const msgs = [];
+          if (system) msgs.push({ role: "system", content: system });
+          if (hasMessages) {
+            msgs.push(...messages.map(m => ({ role: m.role, content: m.content })));
+          } else {
+            msgs.push({ role: "user", content: prompt });
+          }
+          requestBody = {
+            model: openaiModel,
+            messages: msgs,
+            max_tokens: 8192,
+          };
+        }
         break;
 
       default:
@@ -124,7 +154,7 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
     }
 
     // Log successful AI usage
-    logSecurityEvent(req.user.sub, 'ai_proxy_success', { provider, model, promptLength: prompt.length }, req);
+    logSecurityEvent(req.user.sub, 'ai_proxy_success', { provider, model, promptLength: prompt?.length || 0 }, req);
 
     return res.json({ text, rawResponse: data });
 
