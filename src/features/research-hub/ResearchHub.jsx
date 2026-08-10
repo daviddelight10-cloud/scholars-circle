@@ -1170,7 +1170,26 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             })}
           </div>
 
-          {resourcesLoading ? (
+          {activeFilter === "folders" ? (
+            communityFolders.length === 0 ? (
+              <EmptyState icon={communityEmptyStates.folders.icon} title={communityEmptyStates.folders.title} message={communityEmptyStates.folders.message} />
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {communityFolders.map((folder, i) => (
+                  <FolderCard
+                    key={folder.id}
+                    folder={folder}
+                    shared
+                    onClick={() => openFolder(folder.id)}
+                    index={i}
+                    isBookmarked={folderBookmarkedIds.has(folder.id)}
+                    bookmarkBusy={folderBookmarkBusyId === folder.id}
+                    onToggleBookmark={handleToggleFolderBookmark}
+                  />
+                ))}
+              </div>
+            )
+          ) : resourcesLoading ? (
             <LoadingState grid count={4} />
           ) : resourcesError ? (
             <ErrorState message={resourcesError} onRetry={fetchResources} />
@@ -1279,25 +1298,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                     />
                   );
                 })}
-              </div>
-            )
-          ) : activeFilter === "folders" ? (
-            communityFolders.length === 0 ? (
-              <EmptyState icon={communityEmptyStates.folders.icon} title={communityEmptyStates.folders.title} message={communityEmptyStates.folders.message} />
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {communityFolders.map((folder, i) => (
-                  <FolderCard
-                    key={folder.id}
-                    folder={folder}
-                    shared
-                    onClick={() => openFolder(folder.id)}
-                    index={i}
-                    isBookmarked={folderBookmarkedIds.has(folder.id)}
-                    bookmarkBusy={folderBookmarkBusyId === folder.id}
-                    onToggleBookmark={handleToggleFolderBookmark}
-                  />
-                ))}
               </div>
             )
           ) : null}
