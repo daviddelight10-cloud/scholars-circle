@@ -56,6 +56,11 @@ export function FolderCard({ folder, onClick, shared = false, index = 0, isBookm
           {shared && folder.owner?.username && (
             <span className="text-[10px] text-hub-text-dim">by {folder.owner.username}</span>
           )}
+          {folder.university?.name && (
+            <span className="rounded px-2 py-0.5 text-[10px] text-hub-text-dim" style={{ background: "rgba(90,97,120,0.08)" }}>
+              🏫 {folder.university.name}
+            </span>
+          )}
         </div>
         {onToggleBookmark && (
           <button

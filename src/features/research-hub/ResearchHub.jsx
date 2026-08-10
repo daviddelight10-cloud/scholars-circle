@@ -32,11 +32,11 @@ const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_
 const CACHE_TTL = 5 * 60 * 1000;
 
 const communityTabs = [
+  { key: "folders", label: "Folders", icon: "📁", color: "#8B5CF6" },
   { key: "materials", label: "Materials", icon: "📄", color: "#F5A623" },
   { key: "pdf", label: "PDF", icon: "📕", color: "#EF4444" },
   { key: "mcq", label: "MCQ", icon: "✎", color: "#3DD68C" },
   { key: "flashcard", label: "Flashcard", icon: "🎴", color: "#4F8EF7" },
-  { key: "folders", label: "Folders", icon: "📁", color: "#8B5CF6" },
 ];
 
 const communityEmptyStates = {
@@ -58,7 +58,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [resourcesError, setResourcesError] = useState(null);
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("materials");
+  const [activeFilter, setActiveFilter] = useState("folders");
   const [sortBy, setSortBy] = useState("recent");
   const [activeTab, setActiveTab] = useState("library");
   const [communitySubTab, setCommunitySubTab] = useState("all");
@@ -913,6 +913,19 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     };
   }, [visibleResources, activeTab]);
 
+  // Sort community folders based on the existing sort dropdown
+  const sortedCommunityFolders = useMemo(() => {
+    const arr = [...communityFolders];
+    if (sortBy === "bookmarks") {
+      arr.sort((a, b) => (b._count?.folderBookmarks || 0) - (a._count?.folderBookmarks || 0));
+    } else if (sortBy === "views") {
+      arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else {
+      arr.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    }
+    return arr;
+  }, [communityFolders, sortBy]);
+
   // Group resources by tier for section headers
   const communitySections = useMemo(() => {
     if (activeTab !== "community" || activeFilter !== "materials") return [];
@@ -1171,11 +1184,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           </div>
 
           {activeFilter === "folders" ? (
-            communityFolders.length === 0 ? (
+            sortedCommunityFolders.length === 0 ? (
               <EmptyState icon={communityEmptyStates.folders.icon} title={communityEmptyStates.folders.title} message={communityEmptyStates.folders.message} />
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {communityFolders.map((folder, i) => (
+                {sortedCommunityFolders.map((folder, i) => (
                   <FolderCard
                     key={folder.id}
                     folder={folder}
