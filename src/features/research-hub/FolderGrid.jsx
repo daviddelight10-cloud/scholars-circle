@@ -3,8 +3,20 @@ import EmptyState from "./EmptyState";
 
 export function FolderCard({ folder, onClick, shared = false, index = 0, isBookmarked, bookmarkBusy, onToggleBookmark }) {
   const itemCount = folder._count?.resources ?? 0;
+  const bookmarkCount = folder._count?.folderBookmarks ?? 0;
   const sc = getSubjectColor(folder.courseCode || folder.name);
   const delay = `${Math.min(index * 40, 400)}ms`;
+
+  const daysSinceCreated = Math.floor((Date.now() - new Date(folder.createdAt).getTime()) / 86400000);
+  const qualityBadge = bookmarkCount >= 10
+    ? { icon: "🔥", label: "Hot", color: "#ef4444", bg: "rgba(239,68,68,0.12)" }
+    : bookmarkCount >= 5
+      ? { icon: "⭐", label: "Trusted", color: "#FFD700", bg: "rgba(255,215,0,0.12)" }
+      : daysSinceCreated <= 7
+        ? { icon: "🆕", label: "New", color: "#22c55e", bg: "rgba(34,197,94,0.12)" }
+        : null;
+
+  const deptNames = (folder.folderDepts || []).map((fd) => fd.department?.name).filter(Boolean).slice(0, 2);
 
   return (
     <div
@@ -20,7 +32,17 @@ export function FolderCard({ folder, onClick, shared = false, index = 0, isBookm
           {shared ? "📂" : "📁"}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-bold text-hub-text">{folder.name}</div>
+          <div className="flex items-center gap-1.5">
+            <div className="truncate text-sm font-bold text-hub-text">{folder.name}</div>
+            {qualityBadge && (
+              <span
+                className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                style={{ color: qualityBadge.color, background: qualityBadge.bg }}
+              >
+                {qualityBadge.icon} {qualityBadge.label}
+              </span>
+            )}
+          </div>
           {folder.courseCode && (
             <div className="mt-0.5 text-[11px] text-hub-text-dim">{folder.courseCode}</div>
           )}
@@ -39,6 +61,11 @@ export function FolderCard({ folder, onClick, shared = false, index = 0, isBookm
         {folder.semester && (
           <span className="rounded border border-success-border bg-success-bg px-2 py-0.5 text-[10px] text-success-text">{folder.semester}</span>
         )}
+        {deptNames.map((dept) => (
+          <span key={dept} className="rounded border border-hub-border bg-hub-bg px-2 py-0.5 text-[10px] text-hub-text-muted">
+            {dept}
+          </span>
+        ))}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-1.5">
@@ -55,6 +82,9 @@ export function FolderCard({ folder, onClick, shared = false, index = 0, isBookm
           </span>
           {shared && folder.owner?.username && (
             <span className="text-[10px] text-hub-text-dim">by {folder.owner.username}</span>
+          )}
+          {shared && bookmarkCount > 0 && (
+            <span className="text-[10px] font-semibold text-gold">★ {bookmarkCount}</span>
           )}
           {folder.university?.name && (
             <span className="rounded px-2 py-0.5 text-[10px] text-hub-text-dim" style={{ background: "rgba(90,97,120,0.08)" }}>

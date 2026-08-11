@@ -60,6 +60,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("folders");
   const [sortBy, setSortBy] = useState("recent");
+  const [folderFilter, setFolderFilter] = useState("all"); // all | my-uni | my-dept | trending
   const [activeTab, setActiveTab] = useState("library");
   const [communitySubTab, setCommunitySubTab] = useState("all");
   const [toast, setToast] = useState(null);
@@ -913,18 +914,46 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     };
   }, [visibleResources, activeTab]);
 
-  // Sort community folders based on the existing sort dropdown
-  const sortedCommunityFolders = useMemo(() => {
+  // Filter + group community folders
+  const communityFolderSections = useMemo(() => {
+    const userUniId = userProfile?.universityId || userProfile?.university?.id;
+    const userDeptId = userDept?.departmentId;
     const arr = [...communityFolders];
-    if (sortBy === "bookmarks") {
-      arr.sort((a, b) => (b._count?.folderBookmarks || 0) - (a._count?.folderBookmarks || 0));
-    } else if (sortBy === "views") {
-      arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    } else {
-      arr.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    // Apply filter
+    let filtered = arr;
+    if (folderFilter === "my-uni") {
+      filtered = arr.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
+    } else if (folderFilter === "my-dept") {
+      filtered = arr.filter((f) => (f.folderDepts || []).some((fd) => String(fd.department?.id) === String(userDeptId)));
+    } else if (folderFilter === "trending") {
+      filtered = arr.filter((f) => (f._count?.folderBookmarks || 0) >= 3);
     }
-    return arr;
-  }, [communityFolders, sortBy]);
+
+    // Sort by bookmarks desc, then recent
+    filtered.sort((a, b) => {
+      const bmDiff = (b._count?.folderBookmarks || 0) - (a._count?.folderBookmarks || 0);
+      if (bmDiff !== 0) return bmDiff;
+      return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
+
+    // Group into sections (only for "all" filter)
+    if (folderFilter === "all" && userUniId) {
+      const fromUni = filtered.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
+      const popular = filtered.filter((f) => (f._count?.folderBookmarks || 0) >= 5 && !(f.university?.id && String(f.university.id) === String(userUniId)));
+      const fromUniIds = new Set(fromUni.map((f) => f.id));
+      const popularIds = new Set(popular.map((f) => f.id));
+      const more = filtered.filter((f) => !fromUniIds.has(f.id) && !popularIds.has(f.id));
+
+      return [
+        ...(fromUni.length > 0 ? [{ label: "From Your University", folders: fromUni }] : []),
+        ...(popular.length > 0 ? [{ label: "Popular", folders: popular }] : []),
+        ...(more.length > 0 ? [{ label: "More Folders", folders: more }] : []),
+      ];
+    }
+
+    return [{ label: null, folders: filtered }];
+  }, [communityFolders, folderFilter, userProfile, userDept]);
 
   // Group resources by tier for section headers
   const communitySections = useMemo(() => {
@@ -1140,7 +1169,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                 className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
             </div>
             <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-              className="min-h-[40px] rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[12px] text-hub-text outline-none cursor-pointer">
+              className={`min-h-[40px] rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[12px] text-hub-text outline-none cursor-pointer ${activeFilter === "folders" ? "hidden" : ""}`}>
               <option value="recent">Most recent</option>
               <option value="views">Most viewed</option>
               <option value="bookmarks">Most saved</option>
@@ -1176,24 +1205,60 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           </div>
 
           {activeFilter === "folders" ? (
-            sortedCommunityFolders.length === 0 ? (
-              <EmptyState icon={communityEmptyStates.folders.icon} title={communityEmptyStates.folders.title} message={communityEmptyStates.folders.message} />
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {sortedCommunityFolders.map((folder, i) => (
-                  <FolderCard
-                    key={folder.id}
-                    folder={folder}
-                    shared
-                    onClick={() => openFolder(folder.id)}
-                    index={i}
-                    isBookmarked={folderBookmarkedIds.has(folder.id)}
-                    bookmarkBusy={folderBookmarkBusyId === folder.id}
-                    onToggleBookmark={handleToggleFolderBookmark}
-                  />
+            <>
+              {/* Filter pills */}
+              <div className="mb-4 flex flex-wrap gap-2">
+                {[
+                  { key: "all", label: "All", icon: "📋" },
+                  { key: "my-uni", label: "My University", icon: "🏫" },
+                  { key: "my-dept", label: "My Department", icon: "🏛️" },
+                  { key: "trending", label: "Trending", icon: "🔥" },
+                ].map((pill) => (
+                  <button
+                    key={pill.key}
+                    onClick={() => setFolderFilter(pill.key)}
+                    className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition-all active:scale-95 ${
+                      folderFilter === pill.key
+                        ? "bg-gold text-[#0a0a0a]"
+                        : "border border-hub-border bg-hub-surface text-hub-text-muted hover:text-hub-text"
+                    }`}
+                  >
+                    {pill.icon} {pill.label}
+                  </button>
                 ))}
               </div>
-            )
+
+              {communityFolderSections.length === 0 || communityFolderSections.every((s) => s.folders.length === 0) ? (
+                <EmptyState icon={communityEmptyStates.folders.icon} title={communityEmptyStates.folders.title} message={communityEmptyStates.folders.message} />
+              ) : (
+                <div className="space-y-6">
+                  {communityFolderSections.map((section, si) => (
+                    <div key={si}>
+                      {section.label && (
+                        <div className="mb-3 flex items-center gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">{section.label}</span>
+                          <span className="h-px flex-1 bg-hub-border" />
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {section.folders.map((folder, i) => (
+                          <FolderCard
+                            key={folder.id}
+                            folder={folder}
+                            shared
+                            onClick={() => openFolder(folder.id)}
+                            index={i}
+                            isBookmarked={folderBookmarkedIds.has(folder.id)}
+                            bookmarkBusy={folderBookmarkBusyId === folder.id}
+                            onToggleBookmark={handleToggleFolderBookmark}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           ) : resourcesLoading ? (
             <LoadingState grid count={4} />
           ) : resourcesError ? (
