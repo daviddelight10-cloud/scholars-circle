@@ -59,6 +59,7 @@ const Profile = lazyWithRetry(() => import("./pages/Profile"));
 
 // Components
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import TabSkeleton from "./components/TabSkeleton";
 import {
   NOTES_KEY, CUSTOM_QUESTIONS_KEY, AI_DOCS_KEY, LECTURE_NOTES_KEY,
   EMPTY_STATS, EMPTY_QUESTS, BADGES, LEAGUES, DEMO_USERS, DEMO_LIMITS,
@@ -261,6 +262,21 @@ function App() {
 
     setTabRaw((curr) => { prevTabRef.current = curr; return newTab; });
 
+  }, []);
+
+  useEffect(() => {
+    const preload = () => {
+      import("./features/research-hub/ResearchHub").catch(() => {});
+      import("./pages/AITutor").catch(() => {});
+      import("./pages/Progress").catch(() => {});
+    };
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(preload, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    } else {
+      const t = setTimeout(preload, 2000);
+      return () => clearTimeout(t);
+    }
   }, []);
 
   const goBack = useCallback(() => {
@@ -8868,7 +8884,7 @@ function App() {
 
 
         <ErrorBoundary>
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton variant="cards" />}>
         <Home
           loading={loadingOverlay}
 
@@ -8957,7 +8973,7 @@ function App() {
       {homeViewerToken && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0a0a0a", display: "flex", flexDirection: "column" }}>
           <ErrorBoundary>
-            <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+            <Suspense fallback={<TabSkeleton />}>
               <ResourceViewer
                 token={homeViewerToken}
                 initialPage={homeViewerPage}
@@ -8996,7 +9012,7 @@ function App() {
 
         ) : (
 
-          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+          <Suspense fallback={<TabSkeleton />}>
           <>
             {demoMode && (
               <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
@@ -9059,7 +9075,7 @@ function App() {
           />
 
         ) : (
-          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+          <Suspense fallback={<TabSkeleton />}>
           <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
           </Suspense>
         )
@@ -9487,7 +9503,7 @@ function App() {
 
 
       {tab === "invites" && isTeacher && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <TeacherInvitesPanel token={token} />
         </Suspense>
       )}
@@ -9496,7 +9512,7 @@ function App() {
 
       {tab === "classroom" && (
         <ErrorBoundary>
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton />}>
         <ClassroomPage
           loading={loadingOverlay}
           subjects={subjects}
@@ -9522,7 +9538,7 @@ function App() {
 
       {tab === "resources" && (
         <ErrorBoundary>
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton />}>
         <Resources
           loading={loadingOverlay}
           subjects={subjects}
@@ -9554,7 +9570,7 @@ function App() {
 
       {tab === "analytics" && (
         <ErrorBoundary>
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton variant="analytics" />}>
         <Progress
           loading={loadingOverlay}
           authUser={auth.user}
@@ -9578,7 +9594,7 @@ function App() {
 
 
       {tab === "admin" && isTeacher && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <AdminDashboard
           adminUsers={adminUsers}
           adminLogins={adminLogins}
@@ -9592,7 +9608,7 @@ function App() {
 
 
       {tab === "teacher-questions" && isFaculty && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <TeacherQuestionManager
           token={token}
           subjects={subjects}
@@ -9602,20 +9618,20 @@ function App() {
       )}
 
       {tab === "departments" && isTeacher && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <DepartmentManager />
         </Suspense>
       )}
 
       {tab === "universities" && isFaculty && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <UniversityManager />
         </Suspense>
       )}
 
       {tab === "campus-comm" && isFaculty && (
 
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <CampusComm
 
           token={token}
@@ -9630,7 +9646,7 @@ function App() {
 
 
       {tab === "premium" && !isFaculty && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <PremiumPage
           user={auth.user}
           token={token}
@@ -9642,7 +9658,7 @@ function App() {
 
       {tab === "clinical-cases" && (
         <ErrorBoundary>
-          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+          <Suspense fallback={<TabSkeleton />}>
             <ClinicalCases
               aiConfig={aiConfig}
               stats={stats}
@@ -9654,7 +9670,7 @@ function App() {
 
       {tab === "osce" && (
         <ErrorBoundary>
-          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+          <Suspense fallback={<TabSkeleton />}>
             <OSCEPrep />
           </Suspense>
         </ErrorBoundary>
@@ -9662,7 +9678,7 @@ function App() {
 
       {tab === "drug-ref" && (
         <ErrorBoundary>
-          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+          <Suspense fallback={<TabSkeleton />}>
             <DrugReference />
           </Suspense>
         </ErrorBoundary>
@@ -9670,7 +9686,7 @@ function App() {
 
       {tab === "lab-values" && (
         <ErrorBoundary>
-          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+          <Suspense fallback={<TabSkeleton />}>
             <LabValues />
           </Suspense>
         </ErrorBoundary>
@@ -9678,20 +9694,20 @@ function App() {
 
       {tab === "medical-calculators" && (
         <ErrorBoundary>
-          <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+          <Suspense fallback={<TabSkeleton />}>
             <MedicalCalculators />
           </Suspense>
         </ErrorBoundary>
       )}
 
       {tab === "research-hub" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton variant="cards" />}>
         <ResearchHub onBack={() => setTab("today")} streak={stats.streak} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} activeSemester={activeSemester} />
         </Suspense>
       )}
 
       {tab === "teacher-resources" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <TeacherResourcesHub onBack={() => setTab("today")} />
         </Suspense>
       )}
@@ -9838,7 +9854,7 @@ function App() {
 
         {/* Notifications — full width */}
         <div style={{ gridColumn: "1 / -1" }}>
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <NotificationSettings token={token} />
         </Suspense>
         </div>
@@ -9950,7 +9966,7 @@ function App() {
 
       {tab === "aitutor" && (
         <ErrorBoundary>
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton variant="chat" />}>
         <AITutorPage
           loading={loadingOverlay}
           aiKey={aiKey}
@@ -9969,7 +9985,7 @@ function App() {
 
       {tab === "voice-tutor" && (
         <ErrorBoundary>
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton />}>
         <VoiceTutorPage
           preselectedResourceId={voiceTutorResourceId}
           onExit={() => { setVoiceTutorResourceId(null); setTab("today"); }}
@@ -10086,7 +10102,7 @@ function App() {
 
                 )}
 
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton />}>
                 <LectureToNotes
                   subjects={subjects}
                   aiConfig={aiConfig}
@@ -10111,7 +10127,7 @@ function App() {
 
       {tab === "profile" && (
         <ErrorBoundary>
-                <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+                <Suspense fallback={<TabSkeleton />}>
         <Profile
           loading={loadingOverlay}
           studentProfile={studentProfile}
@@ -10126,7 +10142,7 @@ function App() {
 
 
       {tab === "notifications" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <NotificationsTab
           token={token}
           currentUser={auth.user}
@@ -10138,7 +10154,7 @@ function App() {
 
       {tab === "lecturers" && (
 
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <Lecturers
 
           token={token}
@@ -10173,13 +10189,13 @@ function App() {
 
 
       {tab === "timetable" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <TimetableBuilder timetable={timetable} setTimetable={setTimetable} subjects={subjects} />
         </Suspense>
       )}
 
       {tab === "timetable" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <StudyReminders reminders={reminders} setReminders={setReminders} timetable={timetable} notificationPermission={notificationPermission} setNotificationPermission={setNotificationPermission} token={token} />
         </Suspense>
       )}
@@ -10190,7 +10206,7 @@ function App() {
 
 
       {tab === "discuss" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading...</p></div>}>
+        <Suspense fallback={<TabSkeleton />}>
         <DiscussionBoard subjects={subjects} discussion={discussion} setDiscussion={setDiscussion} username={auth.user.username} isTeacher={isFaculty} />
         </Suspense>
       )}

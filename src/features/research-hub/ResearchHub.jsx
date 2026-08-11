@@ -54,8 +54,26 @@ const emptyMessages = {
 export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, activeSemester } = {}) {
   const { setLastActivity } = useUserData();
 
-  const [resources, setResources] = useState([]);
-  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resources, setResources] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_resources_list");
+      if (raw) {
+        const { data } = JSON.parse(raw);
+        if (Array.isArray(data)) return data;
+      }
+    } catch {}
+    return [];
+  });
+  const [resourcesLoading, setResourcesLoading] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_resources_list");
+      if (raw) {
+        const { ts } = JSON.parse(raw);
+        if (Date.now() - ts < CACHE_TTL) return false;
+      }
+    } catch {}
+    return true;
+  });
   const [resourcesError, setResourcesError] = useState(null);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("folders");
@@ -71,9 +89,27 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const [bookmarkTarget, setBookmarkTarget] = useState(null);
   const [filters, setFilters] = useState({ university: "all", department: "all", level: "all", semester: "all", subject: "all" });
-  const [userProfile, setUserProfile] = useState(null);
-  const [fsrsStats, setFsrsStats] = useState(null);
-  const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_user_profile");
+      if (raw) { const { data } = JSON.parse(raw); return data?.profile || null; }
+    } catch {}
+    return null;
+  });
+  const [fsrsStats, setFsrsStats] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_fsrs_stats");
+      if (raw) { const { data } = JSON.parse(raw); return data; }
+    } catch {}
+    return null;
+  });
+  const [fsrsAnalytics, setFsrsAnalytics] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_fsrs_analytics");
+      if (raw) { const { data } = JSON.parse(raw); return data; }
+    } catch {}
+    return null;
+  });
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
 
   const [showUploadWizard, setShowUploadWizard] = useState(false);
@@ -83,10 +119,28 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  const [folders, setFolders] = useState({ own: [], shared: [], bookmarked: [] });
-  const [folderBookmarkedIds, setFolderBookmarkedIds] = useState(new Set());
+  const [folders, setFolders] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_folders");
+      if (raw) { const { data } = JSON.parse(raw); return data || { own: [], shared: [], bookmarked: [] }; }
+    } catch {}
+    return { own: [], shared: [], bookmarked: [] };
+  });
+  const [folderBookmarkedIds, setFolderBookmarkedIds] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_folders");
+      if (raw) { const { data } = JSON.parse(raw); return new Set((data?.bookmarked || []).map((f) => f.id)); }
+    } catch {}
+    return new Set();
+  });
   const [folderBookmarkBusyId, setFolderBookmarkBusyId] = useState(null);
-  const [communityFolders, setCommunityFolders] = useState([]);
+  const [communityFolders, setCommunityFolders] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_community_folders");
+      if (raw) { const { data } = JSON.parse(raw); if (Array.isArray(data)) return data; }
+    } catch {}
+    return [];
+  });
   const [activeFolder, setActiveFolder] = useState(null);
   const [folderDetail, setFolderDetail] = useState(null);
   const [folderLoading, setFolderLoading] = useState(false);
@@ -99,7 +153,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [newFolderDeptIds, setNewFolderDeptIds] = useState([]);
   const [userDept, setUserDept] = useState(null);
   const [activeFolderTab, setActiveFolderTab] = useState("materials");
-  const [mcqProgress, setMcqProgress] = useState({});
+  const [mcqProgress, setMcqProgress] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_mcq_progress");
+      if (raw) { const { data } = JSON.parse(raw); return data || {}; }
+    } catch {}
+    return {};
+  });
   const [sessionMode, setSessionMode] = useState(null); // { type: 'spaced'|'adaptive'|'exam'|'folder', subject, resourceIds, folder, mcqResources }
 
   const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, generate: generateFromMaterial, retry: retryMaterialGenerate, clearError: clearMaterialGenError } = useMaterialGenerate();
@@ -116,10 +176,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }, []);
 
   const fetchUserProfile = async () => {
+    const cacheKey = "sc_user_profile";
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts < CACHE_TTL) {
+          if (data?.profile) setUserProfile(data.profile);
+          if (data?.userDept) setUserDept(data.userDept);
+        }
+      }
+    } catch {}
     try {
       const data = await getMyProfile();
       if (data?.profile) setUserProfile(data.profile);
       if (data?.userDept) setUserDept(data.userDept);
+      try { localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() })); } catch {}
     } catch {}
   };
 
@@ -225,7 +297,32 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   };
 
+  const loadCached = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts < CACHE_TTL) return data;
+      }
+    } catch {}
+    return null;
+  };
+
+  const saveCached = (key, data) => {
+    try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
+  };
+
   const fetchBookmarks = async () => {
+    const cacheKey = "sc_bookmarks";
+    const cached = loadCached(cacheKey);
+    if (cached) {
+      setBookmarkedIds(new Set(cached.map((r) => r.id)));
+      const folderMap = {};
+      for (const r of cached) {
+        if (r.bookmarkFolderId) folderMap[r.id] = r.bookmarkFolderId;
+      }
+      setBookmarkFolderMap(folderMap);
+    }
     try {
       const res = await fetch(`${API_BASE}/api/resources/bookmarks`, { headers: getAuthHeaders() });
       if (res.ok) {
@@ -236,44 +333,79 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           if (r.bookmarkFolderId) folderMap[r.id] = r.bookmarkFolderId;
         }
         setBookmarkFolderMap(folderMap);
+        saveCached(cacheKey, data);
       }
     } catch {}
   };
 
   const fetchFsrsStats = async () => {
+    const cacheKey = "sc_fsrs_stats";
+    const cached = loadCached(cacheKey);
+    if (cached) setFsrsStats(cached);
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/stats`, { headers: getAuthHeaders() });
-      if (res.ok) setFsrsStats(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setFsrsStats(data);
+        saveCached(cacheKey, data);
+      }
     } catch {}
   };
 
   const fetchFsrsAnalytics = async () => {
+    const cacheKey = "sc_fsrs_analytics";
+    const cached = loadCached(cacheKey);
+    if (cached) setFsrsAnalytics(cached);
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/analytics?days=30`, { headers: getAuthHeaders() });
-      if (res.ok) setFsrsAnalytics(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setFsrsAnalytics(data);
+        saveCached(cacheKey, data);
+      }
     } catch {}
   };
 
   const fetchFolders = async () => {
+    const cacheKey = "sc_folders";
+    const cached = loadCached(cacheKey);
+    if (cached) {
+      setFolders(cached);
+      setFolderBookmarkedIds(new Set((cached.bookmarked || []).map((f) => f.id)));
+    }
     try {
       const data = await listFolders();
       setFolders(data);
       const bmIds = new Set((data.bookmarked || []).map((f) => f.id));
       setFolderBookmarkedIds(bmIds);
+      saveCached(cacheKey, data);
     } catch {}
   };
 
   const fetchCommunityFolders = async (searchTerm) => {
+    const cacheKey = "sc_community_folders";
+    if (!searchTerm) {
+      const cached = loadCached(cacheKey);
+      if (cached) setCommunityFolders(cached);
+    }
     try {
       const data = await listCommunityFolders(searchTerm);
       setCommunityFolders(data);
+      if (!searchTerm) saveCached(cacheKey, data);
     } catch {}
   };
 
   const fetchMcqProgress = async () => {
+    const cacheKey = "sc_mcq_progress";
+    const cached = loadCached(cacheKey);
+    if (cached) setMcqProgress(cached);
     try {
       const res = await fetch(`${API_BASE}/api/resources/my-mcq-progress`, { headers: getAuthHeaders() });
-      if (res.ok) setMcqProgress(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setMcqProgress(data);
+        saveCached(cacheKey, data);
+      }
     } catch {}
   };
 
