@@ -8633,6 +8633,10 @@ function App() {
 
               ["today", "Home", HomeIcon],
 
+              ["research-hub", "My Circle", Folder],
+
+              ["analytics", "Progress", BarChart3],
+
             ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
 
               <button
@@ -8687,21 +8691,21 @@ function App() {
 
           </div>
 
+          {isFaculty && (
+
           <div className="app-sidebar-section">
 
-            <span className="app-sidebar-label">Workspace</span>
+            <span className="app-sidebar-label">Faculty</span>
 
             {[
-
-              ["analytics", "Progress", BarChart3],
 
               ["classroom", "Classroom", School],
 
               ["resources", "Resources", BookOpen],
 
-              ["research-hub", "My Circle", Folder],
+              ["studygroups", "Groups", Users],
 
-            ].filter(([id]) => (!demoMode || !["classroom"].includes(id)) && (isFaculty || !["classroom", "resources"].includes(id))).map(([id, label, Icon]) => (
+            ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
 
               <button
 
@@ -8723,19 +8727,19 @@ function App() {
 
           </div>
 
+          )}
+
           <div className="app-sidebar-section">
 
             <span className="app-sidebar-label">Community</span>
 
             {[
 
-              ["studygroups", "Groups", Users],
-
               ["discuss", "Discussion", MessageCircle],
 
               ["timetable", "Schedule", CalendarDays],
 
-            ].filter(([id]) => isFaculty || id !== "studygroups").map(([id, label, Icon]) => (
+            ].map(([id, label, Icon]) => (
 
               <button
 
