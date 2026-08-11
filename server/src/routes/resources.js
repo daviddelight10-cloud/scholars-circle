@@ -1106,7 +1106,7 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const items = await prisma.pdfReviewItem.findMany({
       where,
       include: {
-        resource: { select: { id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true, mcqData: true } },
+        resource: { select: { id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true, mcqData: true, folderId: true, folder: { select: { id: true, name: true } } } },
       },
       orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
     });
@@ -1169,9 +1169,23 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
       byTopic[key].push(item);
     }
 
+    // Group by folder for folder-tab navigation
+    const byFolder = {};
+    for (const item of enriched) {
+      const folderId = item.resource?.folderId || null;
+      const folderName = item.resource?.folder?.name || "Unfiled";
+      const key = folderId || "__unfiled__";
+      if (!byFolder[key]) {
+        byFolder[key] = { folderId, folderName, items: [], dueCount: 0 };
+      }
+      byFolder[key].items.push(item);
+      byFolder[key].dueCount++;
+    }
+
     res.json({
       items: enriched,
       byTopic,
+      byFolder,
       totalDue: items.length,
       dailyGoal,
       dailyCap,

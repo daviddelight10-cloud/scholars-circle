@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
@@ -42,15 +42,26 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
   const [fsrsStats, setFsrsStats] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
 
+  // Folder selection
+  const [selectedFolder, setSelectedFolder] = useState(null); // null = show folder picker
+  const [byFolder, setByFolder] = useState({});
+  const [allItems, setAllItems] = useState([]);
+
+  // Short-answer text answers
+  const [saTextAnswers, setSaTextAnswers] = useState({}); // { questionId: typedText }
+
+  // Scroll container ref for auto-scroll on item change
+  const scrollRef = useRef(null);
+
   const fetchDue = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/due?limit=50`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
-        setItems(data.items || []);
+        setAllItems(data.items || []);
+        setByFolder(data.byFolder || {});
         setDailyGoal(data.dailyGoal || 20);
-        setSessionStats(prev => ({ ...prev, total: Math.min((data.items || []).length, data.dailyCap || data.dailyGoal || 20) }));
       } else {
         setError("Failed to load review items");
       }
@@ -61,6 +72,29 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
   }, []);
 
   useEffect(() => { fetchDue(); }, [fetchDue]);
+
+  // When a folder is selected, set items and session stats
+  useEffect(() => {
+    if (!selectedFolder) return;
+    let folderItems;
+    if (selectedFolder === "__all__") {
+      folderItems = allItems;
+    } else if (byFolder[selectedFolder]) {
+      folderItems = byFolder[selectedFolder].items;
+    } else {
+      return;
+    }
+    setItems(folderItems);
+    setCurrentIdx(0);
+    setSessionStats({ reviewed: 0, correct: 0, total: Math.min(folderItems.length, dailyGoal || 20) });
+  }, [selectedFolder, byFolder, allItems, dailyGoal]);
+
+  // Scroll to top when current item changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [currentIdx]);
 
   const fetchFsrsStats = useCallback(async () => {
     try {
@@ -94,6 +128,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
     setPageQuestionsLoading(true);
     setPageQuestions(null);
     setPageAnswers({});
+    setSaTextAnswers({});
     setPageQuizSubmitted(false);
     setPageQuizStep("mcq");
     setSaAssessments({});
@@ -173,6 +208,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
       setRating(null);
       setPageQuestions(null);
       setPageAnswers({});
+      setSaTextAnswers({});
       setPageQuizSubmitted(false);
       setPageQuizStep("mcq");
       setSaAssessments({});
@@ -215,6 +251,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
         setCurrentIdx(i => i + 1);
         setShowAnswer(false);
         setRating(null);
+        setSaTextAnswers({});
       }
     }, 500);
   };
@@ -235,6 +272,75 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
         <div className="mb-3 text-sm text-[#ef4444]">{error}</div>
         <button onClick={fetchDue} className="mr-2 cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-5 py-2 text-[11px] font-bold text-gold transition-all active:scale-95">Retry</button>
         <button onClick={onBack} className="cursor-pointer rounded-lg border border-hub-border px-5 py-2 text-[11px] text-hub-text-muted transition-all active:scale-95">← Back</button>
+      </div>
+    );
+  }
+
+  // ── Folder Selection Screen ──
+  if (!selectedFolder) {
+    const folderEntries = Object.entries(byFolder).sort((a, b) => b[1].dueCount - a[1].dueCount);
+    const totalDue = allItems.length;
+    return (
+      <div className="mx-auto flex h-full w-full max-w-[600px] flex-col">
+        <div className="shrink-0 border-b border-hub-border p-3">
+          <div className="flex items-center justify-between">
+            <button onClick={onBack} className="cursor-pointer text-[11px] text-hub-text-muted">← Back</button>
+            <span className="text-[11px] font-semibold text-hub-text-muted">{totalDue} items due</span>
+            <span className="text-[10px] text-hub-text-dim">Daily Review</span>
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <div className="mb-4 text-center">
+            <div className="text-lg font-bold text-hub-text">📚 Daily Review</div>
+            <div className="mt-1 text-[11px] text-hub-text-dim">Select a folder to review its due items</div>
+          </div>
+
+          {/* All folders button */}
+          {folderEntries.length > 1 && (
+            <button
+              onClick={() => setSelectedFolder("__all__")}
+              className="mb-3 w-full cursor-pointer rounded-xl border border-gold-border bg-gold-dim p-4 text-left transition-all active:scale-[0.98]"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-gold">📋 All Folders</span>
+                <span className="rounded-full bg-gold-dim px-2 py-0.5 text-[11px] font-bold text-gold">{totalDue} due</span>
+              </div>
+              <div className="mt-1 text-[10px] text-hub-text-dim">Review items from all folders</div>
+            </button>
+          )}
+
+          {/* Individual folder cards */}
+          <div className="space-y-2">
+            {folderEntries.map(([key, f]) => (
+              <button
+                key={key}
+                onClick={() => setSelectedFolder(key)}
+                className="w-full cursor-pointer rounded-xl border border-hub-border bg-[#0d0f20] p-4 text-left transition-all hover:border-hub-text-dim active:scale-[0.98]"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-hub-text">
+                    {key === "__unfiled__" ? "📁 Unfiled" : `📁 ${f.folderName}`}
+                  </span>
+                  <span className="rounded-full bg-hub-bg px-2 py-0.5 text-[11px] font-bold text-hub-text-muted">{f.dueCount} due</span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-hub-text-dim">
+                  <span>{f.items.filter(i => i.itemType === "page").length} pages</span>
+                  <span>·</span>
+                  <span>{f.items.filter(i => i.itemType === "mcq" || i.itemType === "legacy_mcq").length} MCQs</span>
+                  <span>·</span>
+                  <span>{f.items.filter(i => i.itemType === "flashcard").length} flashcards</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {folderEntries.length === 0 && (
+            <div className="py-10 text-center">
+              <div className="mb-2 text-4xl">✅</div>
+              <div className="text-sm text-hub-text-dim">No items due for review.</div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -266,7 +372,12 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
           </div>
         )}
 
-        <button onClick={onBack} className="mt-4 cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-6 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">← Back to Hub</button>
+        <div className="mt-4 flex justify-center gap-2">
+          {Object.keys(byFolder).length > 1 && (
+            <button onClick={() => setSelectedFolder(null)} className="cursor-pointer rounded-lg border border-hub-border px-5 py-2.5 text-[11px] text-hub-text-muted transition-all active:scale-95">← Folders</button>
+          )}
+          <button onClick={onBack} className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-6 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">← Back to Hub</button>
+        </div>
       </div>
     );
   }
@@ -359,7 +470,12 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
           </div>
         )}
 
-        <button onClick={onBack} className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-6 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">← Back to Hub</button>
+        <div className="mt-4 flex justify-center gap-2">
+          {Object.keys(byFolder).length > 1 && (
+            <button onClick={() => { setFinished(false); setSelectedFolder(null); }} className="cursor-pointer rounded-lg border border-hub-border px-5 py-2.5 text-[11px] text-hub-text-muted transition-all active:scale-95">← Folders</button>
+          )}
+          <button onClick={onBack} className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-6 py-2.5 text-[11px] font-bold text-gold transition-all active:scale-95">← Back to Hub</button>
+        </div>
       </div>
     );
   }
@@ -374,11 +490,13 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
       {/* Header */}
       <div className="shrink-0 border-b border-hub-border p-3">
         <div className="mb-2 flex items-center justify-between">
-          <button onClick={onBack} className="cursor-pointer text-[11px] text-hub-text-muted">← Back</button>
+          <button onClick={() => setSelectedFolder(null)} className="cursor-pointer text-[11px] text-hub-text-muted">← Folders</button>
           <span className="text-[11px] font-semibold text-hub-text-muted">
             {sessionStats.reviewed}/{sessionStats.total} · Goal: {dailyGoal}
           </span>
-          <span className="text-[10px] text-hub-text-dim">{typeLabel}</span>
+          <span className="text-[10px] text-hub-text-dim">
+            {selectedFolder === "__all__" ? "All" : byFolder[selectedFolder]?.folderName || "Review"}
+          </span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-hub-bg">
           <div className="h-full rounded-full bg-gradient-to-r from-gold to-[#22c55e] transition-all duration-300" style={{ width: `${progressPct}%` }} />
@@ -386,7 +504,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
       </div>
 
       {/* Card */}
-      <div className="flex flex-1 flex-col items-center justify-center overflow-auto p-4">
+      <div ref={scrollRef} className="flex flex-1 flex-col items-center overflow-auto p-4 pt-6">
         {/* FSRS state indicator */}
         <div className="mb-3 text-center text-[10px] text-hub-text-dim">
           {STATE_LABELS[currentItem.state] || ""} · {currentItem.reps || 0} reps · {currentItem.lapses > 0 ? `${currentItem.lapses} lapses` : "No lapses"}
@@ -517,6 +635,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                 {/* Short-answer questions */}
                 {pageQuestions.questions.filter(q => q.questionType === "short_answer").map((q, qi) => {
                   const saRating = saAssessments[q.id];
+                  const saText = saTextAnswers[q.id] || "";
                   return (
                   <div key={q.id} className="rounded-lg border border-hub-border bg-hub-bg p-3">
                     <div className="mb-2 text-[11px] font-semibold text-hub-text">
@@ -524,6 +643,11 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                     </div>
                     {pageQuizSubmitted ? (
                       <>
+                        {saText && (
+                          <div className="mb-2 rounded-lg bg-hub-bg p-2 text-[11px] text-hub-text-muted border border-hub-border">
+                            <span className="font-bold text-[10px] uppercase text-hub-text-dim">Your Answer:</span> {saText}
+                          </div>
+                        )}
                         <div className="rounded-lg bg-[#0f2a1a] border border-[#22c55e] p-2 text-[11px] text-[#a5d6a7]">
                           <span className="font-bold text-[10px] uppercase">Model Answer:</span> {q.correctAnswer || "See explanation"}
                           {q.explanation && <div className="mt-1 text-[10px] opacity-70">{q.explanation}</div>}
@@ -551,9 +675,13 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                         )}
                       </>
                     ) : (
-                      <div className="text-[11px] text-hub-text-dim italic">
-                        Try to answer in 1-3 sentences, then submit to see the model answer.
-                      </div>
+                      <textarea
+                        value={saText}
+                        onChange={(e) => setSaTextAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                        placeholder="Type your answer here (1-3 sentences)…"
+                        rows={3}
+                        className="w-full rounded-lg border border-hub-border bg-[#0a0a14] p-2.5 text-[11px] text-hub-text placeholder:text-hub-text-dim focus:border-gold-border focus:outline-none resize-none"
+                      />
                     )}
                   </div>
                 );})}
