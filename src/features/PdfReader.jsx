@@ -2405,6 +2405,8 @@ ${extractedText}
       const poly = lassoPoints.current;
       lassoPoints.current = [];
       setLassoPath("");
+      setTool("none");
+      setAnnotateTab("none");
       if (poly.length < 4) return;
       await analyzeLasso(poly);
       return;
