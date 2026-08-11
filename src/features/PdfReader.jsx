@@ -5128,8 +5128,8 @@ ${extractedText}
         </main>
       </div>{/* end workspace */}
 
-          {/* Floating nav pill (mobile only) — page nav + zoom */}
-          {isMobile && !chromeHidden && !loading && !loadError && (
+          {/* Floating nav pill — page nav + zoom + circle-to-ask (mobile & desktop) */}
+          {!chromeHidden && !loading && !loadError && (
             <div style={s.navDock} onTouchStart={(e) => e.stopPropagation()}>
               <div style={s.navPill}>
                 <button
@@ -5156,6 +5156,30 @@ ${extractedText}
                 <span style={s.zoomChip}>{Math.round(scale * 100)}%</span>
                 <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+                <span style={s.navDivider} />
+                <button
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    height: 30,
+                    borderRadius: 999,
+                    padding: "0 12px",
+                    color: tool === "circle" ? "white" : CHROME.blue,
+                    background: tool === "circle" ? CHROME.blue : "rgba(79,142,247,0.12)",
+                    border: tool === "circle" ? "none" : "1px solid rgba(79,142,247,0.3)",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    fontFamily: "inherit",
+                    transition: "all 0.15s ease",
+                  }}
+                  onClick={() => toggleTool("circle")}
+                  title="Circle to Ask AI"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
+                  Ask AI
                 </button>
               </div>
             </div>
