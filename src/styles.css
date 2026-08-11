@@ -1969,10 +1969,9 @@ body {
 #root {
   overflow-y: auto;
   height: 100%;
-  overscroll-behavior: contain;
+  height: 100dvh;
+  overscroll-behavior: none;
   scroll-behavior: smooth;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 

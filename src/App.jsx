@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { lazyWithRetry } from "./lib/lazyWithRetry.js";
 
 import { useLocation, Link } from "react-router-dom";
@@ -8211,7 +8212,7 @@ function App() {
 
       {/* Mobile Bottom Navigation */}
 
-      {!(tab === "voice-tutor" && voiceSessionActive) && (
+      {!(tab === "voice-tutor" && voiceSessionActive) && createPortal(
       <nav className="mobile-nav">
 
         <button
@@ -8284,7 +8285,8 @@ function App() {
 
         </button>
 
-      </nav>
+      </nav>,
+      document.body
       )}
 
       {/* FAB Quick Actions — floating bottom-right like ResearchHub */}
