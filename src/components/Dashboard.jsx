@@ -6,6 +6,7 @@ import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
 import TopicSkeletonCard from "./home/TopicSkeletonCard.jsx";
 import TopicSkeletonView from "./home/TopicSkeletonView.jsx";
+import "../research-hub.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
