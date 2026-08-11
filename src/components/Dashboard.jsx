@@ -544,7 +544,7 @@ export default function Dashboard({
 
       {/* Daily Review overlay */}
       {showDailyReview && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0a0a0a", display: "flex", flexDirection: "column" }}>
+        <div className="fixed inset-0 z-[9999] flex flex-col bg-hub-bg">
           <DailyReview
             onBack={() => { setShowDailyReview(false); fetchFsrsStats(); }}
             onComplete={() => { fetchFsrsStats(); }}
