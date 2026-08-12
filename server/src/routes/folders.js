@@ -72,7 +72,7 @@ router.post("/", requireAuth, async (req, res) => {
 
     // Derive universityId from the user's profile or department
     let universityId = null;
-    const profile = await prisma.profile.findUnique({
+    const profile = await prisma.userProfile.findUnique({
       where: { userId: req.user.sub },
       select: { universityId: true },
     }).catch(() => null);
