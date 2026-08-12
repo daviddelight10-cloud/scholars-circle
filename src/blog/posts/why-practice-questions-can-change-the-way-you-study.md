@@ -1,4 +1,9 @@
-# Why Practice Questions Can Change the Way You Study
+---
+title: "Why Practice Questions Can Change the Way You Study"
+date: "2026-08-12"
+excerpt: "Reading gives you information. Practice helps you discover what you actually understand. Here's how practice questions transform passive studying into active learning."
+tags: ["study-tips", "practice-questions", "active-learning"]
+---
 
 Studying isn't just about reading through your notes and hoping you remember everything later.
 
