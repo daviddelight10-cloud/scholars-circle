@@ -1099,7 +1099,7 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 50));
     const subjectFilter = req.query.subject || null;
 
-    const where = { userId: req.user.sub, dueAt: { lte: now } };
+    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } } };
     if (subjectFilter) where.subject = subjectFilter;
 
     // Fetch ALL due items (not just `limit`) so we can prioritize properly before capping
@@ -1202,7 +1202,7 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
   try {
     const now = new Date();
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub },
+      where: { userId: req.user.sub, resource: { folderId: { not: null } } },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
     });
 
@@ -2027,6 +2027,7 @@ router.get("/fsrs/due-mcqs", requireAuth, async (req, res) => {
       userId: req.user.sub,
       itemType: { in: ["mcq", "legacy_mcq"] },
       dueAt: { lte: now },
+      resource: { folderId: { not: null } },
     };
 
     if (subject) {
