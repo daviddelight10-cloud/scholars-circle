@@ -305,6 +305,15 @@ export default function Dashboard({
 
   useEffect(() => { fetchFsrsStats(); }, [fetchFsrsStats]);
 
+  useEffect(() => {
+    const handler = () => {
+      try { localStorage.removeItem("sc_fsrs_stats"); } catch {}
+      fetchFsrsStats();
+    };
+    window.addEventListener("sc-fsrs-rated", handler);
+    return () => window.removeEventListener("sc-fsrs-rated", handler);
+  }, [fetchFsrsStats]);
+
   const [resourceCounts, setResourceCounts] = useState({ dept: 0, public: 0, saved: 0, uploads: 0 });
   const [forYouPreview, setForYouPreview] = useState([]);
 
@@ -397,6 +406,34 @@ export default function Dashboard({
   }, []);
 
   const sm2DueCount = dueCards?.length || 0;
+
+  const handleReviewQuestions = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/due-mcqs?limit=20`, { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.items || [];
+        if (items.length > 0) {
+          const questions = items.map((item) => {
+            const mcq = item.mcq || {};
+            return {
+              q: mcq.question || mcq.q || "Untitled question",
+              options: mcq.options || [],
+              answer: mcq.answer ?? mcq.correctIndex ?? 0,
+              explanation: mcq.explanation || "",
+              key: `fsrs-${item.id}`,
+              questionId: item.id,
+              subjectId: item.subject || "General",
+              _fsrs: { resourceId: item.resourceId, pageIndex: item.pageIndex, itemType: "mcq" },
+            };
+          });
+          onStartSpaced(questions);
+          return;
+        }
+      }
+    } catch {}
+    onStartSpaced();
+  }, [onStartSpaced]);
 
   const handleReviewReadings = useCallback(async () => {
     if (onOpenResource) {
@@ -500,7 +537,7 @@ export default function Dashboard({
             fsrsStats={fsrsStats}
             sm2DueCount={sm2DueCount}
             onStartDaily={() => setShowDailyReview(true)}
-            onReviewQuestions={onStartSpaced}
+            onReviewQuestions={handleReviewQuestions}
             onReviewReadings={handleReviewReadings}
           />
         </div>

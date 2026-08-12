@@ -195,6 +195,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
         }));
       }
     } catch {}
+    window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
   };
 
   const advanceToNext = () => {
@@ -235,6 +236,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
         }),
       });
     } catch {}
+    window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
 
     setSessionStats(prev => ({
       ...prev,

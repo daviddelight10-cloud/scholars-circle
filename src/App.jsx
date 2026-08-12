@@ -5687,15 +5687,13 @@ function App() {
 
 
 
-  function startSpacedReview() {
+  function startSpacedReview(questions) {
 
+    let cardsToReview = questions || dueCards;
 
+    if (demoMode && cardsToReview.length > DEMO_LIMITS.maxSpacedReviewCards) {
 
-    let cardsToReview = dueCards;
-
-    if (demoMode && dueCards.length > DEMO_LIMITS.maxSpacedReviewCards) {
-
-      cardsToReview = dueCards.slice(0, DEMO_LIMITS.maxSpacedReviewCards);
+      cardsToReview = cardsToReview.slice(0, DEMO_LIMITS.maxSpacedReviewCards);
 
       setTimeout(() => {
 
@@ -7034,6 +7032,31 @@ function App() {
               updateLearningModels(result.results);
 
               completeSession(result, activeSession.source);
+
+              if (activeSession.mode === "spaced" && (activeSession.questions || []).some((q) => q._fsrs)) {
+                const API_BASE_URL = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
+                try {
+                  const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+                  const hdrs = { Authorization: `Bearer ${authData.authToken}`, "Content-Type": "application/json" };
+                  activeSession.questions.forEach((q) => {
+                    if (!q._fsrs) return;
+                    const r = (result.results || []).find((res) => res.key === q.key);
+                    const grade = r?.correct ? 4 : 1;
+                    fetch(`${API_BASE_URL}/api/resources/fsrs/rate`, {
+                      method: "POST",
+                      headers: hdrs,
+                      body: JSON.stringify({
+                        resourceId: q._fsrs.resourceId,
+                        itemType: q._fsrs.itemType,
+                        pageIndex: q._fsrs.pageIndex,
+                        grade,
+                        subject: q.subjectId,
+                      }),
+                    }).catch(() => {});
+                  });
+                  window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
+                } catch {}
+              }
 
             }}
 
