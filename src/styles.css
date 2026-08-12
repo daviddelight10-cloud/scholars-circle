@@ -5320,6 +5320,75 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   to { opacity: 1; }
 }
 
+/* ─── Tab transition animation ─────────────────────────────────────────────── */
+.tab-enter {
+  animation: tabSlideIn 0.18s ease-out;
+}
+
+@keyframes tabSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Connection quality indicator ─────────────────────────────────────────── */
+.conn-quality-banner {
+  position: sticky;
+  top: 0;
+  z-index: 998;
+  background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.06));
+  border-bottom: 1px solid rgba(239,68,68,0.25);
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #f87171;
+  font-weight: 500;
+  animation: tabSlideIn 0.2s ease;
+}
+
+/* ─── Pull-to-refresh ──────────────────────────────────────────────────────── */
+.ptr-container {
+  position: relative;
+  overflow: hidden;
+}
+.ptr-indicator {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  color: var(--muted, #94a3b8);
+  font-size: 12px;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+.ptr-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid rgba(255,215,0,0.15);
+  border-top-color: #FFD700;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.ptr-arrow {
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+/* ─── Empty state illustration ─────────────────────────────────────────────── */
+.empty-illustration {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 16px;
+  opacity: 0.5;
+}
+
 /* ─── Offline banner ───────────────────────────────────────────────────────── */
 .offline-banner {
   position: fixed;

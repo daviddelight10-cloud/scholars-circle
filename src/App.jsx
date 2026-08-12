@@ -2,6 +2,9 @@
 import { createPortal } from "react-dom";
 import { lazyWithRetry } from "./lib/lazyWithRetry.js";
 
+import { haptics } from "./lib/haptics";
+import { useConnectionQuality } from "./lib/useConnectionQuality";
+
 import { useLocation, Link } from "react-router-dom";
 
 import { useToast } from "./components/Toast";
@@ -250,7 +253,7 @@ function App() {
 
   const toast = useToast();
 
-
+  const { quality: connQuality } = useConnectionQuality();
 
   const [tab, setTabRaw] = useState("today");
 
@@ -258,9 +261,16 @@ function App() {
 
   const prevTabRef = useRef("today");
 
+  const mainContentRef = useRef(null);
+
   const setTab = useCallback((newTab) => {
 
     setTabRaw((curr) => { prevTabRef.current = curr; return newTab; });
+    haptics.selection();
+
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({ top: 0, behavior: "instant" });
+    }
 
   }, []);
 
@@ -7073,6 +7083,14 @@ function App() {
         </div>
       )}
 
+      {/* Connection Quality Banner */}
+      {!isOffline && connQuality !== "good" && (
+        <div className="conn-quality-banner">
+          <span style={{ fontSize: 14 }}>{connQuality === "very-slow" ? "🐢" : "⚠️"}</span>
+          <span>{connQuality === "very-slow" ? "Very slow connection — some features may be delayed." : "Slow connection detected — content may take longer to load."}</span>
+        </div>
+      )}
+
       {/* PWA Update Toast */}
 
       {showUpdateToast && (
@@ -8879,6 +8897,8 @@ function App() {
 
 
 
+      <div key={tab} ref={mainContentRef} className="tab-enter" style={{ minHeight: "calc(100dvh - 60px)" }}>
+
       {tab === "today" && (
 
 
@@ -10290,6 +10310,8 @@ function App() {
           </div>
         </div>
       )}
+
+      </div>
 
       <InstallPrompt />
 

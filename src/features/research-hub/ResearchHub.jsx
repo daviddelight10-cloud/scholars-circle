@@ -3,6 +3,8 @@ import { copyShareToken } from "../../lib/researchUtils";
 import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder } from "../../lib/foldersApi";
 import { getMyProfile } from "../../lib/profileApi.js";
 import { setUserDepartment } from "../../lib/departments.js";
+import { haptics } from "../../lib/haptics";
+import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
 
@@ -194,6 +196,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       try { localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() })); } catch {}
     } catch {}
   };
+
+  const refreshAll = useCallback(async () => {
+    haptics.medium();
+    await Promise.all([
+      fetchResources(),
+      fetchFsrsStats(),
+      fetchFsrsAnalytics(),
+      fetchFolders(),
+      fetchCommunityFolders(),
+      fetchBookmarks(),
+      fetchMcqProgress(),
+    ]);
+  }, []);
+
+  const ptr = usePullToRefresh(refreshAll);
 
   useEffect(() => {
     const handler = (e) => {
@@ -427,6 +444,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) { showToast("Folder name required"); return; }
+    haptics.medium();
     if (newFolderVisibility === "shared" && newFolderDeptIds.length === 0) {
       showToast("Please select a department to share with");
       return;
@@ -489,6 +507,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const handleToggleFolderBookmark = useCallback(async (folder) => {
     if (!folder?.id) return;
     const isBookmarked = folderBookmarkedIds.has(folder.id);
+    haptics.light();
     setFolderBookmarkBusyId(folder.id);
     // Optimistic update
     setFolderBookmarkedIds((prev) => {
@@ -687,6 +706,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     const allIds = [resource.id, ...derivedIds];
     if (isBookmarked) {
       // Unbookmark directly — no picker needed
+      haptics.light();
       setBookmarkBusyId(resource.id);
       const prevIds = bookmarkedIds;
       setBookmarkedIds((prev) => {
@@ -714,12 +734,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       }).finally(() => setBookmarkBusyId(null));
     } else {
       // Show the space picker
+      haptics.selection();
       setBookmarkTarget(resource);
       setShowBookmarkPicker(true);
     }
   }, [bookmarkedIds]);
 
   const handleBookmarkWithFolder = useCallback(async (resource, folderId) => {
+    haptics.success();
     setBookmarkBusyId(resource.id);
     const prevIds = bookmarkedIds;
     const derivedIds = (resource.derivedResources || []).map((r) => r.id);
@@ -1219,7 +1241,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }
 
   return (
-    <div className="mx-auto max-w-[1200px] p-4 sm:p-6">
+    <div ref={ptr.ref} className="ptr-container mx-auto max-w-[1200px] p-4 sm:p-6">
+      <div style={ptr.indicatorStyle} className="ptr-indicator">
+        {ptr.showSpinner ? (
+          <div className="ptr-spinner" />
+        ) : (
+          <span className="ptr-arrow" style={{ transform: `rotate(${ptr.pullDistance > ptr.THRESHOLD ? 180 : 0}deg)` }}>↓</span>
+        )}
+        <span>{ptr.isRefreshing ? "Refreshing…" : "Pull to refresh"}</span>
+      </div>
       <div className="mc-sticky-header -mx-4 mb-6 px-4 sm:-mx-6 sm:px-6">
         <div className="flex flex-col items-center pt-2 text-center">
           <h1 className="text-gradient-gold text-2xl font-extrabold tracking-tight sm:text-3xl">My Circle</h1>
