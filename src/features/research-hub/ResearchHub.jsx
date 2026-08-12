@@ -836,7 +836,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }, 300);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60_000);
+    const timeoutId = setTimeout(() => controller.abort(), 300_000);
 
     try {
       const response = await fetch(`${API_BASE}/api/resources`, {
@@ -877,7 +877,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       setUploading(false);
       console.error("[upload] fetch error:", err);
       const msg = err.name === "AbortError"
-        ? "Upload timed out after 60s — check your connection and try again"
+        ? "Upload timed out after 5min — check your connection and try again"
         : err.message === "Failed to fetch"
         ? "Network error — check your connection and try again"
         : (err.message || "Upload failed");
@@ -908,7 +908,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     const token = authData.authToken;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60_000);
+    const timeoutId = setTimeout(() => controller.abort(), 300_000);
 
     fetch(`${API_BASE}/api/resources/study-tool-save`, {
       method: "POST",
@@ -949,7 +949,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         clearTimeout(timeoutId);
         setUploading(false);
         const errMsg = err.name === "AbortError"
-          ? "Save timed out after 60s — check your connection and try again"
+          ? "Save timed out after 5min — check your connection and try again"
           : (err.message || "Failed to save — try again");
         setUploadError(errMsg);
         showToast(errMsg);
