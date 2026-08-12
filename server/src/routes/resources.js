@@ -1207,6 +1207,9 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
     });
 
     const dueCount = items.filter((i) => new Date(i.dueAt) <= now).length;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const reviewedToday = items.filter((i) => i.lastReviewAt && new Date(i.lastReviewAt) >= todayStart).length;
     const learningCount = items.filter((i) => i.state === 1 || i.state === 3).length;
     const masteredCount = items.filter((i) => isMastered(i)).length;
     const newCount = items.filter((i) => i.state === 0).length;
@@ -1249,6 +1252,7 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
     res.json({
       totalItems: items.length,
       dueCount,
+      reviewedToday,
       learningCount,
       masteredCount,
       newCount,

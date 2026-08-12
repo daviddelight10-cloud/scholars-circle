@@ -49,6 +49,7 @@ function getInitials(name) {
 
 function HeroCard({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions, onReviewReadings }) {
   const dueCount = fsrsStats?.dueCount || 0;
+  const reviewedToday = fsrsStats?.reviewedToday || 0;
   const totalDue = dueCount + sm2DueCount;
   const dailyGoal = fsrsStats?.dailyGoal || 20;
   const masteredCount = fsrsStats?.masteredCount || 0;
@@ -57,7 +58,7 @@ function HeroCard({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions, onR
   const retentionPct = Math.round((fsrsStats?.avgRetrievability || 0) * 100);
   const r = 27;
   const circumference = 2 * Math.PI * r;
-  const goalPct = dailyGoal > 0 ? Math.min(100, Math.round((Math.min(dueCount, dailyGoal) / dailyGoal) * 100)) : 0;
+  const goalPct = dailyGoal > 0 ? Math.min(100, Math.round((Math.min(reviewedToday, dailyGoal) / dailyGoal) * 100)) : 0;
   const offset = circumference - (circumference * goalPct / 100);
 
   return (
@@ -86,7 +87,7 @@ function HeroCard({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions, onR
               style={{ filter: "drop-shadow(0 0 6px rgba(245,166,35,0.7))" }} />
           </svg>
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <b style={{ fontFamily: FONTS.mono, fontSize: 12, fontWeight: 600, color: D.textHi }}>{Math.min(dueCount, dailyGoal)}/{dailyGoal}</b>
+            <b style={{ fontFamily: FONTS.mono, fontSize: 12, fontWeight: 600, color: D.textHi }}>{Math.min(reviewedToday, dailyGoal)}/{dailyGoal}</b>
             <small style={{ fontSize: "7.5px", color: D.textLow, letterSpacing: "0.05em" }}>TODAY</small>
           </div>
         </div>
@@ -416,10 +417,15 @@ export default function Dashboard({
         if (items.length > 0) {
           const questions = items.map((item) => {
             const mcq = item.mcq || {};
+            const rawOpts = mcq.options || {};
+            const optArr = Array.isArray(rawOpts) ? rawOpts : Object.values(rawOpts);
+            const correctIdx = typeof mcq.correct === "string"
+              ? mcq.correct.charCodeAt(0) - 65
+              : mcq.answer ?? mcq.correctIndex ?? 0;
             return {
               q: mcq.question || mcq.q || "Untitled question",
-              options: mcq.options || [],
-              answer: mcq.answer ?? mcq.correctIndex ?? 0,
+              options: optArr,
+              answer: correctIdx,
               explanation: mcq.explanation || "",
               key: `fsrs-${item.id}`,
               questionId: item.id,
