@@ -17,6 +17,8 @@ function loadPosts() {
       date: frontmatter.date || new Date().toISOString().split('T')[0],
       excerpt: frontmatter.excerpt || '',
       tags: frontmatter.tags || [],
+      ogImage: frontmatter.ogImage || null,
+      readingTime: frontmatter.readingTime || null,
       content,
     };
   }).sort((a, b) => new Date(b.date) - new Date(a.date));

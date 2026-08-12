@@ -54,7 +54,12 @@ export default function BlogList() {
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: text }}>{post.title}</h2>
                 <p style={{ color: textDim, fontSize: '0.92rem', flex: 1 }}>{post.excerpt}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: `1px solid ${line}` }}>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', color: textFaint }}>{formatDate(post.date)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', color: textFaint }}>{formatDate(post.date)}</span>
+                    {post.readingTime && (
+                      <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', color: textFaint }}>· {post.readingTime} min read</span>
+                    )}
+                  </div>
                   <span style={{ fontSize: '0.82rem', fontWeight: 600, color: gold }}>Read more →</span>
                 </div>
               </Link>

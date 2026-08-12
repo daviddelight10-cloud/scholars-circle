@@ -3,11 +3,11 @@ title: "How to Use Spaced Repetition for WAEC, NECO and JAMB"
 date: "2026-08-09"
 excerpt: "Spaced repetition is the most evidence-backed study technique. Here's how to apply it to Nigerian exams like WAEC, NECO and JAMB."
 tags: ["study-tips", "spaced-repetition", "exam-prep"]
+ogImage: "/blog/images/how-to-use-spaced-repetition-for-waec-neco-jamb.png"
+readingTime: 3
 ---
 
-# How to Use Spaced Repetition for WAEC, NECO and JAMB
-
-If you've ever read a chapter three times and still blanked on exam day, you're not alone. The problem isn't your memory — it's **how** you're reviewing.
+If you've ever read a chapter three times and still blanked on exam day, you're not alone. The problem isn't your memory — it's **how** you're reviewing. To understand why this works, read [The Science of Spaced Repetition](/blog/science-of-spaced-repetition).
 
 ## What is Spaced Repetition?
 
@@ -43,7 +43,7 @@ But each review **resets** the forgetting curve, and the next review can be spac
 
 ## The SM-2 Algorithm
 
-Scholar's Circle uses the **SM-2 algorithm** — the same one powering Anki. Here's how it works:
+Scholar's Circle uses the **SM-2 algorithm** — the same one powering Anki. [Learn the science behind it](/blog/science-of-spaced-repetition). Here's how it works:
 
 - After each review, you rate how well you remembered (1–5)
 - The algorithm calculates when to show the item next

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -21,6 +21,22 @@ export default function BlogPost() {
   if (!post) return <Navigate to="/blog" replace />;
 
   const related = posts.filter(p => p.slug !== slug && p.tags.some(t => post.tags.includes(t))).slice(0, 2);
+
+  useEffect(() => {
+    if (post.ogImage) {
+      let meta = document.querySelector('meta[property="og:image"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('property', 'og:image');
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', `https://scholarscircle.com.ng${post.ogImage}`);
+    }
+    if (post.title) {
+      document.title = `${post.title} — Scholar's Circle Blog`;
+    }
+    return () => { document.title = "Scholar's Circle"; };
+  }, [post]);
 
   return (
     <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 17, lineHeight: 1.7, minHeight: '100vh' }}>
@@ -63,7 +79,7 @@ export default function BlogPost() {
             ))}
           </div>
           <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, marginBottom: 14, lineHeight: 1.15 }}>{post.title}</h1>
-          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', color: textFaint, marginBottom: 40 }}>{formatDate(post.date)}</p>
+          <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', color: textFaint, marginBottom: 40 }}>{formatDate(post.date)}{post.readingTime ? ` · ${post.readingTime} min read` : ''}</p>
 
           <div className="prose">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.content}</ReactMarkdown>

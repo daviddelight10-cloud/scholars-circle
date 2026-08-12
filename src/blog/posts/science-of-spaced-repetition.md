@@ -3,9 +3,9 @@ title: "The Science of Spaced Repetition: Why Cramming Doesn't Work"
 date: "2026-08-07"
 excerpt: "Why does cramming feel productive but fail on exam day? The answer lies in how your brain actually stores memories."
 tags: ["study-tips", "spaced-repetition", "science"]
+ogImage: "/blog/images/science-of-spaced-repetition.png"
+readingTime: 3
 ---
-
-# The Science of Spaced Repetition: Why Cramming Doesn't Work
 
 You've been there. Exam is tomorrow. You read the entire textbook in one sitting. You feel prepared. Then you open the question paper and... nothing.
 
@@ -68,7 +68,7 @@ Hermann Ebbinghaus discovered the spacing effect in 1885. He found that:
 | 5th | 2 weeks later |
 | 6th | 1 month later |
 
-This is roughly what the SM-2 algorithm does — but it adjusts based on your performance.
+This is roughly what the SM-2 algorithm does — but it adjusts based on your performance. For a practical guide on applying this to Nigerian exams, see [How to Use Spaced Repetition for WAEC, NECO and JAMB](/blog/how-to-use-spaced-repetition-for-waec-neco-jamb).
 
 ### Let Technology Help
 
