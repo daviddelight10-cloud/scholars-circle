@@ -3015,6 +3015,14 @@ function App() {
 
 
 
+      const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+      if (redirectParam && redirectParam.startsWith('/')) {
+        window.location.href = redirectParam;
+        return;
+      }
+
+
+
       return;
 
 
@@ -3377,6 +3385,14 @@ function App() {
         },
 
       });
+
+
+
+      const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+      if (redirectParam && redirectParam.startsWith('/')) {
+        window.location.href = redirectParam;
+        return;
+      }
 
     } catch (e) {
 
@@ -6486,7 +6502,7 @@ function App() {
                     onClick={async () => {
                       const { error: oauthError } = await supabase.auth.signInWithOAuth({
                         provider: "google",
-                        options: { redirectTo: `${window.location.origin}/app` },
+                        options: { redirectTo: `${window.location.origin}${new URLSearchParams(window.location.search).get('redirect') || '/app'}` },
                       });
                       if (oauthError) {
                         setAuth((a) => ({ ...a, error: oauthError.message, info: "" }));
@@ -6623,7 +6639,7 @@ function App() {
                     onClick={async () => {
                       const { error: oauthError } = await supabase.auth.signInWithOAuth({
                         provider: "google",
-                        options: { redirectTo: `${window.location.origin}/app` },
+                        options: { redirectTo: `${window.location.origin}${new URLSearchParams(window.location.search).get('redirect') || '/app'}` },
                       });
                       if (oauthError) {
                         setAuth((a) => ({ ...a, error: oauthError.message, info: "" }));
