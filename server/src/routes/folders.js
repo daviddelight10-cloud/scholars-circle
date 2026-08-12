@@ -70,6 +70,28 @@ router.post("/", requireAuth, async (req, res) => {
       parsedDeptIds = Array.isArray(departmentIds) ? departmentIds : [departmentIds];
     }
 
+    // Derive universityId from the user's profile or department
+    let universityId = null;
+    const profile = await prisma.profile.findUnique({
+      where: { userId: req.user.sub },
+      select: { universityId: true },
+    }).catch(() => null);
+    if (profile?.universityId) {
+      universityId = profile.universityId;
+    } else if (parsedDeptIds.length > 0) {
+      const dept = await prisma.department.findUnique({
+        where: { id: parsedDeptIds[0] },
+        select: { universityId: true },
+      }).catch(() => null);
+      if (dept?.universityId) universityId = dept.universityId;
+    } else {
+      const userDept = await prisma.userDepartment.findUnique({
+        where: { userId: req.user.sub },
+        select: { universityId: true },
+      }).catch(() => null);
+      if (userDept?.universityId) universityId = userDept.universityId;
+    }
+
     const folder = await prisma.folder.create({
       data: {
         name: name.trim(),
@@ -78,6 +100,7 @@ router.post("/", requireAuth, async (req, res) => {
         visibility: finalVisibility,
         level: level || null,
         semester: semester || null,
+        universityId,
         shareToken,
         folderDepts: parsedDeptIds.length > 0 ? {
           create: parsedDeptIds.map((deptId) => ({ departmentId: deptId })),
@@ -86,6 +109,7 @@ router.post("/", requireAuth, async (req, res) => {
       include: {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
       },
     });
 
@@ -157,6 +181,7 @@ router.get("/", requireAuth, async (req, res) => {
       include: {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
         _count: { select: { resources: true } },
       },
       orderBy: { updatedAt: "desc" },
@@ -181,6 +206,7 @@ router.get("/", requireAuth, async (req, res) => {
           include: {
             folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
             owner: { select: { id: true, username: true, role: true } },
+            university: { select: { id: true, name: true } },
             _count: { select: { resources: true } },
           },
           orderBy: { updatedAt: "desc" },
@@ -196,6 +222,7 @@ router.get("/", requireAuth, async (req, res) => {
           include: {
             folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
             owner: { select: { id: true, username: true, role: true } },
+            university: { select: { id: true, name: true } },
             _count: { select: { resources: true } },
           },
         },
@@ -226,6 +253,7 @@ router.get("/shared/:shareToken", optionalAuth, async (req, res) => {
       include: {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
       },
     });
 
@@ -285,6 +313,7 @@ router.get("/:id", requireAuth, async (req, res) => {
       include: {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
       },
     });
 
@@ -455,6 +484,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       include: {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
       },
     });
 
