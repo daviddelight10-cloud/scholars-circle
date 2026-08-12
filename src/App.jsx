@@ -1322,7 +1322,7 @@ function App() {
 
 
 
-      { label: "Toggle Theme", kbd: "Ctrl/Cmd+D", run: () => setDarkMode((v) => !v) },
+      { label: "Toggle Theme", kbd: "Ctrl/Cmd+D", run: () => {} },
 
 
 
@@ -1561,7 +1561,7 @@ function App() {
 
 
 
-        setDarkMode(parsed.darkMode ?? true);
+        setDarkMode(true);
 
 
 
@@ -1659,7 +1659,7 @@ function App() {
 
         setCustomQuestions(parsed.customQuestions ?? []);
 
-        setDarkMode(parsed.darkMode ?? true);
+        setDarkMode(true);
 
         setLastStudied(parsed.lastStudied ?? null);
 
@@ -2096,7 +2096,7 @@ function App() {
 
         setCustomQuestions(parsed.customQuestions ?? []);
 
-        setDarkMode(parsed.darkMode ?? true);
+        setDarkMode(true);
 
         setLastStudied(parsed.lastStudied ?? null);
 
@@ -2559,7 +2559,7 @@ function App() {
 
 
 
-        darkMode,
+        darkMode: true,
 
 
 
@@ -2709,7 +2709,7 @@ function App() {
 
 
 
-          darkMode,
+          darkMode: true,
 
 
 
@@ -9905,13 +9905,10 @@ function App() {
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 13, fontWeight: 500, fontFamily: "'Manrope', sans-serif", color: "#9AA3B5" }}>Theme</span>
-            <button onClick={() => setDarkMode((v) => !v)} style={{ padding: "8px 16px", borderRadius: 99, border: `1px solid ${darkMode ? "rgba(61,214,140,0.3)" : "rgba(255,84,112,0.3)"}`, background: darkMode ? "rgba(61,214,140,0.12)" : "rgba(255,84,112,0.12)", color: darkMode ? "#3DD68C" : "#FF5470", fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "transform 0.15s ease" }}
-              onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.95)"}
-              onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+            <button disabled style={{ padding: "8px 16px", borderRadius: 99, border: "1px solid rgba(61,214,140,0.3)", background: "rgba(61,214,140,0.12)", color: "#3DD68C", fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", cursor: "default", display: "flex", alignItems: "center", gap: 6, opacity: 0.7 }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: darkMode ? "#3DD68C" : "#FF5470" }} />
-              {darkMode ? "Dark" : "Light"}
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3DD68C" }} />
+              Dark
             </button>
           </div>
         </div>
