@@ -5350,7 +5350,6 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
 /* ─── Pull-to-refresh ──────────────────────────────────────────────────────── */
 .ptr-container {
   position: relative;
-  overflow: hidden;
 }
 .ptr-indicator {
   position: absolute;
