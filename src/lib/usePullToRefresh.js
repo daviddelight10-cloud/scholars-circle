@@ -18,7 +18,8 @@ export function usePullToRefresh(onRefresh) {
 
   const handleTouchStart = useCallback((e) => {
     if (isRefreshingRef.current) return;
-    if (elRef.current && elRef.current.scrollTop > 0) return;
+    const scrollEl = document.getElementById("root") || document.scrollingElement || document.documentElement;
+    if (scrollEl && scrollEl.scrollTop > 0) return;
     startY.current = e.touches[0].clientY;
     pulling.current = true;
   }, []);
