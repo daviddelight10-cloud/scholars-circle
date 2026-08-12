@@ -4,8 +4,6 @@ import { useUserData } from "../contexts/UserDataContext";
 import { getMyProfile } from "../lib/profileApi.js";
 import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
-import TopicSkeletonCard from "./home/TopicSkeletonCard.jsx";
-import TopicSkeletonView from "./home/TopicSkeletonView.jsx";
 import "../research-hub.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
@@ -294,8 +292,6 @@ export default function Dashboard({
   const { lastActivity, srData } = useUserData();
   const [fsrsStats, setFsrsStats] = useState(null);
   const [showDailyReview, setShowDailyReview] = useState(false);
-  const [showSkeletonView, setShowSkeletonView] = useState(false);
-  const [skeletonCourse, setSkeletonCourse] = useState("");
 
   const fetchFsrsStats = useCallback(async () => {
     try {
@@ -548,15 +544,6 @@ export default function Dashboard({
           />
         </div>
 
-        {/* Course Roadmap card — prominent, full width */}
-        <div style={{ marginTop: 22 }}>
-          <TopicSkeletonCard
-            onOpenSkeleton={(course) => { setSkeletonCourse(course || ""); setShowSkeletonView(true); }}
-            token={token}
-            authUser={authUser}
-          />
-        </div>
-
         {/* Lower grid: main content + sidebar */}
         <div className="sc-lower-grid" style={{ marginTop: 0 }}>
           <div className="sc-lower-main">
@@ -597,21 +584,6 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* Topic Skeleton overlay */}
-      {showSkeletonView && (
-        <TopicSkeletonView
-          courseCode={skeletonCourse}
-          onExit={() => setShowSkeletonView(false)}
-          onOpenResource={onOpenResource}
-          onStartStudying={(topicCtx) => {
-            const title = typeof topicCtx === "string" ? topicCtx : topicCtx?.title;
-            const context = typeof topicCtx === "object" ? topicCtx : null;
-            onOpenStudy?.(title, "auto-roadmap", null, context);
-            setShowSkeletonView(false);
-          }}
-          authUser={authUser}
-        />
-      )}
     </div>
   );
 }
