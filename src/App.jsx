@@ -587,6 +587,11 @@ function App() {
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [loginEmailError, setLoginEmailError] = useState("");
+  const [loginPasswordError, setLoginPasswordError] = useState("");
+  const [signupEmailError, setSignupEmailError] = useState("");
+  const [signupPasswordError, setSignupPasswordError] = useState("");
 
 
 
@@ -2895,6 +2900,8 @@ function App() {
         email: trimmedEmail,
 
         password: trimmedPassword,
+
+        options: { persistSession: keepSignedIn },
 
       });
 
@@ -6143,6 +6150,7 @@ function App() {
           @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
           @keyframes sweep { from { transform: translateY(0); opacity: 1; } to { transform: translateY(420%); opacity: 0; } }
           @keyframes blink { 50% { opacity: 0; } }
+          @keyframes authFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
           .auth-orbit-ring { animation: spin 70s linear infinite; }
           .auth-orbit-chip span { display: inline-block; animation: counterspin 70s linear infinite; }
@@ -6150,6 +6158,18 @@ function App() {
           .auth-pulse-dot { animation: pulse 2s ease-in-out infinite; }
           .auth-scan-sweep { animation: sweep 2.6s ease-out 1; }
           .auth-cursor { animation: blink 1s steps(2) infinite; color: #FFD700; }
+          .auth-form-transition { animation: authFadeIn 0.3s ease-out; }
+          .auth-input-error { border-color: #f87171 !important; }
+          .auth-input-error:focus { box-shadow: 0 0 0 3px rgba(248,113,113,0.14) !important; }
+          .auth-mobile-banner { display: none; }
+          .auth-google-btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 12px; border-radius: 10px; font-size: 0.9rem;
+            background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            cursor: pointer; font-family: 'Manrope', sans-serif; font-weight: 600;
+            transition: border-color 0.15s ease;
+          }
+          .auth-google-btn:hover { border-color: #9AA3B5; }
 
           .auth-btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -6194,7 +6214,8 @@ function App() {
           @media (max-width: 900px) {
             .auth-shell { grid-template-columns: 1fr !important; }
             .auth-visual-panel { display: none !important; }
-            .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; }
+            .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; align-items: flex-start !important; padding-top: 60px !important; }
+            .auth-mobile-banner { display: flex !important; align-items: center; gap: 10px; margin-bottom: 28px; }
           }
           @media (max-width: 560px) {
             .auth-form-panel { padding: 24px 20px !important; }
@@ -6261,7 +6282,7 @@ function App() {
             {/* Top: Logo + boot line */}
             <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
               <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem', color: '#EDEFF5' }}>
-                <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#F5A623', boxShadow: '0 0 0 4px rgba(245,166,35,0.14)' }} />
+                <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 28, height: 28, borderRadius: 6 }} />
                 Scholar's Circle
               </Link>
               <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', color: '#646E84', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -6275,10 +6296,10 @@ function App() {
               <div style={{ position: 'relative', width: 340, height: 340 }}>
                 <div className="auth-orbit-ring" style={{ position: 'absolute', inset: 0, border: '1px dashed rgba(255,255,255,0.16)', borderRadius: '50%' }}>
                   {[
-                    { top: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BIO 111' },
-                    { top: '50%', left: 'auto', right: '-12px', transform: 'translateY(-50%)', label: 'CHM 111' },
-                    { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'PHY 111' },
-                    { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'MTH 111' },
+                    { top: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'ANA 111' },
+                    { top: '50%', left: 'auto', right: '-12px', transform: 'translateY(-50%)', label: 'PHY 121' },
+                    { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BHM 111' },
+                    { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'PAT 211' },
                   ].map((c, i) => (
                     <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                       <span>{c.label}</span>
@@ -6311,8 +6332,8 @@ function App() {
                     </span>
                   </div>
                 </div>
-                <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>+12 XP</div>
-                <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>4-day streak</div>
+                <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
+                <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
               </div>
             </div>
 
@@ -6320,14 +6341,23 @@ function App() {
             <div style={{ position: 'relative', zIndex: 2 }}>
               <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: '#646E84' }}>
                 <span className="auth-pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#3DD68C', marginRight: 8, boxShadow: '0 0 0 3px rgba(61,214,140,0.18)' }} />
-                1,284 students studying right now
+                1,284 medical students studying right now
               </span>
             </div>
           </div>
 
           {/* Form Panel */}
-          <div className="auth-form-panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 32px' }}>
+          <div className="auth-form-panel" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 32px 48px' }}>
             <div style={{ width: '100%', maxWidth: 380 }}>
+
+              {/* Mobile brand banner */}
+              <div className="auth-mobile-banner">
+                <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 32, height: 32, borderRadius: 6 }} />
+                <div>
+                  <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: '#EDEFF5', display: 'block' }}>Scholar's Circle</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: '#646E84' }}>Cram less. Remember more.</span>
+                </div>
+              </div>
 
               <a href="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
                 {'<- Back to home'}
@@ -6375,28 +6405,9 @@ function App() {
                 </>
               ) : (
               <>
-              {/* Tabs */}
-              <div style={{ position: 'relative', display: 'flex', gap: 4, background: '#11151E', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 999, padding: 4, marginBottom: 32 }}>
-                <button
-                  className={'auth-tab ' + (auth.mode === 'login' ? 'active' : '')}
-                  onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))}
-                >Sign in</button>
-                <button
-                  className={'auth-tab ' + (auth.mode === 'signup' ? 'active' : '')}
-                  onClick={() => setAuth((a) => ({ ...a, mode: 'signup', error: '', info: '' }))}
-                >Sign up</button>
-                <div style={{
-                  position: 'absolute', top: 4, left: 4,
-                  width: 'calc(50% - 4px)', height: 'calc(100% - 8px)',
-                  background: '#F5A623', borderRadius: 999,
-                  transition: 'transform 0.25s cubic-bezier(0.3,0.7,0.3,0.1)',
-                  transform: auth.mode === 'signup' ? 'translateX(100%)' : 'translateX(0)',
-                }} />
-              </div>
-
               {/* Sign In */}
               {auth.mode === 'login' ? (
-                <>
+                <div key="login" className="auth-form-transition">
                   <div style={{ marginBottom: 28 }}>
                     <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Welcome back</h1>
                     <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Your mastery ring missed you. Let's get back to it.</p>
@@ -6406,24 +6417,27 @@ function App() {
                     <div>
                       <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
                       <input
-                        className="auth-input"
+                        className={'auth-input' + (loginEmailError ? ' auth-input-error' : '')}
                         value={auth.email}
-                        onChange={(e) => setAuth((a) => ({ ...a, email: e.target.value.replace(/\s/g, '') }))}
+                        onChange={(e) => { setAuth((a) => ({ ...a, email: e.target.value.replace(/\s/g, '') })); setLoginEmailError(''); }}
+                        onBlur={() => { if (auth.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(auth.email)) setLoginEmailError('Please enter a valid email address'); }}
                         placeholder="you@email.com"
                         autoComplete="email"
                         type="email"
                         onKeyDown={(e) => { if (e.key === 'Enter') login(); }}
                       />
+                      {loginEmailError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{loginEmailError}</p>}
                     </div>
 
                     <div>
                       <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
                       <div style={{ position: 'relative' }}>
                         <input
-                          className="auth-input"
+                          className={'auth-input' + (loginPasswordError ? ' auth-input-error' : '')}
                           type={showLoginPassword ? 'text' : 'password'}
                           value={auth.password}
-                          onChange={(e) => setAuth((a) => ({ ...a, password: e.target.value }))}
+                          onChange={(e) => { setAuth((a) => ({ ...a, password: e.target.value })); setLoginPasswordError(''); }}
+                          onBlur={() => { if (auth.password && auth.password.length < 1) setLoginPasswordError('Please enter your password'); }}
                           placeholder="Enter your password"
                           autoComplete="current-password"
                           style={{ paddingRight: 40 }}
@@ -6438,6 +6452,7 @@ function App() {
                           {showLoginPassword ? 'Hide' : 'Show'}
                         </button>
                       </div>
+                      {loginPasswordError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{loginPasswordError}</p>}
                     </div>
 
                     <div style={{ textAlign: 'right', marginTop: -4 }}>
@@ -6451,7 +6466,7 @@ function App() {
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#9AA3B5', cursor: 'pointer' }}>
-                        <input type="checkbox" style={{ accentColor: '#F5A623', width: 15, height: 15 }} />Keep me signed in
+                        <input type="checkbox" checked={keepSignedIn} onChange={(e) => setKeepSignedIn(e.target.checked)} style={{ accentColor: '#F5A623', width: 15, height: 15 }} />Keep me signed in
                       </label>
                     </div>
 
@@ -6467,8 +6482,7 @@ function App() {
                   </div>
 
                   <button
-                    className="auth-btn auth-btn-ghost"
-                    style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: '0.9rem' }}
+                    className="auth-google-btn"
                     onClick={async () => {
                       const { error: oauthError } = await supabase.auth.signInWithOAuth({
                         provider: "google",
@@ -6479,19 +6493,20 @@ function App() {
                       }
                     }}
                   >
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                     Continue with Google
                   </button>
 
-                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.88rem', color: '#9AA3B5' }}>
-                    New here? <span onClick={() => setAuth((a) => ({ ...a, mode: 'signup', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Start your 2-day free trial</span>
+                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.9rem', color: '#9AA3B5' }}>
+                    No account? <span onClick={() => setAuth((a) => ({ ...a, mode: 'signup', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign up</span>
                   </p>
-                </>
+                </div>
               ) : (
                 /* Sign Up */
-                <>
+                <div key="signup" className="auth-form-transition">
                   <div style={{ marginBottom: 28 }}>
                     <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Join the Circle</h1>
-                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>2-day free trial. No card needed.</p>
+                    <p style={{ color: '#9AA3B5', fontSize: '0.94rem' }}>Start practicing in minutes. 2-day free trial, no card needed.</p>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -6508,23 +6523,27 @@ function App() {
                     <div>
                       <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Email</label>
                       <input
-                        className="auth-input"
+                        className={'auth-input' + (signupEmailError ? ' auth-input-error' : '')}
                         ref={signupEmailRef}
-                        onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, ''); }}
+                        onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, ''); setSignupEmailError(''); }}
+                        onBlur={(e) => { const val = (e.target.value || '').trim(); if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) setSignupEmailError('Please enter a valid email address'); }}
                         placeholder="you@email.com"
                         type="email"
                         autoComplete="email"
                       />
+                      {signupEmailError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{signupEmailError}</p>}
                     </div>
 
                     <div>
                       <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Password</label>
                       <div style={{ position: 'relative' }}>
                         <input
-                          className="auth-input"
+                          className={'auth-input' + (signupPasswordError ? ' auth-input-error' : '')}
                           ref={signupPasswordRef}
                           type={showSignupPassword ? 'text' : 'password'}
-                                                    placeholder="Min 8 characters"
+                          onChange={(e) => { setSignupPasswordError(''); }}
+                          onBlur={(e) => { const val = (e.target.value || '').trim(); if (val && val.length < 8) setSignupPasswordError('Password must be at least 8 characters'); }}
+                          placeholder="Min 8 characters"
                           autoComplete="new-password"
                           style={{ paddingRight: 40 }}
                         />
@@ -6537,6 +6556,7 @@ function App() {
                           {showSignupPassword ? 'Hide' : 'Show'}
                         </button>
                       </div>
+                      {signupPasswordError && <p style={{ color: '#f87171', fontSize: '0.78rem', marginTop: 6 }}>{signupPasswordError}</p>}
                     </div>
 
                     <div>
@@ -6546,7 +6566,7 @@ function App() {
                           className="auth-input"
                           ref={signupConfirmPasswordRef}
                           type={showSignupConfirmPassword ? 'text' : 'password'}
-                                                    placeholder="Re-enter your password"
+                          placeholder="Re-enter your password"
                           autoComplete="new-password"
                           style={{ paddingRight: 40 }}
                         />
@@ -6561,22 +6581,18 @@ function App() {
                       </div>
                     </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Role</label>
-                      <select
-                        className="auth-select"
-                        ref={signupRoleRef}
-                        onChange={(e) => { setAuth((a) => ({ ...a, signupRole: e.target.value })); }}
-                        defaultValue="STUDENT"
+                    <div style={{ textAlign: 'center', marginTop: -4 }}>
+                      <span
+                        onClick={() => setAuth((a) => ({ ...a, signupRole: a.signupRole === 'TEACHER' ? 'STUDENT' : 'TEACHER' }))}
+                        style={{ color: '#646E84', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
                       >
-                        <option value="STUDENT">Student</option>
-                        <option value="TEACHER">Teacher</option>
-                      </select>
+                        Are you a lecturer? <span style={{ color: '#F5A623' }}>{auth.signupRole === 'TEACHER' ? 'Switch back to student' : 'Click here'}</span>
+                      </span>
                     </div>
 
                     {auth.signupRole === 'TEACHER' && (
                       <div>
-                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Teacher invite code</label>
+                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Lecturer invite code</label>
                         <input
                           className="auth-input"
                           ref={signupInviteCodeRef}
@@ -6586,7 +6602,7 @@ function App() {
                       </div>
                     )}
 
-                    <label style={{ fontSize: '0.82rem', color: '#646E84', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
+                    <label style={{ fontSize: '0.88rem', color: '#9AA3B5', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
                       <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} />
                       <span>I agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Privacy Policy</a>.</span>
                     </label>
@@ -6596,10 +6612,32 @@ function App() {
                     </button>
                   </div>
 
-                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.88rem', color: '#9AA3B5' }}>
-                    Already circling back? <span onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0', color: '#646E84', fontSize: '0.78rem', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                    or
+                    <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                  </div>
+
+                  <button
+                    className="auth-google-btn"
+                    onClick={async () => {
+                      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+                        provider: "google",
+                        options: { redirectTo: `${window.location.origin}/app` },
+                      });
+                      if (oauthError) {
+                        setAuth((a) => ({ ...a, error: oauthError.message, info: "" }));
+                      }
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Sign up with Google
+                  </button>
+
+                  <p style={{ textAlign: 'center', marginTop: 26, fontSize: '0.9rem', color: '#9AA3B5' }}>
+                    Already have an account? <span onClick={() => setAuth((a) => ({ ...a, mode: 'login', error: '', info: '' }))} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Sign in</span>
                   </p>
-                </>
+                </div>
               )}
 
               </>
@@ -6620,26 +6658,9 @@ function App() {
               )}
 
               {/* Support */}
-              <div style={{ marginTop: 24, padding: 16, background: 'rgba(148,163,184,0.06)', borderRadius: 12, border: '1px solid rgba(148,163,184,0.15)' }}>
-                <p style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 600, color: '#9AA3B5' }}>Need help?</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <a
-                    href="https://wa.link/yj2em4?text=Hi%20Scholar's%20Circle%20team,%20I%20need%20help%20with%20my%20account."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#25D366', color: 'white', textDecoration: 'none', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
-                  >
-                    Chat on WhatsApp
-                  </a>
-                  <a
-                    href="tel:09028617178"
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFD700', color: 'white', textDecoration: 'none', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
-                  >
-                    Call: 09028617178
-                  </a>
-                </div>
-                <p style={{ marginTop: 8, fontSize: 11, textAlign: 'center', color: '#646E84' }}>
-                  Having trouble? Reach out and we'll help you right away.
+              <div style={{ marginTop: 20, textAlign: 'center' }}>
+                <p style={{ fontSize: '0.82rem', color: '#646E84' }}>
+                  Need help? <a href="https://wa.link/yj2em4?text=Hi%20Scholar's%20Circle%20team,%20I%20need%20help%20with%20my%20account." target="_blank" rel="noopener noreferrer" style={{ color: '#25D366', fontWeight: 600 }}>WhatsApp us</a> or <a href="tel:09028617178" style={{ color: '#FFD700', fontWeight: 600 }}>call 09028617178</a>
                 </p>
               </div>
 

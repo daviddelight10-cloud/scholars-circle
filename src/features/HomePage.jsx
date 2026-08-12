@@ -9,11 +9,11 @@ const FOUNDERS = [
     initials: 'DA',
     role: 'Co-Founder & Product Lead',
     roleShort: 'Product Lead',
-    bio: 'Delight leads the vision and development of Scholar\'s Circle, focusing on creating an intuitive learning experience that addresses the real needs of students.',
+    bio: '200L MBBS student at LCU. Built Scholar\'s Circle after watching classmates struggle with the same anatomy chapters semester after semester. Leads product vision and AI integration.',
     color: '#FFD700',
     bg: 'rgba(79,142,247,0.07)',
     border: 'rgba(79,142,247,0.2)',
-    tag: 'Product · UX · Strategy',
+    tag: 'Product · 200L MBBS',
     image: '/images/founder-delight.jpg',
   },
   {
@@ -22,11 +22,11 @@ const FOUNDERS = [
     initials: 'SA',
     role: 'Co-Founder & Operations Lead',
     roleShort: 'Operations Lead',
-    bio: 'Sarah oversees operations, student engagement, and strategic partnerships. She ensures Scholar\'s Circle remains aligned with the needs of students.',
+    bio: '200L MBBS student at LCU. Oversees student engagement and partnerships with medical departments. Knows exactly what a 2AM revision session feels like.',
     color: '#FF5470',
     bg: 'rgba(255,84,112,0.07)',
     border: 'rgba(255,84,112,0.2)',
-    tag: 'Operations · Partnerships',
+    tag: 'Operations · 200L MBBS',
     image: '/images/founder-sarah.jpg',
   },
   {
@@ -35,33 +35,42 @@ const FOUNDERS = [
     initials: 'GS',
     role: 'Co-Founder & Technology Lead',
     roleShort: 'Technology Lead',
-    bio: 'George focuses on technology strategy, platform performance, and scalability. He ensures Scholar\'s Circle delivers a secure, reliable learning experience.',
+    bio: '200L MBBS student at LCU. Handles the tech stack that powers Circle to Ask and spaced repetition. Believes medical students deserve better than photocopied past questions.',
     color: '#3DD68C',
     bg: 'rgba(61,214,140,0.07)',
     border: 'rgba(61,214,140,0.2)',
-    tag: 'Engineering · Infrastructure',
+    tag: 'Engineering · 200L MBBS',
     image: '/images/founder-george.jpg',
   },
 ];
 
 const TESTIMONIALS = [
   { quote: 'I stopped re-reading the same Anatomy chapter and started actually testing myself. My mastery ring doesn\'t lie to me.', by: '— 200L Medicine & Surgery' },
-  { quote: 'Circle to Ask saved me during BIO 111 revision. I could lasso a diagram at 1am and finally understand it.', by: '— 100L Medicine & Surgery' },
-  { quote: 'The streak feature is the only reason I opened my notes every single day this semester.', by: '— 200L Physiology' },
+  { quote: 'Circle to Ask saved me during ANA 111 revision. I could lasso a diagram at 1am and finally understand the brachial plexus.', by: '— 100L Medicine & Surgery' },
+  { quote: 'The streak feature is the only reason I opened my notes every single day before our first professional exam.', by: '— 300L Physiology' },
 ];
 
 const FEATURES = [
-  { tag: 'From your own notes', title: 'Circle to Ask', desc: 'Lasso any line, diagram or paragraph in your lecture PDF and ask Scholar\'s Circle to explain it — like leaning over to ask the sharpest person in your reading group.' },
-  { tag: 'Remembers what you forget', title: 'Spaced repetition that adapts', desc: 'An SM-2-based engine tracks every topic you\'ve practiced and brings back exactly what\'s about to slip — not what you already know cold.' },
-  { tag: 'You vs your last score', title: 'Practice that feels like a game', desc: 'Hearts, combos, XP and streaks turn revision into something you actually want to open at midnight, not something you dread.' },
-  { tag: 'Your department\'s shelf', title: 'Research & Teacher Hub', desc: 'Past questions, lecturer-uploaded material and shared resources, filtered to your exact department and year level.' },
+  { tag: 'From your own notes', title: 'Circle to Ask', desc: 'Lasso any anatomy diagram, pharmacology table, or pathology slide in your lecture PDF and ask Scholar\'s Circle to explain it — like leaning over to ask the sharpest person in your study group.' },
+  { tag: 'Remembers what you forget', title: 'Spaced repetition that adapts', desc: 'An SM-2-based engine tracks every topic you\'ve practiced — from embryology to clinical pharmacology — and brings back exactly what\'s about to slip, not what you already know cold.' },
+  { tag: 'You vs your last score', title: 'Practice that feels like a game', desc: 'Hearts, combos, XP and streaks turn MBBS revision into something you actually want to open at midnight, not something you dread before professional exams.' },
+  { tag: 'Your department\'s shelf', title: 'Research & Teacher Hub', desc: 'Past questions, lecturer-uploaded material, and shared resources for Medicine, Nursing, Pharmacy, Physiology, and more — filtered to your exact department and year level.' },
 ];
 
 const TIMELINE = [
-  { time: '7:42 AM', title: 'Upload today\'s lecture slide', desc: 'Straight from your phone, right after class — no scanning, no typing it out.', exam: false },
-  { time: '7:43 AM', title: 'Circle to Ask the diagram you didn\'t catch', desc: 'Lasso it, ask your question, get an answer grounded in that exact page.', exam: false },
-  { time: '8:15 AM', title: 'Five practice questions, generated on the spot', desc: 'From that exact slide — not generic trivia pulled off the internet.', exam: false },
-  { time: '11:50 PM', title: 'Spaced repetition resurfaces the three things you\'ll forget', desc: 'The ones you\'re actually likely to miss tomorrow — not a random reshuffle.', exam: true },
+  { time: '7:42 AM', title: 'Upload today\'s anatomy lecture slide', desc: 'Straight from your phone, right after the dissection hall — no scanning, no typing it out.', exam: false },
+  { time: '7:43 AM', title: 'Circle to Ask the diagram you didn\'t catch', desc: 'Lasso the brachial plexus diagram, ask your question, get an answer grounded in that exact page.', exam: false },
+  { time: '8:15 AM', title: 'Five practice questions, generated on the spot', desc: 'From that exact slide — clinical vignettes and MCQs, not generic trivia pulled off the internet.', exam: false },
+  { time: '11:50 PM', title: 'Spaced repetition resurfaces the three things you\'ll forget', desc: 'The embryology facts you\'re actually likely to miss in tomorrow\'s CBT — not a random reshuffle.', exam: true },
+];
+
+const FAQS = [
+  { q: 'Does this work with my school\'s curriculum?', a: 'Yes. Scholar\'s Circle generates practice questions from your own lecture PDFs and course material — so it\'s aligned to whatever your lecturers teach, whether you\'re at LCU, UI, OAU, UNILORIN, or anywhere else. Upload your notes, and the AI does the rest.' },
+  { q: 'Can I use it during clinical rotations?', a: 'Absolutely. Scholar\'s Circle is a PWA (Progressive Web App) — install it on your phone and use it offline during ward rounds, clinic postings, or commute to the teaching hospital. Your spaced repetition queue syncs the moment you\'re back online.' },
+  { q: 'Is this only for MBBS students?', a: 'No. While we built it as MBBS students, Scholar\'s Circle works for Nursing, Pharmacy, Physiology, Medical Laboratory Science, Anatomy, Public Health, Radiography, and other health-science programs. If your course has PDFs and past questions, it works for you.' },
+  { q: 'Will it replace my textbook?', a: 'No — it complements it. Textbooks give you the foundation; Scholar\'s Circle turns that foundation into active recall. Think of it as the bridge between reading Gray\'s Anatomy and actually remembering what you read when the examiner asks.' },
+  { q: 'How is this different from Anki?', a: 'Anki is powerful but requires you to manually create every flashcard — hours of work most medical students don\'t have. Scholar\'s Circle uses AI to generate clinical vignettes, MCQs, and flashcards directly from your lecture PDFs. No card creation. No copying diagrams by hand. Just upload and practice.' },
+  { q: 'What if I get a question wrong?', a: 'The spaced repetition engine immediately logs the topic as a weak area and schedules it to resurface sooner — before your next CBT or professional exam. You\'ll also see exactly which subjects and organ systems need more attention on your mastery ring.' },
 ];
 
 function useInView(threshold = 0.15) {
@@ -87,6 +96,7 @@ export default function HomePage() {
   const [isIOS, setIsIOS] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [openFaq, setOpenFaq] = useState(null);
   const ringRef = useRef(null);
   const heroRef = useRef(null);
   const windowWidth = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)[0];
@@ -241,13 +251,14 @@ export default function HomePage() {
       <header style={{ position: 'sticky', top: 0, zIndex: 50, background: isScrolled ? 'rgba(10,13,19,0.78)' : 'transparent', backdropFilter: isScrolled ? 'blur(14px) saturate(140%)' : 'none', borderBottom: `1px solid ${isScrolled ? line : 'transparent'}`, transition: 'all 0.3s ease', paddingTop: 'env(safe-area-inset-top)' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: gold, boxShadow: `0 0 0 4px rgba(245,166,35,0.14)` }} />
+            <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 28, height: 28, borderRadius: 6 }} />
             Scholar's Circle
           </Link>
           <nav className="nav-links" style={{ display: 'flex', gap: 32 }}>
             {[
               { label: 'Features', href: '#features' },
               { label: 'How it works', href: '#how' },
+              { label: 'FAQ', href: '#faq' },
               { label: 'Pricing', href: '#pricing' },
             ].map(l => (
               <a key={l.label} href={l.href} style={{ fontSize: '0.92rem', color: textDim, fontWeight: 600, transition: 'color 0.15s ease' }}
@@ -271,6 +282,7 @@ export default function HomePage() {
             {[
               { label: 'Features', href: '#features' },
               { label: 'How it works', href: '#how' },
+              { label: 'FAQ', href: '#faq' },
               { label: 'Pricing', href: '#pricing' },
             ].map(l => (
               <a key={l.label} href={l.href} onClick={() => setMenuOpen(false)} style={{ fontSize: '0.95rem', color: textDim, fontWeight: 600, padding: '6px 0' }}>{l.label}</a>
@@ -292,7 +304,7 @@ export default function HomePage() {
             {/* Left */}
             <div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
-                {['BIO 111', 'CHM 111', 'PHY 111', 'MTH 111', 'GST 115'].map(c => (
+                {['ANA 111', 'PHY 121', 'BHM 111', 'PAT 211', 'PHA 311'].map(c => (
                   <span key={c} style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', fontWeight: 500, letterSpacing: '0.03em', color: textDim, border: `1px solid ${lineStrong}`, borderRadius: 999, padding: '5px 11px' }}>{c}</span>
                 ))}
               </div>
@@ -302,23 +314,23 @@ export default function HomePage() {
                 Walk into the hall <span style={{ color: gold }}>ready.</span>
               </h1>
               <p style={{ fontSize: '1.1rem', color: textDim, maxWidth: 480, marginBottom: 30 }}>
-                Scholar's Circle turns your own lecture notes and course PDFs into practice questions and spaced-repetition flashcards. <b style={{ color: text, fontWeight: 700 }}>Built by MBBS students at LCU</b> who were tired of reading a chapter four times and still freezing on exam day.
+                Scholar's Circle turns your own lecture notes and course PDFs into practice questions and spaced-repetition flashcards — built for medical, nursing, pharmacy, and health-science students. <b style={{ color: text, fontWeight: 700 }}>Built by MBBS students at LCU</b> who were tired of reading an anatomy chapter four times and still freezing in the exam hall.
               </p>
               <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
                 <Link to="/signup" className="btn btn-primary btn-lg">Start your 2-day free trial →</Link>
                 <a href="#how" className="btn btn-ghost btn-lg">See how it works</a>
               </div>
-              <p style={{ fontSize: '0.8rem', color: textFaint, fontFamily: 'JetBrains Mono, monospace' }}>NO CARD NEEDED · WORKS WITH ANY COURSE, ANY DEPARTMENT</p>
+              <p style={{ fontSize: '0.8rem', color: textFaint, fontFamily: 'JetBrains Mono, monospace' }}>NO CARD NEEDED · BUILT FOR MEDICAL & HEALTH SCIENCE STUDENTS</p>
             </div>
 
             {/* Right — Mastery ring + orbit */}
             <div className="hero-visual" style={{ position: 'relative', height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div className="orbit-ring" style={{ position: 'absolute', width: 380, height: 380, border: `1px dashed ${lineStrong}`, borderRadius: '50%' }}>
                 {[
-                  { top: '-13px', left: '50%', transform: 'translateX(-50%)', label: 'BIO 111' },
-                  { top: '50%', left: 'auto', right: '-13px', transform: 'translateY(-50%)', label: 'CHM 111' },
-                  { top: 'auto', bottom: '-13px', left: '50%', transform: 'translateX(-50%)', label: 'PHY 111' },
-                  { top: '50%', left: '-13px', right: 'auto', transform: 'translateY(-50%)', label: 'MTH 111' },
+                  { top: '-13px', left: '50%', transform: 'translateX(-50%)', label: 'ANA 111' },
+                  { top: '50%', left: 'auto', right: '-13px', transform: 'translateY(-50%)', label: 'PHY 121' },
+                  { top: 'auto', bottom: '-13px', left: '50%', transform: 'translateX(-50%)', label: 'BHM 111' },
+                  { top: '50%', left: '-13px', right: 'auto', transform: 'translateY(-50%)', label: 'PAT 211' },
                 ].map((c, i) => (
                   <span key={i} className="orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: textDim, background: inkSoft, border: `1px solid ${lineStrong}`, padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                     <span>{c.label}</span>
@@ -346,7 +358,7 @@ export default function HomePage() {
                 </svg>
                 <div style={{ textAlign: 'center' }}>
                   <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2.3rem', display: 'block', color: text }}>68%</span>
-                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: textDim, letterSpacing: '0.04em', marginTop: 2, display: 'block' }}>MASTERED · BIOLOGY</span>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: textDim, letterSpacing: '0.04em', marginTop: 2, display: 'block' }}>MASTERED · ANATOMY</span>
                 </div>
               </div>
               <div className="float-card" style={{ position: 'absolute', top: '6%', right: '4%', background: inkCard, border: `1px solid ${lineStrong}`, borderRadius: 10, padding: '9px 13px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 500, boxShadow: '0 12px 30px rgba(0,0,0,0.35)', color: gold }}>+12 XP</div>
@@ -358,8 +370,8 @@ export default function HomePage() {
           {/* Ticker */}
           <div style={{ marginTop: 54, paddingTop: 22, borderTop: `1px solid ${line}`, display: 'flex', gap: 28, flexWrap: 'wrap', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', color: textFaint }}>
             <span><span className="pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: green, marginRight: 7, boxShadow: `0 0 0 3px rgba(61,214,140,0.18)` }} /><b style={{ color: textDim }}>1,284</b> practice questions answered this week</span>
-            <span><b style={{ color: textDim }}>96</b> study groups active right now</span>
-            <span><b style={{ color: textDim }}>5</b> departments, one shared shelf</span>
+            <span><b style={{ color: textDim }}>96</b> medical study groups active right now</span>
+            <span><b style={{ color: textDim }}>12</b> health-science programs, one shared shelf</span>
           </div>
         </div>
       </section>
@@ -370,12 +382,12 @@ export default function HomePage() {
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>Why we built this</span>
           <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, maxWidth: 640, marginBottom: 24, fontFamily: 'Syne, sans-serif' }}>The textbook doesn't fail you. Your memory does.</h2>
           <p style={{ maxWidth: 680, color: textDim, fontSize: '1.08rem', marginBottom: 48 }}>
-            Photocopied past questions. A WhatsApp group that goes quiet two days before the exam. Reading a chapter three times and still blanking on the one question that mattered. <b style={{ color: text, fontWeight: 700 }}>We lived through all of it as MBBS students</b> — and built the tool we wished existed.
+            Photocopied past questions from the medical library. A WhatsApp group that goes quiet two days before the professional exam. Reading Gray's Anatomy three times and still blanking on the one question that mattered. <b style={{ color: text, fontWeight: 700 }}>We lived through all of it as MBBS students</b> — and built the tool we wished existed.
           </p>
           <div className="compare" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, border: `1px solid ${lineStrong}`, borderRadius: 18, overflow: 'hidden', background: lineStrong }}>
             <div style={{ background: inkSoft, padding: '30px 28px' }}>
               <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 18, display: 'inline-block', padding: '4px 10px', borderRadius: 6, color: textFaint, background: 'rgba(255,255,255,0.05)' }}>The old way</span>
-              {['Read the chapter once. Forget half of it by Friday.', 'Hunt for past questions in a crowded group chat.', "Find out you got it wrong — after the exam, not before.", 'Study alone, with no idea where you actually stand.'].map((t, i) => (
+              {['Read the anatomy chapter once. Forget half of it by Friday.', 'Hunt for past questions in a crowded medical WhatsApp group.', "Find out you got it wrong — after the professional exam, not before.", 'Study alone, with no idea where you actually stand in your cohort.'].map((t, i) => (
                 <li key={i} style={{ display: 'flex', gap: 10, marginBottom: 16, fontSize: '0.95rem', color: textFaint }}>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>×</span>{t}
                 </li>
@@ -383,7 +395,7 @@ export default function HomePage() {
             </div>
             <div style={{ background: 'linear-gradient(180deg, rgba(79,142,247,0.06), transparent)', padding: '30px 28px' }}>
               <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 18, display: 'inline-block', padding: '4px 10px', borderRadius: 6, color: blue, background: 'rgba(79,142,247,0.14)' }}>With Scholar's Circle</span>
-              {['Spaced repetition resurfaces what you\'re about to forget — before you forget it.', 'AI-generated questions from your actual course material, ready in seconds.', 'See exactly which topic to fix, the moment you get it wrong.', 'A mastery ring that shows your real standing, by subject.'].map((t, i) => (
+              {['Spaced repetition resurfaces what you\'re about to forget — before the next CBT catches you.', 'AI-generated clinical vignettes and MCQs from your actual course material, ready in seconds.', 'See exactly which topic to fix — anatomy, pharmacology, pathology — the moment you get it wrong.', 'A mastery ring that shows your real standing, by subject and organ system.'].map((t, i) => (
                 <li key={i} style={{ display: 'flex', gap: 10, marginBottom: 16, fontSize: '0.95rem', color: text }}>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', flexShrink: 0, color: green }}>✓</span>{t}
                 </li>
@@ -398,7 +410,7 @@ export default function HomePage() {
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
           <div style={{ maxWidth: 640, marginBottom: 48 }}>
             <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>What's inside</span>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Everything you need between lecture and exam hall.</h2>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Everything you need between the lecture hall and the professional exam.</h2>
           </div>
           <div className="feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 22 }}>
             {FEATURES.map((f, i) => (
@@ -422,7 +434,7 @@ export default function HomePage() {
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
           <div style={{ maxWidth: 640, marginBottom: 48 }}>
             <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>How it actually works</span>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>A normal Tuesday, with Scholar's Circle.</h2>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>A normal Tuesday in med school, with Scholar's Circle.</h2>
           </div>
           <div style={{ position: 'relative', maxWidth: 680 }}>
             <div style={{ position: 'absolute', left: 67, top: 6, bottom: 6, width: 1, background: lineStrong }} />
@@ -445,7 +457,7 @@ export default function HomePage() {
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
           <div style={{ maxWidth: 640, marginBottom: 32 }}>
             <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10, display: 'block' }}>From the reading rooms of LCU</span>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Students who got there with us.</h2>
+            <h2 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.2rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif' }}>Medical students who got there with us.</h2>
           </div>
           <div className="testimonial-scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
             {TESTIMONIALS.map((t, i) => (
@@ -459,6 +471,39 @@ export default function HomePage() {
                 <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.65rem', color: textFaint, margin: 0 }}>{t.by}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" style={{ padding: '80px 0' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 28px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>Questions medical students ask</span>
+            <h2 style={{ fontSize: 'clamp(1.6rem, 3vw, 2.3rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: text, lineHeight: 1.2 }}>Frequently Asked Questions</h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {FAQS.map((f, i) => (
+              <div key={i} style={{ background: inkCard, border: `1px solid ${openFaq === i ? lineStrong : line}`, borderRadius: 14, overflow: 'hidden', transition: 'border-color 0.2s ease' }}>
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '18px 22px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', color: text, fontFamily: 'Manrope, sans-serif', fontSize: '0.98rem', fontWeight: 600 }}
+                >
+                  <span>{f.q}</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, color: textDim, transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div style={{ maxHeight: openFaq === i ? '300px' : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
+                  <p style={{ padding: '0 22px 20px', color: textDim, fontSize: '0.92rem', lineHeight: 1.6 }}>{f.a}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 36 }}>
+            <p style={{ color: textFaint, fontSize: '0.85rem', marginBottom: 14 }}>Still have questions?</p>
+            <a href="https://wa.me/2349028617178" target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ gap: 8 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              Chat with us on WhatsApp
+            </a>
           </div>
         </div>
       </section>
@@ -570,8 +615,8 @@ export default function HomePage() {
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
           <div style={{ background: `linear-gradient(135deg, ${inkSoft}, ${ink})`, border: `1px solid ${line}`, borderRadius: 24, padding: '64px 48px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 0%, rgba(245,166,35,0.12), transparent 60%)', pointerEvents: 'none' }} />
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, marginBottom: 14, position: 'relative', fontFamily: 'Syne, sans-serif' }}>Exams don't wait. Neither should you.</h2>
-            <p style={{ color: textDim, marginBottom: 30, fontSize: '1.05rem', position: 'relative' }}>Start free. No card. Watch your first mastery ring fill up before your next lecture.</p>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', fontWeight: 800, marginBottom: 14, position: 'relative', fontFamily: 'Syne, sans-serif' }}>Professional exams don't wait. Neither should you.</h2>
+            <p style={{ color: textDim, marginBottom: 30, fontSize: '1.05rem', position: 'relative' }}>Start free. No card. Watch your first mastery ring fill up before your next anatomy test.</p>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 14, position: 'relative', flexWrap: 'wrap' }}>
               <Link to="/signup" className="btn btn-primary btn-lg">Start your 2-day free trial →</Link>
               <Link to="/resources" className="btn btn-ghost btn-lg">Browse resources</Link>
@@ -589,7 +634,7 @@ export default function HomePage() {
                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: gold, boxShadow: `0 0 0 4px rgba(245,166,35,0.14)` }} />
                 Scholar's Circle
               </Link>
-              <p style={{ color: textFaint, fontSize: '0.88rem', marginTop: 8, maxWidth: 280 }}>Built by MBBS students, for students. Spaced repetition, AI-generated practice, and a study group that actually shows up.</p>
+              <p style={{ color: textFaint, fontSize: '0.88rem', marginTop: 8, maxWidth: 280 }}>Built by MBBS students, for medical & health-science students. Spaced repetition, AI-generated practice, and a study group that actually shows up.</p>
             </div>
             <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'center' }}>
               <Link to="/features" style={{ color: textDim, fontSize: '0.88rem', fontWeight: 600, transition: 'color 0.15s ease' }}
