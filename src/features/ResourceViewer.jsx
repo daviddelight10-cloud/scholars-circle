@@ -23,6 +23,15 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const navigate = useNavigate();
   const token = tokenProp || params.token;
 
+  // Fallback: dispatch global XP event when onXpUpdate prop is not provided (standalone route)
+  const handleXpUpdate = useCallback((xpGained) => {
+    if (onXpUpdate) {
+      onXpUpdate(xpGained);
+    } else if (xpGained > 0) {
+      window.dispatchEvent(new CustomEvent("sc-xp-gained", { detail: { xp: xpGained } }));
+    }
+  }, [onXpUpdate]);
+
   const [resource, setResource] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -326,19 +335,19 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           return <McqModeSelect resource={resource} onBack={handleBack} onSelect={(mode, sessionConfig) => { setMcqSessionConfig(sessionConfig); setMcqMode(mode); }} onQuizComplete={onQuizComplete} />;
         }
         if (mcqMode === "arcade") {
-          return <FlashcardRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+          return <FlashcardRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
         }
         if (mcqMode === "exam") {
-          return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+          return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
         }
-        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} sessionConfig={mcqSessionConfig} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} sessionConfig={mcqSessionConfig} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
 
       case "flashcard_deck":
         if (flashcardMode === "study") {
-          return <FlashcardDeckRunner resource={resource} onBack={() => setFlashcardMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+          return <FlashcardDeckRunner resource={resource} onBack={() => setFlashcardMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
         }
         if (flashcardMode === "matching") {
-          return <MatchingPairsGame resource={resource} flashcardData={resource.flashcardData} gameMode={matchGameMode} onBack={() => setFlashcardMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
+          return <MatchingPairsGame resource={resource} flashcardData={resource.flashcardData} gameMode={matchGameMode} onBack={() => setFlashcardMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
         }
         return <FlashcardModeSelect resource={resource} onBack={handleBack} onSelect={(mode, subMode) => { setFlashcardMode(mode); if (subMode) setMatchGameMode(subMode); }} />;
 

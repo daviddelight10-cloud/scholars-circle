@@ -3457,6 +3457,17 @@ function App() {
     }
   }
 
+  // Listen for global XP events (from standalone ResourceViewer route where onXpUpdate isn't passed)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.xp > 0) {
+        setStats((s) => ({ ...s, xp: s.xp + e.detail.xp }));
+      }
+    };
+    window.addEventListener("sc-xp-gained", handler);
+    return () => window.removeEventListener("sc-xp-gained", handler);
+  }, []);
+
   function updateStreak() {
 
     const now = new Date();

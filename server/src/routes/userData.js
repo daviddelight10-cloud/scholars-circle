@@ -51,10 +51,14 @@ router.post("/progress", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Read existing XP so we don't clobber XP awarded by quiz-attempts endpoint
+    const existingProgress = await prisma.userProgress.findUnique({ where: { userId } });
+    const maxXp = Math.max(existingProgress?.xp ?? 0, data.xp ?? 0);
+
     const progress = await prisma.userProgress.upsert({
       where: { userId },
       update: {
-        xp: data.xp,
+        xp: maxXp,
         sessions: data.sessions,
         streak: data.streak,
         coins: data.coins,
@@ -330,10 +334,14 @@ router.post("/sync", requireAuth, async (req, res) => {
 
     // Upsert user progress
     if (data.stats) {
+      // Read existing XP so we don't clobber XP awarded by quiz-attempts endpoint
+      const existing = await prisma.userProgress.findUnique({ where: { userId } });
+      const maxXp = Math.max(existing?.xp ?? 0, data.stats.xp ?? 0);
+
       await prisma.userProgress.upsert({
         where: { userId },
         update: {
-          xp: data.stats.xp,
+          xp: maxXp,
           sessions: data.stats.sessions,
           streak: data.stats.streak,
           coins: data.stats.coins,
