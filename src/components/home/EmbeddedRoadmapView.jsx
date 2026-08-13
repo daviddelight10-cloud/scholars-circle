@@ -293,7 +293,7 @@ export default function EmbeddedRoadmapView({
   function handleDragStart(e, topicId) {
     if (!editMode) return;
     const topic = topics.find(t => t.id === topicId);
-    if (!topic || isTopicLocked(topic, topics, progress)) return;
+    if (!topic) return;
 
     e.preventDefault();
     const row = e.currentTarget.closest('[data-topic-id]');
@@ -348,7 +348,7 @@ export default function EmbeddedRoadmapView({
     if (target) {
       const tId = target.getAttribute('data-topic-id');
       const tTopic = topics.find(t => String(t.id) === tId);
-      if (tTopic && !isTopicLocked(tTopic, topics, progress)) {
+      if (tTopic) {
         const rr = target.getBoundingClientRect();
         const before = e.clientY < rr.top + rr.height / 2;
         listEl.insertBefore(ds.placeholder, before ? target : target.nextSibling);
@@ -369,7 +369,10 @@ export default function EmbeddedRoadmapView({
       .filter(Boolean)
       .filter((v, i, a) => a.indexOf(v) === i);
 
-    const newTopics = newOrderIds.map(id => topics.find(t => String(t.id) === id)).filter(Boolean);
+    const newTopics = newOrderIds.map((id, i) => {
+      const t = topics.find(t => String(t.id) === id);
+      return t ? { ...t, displayOrder: i } : null;
+    }).filter(Boolean);
 
     ds.row.style.position = '';
     ds.row.style.left = '';
@@ -472,7 +475,7 @@ export default function EmbeddedRoadmapView({
       {topics.length > 0 && (
         <div className={`cs-edit-hint${editMode ? " active" : ""}`}>
           {editMode
-            ? "Drag the handle to reorder. Locked topics can't be moved."
+            ? "Drag the handle to reorder your topics."
             : 'Tap "Edit order" to rearrange topics to match your course outline.'}
         </div>
       )}

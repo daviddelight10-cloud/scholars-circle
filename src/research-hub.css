@@ -401,7 +401,6 @@
 }
 .cs-edit-mode .cs-drag-handle { width: 24px; }
 .cs-drag-handle:active { cursor: grabbing; }
-.cs-edit-mode .cs-drag-handle.locked { visibility: hidden; }
 
 .cs-dragging {
   z-index: 999;

@@ -528,8 +528,8 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
       }}
     >
       <div
-        className={`cs-drag-handle${locked ? " locked" : ""}`}
-        onPointerDown={editMode && !locked ? (e) => onDragStart(e, topic.id) : undefined}
+        className="cs-drag-handle"
+        onPointerDown={editMode ? (e) => onDragStart(e, topic.id) : undefined}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/>
@@ -539,7 +539,7 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
       </div>
 
       <div className={nodeClass} style={locked ? { opacity: 0.6 } : {}}>
-        {locked ? "🔒" : (topic.displayOrder || idx + 1)}
+        {locked ? "🔒" : (idx + 1)}
       </div>
       {!isLast && !editMode && <div className="cs-topic-line" />}
 
