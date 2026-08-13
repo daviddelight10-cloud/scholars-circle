@@ -228,7 +228,7 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
       )}
 
       {/* Section 3b: Study Materials (flashcards, MCQs, summaries from matched docs) */}
-      {contentAccessible && matches.length > 0 && (resourceVariantsMap || onGenerate) && (
+      {matches.length > 0 && (resourceVariantsMap || onGenerate) && (
         <div style={{
           background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
         }}>
