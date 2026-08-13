@@ -36,14 +36,7 @@ export function progressPct(p) {
   return Math.round((p.avgRetrievability || 0) * 100);
 }
 
-export function isTopicLocked(topic, topics, progress) {
-  if (!topic.prerequisiteIds || topic.prerequisiteIds.length === 0) return false;
-  for (const pid of topic.prerequisiteIds) {
-    const prereq = topics.find((t) => t.id === pid);
-    if (!prereq) continue;
-    const prereqProgress = progress?.[pid];
-    if (!prereqProgress || prereqProgress.label !== "Mastered") return true;
-  }
+export function isTopicLocked() {
   return false;
 }
 
@@ -54,17 +47,15 @@ export function findStartHereTopic(topics, progress, matchesByTopic) {
     for (const topic of topics) {
       const p = progress?.[topic.id];
       const isMastered = p?.label === "Mastered";
-      const locked = isTopicLocked(topic, topics, progress);
       const hasMaterial = matchesByTopic.has(topic.id);
-      if (!isMastered && !locked && hasMaterial) return topic;
+      if (!isMastered && hasMaterial) return topic;
     }
   }
 
   for (const topic of topics) {
     const p = progress?.[topic.id];
     const isMastered = p?.label === "Mastered";
-    const locked = isTopicLocked(topic, topics, progress);
-    if (!isMastered && !locked) return topic;
+    if (!isMastered) return topic;
   }
 
   return null;
@@ -90,12 +81,11 @@ export function Badge({ text, bg, color }) {
   );
 }
 
-export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, locked, isStartHere, resourceVariantsMap, resourceByIdMap, onGenerate }) {
+export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, isStartHere, resourceVariantsMap, resourceByIdMap, onGenerate }) {
   const p = progress;
   const progressLabel = p?.label || "Not started";
   const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
   const pct = progressPct(p);
-  const contentAccessible = !locked || matches.length > 0;
 
   const subtopicCount = (topic.subtopics?.length || 0);
   const estMinutes = (subtopicCount * 5) + (matches.length * 10);
@@ -184,50 +174,29 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
 
       {/* Section 2: Action buttons */}
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        {locked && matches.length === 0 ? (
-          <div style={{
-            flex: 1, textAlign: "center", padding: "12px", background: "rgba(86,94,110,0.1)",
-            border: `0.5px solid ${D.border}`, borderRadius: 8,
-            fontSize: 12, color: D.textLow, fontFamily: FONTS.body,
-          }}>
-            🔒 Locked — complete prerequisites first
-          </div>
-        ) : (
-          <>
-            {locked && matches.length > 0 && (
-              <span style={{
-                fontSize: 10, fontWeight: 600, color: D.gold, background: "rgba(245,166,35,0.12)",
-                padding: "4px 10px", borderRadius: 8, fontFamily: FONTS.body,
-                display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
-              }}>
-                🔒 Locked · content available
-              </span>
-            )}
-            {matches.length > 0 && onStartStudying && (
-              <button
-                onClick={() => onStartStudying(topic)}
-                style={{
-                  flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
-                  borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
-                  color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
-                }}
-              >
-                {hasAnyMaterial ? "Practice Materials →" : "Practice with AI Tutor →"}
-              </button>
-            )}
-            {!matches.length && onStartStudying && (
-              <button
-                onClick={() => onStartStudying(topic)}
-                style={{
-                  flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
-                  borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
-                  color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
-                }}
-              >
-                Practice with AI Tutor →
-              </button>
-            )}
-          </>
+        {matches.length > 0 && onStartStudying && (
+          <button
+            onClick={() => onStartStudying(topic)}
+            style={{
+              flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
+              borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
+              color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
+            }}
+          >
+            {hasAnyMaterial ? "Practice Materials →" : "Practice with AI Tutor →"}
+          </button>
+        )}
+        {!matches.length && onStartStudying && (
+          <button
+            onClick={() => onStartStudying(topic)}
+            style={{
+              flex: 1, background: "linear-gradient(135deg, #b8860b, #F5A623)", border: "none",
+              borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
+              color: "#0a0a0a", cursor: "pointer", fontFamily: FONTS.body,
+            }}
+          >
+            Practice with AI Tutor →
+          </button>
         )}
       </div>
 
@@ -507,24 +476,20 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
   const isSelected = selectedTopicId === topic.id;
   const isStartHere = startHereTopic?.id === topic.id;
   const progressLabel = p?.label || "Not started";
-  const locked = isTopicLocked(topic, topics, progress);
-  const contentAccessible = !locked || topicMatches.length > 0;
-  const isCurrent = isStartHere || (!locked && progressLabel === "Not started" && topicMatches.length > 0);
+  const isCurrent = isStartHere || (progressLabel === "Not started" && topicMatches.length > 0);
   const nodeClass = isCurrent ? "cs-topic-node cs-topic-node-current" : "cs-topic-node cs-topic-node-upcoming";
 
   return (
     <div
       key={topic.id}
       data-topic-id={topic.id}
-      onClick={() => { if (!editMode && contentAccessible) onSelectTopic(topic.id); }}
+      onClick={() => { if (!editMode) onSelectTopic(topic.id); }}
       style={{
         position: "relative", display: "flex", alignItems: "center", gap: 14,
-        padding: "15px 4px", cursor: editMode ? "default" : (contentAccessible ? "pointer" : "default"),
+        padding: "15px 4px", cursor: editMode ? "default" : "pointer",
         borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
         background: isSelected && !editMode ? "rgba(245,166,35,0.06)" : "transparent",
         transition: "background 0.15s",
-        opacity: !contentAccessible ? 0.45 : (locked ? 0.8 : 1),
-        ...(locked && contentAccessible && !isSelected ? { boxShadow: "inset 2px 0 0 rgba(245,166,35,0.25)" } : {}),
       }}
     >
       <div
@@ -538,24 +503,24 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
         </svg>
       </div>
 
-      <div className={nodeClass} style={locked ? { opacity: 0.6 } : {}}>
-        {locked ? "🔒" : (idx + 1)}
+      <div className={nodeClass}>
+        {idx + 1}
       </div>
       {!isLast && !editMode && <div className="cs-topic-line" />}
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, fontFamily: FONTS.body, color: !contentAccessible ? D.textLow : D.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, fontFamily: FONTS.body, color: D.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {topic.title}
         </div>
         <div style={{ fontSize: 11, color: D.textLow, marginTop: 2, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-          {locked ? "Locked" : progressLabel}
+          {progressLabel}
           {topicMatches.length > 0 && (
-            <span style={{ color: contentAccessible ? D.blue : D.textLow }}>· {topicMatches.length} docs{locked && contentAccessible ? " · available" : ""}</span>
+            <span style={{ color: D.blue }}>· {topicMatches.length} docs</span>
           )}
         </div>
       </div>
 
-      {!editMode && contentAccessible && topicMatches.length > 0 && onStartStudying && (
+      {!editMode && topicMatches.length > 0 && onStartStudying && (
         <button
           onClick={(e) => { e.stopPropagation(); onStartStudying(topic); }}
           title="Study this topic now"

@@ -10,7 +10,7 @@ import { retroactiveMatch } from "../../lib/topicMatcher";
 import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
 import {
-  D, isTopicLocked, findStartHereTopic,
+  D, findStartHereTopic,
   TopicDetailPanel, OnboardingStep, TimelineTopicRow,
 } from "./roadmapShared";
 
@@ -195,14 +195,8 @@ export default function EmbeddedRoadmapView({
       const start = findStartHereTopic(topics, progress, matchesByTopic);
       if (start) {
         setSelectedTopicId(start.id);
-      } else {
-        // findStartHereTopic returned null — find first topic with content (even if locked)
-        const firstAccessible = topics.find((t) => {
-          const isLocked = isTopicLocked(t, topics, progress);
-          const hasDocs = matchesByTopic.has(t.id);
-          return !isLocked || hasDocs;
-        });
-        if (firstAccessible) setSelectedTopicId(firstAccessible.id);
+      } else if (topics.length > 0) {
+        setSelectedTopicId(topics[0].id);
       }
     }
     if (topics.length === 0) setSelectedTopicId(null);
@@ -723,7 +717,6 @@ export default function EmbeddedRoadmapView({
                 matches={matchesByTopic.get(selectedTopic.id) || []}
                 onOpenResource={onOpenResource}
                 onStartStudying={handleStartStudying}
-                locked={isTopicLocked(selectedTopic, topics, progress)}
                 isStartHere={startHereTopic?.id === selectedTopic.id}
                 resourceVariantsMap={resourceVariantsMap}
                 resourceByIdMap={resourceByIdMap}

@@ -4,8 +4,6 @@ import {
   fetchTopicProgress,
   fetchTopicMatches,
   generateSkeleton,
-  corroborateTopic,
-  disputeTopic,
 } from "../../lib/skeletonGenerator";
 import { retroactiveMatch } from "../../lib/topicMatcher";
 import { listFolders } from "../../lib/foldersApi";
@@ -14,7 +12,7 @@ import { API_BASE } from "../../lib/constants";
 import { PRESET_SUBJECTS } from "../../features/research-hub/constants";
 import { FONTS } from "../../lib/theme";
 import {
-  D, isTopicLocked, findStartHereTopic,
+  D, findStartHereTopic,
   StatItem, TopicDetailPanel, OnboardingStep, TimelineTopicRow,
 } from "./roadmapShared";
 
@@ -209,13 +207,8 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
       const start = findStartHereTopic(topics, progress, matchesByTopic);
       if (start) {
         setSelectedTopicId(start.id);
-      } else {
-        const firstAccessible = topics.find((t) => {
-          const isLocked = isTopicLocked(t, topics, progress);
-          const hasDocs = matchesByTopic.has(t.id);
-          return !isLocked || hasDocs;
-        });
-        if (firstAccessible) setSelectedTopicId(firstAccessible.id);
+      } else if (topics.length > 0) {
+        setSelectedTopicId(topics[0].id);
       }
     }
     if (topics.length === 0) {
@@ -676,9 +669,6 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                   matches={matchesByTopic.get(selectedTopic.id) || []}
                   onOpenResource={onOpenResource}
                   onStartStudying={handleStartStudying}
-                  onCorroborate={handleCorroborate}
-                  onDispute={handleDispute}
-                  locked={isTopicLocked(selectedTopic, topics, progress)}
                   isStartHere={startHereTopic?.id === selectedTopic.id}
                 />
               ) : (
