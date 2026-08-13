@@ -384,3 +384,69 @@
   border: 2px solid rgba(255,255,255,0.12);
   color: #5D6472;
 }
+
+/* Drag-to-reorder */
+.cs-drag-handle {
+  width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5D6472;
+  touch-action: none;
+  cursor: grab;
+  overflow: hidden;
+  transition: width 0.2s ease;
+  flex-shrink: 0;
+}
+.cs-edit-mode .cs-drag-handle { width: 24px; }
+.cs-drag-handle:active { cursor: grabbing; }
+.cs-edit-mode .cs-drag-handle.locked { visibility: hidden; }
+
+.cs-dragging {
+  z-index: 999;
+  box-shadow: 0 16px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(245,166,35,0.5);
+  background: #12161F !important;
+  transform: scale(1.02);
+  opacity: 0.95;
+}
+
+.cs-drag-placeholder {
+  border: 2px dashed rgba(255,255,255,0.14);
+  border-radius: 10px;
+  margin-bottom: 4px;
+  background: rgba(255,255,255,0.02);
+}
+
+.cs-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #12161F;
+  border: 0.5px solid rgba(255,255,255,0.14);
+  color: #F3F5F8;
+  padding: 10px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 9999;
+  white-space: nowrap;
+}
+.cs-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.cs-toast-dot { width: 6px; height: 6px; border-radius: 50%; background: #3DD68C; flex-shrink: 0; }
+
+.cs-edit-hint {
+  font-size: 12px;
+  color: #5D6472;
+  padding: 0 4px 10px;
+  transition: color 0.2s ease;
+}
+.cs-edit-hint.active { color: #F5A623; }

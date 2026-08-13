@@ -4,9 +4,7 @@ import { requireAuth } from "../middleware/auth.js";
 import {
   extractSkeletonFromOutline,
   retroactiveMatchDocuments,
-  checkVerificationThreshold,
 } from "../lib/topicExtractionService.js";
-import { logError } from "../lib/logger.js";
 
 const router = express.Router();
 
@@ -15,7 +13,7 @@ router.get("/:courseCode/topics", requireAuth, async (req, res) => {
   try {
     const { courseCode } = req.params;
     const topics = await prisma.curriculumTopic.findMany({
-      where: { courseCode },
+      where: { courseCode, createdBy: req.user.sub },
       orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
       include: {
         _count: { select: { documentMatches: true } },
@@ -59,7 +57,7 @@ router.post("/:courseCode/topics", requireAuth, async (req, res) => {
       if (!t.title || !t.title.trim()) continue;
       const topic = await prisma.curriculumTopic.upsert({
         where: {
-          courseCode_title: { courseCode, title: t.title.trim() },
+          createdBy_courseCode_title: { createdBy: req.user.sub, courseCode, title: t.title.trim() },
         },
         update: {
           description: t.description || null,
@@ -100,9 +98,9 @@ router.post("/:courseCode/topics", requireAuth, async (req, res) => {
       }
     }
 
-    // Re-fetch with prerequisites resolved
+    // Re-fetch with prerequisites resolved (scoped to this user)
     const finalTopics = await prisma.curriculumTopic.findMany({
-      where: { courseCode },
+      where: { courseCode, createdBy: req.user.sub },
       orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
     });
 
@@ -113,9 +111,18 @@ router.post("/:courseCode/topics", requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /api/curriculum/topics/:id — Update a topic
+// PATCH /api/curriculum/topics/:id — Update a topic (owner only)
 router.patch("/topics/:id", requireAuth, async (req, res) => {
   try {
+    const existing = await prisma.curriculumTopic.findUnique({
+      where: { id: req.params.id },
+      select: { createdBy: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Topic not found" });
+    if (existing.createdBy !== req.user.sub) {
+      return res.status(403).json({ error: "Not authorized to modify this topic" });
+    }
+
     const { title, description, displayOrder, prerequisiteIds } = req.body;
     const topic = await prisma.curriculumTopic.update({
       where: { id: req.params.id },
@@ -133,9 +140,18 @@ router.patch("/topics/:id", requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/curriculum/topics/:id — Delete a topic
+// DELETE /api/curriculum/topics/:id — Delete a topic (owner only)
 router.delete("/topics/:id", requireAuth, async (req, res) => {
   try {
+    const existing = await prisma.curriculumTopic.findUnique({
+      where: { id: req.params.id },
+      select: { createdBy: true },
+    });
+    if (!existing) return res.status(404).json({ error: "Topic not found" });
+    if (existing.createdBy !== req.user.sub) {
+      return res.status(403).json({ error: "Not authorized to delete this topic" });
+    }
+
     await prisma.curriculumTopic.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch (err) {
@@ -144,104 +160,42 @@ router.delete("/topics/:id", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/curriculum/topics/:id/corroborate — User corroborates an AI-inferred topic
-router.post("/topics/:id/corroborate", requireAuth, async (req, res) => {
+// PATCH /api/curriculum/:courseCode/reorder — Bulk reorder topics (owner only)
+router.patch("/:courseCode/reorder", requireAuth, async (req, res) => {
   try {
-    const userId = req.user.sub;
-    const topic = await prisma.curriculumTopic.findUnique({
-      where: { id: req.params.id },
-    });
-    if (!topic) return res.status(404).json({ error: "Topic not found" });
-
-    // Outline-sourced topics are pre-verified — no corroboration needed
-    if (topic.source === "outline") {
-      return res.json({ ok: true, alreadyVerified: true, topic });
+    const { courseCode } = req.params;
+    const { topicIds } = req.body;
+    if (!Array.isArray(topicIds) || topicIds.length === 0) {
+      return res.status(400).json({ error: "topicIds array is required" });
     }
 
-    if (topic.corroboratingUserIds.includes(userId)) {
-      return res.json({ ok: true, alreadyCorroborated: true, topic });
+    // Verify all topics belong to the requesting user
+    const topics = await prisma.curriculumTopic.findMany({
+      where: { id: { in: topicIds }, courseCode },
+      select: { id: true, createdBy: true },
+    });
+    const unauthorized = topics.some((t) => t.createdBy !== req.user.sub);
+    if (unauthorized) {
+      return res.status(403).json({ error: "Not authorized to reorder some topics" });
     }
 
-    const newCorroborating = [...topic.corroboratingUserIds, userId];
-    const newDispute = topic.disputeUserIds.filter((id) => id !== userId);
+    await prisma.$transaction(
+      topicIds.map((id, i) =>
+        prisma.curriculumTopic.update({
+          where: { id },
+          data: { displayOrder: i },
+        })
+      )
+    );
 
-    // Recompute avgConfidence from actual document_topic_matches
-    const matches = await prisma.documentTopicMatch.findMany({
-      where: { topicId: topic.id },
-      select: { confidence: true },
+    const updated = await prisma.curriculumTopic.findMany({
+      where: { courseCode, createdBy: req.user.sub },
+      orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
     });
-    const avgConfidence = matches.length > 0
-      ? matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length
-      : 0;
-
-    const shouldVerify =
-      newCorroborating.length >= 5 && avgConfidence > 0.7 && newDispute.length === 0;
-
-    const newStatus = newDispute.length > 0 ? "disputed" : shouldVerify ? "verified" : "unverified";
-
-    const updated = await prisma.curriculumTopic.update({
-      where: { id: topic.id },
-      data: {
-        corroboratingUserIds: newCorroborating,
-        disputeUserIds: newDispute,
-        avgConfidence: Math.round(avgConfidence * 100) / 100,
-        verified: shouldVerify,
-        status: newStatus,
-      },
-    });
-
-    res.json({ ok: true, topic: updated });
+    res.json(updated);
   } catch (err) {
-    console.error("Error corroborating topic:", err.message);
-    res.status(500).json({ error: "Failed to corroborate topic" });
-  }
-});
-
-// POST /api/curriculum/topics/:id/dispute — User disputes an AI-inferred topic
-router.post("/topics/:id/dispute", requireAuth, async (req, res) => {
-  try {
-    const userId = req.user.sub;
-    const topic = await prisma.curriculumTopic.findUnique({
-      where: { id: req.params.id },
-    });
-    if (!topic) return res.status(404).json({ error: "Topic not found" });
-
-    // Outline-sourced topics cannot be disputed
-    if (topic.source === "outline") {
-      return res.status(400).json({ error: "Outline-sourced topics cannot be disputed" });
-    }
-
-    if (topic.disputeUserIds.includes(userId)) {
-      return res.json({ ok: true, alreadyDisputed: true, topic });
-    }
-
-    const newDispute = [...topic.disputeUserIds, userId];
-    const newCorroborating = topic.corroboratingUserIds.filter((id) => id !== userId);
-
-    // Recompute avgConfidence from actual document_topic_matches
-    const matches = await prisma.documentTopicMatch.findMany({
-      where: { topicId: topic.id },
-      select: { confidence: true },
-    });
-    const avgConfidence = matches.length > 0
-      ? matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length
-      : 0;
-
-    const updated = await prisma.curriculumTopic.update({
-      where: { id: topic.id },
-      data: {
-        disputeUserIds: newDispute,
-        corroboratingUserIds: newCorroborating,
-        avgConfidence: Math.round(avgConfidence * 100) / 100,
-        verified: false,
-        status: "disputed",
-      },
-    });
-
-    res.json({ ok: true, topic: updated });
-  } catch (err) {
-    console.error("Error disputing topic:", err.message);
-    res.status(500).json({ error: "Failed to dispute topic" });
+    console.error("Error reordering topics:", err.message);
+    res.status(500).json({ error: "Failed to reorder topics" });
   }
 });
 
@@ -252,7 +206,7 @@ router.get("/:courseCode/matches", requireAuth, async (req, res) => {
     const userId = req.user.sub;
 
     const topics = await prisma.curriculumTopic.findMany({
-      where: { courseCode },
+      where: { courseCode, createdBy: userId },
       select: { id: true },
     });
     const topicIds = topics.map((t) => t.id);
@@ -318,13 +272,6 @@ router.post("/matches", requireAuth, async (req, res) => {
       },
     });
 
-    // Run verification threshold check after match insert
-    try {
-      await checkVerificationThreshold(topicId);
-    } catch (verifyErr) {
-      logError(verifyErr, { context: "checkVerificationThreshold on match insert", topicId });
-    }
-
     res.status(201).json(match);
   } catch (err) {
     console.error("Error creating document-topic match:", err.message);
@@ -358,7 +305,7 @@ router.get("/:courseCode/topic-progress", requireAuth, async (req, res) => {
     const userId = req.user.sub;
 
     const topics = await prisma.curriculumTopic.findMany({
-      where: { courseCode },
+      where: { courseCode, createdBy: userId },
       select: { id: true },
     });
     const topicIds = topics.map((t) => t.id);
@@ -455,7 +402,7 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
     const { folderId } = req.body || {};
 
     const topics = await prisma.curriculumTopic.findMany({
-      where: { courseCode },
+      where: { courseCode, createdBy: userId },
       select: { id: true, title: true, description: true },
     });
     if (topics.length === 0) {
@@ -482,7 +429,6 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
       });
     }
 
-    // Run the matching synchronously (user sees progress via polling or SSE in future)
     const result = await retroactiveMatchDocuments(courseCode, userId, folderId);
 
     res.json({

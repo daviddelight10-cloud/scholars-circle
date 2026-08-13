@@ -1775,8 +1775,9 @@ model CurriculumTopic {
 
   documentMatches      DocumentTopicMatch[]
 
-  @@unique([courseCode, title])
+  @@unique([createdBy, courseCode, title])
   @@index([courseCode])
+  @@index([createdBy])
   @@index([verified])
   @@index([status])
 }

@@ -81,23 +81,16 @@ export async function fetchTopicProgress(courseCode) {
 }
 
 /**
- * Corroborate an AI-inferred topic.
- * @param {string} topicId
- * @returns {Promise<object>}
+ * Bulk reorder topics for a course (per-user).
+ * @param {string} courseCode
+ * @param {string[]} topicIds - Ordered array of topic IDs
+ * @returns {Promise<Array>} Updated topics in new order
  */
-export async function corroborateTopic(topicId) {
-  const res = await authFetch(`${API_BASE}/api/curriculum/topics/${topicId}/corroborate`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to corroborate topic");
-  return res.json();
-}
-
-/**
- * Dispute an AI-inferred topic.
- * @param {string} topicId
- * @returns {Promise<object>}
- */
-export async function disputeTopic(topicId) {
-  const res = await authFetch(`${API_BASE}/api/curriculum/topics/${topicId}/dispute`, { method: "POST" });
-  if (!res.ok) throw new Error("Failed to dispute topic");
+export async function reorderTopics(courseCode, topicIds) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/reorder`, {
+    method: "PATCH",
+    body: JSON.stringify({ topicIds }),
+  });
+  if (!res.ok) throw new Error("Failed to reorder topics");
   return res.json();
 }

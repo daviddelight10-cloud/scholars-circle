@@ -14,11 +14,8 @@
 import { prisma } from "../db.js";
 import { logError, logInfo } from "./logger.js";
 
-const AI_PROVIDER = "openrouter";
 const AI_MODEL = "google/gemini-2.5-flash";
 const CONFIDENCE_THRESHOLD = 0.5;
-const VERIFICATION_MIN_STUDENTS = 5;
-const VERIFICATION_MIN_AVG_CONFIDENCE = 0.7;
 
 /**
  * Call the AI provider server-side (OpenRouter / Gemini).
@@ -278,9 +275,9 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
   const verified = source === "outline";
   const status = verified ? "verified" : "unverified";
 
-  // Delete existing topics for this courseCode so regeneration replaces instead of appending
+  // Delete existing topics for this courseCode + user so regeneration replaces instead of appending
   const existingTopics = await prisma.curriculumTopic.findMany({
-    where: { courseCode: effectiveCourseCode },
+    where: { courseCode: effectiveCourseCode, createdBy: userId },
     select: { id: true },
   });
   if (existingTopics.length > 0) {
@@ -289,9 +286,9 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
       where: { topicId: { in: existingTopicIds } },
     });
     await prisma.curriculumTopic.deleteMany({
-      where: { courseCode: effectiveCourseCode },
+      where: { courseCode: effectiveCourseCode, createdBy: userId },
     });
-    logInfo(`[topicExtractionService] Deleted ${existingTopics.length} old topics for ${effectiveCourseCode} (regeneration)`);
+    logInfo(`[topicExtractionService] Deleted ${existingTopics.length} old topics for ${effectiveCourseCode} (regeneration by user ${userId})`);
   }
 
   const created = [];
@@ -299,7 +296,7 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
   for (const t of topics) {
     const topic = await prisma.curriculumTopic.upsert({
       where: {
-        courseCode_title: { courseCode: effectiveCourseCode, title: t.title },
+        createdBy_courseCode_title: { createdBy: userId, courseCode: effectiveCourseCode, title: t.title },
       },
       update: {
         description: t.description,
@@ -337,9 +334,9 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
     }
   }
 
-  // Re-fetch with prerequisites resolved
+  // Re-fetch with prerequisites resolved (scoped to this user)
   const finalTopics = await prisma.curriculumTopic.findMany({
-    where: { courseCode: effectiveCourseCode },
+    where: { courseCode: effectiveCourseCode, createdBy: userId },
     orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
   });
 
@@ -359,7 +356,7 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
  */
 export async function matchDocumentToSkeleton(resource, courseCode, userId) {
   const topics = await prisma.curriculumTopic.findMany({
-    where: { courseCode },
+    where: { courseCode, createdBy: userId },
     select: { id: true, title: true, description: true },
   });
 
@@ -422,184 +419,11 @@ export async function matchDocumentToSkeleton(resource, courseCode, userId) {
     });
     matchCount++;
 
-    // Run verification check after each match insert
-    await checkVerificationThreshold(topic.id);
-  }
-
-  // If no matches above threshold, propose a new topic (ai_added)
-  if (validMatches.length === 0) {
-    await proposeNewTopicFromDocument(resource, courseCode, userId);
   }
 
   return matchCount;
 }
 
-/**
- * When a document doesn't match any existing topic above threshold,
- * propose a new AI-inferred topic node for it.
- *
- * @param {object} resource
- * @param {string} courseCode
- * @param {string} userId
- */
-async function proposeNewTopicFromDocument(resource, courseCode, userId) {
-  try {
-    const prompt = `You are an expert curriculum designer. Based on this study material, propose a single topic that it covers.
-
-DOCUMENT:
-- Title: ${resource.title}
-- Type: ${resource.contentType}
-- Description: ${(resource.description || "No description").slice(0, 2000)}
-
-Return ONLY a valid JSON object:
-{
-  "title": "Topic name (2-6 words)",
-  "description": "1-sentence description",
-  "subtopics": ["subtopic 1", "subtopic 2"]
-}
-
-RULES:
-1. The title should be a concise curriculum topic name.
-2. Generate 2-4 subtopics.
-3. Return ONLY the JSON object.`;
-
-    const raw = await callAIServerSide(prompt);
-    const parsed = extractJSON(raw, "object");
-
-    if (!parsed || !parsed.title) return;
-
-    // Check if a similar topic already exists
-    const existing = await prisma.curriculumTopic.findFirst({
-      where: {
-        courseCode,
-        title: { contains: parsed.title.trim(), mode: "insensitive" },
-      },
-    });
-    if (existing) {
-      // Link to the existing similar topic instead of creating a duplicate
-      await prisma.documentTopicMatch.upsert({
-        where: {
-          userId_resourceId_topicId: {
-            userId,
-            resourceId: resource.id,
-            topicId: existing.id,
-          },
-        },
-        update: { confidence: 0.4, matchSource: "ai" },
-        create: {
-          userId,
-          resourceId: resource.id,
-          topicId: existing.id,
-          confidence: 0.4,
-          matchSource: "ai",
-        },
-      });
-      return;
-    }
-
-    // Get the max displayOrder for this course
-    const maxOrderTopic = await prisma.curriculumTopic.findFirst({
-      where: { courseCode },
-      orderBy: { displayOrder: "desc" },
-      select: { displayOrder: true },
-    });
-    const nextOrder = (maxOrderTopic?.displayOrder || 0) + 1;
-
-    const newTopic = await prisma.curriculumTopic.create({
-      data: {
-        courseCode,
-        title: parsed.title.trim(),
-        description: parsed.description || null,
-        displayOrder: nextOrder,
-        subtopics: Array.isArray(parsed.subtopics)
-          ? parsed.subtopics.map((s) => String(s).trim()).filter(Boolean)
-          : [],
-        source: "ai_added",
-        verified: false,
-        status: "unverified",
-        createdBy: userId,
-      },
-    });
-
-    // Link the document to the new topic
-    await prisma.documentTopicMatch.create({
-      data: {
-        userId,
-        resourceId: resource.id,
-        topicId: newTopic.id,
-        confidence: 0.5,
-        matchSource: "ai",
-      },
-    });
-
-    logInfo(`[topicExtractionService] Proposed new topic "${newTopic.title}" for ${courseCode}`, {
-      resourceId: resource.id,
-    });
-  } catch (err) {
-    logError(err, { context: "proposeNewTopicFromDocument", courseCode, resourceId: resource.id });
-  }
-}
-
-/**
- * Check if a topic meets the verification threshold after a new match is inserted.
- * Skips check entirely if source = 'outline'.
- *
- * Threshold: 5+ unique corroborating students, avg match confidence > 0.7, 0 disputes.
- *
- * @param {string} topicId
- */
-export async function checkVerificationThreshold(topicId) {
-  const topic = await prisma.curriculumTopic.findUnique({
-    where: { id: topicId },
-    select: { id: true, source: true, status: true, corroboratingUserIds: true, disputeUserIds: true },
-  });
-
-  if (!topic) return;
-  if (topic.source === "outline") return; // outline-sourced topics skip verification
-
-  // Get all matches for this topic to compute avg confidence
-  const matches = await prisma.documentTopicMatch.findMany({
-    where: { topicId },
-    select: { userId: true, confidence: true },
-  });
-
-  if (matches.length === 0) return;
-
-  // Dedupe user_ids into corroboratingStudents
-  const uniqueStudentIds = [...new Set(matches.map((m) => m.userId))];
-
-  // Remove disputed users from corroborating set
-  const effectiveCorroborating = uniqueStudentIds.filter(
-    (id) => !topic.disputeUserIds.includes(id)
-  );
-
-  // Compute average confidence from all matches
-  const avgConfidence = matches.reduce((sum, m) => sum + m.confidence, 0) / matches.length;
-
-  const meetsThreshold =
-    effectiveCorroborating.length >= VERIFICATION_MIN_STUDENTS &&
-    avgConfidence > VERIFICATION_MIN_AVG_CONFIDENCE &&
-    topic.disputeUserIds.length === 0;
-
-  const newStatus = topic.disputeUserIds.length > 0 ? "disputed" : meetsThreshold ? "verified" : "unverified";
-
-  await prisma.curriculumTopic.update({
-    where: { id: topicId },
-    data: {
-      corroboratingUserIds: effectiveCorroborating,
-      avgConfidence: Math.round(avgConfidence * 100) / 100,
-      verified: meetsThreshold,
-      status: newStatus,
-    },
-  });
-
-  if (meetsThreshold && topic.status !== "verified") {
-    logInfo(`[topicExtractionService] Topic ${topicId} reached verification threshold`, {
-      students: effectiveCorroborating.length,
-      avgConfidence,
-    });
-  }
-}
 
 /**
  * Batch-match all of a user's existing documents in a course to the skeleton.
@@ -612,7 +436,7 @@ export async function checkVerificationThreshold(topicId) {
  */
 export async function retroactiveMatchDocuments(courseCode, userId, folderId, onProgress) {
   const topics = await prisma.curriculumTopic.findMany({
-    where: { courseCode },
+    where: { courseCode, createdBy: userId },
     select: { id: true, title: true, description: true },
   });
 

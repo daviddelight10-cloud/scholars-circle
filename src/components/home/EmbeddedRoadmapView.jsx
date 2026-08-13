@@ -4,8 +4,7 @@ import {
   fetchTopicProgress,
   fetchTopicMatches,
   generateSkeleton,
-  corroborateTopic,
-  disputeTopic,
+  reorderTopics,
 } from "../../lib/skeletonGenerator";
 import { retroactiveMatch } from "../../lib/topicMatcher";
 import { extractFileText } from "../../lib/extractFileText";
@@ -44,7 +43,11 @@ export default function EmbeddedRoadmapView({
   const [showRegenPrompt, setShowRegenPrompt] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
   const [showDetailMobile, setShowDetailMobile] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [toast, setToast] = useState(null);
   const fileInputRef = useRef(null);
+  const listRef = useRef(null);
+  const dragStateRef = useRef(null);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -281,12 +284,112 @@ export default function EmbeddedRoadmapView({
     }
   }
 
-  async function handleCorroborate(topicId) {
-    try { await corroborateTopic(topicId); loadData(); } catch (err) { setError(err.message); }
+  function showToast(msg) {
+    setToast(msg);
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => setToast(null), 1800);
   }
 
-  async function handleDispute(topicId) {
-    try { await disputeTopic(topicId); loadData(); } catch (err) { setError(err.message); }
+  function handleDragStart(e, topicId) {
+    if (!editMode) return;
+    const topic = topics.find(t => t.id === topicId);
+    if (!topic || isTopicLocked(topic, topics, progress)) return;
+
+    e.preventDefault();
+    const row = e.currentTarget.closest('[data-topic-id]');
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+
+    const placeholder = document.createElement('div');
+    placeholder.className = 'cs-drag-placeholder';
+    placeholder.style.height = rect.height + 'px';
+    row.parentNode.insertBefore(placeholder, row.nextSibling);
+
+    row.classList.add('cs-dragging');
+    row.style.position = 'fixed';
+    row.style.left = rect.left + 'px';
+    row.style.top = rect.top + 'px';
+    row.style.width = rect.width + 'px';
+    row.style.zIndex = '999';
+
+    dragStateRef.current = {
+      row, placeholder, topicId,
+      startY: e.clientY,
+      origTop: rect.top,
+      height: rect.height,
+    };
+
+    if (navigator.vibrate) navigator.vibrate(10);
+    document.addEventListener('pointermove', handleDragMove);
+    document.addEventListener('pointerup', handleDragEnd);
+  }
+
+  function handleDragMove(e) {
+    const ds = dragStateRef.current;
+    if (!ds) return;
+    const dy = e.clientY - ds.startY;
+    ds.row.style.top = (ds.origTop + dy) + 'px';
+
+    const margin = 60;
+    if (e.clientY < margin) {
+      window.scrollBy(0, -8);
+    } else if (e.clientY > window.innerHeight - margin) {
+      window.scrollBy(0, 8);
+    }
+
+    const listEl = listRef.current;
+    if (!listEl) return;
+    const rows = [...listEl.querySelectorAll('[data-topic-id]:not(.cs-dragging)')];
+    let target = null;
+    for (const r of rows) {
+      const rr = r.getBoundingClientRect();
+      if (e.clientY > rr.top && e.clientY < rr.bottom) { target = r; break; }
+    }
+    if (target) {
+      const tId = target.getAttribute('data-topic-id');
+      const tTopic = topics.find(t => String(t.id) === tId);
+      if (tTopic && !isTopicLocked(tTopic, topics, progress)) {
+        const rr = target.getBoundingClientRect();
+        const before = e.clientY < rr.top + rr.height / 2;
+        listEl.insertBefore(ds.placeholder, before ? target : target.nextSibling);
+      }
+    }
+  }
+
+  function handleDragEnd() {
+    const ds = dragStateRef.current;
+    if (!ds) return;
+
+    const listEl = listRef.current;
+    if (!listEl) { dragStateRef.current = null; return; }
+
+    const children = [...listEl.children];
+    const newOrderIds = children
+      .map(c => c === ds.placeholder ? String(ds.topicId) : c.getAttribute('data-topic-id'))
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i);
+
+    const newTopics = newOrderIds.map(id => topics.find(t => String(t.id) === id)).filter(Boolean);
+
+    ds.row.style.position = '';
+    ds.row.style.left = '';
+    ds.row.style.top = '';
+    ds.row.style.width = '';
+    ds.row.style.zIndex = '';
+    ds.row.classList.remove('cs-dragging');
+    ds.placeholder.remove();
+
+    document.removeEventListener('pointermove', handleDragMove);
+    document.removeEventListener('pointerup', handleDragEnd);
+    dragStateRef.current = null;
+
+    setTopics(newTopics);
+    reorderTopics(courseCode, newOrderIds).catch(err => {
+      console.error("Reorder failed:", err);
+      showToast("Failed to save order");
+    });
+    showToast('Order saved');
+    if (navigator.vibrate) navigator.vibrate(6);
   }
 
   if (loading) {
@@ -324,6 +427,22 @@ export default function EmbeddedRoadmapView({
 
         {topics.length > 0 && (
           <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setEditMode(!editMode)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: editMode ? "linear-gradient(135deg, #F5A623, #E08E12)" : D.panel,
+                border: editMode ? "none" : `1px solid ${D.border}`,
+                borderRadius: 100, padding: "8px 14px",
+                fontSize: 12, fontWeight: 700, fontFamily: FONTS.body,
+                color: editMode ? "#1a1206" : D.textMid,
+                cursor: "pointer", whiteSpace: "nowrap",
+                transition: "all 0.25s ease",
+              }}
+            >
+              {editMode ? "Done" : "✎ Edit order"}
+            </button>
+
             <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
               display: "flex", alignItems: "center", gap: 6,
               background: D.panel, border: `1px solid rgba(79,142,247,0.3)`,
@@ -348,6 +467,15 @@ export default function EmbeddedRoadmapView({
           </div>
         )}
       </div>
+
+      {/* Edit hint */}
+      {topics.length > 0 && (
+        <div className={`cs-edit-hint${editMode ? " active" : ""}`}>
+          {editMode
+            ? "Drag the handle to reorder. Locked topics can't be moved."
+            : 'Tap "Edit order" to rearrange topics to match your course outline.'}
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (
@@ -495,7 +623,11 @@ export default function EmbeddedRoadmapView({
             )}
 
             {/* Timeline topic list — connecting line + nodes */}
-            <div className="cs-topic-list" style={{ marginTop: 16 }}>
+            <div
+              ref={listRef}
+              className={`cs-topic-list${editMode ? " cs-edit-mode" : ""}`}
+              style={{ marginTop: 16 }}
+            >
               {topics.map((topic, idx) => (
                 <TimelineTopicRow
                   key={topic.id}
@@ -510,6 +642,8 @@ export default function EmbeddedRoadmapView({
                   onStartStudying={handleStartStudying}
                   isMobile={isMobile}
                   isLast={idx === topics.length - 1}
+                  editMode={editMode}
+                  onDragStart={handleDragStart}
                 />
               ))}
             </div>
@@ -586,8 +720,6 @@ export default function EmbeddedRoadmapView({
                 matches={matchesByTopic.get(selectedTopic.id) || []}
                 onOpenResource={onOpenResource}
                 onStartStudying={handleStartStudying}
-                onCorroborate={handleCorroborate}
-                onDispute={handleDispute}
                 locked={isTopicLocked(selectedTopic, topics, progress)}
                 isStartHere={startHereTopic?.id === selectedTopic.id}
                 resourceVariantsMap={resourceVariantsMap}
@@ -600,6 +732,13 @@ export default function EmbeddedRoadmapView({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="cs-toast show">
+          <span className="cs-toast-dot" />
+          {toast}
         </div>
       )}
     </div>

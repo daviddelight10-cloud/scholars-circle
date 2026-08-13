@@ -90,7 +90,7 @@ export function Badge({ text, bg, color }) {
   );
 }
 
-export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, onCorroborate, onDispute, locked, isStartHere, resourceVariantsMap, resourceByIdMap, onGenerate }) {
+export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, locked, isStartHere, resourceVariantsMap, resourceByIdMap, onGenerate }) {
   const p = progress;
   const progressLabel = p?.label || "Not started";
   const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
@@ -227,41 +227,9 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
                 Practice with AI Tutor →
               </button>
             )}
-            <button
-              onClick={() => onCorroborate(topic.id)}
-              disabled={topic.source === "outline"}
-              style={{
-                flex: 1, background: "rgba(61,214,140,0.1)", border: `0.5px solid ${D.green}44`,
-                borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
-                color: topic.source === "outline" ? D.textLow : D.green,
-                cursor: topic.source === "outline" ? "default" : "pointer", fontFamily: FONTS.body,
-              }}
-            >
-              ✓ Corroborate
-            </button>
-            <button
-              onClick={() => onDispute(topic.id)}
-              disabled={topic.source === "outline"}
-              style={{
-                flex: 1, background: "rgba(255,84,112,0.08)", border: `0.5px solid ${D.coral}33`,
-                borderRadius: 8, padding: "10px 16px", fontSize: 12, fontWeight: 600,
-                color: topic.source === "outline" ? D.textLow : D.coral,
-                cursor: topic.source === "outline" ? "default" : "pointer", fontFamily: FONTS.body,
-              }}
-            >
-              ✗ Dispute
-            </button>
           </>
         )}
       </div>
-
-      {/* Verification stats */}
-      {topic.source !== "outline" && (
-        <div style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body, textAlign: "center" }}>
-          {topic.corroboratingUserIds?.length || 0} corroborations · {topic.disputeUserIds?.length || 0} disputes
-          {topic.avgConfidence > 0 && ` · Avg confidence: ${Math.round(topic.avgConfidence * 100)}%`}
-        </div>
-      )}
 
       {/* Section 3: Subtopics checklist */}
       {topic.subtopics && topic.subtopics.length > 0 && (
@@ -533,7 +501,7 @@ export function OnboardingStep({ number, title, description, icon, done, actionL
 /**
  * Render a single timeline topic row (shared between standalone and embedded views).
  */
-export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic, selectedTopicId, startHereTopic, onSelectTopic, onStartStudying, isMobile, isLast }) {
+export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic, selectedTopicId, startHereTopic, onSelectTopic, onStartStudying, isMobile, isLast, editMode, onDragStart }) {
   const p = progress?.[topic.id];
   const topicMatches = matchesByTopic.get(topic.id) || [];
   const isSelected = selectedTopicId === topic.id;
@@ -547,21 +515,33 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
   return (
     <div
       key={topic.id}
-      onClick={() => { if (contentAccessible) onSelectTopic(topic.id); }}
+      data-topic-id={topic.id}
+      onClick={() => { if (!editMode && contentAccessible) onSelectTopic(topic.id); }}
       style={{
         position: "relative", display: "flex", alignItems: "center", gap: 14,
-        padding: "15px 4px", cursor: contentAccessible ? "pointer" : "default",
+        padding: "15px 4px", cursor: editMode ? "default" : (contentAccessible ? "pointer" : "default"),
         borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.05)",
-        background: isSelected ? "rgba(245,166,35,0.06)" : "transparent",
+        background: isSelected && !editMode ? "rgba(245,166,35,0.06)" : "transparent",
         transition: "background 0.15s",
         opacity: !contentAccessible ? 0.45 : (locked ? 0.8 : 1),
         ...(locked && contentAccessible && !isSelected ? { boxShadow: "inset 2px 0 0 rgba(245,166,35,0.25)" } : {}),
       }}
     >
+      <div
+        className={`cs-drag-handle${locked ? " locked" : ""}`}
+        onPointerDown={editMode && !locked ? (e) => onDragStart(e, topic.id) : undefined}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/>
+          <circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/>
+          <circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/>
+        </svg>
+      </div>
+
       <div className={nodeClass} style={locked ? { opacity: 0.6 } : {}}>
         {locked ? "🔒" : (topic.displayOrder || idx + 1)}
       </div>
-      {!isLast && <div className="cs-topic-line" />}
+      {!isLast && !editMode && <div className="cs-topic-line" />}
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, fontFamily: FONTS.body, color: !contentAccessible ? D.textLow : D.textHi, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -575,7 +555,7 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
         </div>
       </div>
 
-      {contentAccessible && topicMatches.length > 0 && onStartStudying && (
+      {!editMode && contentAccessible && topicMatches.length > 0 && onStartStudying && (
         <button
           onClick={(e) => { e.stopPropagation(); onStartStudying(topic); }}
           title="Study this topic now"
