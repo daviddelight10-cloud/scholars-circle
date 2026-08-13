@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import StudyGroupHub from "./study-group/StudyGroupHub.jsx";
 
 const STUDY_GROUPS_KEY = "sc_study_groups_v1";
 const GROUP_MEMBERS_KEY = "sc_group_members_v1";
@@ -72,6 +74,8 @@ function loadGroupQuizState() {
 function saveGroupQuizState(data) { localStorage.setItem(GROUP_QUIZ_STATE_KEY, JSON.stringify(data)); }
 
 export function StudyGroups({ stats, username, subjects = [] }) {
+  const { token: authToken, user: authUser, isFaculty } = useAuth();
+  const [hubMode, setHubMode] = useState("local");
   // Early return if critical props are missing
   if (!stats) {
     console.error("StudyGroups: stats prop is missing");
@@ -489,21 +493,63 @@ export function StudyGroups({ stats, username, subjects = [] }) {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <h2>👥 Study Groups</h2>
+        {hubMode === "local" && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              background: "#FFD700",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: 6,
+              cursor: "pointer"
+            }}
+          >
+            + Create Group
+          </button>
+        )}
+      </div>
+
+      {/* Mode toggle */}
+      <div className="sgh-mode-toggle" style={{ display: "flex", gap: 4, marginBottom: 16, padding: 4, background: "#1f2937", borderRadius: 8, maxWidth: 360 }}>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => setHubMode("local")}
           style={{
-            background: "#FFD700",
-            color: "white",
+            flex: 1,
+            padding: "8px 12px",
+            background: hubMode === "local" ? "#FFD700" : "transparent",
+            color: hubMode === "local" ? "white" : "#9ca3af",
             border: "none",
-            padding: "8px 16px",
             borderRadius: 6,
-            cursor: "pointer"
+            cursor: "pointer",
+            fontSize: 13,
+            fontWeight: 600
           }}
         >
-          + Create Group
+          📱 Local Groups
+        </button>
+        <button
+          onClick={() => setHubMode("hub")}
+          style={{
+            flex: 1,
+            padding: "8px 12px",
+            background: hubMode === "hub" ? "#FFD700" : "transparent",
+            color: hubMode === "hub" ? "white" : "#9ca3af",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontSize: 13,
+            fontWeight: 600
+          }}
+        >
+          🏫 Class Study Hub
         </button>
       </div>
 
+      {hubMode === "hub" ? (
+        <StudyGroupHub token={authToken} currentUser={authUser} subjects={subjects} isFaculty={isFaculty} />
+      ) : (
+      <>
       {!selectedGroup ? (
         <>
           <p className="muted">
@@ -1074,6 +1120,8 @@ export function StudyGroups({ stats, username, subjects = [] }) {
             </div>
           )}
         </>
+      )}
+      </>
       )}
 
       {/* Create Group Modal */}

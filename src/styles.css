@@ -9096,3 +9096,159 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   }
 }
 }
+
+/* ===== Study Group Hub ===== */
+.sgh-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sgh-loading,
+.sgh-empty {
+  text-align: center;
+  padding: 48px 20px;
+  background: rgba(20,20,20,0.6);
+  border: 1px solid rgba(255,215,0,0.12);
+  border-radius: 14px;
+}
+.sgh-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.sgh-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+}
+.sgh-empty-desc {
+  font-size: 13px;
+  color: #9ca3af;
+  max-width: 380px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+.sgh-classroom-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: rgba(20,20,20,0.6);
+  border: 1px solid rgba(255,215,0,0.12);
+  border-radius: 12px;
+}
+.sgh-classroom-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fbbf24;
+  white-space: nowrap;
+}
+.sgh-classroom-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.sgh-classroom-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(30,30,30,0.8);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #9ca3af;
+  font-size: 12px;
+}
+.sgh-classroom-chip:hover {
+  border-color: rgba(255,215,0,0.3);
+  color: #e5e7eb;
+}
+.sgh-classroom-chip.active {
+  background: rgba(255,215,0,0.1);
+  border-color: rgba(255,215,0,0.5);
+  color: #fbbf24;
+}
+.sgh-chip-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(255,215,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+.sgh-chip-name {
+  font-weight: 600;
+}
+.sgh-chip-count {
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  color: #6b7280;
+}
+.sgh-tab-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 6px;
+  background: rgba(20,20,20,0.5);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 10px;
+}
+.sgh-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.sgh-tab-btn:hover {
+  background: rgba(255,255,255,0.04);
+  color: #9ca3af;
+}
+.sgh-tab-btn.active {
+  background: rgba(255,215,0,0.12);
+  color: #fbbf24;
+}
+.sgh-tab-icon {
+  font-size: 14px;
+}
+.sgh-tab-content {
+  min-height: 300px;
+}
+@media (max-width: 640px) {
+  .sgh-tab-label {
+    display: none;
+  }
+  .sgh-tab-btn {
+    padding: 8px 10px;
+  }
+  .sgh-tab-icon {
+    font-size: 18px;
+  }
+  .sgh-classroom-chip {
+    padding: 5px 10px;
+  }
+  .sgh-chip-name {
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

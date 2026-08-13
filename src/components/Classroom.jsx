@@ -4,22 +4,8 @@ import { LiveSessionsPanel } from "../features/LiveSessions/LiveSessionsPanel.js
 import { ClassroomAssignmentsPanel } from "../features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
 import { AttendancePanel } from "../features/LiveSessions/AttendancePanel.jsx";
 import { BulkImport, AIQuestionGen } from "./SmallComponents";
-import GroupChat from "../features/study-group/GroupChat.jsx";
-import GroupMembers from "../features/study-group/GroupMembers.jsx";
-import GroupGoals from "../features/study-group/GroupGoals.jsx";
-import GroupLeaderboard from "../features/study-group/GroupLeaderboard.jsx";
-import StudyRooms from "../features/study-group/StudyRooms.jsx";
-import QuizBattles from "../features/study-group/QuizBattles.jsx";
-import GroupStreak from "../features/study-group/GroupStreak.jsx";
 
 const TABS = [
-  { id: "chat", icon: "💬", label: "Chat" },
-  { id: "members", icon: "👥", label: "Members" },
-  { id: "leaderboard", icon: "🏆", label: "Leaderboard" },
-  { id: "goals", icon: "🎯", label: "Goals" },
-  { id: "study", icon: "🚀", label: "Study Rooms" },
-  { id: "battles", icon: "⚔️", label: "Quiz Battles" },
-  { id: "streak", icon: "🔥", label: "Streak" },
   { id: "announcements", icon: "📢", label: "Announcements" },
   { id: "sessions", icon: "🎥", label: "Live Sessions" },
   { id: "assignments", icon: "📝", label: "Assignments" },
@@ -324,34 +310,6 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
 
                 {/* Tab content */}
                 <div key={classTab} className="cr-tab-content">
-
-                {classTab === "chat" && (
-                  <GroupChat classroomId={selectedClassroom.id} token={token} currentUser={currentUser} />
-                )}
-
-                {classTab === "members" && (
-                  <GroupMembers classroomId={selectedClassroom.id} token={token} currentUser={currentUser} />
-                )}
-
-                {classTab === "leaderboard" && (
-                  <GroupLeaderboard classroomId={selectedClassroom.id} token={token} currentUser={currentUser} />
-                )}
-
-                {classTab === "goals" && (
-                  <GroupGoals classroomId={selectedClassroom.id} token={token} isTeacher={teacherMode} />
-                )}
-
-                {classTab === "study" && (
-                  <StudyRooms classroomId={selectedClassroom.id} token={token} currentUser={currentUser} />
-                )}
-
-                {classTab === "battles" && (
-                  <QuizBattles classroomId={selectedClassroom.id} token={token} currentUser={currentUser} members={selectedClassroom?.members || []} subjects={subjects} />
-                )}
-
-                {classTab === "streak" && (
-                  <GroupStreak classroomId={selectedClassroom.id} token={token} />
-                )}
 
                 {classTab === "announcements" && (
                   <div>
