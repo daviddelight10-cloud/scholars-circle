@@ -72,7 +72,6 @@ function Progress({
           xp={stats.xp}
           sessions={stats.sessions}
           streak={stats.streak}
-          subjects={subjects}
           token={token}
         />
       )}

@@ -41,6 +41,7 @@ import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
 import { seedBadges } from "./lib/badges.js";
+import { startLeagueJob } from "./lib/leagueJob.js";
 import { prisma } from "./db.js";
 import { WebSocketServer, WebSocket } from "ws";
 import { verifySupabaseToken } from "./lib/verifySupabaseToken.js";
@@ -49,6 +50,8 @@ import { verifySupabaseToken } from "./lib/verifySupabaseToken.js";
 configurePush();
 // Start daily motivation + reminder cron (no-op if no subscribers yet).
 startStudyReminderJob();
+// Start weekly league promotion/demotion cron.
+startLeagueJob();
 
 const app = express();
 

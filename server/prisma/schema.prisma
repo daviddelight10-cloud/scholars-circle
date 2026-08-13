@@ -202,6 +202,22 @@ model User {
 
   voiceSessions     VoiceSession[]
 
+  following          UserFollow[]      @relation("UserFollowFollower")
+  followers          UserFollow[]      @relation("UserFollowFollowing")
+
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  followerId  String
+  follower    User     @relation("UserFollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("UserFollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 // ============ CAMPUS ANNOUNCEMENTS ============
@@ -1147,6 +1163,7 @@ model UserLeague {
   weeklyXP  Int      @default(0)          // XP earned in current week window
   weekStart DateTime @default(now())      // Monday of current week
   promoted  Boolean  @default(false)      // promoted this week?
+  demoted   Boolean  @default(false)      // demoted this week?
   updatedAt DateTime @updatedAt
 }
 

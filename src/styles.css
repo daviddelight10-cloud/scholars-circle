@@ -1127,6 +1127,116 @@ button:active {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   LEADERBOARD - NEW FEATURES (skeleton, empty, follow, load more)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Loading Skeleton */
+.lb-skeleton { animation: lb-skel-pulse 1.5s ease-in-out infinite; }
+@keyframes lb-skel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.lb-skel-circle { width: 48px; height: 48px; border-radius: 50%; background: #1A1F2C; margin: 0 auto 8px; }
+.lb-skel-circle.lg { width: 64px; height: 64px; }
+.lb-skel-circle.sm { width: 28px; height: 28px; }
+.lb-skel-line { height: 10px; border-radius: 6px; background: #1A1F2C; margin: 4px auto; }
+.lb-skel-line.w20 { width: 20px; } .lb-skel-line.w40 { width: 40px; }
+.lb-skel-line.w60 { width: 60px; } .lb-skel-line.w80 { width: 80px; }
+.lb-skel-line.w120 { width: 120px; }
+.lb-skel-row { padding: 10px 14px; gap: 12px; opacity: 0.6; }
+
+/* Empty State */
+.lb-empty-state { text-align: center; padding: 60px 20px; }
+.lb-empty-icon { font-size: 3rem; margin-bottom: 12px; }
+.lb-empty-state h3 { font-size: 1.1rem; margin-bottom: 6px; }
+.lb-empty-state p { color: #646E84; font-size: 0.84rem; margin-bottom: 16px; }
+.lb-empty-cta {
+  padding: 8px 20px; border-radius: 999px; border: 1px solid rgba(245,166,35,0.4);
+  background: rgba(245,166,35,0.1); color: #F5A623; cursor: pointer; font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace; transition: background 0.15s ease;
+}
+.lb-empty-cta:hover { background: rgba(245,166,35,0.2); }
+
+/* Load More Button */
+.lb-load-more {
+  display: block; margin: 16px auto; padding: 8px 24px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16); background: #151A24; color: #9AA3B5;
+  cursor: pointer; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;
+  transition: all 0.15s ease;
+}
+.lb-load-more:hover { border-color: rgba(245,166,35,0.4); color: #F5A623; }
+
+/* Follow Button */
+.lb-profile-actions { display: flex; align-items: center; gap: 8px; }
+.lb-follow-btn {
+  padding: 5px 14px; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace; cursor: pointer; transition: all 0.15s ease;
+  border: 1px solid rgba(61,214,140,0.4); background: rgba(61,214,140,0.1); color: #3DD68C;
+}
+.lb-follow-btn:hover { background: rgba(61,214,140,0.2); }
+.lb-follow-btn.following {
+  border-color: rgba(255,255,255,0.16); background: transparent; color: #646E84;
+}
+.lb-follow-btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* Follow Stats */
+.lb-follow-stats {
+  display: flex; gap: 16px; padding: 8px 0 0; font-size: 0.78rem; color: #646E84;
+}
+.lb-follow-stats b { color: #EDEFF5; font-weight: 700; }
+
+/* Rank row animation on position change */
+.lb-rank-row { transition: transform 0.3s ease, background 0.15s ease, border-color 0.15s ease; }
+.lb-rank-row.rank-up { animation: lb-row-up 0.4s ease; }
+.lb-rank-row.rank-down { animation: lb-row-down 0.4s ease; }
+@keyframes lb-row-up { 0% { transform: translateY(8px); background: rgba(61,214,140,0.08); } 100% { transform: translateY(0); } }
+@keyframes lb-row-down { 0% { transform: translateY(-8px); background: rgba(255,84,112,0.08); } 100% { transform: translateY(0); } }
+
+/* Polling freshness indicator */
+.lb-poll-indicator {
+  font-size: 0.68rem; color: #646E84; font-family: 'JetBrains Mono', monospace;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.lb-poll-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #3DD68C;
+  animation: lb-poll-pulse 2s ease-in-out infinite;
+}
+@keyframes lb-poll-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* Podium trend arrows */
+.lb-pod-trend {
+  font-size: 0.7rem; font-weight: 700; display: inline-block; margin-left: 4px;
+}
+.lb-pod-trend.up { color: #3DD68C; }
+.lb-pod-trend.down { color: #FF5470; }
+
+/* Sort tabs */
+.lb-sort-tabs {
+  display: flex; gap: 5px; background: #151A24;
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; padding: 4px;
+}
+
+/* League status badge */
+.lb-league-status { margin-top: 4px; font-size: 0.78rem; }
+.lb-league-status .promo { color: #3DD68C; font-weight: 700; }
+.lb-league-status .demo { color: #FF5470; font-weight: 700; }
+
+/* Profile modal: 3-column stat grid */
+.lb-profile-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+@media (max-width: 600px) {
+  .lb-profile-stats { grid-template-columns: 1fr 1fr; gap: 6px; }
+}
+
+/* Recent activity in profile modal */
+.lb-profile-recent { margin-top: 10px; }
+.lb-recent-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 0.78rem;
+}
+.lb-recent-mode { color: #9AA3B5; text-transform: capitalize; }
+.lb-recent-score { color: #EDEFF5; font-family: 'JetBrains Mono', monospace; }
+
+/* ═══════════════════════════════════════════════════════════
    DAILY QUESTS - FUTURISTIC CARDS
    ═══════════════════════════════════════════════════════════ */
 
