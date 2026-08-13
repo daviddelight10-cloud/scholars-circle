@@ -736,8 +736,16 @@ export default function FlashcardRunner({
         if (onQuizComplete) onQuizComplete(data);
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
+      } else {
+        console.error("[Arcade] quiz-attempts failed:", res.status);
+        const fallbackXp = g.correctCount * 20;
+        if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[Arcade] submit error:", err);
+      const fallbackXp = g.correctCount * 20;
+      if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
+    }
   }
 
   /* ── Start game ─────────────────────────────────────────── */

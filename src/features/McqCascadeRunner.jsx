@@ -523,8 +523,14 @@ export default function McqCascadeRunner({ resource, shareToken, questions, onBa
         if (onQuizComplete) onQuizComplete(data);
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
+      } else {
+        console.error("[Cascade] quiz-attempts failed:", res.status);
+        if (totalXp > 0 && onXpUpdate) onXpUpdate(totalXp);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[Cascade] submitLevel error:", err);
+      if (totalXp > 0 && onXpUpdate) onXpUpdate(totalXp);
+    }
   }
 
   function showCompletion() {

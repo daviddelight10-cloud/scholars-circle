@@ -14,13 +14,11 @@ router.post("/", requireAuth, async (req, res) => {
     // Filter out answers with questionIds that don't exist in DB (e.g. data.js keys like "bio112-0")
     const validAnswers = [];
     for (const a of answers) {
-      if (a.questionId && !a.questionId.match(/^[a-z]+\d+-\d+$/)) {
-        try {
-          await prisma.question.findUnique({ where: { id: a.questionId } });
-          validAnswers.push(a);
-        } catch { /* skip invalid questionId */ }
-      }
-      // Skip data.js-style questionIds (they won't exist in DB)
+      if (!a.questionId || a.questionId.match(/^[a-z]+\d+-\d+$/)) continue; // skip data.js-style IDs
+      try {
+        const q = await prisma.question.findUnique({ where: { id: a.questionId } });
+        if (q) validAnswers.push(a);
+      } catch { /* skip invalid questionId */ }
     }
 
     const session = await prisma.sessionAttempt.create({

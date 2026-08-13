@@ -213,11 +213,15 @@ export default function McqExamRunner({ resource, shareToken, onBack, onQuizComp
       } else {
         const err = await res.json().catch(() => ({}));
         setSubmitError(err.error || "Failed to submit exam");
-        setResultsData({ xpAwarded: score * XP_PER_CORRECT, totalXp: null, percentile: null, rank: null, totalTakers: null });
+        const fallbackXp = score * XP_PER_CORRECT;
+        setResultsData({ xpAwarded: fallbackXp, totalXp: null, percentile: null, rank: null, totalTakers: null });
+        if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
       }
     } catch {
       setSubmitError("Network error — results shown locally");
-      setResultsData({ xpAwarded: score * XP_PER_CORRECT, totalXp: null, percentile: null, rank: null, totalTakers: null });
+      const fallbackXp = score * XP_PER_CORRECT;
+      setResultsData({ xpAwarded: fallbackXp, totalXp: null, percentile: null, rank: null, totalTakers: null });
+      if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
     } finally {
       setSubmitting(false);
       setPhase("results");

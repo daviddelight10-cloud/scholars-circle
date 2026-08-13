@@ -257,23 +257,27 @@ export default function McqQuizRunner({ resource, shareToken, sessionConfig, onB
       } else {
         const err = await res.json().catch(() => ({}));
         setSubmitError(err.error || "Failed to submit quiz");
+        const fallbackXp = score * XP_PER_CORRECT;
         setResultsData({
-          xpAwarded: score * XP_PER_CORRECT,
+          xpAwarded: fallbackXp,
           totalXp: null,
           percentile: null,
           rank: null,
           totalTakers: null,
         });
+        if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
       }
     } catch {
       setSubmitError("Network error — results shown locally");
+      const fallbackXp = score * XP_PER_CORRECT;
       setResultsData({
-        xpAwarded: score * XP_PER_CORRECT,
+        xpAwarded: fallbackXp,
         totalXp: null,
         percentile: null,
         rank: null,
         totalTakers: null,
       });
+      if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
     } finally {
       setSubmitting(false);
       setShowResults(true);

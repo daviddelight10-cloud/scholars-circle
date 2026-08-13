@@ -426,8 +426,16 @@ export default function McqSurvivalRunner({ resource, shareToken, questions, onB
         if (onQuizComplete) onQuizComplete(data);
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
+      } else {
+        console.error("[Survival] quiz-attempts failed:", res.status);
+        const fallbackXp = runBestStreak * 20;
+        if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[Survival] submitAttempt error:", err);
+      const fallbackXp = runBestStreak * 20;
+      if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
+    }
   }
 
   // ── Review handlers ──

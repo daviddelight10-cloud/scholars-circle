@@ -558,8 +558,14 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
         if (onQuizComplete) onQuizComplete(data);
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
+      } else {
+        console.error("[Matching] quiz-attempts failed:", res.status);
+        if (XP_PER_LEVEL > 0 && onXpUpdate) onXpUpdate(XP_PER_LEVEL);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[Matching] submitLevel error:", err);
+      if (XP_PER_LEVEL > 0 && onXpUpdate) onXpUpdate(XP_PER_LEVEL);
+    }
   }
 
   // Next level

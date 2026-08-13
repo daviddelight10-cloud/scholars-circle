@@ -147,8 +147,11 @@ export default function ExamSimulationRunner({ subject, resourceIds, questionCou
       setResults({ score, total: items.length, xpAwarded: data.xpAwarded, streak: data.streak, ...data });
       if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
       if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
-    } catch {
-      setResults({ score, total: items.length });
+    } catch (err) {
+      console.error("[ExamSim] submit error:", err);
+      const fallbackXp = score * 20;
+      setResults({ score, total: items.length, xpAwarded: fallbackXp });
+      if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
     }
     setPhase("results");
     setSubmitting(false);

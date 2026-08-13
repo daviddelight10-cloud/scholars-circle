@@ -550,8 +550,14 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
         const data = await res.json();
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
+      } else {
+        console.error("[FlashcardDeck] quiz-attempts failed:", res.status);
+        if (totalXpVal > 0 && onXpUpdate) onXpUpdate(totalXpVal);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[FlashcardDeck] submitLevel error:", err);
+      if (totalXpVal > 0 && onXpUpdate) onXpUpdate(totalXpVal);
+    }
   }
 
   function showCompletion() {

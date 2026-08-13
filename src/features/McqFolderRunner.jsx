@@ -141,8 +141,11 @@ export default function McqFolderRunner({ folder, mcqResources, onBack, onStreak
       setResultsData(data);
       if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
       if (data.xpAwarded > 0 && onXpUpdate) onXpUpdate(data.xpAwarded);
-    } catch {
-      setResultsData({ score: correctCount, total: allQuestions.length });
+    } catch (err) {
+      console.error("[Folder] quiz-attempts error:", err);
+      const fallbackXp = correctCount * 20;
+      setResultsData({ score: correctCount, total: allQuestions.length, xpAwarded: fallbackXp });
+      if (fallbackXp > 0 && onXpUpdate) onXpUpdate(fallbackXp);
     }
     setShowResults(true);
     setSubmitting(false);
