@@ -35,6 +35,23 @@ const PALETTES = {
     listBullet: "#C23B3B",
     headingBorder: "#d4d0c5",
   },
+  sepia: {
+    text: "#3A3A3A",
+    muted: "#6E6656",
+    accent: "#8B5E34",
+    codeBg: "#E9E0C4",
+    codeBorder: "#DED2B0",
+    heading: "#2D2823",
+    mathColor: "#3A3A3A",
+    blockquoteBorder: "#8B5E34",
+    blockquoteBg: "rgba(139,94,52,0.08)",
+    blockquoteText: "#5a4a3a",
+    codeText: "#3F3A33",
+    boldColor: "#2D2823",
+    italicColor: "#6E6656",
+    listBullet: "#8B5E34",
+    headingBorder: "#DED2B0",
+  },
 };
 
 const D = PALETTES.dark;
