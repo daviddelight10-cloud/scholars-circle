@@ -194,6 +194,7 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
     return {
       username: user.username || user.fullName?.split(/\s+/)[0] || user.email?.split("@")[0] || "scholar",
       userId: user.id,
+      isMe: user.id === req.user.sub,
       xp: periodXP,
       totalXP: user.progress?.xp || 0,
       dailyXP: dailyXP,

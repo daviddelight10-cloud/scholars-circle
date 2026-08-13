@@ -140,8 +140,10 @@ export function Leaderboard({ username, xp, sessions, streak, token }) {
   };
 
   const localEntry = { username, xp, sessions, streak: streak || 0, isMe: true, avgMastery: 0, correctRate: 0, studyHours: 0, personalBest: 0 };
+  const boardWithMe = board.map((e) => ({ ...e, isMe: !!e.isMe }));
+  const imInBoard = boardWithMe.some(e => e.isMe);
   const merged = board.length > 0
-    ? board.map((e) => ({ ...e, isMe: e.username === username }))
+    ? (imInBoard ? boardWithMe : [...boardWithMe, localEntry])
     : [localEntry];
 
   const sortFn = sortBy === 'streak'
@@ -471,19 +473,19 @@ export function Leaderboard({ username, xp, sessions, streak, token }) {
                     </div>
                     <div className="lb-profile-stat">
                       <div className="label">Sessions</div>
-                      <div className="value" style={{ color: '#4ade80' }}>{userProfileData.sessions || 0}</div>
+                      <div className="value" style={{ color: '#DAA520' }}>{userProfileData.sessions || 0}</div>
                     </div>
                     <div className="lb-profile-stat">
                       <div className="label">Streak</div>
-                      <div className="value" style={{ color: '#fb923c' }}>{userProfileData.streak || 0} days</div>
+                      <div className="value" style={{ color: '#fbbf24' }}>{userProfileData.streak || 0} days</div>
                     </div>
                     <div className="lb-profile-stat">
                       <div className="label">Accuracy</div>
-                      <div className="value" style={{ color: '#38bdf8' }}>{userProfileData.correctRate || 0}%</div>
+                      <div className="value" style={{ color: '#F5A623' }}>{userProfileData.correctRate || 0}%</div>
                     </div>
                     <div className="lb-profile-stat">
                       <div className="label">Study Hours</div>
-                      <div className="value" style={{ color: '#c084fc' }}>{userProfileData.studyHours || 0}h</div>
+                      <div className="value" style={{ color: '#B8860B' }}>{userProfileData.studyHours || 0}h</div>
                     </div>
                     <div className="lb-profile-stat">
                       <div className="label">Personal Best</div>
