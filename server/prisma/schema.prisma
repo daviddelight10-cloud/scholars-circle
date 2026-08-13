@@ -205,6 +205,13 @@ model User {
   following          UserFollow[]      @relation("UserFollowFollower")
   followers          UserFollow[]      @relation("UserFollowFollowing")
 
+  classroomMessages     ClassroomMessage[]
+  classroomReactions    ClassroomMessageReaction[]
+  classroomGoalProgress ClassroomGoalProgress[]
+  studyRoomParticipants ClassroomStudyRoomParticipant[]
+  classroomDuelsStarted   ClassroomDuel[]  @relation("ClassDuelChallenger")
+  classroomDuelsReceived  ClassroomDuel[]  @relation("ClassDuelChallenged")
+
 }
 
 model UserFollow {
@@ -781,6 +788,14 @@ model Classroom {
   weeklyChallenges WeeklyChallenge[]
 
   wallPosts        WallPost[]
+
+  messages         ClassroomMessage[]
+
+  goals            ClassroomGoal[]
+
+  studyRooms       ClassroomStudyRoom[]
+
+  duels            ClassroomDuel[]  @relation("DuelClassroom")
 
 }
 
@@ -1797,5 +1812,188 @@ model StudySessionCache {
 
   @@unique([userId, topic])
   @@index([userId])
+}
+
+
+// ============ STUDY GROUP OVERHAUL ============
+
+model ClassroomMessage {
+
+  id           String   @id @default(cuid())
+
+  classroomId  String
+
+  userId       String
+
+  text         String
+
+  resourceId   String?  // optional shared resource
+
+  createdAt    DateTime @default(now())
+
+  classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reactions    ClassroomMessageReaction[]
+
+  @@index([classroomId, createdAt])
+
+}
+
+
+model ClassroomMessageReaction {
+
+  id          String   @id @default(cuid())
+
+  messageId   String
+
+  userId      String
+
+  emoji       String   // 👍 ❤️ 🔥 😂 🎉
+
+  createdAt   DateTime @default(now())
+
+  message     ClassroomMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+
+  @@index([messageId])
+
+}
+
+
+model ClassroomGoal {
+
+  id           String   @id @default(cuid())
+
+  classroomId  String
+
+  title        String
+
+  targetValue  Int      // e.g., 500 XP, 50 questions
+
+  metric       String   @default("xp")  // xp | questions | sessions | hours
+
+  deadline     DateTime?
+
+  completedAt  DateTime?
+
+  createdAt    DateTime @default(now())
+
+  classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  progress     ClassroomGoalProgress[]
+
+  @@index([classroomId])
+
+}
+
+
+model ClassroomGoalProgress {
+
+  id          String   @id @default(cuid())
+
+  goalId      String
+
+  userId      String
+
+  value       Int      @default(0)
+
+  updatedAt   DateTime @updatedAt
+
+  goal        ClassroomGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, userId])
+
+}
+
+
+model ClassroomStudyRoom {
+
+  id           String   @id @default(cuid())
+
+  classroomId  String
+
+  name         String
+
+  hostId       String
+
+  pomodoroMin  Int      @default(25)
+
+  breakMin     Int      @default(5)
+
+  status       String   @default("active")  // active | completed
+
+  startedAt    DateTime @default(now())
+
+  endedAt      DateTime?
+
+  classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  participants ClassroomStudyRoomParticipant[]
+
+  @@index([classroomId, status])
+
+}
+
+
+model ClassroomStudyRoomParticipant {
+
+  id          String   @id @default(cuid())
+
+  studyRoomId String
+
+  userId      String
+
+  joinedAt    DateTime @default(now())
+
+  leftAt      DateTime?
+
+  studyRoom   ClassroomStudyRoom @relation(fields: [studyRoomId], references: [id], onDelete: Cascade)
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studyRoomId, userId])
+
+}
+
+
+model ClassroomDuel {
+
+  id              String   @id @default(cuid())
+
+  classroomId     String
+
+  challengerId    String
+
+  challengedId    String
+
+  subjectId       String?
+
+  status          String   @default("pending")  // pending | accepted | declined | completed
+
+  challengerScore Int      @default(0)
+
+  challengedScore Int      @default(0)
+
+  winnerId        String?
+
+  createdAt       DateTime @default(now())
+
+  completedAt     DateTime?
+
+  classroom       Classroom @relation("DuelClassroom", fields: [classroomId], references: [id], onDelete: Cascade)
+
+  challenger      User      @relation("ClassDuelChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+
+  challenged      User      @relation("ClassDuelChallenged", fields: [challengedId], references: [id], onDelete: Cascade)
+
+  @@index([classroomId, status])
+
 }
 
