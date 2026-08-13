@@ -557,10 +557,15 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
       select: { id: true },
     });
     if (resources.length > 0) {
-      await prisma.resourceBookmark.createMany({
-        data: resources.map((r) => ({ userId, resourceId: r.id })),
-        skipDuplicates: true,
-      });
+      await prisma.$transaction(
+        resources.map((r) =>
+          prisma.resourceBookmark.upsert({
+            where: { resourceId_userId: { resourceId: r.id, userId } },
+            create: { userId, resourceId: r.id, folderId: id },
+            update: { folderId: id },
+          })
+        )
+      );
     }
 
     res.status(201).json({ ...bookmark, resourcesBookmarked: resources.length });
@@ -586,6 +591,7 @@ router.delete("/:id/bookmark", requireAuth, async (req, res) => {
         where: {
           userId,
           resourceId: { in: resources.map((r) => r.id) },
+          folderId: id,
         },
       });
     }
