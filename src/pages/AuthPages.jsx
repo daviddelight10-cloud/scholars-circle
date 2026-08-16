@@ -272,11 +272,23 @@ export default function AuthPages() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+    <main style={{ minHeight: '100vh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         a { color: inherit; text-decoration: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes counterspin { to { transform: rotate(-360deg); } }
+        @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes sweep { from { transform: translateY(0); opacity: 1; } to { transform: translateY(420%); opacity: 0; } }
+        @keyframes blink { 50% { opacity: 0; } }
+        .auth-orbit-ring { animation: spin 70s linear infinite; }
+        .auth-orbit-chip span { display: inline-block; animation: counterspin 70s linear infinite; }
+        .auth-float-card { animation: float 6s ease-in-out infinite; }
+        .auth-pulse-dot { animation: pulse 2s ease-in-out infinite; }
+        .auth-scan-sweep { animation: sweep 2.6s ease-out 1; }
+        .auth-cursor { animation: blink 1s steps(2) infinite; color: #FFD700; }
         .auth-input {
           width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
           border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
@@ -299,14 +311,121 @@ export default function AuthPages() {
           transition: border-color 0.15s ease;
         }
         .auth-google-btn:hover { border-color: #9AA3B5; }
+        .auth-shell { display: grid; grid-template-columns: 1fr 1fr; minHeight: '100vh'; }
+        .auth-mobile-banner { display: none; }
+        @media (max-width: 900px) {
+          .auth-shell { grid-template-columns: 1fr !important; }
+          .auth-visual-panel { display: none !important; }
+          .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; align-items: flex-start !important; padding-top: 60px !important; }
+          .auth-mobile-banner { display: flex !important; align-items: center; gap: 10px; margin-bottom: 28px; }
+        }
+        @media (max-width: 560px) {
+          .auth-form-panel { padding: 24px 20px !important; }
+        }
       `}</style>
 
-      <div style={{ width: '100%', maxWidth: 380 }}>
-        <Link to="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
-          {'<- Back to home'}
-        </Link>
+      <div className="auth-shell">
+        {/* Visual Panel */}
+        <div className="auth-visual-panel" style={{
+          position: 'relative',
+          background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #11151E',
+          borderRight: '1px solid rgba(255,255,255,0.09)',
+          overflow: 'hidden',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          padding: '40px 48px',
+        }}>
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none',
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.09) 1px, transparent 1px)',
+            backgroundSize: '42px 42px',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
+            maskImage: 'radial-gradient(circle at 50% 45%, black 0%, transparent 72%)',
+          }} />
+          <div className="auth-scan-sweep" style={{ position: 'absolute', left: 0, right: 0, top: '-30%', height: '30%', background: 'linear-gradient(180deg, rgba(79,142,247,0.10), transparent)', pointerEvents: 'none' }} />
 
-        {mode === 'login' ? (
+          {/* Top: Logo + boot line */}
+          <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.05rem', color: '#EDEFF5' }}>
+              <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 28, height: 28, borderRadius: 6 }} />
+              Scholar's Circle
+            </Link>
+            <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', color: '#646E84', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>{'>>> connecting to your circle'}</span>
+              <span className="auth-cursor">_</span>
+            </div>
+          </div>
+
+          {/* Center: Orbit + Ring */}
+          <div style={{ position: 'relative', zIndex: 2, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: 340, height: 340 }}>
+              <div className="auth-orbit-ring" style={{ position: 'absolute', inset: 0, border: '1px dashed rgba(255,255,255,0.16)', borderRadius: '50%' }}>
+                {[
+                  { top: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'ANA 111' },
+                  { top: '50%', left: 'auto', right: '-12px', transform: 'translateY(-50%)', label: 'PHY 121' },
+                  { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BHM 111' },
+                  { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'PAT 211' },
+                ].map((c, i) => (
+                  <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                    <span>{c.label}</span>
+                  </span>
+                ))}
+              </div>
+              <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#11151E', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
+                <svg viewBox="0 0 190 190" width="190" height="190" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+                  <defs>
+                    <linearGradient id="authRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#FFD700" />
+                      <stop offset="100%" stopColor="#F5A623" />
+                    </linearGradient>
+                  </defs>
+                  <circle fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="8" cx="95" cy="95" r="80" />
+                  <circle
+                    fill="none" strokeWidth="8" strokeLinecap="round" stroke="url(#authRingGrad)"
+                    cx="95" cy="95" r="80"
+                    strokeDasharray="503"
+                    strokeDashoffset={mode === 'signup' ? 503 - (503 * 0.12) : 503 - (503 * 0.68)}
+                    style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.2,0.7,0.2,1)' }}
+                  />
+                </svg>
+                <div style={{ textAlign: 'center', position: 'relative', zIndex: 1, padding: '0 20px' }}>
+                  <h2 style={{ fontSize: '1.3rem', fontWeight: 800, lineHeight: 1.2, color: '#EDEFF5' }}>
+                    {mode === 'signup' ? 'Join the Circle.' : 'Welcome back.'}
+                  </h2>
+                  <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.7rem', color: '#9AA3B5', marginTop: 6, display: 'block', letterSpacing: '0.03em' }}>
+                    {mode === 'signup' ? '2-DAY FREE TRIAL - NO CARD' : 'YOUR STREAK IS WAITING'}
+                  </span>
+                </div>
+              </div>
+              <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
+              <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
+            </div>
+          </div>
+
+          {/* Bottom: Pulse stat */}
+          <div style={{ position: 'relative', zIndex: 2 }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem', color: '#646E84' }}>
+              <span className="auth-pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#3DD68C', marginRight: 8, boxShadow: '0 0 0 3px rgba(61,214,140,0.18)' }} />
+              1,284 medical students studying right now
+            </span>
+          </div>
+        </div>
+
+        {/* Form Panel */}
+        <div className="auth-form-panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 32px 48px' }}>
+          <div style={{ width: '100%', maxWidth: 380 }}>
+            {/* Mobile brand banner */}
+            <div className="auth-mobile-banner">
+              <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 32, height: 32, borderRadius: 6 }} />
+              <div>
+                <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: '#EDEFF5', display: 'block' }}>Scholar's Circle</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: '#646E84' }}>Cram less. Remember more.</span>
+              </div>
+            </div>
+
+            <Link to="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 28, textDecoration: 'none' }}>
+              {'<- Back to home'}
+            </Link>
+
+            {mode === 'login' ? (
           <>
             <div style={{ marginBottom: 28 }}>
               <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Syne, sans-serif' }}>Welcome back</h1>
@@ -526,6 +645,8 @@ export default function AuthPages() {
             </a>
           </div>
         </div>
+      </div>
+      </div>
       </div>
     </main>
   );
