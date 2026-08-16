@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import HomePage from './features/HomePage';
+import AuthPages from './pages/AuthPages';
 import { lazyWithRetry } from './lib/lazyWithRetry.js';
 
 const App = lazyWithRetry(() => import('./App'));
@@ -60,9 +61,9 @@ export default function AppRouter() {
       <Route path="/features" element={<LandingPageWrapper />} />
       <Route path="/pricing" element={<LandingPageWrapper />} />
 
-      {/* Auth routes - show App component with auth forms */}
-      <Route path="/login" element={<App />} />
-      <Route path="/signup" element={<App />} />
+      {/* Auth routes - show lightweight AuthPages component */}
+      <Route path="/login" element={<AuthPages />} />
+      <Route path="/signup" element={<AuthPages />} />
 
       {/* Main app route */}
       <Route path="/app" element={<App />} />
