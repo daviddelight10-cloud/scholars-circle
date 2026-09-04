@@ -664,7 +664,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                           }`}>{key}</span>
                           <span className="pt-0.5">{val}</span>
                           {showCorrect && <span className="ml-auto pt-0.5 text-[10px]">✓</span>}
-                          {showWrong && <span className="ml-auto pt-0.5 text-[10px]">✗</span>
+                          {showWrong && <span className="ml-auto pt-0.5 text-[10px]">✗</span>}
                         </button>
                       );
                     });
