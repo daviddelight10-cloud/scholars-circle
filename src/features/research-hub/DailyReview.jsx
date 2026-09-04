@@ -594,49 +594,46 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
               <div className="mb-4 text-[14px] font-bold leading-relaxed text-hub-text">
                 {currentItem.mcq?.question || currentItem.mcq?.q || `Question ${(currentItem.pageIndex || 0) + 1}`}
               </div>
-              {currentItem.mcq?.options && (
-                <div className="space-y-2">
-                  {(() => {
-                    const opts = currentItem.mcq.options;
-                    const correctKey = currentItem.mcq?.correct ?? currentItem.mcq?.answer ?? null;
-                    const isAnswered = selectedOption !== null;
-                    
-                    if (Array.isArray(opts)) {
-                      return opts.map((opt, oi) => {
-                        const optionKey = String.fromCharCode(65 + oi);
-                        const isCorrect = optionKey === correctKey || oi === (currentItem.mcq?.correctIndex ?? currentItem.mcq?.answer);
-                        const isSelected = selectedOption === optionKey;
-                        const showCorrect = isAnswered && isCorrect;
-                        const showWrong = isAnswered && isSelected && !isCorrect;
-                        
-                        return (
-                          <button
-                            key={oi}
-                            onClick={() => handleMcqOptionSelect(optionKey)}
-                            disabled={isAnswered}
-                            className={`flex w-full items-start gap-2.5 rounded-xl border p-3 text-[12px] text-left transition-all ${
-                              isAnswered ? "cursor-default" : "cursor-pointer active:scale-[0.98]"
-                            } ${
-                              showCorrect ? "border-success-border bg-success-bg text-success-text" : 
-                              showWrong ? "border-coral-300 bg-coral-50 text-coral-400" : 
-                              isSelected ? "border-gold-border bg-gold-dim text-gold" : 
-                              "border-hub-border bg-hub-bg text-hub-text-muted"
-                            }`}
-                          >
-                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                              showCorrect ? "bg-[#22c55e] text-[#0a0a0a]" : 
-                              showWrong ? "bg-[#ef4444] text-[#0a0a0a]" : 
-                              isSelected ? "bg-gold text-[#0a0a0a]" : 
-                              "bg-hub-border text-hub-text-dim"
-                            }`}>{optionKey}</span>
-                            <span className="pt-0.5">{opt}</span>
-                            {showCorrect && <span className="ml-auto pt-0.5 text-[10px]">✓</span>}
-                            {showWrong && <span className="ml-auto pt-0.5 text-[10px]">✗</span>}
-                          </button>
-                        );
-                      });
-                    }
-                    return Object.entries(opts).map(([key, val]) => {
+              {currentItem.mcq?.options && (() => {
+                const opts = currentItem.mcq.options;
+                const correctKey = currentItem.mcq?.correct ?? currentItem.mcq?.answer ?? null;
+                const isAnswered = selectedOption !== null;
+                
+                return (
+                  <div className="space-y-2">
+                    {Array.isArray(opts) ? opts.map((opt, oi) => {
+                      const optionKey = String.fromCharCode(65 + oi);
+                      const isCorrect = optionKey === correctKey || oi === (currentItem.mcq?.correctIndex ?? currentItem.mcq?.answer);
+                      const isSelected = selectedOption === optionKey;
+                      const showCorrect = isAnswered && isCorrect;
+                      const showWrong = isAnswered && isSelected && !isCorrect;
+                      
+                      return (
+                        <button
+                          key={oi}
+                          onClick={() => handleMcqOptionSelect(optionKey)}
+                          disabled={isAnswered}
+                          className={`flex w-full items-start gap-2.5 rounded-xl border p-3 text-[12px] text-left transition-all ${
+                            isAnswered ? "cursor-default" : "cursor-pointer active:scale-[0.98]"
+                          } ${
+                            showCorrect ? "border-success-border bg-success-bg text-success-text" : 
+                            showWrong ? "border-coral-300 bg-coral-50 text-coral-400" : 
+                            isSelected ? "border-gold-border bg-gold-dim text-gold" : 
+                            "border-hub-border bg-hub-bg text-hub-text-muted"
+                          }`}
+                        >
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                            showCorrect ? "bg-[#22c55e] text-[#0a0a0a]" : 
+                            showWrong ? "bg-[#ef4444] text-[#0a0a0a]" : 
+                            isSelected ? "bg-gold text-[#0a0a0a]" : 
+                            "bg-hub-border text-hub-text-dim"
+                          }`}>{optionKey}</span>
+                          <span className="pt-0.5">{opt}</span>
+                          {showCorrect && <span className="ml-auto pt-0.5 text-[10px]">✓</span>}
+                          {showWrong && <span className="ml-auto pt-0.5 text-[10px]">✗</span>}
+                        </button>
+                      );
+                    }) : Object.entries(opts).map(([key, val]) => {
                       const isCorrect = key === correctKey;
                       const isSelected = selectedOption === key;
                       const showCorrect = isAnswered && isCorrect;
@@ -667,15 +664,15 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                           {showWrong && <span className="ml-auto pt-0.5 text-[10px]">✗</span>}
                         </button>
                       );
-                    });
-                  })()}
-                  {isAnswered && currentItem.mcq?.explanation && (
-                    <div className="rounded-xl bg-hub-bg p-3 text-[11px] italic leading-relaxed text-hub-text-dim">
-                      {currentItem.mcq.explanation}
-                    </div>
-                  )}
-                </div>
-              )}
+                    })}
+                    {isAnswered && currentItem.mcq?.explanation && (
+                      <div className="rounded-xl bg-hub-bg p-3 text-[11px] italic leading-relaxed text-hub-text-dim">
+                        {currentItem.mcq.explanation}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </>
           ) : currentItem.itemType === "page" && pageQuestions && pageQuestions.questions.length > 0 ? (
             <>
