@@ -11,10 +11,10 @@ export default function FolderDetailView({
   onUploadToFolder, onToggleFolderBookmark, folderBookmarkedIds, folderBookmarkBusyId,
   bookmarkedIds, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress,
   onSpacedReview, onAdaptiveDrill, onExamSimulation, onPracticeAll,
-  onGenerate, generatingId, genProgress,
+  onGenerate, generatingId,
   uploadModal, createFolderModal, bookmarkPicker,
   onStartStudying,
-  onGuidedStudy, onDeleteResource, canDeleteFile,
+  onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy,
 }) {
   const [sheetFile, setSheetFile] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -32,17 +32,32 @@ export default function FolderDetailView({
 
   const counts = folderCategorized.counts || { materials: 0, summaries: 0, flashcards: 0, mcqs: 0 };
 
-  // Files tab = source files + standalone items (bookmarked MCQ sets / decks /
-  // summaries that have no source file) so nothing disappears from the space.
+  // Files tab = every document in the space: source files, their AI-generated
+  // variants (MCQs / flashcards / summaries saved by the AI tools), and
+  // standalone items with no source file — each rendered as its own card.
   const allFiles = useMemo(() => {
-    const mats = folderCategorized.materials || [];
-    const seen = new Set(mats.map((f) => f.id));
-    const standalone = [
-      ...(folderCategorized.mcqs || []),
-      ...(folderCategorized.flashcards || []),
-      ...(folderCategorized.summaries || []),
-    ].filter((f) => f.standalone && !seen.has(f.id) && seen.add(f.id));
-    return [...mats, ...standalone];
+    const asDoc = (r, selfKind) => ({
+      ...r,
+      variants: selfKind
+        ? { summary: selfKind === "summary" ? r : null, mcq: selfKind === "mcq" ? r : null, flashcard: selfKind === "flashcard" ? r : null }
+        : r.variants,
+    });
+    const docs = [];
+    const seen = new Set();
+    for (const m of folderCategorized.materials || []) {
+      docs.push(m);
+      seen.add(m.id);
+      for (const kind of ["summary", "mcq", "flashcard"]) {
+        const v = m.variants?.[kind];
+        if (v && !seen.has(v.id)) { docs.push(asDoc(v, kind)); seen.add(v.id); }
+      }
+    }
+    for (const list of ["mcqs", "flashcards", "summaries"]) {
+      for (const f of folderCategorized[list] || []) {
+        if (f.standalone && !seen.has(f.id)) { docs.push(f); seen.add(f.id); }
+      }
+    }
+    return docs;
   }, [folderCategorized]);
 
   const files = useMemo(() => {
@@ -161,7 +176,7 @@ export default function FolderDetailView({
 
             <div className="sp-hero-stats relative">
               <div>
-                <div className="sp-hero-stat-num">{counts.materials}</div>
+                <div className="sp-hero-stat-num">{allFiles.length}</div>
                 <div className="sp-hero-stat-label">Files</div>
               </div>
               <div className="sp-hero-divider" />
@@ -291,7 +306,21 @@ export default function FolderDetailView({
         onGuidedStudy={onGuidedStudy}
         onExamSimulation={onExamSimulation}
         generating={sheetFile ? generatingId === sheetFile.id : false}
+        preparingStudy={preparingStudy}
+        mcqProgress={mcqProgress}
       />
+
+      {/* Guided-study extraction indicator — persists until study opens */}
+      {preparingStudy && (
+        <div
+          className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
+          style={{ background: "#12161F", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both" }}
+          role="status"
+        >
+          <span className="animate-spin" style={{ display: "inline-block" }}>⏳</span>
+          Preparing guided study…
+        </div>
+      )}
 
       {uploadModal}
       {createFolderModal}

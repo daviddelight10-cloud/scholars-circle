@@ -931,12 +931,29 @@
 }
 .cs-sheet::-webkit-scrollbar { display: none; }
 
+.cs-sheet-grab {
+  margin: -12px -16px 0;
+  padding: 12px 16px 4px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cs-sheet-grab:active { cursor: grabbing; }
+
 .cs-sheet-handle {
   width: 36px;
   height: 4px;
   border-radius: 2px;
   background: rgba(255,255,255,0.15);
-  margin: 0 auto 18px;
+  margin: 0 auto 14px;
+  transition: background 0.2s ease;
+}
+.cs-sheet-grab:hover .cs-sheet-handle { background: rgba(255,255,255,0.3); }
+
+.cs-sheet-dragging {
+  animation: none !important;
+  transition: none !important;
 }
 
 .cs-sheet-title {

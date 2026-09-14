@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useModalA11y } from "../../hooks/useModalA11y";
 
 function getVariantCount(variant) {
@@ -50,6 +51,8 @@ function SheetBtn({ icon, iconBg, label, sub, subColor, badge, disabled, onClick
 
 /**
  * Bottom action sheet for a course-space file — prototype-matched.
+ * Drag down on the handle/header to dismiss (30% height or flick), snaps
+ * back otherwise; backdrop tap and the close button also dismiss.
  * file === null → closed.
  */
 export default function PracticeSheet({
@@ -60,12 +63,60 @@ export default function PracticeSheet({
   onGuidedStudy,
   onExamSimulation,
   generating,
+  preparingStudy,
+  mcqProgress,
 }) {
   const { modalProps, focusRef } = useModalA11y({
     isOpen: !!file,
     onClose,
     labelledBy: "sp-sheet-title",
   });
+
+  const dragRef = useRef(null);
+
+  // Drag-to-dismiss on the grab zone (handle + header)
+  const onDragStart = (e) => {
+    if (e.target.closest("button")) return;
+    const el = e.currentTarget.closest(".cs-sheet");
+    if (!el) return;
+    dragRef.current = { startY: e.clientY, lastY: e.clientY, lastT: performance.now(), v: 0, dy: 0 };
+    el.classList.add("cs-sheet-dragging");
+    el.setPointerCapture?.(e.pointerId);
+    const onMove = (ev) => {
+      const d = dragRef.current;
+      if (!d) return;
+      const now = performance.now();
+      const dt = now - d.lastT;
+      if (dt > 0) d.v = (ev.clientY - d.lastY) / dt;
+      d.lastY = ev.clientY;
+      d.lastT = now;
+      d.dy = Math.max(0, ev.clientY - d.startY);
+      el.style.transform = `translateY(${d.dy}px)`;
+    };
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      const d = dragRef.current;
+      dragRef.current = null;
+      if (!d || !el.isConnected) return;
+      const threshold = el.offsetHeight * 0.3;
+      if (d.dy > threshold || d.v > 0.5) {
+        // Flick / far enough — animate out, then close
+        el.classList.remove("cs-sheet-dragging");
+        el.style.transition = "transform 0.22s ease-in";
+        el.style.transform = "translateY(105%)";
+        setTimeout(onClose, 200);
+      } else {
+        // Snap back
+        el.classList.remove("cs-sheet-dragging");
+        el.style.transition = "transform 0.25s cubic-bezier(0.32,0.72,0,1)";
+        el.style.transform = "translateY(0)";
+        setTimeout(() => { el.style.transition = ""; el.style.transform = ""; }, 260);
+      }
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp, { once: true });
+    document.addEventListener("pointercancel", onUp, { once: true });
+  };
 
   if (!file) return null;
 
@@ -74,8 +125,16 @@ export default function PracticeSheet({
   const summary = file.variants?.summary || null;
   const mcqCount = getVariantCount(mcq);
   const cardCount = getVariantCount(flashcard);
+  const prog = mcq && mcqProgress ? mcqProgress[mcq.id] : null;
+  const mcqPct = prog && prog.total > 0 ? Math.min(100, Math.round((prog.bestScore / prog.total) * 100)) : null;
   const canExtract = !!(file.fileUrl || file.description);
   const act = (fn) => () => { onClose(); fn?.(); };
+
+  const mcqSub = mcq
+    ? prog
+      ? `${prog.bestScore}/${prog.total} answered · ${mcqPct}%${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
+      : (mcqCount ? `${mcqCount} questions · ready` : "Ready to practice")
+    : "Not generated yet · tap to create";
 
   return (
     <div className="cs-sheet-backdrop" onClick={onClose}>
@@ -85,10 +144,21 @@ export default function PracticeSheet({
         className="cs-sheet"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="cs-sheet-handle" />
+        {/* Grab zone — drag down to dismiss */}
+        <div
+          className="cs-sheet-grab"
+          onPointerDown={onDragStart}
+          role="separator"
+          aria-label="Drag down to close"
+        >
+          <div className="cs-sheet-handle" />
+        </div>
 
         {/* Header — PRACTICE label + serif title + close */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18, touchAction: "none" }}
+          onPointerDown={onDragStart}
+        >
           <div style={{ minWidth: 0 }}>
             <p className="cs-sheet-label">PRACTICE</p>
             <p className="cs-sheet-title" id="sp-sheet-title">{file.title}</p>
@@ -104,21 +174,21 @@ export default function PracticeSheet({
           <SheetBtn
             icon="✎" iconBg="rgba(61,214,140,0.1)"
             label="MCQ"
-            sub={mcq
-              ? (mcqCount ? `${mcqCount} questions · ready` : "Ready to practice")
-              : "Not generated yet · tap to create"}
+            sub={mcqSub}
             subColor={mcq ? undefined : "#4F8EF7"}
             variant={mcq ? undefined : "generate"}
             disabled={generating}
             onClick={act(() => mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs"))}
           />
           <SheetBtn
-            icon="🧠" iconBg="rgba(245,166,35,0.12)"
+            icon={preparingStudy ? "⏳" : "🧠"} iconBg="rgba(245,166,35,0.12)"
             label="Guided study"
-            sub={canExtract ? "AI walks you through the key concepts" : "No extractable text on this item"}
-            badge="RECOMMENDED"
+            sub={preparingStudy
+              ? "Extracting document…"
+              : canExtract ? "AI walks you through the key concepts" : "No extractable text on this item"}
+            badge={preparingStudy ? undefined : "RECOMMENDED"}
             variant="recommended"
-            disabled={!canExtract || generating}
+            disabled={!canExtract || generating || preparingStudy}
             onClick={act(() => onGuidedStudy?.(file))}
           />
           <SheetBtn
@@ -142,7 +212,7 @@ export default function PracticeSheet({
             onClick={act(() => summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary"))}
           />
           <SheetBtn
-            icon="🎓" iconBg="rgba(255,107,94,0.1)"
+            icon="🎓" iconBg="rgba(255,84,112,0.1)"
             label="Exam simulator"
             sub={mcq ? "Timed, mixed-format mock test" : "Generate MCQs first"}
             disabled={!mcq || generating}

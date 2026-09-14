@@ -39,7 +39,12 @@ export default function SpaceFileCard({
   const icon = getContentTypeIcon(file.contentType);
   const relDate = formatRelativeDate(file.createdAt);
   const fileName = file.fileName || file.title || "";
-  const typeLabel = (file.contentType || "file").toUpperCase();
+  const typeLabel = ({
+    mcq: "MCQ",
+    flashcard_deck: "CARDS",
+    tutorial_question: "TQ",
+    image: "IMG",
+  })[file.contentType] || (file.contentType || "file").toUpperCase();
   const delay = `${Math.min(index * 50, 400)}ms`;
 
   // Coverage ring — driven by MCQ practice progress on this file's variant.

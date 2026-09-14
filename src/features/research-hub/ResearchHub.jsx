@@ -993,10 +993,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   }, [activeFolder]);
 
+  const [preparingStudy, setPreparingStudy] = useState(false);
+
   const handleGuidedStudy = useCallback(async (file) => {
-    if (!file) return;
+    if (!file || preparingStudy) return;
+    setPreparingStudy(true);
     try {
-      showToast("Preparing guided study…");
       const { text } = await extractResourceText(file);
       const content = (text || "").trim();
       if (!content) { showToast("Couldn't extract text from this file"); return; }
@@ -1010,8 +1012,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       }));
     } catch (err) {
       showToast(err.message || "Couldn't prepare guided study");
+    } finally {
+      setPreparingStudy(false);
     }
-  }, []);
+  }, [preparingStudy]);
 
   const handleGenerateFromMaterial = useCallback((resource, kind) => {
     let existingMcqData = null;
@@ -1276,6 +1280,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         createFolderModal={createFolderModal}
         bookmarkPicker={bookmarkPicker}
         onGuidedStudy={handleGuidedStudy}
+        preparingStudy={preparingStudy}
         onDeleteResource={handleDeleteResource}
         canDeleteFile={canDeleteFile}
         onStartStudying={(topicCtx) => {
