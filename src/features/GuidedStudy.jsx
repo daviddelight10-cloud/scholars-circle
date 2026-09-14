@@ -46,15 +46,16 @@ const STYLES = `
 `;
 
 // ─── Content analysis helpers ──────────────────────────────────────────────────
-const CONTENT_LIMIT = 6000; // max chars sent to roadmap prompt
+const CONTENT_LIMIT = 16000; // max chars sent to roadmap/explain prompts
 
 function estimateSectionCount(content) {
-  if (!content || typeof content !== "string") return { min: 5, max: 7, hint: "" };
+  if (!content || typeof content !== "string" || !content.trim()) return { min: 5, max: 7, hint: "" };
   const words = content.trim().split(/\s+/).length;
-  // ~1 section per 300 words of source, floor 4, cap 20
+  // ~1 section per 300 words of source, floor 7, cap 20 — documents should
+  // break into many granular sections (Gizmo-style), never merge to fit a cap.
   const ideal = Math.round(words / 300);
-  const clamped = Math.max(4, Math.min(20, ideal));
-  const min = Math.max(4, clamped - 1);
+  const clamped = Math.max(7, Math.min(20, ideal));
+  const min = Math.max(7, clamped - 1);
   const max = Math.min(25, clamped + 2);
   const hint = words > 200
     ? ` The student provided ~${words} words of content. Ensure every key topic in the document gets its own section — do NOT skip or merge topics.`
@@ -141,9 +142,10 @@ function buildPrevSectionBlock(prevSection, studiedTitles) {
 
 async function aiRoadmap(topic, aiConfig, ctx, sourceContent = "") {
   const ctxBlock = buildContextBlock(ctx);
-  const { min, max, hint } = estimateSectionCount(sourceContent);
-  const contentBlock = sourceContent.trim()
-    ? `\n\nThe student provided the following study material. Your roadmap MUST cover ALL topics in this document — do not skip any section or concept:\n"""\n${sourceContent.slice(0, CONTENT_LIMIT)}\n"""`
+  const contentSlice = sourceContent.trim() ? sourceContent.slice(0, CONTENT_LIMIT) : "";
+  const { min, max, hint } = estimateSectionCount(contentSlice);
+  const contentBlock = contentSlice
+    ? `\n\nThe student provided the following study material. Your roadmap MUST cover ALL topics in this document — do not skip any section or concept. Derive each section title from the material's own headings and content, following the document's order:\n"""\n${contentSlice}\n"""`
     : "";
   const raw = await callAI(
     `You are an expert educator. Generate a structured learning roadmap for: "${topic}"${ctxBlock}${contentBlock}

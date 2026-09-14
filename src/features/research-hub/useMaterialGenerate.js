@@ -47,7 +47,7 @@ async function fetchFileFromUrl(url, fileName) {
  * Extract text from a resource (by fileUrl or description for notes).
  * Returns { text, images }.
  */
-async function extractResourceText(resource) {
+export async function extractResourceText(resource) {
   if (resource.contentType === "note" && resource.description) {
     return { text: resource.description, images: [] };
   }

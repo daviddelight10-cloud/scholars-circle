@@ -27,7 +27,7 @@ import SpacedReviewSession from "../SpacedReviewSession.jsx";
 import AdaptiveDrillSession from "../AdaptiveDrillSession.jsx";
 import ExamSimulationRunner from "../ExamSimulationRunner.jsx";
 import McqFolderRunner from "../McqFolderRunner.jsx";
-import { useMaterialGenerate } from "./useMaterialGenerate.js";
+import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
 import "../../research-hub.css";
 
 const CACHE_TTL = 5 * 60 * 1000;
@@ -965,6 +965,54 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     window.dispatchEvent(new CustomEvent("sc-open-voice-tutor", { detail: { resourceId: resource.id } }));
   }, []);
 
+  const canDeleteFile = useCallback((file) => {
+    const uid = getCurrentUserId();
+    if (!uid || !file) return false;
+    if (String(file.uploadedBy) === uid) return true;
+    const role = userProfile?.role;
+    return role === "TEACHER" || role === "LECTURER";
+  }, [userProfile]);
+
+  const handleDeleteResource = useCallback(async (file) => {
+    if (!file?.id) return;
+    if (!confirm(`Permanently delete "${file.title}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/${file.id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete file");
+      }
+      showToast("File deleted");
+      if (activeFolder) fetchFolderDetail(activeFolder);
+      fetchResources();
+    } catch (err) {
+      showToast(err.message || "Failed to delete file");
+    }
+  }, [activeFolder]);
+
+  const handleGuidedStudy = useCallback(async (file) => {
+    if (!file) return;
+    try {
+      showToast("Preparing guided study…");
+      const { text } = await extractResourceText(file);
+      const content = (text || "").trim();
+      if (!content) { showToast("Couldn't extract text from this file"); return; }
+      window.dispatchEvent(new CustomEvent("sc-open-study", {
+        detail: {
+          topic: file.title,
+          mode: "auto-roadmap",
+          attachment: { name: file.fileName || file.title, content },
+          context: { matches: [{ title: file.title, contentType: file.contentType }] },
+        },
+      }));
+    } catch (err) {
+      showToast(err.message || "Couldn't prepare guided study");
+    }
+  }, []);
+
   const handleGenerateFromMaterial = useCallback((resource, kind) => {
     let existingMcqData = null;
     if (resource.variants?.mcq?.mcqData) {
@@ -1227,6 +1275,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         uploadModal={uploadWizard}
         createFolderModal={createFolderModal}
         bookmarkPicker={bookmarkPicker}
+        onGuidedStudy={handleGuidedStudy}
+        onDeleteResource={handleDeleteResource}
+        canDeleteFile={canDeleteFile}
         onStartStudying={(topicCtx) => {
           const detail = {
             topic: topicCtx.title || (typeof topicCtx === "string" ? topicCtx : ""),

@@ -449,3 +449,187 @@
   transition: color 0.2s ease;
 }
 .cs-edit-hint.active { color: #F5A623; }
+
+/* ── Bottom Sheet (file actions) ───────────────────────────────────── */
+
+@keyframes cs-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes cs-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cs-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(7,9,13,0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: cs-backdrop-in 0.2s ease;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.cs-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 82vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: linear-gradient(180deg, #12161F, #0A0D13);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-bottom: none;
+  border-radius: 22px 22px 0 0;
+  padding: 10px 16px calc(20px + env(safe-area-inset-bottom));
+  animation: cs-sheet-up 0.28s cubic-bezier(0.32, 0.72, 0.35, 1);
+}
+.cs-sheet::-webkit-scrollbar { display: none; }
+
+.cs-sheet-handle {
+  width: 38px;
+  height: 4px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.18);
+  margin: 4px auto 14px;
+}
+
+.cs-sheet-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #F3F5F8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-sheet-sub {
+  font-size: 11px;
+  color: #5D6472;
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 10px;
+  border: none;
+  border-radius: 13px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+.cs-sheet-row:hover:not(:disabled) { background: rgba(255,255,255,0.05); }
+.cs-sheet-row:active:not(:disabled) { background: rgba(255,255,255,0.08); transform: scale(0.99); }
+.cs-sheet-row:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.cs-sheet-ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.cs-sheet-row-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #F3F5F8;
+  font-family: 'Manrope', sans-serif;
+}
+.cs-sheet-row-sub {
+  font-size: 11px;
+  color: #9199A8;
+  font-family: 'Manrope', sans-serif;
+  margin-top: 1px;
+}
+
+.cs-sheet-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 3px 8px;
+  border-radius: 100px;
+  flex-shrink: 0;
+  font-family: 'Manrope', sans-serif;
+}
+
+.cs-sheet-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+  margin: 8px 4px;
+}
+
+/* ── Dropdown menu (card ⋯ / header ⋯) ─────────────────────────────── */
+
+.cs-menu-wrap { position: relative; }
+
+.cs-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  min-width: 190px;
+  background: #12161F;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  padding: 5px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+  animation: modal-in 0.15s ease;
+}
+
+.cs-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #C9CFDB;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+.cs-menu-item:hover:not(:disabled) { background: rgba(255,255,255,0.06); }
+.cs-menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.cs-menu-item.cs-menu-danger { color: #FF8A9B; }
+.cs-menu-item.cs-menu-danger:hover:not(:disabled) { background: rgba(255,84,112,0.10); }
+
+/* Hero progress bar */
+.cs-hero-progress {
+  height: 6px;
+  border-radius: 100px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.cs-hero-progress > div {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, #B8860B, #F5A623);
+  transition: width 0.6s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-sheet,
+  .cs-sheet-backdrop,
+  .cs-menu { animation: none !important; }
+}

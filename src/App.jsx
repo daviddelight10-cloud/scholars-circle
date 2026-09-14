@@ -555,8 +555,8 @@ function App() {
   // Listen for "Start Studying" from embedded roadmap in Research Hub folders
   useEffect(() => {
     const handleOpenStudy = (e) => {
-      const { topic, mode, context } = e.detail || {};
-      setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "auto-roadmap"); setAiStudyAttachment(null); setAiStudyContext(context || null); setAiKey(k => k + 1); setTab("aitutor");
+      const { topic, mode, context, attachment } = e.detail || {};
+      setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "auto-roadmap"); setAiStudyAttachment(attachment || null); setAiStudyContext(context || null); setAiKey(k => k + 1); setTab("aitutor");
     };
     window.addEventListener("sc-open-study", handleOpenStudy);
     return () => window.removeEventListener("sc-open-study", handleOpenStudy);
