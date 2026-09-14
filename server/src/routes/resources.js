@@ -920,7 +920,7 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
 
 async function getUserFsrsWeights(userId) {
   const profile = await prisma.userFsrsProfile.findUnique({ where: { userId } }).catch(() => null);
-  if (profile?.weights && Array.isArray(profile.weights) && profile.weights.length === 18) {
+  if (profile?.weights && Array.isArray(profile.weights) && profile.weights.length === 21) {
     return { weights: profile.weights, targetRetention: profile.targetRetention || 0.9, dailyGoal: profile.dailyGoal || 20 };
   }
   return { weights: null, targetRetention: 0.9, dailyGoal: 20 };
