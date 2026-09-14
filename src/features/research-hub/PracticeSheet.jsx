@@ -17,12 +17,12 @@ function getVariantCount(variant) {
   return 0;
 }
 
-const Chevron = ({ color = "#4B5563" }) => (
+const Chevron = ({ color = "#646E84" }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
     <path d="M9 6l6 6l-6 6" />
   </svg>
 );
-const Plus = ({ color = "#7FADF5" }) => (
+const Plus = ({ color = "#4F8EF7" }) => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
     <path d="M12 5v14" /><path d="M5 12h14" />
   </svg>
@@ -107,13 +107,13 @@ export default function PracticeSheet({
             sub={mcq
               ? (mcqCount ? `${mcqCount} questions · ready` : "Ready to practice")
               : "Not generated yet · tap to create"}
-            subColor={mcq ? undefined : "#7FADF5"}
+            subColor={mcq ? undefined : "#4F8EF7"}
             variant={mcq ? undefined : "generate"}
             disabled={generating}
             onClick={act(() => mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs"))}
           />
           <SheetBtn
-            icon="🧠" iconBg="rgba(245,197,66,0.12)"
+            icon="🧠" iconBg="rgba(245,166,35,0.12)"
             label="Guided study"
             sub={canExtract ? "AI walks you through the key concepts" : "No extractable text on this item"}
             badge="RECOMMENDED"
@@ -127,16 +127,16 @@ export default function PracticeSheet({
             sub={flashcard
               ? (cardCount ? `${cardCount} cards · ready` : "Ready to review")
               : "Not generated yet · tap to create"}
-            subColor={flashcard ? undefined : "#7FADF5"}
+            subColor={flashcard ? undefined : "#4F8EF7"}
             variant={flashcard ? undefined : "generate"}
             disabled={generating}
             onClick={act(() => flashcard ? onOpen(flashcard.shareToken) : onGenerate?.(file, "mcqs"))}
           />
           <SheetBtn
-            icon="📝" iconBg="rgba(127,173,245,0.1)"
+            icon="📝" iconBg="rgba(79,142,247,0.1)"
             label="Summary"
             sub={summary ? "Read the AI summary" : "Not generated yet · tap to create"}
-            subColor={summary ? undefined : "#7FADF5"}
+            subColor={summary ? undefined : "#4F8EF7"}
             variant={summary ? undefined : "generate"}
             disabled={generating}
             onClick={act(() => summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary"))}
@@ -158,7 +158,7 @@ export default function PracticeSheet({
           <div className="sp-sheet-divider" />
 
           <SheetBtn
-            icon="👥" iconBg="rgba(127,173,245,0.12)"
+            icon="👥" iconBg="rgba(79,142,247,0.12)"
             label="Go live with friends"
             sub="Study this together, in real time"
             badge="COMING SOON"

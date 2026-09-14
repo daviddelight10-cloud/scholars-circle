@@ -274,6 +274,21 @@ export default function EmbeddedRoadmapView({
     showToast._t = setTimeout(() => setToast(null), 1800);
   }
 
+  function moveTopic(topicId, dir) {
+    const idx = topics.findIndex((t) => t.id === topicId);
+    const next = idx + dir;
+    if (idx < 0 || next < 0 || next >= topics.length) return;
+    const newTopics = [...topics];
+    [newTopics[idx], newTopics[next]] = [newTopics[next], newTopics[idx]];
+    const reordered = newTopics.map((t, i) => ({ ...t, displayOrder: i }));
+    setTopics(reordered);
+    reorderTopics(courseCode, reordered.map((t) => String(t.id))).catch((err) => {
+      console.error("Reorder failed:", err);
+      showToast("Failed to save order");
+    });
+    if (navigator.vibrate) navigator.vibrate(6);
+  }
+
   async function handleAddTopic() {
     const title = addTopicTitle.trim();
     if (!title || addingTopic || !courseCode) return;
@@ -312,6 +327,7 @@ export default function EmbeddedRoadmapView({
     row.style.left = rect.left + 'px';
     row.style.top = rect.top + 'px';
     row.style.width = rect.width + 'px';
+    row.style.height = rect.height + 'px';
     row.style.zIndex = '999';
 
     dragStateRef.current = {
@@ -380,6 +396,7 @@ export default function EmbeddedRoadmapView({
     ds.row.style.left = '';
     ds.row.style.top = '';
     ds.row.style.width = '';
+    ds.row.style.height = '';
     ds.row.style.zIndex = '';
     ds.row.classList.remove('cs-dragging');
     ds.placeholder.remove();
@@ -425,7 +442,7 @@ export default function EmbeddedRoadmapView({
           <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "'Lora', Georgia, serif", margin: 0 }}>
             Roadmap
           </h3>
-          <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0", fontFamily: "'Inter', sans-serif" }}>
+          <p style={{ fontSize: 11, color: "#646E84", margin: "2px 0 0", fontFamily: "'Inter', sans-serif" }}>
             {topics.length} topics · {stats?.mastered || 0} mastered
           </p>
         </div>
@@ -577,13 +594,13 @@ export default function EmbeddedRoadmapView({
               style={{ width: "100%", textAlign: "left", display: "block" }}
               onClick={() => { setSelectedTopicId(startHereTopic.id); setDetailOpen(true); }}
             >
-              <div style={{ position: "absolute", top: -16, right: -16, width: 80, height: 80, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,197,66,0.2), transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: -16, right: -16, width: 80, height: 80, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.2), transparent 70%)", pointerEvents: "none" }} />
               <div style={{ position: "relative" }}>
                 <span className="sp-start-chip">START HERE</span>
                 <h4 style={{ color: "#fff", fontSize: 16, fontWeight: 700, marginTop: 8, marginBottom: 0, fontFamily: "'Lora', Georgia, serif" }}>
                   {startHereTopic.title}
                 </h4>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, fontSize: 10, color: "#9CA3AF", fontFamily: "'Inter', sans-serif" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, fontSize: 10, color: "#9AA3B5", fontFamily: "'Inter', sans-serif" }}>
                   <span>📄 {(matchesByTopic.get(startHereTopic.id) || []).length} docs</span>
                   <span style={{ color: "#3DD68C" }}>● {progress?.[startHereTopic.id]?.label || "New"}</span>
                 </div>
@@ -602,12 +619,12 @@ export default function EmbeddedRoadmapView({
               const pct = progressPct(p);
               const label = p?.label || "Not started";
               const docCount = (matchesByTopic.get(topic.id) || []).length;
-              const ringColor = label === "Mastered" ? "#3DD68C" : pct > 0 ? "#7FADF5" : "#F5C542";
+              const ringColor = label === "Mastered" ? "#3DD68C" : pct > 0 ? "#4F8EF7" : "#F5A623";
               const badgeStyle = label === "Mastered"
                 ? { background: "rgba(61,214,140,0.12)", color: "#3DD68C", borderColor: "rgba(61,214,140,0.2)" }
                 : pct > 0
-                  ? { background: "rgba(127,173,245,0.12)", color: "#7FADF5", borderColor: "rgba(127,173,245,0.2)" }
-                  : { background: "rgba(255,255,255,0.03)", color: "#6B7280", borderColor: "rgba(255,255,255,0.07)" };
+                  ? { background: "rgba(79,142,247,0.12)", color: "#4F8EF7", borderColor: "rgba(79,142,247,0.2)" }
+                  : { background: "rgba(255,255,255,0.03)", color: "#646E84", borderColor: "rgba(255,255,255,0.07)" };
               const C = 2 * Math.PI * 16; // r=16 ring
               return (
                 <div
@@ -622,17 +639,41 @@ export default function EmbeddedRoadmapView({
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     {editMode && (
-                      <button
-                        aria-label={`Reorder ${topic.title}`}
-                        onPointerDown={(e) => handleDragStart(e, topic.id)}
-                        style={{
-                          background: "transparent", border: "none", color: "#6B7280",
-                          cursor: "grab", fontSize: 16, padding: "4px 2px", flexShrink: 0,
-                          touchAction: "none",
-                        }}
-                      >
-                        ⠿
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                        <button
+                          aria-label={`Move ${topic.title} up`}
+                          disabled={idx === 0}
+                          onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, -1); }}
+                          style={{
+                            background: "transparent", border: "none", color: idx === 0 ? "#3a4150" : "#9AA3B5",
+                            cursor: idx === 0 ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
+                          }}
+                        >
+                          ▲
+                        </button>
+                        <button
+                          aria-label={`Drag to reorder ${topic.title}`}
+                          onPointerDown={(e) => handleDragStart(e, topic.id)}
+                          style={{
+                            background: "transparent", border: "none", color: "#646E84",
+                            cursor: "grab", fontSize: 15, padding: "4px 2px",
+                            touchAction: "none",
+                          }}
+                        >
+                          ⠿
+                        </button>
+                        <button
+                          aria-label={`Move ${topic.title} down`}
+                          disabled={idx === topics.length - 1}
+                          onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, 1); }}
+                          style={{
+                            background: "transparent", border: "none", color: idx === topics.length - 1 ? "#3a4150" : "#9AA3B5",
+                            cursor: idx === topics.length - 1 ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
+                          }}
+                        >
+                          ▼
+                        </button>
+                      </div>
                     )}
                     <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
                       <svg width="40" height="40" viewBox="0 0 40 40">
@@ -643,16 +684,16 @@ export default function EmbeddedRoadmapView({
                       </svg>
                       <div style={{
                         position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 9, fontWeight: 700, color: pct > 0 ? ringColor : "#6B7280",
+                        fontSize: 9, fontWeight: 700, color: pct > 0 ? ringColor : "#646E84",
                       }}>
                         {pct}%
                       </div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 600, color: "#F3F4F6", margin: 0, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <h3 style={{ fontSize: 14, fontWeight: 600, color: "#EDEFF5", margin: 0, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {topic.title}
                       </h3>
-                      <p style={{ fontSize: 10, margin: "2px 0 0", fontFamily: "'Inter', sans-serif", color: pct > 0 ? ringColor : "#6B7280" }}>
+                      <p style={{ fontSize: 10, margin: "2px 0 0", fontFamily: "'Inter', sans-serif", color: pct > 0 ? ringColor : "#646E84" }}>
                         {label} · {docCount} doc{docCount === 1 ? "" : "s"}
                       </p>
                     </div>
@@ -680,7 +721,7 @@ export default function EmbeddedRoadmapView({
                 onClick={handleAddTopic}
                 disabled={addingTopic || !addTopicTitle.trim()}
                 className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2.5 text-[11px] font-bold text-black transition-all active:scale-95"
-                style={{ background: "#F5C542", border: "none", opacity: addingTopic || !addTopicTitle.trim() ? 0.5 : 1 }}
+                style={{ background: "#F5A623", border: "none", opacity: addingTopic || !addTopicTitle.trim() ? 0.5 : 1 }}
               >
                 {addingTopic ? "Adding…" : "Add"}
               </button>
@@ -701,12 +742,12 @@ export default function EmbeddedRoadmapView({
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 12,
                 border: "1px dashed rgba(255,255,255,0.15)", background: "transparent",
-                color: "#6B7280", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                color: "#646E84", fontSize: 12, fontWeight: 600, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 fontFamily: "'Inter', sans-serif", transition: "all 0.2s",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F5C542"; e.currentTarget.style.color = "#F5C542"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "#6B7280"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F5A623"; e.currentTarget.style.color = "#F5A623"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "#646E84"; }}
             >
               + Add Topic
             </button>
@@ -715,14 +756,14 @@ export default function EmbeddedRoadmapView({
               disabled={generating || uploading}
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.07)", background: "#141A24",
-                color: "#F3F4F6", fontSize: 12, fontWeight: 600, cursor: generating ? "not-allowed" : "pointer",
+                border: "1px solid rgba(255,255,255,0.07)", background: "#151A24",
+                color: "#EDEFF5", fontSize: 12, fontWeight: 600, cursor: generating ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 fontFamily: "'Inter', sans-serif", transition: "background 0.2s",
                 opacity: generating || uploading ? 0.5 : 1,
               }}
             >
-              <span style={{ color: "#F5C542" }}>↻</span> {generating ? "Regenerating…" : "Regenerate Topics"}
+              <span style={{ color: "#F5A623" }}>↻</span> {generating ? "Regenerating…" : "Regenerate Topics"}
             </button>
           </div>
 

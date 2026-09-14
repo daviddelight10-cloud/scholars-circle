@@ -149,7 +149,7 @@ export default function SpaceFileCard({
           <div style={{ width: 26, height: 26, position: "relative", flexShrink: 0 }}>
             <svg width="26" height="26" viewBox="0 0 26 26" style={{ position: "absolute", top: 0, left: 0 }}>
               <circle cx="13" cy="13" r={RING_R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-              <circle cx="13" cy="13" r={RING_R} fill="none" stroke="#F5C542" strokeWidth="3" strokeLinecap="round"
+              <circle cx="13" cy="13" r={RING_R} fill="none" stroke="#F5A623" strokeWidth="3" strokeLinecap="round"
                 strokeDasharray={RING_CIRC.toFixed(1)} strokeDashoffset={dashOffset.toFixed(1)} transform="rotate(-90 13 13)" />
             </svg>
           </div>
@@ -157,7 +157,7 @@ export default function SpaceFileCard({
             {coveredPct != null ? `${coveredPct}% covered · Tap to practice` : "Tap to practice"}
           </p>
         </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#646E84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 15l6 -6l6 6" />
         </svg>
       </div>
