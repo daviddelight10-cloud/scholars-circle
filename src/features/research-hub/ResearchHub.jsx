@@ -36,8 +36,8 @@ const communityTabs = [
   { key: "folders", label: "Folders", icon: "📁", color: "#8B5CF6" },
   { key: "materials", label: "Materials", icon: "📄", color: "#F5A623" },
   { key: "pdf", label: "PDF", icon: "📕", color: "#EF4444" },
-  { key: "mcq", label: "MCQ", icon: "✎", color: "#3DD68C" },
-  { key: "flashcard", label: "Flashcard", icon: "🎴", color: "#4F8EF7" },
+  { key: "mcq", label: "MCQ", icon: "✎", color: "#F5A623" },
+  { key: "flashcard", label: "Flashcard", icon: "🎴", color: "#F5A623" },
 ];
 
 const communityEmptyStates = {

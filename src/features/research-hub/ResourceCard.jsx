@@ -90,9 +90,9 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(245,166,35,0.14)", color: "#f5a623" }}>Premium</span>
           )}
           {relevanceTier === 1 || relevanceTier === 2 ? (
-            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(79,142,247,0.10)", color: "#4F8EF7", border: "0.5px solid rgba(79,142,247,0.30)" }}>Your School</span>
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(245,166,35,0.10)", color: "#F5A623", border: "0.5px solid rgba(245,166,35,0.30)" }}>Your School</span>
           ) : relevanceTier === 3 ? (
-            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(61,214,140,0.08)", color: "#3DD68C", border: "0.5px solid rgba(61,214,140,0.28)" }}>Your Level</span>
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap" style={{ background: "rgba(245,166,35,0.08)", color: "#F5A623", border: "0.5px solid rgba(245,166,35,0.28)" }}>Your Level</span>
           ) : null}
           <span
             className="rounded px-2 py-0.5 text-[10px] font-bold"

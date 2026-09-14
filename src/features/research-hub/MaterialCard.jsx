@@ -4,8 +4,8 @@ import { formatRelativeDate } from "./constants";
 
 const VARIANT_TYPES = [
   { key: "mcq", label: "MCQs", chipLabel: "MCQ", color: "#F5A623", genKind: "mcqs" },
-  { key: "flashcard", label: "Flashcards", chipLabel: "Flashcards", color: "#3DD68C", genKind: "mcqs" },
-  { key: "summary", label: "Summary", chipLabel: "Summary", color: "#4F8EF7", genKind: "summary" },
+  { key: "flashcard", label: "Flashcards", chipLabel: "Flashcards", color: "#F5A623", genKind: "mcqs" },
+  { key: "summary", label: "Summary", chipLabel: "Summary", color: "#F5A623", genKind: "summary" },
 ];
 
 function getVariantCount(variant) {
@@ -26,8 +26,8 @@ function getVariantCount(variant) {
 }
 
 const RELEVANCE_BADGES = {
-  school: { label: "Your School", color: "#4F8EF7", bg: "rgba(79,142,247,0.10)", border: "rgba(79,142,247,0.30)" },
-  level: { label: "Your Level", color: "#3DD68C", bg: "rgba(61,214,140,0.08)", border: "rgba(61,214,140,0.28)" },
+  school: { label: "Your School", color: "#F5A623", bg: "rgba(245,166,35,0.10)", border: "rgba(245,166,35,0.30)" },
+  level: { label: "Your Level", color: "#F5A623", bg: "rgba(245,166,35,0.08)", border: "rgba(245,166,35,0.28)" },
 };
 
 /**

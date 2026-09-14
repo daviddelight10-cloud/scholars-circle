@@ -619,11 +619,11 @@ export default function EmbeddedRoadmapView({
               const pct = progressPct(p);
               const label = p?.label || "Not started";
               const docCount = (matchesByTopic.get(topic.id) || []).length;
-              const ringColor = label === "Mastered" ? "#3DD68C" : pct > 0 ? "#4F8EF7" : "#F5A623";
+              const ringColor = label === "Mastered" ? "#3DD68C" : pct > 0 ? "#F5A623" : "#646E84";
               const badgeStyle = label === "Mastered"
                 ? { background: "rgba(61,214,140,0.12)", color: "#3DD68C", borderColor: "rgba(61,214,140,0.2)" }
                 : pct > 0
-                  ? { background: "rgba(79,142,247,0.12)", color: "#4F8EF7", borderColor: "rgba(79,142,247,0.2)" }
+                  ? { background: "rgba(245,166,35,0.12)", color: "#F5A623", borderColor: "rgba(245,166,35,0.2)" }
                   : { background: "rgba(255,255,255,0.03)", color: "#646E84", borderColor: "rgba(255,255,255,0.07)" };
               const C = 2 * Math.PI * 16; // r=16 ring
               return (

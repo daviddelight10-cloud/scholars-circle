@@ -137,8 +137,8 @@ export default function SpaceFileCard({
       {/* Tags row */}
       <div className="sp-tags">
         <span className="sp-tag sp-tag-gold">{typeLabel}</span>
-        {file.subject && <span className="sp-tag sp-tag-blue">{file.subject}</span>}
-        {file.courseCode && <span className="sp-tag sp-tag-blue">{file.courseCode}</span>}
+        {file.subject && <span className="sp-tag sp-tag-gold">{file.subject}</span>}
+        {file.courseCode && <span className="sp-tag sp-tag-gold">{file.courseCode}</span>}
         <span className="sp-meta">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 12s4 -7 10 -7 10 7 10 7 -4 7 -10 7 -10 -7 -10 -7z" /><circle cx="12" cy="12" r="3" />

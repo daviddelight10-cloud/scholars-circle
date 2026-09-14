@@ -23,7 +23,7 @@ const Chevron = ({ color = "#646E84" }) => (
     <path d="M9 6l6 6l-6 6" />
   </svg>
 );
-const Plus = ({ color = "#4F8EF7" }) => (
+const Plus = ({ color = "#F5A623" }) => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
     <path d="M12 5v14" /><path d="M5 12h14" />
   </svg>
@@ -172,10 +172,10 @@ export default function PracticeSheet({
 
         <div className="sp-sheet-list">
           <SheetBtn
-            icon="✎" iconBg="rgba(61,214,140,0.1)"
+            icon="✎" iconBg="rgba(245,166,35,0.1)"
             label="MCQ"
             sub={mcqSub}
-            subColor={mcq ? undefined : "#4F8EF7"}
+            subColor={mcq ? undefined : "#F5A623"}
             variant={mcq ? undefined : "generate"}
             disabled={generating}
             onClick={act(() => mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs"))}
@@ -192,21 +192,21 @@ export default function PracticeSheet({
             onClick={act(() => onGuidedStudy?.(file))}
           />
           <SheetBtn
-            icon="🎴" iconBg="rgba(61,214,140,0.1)"
+            icon="🎴" iconBg="rgba(245,166,35,0.1)"
             label="Flashcards"
             sub={flashcard
               ? (cardCount ? `${cardCount} cards · ready` : "Ready to review")
               : "Not generated yet · tap to create"}
-            subColor={flashcard ? undefined : "#4F8EF7"}
+            subColor={flashcard ? undefined : "#F5A623"}
             variant={flashcard ? undefined : "generate"}
             disabled={generating}
             onClick={act(() => flashcard ? onOpen(flashcard.shareToken) : onGenerate?.(file, "mcqs"))}
           />
           <SheetBtn
-            icon="📝" iconBg="rgba(79,142,247,0.1)"
+            icon="📝" iconBg="rgba(245,166,35,0.1)"
             label="Summary"
             sub={summary ? "Read the AI summary" : "Not generated yet · tap to create"}
-            subColor={summary ? undefined : "#4F8EF7"}
+            subColor={summary ? undefined : "#F5A623"}
             variant={summary ? undefined : "generate"}
             disabled={generating}
             onClick={act(() => summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary"))}
@@ -228,7 +228,7 @@ export default function PracticeSheet({
           <div className="sp-sheet-divider" />
 
           <SheetBtn
-            icon="👥" iconBg="rgba(79,142,247,0.12)"
+            icon="👥" iconBg="rgba(245,166,35,0.1)"
             label="Go live with friends"
             sub="Study this together, in real time"
             badge="COMING SOON"
