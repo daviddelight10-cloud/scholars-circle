@@ -16,16 +16,16 @@ function saveSession(entry) {
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
   bg:     "#0A0D13",
-  card:   "#0d0f1f",
-  bar:    "#0a0b15",
-  accent: "#1a1a1a",
-  border: "#B8860B",
-  line:   "#1e2140",
-  line2:  "#1a1d35",
-  text:   "#e8eaf6",
-  muted:  "#7b82b8",
-  hint:   "#4a5080",
-  faint:  "#2a2d50",
+  card:   "#151A24",
+  bar:    "#11151E",
+  accent: "#191F2C",
+  border: "#FFD700",
+  line:   "rgba(255,255,255,0.09)",
+  line2:  "rgba(255,255,255,0.05)",
+  text:   "#EDEFF5",
+  muted:  "#9AA3B5",
+  hint:   "#646E84",
+  faint:  "#2A3242",
 };
 
 const STYLES = `
@@ -187,11 +187,11 @@ function Btn({ children, onClick, variant = "primary", disabled, style: extra })
     ...extra,
   };
   const variants = {
-    primary:  { background: D.accent, border:`0.5px solid ${D.border}`, color:"#e8eaf6" },
+    primary:  { background: D.accent, border:`0.5px solid ${D.border}`, color:"#FFD700" },
     ghost:    { background:"transparent", border:`0.5px solid ${D.line}`, color:D.muted },
     red:      { background:"#1a0808", border:"0.5px solid #4a1010", color:"#ef9a9a" },
     green:    { background:"#0a1f10", border:"0.5px solid #1a4a25", color:"#81c784" },
-    yellow:   { background:"#0d1526", border:"0.5px solid #2a3a6a", color:"#9fa8da" },
+    yellow:   { background:"rgba(255,215,0,0.08)", border:"0.5px solid rgba(255,215,0,0.35)", color:"#FFD700" },
   };
   return (
     <button onClick={disabled ? undefined : onClick} style={{ ...base, ...variants[variant] }}
@@ -207,17 +207,17 @@ function SectionCard({ section, index, studied, onStudy }) {
     <div className="gs-animate" style={{
       display:"flex", alignItems:"center", gap:12,
       padding:"11px 14px",
-      background: studied ? "#0b1628" : D.card,
-      border:`0.5px solid ${studied ? "#1e3a6a" : D.line}`,
+      background: studied ? "rgba(255,215,0,0.05)" : D.card,
+      border:`0.5px solid ${studied ? "rgba(255,215,0,0.3)" : D.line}`,
       borderRadius:13, marginBottom:8, transition:"border-color 0.2s",
     }}>
       <div style={{
         width:28, height:28, borderRadius:"50%", flexShrink:0,
-        background: studied ? D.accent : D.faint,
-        border:`0.5px solid ${studied ? D.border : "#2a2d4a"}`,
+        background: studied ? "rgba(255,215,0,0.12)" : D.faint,
+        border:`0.5px solid ${studied ? D.border : "rgba(255,255,255,0.12)"}`,
         display:"flex", alignItems:"center", justifyContent:"center",
         fontSize:11, fontWeight:700,
-        color: studied ? "#e8eaf6" : D.muted,
+        color: studied ? "#FFD700" : D.muted,
         fontFamily:"Manrope,sans-serif",
       }}>
         {studied ? "✓" : index + 1}
@@ -248,24 +248,24 @@ function FlipCard({ card, flipped, onFlip }) {
         {/* Front */}
         <div style={{
           position:"absolute", inset:0, backfaceVisibility:"hidden",
-          background:"#0d1235", border:`0.5px solid ${D.border}`,
+          background:D.card, border:`0.5px solid ${D.border}`,
           borderRadius:16, padding:"22px 18px",
           display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center",
         }}>
           <div style={{ fontSize:9, color:D.hint, marginBottom:10, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif" }}>QUESTION / TERM</div>
-          <div style={{ fontSize:14, fontWeight:600, color:"#e8eaf6", lineHeight:1.55, fontFamily:"Manrope,sans-serif" }}>{card.front}</div>
+          <div style={{ fontSize:14, fontWeight:600, color:"#EDEFF5", lineHeight:1.55, fontFamily:"Manrope,sans-serif" }}>{card.front}</div>
           <div style={{ fontSize:9, color:D.hint, marginTop:14, fontFamily:"Manrope,sans-serif" }}>tap to reveal ↩</div>
         </div>
         {/* Back */}
         <div style={{
           position:"absolute", inset:0, backfaceVisibility:"hidden",
           transform:"rotateY(180deg)",
-          background:"#0b1e3a", border:"0.5px solid #3a5a9a",
+          background:"rgba(255,215,0,0.06)", border:"0.5px solid rgba(255,215,0,0.3)",
           borderRadius:16, padding:"22px 18px",
           display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center",
         }}>
-          <div style={{ fontSize:9, color:"#3a6a9a", marginBottom:10, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif" }}>ANSWER</div>
-          <div style={{ fontSize:13, color:"#90caf9", lineHeight:1.6, fontFamily:"Manrope,sans-serif" }}>{card.back}</div>
+          <div style={{ fontSize:9, color:"#B8860B", marginBottom:10, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif" }}>ANSWER</div>
+          <div style={{ fontSize:13, color:"#E8D9A0", lineHeight:1.6, fontFamily:"Manrope,sans-serif" }}>{card.back}</div>
         </div>
       </div>
     </div>
@@ -282,7 +282,7 @@ function ProgressBar({ current, total }) {
         <span style={{ fontSize:10, color:D.border, fontFamily:"Manrope,sans-serif", fontWeight:600 }}>{current}/{total} sections</span>
       </div>
       <div style={{ height:4, background:D.faint, borderRadius:4, overflow:"hidden" }}>
-        <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg, ${D.border}, #7986cb)`, borderRadius:4, transition:"width 0.4s ease" }} />
+        <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg, #B8860B, #FFD700)`, borderRadius:4, transition:"width 0.4s ease" }} />
       </div>
     </div>
   );
@@ -618,7 +618,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8,
         }}>
           <span style={{ fontSize:16 }}>📶</span>
-          <span style={{ fontSize:12, color:"#9fa8da", fontFamily:"Manrope,sans-serif" }}>You're offline — please reconnect to use AI features.</span>
+          <span style={{ fontSize:12, color:"#FFB74D", fontFamily:"Manrope,sans-serif" }}>You're offline — please reconnect to use AI features.</span>
         </div>
       )}
 
@@ -657,7 +657,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         placeholder="e.g. Photosynthesis, Recursion, The French Revolution…"
         style={{
           width:"100%", boxSizing:"border-box",
-          background:"#0a0c1e", border:`0.5px solid ${D.line}`,
+          background:"#11151E", border:`0.5px solid ${D.line}`,
           borderRadius:14, padding:"12px 16px", fontSize:13,
           color:D.text, fontFamily:"Manrope,sans-serif", outline:"none",
           marginBottom:10, transition:"border-color 0.2s",
@@ -682,7 +682,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           rows={5}
           style={{
             width:"100%", boxSizing:"border-box", resize:"vertical",
-            background:"#0a0c1e", border:`0.5px solid ${D.line}`,
+            background:"#11151E", border:`0.5px solid ${D.line}`,
             borderRadius:12, padding:"10px 14px", fontSize:12,
             color:D.muted, fontFamily:"Manrope,sans-serif", outline:"none",
             marginBottom:10,
@@ -834,12 +834,11 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           {loading ? <Spinner message={loadingMsg} /> : (
             explanation && (
               <div className="gs-animate" style={{
-                background:D.card, border:`0.5px solid ${D.line}`,
-                borderRadius:16, padding:"20px 22px",
-                fontSize:13.5, color:"#e8eaf6", lineHeight:1.75,
+                padding:"4px 0",
+                fontSize:13.5, color:"#EDEFF5", lineHeight:1.75,
                 fontFamily:"Manrope,sans-serif", marginBottom:12,
               }}>
-                <MarkdownText>{explanation}</MarkdownText>
+                <MarkdownText theme="gold">{explanation}</MarkdownText>
               </div>
             )
           )}
@@ -880,7 +879,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                 rows={4}
                 style={{
                   width:"100%", boxSizing:"border-box", resize:"vertical",
-                  background:"#0a0c1e", border:`0.5px solid ${D.line}`,
+                  background:"#11151E", border:`0.5px solid ${D.line}`,
                   borderRadius:13, padding:"11px 14px", fontSize:12,
                   color:D.text, fontFamily:"Manrope,sans-serif",
                   outline:"none", marginBottom:10,
@@ -902,19 +901,16 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         <>
           {loading ? <Spinner message={loadingMsg} /> : feedback && (
             <>
-              {card(
-                <>
-                  <div style={{ fontSize:10, color:D.hint, fontFamily:"Manrope,sans-serif", marginBottom:6 }}>Your answer:</div>
-                  <div style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", fontStyle:"italic", marginBottom:12 }}>"{userAnswer}"</div>
-                  <div style={{ fontSize:10, color:"#81c784", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
-                    ✦ AI Feedback
-                  </div>
-                  <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.75, fontFamily:"Manrope,sans-serif", padding:"4px 0" }}>
-                    <MarkdownText>{feedback}</MarkdownText>
-                  </div>
-                </>,
-                { border:"0.5px solid #1a4a25" }
-              )}
+              <div className="gs-animate" style={{ marginBottom:12 }}>
+                <div style={{ fontSize:10, color:D.hint, fontFamily:"Manrope,sans-serif", marginBottom:6 }}>Your answer:</div>
+                <div style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", fontStyle:"italic", marginBottom:12 }}>"{userAnswer}"</div>
+                <div style={{ fontSize:10, color:"#81c784", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
+                  ✦ AI Feedback
+                </div>
+                <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.75, fontFamily:"Manrope,sans-serif", padding:"4px 0" }}>
+                  <MarkdownText theme="gold">{feedback}</MarkdownText>
+                </div>
+              </div>
               <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                 <Btn variant="green" onClick={nextSection}>Next section →</Btn>
                 <Btn variant="ghost" onClick={() => setPhase("roadmap")}>Back to roadmap</Btn>

@@ -10,22 +10,22 @@ import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
-  bg:      "#0B0E1A",
-  card:    "#141829",
-  bar:     "#0E1120",
-  accent:  "#1C1F3A",
-  border:  "#6366F1",
-  line:    "#1E2238",
-  line2:   "#161A2E",
-  text:    "#E2E8F0",
-  muted:   "#94A3B8",
-  hint:    "#64748B",
-  faint:   "#334155",
-  userBg:  "#1E1B4B",
-  userBdr: "#6366F1",
-  userTxt: "#A5B4FC",
-  aiBdr:   "#252A45",
-  accent2: "#818CF8",
+  bg:      "#0A0D13",
+  card:    "#151A24",
+  bar:     "#11151E",
+  accent:  "#191F2C",
+  border:  "#FFD700",
+  line:    "rgba(255,255,255,0.09)",
+  line2:   "rgba(255,255,255,0.05)",
+  text:    "#EDEFF5",
+  muted:   "#9AA3B5",
+  hint:    "#646E84",
+  faint:   "#3A4356",
+  userBg:  "rgba(255,215,0,0.08)",
+  userBdr: "rgba(255,215,0,0.3)",
+  userTxt: "#E8D9A0",
+  aiBdr:   "rgba(255,255,255,0.07)",
+  accent2: "#FFD700",
 };
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&display=swap');`;
@@ -275,21 +275,16 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
           fontSize: 13, color: D.accent2,
         }}>✦</div>
 
-        <div style={{
-          flex: 1, background: D.card,
-          border: `0.5px solid ${D.aiBdr}`,
-          borderRadius: "4px 16px 16px 16px",
-          overflow: "hidden",
-        }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           {/* Main content — definition + explanation as flowing text */}
-          <div style={{ padding: "12px 14px" }}>
+          <div style={{ padding: "4px 0 10px" }}>
             {data.definition && (
               <div style={{
                 fontSize: 13, fontWeight: 600, color: D.accent2,
                 marginBottom: data.explanation ? 8 : 0,
                 fontFamily: "Manrope,sans-serif", lineHeight: 1.5,
               }}>
-                <MarkdownText>{data.definition}</MarkdownText>
+                <MarkdownText theme="gold">{data.definition}</MarkdownText>
               </div>
             )}
             {data.explanation && (
@@ -297,7 +292,7 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
                 fontSize: 13, color: D.text, lineHeight: 1.65,
                 fontFamily: "Manrope,sans-serif",
               }}>
-                <MarkdownText>{data.explanation}</MarkdownText>
+                <MarkdownText theme="gold">{data.explanation}</MarkdownText>
               </div>
             )}
           </div>
@@ -309,7 +304,7 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
                 onClick={() => setShowVideo(o => !o)}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 7,
-                  padding: "8px 14px", background: "none", border: "none",
+                  padding: "8px 0", background: "none", border: "none",
                   cursor: "pointer", fontSize: 11, color: D.muted,
                   fontFamily: "Manrope,sans-serif",
                 }}
@@ -321,7 +316,7 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
                 </span>
               </button>
               {showVideo && (
-                <div style={{ padding: "0 14px 12px" }}>
+                <div style={{ padding: "0 0 12px" }}>
                   <VideoLesson video={data.video} />
                 </div>
               )}
@@ -331,7 +326,7 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
           {/* Practice button — inline */}
           <div style={{
             borderTop: `0.5px solid ${D.line2}`,
-            padding: "8px 14px",
+            padding: "8px 0",
             display: "flex", alignItems: "center", gap: 8,
           }}>
             <button
@@ -364,7 +359,7 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
           {/* Quick action chips */}
           <div style={{
             display: "flex", gap: 6, flexWrap: "wrap",
-            padding: "8px 14px", borderTop: `0.5px solid ${D.line2}`,
+            padding: "8px 0", borderTop: `0.5px solid ${D.line2}`,
           }}>
             {quickActions.map((qa) => (
               <button
@@ -387,7 +382,7 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
 
           {/* Follow-up suggestions */}
           {followUps.length > 0 && (
-            <div style={{ padding: "8px 14px 12px", borderTop: `0.5px solid ${D.line2}` }}>
+            <div style={{ padding: "8px 0 4px", borderTop: `0.5px solid ${D.line2}` }}>
               <div style={{ fontSize: 10, color: D.faint, fontWeight: 600, marginBottom: 7, fontFamily: "Manrope,sans-serif" }}>
                 💡 Suggested follow-up questions
               </div>
@@ -518,7 +513,7 @@ function PracticeView({ data, onBack, aiConfig }) {
         <div style={{ fontSize: 10, color: D.hint, fontFamily: "Manrope,sans-serif" }}>
           {data.subjectLabel || "AI-generated"} · {total} questions · {done} answered
         </div>
-        <div style={{ height: 3, background: "#1a1d35", borderRadius: 2, marginTop: 7, overflow: "hidden" }}>
+        <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, marginTop: 7, overflow: "hidden" }}>
           <div style={{ height: "100%", background: D.border, borderRadius: 2, width: `${pct}%`, transition: "width 0.35s" }} />
         </div>
       </div>
@@ -678,7 +673,7 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
       <div style={{
         position: "absolute", top: 0, left: 0, bottom: 0,
         width: "82%", maxWidth: 320, zIndex: 10,
-        background: "#080910", borderRight: `0.5px solid #1e2140`,
+        background: "#0A0D13", borderRight: `0.5px solid ${D.line}`,
         display: "flex", flexDirection: "column",
         transform: open ? "translateX(0)" : "translateX(-100%)",
         transition: "transform 0.28s cubic-bezier(.4,0,.2,1)",
@@ -688,7 +683,7 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
           padding: "16px 14px 12px",
-          borderBottom: `0.5px solid #1a1d35`,
+          borderBottom: `0.5px solid ${D.line2}`,
           background: D.bar, flexShrink: 0,
         }}>
           <div style={{ flex: 1 }}>
@@ -944,8 +939,8 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
           onClick={onSend} disabled={!canSend}
           style={{
             width: 36, height: 36, borderRadius: 10,
-            background: canSend ? D.accent : "#0d0f1f",
-            border: `0.5px solid ${canSend ? D.border : "#1a1d35"}`,
+            background: canSend ? D.accent : "#11151E",
+            border: `0.5px solid ${canSend ? D.border : D.line2}`,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: canSend ? "pointer" : "default",
             color: canSend ? D.accent2 : D.faint,
@@ -1123,7 +1118,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     <>
       <style>{FONTS + `
         .sc-ol *{box-sizing:border-box}
-        .sc-ol input::placeholder{color:#333760}
+        .sc-ol input::placeholder{color:#4A5266}
       `}</style>
 
       <div className="sc-ol" style={{
@@ -1297,15 +1292,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                             padding: "10px 14px", fontSize: 13, color: D.userTxt,
                             fontFamily: "Manrope,sans-serif",
                             animation: "scSlideIn 0.25s ease",
-                          }}><MarkdownText>{m.text}</MarkdownText></div>
+                          }}><MarkdownText theme="gold">{m.text}</MarkdownText></div>
                         </div>
                       )}
                       {m.type === "loading" && (
-                        <div style={{
-                          alignSelf: "flex-start",
-                          background: D.card, border: `0.5px solid ${D.aiBdr}`,
-                          borderRadius: "4px 16px 16px 16px", width: 80,
-                        }}>
+                        <div style={{ alignSelf: "flex-start", width: 80 }}>
                           <TypingDots />
                         </div>
                       )}
