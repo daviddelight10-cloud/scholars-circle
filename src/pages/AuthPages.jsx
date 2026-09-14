@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient.js';
+import { API_BASE } from '../lib/constants';
 
 export default function AuthPages() {
   const location = useLocation();
@@ -19,11 +20,13 @@ export default function AuthPages() {
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [signupRole, setSignupRole] = useState('STUDENT');
 
   const signupEmailRef = useRef('');
   const signupUsernameRef = useRef('');
   const signupPasswordRef = useRef('');
   const signupConfirmPasswordRef = useRef('');
+  const signupInviteCodeRef = useRef('');
 
   useEffect(() => {
     if (location.pathname === '/signup') {
@@ -52,7 +55,7 @@ export default function AuthPages() {
       // Fetch app profile
       let appUser = null;
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/auth/refresh`, {
+        const response = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
         });
@@ -89,6 +92,8 @@ export default function AuthPages() {
     const usernameVal = (signupUsernameRef.current?.value || username).trim();
     const passwordVal = (signupPasswordRef.current?.value || password).trim();
     const confirmPasswordVal = (signupConfirmPasswordRef.current?.value || confirmPassword).trim();
+    const role = signupRole;
+    const inviteCode = (signupInviteCodeRef.current?.value || '').trim();
 
     if (passwordVal !== confirmPasswordVal) {
       setError('Passwords do not match.');
@@ -106,7 +111,7 @@ export default function AuthPages() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: emailVal,
         password: passwordVal,
-        options: { data: { username: usernameVal, role: 'STUDENT' } },
+        options: { data: { username: usernameVal, role } },
       });
 
       if (signUpError) throw signUpError;
@@ -116,19 +121,25 @@ export default function AuthPages() {
       if (sessionToken) {
         // Create profile
         try {
-          await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/auth/profile`, {
+          await fetch(`${API_BASE}/auth/profile`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-            body: JSON.stringify({ email: emailVal, username: usernameVal, role: 'STUDENT' }),
+            body: JSON.stringify({
+              email: emailVal,
+              username: usernameVal,
+              role,
+              inviteCode: (role === 'TEACHER' || role === 'LECTURER') ? inviteCode : undefined,
+            }),
           });
         } catch (err) {
           console.error('Profile creation failed:', err);
         }
 
-        localStorage.setItem('scholars-circle-auth', JSON.stringify({ 
-          authUser: { email: emailVal, username: usernameVal, role: 'STUDENT' }, 
-          authToken: sessionToken 
+        localStorage.setItem('scholars-circle-auth', JSON.stringify({
+          authUser: { email: emailVal, username: usernameVal, role },
+          authToken: sessionToken
         }));
+        setSignupRole('STUDENT');
         
         navigate('/app');
       } else {
@@ -569,6 +580,27 @@ export default function AuthPages() {
                   </button>
                 </div>
               </div>
+
+              <div style={{ textAlign: 'center', marginTop: -4 }}>
+                <span
+                  onClick={() => setSignupRole((r) => (r === 'TEACHER' ? 'STUDENT' : 'TEACHER'))}
+                  style={{ color: '#646E84', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Are you a lecturer? <span style={{ color: '#F5A623' }}>{signupRole === 'TEACHER' ? 'Switch back to student' : 'Click here'}</span>
+                </span>
+              </div>
+
+              {signupRole === 'TEACHER' && (
+                <div>
+                  <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Lecturer invite code</label>
+                  <input
+                    className="auth-input"
+                    ref={signupInviteCodeRef}
+                    onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, ''); }}
+                    placeholder="Enter invite code"
+                  />
+                </div>
+              )}
 
               <label style={{ fontSize: '0.88rem', color: '#9AA3B5', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
                 <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} required />
