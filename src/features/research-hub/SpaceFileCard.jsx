@@ -2,33 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
 import { formatRelativeDate } from "./constants";
 
-const VARIANT_TYPES = [
-  { key: "mcq", label: "MCQs", chipLabel: "MCQ", color: "#F5A623", genKind: "mcqs" },
-  { key: "flashcard", label: "Flashcards", chipLabel: "Cards", color: "#3DD68C", genKind: "mcqs" },
-  { key: "summary", label: "Summary", chipLabel: "Summary", color: "#4F8EF7", genKind: "summary" },
-];
-
-function getVariantCount(variant) {
-  if (!variant) return 0;
-  try {
-    if (variant.contentType === "mcq" && variant.mcqData) {
-      const data = typeof variant.mcqData === "string" ? JSON.parse(variant.mcqData) : variant.mcqData;
-      return Array.isArray(data) ? data.length : 0;
-    }
-    if (variant.contentType === "flashcard_deck" && variant.flashcardData) {
-      const data = typeof variant.flashcardData === "string" ? JSON.parse(variant.flashcardData) : variant.flashcardData;
-      return Array.isArray(data) ? data.length : 0;
-    }
-  } catch {
-    return 0;
-  }
-  return 0;
-}
+const RING_R = 10;
+const RING_CIRC = 2 * Math.PI * RING_R; // ~62.8
 
 /**
- * Course-space file card — accent bar, icon, title, mono filename,
- * ⋯ menu (Share / Delete), variant chips, and a "tap to practice" footer
- * that opens the file's action sheet.
+ * Course-space file card matching the prototype:
+ * accent bar, icon box, serif title, mono filename, ⋯ menu (Share/Delete),
+ * bookmark button, tags row (type · subject · views · date), and a
+ * progress-ring footer that opens the practice sheet. The whole card
+ * body also opens the sheet.
  */
 export default function SpaceFileCard({
   file,
@@ -38,11 +20,7 @@ export default function SpaceFileCard({
   onShare,
   onDelete,
   canDelete,
-  onOpen,
   onPractice,
-  onGenerate,
-  generatingId,
-  genProgress,
   mcqProgress,
   index = 0,
 }) {
@@ -61,162 +39,128 @@ export default function SpaceFileCard({
   const icon = getContentTypeIcon(file.contentType);
   const relDate = formatRelativeDate(file.createdAt);
   const fileName = file.fileName || file.title || "";
-  const isGenerating = generatingId === file.id;
-  const delay = `${Math.min(index * 40, 400)}ms`;
   const typeLabel = (file.contentType || "file").toUpperCase();
+  const delay = `${Math.min(index * 50, 400)}ms`;
 
+  // Coverage ring — driven by MCQ practice progress on this file's variant.
   const mcqVariant = file.variants?.mcq;
-  const progress = mcqVariant && mcqProgress ? mcqProgress[mcqVariant.id] : null;
-  const coveredPct = progress && progress.total > 0
-    ? Math.round((progress.bestScore / progress.total) * 100)
+  const prog = mcqVariant && mcqProgress ? mcqProgress[mcqVariant.id] : null;
+  const coveredPct = prog && prog.total > 0
+    ? Math.min(100, Math.round((prog.bestScore / prog.total) * 100))
     : null;
+  const dashOffset = coveredPct != null ? RING_CIRC * (1 - coveredPct / 100) : RING_CIRC;
+
+  const onCardClick = (e) => {
+    // Let menu / bookmark / dropdown interactions handle themselves.
+    if (e.target.closest(".sp-action") || e.target.closest(".cs-menu")) return;
+    onPractice(file);
+  };
 
   return (
     <div
-      className="stagger-in relative rounded-2xl border border-hub-border bg-hub-surface p-4 pb-3"
-      style={{
-        borderLeftWidth: "3px",
-        borderLeftColor: "#F5A623",
-        animationDelay: delay,
-      }}
+      className="sp-card sp-fade-up"
+      style={{ animationDelay: delay }}
+      onClick={onCardClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPractice(file); } }}
+      aria-label={`Open practice options for ${file.title}`}
     >
-      {/* Top row: icon + title/filename + bookmark + ⋯ menu */}
-      <div className="mb-2.5 flex items-start gap-2.5">
-        <div
-          className="mt-0.5 flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] text-lg"
-          style={{ background: "rgba(245,166,35,0.1)" }}
-        >
-          {icon}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="m-0 truncate text-[15px] font-bold leading-tight text-hub-text" style={{ fontFamily: "'Syne', sans-serif" }}>
-            {file.title}
-          </h3>
-          <p className="cs-filename mt-0.5 text-[11px] text-hub-text-dim" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-            {fileName}
-          </p>
+      <div className="sp-accent-bar" />
+
+      {/* Header: icon + title + menu + bookmark */}
+      <div className="sp-card-head">
+        <div className="sp-icon-box">{icon}</div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p className="sp-card-title">{file.title}</p>
+          <p className="sp-card-sub">{fileName}</p>
         </div>
 
-        <button
-          onClick={() => onToggleBookmark(file)}
-          disabled={bookmarkBusy}
-          title={isBookmarked ? "Remove from your space" : "Save to your space"}
-          aria-label={isBookmarked ? "Remove from your space" : "Save to your space"}
-          className="shrink-0 rounded-lg p-1 text-[15px] transition-all active:scale-90"
-          style={{
-            color: isBookmarked ? "#F5A623" : "#5A6178",
-            opacity: bookmarkBusy ? 0.5 : 1,
-            background: "none",
-            border: "none",
-            cursor: bookmarkBusy ? "wait" : "pointer",
-          }}
-        >
-          {isBookmarked ? "★" : "☆"}
-        </button>
-
-        <div className="cs-menu-wrap shrink-0" ref={menuRef}>
+        <div className="cs-menu-wrap" ref={menuRef}>
           <button
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label="File options"
+            className="sp-action"
+            aria-label="More options"
             aria-expanded={menuOpen}
-            className="rounded-lg p-1 text-hub-text-dim transition-all hover:text-hub-text active:scale-90"
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
           >
-            ⋯
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ pointerEvents: "none" }}>
+              <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+            </svg>
           </button>
           {menuOpen && (
             <div className="cs-menu" role="menu">
               <button
                 role="menuitem"
                 className="cs-menu-item"
-                onClick={() => { setMenuOpen(false); onShare(file.shareToken); }}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare(file.shareToken); }}
               >
-                ⤴ Share file
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" />
+                  <path d="M8.7 10.7l6.6 -3.4" /><path d="M8.7 13.3l6.6 3.4" />
+                </svg>
+                <span>Share</span>
               </button>
               {canDelete && (
                 <button
                   role="menuitem"
                   className="cs-menu-item cs-menu-danger"
-                  onClick={() => { setMenuOpen(false); onDelete(file); }}
+                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(file); }}
                 >
-                  🗑 Delete permanently
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1 -2 2H7a2 2 0 0 1 -2 -2V6" /><path d="M8 6V4a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2" />
+                    <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                  </svg>
+                  <span>Delete</span>
                 </button>
               )}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Meta line */}
-      <div className="mb-3 flex items-center gap-2 text-[11.5px] text-hub-text-muted">
-        <span
-          className="rounded px-2 py-0.5 text-[10.5px] font-bold"
-          style={{ background: "rgba(245,166,35,0.1)", color: "#F5A623", fontFamily: "'JetBrains Mono', monospace" }}
+        <button
+          className={`sp-action${isBookmarked ? " active" : ""}`}
+          aria-label={isBookmarked ? "Remove bookmark" : "Bookmark"}
+          disabled={bookmarkBusy}
+          onClick={(e) => { e.stopPropagation(); onToggleBookmark(file); }}
         >
-          {typeLabel}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: "none" }}>
+            <path d="M9 4h6a2 2 0 0 1 2 2v14l-5 -3l-5 3v-14a2 2 0 0 1 2 -2" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Tags row */}
+      <div className="sp-tags">
+        <span className="sp-tag sp-tag-gold">{typeLabel}</span>
+        {file.subject && <span className="sp-tag sp-tag-blue">{file.subject}</span>}
+        {file.courseCode && <span className="sp-tag sp-tag-blue">{file.courseCode}</span>}
+        <span className="sp-meta">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 12s4 -7 10 -7 10 7 10 7 -4 7 -10 7 -10 -7 -10 -7z" /><circle cx="12" cy="12" r="3" />
+          </svg>
+          {formatViewCount(file.viewCount || 0)}
         </span>
-        {file.subject && (
-          <span className="rounded px-2 py-0.5 text-[10px] font-semibold" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#5A6178", background: "rgba(90,97,120,0.08)" }}>
-            {file.subject}
-          </span>
-        )}
-        <span>👁 {formatViewCount(file.viewCount || 0)}</span>
-        {relDate && <span>· {relDate}</span>}
+        {relDate && <span className="sp-meta">{relDate}</span>}
       </div>
 
-      {/* Variant chips */}
-      <div className="cs-variants mb-3 flex gap-1.5">
-        {VARIANT_TYPES.map((vt) => {
-          const variant = file.variants?.[vt.key];
-          if (variant) {
-            const count = getVariantCount(variant);
-            return (
-              <button
-                key={vt.key}
-                onClick={() => onOpen(variant.shareToken)}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-hub-border bg-hub-bg px-2.5 py-1.5 text-[11px] font-semibold text-hub-text-muted transition-all active:scale-95"
-                title={`Open ${vt.label}`}
-              >
-                <span className="h-[5px] w-[5px] rounded-full" style={{ background: vt.color }} />
-                {vt.chipLabel}
-                {count > 0 && <span>· {count}</span>}
-              </button>
-            );
-          }
-          if (file.standalone) return null;
-          return (
-            <button
-              key={vt.key}
-              onClick={() => onGenerate?.(file, vt.genKind)}
-              disabled={isGenerating}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-hub-border bg-transparent px-2.5 py-1.5 text-[11px] font-semibold text-hub-text-dim transition-all hover:border-gold hover:text-gold active:scale-95 disabled:opacity-40"
-              title={`Generate ${vt.label}`}
-            >
-              + {vt.chipLabel}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Generating progress */}
-      {isGenerating && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-gold-border bg-gold-dim px-3 py-2">
-          <div className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-          <span className="truncate text-[10px] font-semibold text-gold">{genProgress || "Generating…"}</span>
+      {/* Progress footer — clicking anywhere on the card opens the sheet */}
+      <div className="sp-progress-box">
+        <div className="sp-progress-inner">
+          <div style={{ width: 26, height: 26, position: "relative", flexShrink: 0 }}>
+            <svg width="26" height="26" viewBox="0 0 26 26" style={{ position: "absolute", top: 0, left: 0 }}>
+              <circle cx="13" cy="13" r={RING_R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+              <circle cx="13" cy="13" r={RING_R} fill="none" stroke="#F5C542" strokeWidth="3" strokeLinecap="round"
+                strokeDasharray={RING_CIRC.toFixed(1)} strokeDashoffset={dashOffset.toFixed(1)} transform="rotate(-90 13 13)" />
+            </svg>
+          </div>
+          <p className="sp-progress-text">
+            {coveredPct != null ? `${coveredPct}% covered · Tap to practice` : "Tap to practice"}
+          </p>
         </div>
-      )}
-
-      {/* Practice footer → opens action sheet */}
-      <button
-        onClick={() => onPractice(file)}
-        className="flex w-full items-center justify-between rounded-[11px] border border-hub-border bg-hub-bg px-3.5 py-2.5 text-left transition-all active:scale-[0.98]"
-        style={{ cursor: "pointer" }}
-      >
-        <span className="text-[12.5px] font-semibold text-hub-text" style={{ fontFamily: "'Manrope', sans-serif" }}>
-          {coveredPct != null ? `${coveredPct}% covered · Tap to practice` : "Tap to practice"}
-        </span>
-        <span className="text-[13px] text-gold">▸</span>
-      </button>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 15l6 -6l6 6" />
+        </svg>
+      </div>
     </div>
   );
 }

@@ -17,22 +17,39 @@ function getVariantCount(variant) {
   return 0;
 }
 
-function SheetRow({ icon, iconBg, label, sub, badge, badgeStyle, disabled, onClick, danger }) {
+const Chevron = ({ color = "#4B5563" }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M9 6l6 6l-6 6" />
+  </svg>
+);
+const Plus = ({ color = "#7FADF5" }) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <path d="M12 5v14" /><path d="M5 12h14" />
+  </svg>
+);
+
+function SheetBtn({ icon, iconBg, label, sub, subColor, badge, disabled, onClick, variant }) {
   return (
-    <button className="cs-sheet-row" disabled={disabled} onClick={onClick} aria-disabled={disabled || undefined}>
-      <span className="cs-sheet-ico" style={{ background: iconBg }}>{icon}</span>
+    <button
+      className={`sp-sheet-btn${variant ? ` ${variant}` : ""}`}
+      disabled={disabled}
+      onClick={onClick}
+      aria-disabled={disabled || undefined}
+    >
+      <span className="sp-sheet-ico" style={{ background: iconBg }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span className="cs-sheet-row-label" style={danger ? { color: "#FF8A9B" } : undefined}>{label}</span>
-        {sub && <div className="cs-sheet-row-sub">{sub}</div>}
+        <div className="sp-sheet-label">{label}</div>
+        {sub && <div className="sp-sheet-sub" style={subColor ? { color: subColor } : undefined}>{sub}</div>}
       </span>
-      {badge && <span className="cs-sheet-badge" style={badgeStyle}>{badge}</span>}
-      {!badge && !disabled && <span style={{ color: "#5D6472", fontSize: 14 }}>›</span>}
+      {badge
+        ? <span className="sp-sheet-badge">{badge}</span>
+        : (variant === "generate" ? <Plus /> : <Chevron />)}
     </button>
   );
 }
 
 /**
- * Bottom action sheet for a course-space file.
+ * Bottom action sheet for a course-space file — prototype-matched.
  * file === null → closed.
  */
 export default function PracticeSheet({
@@ -42,15 +59,12 @@ export default function PracticeSheet({
   onGenerate,
   onGuidedStudy,
   onExamSimulation,
-  onShare,
-  onDelete,
-  canDelete,
   generating,
 }) {
   const { modalProps, focusRef } = useModalA11y({
     isOpen: !!file,
     onClose,
-    label: file ? `Actions for ${file.title}` : "File actions",
+    labelledBy: "sp-sheet-title",
   });
 
   if (!file) return null;
@@ -61,8 +75,6 @@ export default function PracticeSheet({
   const mcqCount = getVariantCount(mcq);
   const cardCount = getVariantCount(flashcard);
   const canExtract = !!(file.fileUrl || file.description);
-  const fileName = file.fileName || file.title || "";
-
   const act = (fn) => () => { onClose(); fn?.(); };
 
   return (
@@ -75,80 +87,85 @@ export default function PracticeSheet({
       >
         <div className="cs-sheet-handle" />
 
-        {/* Header */}
-        <div style={{ marginBottom: 10, padding: "0 4px" }}>
-          <div className="cs-sheet-title">{file.title}</div>
-          <div className="cs-sheet-sub">{fileName}</div>
+        {/* Header — PRACTICE label + serif title + close */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+          <div style={{ minWidth: 0 }}>
+            <p className="cs-sheet-label">PRACTICE</p>
+            <p className="cs-sheet-title" id="sp-sheet-title">{file.title}</p>
+          </div>
+          <button className="cs-sheet-close" onClick={onClose} aria-label="Close menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" /><path d="M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <SheetRow
-          icon="✎" iconBg="rgba(245,166,35,0.12)"
-          label="Practice MCQs"
-          sub={mcq ? `${mcqCount || ""} questions ready`.trim() : "Generate questions from this material"}
-          disabled={generating}
-          onClick={act(() => mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs"))}
-        />
-        <SheetRow
-          icon="🧠" iconBg="rgba(255,215,0,0.10)"
-          label="Guided study"
-          sub={canExtract ? "AI breaks this material into sections with checks" : "No extractable text on this item"}
-          badge="Recommended"
-          badgeStyle={{ color: "#0A0D13", background: "linear-gradient(135deg, #F5A623, #E08E12)" }}
-          disabled={!canExtract || generating}
-          onClick={act(() => onGuidedStudy?.(file))}
-        />
-        <SheetRow
-          icon="🎴" iconBg="rgba(61,214,140,0.10)"
-          label="Flashcards"
-          sub={flashcard ? `${cardCount || ""} cards ready`.trim() : "Generate a deck from this material"}
-          disabled={generating}
-          onClick={act(() => flashcard ? onOpen(flashcard.shareToken) : onGenerate?.(file, "mcqs"))}
-        />
-        <SheetRow
-          icon="📝" iconBg="rgba(79,142,247,0.10)"
-          label="Summary"
-          sub={summary ? "Read the AI summary" : "Generate a summary PDF"}
-          disabled={generating}
-          onClick={act(() => summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary"))}
-        />
-        <SheetRow
-          icon="🎓" iconBg="rgba(139,92,246,0.10)"
-          label="Exam simulation"
-          sub={mcq ? "Timed mock exam from these questions" : "Generate MCQs first"}
-          disabled={!mcq || generating}
-          onClick={act(() => onExamSimulation?.([mcq.id]))}
-        />
-        <SheetRow
-          icon="📄" iconBg="rgba(255,255,255,0.06)"
-          label="View material"
-          sub="Open the original document"
-          onClick={act(() => onOpen(file.shareToken))}
-        />
-        <SheetRow
-          icon="🔴" iconBg="rgba(255,84,112,0.10)"
-          label="Go live with friends"
-          sub="Study this material together in real time"
-          badge="Coming soon"
-          badgeStyle={{ color: "#9199A8", background: "rgba(255,255,255,0.07)", border: "0.5px solid rgba(255,255,255,0.12)" }}
-          disabled
-        />
-
-        <div className="cs-sheet-divider" />
-
-        <SheetRow
-          icon="⤴" iconBg="rgba(255,255,255,0.06)"
-          label="Share file"
-          onClick={act(() => onShare(file.shareToken))}
-        />
-        {canDelete && (
-          <SheetRow
-            icon="🗑" iconBg="rgba(255,84,112,0.10)"
-            label="Delete permanently"
-            sub="Removes the file and its generated content"
-            danger
-            onClick={act(() => onDelete?.(file))}
+        <div className="sp-sheet-list">
+          <SheetBtn
+            icon="✎" iconBg="rgba(61,214,140,0.1)"
+            label="MCQ"
+            sub={mcq
+              ? (mcqCount ? `${mcqCount} questions · ready` : "Ready to practice")
+              : "Not generated yet · tap to create"}
+            subColor={mcq ? undefined : "#7FADF5"}
+            variant={mcq ? undefined : "generate"}
+            disabled={generating}
+            onClick={act(() => mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs"))}
           />
-        )}
+          <SheetBtn
+            icon="🧠" iconBg="rgba(245,197,66,0.12)"
+            label="Guided study"
+            sub={canExtract ? "AI walks you through the key concepts" : "No extractable text on this item"}
+            badge="RECOMMENDED"
+            variant="recommended"
+            disabled={!canExtract || generating}
+            onClick={act(() => onGuidedStudy?.(file))}
+          />
+          <SheetBtn
+            icon="🎴" iconBg="rgba(61,214,140,0.1)"
+            label="Flashcards"
+            sub={flashcard
+              ? (cardCount ? `${cardCount} cards · ready` : "Ready to review")
+              : "Not generated yet · tap to create"}
+            subColor={flashcard ? undefined : "#7FADF5"}
+            variant={flashcard ? undefined : "generate"}
+            disabled={generating}
+            onClick={act(() => flashcard ? onOpen(flashcard.shareToken) : onGenerate?.(file, "mcqs"))}
+          />
+          <SheetBtn
+            icon="📝" iconBg="rgba(127,173,245,0.1)"
+            label="Summary"
+            sub={summary ? "Read the AI summary" : "Not generated yet · tap to create"}
+            subColor={summary ? undefined : "#7FADF5"}
+            variant={summary ? undefined : "generate"}
+            disabled={generating}
+            onClick={act(() => summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary"))}
+          />
+          <SheetBtn
+            icon="🎓" iconBg="rgba(255,107,94,0.1)"
+            label="Exam simulator"
+            sub={mcq ? "Timed, mixed-format mock test" : "Generate MCQs first"}
+            disabled={!mcq || generating}
+            onClick={act(() => onExamSimulation?.([mcq.id]))}
+          />
+          <SheetBtn
+            icon="📄" iconBg="rgba(255,255,255,0.05)"
+            label="View material"
+            sub={file.fileName ? `Open ${file.fileName}` : "Open the original document"}
+            onClick={act(() => onOpen(file.shareToken))}
+          />
+
+          <div className="sp-sheet-divider" />
+
+          <SheetBtn
+            icon="👥" iconBg="rgba(127,173,245,0.12)"
+            label="Go live with friends"
+            sub="Study this together, in real time"
+            badge="COMING SOON"
+            variant="golive"
+            disabled
+          />
+        </div>
       </div>
     </div>
   );

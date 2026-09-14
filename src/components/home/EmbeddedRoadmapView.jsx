@@ -5,19 +5,15 @@ import {
   fetchTopicMatches,
   generateSkeleton,
   reorderTopics,
+  createTopic,
 } from "../../lib/skeletonGenerator";
 import { retroactiveMatch } from "../../lib/topicMatcher";
 import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
 import {
-  D, findStartHereTopic,
-  TopicDetailPanel, OnboardingStep, TimelineTopicRow,
+  D, findStartHereTopic, progressPct,
+  TopicDetailPanel, OnboardingStep,
 } from "./roadmapShared";
-
-const RING_SIZE = 104;
-const RING_STROKE = 9;
-const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
-const RING_CIRC = 2 * Math.PI * RING_RADIUS;
 
 const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
 
@@ -41,19 +37,15 @@ export default function EmbeddedRoadmapView({
   const [outlineFileName, setOutlineFileName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [showRegenPrompt, setShowRegenPrompt] = useState(false);
-  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
-  const [showDetailMobile, setShowDetailMobile] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [addTopicOpen, setAddTopicOpen] = useState(false);
+  const [addTopicTitle, setAddTopicTitle] = useState("");
+  const [addingTopic, setAddingTopic] = useState(false);
   const [toast, setToast] = useState(null);
   const fileInputRef = useRef(null);
   const listRef = useRef(null);
   const dragStateRef = useRef(null);
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
 
   const loadData = useCallback(async () => {
     if (!courseCode) { setLoading(false); return; }
@@ -147,8 +139,6 @@ export default function EmbeddedRoadmapView({
     }
     return { total: topics.length, mastered, learning, notStarted };
   }, [topics, progress]);
-
-  const masteredPct = stats ? Math.round((stats.mastered / stats.total) * 100) : 0;
 
   const startHereTopic = useMemo(() => {
     if (topics.length === 0) return null;
@@ -284,6 +274,24 @@ export default function EmbeddedRoadmapView({
     showToast._t = setTimeout(() => setToast(null), 1800);
   }
 
+  async function handleAddTopic() {
+    const title = addTopicTitle.trim();
+    if (!title || addingTopic || !courseCode) return;
+    setAddingTopic(true);
+    setError("");
+    try {
+      const updated = await createTopic(courseCode, title, topics.length);
+      setTopics(updated);
+      setAddTopicTitle("");
+      setAddTopicOpen(false);
+      showToast("Topic added");
+    } catch (err) {
+      setError(err.message || "Failed to add topic");
+    } finally {
+      setAddingTopic(false);
+    }
+  }
+
   function handleDragStart(e, topicId) {
     if (!editMode) return;
     const topic = topics.find(t => t.id === topicId);
@@ -411,55 +419,28 @@ export default function EmbeddedRoadmapView({
       {/* Roadmap header — section title + actions */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginTop: 28, marginBottom: 12,
+        marginTop: 8, marginBottom: 12, gap: 10,
       }}>
         <div>
-          <span style={{ fontSize: 17, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "'Lora', Georgia, serif", margin: 0 }}>
             Roadmap
-          </span>
-          <div style={{ fontSize: 12, color: D.textLow, fontFamily: FONTS.body, marginTop: 2 }}>
+          </h3>
+          <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0", fontFamily: "'Inter', sans-serif" }}>
             {topics.length} topics · {stats?.mastered || 0} mastered
-          </div>
+          </p>
         </div>
 
         {topics.length > 0 && (
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
             <button
+              className={`sp-roadmap-btn${editMode ? " active" : ""}`}
               onClick={() => setEditMode(!editMode)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: editMode ? "linear-gradient(135deg, #F5A623, #E08E12)" : D.panel,
-                border: editMode ? "none" : `1px solid ${D.border}`,
-                borderRadius: 100, padding: "8px 14px",
-                fontSize: 12, fontWeight: 700, fontFamily: FONTS.body,
-                color: editMode ? "#1a1206" : D.textMid,
-                cursor: "pointer", whiteSpace: "nowrap",
-                transition: "all 0.25s ease",
-              }}
             >
-              {editMode ? "Done" : "✎ Edit order"}
+              {editMode ? "✓ Done" : "✎ Edit order"}
             </button>
 
-            <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: D.panel, border: `1px solid rgba(79,142,247,0.3)`,
-              backdropFilter: "blur(14px)", borderRadius: 100,
-              padding: "8px 12px", fontSize: 12, fontWeight: 600, color: D.blue,
-              cursor: matchProgress ? "not-allowed" : "pointer",
-              fontFamily: FONTS.body, whiteSpace: "nowrap",
-            }}>
+            <button className="sp-roadmap-btn" onClick={handleRetroactiveMatch} disabled={!!matchProgress}>
               {matchProgress ? `${matchProgress.label}` : "🔗 Match Docs"}
-            </button>
-
-            <button onClick={() => topics.length > 0 ? setShowRegenPrompt(true) : fileInputRef.current?.click()} disabled={generating || uploading} style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              width: 34, height: 34, borderRadius: 100, border: "none",
-              background: generating ? "rgba(245,166,35,0.15)" : "linear-gradient(135deg, #F5A623, #E08E12)",
-              color: generating ? D.gold : "#1a1206",
-              cursor: (generating || uploading) ? "not-allowed" : "pointer",
-              fontSize: 14, fontWeight: 600, fontFamily: FONTS.body,
-            }}>
-              {generating ? "⋯" : "↻"}
             </button>
           </div>
         )}
@@ -588,145 +569,254 @@ export default function EmbeddedRoadmapView({
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 0, minHeight: 400 }}>
-          {/* Left — Timeline */}
-          <div style={{
-            flex: isMobile ? (showDetailMobile ? "0 0 auto" : "1 1 auto") : "1 1 45%",
-            display: isMobile && showDetailMobile ? "none" : "block",
-          }}>
-            {/* Mastery card — circular ring + legend */}
-            {stats && (
-              <MasteryRing stats={stats} masteredPct={masteredPct} />
-            )}
-
-            {/* Start here banner — glass with gold accent */}
-            {startHereTopic && (
-              <div
-                className="cs-start-banner"
-                onClick={() => { setSelectedTopicId(startHereTopic.id); if (isMobile) setShowDetailMobile(true); }}
-                style={{ marginBottom: 16 }}
-              >
-                <span style={{ fontSize: 20 }}>👉</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 10, color: D.gold, fontFamily: FONTS.mono, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 3 }}>
-                    Start Here
-                  </span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
-                    {startHereTopic.title}
-                  </span>
-                </div>
-                <span style={{ color: D.gold, fontSize: 18, marginLeft: "auto" }}>→</span>
-              </div>
-            )}
-
-            {/* Timeline topic list — connecting line + nodes */}
-            <div
-              ref={listRef}
-              className={`cs-topic-list${editMode ? " cs-edit-mode" : ""}`}
-              style={{ marginTop: 16 }}
+        <div>
+          {/* Start Here card */}
+          {startHereTopic && (
+            <button
+              className="sp-start-card sp-fade-up"
+              style={{ width: "100%", textAlign: "left", display: "block" }}
+              onClick={() => { setSelectedTopicId(startHereTopic.id); setDetailOpen(true); }}
             >
-              {topics.map((topic, idx) => (
-                <TimelineTopicRow
-                  key={topic.id}
-                  topic={topic}
-                  idx={idx}
-                  topics={topics}
-                  progress={progress}
-                  matchesByTopic={matchesByTopic}
-                  selectedTopicId={selectedTopicId}
-                  startHereTopic={startHereTopic}
-                  onSelectTopic={(id) => { setSelectedTopicId(id); if (isMobile) setShowDetailMobile(true); }}
-                  onStartStudying={handleStartStudying}
-                  isMobile={isMobile}
-                  isLast={idx === topics.length - 1}
-                  editMode={editMode}
-                  onDragStart={handleDragStart}
-                />
-              ))}
-            </div>
-
-            {/* Unsorted bucket */}
-            {unsortedFiles.length > 0 && (
-              <div style={{ marginTop: 20 }}>
-                <div style={{
-                  fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600,
-                  marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em",
-                  display: "flex", alignItems: "center", gap: 6,
-                }}>
-                  📦 Unsorted ({unsortedFiles.length})
+              <div style={{ position: "absolute", top: -16, right: -16, width: 80, height: 80, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,197,66,0.2), transparent 70%)", pointerEvents: "none" }} />
+              <div style={{ position: "relative" }}>
+                <span className="sp-start-chip">START HERE</span>
+                <h4 style={{ color: "#fff", fontSize: 16, fontWeight: 700, marginTop: 8, marginBottom: 0, fontFamily: "'Lora', Georgia, serif" }}>
+                  {startHereTopic.title}
+                </h4>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, fontSize: 10, color: "#9CA3AF", fontFamily: "'Inter', sans-serif" }}>
+                  <span>📄 {(matchesByTopic.get(startHereTopic.id) || []).length} docs</span>
+                  <span style={{ color: "#3DD68C" }}>● {progress?.[startHereTopic.id]?.label || "New"}</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {unsortedFiles.map((file) => (
-                    <div key={file.id} style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "8px 12px", background: D.panel, borderRadius: 8,
-                      border: `0.5px solid ${D.border}`,
-                    }}>
-                      <span style={{ fontSize: 11, color: D.textHi, fontFamily: FONTS.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {file.title}
-                      </span>
-                      <span style={{ fontSize: 9, color: D.textLow, fontFamily: FONTS.body }}>
-                        {file.contentType}
-                      </span>
-                      {file.shareToken && onOpenResource && (
-                        <button
-                          onClick={() => onOpenResource(file.shareToken)}
-                          style={{
-                            background: "none", border: `0.5px solid ${D.border}`, borderRadius: 4,
-                            padding: "3px 10px", fontSize: 10, color: D.blue, cursor: "pointer",
-                            fontFamily: FONTS.body,
-                          }}
-                        >
-                          Open
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
-                  marginTop: 10, background: D.panel, border: `0.5px solid ${D.blue}44`, borderRadius: 8,
-                  padding: "8px 16px", fontSize: 11, color: D.blue, cursor: matchProgress ? "not-allowed" : "pointer",
-                  fontFamily: FONTS.body, fontWeight: 600,
-                }}>
-                  {matchProgress ? "Matching…" : "🔗 Match Unsorted to Topics"}
-                </button>
               </div>
-            )}
+            </button>
+          )}
+
+          {/* Topic grid */}
+          <div
+            ref={listRef}
+            className={`sp-topic-grid${editMode ? " editing" : ""}`}
+            style={{ marginTop: 12 }}
+          >
+            {topics.map((topic, idx) => {
+              const p = progress?.[topic.id];
+              const pct = progressPct(p);
+              const label = p?.label || "Not started";
+              const docCount = (matchesByTopic.get(topic.id) || []).length;
+              const ringColor = label === "Mastered" ? "#3DD68C" : pct > 0 ? "#7FADF5" : "#F5C542";
+              const badgeStyle = label === "Mastered"
+                ? { background: "rgba(61,214,140,0.12)", color: "#3DD68C", borderColor: "rgba(61,214,140,0.2)" }
+                : pct > 0
+                  ? { background: "rgba(127,173,245,0.12)", color: "#7FADF5", borderColor: "rgba(127,173,245,0.2)" }
+                  : { background: "rgba(255,255,255,0.03)", color: "#6B7280", borderColor: "rgba(255,255,255,0.07)" };
+              const C = 2 * Math.PI * 16; // r=16 ring
+              return (
+                <div
+                  key={topic.id}
+                  data-topic-id={topic.id}
+                  className={`sp-topic-card sp-fade-up${selectedTopicId === topic.id ? " selected" : ""}`}
+                  style={{ animationDelay: `${Math.min(idx * 50, 400)}ms` }}
+                  onClick={() => { if (!editMode) { setSelectedTopicId(topic.id); setDetailOpen(true); } }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (!editMode && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSelectedTopicId(topic.id); setDetailOpen(true); } }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {editMode && (
+                      <button
+                        aria-label={`Reorder ${topic.title}`}
+                        onPointerDown={(e) => handleDragStart(e, topic.id)}
+                        style={{
+                          background: "transparent", border: "none", color: "#6B7280",
+                          cursor: "grab", fontSize: 16, padding: "4px 2px", flexShrink: 0,
+                          touchAction: "none",
+                        }}
+                      >
+                        ⠿
+                      </button>
+                    )}
+                    <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
+                      <svg width="40" height="40" viewBox="0 0 40 40">
+                        <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+                        <circle cx="20" cy="20" r="16" fill="none" stroke={ringColor} strokeWidth="3" strokeLinecap="round"
+                          strokeDasharray={C.toFixed(1)} strokeDashoffset={(C * (1 - pct / 100)).toFixed(1)}
+                          transform="rotate(-90 20 20)" />
+                      </svg>
+                      <div style={{
+                        position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 9, fontWeight: 700, color: pct > 0 ? ringColor : "#6B7280",
+                      }}>
+                        {pct}%
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{ fontSize: 14, fontWeight: 600, color: "#F3F4F6", margin: 0, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {topic.title}
+                      </h3>
+                      <p style={{ fontSize: 10, margin: "2px 0 0", fontFamily: "'Inter', sans-serif", color: pct > 0 ? ringColor : "#6B7280" }}>
+                        {label} · {docCount} doc{docCount === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <span className="sp-topic-badge" style={badgeStyle}>{label}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Right — Detail panel */}
-          <div style={{
-            flex: isMobile ? "1 1 auto" : "1 1 55%",
-            paddingLeft: isMobile ? 0 : 16,
-            display: isMobile && !showDetailMobile ? "none" : "block",
-          }}>
-            {isMobile && showDetailMobile && (
-              <button onClick={() => setShowDetailMobile(false)} style={{
-                background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 8,
-                padding: "6px 12px", fontSize: 11, color: D.textMid, cursor: "pointer",
-                fontFamily: FONTS.body, marginBottom: 12, display: "flex", alignItems: "center", gap: 6,
-              }}>
-                ← Back to list
-              </button>
-            )}
-            {selectedTopic ? (
-              <TopicDetailPanel
-                topic={selectedTopic}
-                topics={topics}
-                progress={progress?.[selectedTopic.id]}
-                matches={matchesByTopic.get(selectedTopic.id) || []}
-                onOpenResource={onOpenResource}
-                onStartStudying={handleStartStudying}
-                isStartHere={startHereTopic?.id === selectedTopic.id}
-                resourceVariantsMap={resourceVariantsMap}
-                resourceByIdMap={resourceByIdMap}
-                onGenerate={onGenerate}
+          {/* Add-topic inline form */}
+          {addTopicOpen && (
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="text"
+                value={addTopicTitle}
+                onChange={(e) => setAddTopicTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAddTopic(); if (e.key === "Escape") setAddTopicOpen(false); }}
+                placeholder="Topic title…"
+                autoFocus
+                className="sp-search"
+                style={{ borderRadius: 12, fontSize: 13 }}
               />
-            ) : (
-              <div style={{ textAlign: "center", padding: "60px 20px", color: D.textMid, fontSize: 13, fontFamily: FONTS.body }}>
-                Select a topic from the path to see details
+              <button
+                onClick={handleAddTopic}
+                disabled={addingTopic || !addTopicTitle.trim()}
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2.5 text-[11px] font-bold text-black transition-all active:scale-95"
+                style={{ background: "#F5C542", border: "none", opacity: addingTopic || !addTopicTitle.trim() ? 0.5 : 1 }}
+              >
+                {addingTopic ? "Adding…" : "Add"}
+              </button>
+              <button
+                onClick={() => { setAddTopicOpen(false); setAddTopicTitle(""); }}
+                className="sp-roadmap-btn"
+                style={{ padding: "8px 12px" }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <button
+              onClick={() => setAddTopicOpen(true)}
+              style={{
+                width: "100%", padding: "12px 0", borderRadius: 12,
+                border: "1px dashed rgba(255,255,255,0.15)", background: "transparent",
+                color: "#6B7280", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                fontFamily: "'Inter', sans-serif", transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#F5C542"; e.currentTarget.style.color = "#F5C542"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "#6B7280"; }}
+            >
+              + Add Topic
+            </button>
+            <button
+              onClick={() => setShowRegenPrompt(true)}
+              disabled={generating || uploading}
+              style={{
+                width: "100%", padding: "12px 0", borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.07)", background: "#141A24",
+                color: "#F3F4F6", fontSize: 12, fontWeight: 600, cursor: generating ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                fontFamily: "'Inter', sans-serif", transition: "background 0.2s",
+                opacity: generating || uploading ? 0.5 : 1,
+              }}
+            >
+              <span style={{ color: "#F5C542" }}>↻</span> {generating ? "Regenerating…" : "Regenerate Topics"}
+            </button>
+          </div>
+
+          {/* Unsorted bucket */}
+          {unsortedFiles.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div style={{
+                fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600,
+                marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em",
+                display: "flex", alignItems: "center", gap: 6,
+              }}>
+                📦 Unsorted ({unsortedFiles.length})
               </div>
-            )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {unsortedFiles.map((file) => (
+                  <div key={file.id} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "8px 12px", background: D.panel, borderRadius: 8,
+                    border: `0.5px solid ${D.border}`,
+                  }}>
+                    <span style={{ fontSize: 11, color: D.textHi, fontFamily: FONTS.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {file.title}
+                    </span>
+                    <span style={{ fontSize: 9, color: D.textLow, fontFamily: FONTS.body }}>
+                      {file.contentType}
+                    </span>
+                    {file.shareToken && onOpenResource && (
+                      <button
+                        onClick={() => onOpenResource(file.shareToken)}
+                        style={{
+                          background: "none", border: `0.5px solid ${D.border}`, borderRadius: 4,
+                          padding: "3px 10px", fontSize: 10, color: D.blue, cursor: "pointer",
+                          fontFamily: FONTS.body,
+                        }}
+                      >
+                        Open
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
+                marginTop: 10, background: D.panel, border: `0.5px solid ${D.blue}44`, borderRadius: 8,
+                padding: "8px 16px", fontSize: 11, color: D.blue, cursor: matchProgress ? "not-allowed" : "pointer",
+                fontFamily: FONTS.body, fontWeight: 600,
+              }}>
+                {matchProgress ? "Matching…" : "🔗 Match Unsorted to Topics"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Topic detail modal */}
+      {detailOpen && selectedTopic && (
+        <div
+          className="cs-sheet-backdrop"
+          style={{ alignItems: "center", padding: 16 }}
+          onClick={() => setDetailOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={selectedTopic.title}
+            style={{
+              width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto",
+              background: "#12161F", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 20, padding: 20,
+              scrollbarWidth: "none",
+            }}
+          >
+            <button
+              onClick={() => setDetailOpen(false)}
+              className="cs-sheet-close"
+              aria-label="Close topic detail"
+              style={{ float: "right" }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" /><path d="M6 6l12 12" />
+              </svg>
+            </button>
+            <TopicDetailPanel
+              topic={selectedTopic}
+              topics={topics}
+              progress={progress?.[selectedTopic.id]}
+              matches={matchesByTopic.get(selectedTopic.id) || []}
+              onOpenResource={onOpenResource}
+              onStartStudying={handleStartStudying}
+              isStartHere={startHereTopic?.id === selectedTopic.id}
+              resourceVariantsMap={resourceVariantsMap}
+              resourceByIdMap={resourceByIdMap}
+              onGenerate={onGenerate}
+            />
           </div>
         </div>
       )}
@@ -737,74 +827,6 @@ export default function EmbeddedRoadmapView({
           {toast}
         </div>
       )}
-    </div>
-  );
-}
-
-function MasteryRing({ stats, masteredPct }) {
-  const [offset, setOffset] = useState(RING_CIRC);
-  const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-  useEffect(() => {
-    const target = RING_CIRC - (RING_CIRC * masteredPct) / 100;
-    if (reducedMotion) {
-      setOffset(target);
-    } else {
-      const timer = setTimeout(() => setOffset(target), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [masteredPct, reducedMotion]);
-
-  return (
-    <div style={{
-      background: D.panel, border: `1px solid ${D.border}`,
-      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-      borderRadius: 20, padding: 22, marginBottom: 16,
-      display: "flex", alignItems: "center", gap: 20,
-    }}>
-      <div style={{ position: "relative", width: RING_SIZE, height: RING_SIZE, flexShrink: 0 }}>
-        <svg width={RING_SIZE} height={RING_SIZE} style={{ transform: "rotate(-90deg)" }}>
-          <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS}
-            fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={RING_STROKE} />
-          <circle className="cs-ring-fg" cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS}
-            strokeDasharray={RING_CIRC} strokeDashoffset={offset} />
-        </svg>
-        <div style={{
-          position: "absolute", inset: 0,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        }}>
-          <span style={{ fontFamily: FONTS.mono, fontSize: 19, fontWeight: 600, color: D.textHi }}>
-            {masteredPct}%
-          </span>
-          <span style={{ fontSize: 9.5, color: D.textLow, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>
-            mastery
-          </span>
-        </div>
-      </div>
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 9, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12.5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: D.textMid }}>
-            <span style={{ width: 8, height: 8, borderRadius: 100, background: D.green, flexShrink: 0 }} />
-            Mastered
-          </div>
-          <span style={{ fontFamily: FONTS.mono, fontWeight: 600, color: D.textHi }}>{stats.mastered}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12.5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: D.textMid }}>
-            <span style={{ width: 8, height: 8, borderRadius: 100, background: D.gold, flexShrink: 0 }} />
-            Learning
-          </div>
-          <span style={{ fontFamily: FONTS.mono, fontWeight: 600, color: D.textHi }}>{stats.learning}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12.5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: D.textMid }}>
-            <span style={{ width: 8, height: 8, borderRadius: 100, background: D.textLow, flexShrink: 0 }} />
-            Not started
-          </div>
-          <span style={{ fontFamily: FONTS.mono, fontWeight: 600, color: D.textHi }}>{stats.notStarted}</span>
-        </div>
-      </div>
     </div>
   );
 }

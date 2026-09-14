@@ -18,6 +18,7 @@ export default function FolderDetailView({
 }) {
   const [sheetFile, setSheetFile] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [fileSearch, setFileSearch] = useState("");
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function FolderDetailView({
 
   // Files tab = source files + standalone items (bookmarked MCQ sets / decks /
   // summaries that have no source file) so nothing disappears from the space.
-  const files = useMemo(() => {
+  const allFiles = useMemo(() => {
     const mats = folderCategorized.materials || [];
     const seen = new Set(mats.map((f) => f.id));
     const standalone = [
@@ -43,12 +44,25 @@ export default function FolderDetailView({
     ].filter((f) => f.standalone && !seen.has(f.id) && seen.add(f.id));
     return [...mats, ...standalone];
   }, [folderCategorized]);
+
+  const files = useMemo(() => {
+    const q = fileSearch.trim().toLowerCase();
+    if (!q) return allFiles;
+    return allFiles.filter((f) =>
+      (f.title || "").toLowerCase().includes(q) ||
+      (f.fileName || "").toLowerCase().includes(q) ||
+      (f.subject || "").toLowerCase().includes(q) ||
+      (f.courseCode || "").toLowerCase().includes(q)
+    );
+  }, [allFiles, fileSearch]);
+
   const allMcqIds = (folderCategorized.allMcqResources || []).map((r) => r.id);
   const showTopicsTab = !!folderDetail?.courseCode;
   const masteryPct = folderDetail?.masteryPct || 0;
 
   // If the topics tab isn't available, stay on files.
   const tab = activeFolderTab === "topics" && !showTopicsTab ? "materials" : activeFolderTab;
+  const levelSem = [folderDetail?.level, folderDetail?.semester].filter(Boolean).join(" · ");
 
   const menuItem = (label, fn, opts = {}) => (
     <button
@@ -63,41 +77,43 @@ export default function FolderDetailView({
 
   return (
     <>
-      <div className="mx-auto max-w-[1080px] p-5 sm:p-6" style={{ paddingBottom: "80px" }}>
-        {/* Sticky header — back + space name + ⋯ menu */}
-        <div className="sticky top-0 z-40 -mx-5 mb-[18px] px-5 pb-3 pt-3 sm:-mx-6 sm:px-6" style={{ background: "rgba(10,10,10,0.82)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-          <div className="flex items-center justify-between gap-3">
+      <div className="mx-auto w-full max-w-[1400px]" style={{ paddingBottom: "96px" }}>
+
+        {/* Sticky app header */}
+        <div className="sp-header px-5 md:px-8 lg:px-12">
+          <div className="flex items-center justify-between">
             <button
               onClick={onClose}
-              className="cs-glass-pill inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-semibold text-[#9199A8] transition-all active:scale-95"
+              aria-label="Back to My Space"
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9CA3AF] transition-colors"
+              style={{ background: "#141A24", borderColor: "rgba(255,255,255,0.07)" }}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" className="h-4 w-4">
-                <path d="M15 18l-6-6 6-6" />
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
               </svg>
-              My Space
             </button>
 
             <div className="min-w-0 flex-1 text-center">
-              <div className="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-[#4F8EF7]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                Course Space
-              </div>
-              <div className="truncate text-[13px] font-bold text-[#F3F5F8]" style={{ fontFamily: "'Syne', sans-serif" }}>
-                {folderDetail?.courseCode || folderDetail?.name || ""}
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">Course Space</div>
+              <div className="mt-0.5 truncate text-[13px] font-semibold text-[#F3F4F6]">
+                {levelSem || folderDetail?.courseCode || folderDetail?.name || ""}
               </div>
             </div>
 
-            {folderDetail ? (
-              <div className="cs-menu-wrap shrink-0" ref={menuRef}>
-                <button
-                  onClick={() => setMenuOpen((o) => !o)}
-                  className="cs-glass-icon-btn text-[#9199A8]"
-                  aria-label="Space options"
-                  aria-expanded={menuOpen}
-                >
-                  ⋯
-                </button>
-                {menuOpen && (
-                  <div className="cs-menu" role="menu">
+            <div className="cs-menu-wrap shrink-0" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9CA3AF] transition-colors"
+                style={{ background: "#141A24", borderColor: "rgba(255,255,255,0.07)" }}
+                aria-label="Space options"
+                aria-expanded={menuOpen}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ pointerEvents: "none" }}>
+                  <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className="cs-menu" role="menu">
                     {!folderIsOwner && folderDetail.visibility !== "private" &&
                       menuItem(
                         folderBookmarkedIds?.has(folderDetail.id) ? "★ Remove from my space" : "☆ Save to my space",
@@ -116,145 +132,153 @@ export default function FolderDetailView({
                       menuItem("�🎓 Exam simulation", () => onExamSimulation?.(allMcqIds))}
                     {folderIsOwner &&
                       menuItem("🗑 Delete folder", () => onDeleteFolder(folderDetail.id), { danger: true })}
-                  </div>
-                )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Course hero card */}
+        <div className="px-5 md:px-8 lg:px-12">
+          <div className="sp-hero">
+            <div className="sp-hero-glow-a" />
+            <div className="sp-hero-glow-b" />
+            <div className="relative">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: "#F5C542" }} />
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em]" style={{ color: "#F5C542" }}>Active Course</span>
               </div>
-            ) : (
-              <div style={{ width: 38 }} />
-            )}
-          </div>
-        </div>
-
-        {/* Hero card */}
-        <div className="cs-glass mb-5 rounded-2xl p-5" style={{ borderRadius: 20 }}>
-          <h1
-            className="m-0 text-[clamp(26px,7vw,36px)] font-extrabold leading-[1.05] tracking-[-0.01em] text-[#F3F5F8]"
-            style={{ fontFamily: "'Syne', sans-serif", wordBreak: "break-word" }}
-          >
-            {folderDetail?.courseCode || folderDetail?.name || "Loading…"}
-          </h1>
-          {folderDetail?.name && folderDetail?.courseCode && (
-            <div className="mt-1 text-[13px] text-[#9199A8]" style={{ fontFamily: "'Manrope', sans-serif" }}>
-              {folderDetail.name}
+              <h2 className="sp-hero-title">{folderDetail?.courseCode || folderDetail?.name || "Loading…"}</h2>
+              <p className="sp-hero-sub">
+                {folderDetail?.name && folderDetail?.courseCode
+                  ? folderDetail.name
+                  : (folderDetail?.description || "Your study space")}
+              </p>
+              <div className="sp-hero-bar">
+                <div style={{ width: `${masteryPct}%` }} />
+              </div>
             </div>
-          )}
 
-          {/* Badge row */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {folderDetail?.level && (
-              <span
-                className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[12px] font-medium"
-                style={{ fontFamily: "'JetBrains Mono', monospace", color: "#F5A623", background: "rgba(245,166,35,0.10)", border: "1px solid rgba(245,166,35,0.30)" }}
-              >
-                {folderDetail.level}
-              </span>
-            )}
-            {folderDetail?.semester && (
-              <span
-                className="inline-flex items-center rounded-full px-3.5 py-1.5 text-[12px] font-medium"
-                style={{ fontFamily: "'JetBrains Mono', monospace", color: "#3DD68C", background: "rgba(61,214,140,0.08)", border: "1px solid rgba(61,214,140,0.28)" }}
-              >
-                {folderDetail.semester}
-              </span>
-            )}
-          </div>
-
-          {/* Progress + stats */}
-          <div className="mt-4">
-            <div className="cs-hero-progress">
-              <div style={{ width: `${masteryPct}%` }} />
-            </div>
-            <div className="mt-2.5 flex items-center gap-3.5 text-[12.5px] text-[#9199A8]">
-              <span>📄 {counts.materials} files</span>
-              <span className="h-1 w-1 rounded-full bg-[#5D6472]" />
-              <span>🧬 {folderDetail?.topicCount || 0} topics</span>
-              <span className="h-1 w-1 rounded-full bg-[#5D6472]" />
-              <span>{masteryPct}% mastered</span>
+            <div className="sp-hero-stats relative">
+              <div>
+                <div className="sp-hero-stat-num">{counts.materials}</div>
+                <div className="sp-hero-stat-label">Files</div>
+              </div>
+              <div className="sp-hero-divider" />
+              <div>
+                <div className="sp-hero-stat-num">{folderDetail?.topicCount || 0}</div>
+                <div className="sp-hero-stat-label">Topics</div>
+              </div>
+              <div className="sp-hero-divider" />
+              <div>
+                <div className="sp-hero-stat-num">{masteryPct}<span className="text-sm md:text-base">%</span></div>
+                <div className="sp-hero-stat-label">Mastered</div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Primary CTA */}
-        {folderDetail && (
-          <button
-            onClick={() => onUploadToFolder(folderDetail.id)}
-            className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-2xl px-5 py-3.5 text-[15px] font-bold transition-all active:scale-95"
-            style={{
-              color: "#141008",
-              border: "none",
-              background: "linear-gradient(135deg, #F5A623, #E08E12)",
-              boxShadow: "0 8px 24px -8px rgba(245,166,35,0.45)",
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.3} strokeLinecap="round" className="h-[17px] w-[17px]">
-              <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l7.78-7.78" />
-            </svg>
-            Add to space
-          </button>
-        )}
-
-        {/* Files | Topics tabs */}
-        <div className="cs-segment mb-[18px]" role="tablist" aria-label="Space sections">
-          <button
-            role="tab"
-            aria-selected={tab !== "topics"}
-            className={tab !== "topics" ? "cs-segment-active" : ""}
-            onClick={() => setActiveFolderTab("materials")}
-          >
-            📄 Files{counts.materials > 0 ? ` · ${counts.materials}` : ""}
-          </button>
-          {showTopicsTab && (
+        {/* Tabs */}
+        <div className="mt-5 px-5 md:px-8 lg:px-12">
+          <div className="sp-tabs" role="tablist" aria-label="Space sections">
             <button
               role="tab"
-              aria-selected={tab === "topics"}
-              className={tab === "topics" ? "cs-segment-active" : ""}
-              onClick={() => setActiveFolderTab("topics")}
+              aria-selected={tab !== "topics"}
+              className={`sp-tab${tab !== "topics" ? " active" : ""}`}
+              onClick={() => setActiveFolderTab("materials")}
             >
-              🗺 Topics{(folderDetail?.topicCount || 0) > 0 ? ` · ${folderDetail.topicCount}` : ""}
+              Files
             </button>
-          )}
+            {showTopicsTab && (
+              <button
+                role="tab"
+                aria-selected={tab === "topics"}
+                className={`sp-tab${tab === "topics" ? " active" : ""}`}
+                onClick={() => setActiveFolderTab("topics")}
+              >
+                Topics
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Content */}
-        {folderLoading ? (
-          <LoadingState grid count={4} />
-        ) : tab === "topics" && folderDetail?.courseCode ? (
-          <EmbeddedRoadmapView
-            courseCode={folderDetail.courseCode}
-            folderId={folderDetail.id}
-            folderResources={files}
-            onOpenResource={onOpen}
-            onStartStudying={onStartStudying}
-            onGenerate={onGenerate}
-          />
-        ) : files.length > 0 ? (
-          <div className="cs-grid grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))" }}>
-            {files.map((file, i) => (
-              <SpaceFileCard
-                key={file.id}
-                file={file}
-                isBookmarked={bookmarkedIds.has(file.id)}
-                bookmarkBusy={bookmarkBusyId === file.id}
-                onToggleBookmark={onToggleBookmark}
-                onShare={onShare}
-                onDelete={onDeleteResource}
-                canDelete={canDeleteFile?.(file)}
-                onOpen={onOpen}
-                onPractice={setSheetFile}
-                onGenerate={onGenerate}
-                generatingId={generatingId}
-                genProgress={genProgress}
-                mcqProgress={mcqProgress}
-                index={i}
+        {/* Search + Add */}
+        {tab !== "topics" && (
+          <div className="mt-4 flex items-center gap-2 px-5 md:px-8 lg:px-12">
+            <div className="sp-search">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2.4" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+              </svg>
+              <input
+                type="text"
+                value={fileSearch}
+                onChange={(e) => setFileSearch(e.target.value)}
+                placeholder="Search files…"
+                aria-label="Search files in this space"
               />
-            ))}
+            </div>
+            <button
+              onClick={() => onUploadToFolder(folderDetail?.id)}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2.5 text-[11px] font-bold text-black transition-all active:scale-95"
+              style={{ background: "#F5C542", border: "none" }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                <path d="M12 5v14" /><path d="M5 12h14" />
+              </svg>
+              Add to space
+            </button>
           </div>
-        ) : (
-          <EmptyState
-            icon="📄"
-            title="No materials in this space yet."
-            message="Upload PDFs, notes, or other files to get started."
-          />
+        )}
+
+        {/* Files grid */}
+        {tab !== "topics" && (
+          <div className="mt-4 grid grid-cols-1 gap-4 px-5 md:grid-cols-2 md:px-8 lg:px-12 xl:grid-cols-3">
+            {folderLoading ? (
+              <div className="col-span-full"><LoadingState grid count={4} /></div>
+            ) : files.length > 0 ? (
+              files.map((file, i) => (
+                <SpaceFileCard
+                  key={file.id}
+                  file={file}
+                  isBookmarked={bookmarkedIds.has(file.id)}
+                  bookmarkBusy={bookmarkBusyId === file.id}
+                  onToggleBookmark={onToggleBookmark}
+                  onShare={onShare}
+                  onDelete={onDeleteResource}
+                  canDelete={canDeleteFile?.(file)}
+                  onPractice={setSheetFile}
+                  mcqProgress={mcqProgress}
+                  index={i}
+                />
+              ))
+            ) : fileSearch ? (
+              <div className="col-span-full">
+                <EmptyState icon="🔍" title={`No files match "${fileSearch}"`} message="Try a different search term." />
+              </div>
+            ) : (
+              <div className="col-span-full">
+                <EmptyState icon="📄" title="No materials in this space yet." message="Upload PDFs, notes, or other files to get started." />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Topics roadmap */}
+        {tab === "topics" && folderDetail?.courseCode && (
+          <div className="mt-4 px-5 md:px-8 lg:px-12">
+            {folderLoading ? (
+              <LoadingState grid count={4} />
+            ) : (
+              <EmbeddedRoadmapView
+                courseCode={folderDetail.courseCode}
+                folderId={folderDetail.id}
+                folderResources={allFiles}
+                onOpenResource={onOpen}
+                onStartStudying={onStartStudying}
+                onGenerate={onGenerate}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -266,9 +290,6 @@ export default function FolderDetailView({
         onGenerate={onGenerate}
         onGuidedStudy={onGuidedStudy}
         onExamSimulation={onExamSimulation}
-        onShare={onShare}
-        onDelete={onDeleteResource}
-        canDelete={sheetFile ? canDeleteFile?.(sheetFile) : false}
         generating={sheetFile ? generatingId === sheetFile.id : false}
       />
 

@@ -81,6 +81,25 @@ export async function fetchTopicProgress(courseCode) {
 }
 
 /**
+ * Manually add a topic to a course roadmap.
+ * @param {string} courseCode
+ * @param {string} title
+ * @param {number} [displayOrder]
+ * @returns {Promise<Array>} The full updated topic list for the course
+ */
+export async function createTopic(courseCode, title, displayOrder) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/topics`, {
+    method: "POST",
+    body: JSON.stringify({ topics: [{ title, displayOrder }], source: "ai_inferred" }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to add topic");
+  }
+  return res.json();
+}
+
+/**
  * Bulk reorder topics for a course (per-user).
  * @param {string} courseCode
  * @param {string[]} topicIds - Ordered array of topic IDs
