@@ -54,7 +54,6 @@ const CSS = `
 const ACTIONS = [
   { mode: "auto-roadmap", icon: "📋", label: "Build Roadmap",  bg: D.accent,   border: D.border, color: "#FFD700" },
   { mode: "explain",      icon: "📖", label: "Explain this",   bg: "#0b1e3a",  border: "#1e4a7a", color: "#90caf9" },
-  { mode: "flashcards",   icon: "🃏", label: "Flashcards",     bg: "#1a100a",  border: "#4a2800", color: "#ffb74d" },
   { mode: "quiz",         icon: "🎯", label: "Quiz me",        bg: "#0a1f10",  border: "#1a4a25", color: "#81c784" },
 ];
 

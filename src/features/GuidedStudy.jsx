@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { callAI } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { getStudyCache, saveStudyCache, clearStudyCache } from "../lib/studyCache.js";
+import { useComboStreak } from "../lib/useComboStreak.js";
+import { haptics } from "../lib/haptics.js";
+import { api } from "../lib/appUtils.js";
+import { XP_PER_CORRECT, STREAK_BONUS } from "../data.js";
 
 // ─── Session history helpers ────────────────────────────────────────────────────
 const SESSIONS_KEY = "sc_guided_sessions";
@@ -26,6 +30,9 @@ const D = {
   muted:  "#9AA3B5",
   hint:   "#646E84",
   faint:  "#2A3242",
+  green:  "#3DD68C",
+  red:    "#FF5470",
+  amber:  "#F5A623",
 };
 
 const STYLES = `
@@ -38,11 +45,55 @@ const STYLES = `
   .gs-pop     { animation: gs-pop 0.25s ease forwards; }
 `;
 
+// ─── Content analysis helpers ──────────────────────────────────────────────────
+const CONTENT_LIMIT = 6000; // max chars sent to roadmap prompt
+
+function estimateSectionCount(content) {
+  if (!content || typeof content !== "string") return { min: 5, max: 7, hint: "" };
+  const words = content.trim().split(/\s+/).length;
+  // ~1 section per 300 words of source, floor 4, cap 20
+  const ideal = Math.round(words / 300);
+  const clamped = Math.max(4, Math.min(20, ideal));
+  const min = Math.max(4, clamped - 1);
+  const max = Math.min(25, clamped + 2);
+  const hint = words > 200
+    ? ` The student provided ~${words} words of content. Ensure every key topic in the document gets its own section — do NOT skip or merge topics.`
+    : "";
+  return { min, max, hint };
+}
+
 // ─── AI helpers ────────────────────────────────────────────────────────────────
 function extractJSON(text) {
   try { const s = text.indexOf("{"), e = text.lastIndexOf("}") + 1; if (s !== -1) return JSON.parse(text.slice(s, e)); } catch {}
   try { const s = text.indexOf("["), e = text.lastIndexOf("]") + 1; if (s !== -1) return JSON.parse(text.slice(s, e)); } catch {}
   return null;
+}
+
+// ─── Check (MCQ) normalization ─────────────────────────────────────────────────
+function shuffleCheckOptions(check) {
+  const order = check.options.map((_, i) => i).sort(() => Math.random() - 0.5);
+  return { ...check, options: order.map(i => check.options[i]), answer: order.indexOf(check.answer) };
+}
+
+function normalizeCheck(c) {
+  if (!c || !Array.isArray(c.options) || c.options.length < 2) return null;
+  const answer = typeof c.answer === "number"
+    ? c.answer
+    : "abcd".indexOf(String(c.answer || "").trim().toLowerCase().charAt(0));
+  if (answer < 0 || answer >= c.options.length) return null;
+  return shuffleCheckOptions({
+    question: String(c.question || ""),
+    options: c.options.map(o => String(o)),
+    answer,
+    why: String(c.why || c.explanation || ""),
+  });
+}
+
+function normalizeChunk(chunk) {
+  if (!chunk) return null;
+  const markdown = String(chunk.markdown || chunk.text || "");
+  if (!markdown.trim()) return null;
+  return { heading: String(chunk.heading || ""), markdown, check: normalizeCheck(chunk.check) };
 }
 
 // ─── Context helpers ──────────────────────────────────────────────────────────
@@ -88,41 +139,53 @@ function buildPrevSectionBlock(prevSection, studiedTitles) {
   return parts.length > 0 ? `\n\n${parts.join(" ")}` : "";
 }
 
-async function aiRoadmap(topic, aiConfig, ctx) {
+async function aiRoadmap(topic, aiConfig, ctx, sourceContent = "") {
   const ctxBlock = buildContextBlock(ctx);
+  const { min, max, hint } = estimateSectionCount(sourceContent);
+  const contentBlock = sourceContent.trim()
+    ? `\n\nThe student provided the following study material. Your roadmap MUST cover ALL topics in this document — do not skip any section or concept:\n"""\n${sourceContent.slice(0, CONTENT_LIMIT)}\n"""`
+    : "";
   const raw = await callAI(
-    `You are an expert educator. Generate a structured learning roadmap for: "${topic}"${ctxBlock}
+    `You are an expert educator. Generate a structured learning roadmap for: "${topic}"${ctxBlock}${contentBlock}
 Reply ONLY with valid JSON (no markdown):
 {"title":"topic title","description":"2-sentence engaging overview of what the student will learn","sections":[{"id":1,"title":"Section title","summary":"1 sentence describing what this covers"},{"id":2,"title":"...","summary":"..."}]}
-Include 5-7 sections, from fundamentals to advanced. Keep summaries under 12 words. Use clear, specific section titles (not generic like "Introduction").`,
+Include ${min}-${max} sections. Each section should cover one coherent concept or chunk of content that a student can absorb in a single sitting. Order from foundational to advanced. Keep summaries under 12 words. Use clear, specific section titles (not generic like "Introduction").${hint}`,
     aiConfig
   );
   return extractJSON(raw);
 }
 
-async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitles) {
+// Returns { tldr, chunks:[{heading, markdown, check}] } on success,
+// or { text } as a fallback when the AI doesn't return valid structured JSON.
+async function aiExplain(topic, section, aiConfig, ctx, prevSection, studiedTitles, sourceContent = "") {
   const ctxBlock = buildContextBlock(ctx);
   const prevBlock = buildPrevSectionBlock(prevSection, studiedTitles);
   const docHint = ctx?.matches?.length > 0
     ? ` Reference the student's materials (${ctx.matches.map(m => m.title).join(", ")}) where relevant.`
     : "";
-  return await callAI(
-    `You are an expert tutor teaching "${topic}". Explain this section thoroughly: "${section.title}"${ctxBlock}${prevBlock}${docHint}
+  const contentBlock = sourceContent.trim()
+    ? `\n\nThe student provided the following study material. Base your explanation on this content where it covers the section topic:\n"""\n${sourceContent.slice(0, CONTENT_LIMIT)}\n"""`
+    : "";
+  const raw = await callAI(
+    `You are an expert tutor teaching "${topic}". Teach this section: "${section.title}"${ctxBlock}${prevBlock}${docHint}${contentBlock}
 
-Format your response using markdown for clarity and visual structure:
-- Use ## subheadings to break up your explanation into logical parts (e.g. "## Core Concept", "## How It Works", "## Real-World Application")
-- Use **bold** for key terms, definitions, and important phrases the student should remember
-- Use *italic* for emphasis on subtle points
-- Use bullet lists (- item) for enumerations, steps, or comparisons
-- Use > blockquote for real-world examples, "did you know?" facts, or memorable analogies
-- Use code blocks (triple backticks) for:
-  - ASCII diagrams when explaining processes, hierarchies, or relationships (e.g. flow arrows, tree structures)
-  - Formulas, equations, or code snippets
-- Use LaTeX math notation ($...$ inline, $$...$$ display) for mathematical expressions
-- Keep paragraphs concise (3-5 sentences each)
-- Aim for 4-6 well-structured sections total`,
+Reply ONLY with valid JSON (no markdown fences) in this exact shape:
+{"tldr":"one-sentence takeaway","chunks":[{"heading":"short heading","markdown":"2-4 short paragraphs of markdown","check":{"question":"quick comprehension question about THIS chunk","options":["option A","option B","option C","option D"],"answer":0,"why":"1 sentence explaining the correct answer"}}]}
+
+Rules:
+- 3-5 chunks, ordered from foundational ideas to advanced ones — each chunk is a bite-sized piece a student absorbs in ~1 minute
+- In "markdown": use **bold** for key terms, bullet lists for enumerations, > blockquotes for real-world examples or analogies, code blocks for formulas/diagrams, LaTeX ($...$) for math
+- Every chunk MUST have a "check": a 4-option MCQ testing the core idea of that chunk (comprehension, not trivia)
+- "answer" is the 0-based index of the correct option — vary it across chunks
+- Keep the tone clear, encouraging, and concise`,
     aiConfig
   );
+  const parsed = extractJSON(raw);
+  if (parsed && Array.isArray(parsed.chunks) && parsed.chunks.length > 0) {
+    const chunks = parsed.chunks.map(normalizeChunk).filter(Boolean);
+    if (chunks.length > 0) return { tldr: String(parsed.tldr || ""), chunks };
+  }
+  return { text: raw };
 }
 
 async function aiQuestion(topic, section, explanation, aiConfig, ctx) {
@@ -150,18 +213,24 @@ Keep it concise and encouraging.`,
   );
 }
 
-async function aiFlashcards(topic, sections, aiConfig, ctx) {
+// Cumulative end-of-topic review quiz — interleaved MCQs across all sections.
+async function aiReviewQuiz(topic, sections, fuzzyTitles, aiConfig, ctx) {
   const ctxBlock = buildContextBlock(ctx);
   const diffLevel = buildDifficultyLevel(ctx);
+  const fuzzyBlock = fuzzyTitles.length
+    ? ` The student marked these sections as shaky — weight extra questions toward them: ${fuzzyTitles.join(", ")}.`
+    : "";
   const raw = await callAI(
-    `Create flashcards for "${topic}" covering these sections: ${sections.map(s => s.title).join(", ")}.${ctxBlock}${diffLevel}
-Reply ONLY with a valid JSON array:
-[{"front":"Term or question (concise)","back":"Definition or answer (concise)"},...]
-Include 8-12 cards. Mix: term definitions, process steps, application questions. Keep each card under 25 words per side.`,
+    `Create a cumulative review quiz for "${topic}" covering these sections: ${sections.map(s => s.title).join(", ")}.${fuzzyBlock}${ctxBlock}${diffLevel}
+Reply ONLY with valid JSON (no markdown):
+{"questions":[{"question":"...","options":["A","B","C","D"],"answer":0,"why":"1-sentence explanation","section":"section title this question covers"}]}
+8 questions total, interleaved across sections (do NOT group questions by section). Mix recall and application. "answer" is the 0-based index of the correct option — vary it.`,
     aiConfig
   );
-  const result = extractJSON(raw);
-  return Array.isArray(result) ? result : [];
+  const parsed = extractJSON(raw);
+  return (parsed?.questions || [])
+    .map(q => { const c = normalizeCheck(q); return c ? { ...c, section: String(q.section || "") } : null; })
+    .filter(Boolean);
 }
 
 // ─── Shared UI pieces ──────────────────────────────────────────────────────────
@@ -202,25 +271,31 @@ function Btn({ children, onClick, variant = "primary", disabled, style: extra })
 }
 
 // ─── Roadmap Section Card ──────────────────────────────────────────────────────
-function SectionCard({ section, index, studied, onStudy }) {
+function SectionCard({ section, index, status, onStudy }) {
+  const icon = status === "mastered" ? "★" : status === "solid" ? "✓" : status === "fuzzy" ? "~" : index + 1;
+  const isFuzzy = status === "fuzzy";
+  const studied = !!status;
+  const statusBg = isFuzzy ? "rgba(245,166,35,0.06)" : studied ? "rgba(255,215,0,0.05)" : D.card;
+  const statusBorder = isFuzzy ? "rgba(245,166,35,0.35)" : studied ? "rgba(255,215,0,0.3)" : D.line;
+  const dotBg = isFuzzy ? "rgba(245,166,35,0.14)" : studied ? "rgba(255,215,0,0.12)" : D.faint;
+  const dotBorder = isFuzzy ? D.amber : studied ? D.border : "rgba(255,255,255,0.12)";
+  const dotColor = isFuzzy ? D.amber : studied ? "#FFD700" : D.muted;
   return (
     <div className="gs-animate" style={{
       display:"flex", alignItems:"center", gap:12,
       padding:"11px 14px",
-      background: studied ? "rgba(255,215,0,0.05)" : D.card,
-      border:`0.5px solid ${studied ? "rgba(255,215,0,0.3)" : D.line}`,
+      background: statusBg,
+      border:`0.5px solid ${statusBorder}`,
       borderRadius:13, marginBottom:8, transition:"border-color 0.2s",
     }}>
       <div style={{
         width:28, height:28, borderRadius:"50%", flexShrink:0,
-        background: studied ? "rgba(255,215,0,0.12)" : D.faint,
-        border:`0.5px solid ${studied ? D.border : "rgba(255,255,255,0.12)"}`,
+        background: dotBg,
+        border:`0.5px solid ${dotBorder}`,
         display:"flex", alignItems:"center", justifyContent:"center",
-        fontSize:11, fontWeight:700,
-        color: studied ? "#FFD700" : D.muted,
-        fontFamily:"Manrope,sans-serif",
+        fontSize:11, fontWeight:700, color: dotColor, fontFamily:"Manrope,sans-serif",
       }}>
-        {studied ? "✓" : index + 1}
+        {icon}
       </div>
 
       <div style={{ flex:1, minWidth:0 }}>
@@ -235,51 +310,110 @@ function SectionCard({ section, index, studied, onStudy }) {
   );
 }
 
-// ─── Flip Card ─────────────────────────────────────────────────────────────────
-function FlipCard({ card, flipped, onFlip }) {
+// ─── Quick Check (interleaved MCQ) ─────────────────────────────────────────────
+function CheckCard({ check, index, total, selected, onAnswer }) {
+  const answered = selected !== undefined;
+  const correct = answered && selected === check.answer;
   return (
-    <div onClick={onFlip} style={{ cursor:"pointer", perspective:900, minHeight:170 }}>
-      <div style={{
-        position:"relative", width:"100%", minHeight:170,
-        transformStyle:"preserve-3d",
-        transform: flipped ? "rotateY(180deg)" : "rotateY(0)",
-        transition:"transform 0.4s ease",
-      }}>
-        {/* Front */}
+    <div className="gs-pop" style={{
+      background: D.card,
+      border:`0.5px solid ${answered ? (correct ? "rgba(61,214,140,0.4)" : "rgba(255,84,112,0.4)") : "rgba(255,215,0,0.25)"}`,
+      borderRadius:14, padding:"13px 15px", margin:"4px 0 18px",
+    }}>
+      <div style={{ fontSize:9, color:"#FFD700", fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:7 }}>
+        ⚡ Quick check{total > 1 ? ` ${index + 1} of ${total}` : ""}
+      </div>
+      <div style={{ fontSize:13, fontWeight:600, color:D.text, lineHeight:1.55, fontFamily:"Manrope,sans-serif", marginBottom:10 }}>
+        {check.question}
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+        {check.options.map((opt, oi) => {
+          const isCorrect = oi === check.answer;
+          const isSel = oi === selected;
+          let bg = D.bar, bdr = D.line, col = D.text;
+          if (answered) {
+            if (isCorrect)      { bg = "rgba(61,214,140,0.08)"; bdr = D.green; col = "#7EE2A8"; }
+            else if (isSel)     { bg = "rgba(255,84,112,0.08)"; bdr = D.red;   col = "#FF9AA9"; }
+            else                { col = D.hint; }
+          }
+          return (
+            <button key={oi} disabled={answered} onClick={() => onAnswer(oi)}
+              style={{
+                display:"flex", alignItems:"center", gap:9, textAlign:"left",
+                background:bg, border:`0.5px solid ${bdr}`, borderRadius:10,
+                padding:"9px 12px", fontSize:12, color:col,
+                cursor: answered ? "default" : "pointer",
+                fontFamily:"Manrope,sans-serif", transition:"border-color 0.15s, background 0.15s",
+              }}>
+              <span style={{
+                width:18, height:18, borderRadius:"50%", flexShrink:0,
+                border:`0.5px solid ${bdr}`,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:9, fontWeight:700,
+              }}>
+                {answered && isCorrect ? "✓" : answered && isSel ? "✗" : String.fromCharCode(65 + oi)}
+              </span>
+              <span style={{ flex:1 }}>{opt}</span>
+            </button>
+          );
+        })}
+      </div>
+      {answered && (
         <div style={{
-          position:"absolute", inset:0, backfaceVisibility:"hidden",
-          background:D.card, border:`0.5px solid ${D.border}`,
-          borderRadius:16, padding:"22px 18px",
-          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center",
+          marginTop:10, fontSize:11.5, lineHeight:1.6, fontFamily:"Manrope,sans-serif",
+          color: correct ? "#7EE2A8" : D.muted,
         }}>
-          <div style={{ fontSize:9, color:D.hint, marginBottom:10, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif" }}>QUESTION / TERM</div>
-          <div style={{ fontSize:14, fontWeight:600, color:"#EDEFF5", lineHeight:1.55, fontFamily:"Manrope,sans-serif" }}>{card.front}</div>
-          <div style={{ fontSize:9, color:D.hint, marginTop:14, fontFamily:"Manrope,sans-serif" }}>tap to reveal ↩</div>
+          {correct ? "✓ Correct. " : "✗ Not quite. "}{check.why}
         </div>
-        {/* Back */}
-        <div style={{
-          position:"absolute", inset:0, backfaceVisibility:"hidden",
-          transform:"rotateY(180deg)",
-          background:"rgba(255,215,0,0.06)", border:"0.5px solid rgba(255,215,0,0.3)",
-          borderRadius:16, padding:"22px 18px",
-          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center",
-        }}>
-          <div style={{ fontSize:9, color:"#B8860B", marginBottom:10, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif" }}>ANSWER</div>
-          <div style={{ fontSize:13, color:"#E8D9A0", lineHeight:1.6, fontFamily:"Manrope,sans-serif" }}>{card.back}</div>
-        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Confidence rating ─────────────────────────────────────────────────────────
+const CONFIDENCE_OPTS = [
+  ["fuzzy",    "🌫️", "Still fuzzy"],
+  ["solid",    "👍",  "Got it"],
+  ["mastered", "🔥",  "Nailed it"],
+];
+
+function ConfidenceRow({ onRate }) {
+  return (
+    <div className="gs-pop" style={{
+      background:D.card, border:`0.5px solid ${D.line}`, borderRadius:14,
+      padding:"13px 15px", marginTop:4, marginBottom:12,
+    }}>
+      <div style={{ fontSize:11, fontWeight:700, color:D.muted, fontFamily:"Manrope,sans-serif", marginBottom:10, textAlign:"center" }}>
+        How confident do you feel about this section?
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        {CONFIDENCE_OPTS.map(([val, icon, label]) => (
+          <button key={val} onClick={() => onRate(val)} style={{
+            flex:1, padding:"9px 6px", borderRadius:10, cursor:"pointer",
+            background:D.bar, border:`0.5px solid ${D.line}`,
+            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+            transition:"border-color 0.15s, transform 0.15s",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.transform = ""; }}
+          >
+            <span style={{ fontSize:16 }}>{icon}</span>
+            <span style={{ fontSize:10, fontWeight:600, color:D.text, fontFamily:"Manrope,sans-serif" }}>{label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
 // ─── Progress bar ──────────────────────────────────────────────────────────────
-function ProgressBar({ current, total }) {
+function ProgressBar({ current, total, label = "sections" }) {
   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
   return (
     <div style={{ marginBottom:14 }}>
       <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
         <span style={{ fontSize:10, color:D.muted, fontFamily:"Manrope,sans-serif" }}>Progress</span>
-        <span style={{ fontSize:10, color:D.border, fontFamily:"Manrope,sans-serif", fontWeight:600 }}>{current}/{total} sections</span>
+        <span style={{ fontSize:10, color:D.border, fontFamily:"Manrope,sans-serif", fontWeight:600 }}>{current}/{total} {label}</span>
       </div>
       <div style={{ height:4, background:D.faint, borderRadius:4, overflow:"hidden" }}>
         <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg, #B8860B, #FFD700)`, borderRadius:4, transition:"width 0.4s ease" }} />
@@ -290,38 +424,48 @@ function ProgressBar({ current, total }) {
 
 // ─── Main component ────────────────────────────────────────────────────────────
 const LAUNCH_MSGS = {
-  "auto-roadmap": "Building your learning roadmap\u2026",
-  "flashcards":   "Generating flashcards\u2026",
-  "explain":      "Building roadmap and explanation\u2026",
-  "quiz":         "Building roadmap and preparing quiz\u2026",
+  "auto-roadmap": "Building your learning roadmap…",
+  "flashcards":   "Building your learning roadmap…", // legacy mode → roadmap
+  "explain":      "Building roadmap and explanation…",
+  "quiz":         "Building roadmap and preparing checks…",
 };
+
+const STATUS_LABEL = { fuzzy: "Still fuzzy 🌫️", solid: "Got it 👍", mastered: "Nailed it 🔥" };
 
 export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
-  const [phase, setPhase]               = useState("input");
+  const [phase, setPhase]               = useState("input");   // input | roadmap | section | review | summary
   const [topic, setTopic]               = useState(initialTopic);
   const [pastedContent, setPasted]      = useState("");
+  const [sourceContent, setSourceContent] = useState("");      // full text sent to AI
   const [showPaste, setShowPaste]       = useState(false);
   const [roadmap, setRoadmap]           = useState(null);
-  const [studied, setStudied]           = useState(new Set());
+  const [studied, setStudied]           = useState({});        // {sectionId: "fuzzy"|"solid"|"mastered"}
   const [activeSection, setActive]      = useState(null);
-  const [explanation, setExplanation]   = useState("");
-  const [qData, setQData]               = useState(null);   // {question, hint}
+  const [sectionData, setSectionData]   = useState(null);      // {tldr, chunks[]} | {text}
+  const [checkAnswers, setCheckAnswers] = useState({});        // {chunkIdx: optionIdx}
+  const [visibleChunks, setVisibleChunks] = useState(1);
+  const [qData, setQData]               = useState(null);      // {question, hint}
   const [userAnswer, setUserAnswer]     = useState("");
   const [feedback, setFeedback]         = useState("");
-  const [flashcards, setFlashcards]     = useState([]);
-  const [cardIdx, setCardIdx]           = useState(0);
-  const [cardFlipped, setFlipped]       = useState(false);
+  const [review, setReview]             = useState(null);      // {questions, idx, answers}
+  const [sessionChecks, setSessionChecks] = useState({ correct: 0, total: 0 });
   const [loading, setLoading]           = useState(isAutoLaunch);
-  const [loadingMsg, setLoadingMsg]     = useState(isAutoLaunch ? (LAUNCH_MSGS[startMode] || "Working\u2026") : "");
+  const [loadingMsg, setLoadingMsg]     = useState(isAutoLaunch ? (LAUNCH_MSGS[startMode] || "Working…") : "");
   const [autoError, setAutoError]       = useState("");
-  const [sectionStep, setSectionStep]   = useState("explain"); // explain | question | feedback
-  const [attachment, setAttachment]     = useState(initialAttachment);
+  const [sectionStep, setSectionStep]   = useState("learn");   // learn | question | feedback
+  const [attachment]                    = useState(initialAttachment);
   const [isOnline, setIsOnline]         = useState(navigator.onLine);
   const [showHistory, setShowHistory]   = useState(false);
   const [sessions, setSessions]         = useState(() => loadSessions());
   const [fromCache, setFromCache]       = useState(false);
   const mountedRef                      = useRef(true);
+  const checksRef                       = useRef({ correct: 0, total: 0 });
+  const xpPostedRef                     = useRef(false);
+  const sessionStartRef                 = useRef(0);
+  const combo                           = useComboStreak("guided");
+  const studiedCount                    = Object.keys(studied).length;
+  const sessionXP                       = combo.correctCount * XP_PER_CORRECT + combo.totalStreakBonus;
 
   // ── Online/offline listener ──
   useEffect(() => {
@@ -329,142 +473,133 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     const goOffline = () => setIsOnline(false);
     window.addEventListener("online",  goOnline);
     window.addEventListener("offline", goOffline);
+    sessionStartRef.current = Date.now();
     return () => { mountedRef.current = false; window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
   }, []);
 
   // ── Auto-launch when startMode is provided with a topic ──
   useEffect(() => {
     if (!initialTopic.trim() || startMode === "input") return;
-    const topicStr = attachment?.content
-      ? `${initialTopic}\n\nContext provided by student:\n${attachment.content.slice(0, 2000)}`
-      : initialTopic;
-    if (startMode === "auto-roadmap") {
-      autoRoadmap(topicStr);
-    } else if (startMode === "flashcards") {
-      autoFlashcards(topicStr);
-    } else if (startMode === "explain" || startMode === "quiz") {
-      autoExplain(topicStr, startMode);
+    const attachContent = attachment?.content || "";
+    if (attachContent) setSourceContent(attachContent);
+    if (startMode === "explain" || startMode === "quiz") {
+      autoExplain(initialTopic, attachContent);
+    } else {
+      // "auto-roadmap", legacy "flashcards", or unknown → roadmap
+      autoRoadmap(initialTopic, attachContent);
     }
   // eslint-disable-next-line
   }, []);
 
   function offlineCheck() {
-    if (!navigator.onLine) { setAutoError("You're offline \u2014 please reconnect to use AI features."); return true; }
+    if (!navigator.onLine) { setAutoError("You're offline — please reconnect to use AI features."); return true; }
     return false;
   }
 
-  async function autoRoadmap(topicStr) {
+  function restoreStudied(cached) {
+    const s = cached?.roadmap?.progress?.studied;
+    return s && typeof s === "object" ? s : {};
+  }
+
+  function persistProgress(studiedMap) {
+    if (!roadmap || sourceContent.trim()) return; // pasted/custom docs aren't cached
+    saveStudyCache(topic, { roadmap: { ...roadmap, progress: { studied: studiedMap } } });
+  }
+
+  function resetSessionState() {
+    setStudied({}); setSectionData(null); setCheckAnswers({}); setVisibleChunks(1);
+    setQData(null); setUserAnswer(""); setFeedback(""); setReview(null); setActive(null);
+    checksRef.current = { correct: 0, total: 0 };
+    setSessionChecks({ correct: 0, total: 0 });
+    combo.resetCombo(); xpPostedRef.current = false; sessionStartRef.current = Date.now();
+  }
+
+  function recordCheck(isCorrect) {
+    checksRef.current = { correct: checksRef.current.correct + (isCorrect ? 1 : 0), total: checksRef.current.total + 1 };
+    setSessionChecks({ ...checksRef.current });
+    combo.handleAnswer(isCorrect);
+    if (isCorrect) haptics.success(); else haptics.error();
+  }
+
+  function saveExplanation(topicStr, sectionId, data) {
+    const payload = data.chunks ? { structured: data } : { text: data.text };
+    saveStudyCache(topicStr, { explanations: { [String(sectionId)]: payload } });
+  }
+
+  function applyCached(cacheTopic) {
+    // Shared "load from cache" logic. Returns the cached object or null.
+    return getStudyCache(cacheTopic).then(cached =>
+      cached?.roadmap?.sections?.length ? cached : null
+    );
+  }
+
+  async function autoRoadmap(topicStr, content = "") {
     if (offlineCheck()) return;
-    setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap\u2026");
+    setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap…");
     const cacheTopic = initialTopic || topicStr;
     try {
-      // Try cache first
-      const cached = await getStudyCache(cacheTopic);
-      if (cached?.roadmap?.sections?.length && mountedRef.current) {
-        setRoadmap(cached.roadmap); setStudied(new Set()); setPhase("roadmap"); setFromCache(true);
-        setLoading(false);
-        return;
+      if (!content.trim()) {
+        const cached = await applyCached(cacheTopic);
+        if (cached && mountedRef.current) {
+          setRoadmap(cached.roadmap); setStudied(restoreStudied(cached)); setPhase("roadmap"); setFromCache(true);
+          setLoading(false);
+          return;
+        }
       }
-      // No cache — generate via AI
-      setLoadingMsg("Building your learning roadmap\u2026");
-      const result = await aiRoadmap(topicStr, aiConfig, studyContext);
+      setLoadingMsg("Building your learning roadmap…");
+      const result = await aiRoadmap(topicStr, aiConfig, studyContext, content);
       if (result?.sections?.length) {
-        setRoadmap(result); setStudied(new Set()); setPhase("roadmap"); setFromCache(false);
+        resetSessionState();
+        setRoadmap(result); setPhase("roadmap"); setFromCache(false);
         const entry = { topic: cacheTopic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
         saveSession(entry); setSessions(loadSessions());
-        // Save to cache
-        saveStudyCache(cacheTopic, { roadmap: result });
-      } else setAutoError("Couldn't parse the roadmap \u2014 please try again.");
+        if (!content.trim()) saveStudyCache(cacheTopic, { roadmap: result });
+      } else setAutoError("Couldn't parse the roadmap — please try again.");
     } catch (e) {
       setAutoError("AI request failed: " + (e?.message || "check your connection"));
     } finally { if (mountedRef.current) setLoading(false); }
   }
 
-  async function autoFlashcards(topicStr) {
+  async function autoExplain(topicStr, content = "") {
     if (offlineCheck()) return;
-    setAutoError(""); setFlashcards([]); setCardIdx(0); setFlipped(false);
-    setPhase("flashcards"); setLoading(true); setLoadingMsg("Loading cached flashcards\u2026");
+    setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap…");
     const cacheTopic = initialTopic || topicStr;
     try {
-      // Try cache first
-      const cached = await getStudyCache(cacheTopic);
-      if (cached?.flashcards?.length && mountedRef.current) {
-        setFlashcards(cached.flashcards); setFromCache(true);
-        setLoading(false);
-        return;
-      }
-      // No cache — generate via AI
-      setLoadingMsg("Generating flashcards\u2026");
-      const fakeSection = [{ id: 1, title: initialTopic }];
-      const cards = await aiFlashcards(initialTopic, fakeSection, aiConfig, studyContext);
-      if (cards?.length) {
-        setFlashcards(cards); setFromCache(false);
-        // Save to cache
-        saveStudyCache(cacheTopic, { flashcards: cards });
-      } else setAutoError("Couldn't generate flashcards \u2014 please try again.");
-    } catch (e) {
-      setAutoError("AI request failed: " + (e?.message || "check your connection"));
-    } finally { if (mountedRef.current) setLoading(false); }
-  }
-
-  async function autoExplain(topicStr, mode) {
-    if (offlineCheck()) return;
-    setAutoError(""); setLoading(true); setLoadingMsg("Loading cached roadmap\u2026");
-    const cacheTopic = initialTopic || topicStr;
-    try {
-      // Try cache first for roadmap
       let result = null;
-      const cached = await getStudyCache(cacheTopic);
-      if (cached?.roadmap?.sections?.length) {
+      const cached = !content.trim() ? await applyCached(cacheTopic) : null;
+      if (cached) {
         result = cached.roadmap;
         setFromCache(true);
       } else {
-        // No cache — generate via AI
-        setLoadingMsg("Building roadmap\u2026");
-        result = await aiRoadmap(topicStr, aiConfig, studyContext);
+        setLoadingMsg("Building roadmap…");
+        result = await aiRoadmap(topicStr, aiConfig, studyContext, content);
         if (result?.sections?.length) {
           setFromCache(false);
-          saveStudyCache(cacheTopic, { roadmap: result });
+          if (!content.trim()) saveStudyCache(cacheTopic, { roadmap: result });
         }
       }
-      if (!result?.sections?.length) { setAutoError("Couldn't build a roadmap \u2014 please try again."); return; }
-      setRoadmap(result); setStudied(new Set());
+      if (!result?.sections?.length) { setAutoError("Couldn't build a roadmap — please try again."); return; }
+      resetSessionState();
+      setRoadmap(result);
+      setStudied(restoreStudied(cached));
       const firstSection = result.sections[0];
-      setActive(firstSection); setSectionStep("explain"); setPhase("section");
-      // Try cache for explanation
+      setActive(firstSection); setSectionStep("learn"); setPhase("section");
       const sectionKey = String(firstSection.id);
       const cachedExp = cached?.explanations?.[sectionKey];
-      if (cachedExp?.text) {
-        setExplanation(cachedExp.text);
-        setStudied(new Set([firstSection.id]));
+      if (cachedExp?.structured?.chunks?.length) {
+        setSectionData(cachedExp.structured);
         setLoading(false);
-        if (mode === "quiz") {
-          if (cachedExp?.question) {
-            setQData(cachedExp.question);
-            setSectionStep("question");
-          } else {
-            setSectionStep("question");
-            setLoading(true); setLoadingMsg("Generating a comprehension question\u2026");
-            const q = await aiQuestion(initialTopic, firstSection, cachedExp.text, aiConfig, studyContext);
-            setQData(q);
-            saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { question: q } } });
-          }
-        }
         return;
       }
-      // No cache — generate explanation via AI
-      setLoadingMsg("Generating explanation\u2026");
-      const text = await aiExplain(initialTopic, firstSection, aiConfig, studyContext);
-      setExplanation(text);
-      setStudied(new Set([firstSection.id]));
-      saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { text } } });
-      if (mode === "quiz") {
-        setSectionStep("question");
-        setLoadingMsg("Generating a comprehension question\u2026");
-        const q = await aiQuestion(initialTopic, firstSection, text, aiConfig, studyContext);
-        setQData(q);
-        saveStudyCache(cacheTopic, { explanations: { [sectionKey]: { question: q } } });
+      if (cachedExp?.text) {
+        setSectionData({ text: cachedExp.text });
+        setLoading(false);
+        return;
       }
+      setLoadingMsg("Generating explanation…");
+      const data = await aiExplain(initialTopic, firstSection, aiConfig, studyContext, null, [], content);
+      setSectionData(data);
+      if (!content.trim()) saveExplanation(cacheTopic, firstSection.id, data);
     } catch (e) {
       setAutoError("AI request failed: " + (e?.message || "check your connection"));
     } finally { setLoading(false); }
@@ -476,74 +611,87 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     if (offlineCheck()) return;
     setLoading(true); setLoadingMsg("Loading cached roadmap…");
     try {
-      // Try cache first (only if no pasted content — pasted content means custom context)
-      if (!pastedContent.trim()) {
-        const cached = await getStudyCache(topic);
-        if (cached?.roadmap?.sections?.length) {
-          setRoadmap(cached.roadmap); setStudied(new Set()); setPhase("roadmap"); setFromCache(true);
+      const pasted = pastedContent.trim();
+      if (!pasted) {
+        const cached = await applyCached(topic);
+        if (cached) {
+          setRoadmap(cached.roadmap); setStudied(restoreStudied(cached)); setPhase("roadmap"); setFromCache(true);
           setLoading(false);
           return;
         }
       }
-      // No cache — generate via AI
       setLoadingMsg("Building your learning roadmap…");
-      const fullTopic = pastedContent.trim()
-        ? `${topic}\n\nContext provided by student:\n${pastedContent.slice(0, 2000)}`
-        : topic;
-      const result = await aiRoadmap(fullTopic, aiConfig, studyContext);
+      if (pasted) setSourceContent(pasted);
+      const result = await aiRoadmap(topic, aiConfig, studyContext, pasted);
       if (result?.sections?.length) {
+        resetSessionState();
         setRoadmap(result);
-        setStudied(new Set());
         setPhase("roadmap"); setFromCache(false);
-        const entry = { topic: topic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
+        const entry = { topic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
         saveSession(entry); setSessions(loadSessions());
-        // Save to cache (only if no pasted content — pasted content is custom)
-        if (!pastedContent.trim()) {
-          saveStudyCache(topic, { roadmap: result });
-        }
+        if (!pasted) saveStudyCache(topic, { roadmap: result });
       }
     } finally { setLoading(false); }
   }
 
   async function handleStudy(section) {
     setActive(section);
-    setSectionStep("explain");
-    setExplanation(""); setQData(null); setUserAnswer(""); setFeedback("");
+    setSectionStep("learn");
+    setSectionData(null); setCheckAnswers({}); setVisibleChunks(1);
+    setQData(null); setUserAnswer(""); setFeedback("");
     setPhase("section");
     setLoading(true); setLoadingMsg("Loading explanation…");
     try {
-      // Try cache for this section's explanation
-      const cached = await getStudyCache(topic);
+      const cached = sourceContent.trim() ? null : await getStudyCache(topic);
       const sectionKey = String(section.id);
       const cachedExp = cached?.explanations?.[sectionKey];
-      if (cachedExp?.text) {
-        setExplanation(cachedExp.text);
-        setStudied(prev => new Set([...prev, section.id]));
+      if (cachedExp?.structured?.chunks?.length) {
+        setSectionData(cachedExp.structured);
         setLoading(false);
         return;
       }
-      // No cache — generate via AI
+      if (cachedExp?.text) {
+        setSectionData({ text: cachedExp.text });
+        setLoading(false);
+        return;
+      }
       setLoadingMsg("Generating explanation…");
-      const studiedTitles = roadmap ? roadmap.sections.filter(s => studied.has(s.id)).map(s => s.title) : [];
-      const prevSection = roadmap ? roadmap.sections.filter(s => studied.has(s.id)).pop() : null;
-      const text = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles);
-      setExplanation(text);
-      setStudied(prev => new Set([...prev, section.id]));
-      // Save to cache
-      saveStudyCache(topic, { explanations: { [sectionKey]: { text } } });
+      const studiedTitles = roadmap ? roadmap.sections.filter(s => studied[s.id]).map(s => s.title) : [];
+      const prevSection = roadmap ? roadmap.sections.filter(s => studied[s.id]).pop() : null;
+      const data = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles, sourceContent);
+      setSectionData(data);
+      if (!sourceContent.trim()) saveExplanation(topic, section.id, data);
     } finally { setLoading(false); }
+  }
+
+  function handleCheckAnswer(chunkIdx, optIdx) {
+    if (checkAnswers[chunkIdx] !== undefined) return;
+    const check = sectionData?.chunks?.[chunkIdx]?.check;
+    if (!check) return;
+    setCheckAnswers(prev => ({ ...prev, [chunkIdx]: optIdx }));
+    recordCheck(optIdx === check.answer);
+    setVisibleChunks(v => Math.max(v, chunkIdx + 2));
+  }
+
+  function handleConfidence(status) {
+    if (!activeSection) return;
+    haptics.light();
+    const next = { ...studied, [activeSection.id]: status };
+    setStudied(next);
+    persistProgress(next);
   }
 
   async function handleAskQuestion() {
     setSectionStep("question");
     setLoading(true); setLoadingMsg("Generating a comprehension question…");
     try {
-      const q = await aiQuestion(topic, activeSection, explanation, aiConfig, studyContext);
+      const explainText = sectionData?.chunks
+        ? sectionData.chunks.map(c => c.markdown).join("\n\n")
+        : sectionData?.text || "";
+      const q = await aiQuestion(topic, activeSection, explainText, aiConfig, studyContext);
       setQData(q);
-      // Save question to cache
-      if (activeSection) {
-        const sectionKey = String(activeSection.id);
-        saveStudyCache(topic, { explanations: { [sectionKey]: { question: q } } });
+      if (activeSection && !sourceContent.trim()) {
+        saveStudyCache(topic, { explanations: { [String(activeSection.id)]: { question: q } } });
       }
     } finally { setLoading(false); }
   }
@@ -558,36 +706,66 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     } finally { setLoading(false); }
   }
 
-  async function handleFlashcards(sections) {
-    setFlashcards([]); setCardIdx(0); setFlipped(false);
-    setPhase("flashcards");
-    setLoading(true); setLoadingMsg("Loading flashcards…");
+  function nextSection() {
+    if (!roadmap || !activeSection) return;
+    if (!studied[activeSection.id]) {
+      const next = { ...studied, [activeSection.id]: "solid" };
+      setStudied(next);
+      persistProgress(next);
+    }
+    const ids = roadmap.sections.map(s => s.id);
+    const next = roadmap.sections[ids.indexOf(activeSection.id) + 1];
+    if (next) handleStudy(next);
+    else setPhase("roadmap");
+  }
+
+  async function startFinalReview() {
+    if (!roadmap || studiedCount === 0 || offlineCheck()) return;
+    setLoading(true); setLoadingMsg("Building your review quiz…");
     try {
-      // Try cache first
-      const cached = await getStudyCache(topic);
-      if (cached?.flashcards?.length) {
-        setFlashcards(cached.flashcards);
-        setLoading(false);
-        return;
-      }
-      // No cache — generate via AI
-      setLoadingMsg("Generating flashcards…");
-      const cards = await aiFlashcards(topic, sections || roadmap?.sections || [], aiConfig, studyContext);
-      setFlashcards(cards);
-      // Save to cache
-      if (cards?.length) {
-        saveStudyCache(topic, { flashcards: cards });
-      }
+      const fuzzyTitles = roadmap.sections.filter(s => studied[s.id] === "fuzzy").map(s => s.title);
+      const questions = await aiReviewQuiz(topic, roadmap.sections, fuzzyTitles, aiConfig, studyContext);
+      if (questions.length) {
+        setReview({ questions, idx: 0, answers: {} });
+        setPhase("review");
+      } else setAutoError("Couldn't build the review quiz — please try again.");
+    } catch (e) {
+      setAutoError("AI request failed: " + (e?.message || "check your connection"));
     } finally { setLoading(false); }
   }
 
-  function nextSection() {
-    if (!roadmap) return;
-    const ids = roadmap.sections.map(s => s.id);
-    const currentIdx = ids.indexOf(activeSection?.id);
-    const next = roadmap.sections[currentIdx + 1];
-    if (next) handleStudy(next);
-    else setPhase("roadmap");
+  function handleReviewAnswer(optIdx) {
+    if (!review || review.answers[review.idx] !== undefined) return;
+    const q = review.questions[review.idx];
+    setReview(prev => ({ ...prev, answers: { ...prev.answers, [prev.idx]: optIdx } }));
+    recordCheck(optIdx === q.answer);
+  }
+
+  function reviewNext() {
+    if (!review) return;
+    if (review.idx + 1 >= review.questions.length) finishToSummary();
+    else setReview(prev => ({ ...prev, idx: prev.idx + 1 }));
+  }
+
+  function finishToSummary() {
+    setPhase("summary");
+    if (!xpPostedRef.current && checksRef.current.total > 0) {
+      xpPostedRef.current = true;
+      try {
+        const token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authToken;
+        if (token) {
+          api("/sessions", {
+            token, method: "POST",
+            body: {
+              mode: "practice",
+              score: checksRef.current.correct,
+              total: checksRef.current.total,
+              durationSec: Math.round((Date.now() - (sessionStartRef.current || Date.now())) / 1000),
+            },
+          }).catch(() => {});
+        }
+      } catch {}
+    }
   }
 
   // ── Common wrapper ──
@@ -602,6 +780,29 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       background:D.card, border:`0.5px solid ${D.line}`,
       borderRadius:16, padding:"14px 16px", marginBottom:12, ...extra,
     }}>{children}</div>
+  );
+
+  const comboChip = combo.combo >= 3 && (
+    <span style={{
+      display:"inline-flex", alignItems:"center", gap:4,
+      fontSize:11, fontWeight:700, fontFamily:"Manrope,sans-serif",
+      color: combo.combo >= 7 ? "#ff7043" : D.amber,
+      padding:"3px 9px", borderRadius:999,
+      background: combo.combo >= 7 ? "rgba(255,112,67,0.12)" : "rgba(245,166,35,0.12)",
+      border:`0.5px solid ${combo.combo >= 7 ? "rgba(255,112,67,0.3)" : "rgba(245,166,35,0.3)"}`,
+    }}>
+      🔥 {combo.combo}x{STREAK_BONUS[combo.combo] ? ` +${STREAK_BONUS[combo.combo]}` : ""}
+    </span>
+  );
+
+  const xpChip = sessionXP > 0 && (
+    <span style={{
+      fontSize:11, fontWeight:700, color:"#FFD700", fontFamily:"Manrope,sans-serif",
+      padding:"3px 9px", borderRadius:999,
+      background:"rgba(255,215,0,0.08)", border:"0.5px solid rgba(255,215,0,0.3)",
+    }}>
+      ⚡ +{sessionXP} XP
+    </span>
   );
 
   // ── INPUT PHASE (or auto-loading) ──
@@ -644,8 +845,8 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           Guided Study
         </div>
         <div style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", lineHeight:1.6 }}>
-          Enter a topic and I'll build a personalized learning roadmap,<br/>
-          explain each section, test your understanding, and generate flashcards.
+          Enter a topic or paste your notes — I'll break it into bite-sized<br/>
+          sections with quick checks as you go, then a final review quiz.
         </div>
       </div>
 
@@ -678,7 +879,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         <textarea
           value={pastedContent}
           onChange={e => setPasted(e.target.value)}
-          placeholder="Paste your lecture notes, textbook excerpts, or any content here…"
+          placeholder="Paste your lecture notes, textbook excerpts, or any content here — the roadmap will adapt to the material and cover all of it…"
           rows={5}
           style={{
             width:"100%", boxSizing:"border-box", resize:"vertical",
@@ -714,10 +915,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                   key={i}
                   onClick={async () => {
                     setTopic(s.topic); setShowHistory(false);
-                    // Try to load from cache directly
                     const cached = await getStudyCache(s.topic);
                     if (cached?.roadmap?.sections?.length) {
-                      setRoadmap(cached.roadmap); setStudied(new Set()); setPhase("roadmap"); setFromCache(true);
+                      setRoadmap(cached.roadmap); setStudied(restoreStudied(cached)); setPhase("roadmap"); setFromCache(true);
                     }
                   }}
                   style={{
@@ -746,10 +946,10 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         <>
           <div style={{ fontSize:11, fontWeight:700, color:D.border, fontFamily:"Syne,sans-serif", marginBottom:10, letterSpacing:"0.06em" }}>HOW IT WORKS</div>
           {[
-            ["📋", "Roadmap",    "AI builds a structured outline of 5-7 sections"],
-            ["📖", "Explain",    "Deep explanation of each section with examples"],
-            ["🎯", "Questions",  "Socratic questions to test your comprehension"],
-            ["🃏", "Flashcards", "Auto-generated flashcards from the whole topic"],
+            ["📋", "Roadmap",  "AI breaks your content into manageable sections"],
+            ["📖", "Learn",    "Bite-sized chunks with a quick check after each part"],
+            ["🎯", "Rate",     "Flag your confidence so weak spots resurface"],
+            ["🏁", "Review",   "A final mixed quiz locks everything in"],
           ].map(([icon, label, desc]) => (
             <div key={label} style={{ display:"flex", gap:10, marginBottom:8, alignItems:"flex-start" }}>
               <span style={{ fontSize:16, flexShrink:0 }}>{icon}</span>
@@ -769,7 +969,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     <>
       <style>{STYLES}</style>
 
-      <ProgressBar current={studied.size} total={roadmap.sections.length} />
+      <ProgressBar current={studiedCount} total={roadmap.sections.length} />
 
       {card(
         <>
@@ -783,21 +983,24 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       )}
 
       {roadmap.sections.map((s, i) => (
-        <SectionCard key={s.id} section={s} index={i} studied={studied.has(s.id)} onStudy={handleStudy} />
+        <SectionCard key={s.id} section={s} index={i} status={studied[s.id]} onStudy={handleStudy} />
       ))}
 
       <div style={{ display:"flex", gap:8, marginTop:6, flexWrap:"wrap" }}>
-        <Btn variant="yellow" onClick={() => handleFlashcards(roadmap.sections)}>🃏 Generate all flashcards</Btn>
-        <Btn variant="ghost" onClick={() => { setPhase("input"); setRoadmap(null); }}>← New topic</Btn>
+        <Btn variant="yellow" onClick={startFinalReview} disabled={studiedCount === 0 || loading}>
+          🏁 Final Review{studiedCount > 0 && studiedCount < roadmap.sections.length ? ` (${studiedCount} studied)` : ""}
+        </Btn>
+        <Btn variant="ghost" onClick={() => { resetSessionState(); setPhase("input"); setRoadmap(null); }}>← New topic</Btn>
         {fromCache && (
           <Btn variant="ghost" onClick={async () => {
             await clearStudyCache(topic);
             setFromCache(false);
             setLoading(true); setLoadingMsg("Regenerating roadmap…");
             try {
-              const result = await aiRoadmap(topic, aiConfig);
+              const result = await aiRoadmap(topic, aiConfig, studyContext, sourceContent);
               if (result?.sections?.length) {
-                setRoadmap(result); setStudied(new Set());
+                resetSessionState();
+                setRoadmap(result);
                 saveStudyCache(topic, { roadmap: result });
               }
             } catch (e) {
@@ -806,176 +1009,322 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           }}>↻ Regenerate</Btn>
         )}
       </div>
+
+      {loading && <Spinner message={loadingMsg} />}
+      {autoError && (
+        <div style={{ marginTop:10, fontSize:12, color:"#ef9a9a", fontFamily:"Manrope,sans-serif" }}>{autoError}</div>
+      )}
     </>
   );
 
   // ── SECTION PHASE ──
-  if (phase === "section" && activeSection) return wrap(
-    <>
-      <style>{STYLES}</style>
+  if (phase === "section" && activeSection) {
+    const chunks = sectionData?.chunks || null;
+    const totalChecks = chunks ? chunks.filter(c => c.check).length : 0;
+    const allRevealed = chunks ? visibleChunks >= chunks.length : true;
+    const allChecksDone = chunks
+      ? allRevealed && chunks.every((c, i) => !c.check || checkAnswers[i] !== undefined)
+      : true;
+    const sectionIdx = roadmap ? roadmap.sections.findIndex(s => s.id === activeSection.id) : -1;
+    const isLastSection = roadmap ? sectionIdx === roadmap.sections.length - 1 : false;
+    const checkOrdinal = (ci) => chunks.slice(0, ci).filter(c => c.check).length;
 
-      <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"center" }}>
-        <Btn variant="ghost" onClick={() => setPhase("roadmap")}>← Roadmap</Btn>
-        <span style={{ fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
-          {roadmap?.sections.findIndex(s => s.id === activeSection.id) + 1} / {roadmap?.sections.length}
-        </span>
-      </div>
+    return wrap(
+      <>
+        <style>{STYLES}</style>
 
-      {/* Section header */}
-      {card(
-        <div style={{ fontSize:15, fontWeight:700, color:D.text, fontFamily:"Syne,sans-serif" }}>
-          📖 {activeSection.title}
+        <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"center" }}>
+          <Btn variant="ghost" onClick={() => setPhase("roadmap")}>← Roadmap</Btn>
+          <span style={{ fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
+            {sectionIdx + 1} / {roadmap?.sections.length}
+          </span>
+          <span style={{ flex:1 }} />
+          {comboChip}
+          {xpChip}
         </div>
-      )}
 
-      {/* ── Explain step ── */}
-      {sectionStep === "explain" && (
-        <>
-          {loading ? <Spinner message={loadingMsg} /> : (
-            explanation && (
-              <div className="gs-animate" style={{
-                padding:"4px 0",
-                fontSize:13.5, color:"#EDEFF5", lineHeight:1.75,
-                fontFamily:"Manrope,sans-serif", marginBottom:12,
-              }}>
-                <MarkdownText theme="gold">{explanation}</MarkdownText>
-              </div>
-            )
-          )}
-          {explanation && !loading && (
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-              <Btn onClick={handleAskQuestion}>🎯 Test my understanding</Btn>
-              <Btn variant="yellow" onClick={() => handleFlashcards([activeSection])}>🃏 Flashcards for this section</Btn>
-              <Btn variant="ghost" onClick={nextSection}>Next section →</Btn>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Question step ── */}
-      {sectionStep === "question" && (
-        <>
-          {loading ? <Spinner message={loadingMsg} /> : qData && (
-            <>
-              {card(
-                <>
-                  <div style={{ fontSize:10, color:D.border, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
-                    🎯 COMPREHENSION CHECK
-                  </div>
-                  <div style={{ fontSize:14, fontWeight:600, color:D.text, lineHeight:1.6, fontFamily:"Manrope,sans-serif" }}>
-                    {qData.question}
-                  </div>
-                  {qData.hint && (
-                    <div style={{ marginTop:10, fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
-                      💡 Hint: {qData.hint}
-                    </div>
-                  )}
-                </>
-              )}
-              <textarea
-                value={userAnswer}
-                onChange={e => setUserAnswer(e.target.value)}
-                placeholder="Type your answer here…"
-                rows={4}
-                style={{
-                  width:"100%", boxSizing:"border-box", resize:"vertical",
-                  background:"#11151E", border:`0.5px solid ${D.line}`,
-                  borderRadius:13, padding:"11px 14px", fontSize:12,
-                  color:D.text, fontFamily:"Manrope,sans-serif",
-                  outline:"none", marginBottom:10,
-                }}
-                onFocus={e => e.target.style.borderColor = D.border}
-                onBlur={e  => e.target.style.borderColor = D.line}
-              />
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                <Btn onClick={handleSubmitAnswer} disabled={!userAnswer.trim()}>Submit answer →</Btn>
-                <Btn variant="ghost" onClick={() => setSectionStep("explain")}>← Back to explanation</Btn>
-              </div>
-            </>
-          )}
-        </>
-      )}
-
-      {/* ── Feedback step ── */}
-      {sectionStep === "feedback" && (
-        <>
-          {loading ? <Spinner message={loadingMsg} /> : feedback && (
-            <>
-              <div className="gs-animate" style={{ marginBottom:12 }}>
-                <div style={{ fontSize:10, color:D.hint, fontFamily:"Manrope,sans-serif", marginBottom:6 }}>Your answer:</div>
-                <div style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", fontStyle:"italic", marginBottom:12 }}>"{userAnswer}"</div>
-                <div style={{ fontSize:10, color:"#81c784", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
-                  ✦ AI Feedback
-                </div>
-                <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.75, fontFamily:"Manrope,sans-serif", padding:"4px 0" }}>
-                  <MarkdownText theme="gold">{feedback}</MarkdownText>
-                </div>
-              </div>
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                <Btn variant="green" onClick={nextSection}>Next section →</Btn>
-                <Btn variant="ghost" onClick={() => setPhase("roadmap")}>Back to roadmap</Btn>
-                <Btn variant="yellow" onClick={() => handleFlashcards([activeSection])}>🃏 Flashcards</Btn>
-              </div>
-            </>
-          )}
-        </>
-      )}
-    </>
-  );
-
-  // ── FLASHCARDS PHASE ──
-  if (phase === "flashcards") return wrap(
-    <>
-      <style>{STYLES}</style>
-
-      <div style={{ display:"flex", gap:8, marginBottom:16, alignItems:"center", justifyContent:"space-between" }}>
-        <Btn variant="ghost" onClick={() => setPhase(roadmap ? "roadmap" : "input")}>← Back</Btn>
-        <span style={{ fontSize:11, color:D.muted, fontFamily:"Manrope,sans-serif" }}>
-          🃏 {flashcards.length > 0 ? `${cardIdx + 1} / ${flashcards.length}` : ""}
-        </span>
-      </div>
-
-      {loading ? <Spinner message={loadingMsg} /> : (
-        flashcards.length > 0 ? (
-          <>
-            <FlipCard card={flashcards[cardIdx]} flipped={cardFlipped} onFlip={() => setFlipped(f => !f)} />
-
-            <div style={{ display:"flex", gap:8, marginTop:14, justifyContent:"center", alignItems:"center" }}>
-              <Btn variant="ghost" disabled={cardIdx === 0}
-                onClick={() => { setCardIdx(i => i - 1); setFlipped(false); }}>
-                ◀ Prev
-              </Btn>
-              <span style={{ fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif", minWidth:60, textAlign:"center" }}>
-                {cardIdx + 1} of {flashcards.length}
-              </span>
-              <Btn variant="ghost" disabled={cardIdx === flashcards.length - 1}
-                onClick={() => { setCardIdx(i => i + 1); setFlipped(false); }}>
-                Next ▶
-              </Btn>
-            </div>
-
-            {/* Progress dots */}
-            <div style={{ display:"flex", gap:4, justifyContent:"center", marginTop:12, flexWrap:"wrap" }}>
-              {flashcards.map((_, i) => (
-                <div key={i}
-                  onClick={() => { setCardIdx(i); setFlipped(false); }}
-                  style={{
-                    width:7, height:7, borderRadius:"50%", cursor:"pointer",
-                    background: i === cardIdx ? D.border : D.faint,
-                    transition:"background 0.2s",
-                  }}
-                />
-              ))}
-            </div>
-          </>
-        ) : (
-          <div style={{ textAlign:"center", padding:32, fontSize:12, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
-            No flashcards generated. Try again.
+        {/* Section header */}
+        {card(
+          <div style={{ fontSize:15, fontWeight:700, color:D.text, fontFamily:"Syne,sans-serif" }}>
+            📖 {activeSection.title}
           </div>
-        )
-      )}
-    </>
-  );
+        )}
+
+        {/* ── Learn step: TL;DR + chunks with interleaved checks ── */}
+        {sectionStep === "learn" && (
+          <>
+            {loading ? <Spinner message={loadingMsg} /> : sectionData && (
+              <>
+                {sectionData.tldr && (
+                  <div className="gs-animate" style={{
+                    background:"rgba(255,215,0,0.06)", border:"0.5px solid rgba(255,215,0,0.3)",
+                    borderRadius:12, padding:"10px 14px", marginBottom:14,
+                    fontSize:12, color:"#E8D9A0", lineHeight:1.6, fontFamily:"Manrope,sans-serif",
+                  }}>
+                    <span style={{ fontWeight:700, color:"#FFD700", fontSize:10, letterSpacing:"0.08em" }}>TL;DR — </span>
+                    {sectionData.tldr}
+                  </div>
+                )}
+
+                {chunks ? (
+                  <>
+                    {chunks.slice(0, visibleChunks).map((chunk, ci) => (
+                      <div key={ci} className="gs-animate" style={{ marginBottom:4 }}>
+                        {chunk.heading && (
+                          <div style={{
+                            fontSize:13, fontWeight:700, color:"#FFD700",
+                            fontFamily:"Syne,sans-serif", marginBottom:6, marginTop: ci > 0 ? 8 : 0,
+                          }}>
+                            {chunk.heading}
+                          </div>
+                        )}
+                        <div style={{ fontSize:13.5, color:"#EDEFF5", lineHeight:1.75, fontFamily:"Manrope,sans-serif" }}>
+                          <MarkdownText theme="gold">{chunk.markdown}</MarkdownText>
+                        </div>
+                        {chunk.check && (
+                          <CheckCard
+                            check={chunk.check}
+                            index={checkOrdinal(ci)}
+                            total={totalChecks}
+                            selected={checkAnswers[ci]}
+                            onAnswer={(oi) => handleCheckAnswer(ci, oi)}
+                          />
+                        )}
+                        {!chunk.check && ci === visibleChunks - 1 && ci < chunks.length - 1 && (
+                          <Btn variant="ghost" onClick={() => setVisibleChunks(v => v + 1)} style={{ marginBottom:14 }}>
+                            Continue →
+                          </Btn>
+                        )}
+                      </div>
+                    ))}
+
+                    {allChecksDone && (
+                      <>
+                        {!studied[activeSection.id] ? (
+                          <ConfidenceRow onRate={handleConfidence} />
+                        ) : (
+                          <div style={{
+                            fontSize:11, color:D.muted, fontFamily:"Manrope,sans-serif",
+                            marginBottom:12, textAlign:"center",
+                          }}>
+                            Confidence: {STATUS_LABEL[studied[activeSection.id]] || "Got it 👍"}
+                            <button
+                              onClick={() => { const n = { ...studied }; delete n[activeSection.id]; setStudied(n); persistProgress(n); }}
+                              style={{ background:"none", border:"none", color:D.hint, fontSize:10, cursor:"pointer", marginLeft:6, fontFamily:"Manrope,sans-serif" }}
+                            >(change)</button>
+                          </div>
+                        )}
+                        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                          <Btn onClick={handleAskQuestion}>🎯 Test my understanding</Btn>
+                          <Btn variant="green" onClick={nextSection}>
+                            {isLastSection ? "Finish →" : "Next section →"}
+                          </Btn>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="gs-animate" style={{
+                      padding:"4px 0",
+                      fontSize:13.5, color:"#EDEFF5", lineHeight:1.75,
+                      fontFamily:"Manrope,sans-serif", marginBottom:12,
+                    }}>
+                      <MarkdownText theme="gold">{sectionData.text}</MarkdownText>
+                    </div>
+                    {!studied[activeSection.id] && <ConfidenceRow onRate={handleConfidence} />}
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      <Btn onClick={handleAskQuestion}>🎯 Test my understanding</Btn>
+                      <Btn variant="green" onClick={nextSection}>
+                        {isLastSection ? "Finish →" : "Next section →"}
+                      </Btn>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── Question step (optional typed deep-check) ── */}
+        {sectionStep === "question" && (
+          <>
+            {loading ? <Spinner message={loadingMsg} /> : qData && (
+              <>
+                {card(
+                  <>
+                    <div style={{ fontSize:10, color:D.border, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
+                      🎯 COMPREHENSION CHECK
+                    </div>
+                    <div style={{ fontSize:14, fontWeight:600, color:D.text, lineHeight:1.6, fontFamily:"Manrope,sans-serif" }}>
+                      {qData.question}
+                    </div>
+                    {qData.hint && (
+                      <div style={{ marginTop:10, fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
+                        💡 Hint: {qData.hint}
+                      </div>
+                    )}
+                  </>
+                )}
+                <textarea
+                  value={userAnswer}
+                  onChange={e => setUserAnswer(e.target.value)}
+                  placeholder="Type your answer here…"
+                  rows={4}
+                  style={{
+                    width:"100%", boxSizing:"border-box", resize:"vertical",
+                    background:"#11151E", border:`0.5px solid ${D.line}`,
+                    borderRadius:13, padding:"11px 14px", fontSize:12,
+                    color:D.text, fontFamily:"Manrope,sans-serif",
+                    outline:"none", marginBottom:10,
+                  }}
+                  onFocus={e => e.target.style.borderColor = D.border}
+                  onBlur={e  => e.target.style.borderColor = D.line}
+                />
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <Btn onClick={handleSubmitAnswer} disabled={!userAnswer.trim()}>Submit answer →</Btn>
+                  <Btn variant="ghost" onClick={() => setSectionStep("learn")}>← Back to lesson</Btn>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── Feedback step ── */}
+        {sectionStep === "feedback" && (
+          <>
+            {loading ? <Spinner message={loadingMsg} /> : feedback && (
+              <>
+                <div className="gs-animate" style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:10, color:D.hint, fontFamily:"Manrope,sans-serif", marginBottom:6 }}>Your answer:</div>
+                  <div style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", fontStyle:"italic", marginBottom:12 }}>"{userAnswer}"</div>
+                  <div style={{ fontSize:10, color:"#81c784", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"Manrope,sans-serif", marginBottom:8 }}>
+                    ✦ AI Feedback
+                  </div>
+                  <div style={{ fontSize:13, color:"#c8e6c9", lineHeight:1.75, fontFamily:"Manrope,sans-serif", padding:"4px 0" }}>
+                    <MarkdownText theme="gold">{feedback}</MarkdownText>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <Btn variant="green" onClick={nextSection}>
+                    {isLastSection ? "Finish →" : "Next section →"}
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => setSectionStep("learn")}>← Back to lesson</Btn>
+                  <Btn variant="ghost" onClick={() => setPhase("roadmap")}>Roadmap</Btn>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </>
+    );
+  }
+
+  // ── REVIEW PHASE (cumulative quiz) ──
+  if (phase === "review" && review) {
+    const q = review.questions[review.idx];
+    const answered = review.answers[review.idx] !== undefined;
+    const isLast = review.idx === review.questions.length - 1;
+    const answeredCount = Object.keys(review.answers).length;
+    return wrap(
+      <>
+        <style>{STYLES}</style>
+
+        <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"center" }}>
+          <Btn variant="ghost" onClick={() => setPhase("roadmap")}>← Roadmap</Btn>
+          <span style={{ fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>🏁 Final Review</span>
+          <span style={{ flex:1 }} />
+          {comboChip}
+          {xpChip}
+        </div>
+
+        <ProgressBar current={answeredCount} total={review.questions.length} label="questions" />
+
+        {q.section && (
+          <div style={{
+            display:"inline-block", fontSize:10, color:D.hint, fontFamily:"Manrope,sans-serif",
+            background:D.bar, border:`0.5px solid ${D.line}`, borderRadius:999,
+            padding:"3px 10px", marginBottom:8,
+          }}>
+            from: {q.section}
+          </div>
+        )}
+
+        <CheckCard
+          check={q}
+          index={review.idx}
+          total={review.questions.length}
+          selected={review.answers[review.idx]}
+          onAnswer={handleReviewAnswer}
+        />
+
+        {answered && (
+          <Btn onClick={reviewNext} variant="primary" style={{ width:"100%", justifyContent:"center", padding:"11px 16px" }}>
+            {isLast ? "See results →" : "Next question →"}
+          </Btn>
+        )}
+      </>
+    );
+  }
+
+  // ── SUMMARY PHASE (wrap-up) ──
+  if (phase === "summary") {
+    const totalQ = sessionChecks.total;
+    const pct = totalQ > 0 ? Math.round((sessionChecks.correct / totalQ) * 100) : 0;
+    const fuzzySections = roadmap ? roadmap.sections.filter(s => studied[s.id] === "fuzzy") : [];
+    return wrap(
+      <>
+        <style>{STYLES}</style>
+
+        <div style={{ textAlign:"center", padding:"32px 12px 20px" }} className="gs-pop">
+          <div style={{ fontSize:44, marginBottom:10 }}>{pct >= 70 ? "🎉" : pct >= 40 ? "💪" : "📚"}</div>
+          <div style={{ fontSize:20, fontWeight:800, color:D.text, fontFamily:"Syne,sans-serif" }}>Session Complete!</div>
+          <div style={{ fontSize:12, color:D.muted, marginTop:6, fontFamily:"Manrope,sans-serif" }}>{roadmap?.title || topic}</div>
+        </div>
+
+        <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
+          {[
+            [`${studiedCount}/${roadmap?.sections.length || 0}`, "Sections"],
+            [`${pct}%`, `${sessionChecks.correct}/${totalQ} checks`],
+            [`+${sessionXP}`, "XP earned"],
+          ].map(([big, small]) => (
+            <div key={small} style={{
+              flex:1, minWidth:80, background:D.card, border:`0.5px solid ${D.line}`,
+              borderRadius:14, padding:"13px 10px", textAlign:"center",
+            }}>
+              <div style={{ fontSize:20, fontWeight:800, color:"#FFD700", fontFamily:"Syne,sans-serif" }}>{big}</div>
+              <div style={{ fontSize:9, color:D.hint, textTransform:"uppercase", letterSpacing:"0.06em", fontFamily:"Manrope,sans-serif", marginTop:3 }}>{small}</div>
+            </div>
+          ))}
+        </div>
+
+        {fuzzySections.length > 0 && card(
+          <>
+            <div style={{ fontSize:11, fontWeight:700, color:D.amber, fontFamily:"Syne,sans-serif", marginBottom:8, letterSpacing:"0.06em" }}>
+              🌫️ SECTIONS TO REVISIT
+            </div>
+            {fuzzySections.map(s => (
+              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                <span style={{ flex:1, fontSize:12, color:D.text, fontFamily:"Manrope,sans-serif" }}>{s.title}</span>
+                <Btn variant="ghost" onClick={() => handleStudy(s)} style={{ padding:"4px 12px", fontSize:11 }}>Review</Btn>
+              </div>
+            ))}
+          </>
+        )}
+
+        {totalQ === 0 && card(
+          <div style={{ fontSize:12, color:D.muted, fontFamily:"Manrope,sans-serif", lineHeight:1.6 }}>
+            Tip: answer the quick checks inside each section to earn XP and track your accuracy.
+          </div>
+        )}
+
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:4 }}>
+          <Btn variant="yellow" onClick={() => setPhase("roadmap")}>← Back to roadmap</Btn>
+          <Btn variant="ghost" onClick={() => { resetSessionState(); setPhase("input"); setRoadmap(null); }}>New topic</Btn>
+        </div>
+      </>
+    );
+  }
 
   return null;
 }
