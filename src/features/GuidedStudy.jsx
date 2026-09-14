@@ -70,6 +70,69 @@ function extractJSON(text) {
   return null;
 }
 
+// Scan text for balanced {...} regions and return each that parses as an object.
+// Salvages individual objects even when the surrounding JSON is malformed or truncated.
+function extractObjectsLoose(text) {
+  const objs = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "{") {
+      let depth = 0, inStr = false, esc = false, j = i;
+      for (; j < text.length; j++) {
+        const ch = text[j];
+        if (esc) { esc = false; continue; }
+        if (ch === "\\") { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === "{") depth++;
+        else if (ch === "}") { depth--; if (depth === 0) { j++; break; } }
+      }
+      if (depth === 0) {
+        try {
+          const obj = JSON.parse(text.slice(i, j));
+          if (obj && typeof obj === "object" && !Array.isArray(obj)) objs.push(obj);
+        } catch {}
+        i = j;
+      } else i++;
+    } else i++;
+  }
+  return objs;
+}
+
+// Tolerant extractor for the structured explain payload. Handles code fences,
+// the AI writing "check": [ ... ] instead of { ... }, and truncated output
+// (salvages complete chunks). Returns { tldr, chunks } or null.
+function extractStudyJSON(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  let cleaned = raw.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "");
+  // Normalize the AI's common mistake: "check" written with [ ] instead of { }.
+  // After the swap, a leftover "]" sits outside the object and is ignored by the
+  // balanced-brace scan below.
+  cleaned = cleaned
+    .replace(/"check"\s*:\s*\[\s*\{/g, '"check": {')
+    .replace(/"check"\s*:\s*\[/g, '"check": {');
+  const start = cleaned.indexOf("{");
+  if (start === -1) return null;
+  const text = cleaned.slice(start);
+
+  // Fast path: whole object parses cleanly
+  const end = text.lastIndexOf("}");
+  if (end !== -1) {
+    try {
+      const obj = JSON.parse(text.slice(0, end + 1));
+      if (obj && Array.isArray(obj.chunks) && obj.chunks.length) return obj;
+    } catch {}
+  }
+
+  // Salvage path: recover each chunk-shaped object individually
+  const tldrMatch = text.match(/"tldr"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  let tldr = "";
+  if (tldrMatch) { try { tldr = JSON.parse(`"${tldrMatch[1]}"`); } catch { tldr = tldrMatch[1]; } }
+  const chunks = extractObjectsLoose(text)
+    .filter(o => !o.chunks && (o.markdown || o.text || o.heading));
+  return chunks.length ? { tldr, chunks } : null;
+}
+
 // ─── Check (MCQ) normalization ─────────────────────────────────────────────────
 function shuffleCheckOptions(check) {
   const order = check.options.map((_, i) => i).sort(() => Math.random() - 0.5);
@@ -77,6 +140,7 @@ function shuffleCheckOptions(check) {
 }
 
 function normalizeCheck(c) {
+  if (Array.isArray(c)) c = c[0]; // AI sometimes wraps check in an array
   if (!c || !Array.isArray(c.options) || c.options.length < 2) return null;
   const answer = typeof c.answer === "number"
     ? c.answer
@@ -182,11 +246,13 @@ Rules:
 - Keep the tone clear, encouraging, and concise`,
     aiConfig
   );
-  const parsed = extractJSON(raw);
-  if (parsed && Array.isArray(parsed.chunks) && parsed.chunks.length > 0) {
+  const parsed = extractStudyJSON(raw);
+  if (parsed?.chunks?.length) {
     const chunks = parsed.chunks.map(normalizeChunk).filter(Boolean);
     if (chunks.length > 0) return { tldr: String(parsed.tldr || ""), chunks };
   }
+  // Response looked like JSON but nothing salvageable — don't dump raw JSON on screen
+  if (raw.trim().startsWith("{") || raw.includes('"chunks"')) return { parseError: true };
   return { text: raw };
 }
 
@@ -230,7 +296,10 @@ Reply ONLY with valid JSON (no markdown):
     aiConfig
   );
   const parsed = extractJSON(raw);
-  return (parsed?.questions || [])
+  // Salvage individual question objects if the overall payload was malformed/truncated
+  const rawQuestions = parsed?.questions
+    || extractObjectsLoose(raw).filter(o => o.question && o.options && !o.questions);
+  return (rawQuestions || [])
     .map(q => { const c = normalizeCheck(q); return c ? { ...c, section: String(q.section || "") } : null; })
     .filter(Boolean);
 }
@@ -601,7 +670,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       setLoadingMsg("Generating explanation…");
       const data = await aiExplain(initialTopic, firstSection, aiConfig, studyContext, null, [], content);
       setSectionData(data);
-      if (!content.trim()) saveExplanation(cacheTopic, firstSection.id, data);
+      if (!content.trim() && !data.parseError) saveExplanation(cacheTopic, firstSection.id, data);
     } catch (e) {
       setAutoError("AI request failed: " + (e?.message || "check your connection"));
     } finally { setLoading(false); }
@@ -662,7 +731,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       const prevSection = roadmap ? roadmap.sections.filter(s => studied[s.id]).pop() : null;
       const data = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles, sourceContent);
       setSectionData(data);
-      if (!sourceContent.trim()) saveExplanation(topic, section.id, data);
+      if (!sourceContent.trim() && !data.parseError) saveExplanation(topic, section.id, data);
     } finally { setLoading(false); }
   }
 
@@ -1055,7 +1124,16 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         {/* ── Learn step: TL;DR + chunks with interleaved checks ── */}
         {sectionStep === "learn" && (
           <>
-            {loading ? <Spinner message={loadingMsg} /> : sectionData && (
+            {loading ? <Spinner message={loadingMsg} /> : sectionData?.parseError ? (
+              card(
+                <div style={{ textAlign:"center", padding:"8px 0" }}>
+                  <div style={{ fontSize:13, color:D.muted, fontFamily:"Manrope,sans-serif", marginBottom:12, lineHeight:1.6 }}>
+                    Something glitched while formatting this section.
+                  </div>
+                  <Btn variant="primary" onClick={() => handleStudy(activeSection)}>↻ Try again</Btn>
+                </div>
+              )
+            ) : sectionData && (
               <>
                 {sectionData.tldr && (
                   <div className="gs-animate" style={{

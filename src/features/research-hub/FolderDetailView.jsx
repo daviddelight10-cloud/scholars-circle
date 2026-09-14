@@ -54,6 +54,9 @@ export default function FolderDetailView({
     }
     for (const list of ["mcqs", "flashcards", "summaries"]) {
       for (const f of folderCategorized[list] || []) {
+        // Standalone items the PDF viewer's study tool auto-saves are titled
+        // "[AI] …" — keep them out of the Files grid (they live in library).
+        if (f.standalone && f.title?.startsWith("[AI]")) { seen.add(f.id); continue; }
         if (f.standalone && !seen.has(f.id)) { docs.push(f); seen.add(f.id); }
       }
     }
