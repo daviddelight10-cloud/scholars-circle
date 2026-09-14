@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { liveSessionsApi } from "./api.js";
 import { PollsOverlay } from "./PollsOverlay.jsx";
+import { toast } from "../../components/Toast";
 
 /**
  * Embeds Jitsi Meet via the external API.
@@ -120,7 +121,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
       await liveSessionsApi.end(session.id, token);
       handleLeave();
     } catch (e) {
-      alert("Failed to end session: " + e.message);
+      toast.error("Failed to end session: " + e.message);
     }
   }
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE } from "../lib/constants";
+import { toast } from "../components/Toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 async function req(path, { method = "GET", token, body } = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -66,7 +67,7 @@ export function TeacherInvitesPanel({ token }) {
       setNewRole("LECTURER");
       await load();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setCreating(false);
     }
@@ -78,7 +79,7 @@ export function TeacherInvitesPanel({ token }) {
       await req(`/teacher-invites/${id}`, { method: "DELETE", token });
       await load();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     }
   }
 

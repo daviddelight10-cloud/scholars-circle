@@ -6,6 +6,7 @@ import GroupLeaderboard from "./GroupLeaderboard.jsx";
 import StudyRooms from "./StudyRooms.jsx";
 import QuizBattles from "./QuizBattles.jsx";
 import GroupStreak from "./GroupStreak.jsx";
+import { API_BASE } from "../../lib/constants";
 
 const HUB_TABS = [
   { id: "chat", icon: "💬", label: "Chat" },
@@ -23,7 +24,6 @@ export default function StudyGroupHub({ token, currentUser, subjects = [], isFac
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("chat");
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
   useEffect(() => {
     if (!token) return;

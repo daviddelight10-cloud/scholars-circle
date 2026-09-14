@@ -3,8 +3,8 @@ import { X, Flag, Clock, CheckCircle2, XCircle, ChevronRight, ChevronLeft, Troph
 import { copyShareToken } from "../lib/researchUtils.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { callAI } from "../lib/aiClient.js";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
 
 function shuffleArray(arr) {
@@ -501,7 +501,7 @@ export default function McqExamRunner({ resource, shareToken, onBack, onQuizComp
     <div style={{ ...fullscreenStyle, fontFamily: "Manrope, sans-serif" }}>
       {/* Header */}
       <div style={{ padding: isMobile ? "10px 12px" : "14px 24px", borderBottom: "0.5px solid #1e2245", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#5a6090", cursor: "pointer", fontSize: 20, padding: 4 }}>
+        <button onClick={onBack} aria-label="Exit exam" style={{ background: "none", border: "none", color: "#5a6090", cursor: "pointer", fontSize: 20, padding: 4 }}>
           <X size={20} />
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 10, background: timeLow ? "rgba(239,83,80,0.15)" : "#0d0f20", border: `0.5px solid ${timeLow ? "#ef5350" : "#1e2245"}` }}>
@@ -537,7 +537,7 @@ export default function McqExamRunner({ resource, shareToken, onBack, onQuizComp
           const isAnswered = answers[i] != null;
           const isF = flagged.has(i);
           return (
-            <button key={i} onClick={() => goToQuestion(i)} style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: i === currentIndex ? "#5c6bc0" : isAnswered ? "#1a3a1a" : "#0d0f20", color: i === currentIndex ? "#fff" : isAnswered ? "#4ade80" : "#5a6090", border: i === currentIndex ? "none" : "0.5px solid #1e2245", position: "relative" }}>
+            <button key={i} onClick={() => goToQuestion(i)} style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: 6, cursor: "pointer", fontSize: 11, fontWeight: 700, background: i === currentIndex ? "#5c6bc0" : isAnswered ? "#1a3a1a" : "#0d0f20", color: i === currentIndex ? "#fff" : isAnswered ? "#4ade80" : "#5a6090", border: i === currentIndex ? "none" : "0.5px solid #1e2245", position: "relative" }}>
               {i + 1}
               {isF && <span style={{ position: "absolute", top: -2, right: -2, width: 6, height: 6, borderRadius: "50%", background: "#ffd54f" }} />}
             </button>

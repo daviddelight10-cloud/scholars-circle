@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "../../components/Toast";
 
 const SUB_MODES = [
   { id: "generate_notes", label: "📝 Study Notes", desc: "Comprehensive notes with examples" },
@@ -38,7 +39,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
         back: c.back,
         subject: subject?.label || ""
       })));
-      alert(`✓ Imported ${result.parsed.length} flashcards`);
+      toast.success(`✓ Imported ${result.parsed.length} flashcards`);
     } else if (subMode === "generate_quiz" && onImportQuestions) {
       onImportQuestions(result.parsed.map(q => ({
         q: q.q,
@@ -47,7 +48,7 @@ export function GenerateMode({ tutor, onImportFlashcards, onImportQuestions, sub
         explanation: q.explanation,
         subjectId: subject?.id
       })));
-      alert(`✓ Imported ${result.parsed.length} questions`);
+      toast.success(`✓ Imported ${result.parsed.length} questions`);
     }
   }
 

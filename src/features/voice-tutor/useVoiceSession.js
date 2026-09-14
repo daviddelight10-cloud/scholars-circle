@@ -586,7 +586,7 @@ export function useVoiceSession() {
               }
               break;
 
-            case WS_MESSAGE_TYPES.SERVER_CONTENT:
+            case WS_MESSAGE_TYPES.SERVER_CONTENT: {
               const sc = msg.data;
               if (sc.interrupted) {
                 stopPlayback();
@@ -609,6 +609,7 @@ export function useVoiceSession() {
                 }
               }
               break;
+            }
 
             case WS_MESSAGE_TYPES.PONG:
               // Clear pong timeout and record RTT

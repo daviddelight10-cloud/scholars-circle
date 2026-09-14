@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+import { API_BASE } from "../../lib/constants";
 
 export async function searchYouTube(query, { ngBoost = false } = {}) {
   const url = `${API_BASE}/youtube/search?q=${encodeURIComponent(query)}${ngBoost ? "&ng=1" : ""}`;

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { getDepartments } from "../../lib/departments.js";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 export default function CreateFolderModal({
   show, onClose, onCreate,
@@ -14,6 +15,8 @@ export default function CreateFolderModal({
   const [departments, setDepartments] = useState([]);
   const [deptLoading, setDeptLoading] = useState(false);
   const [showDeptChange, setShowDeptChange] = useState(false);
+  const headingId = useId();
+  const { modalProps, focusRef } = useModalA11y({ isOpen: show, onClose, labelledBy: headingId });
 
   const hasDept = !!userDept?.departmentId;
 
@@ -46,13 +49,15 @@ export default function CreateFolderModal({
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
+        ref={focusRef}
+        {...modalProps}
         className="modal-in w-full max-w-[460px] rounded-2xl border border-hub-border bg-hub-surface p-6"
         style={{ maxHeight: "86vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-hub-text">Create folder</h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-hub-border bg-hub-bg text-sm text-hub-text-muted transition-all active:scale-90">✕</button>
+          <h2 id={headingId} className="text-lg font-bold text-hub-text">Create folder</h2>
+          <button onClick={onClose} aria-label="Close dialog" className="flex h-8 w-8 items-center justify-center rounded-lg border border-hub-border bg-hub-bg text-sm text-hub-text-muted transition-all active:scale-90">✕</button>
         </div>
 
         <div className="mb-4">

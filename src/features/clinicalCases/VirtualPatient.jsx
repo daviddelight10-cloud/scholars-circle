@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { callAIChat, extractJSON } from "../../lib/aiClient";
 import { CASES, EXAM_LABELS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE } from "./caseData";
 import "./virtualPatient.css";
+import { toast } from "../../components/Toast";
 
 const ACTIVE_CONSULT_KEY = "scc_active_consult";
 const GAME_MODE_KEY = "scc_game_mode";
@@ -374,11 +375,11 @@ RULES:
 
     if (isF) {
       if (questionsAsked < 1) {
-        alert("Ask the patient at least one question before finishing this practice round.");
+        toast.warning("Ask the patient at least one question before finishing this practice round.");
         return;
       }
     } else if (!dx1.trim() || !mgmt.trim()) {
-      alert("Please enter at least your top diagnosis and a management plan before submitting.");
+      toast.warning("Please enter at least your top diagnosis and a management plan before submitting.");
       return;
     }
 

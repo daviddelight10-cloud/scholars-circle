@@ -14,12 +14,18 @@ const textFaint = '#646E84';
 const gold = '#F5A623';
 const blue = '#FFD700';
 
+// Wrapper keeps the not-found redirect out of the hook-bearing component so
+// hook order is stable across renders (fixes rules-of-hooks violation).
 export default function BlogPost() {
   const { slug } = useParams();
   const post = getPostBySlug(slug);
 
   if (!post) return <Navigate to="/blog" replace />;
 
+  return <BlogPostView post={post} slug={slug} />;
+}
+
+function BlogPostView({ post, slug }) {
   const related = posts.filter(p => p.slug !== slug && p.tags.some(t => post.tags.includes(t))).slice(0, 2);
 
   useEffect(() => {

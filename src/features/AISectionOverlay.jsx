@@ -6,6 +6,7 @@ import { extractTextFromFile } from "./AITutor/fileExtract.js";
 import LearningRoom from "./AITutor/LearningRoom";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -62,7 +63,6 @@ function searchQuestionBank(query, subjects) {
 }
 
 async function fetchYouTubeVideo(ytQuery) {
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
   const cacheKey = `sc_yt3_${ytQuery}`;
   try {
     const hit = localStorage.getItem(cacheKey);

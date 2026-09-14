@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -430,7 +430,7 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
       <div style={{ position:"relative" }}>
 
         {/* Bell */}
-        <button onClick={()=>onOpenTab?.('notifications')} className="sc-nb-bell-btn"
+        <button onClick={()=>onOpenTab?.('notifications')} aria-label={`Notifications${unreadCount > 0 ? ` — ${unreadCount} unread` : ""}`} className="sc-nb-bell-btn"
           style={{ position:"relative", width:40, height:40, borderRadius:13, background:"rgba(255,255,255,0.04)", border:`1px solid ${T.border}`, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"all 0.2s", outline:"none" }}
           onMouseEnter={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.07)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"; }}
           onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor=T.border; }}>
@@ -448,156 +448,6 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
           )}
         </button>
 
-        {/* Dropdown removed - notifications now open in dedicated tab */}
-        {false && (
-            <div className="sc-nb-dropdown" style={{ position:"absolute", right:0, top:"calc(100% + 12px)", width:440, background:T.card, border:`1px solid ${T.border}`, borderRadius:18, boxShadow:"0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(61,126,255,0.1)", zIndex:9999, display:"flex", flexDirection:"column", maxHeight:"min(580px, calc(100vh - 120px))", overflow:"hidden" }}>
-
-            {/* Panel header */}
-            <div style={{ padding:"16px 20px", borderBottom:`1px solid ${T.borderB}`, flexShrink:0 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ width:3, height:16, background:T.blueG, borderRadius:2 }} />
-                  <span style={{ fontFamily:T.syne, fontWeight:700, fontSize:15, color:T.text }}>Notifications</span>
-                  {unreadCount>0 && (
-                    <span style={{ fontFamily:T.mono, fontSize:10, color:T.blue, background:"rgba(61,126,255,0.1)", border:"1px solid rgba(61,126,255,0.2)", borderRadius:99, padding:"2px 8px" }}>{unreadCount} new</span>
-                  )}
-                </div>
-                <div style={{ display:"flex", gap:6 }}>
-                  {unreadCount > 0 && (
-                    <button onClick={handleMarkAllAsRead}
-                      style={{ background:"rgba(16,185,129,0.1)", border:"1px solid rgba(16,185,129,0.2)", color:"#10B981", cursor:"pointer", padding:"5px 10px", borderRadius:8, fontSize:11, fontFamily:T.mono, fontWeight:600, transition:"all 0.2s" }}
-                      onMouseEnter={e=>{ e.currentTarget.style.background="rgba(16,185,129,0.15)"; }}
-                      onMouseLeave={e=>{ e.currentTarget.style.background="rgba(16,185,129,0.1)"; }}>
-                      Mark all read
-                    </button>
-                  )}
-                  <button onClick={()=>setIsOpen(false)}
-                    style={{ background:"none", border:"none", color:T.dim, cursor:"pointer", padding:4, lineHeight:0, borderRadius:7, transition:"color 0.2s" }}
-                    onMouseEnter={e=>e.currentTarget.style.color=T.muted}
-                    onMouseLeave={e=>e.currentTarget.style.color=T.dim}>
-                    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div style={{ display:"flex", gap:6, overflowX:"auto" }}>
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`sc-nb-tab${activeTab === tab.id ? " sc-nb-tab-active" : ""}`}
-                    style={{
-                      padding:"6px 12px",
-                      borderRadius:10,
-                      background: activeTab === tab.id ? "rgba(61,126,255,0.12)" : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${activeTab === tab.id ? "rgba(61,126,255,0.3)" : T.borderB}`,
-                      color: activeTab === tab.id ? T.blue : T.muted,
-                      fontFamily:T.mono,
-                      fontSize:11,
-                      fontWeight:600,
-                      cursor:"pointer",
-                      display:"flex",
-                      alignItems:"center",
-                      gap:5,
-                      whiteSpace:"nowrap"
-                    }}>
-                    {tab.icon && <span>{tab.icon}</span>}
-                    <span>{tab.label}</span>
-                    {tab.count > 0 && (
-                      <span style={{
-                        background: activeTab === tab.id ? "rgba(61,126,255,0.2)" : "rgba(255,255,255,0.1)",
-                        borderRadius:99,
-                        padding:"1px 5px",
-                        fontSize:9
-                      }}>{tab.count}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Notification list */}
-            <div className="sc-nb-scroll" style={{ overflowY:"auto", flex:1 }}>
-              {isLoading ? (
-                <div style={{ display:"flex", justifyContent:"center", padding:"32px 0" }}>
-                  <div style={{ width:20, height:20, border:`2px solid rgba(61,126,255,0.3)`, borderTopColor:T.blue, borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />
-                </div>
-              ) : filteredAnnouncements.length === 0 ? (
-                <div style={{ textAlign:"center", padding:"40px 20px", color:T.dim }}>
-                  <div style={{ fontSize:32, marginBottom:10 }}>
-                    {activeTab === "unread" ? "✅" : activeTab === "important" ? "⚠️" : activeTab === "lectures" ? "📚" : "🔔"}
-                  </div>
-                  <p style={{ fontFamily:T.syne, fontWeight:600, fontSize:13, color:T.muted, marginBottom:4 }}>
-                    {activeTab === "unread" ? "All caught up!" : `No ${activeTab} notifications`}
-                  </p>
-                  <p style={{ fontFamily:T.mono, fontSize:11, color:T.dim }}>
-                    {activeTab === "unread" ? "You've read all notifications" : "Check back later"}
-                  </p>
-                </div>
-              ) : Object.entries(groupedAnnouncements).map(([dateGroup, groupAnnouncements]) => (
-                <div key={dateGroup}>
-                  {/* Date group header */}
-                  <div style={{ padding:"10px 20px 6px", position:"sticky", top:0, background:T.card, zIndex:1 }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontFamily:T.mono, fontSize:10, color:T.dim, letterSpacing:"0.08em", textTransform:"uppercase", fontWeight:600 }}>{dateGroup}</span>
-                      <div style={{ flex:1, height:1, background:T.borderB }} />
-                    </div>
-                  </div>
-
-                  {/* Notifications in this group */}
-                  {groupAnnouncements.map((a) => {
-                    const cat  = getCat(a.category);
-                    const prio = getPrio(a.priority);
-                    return (
-                      <div key={a.id}
-                        className={`sc-nb-row${!a.isRead?" sc-nb-row-unread":""}`}
-                        onClick={() => { if(!a.isRead) handleMarkAsRead(a.id); handleOpenComments(a); }}
-                        style={{ padding:"12px 20px", borderBottom:`1px solid ${T.borderB}`, cursor:"pointer", display:"flex", gap:12, transition:"background 0.18s", background:"transparent" }}>
-
-                        {/* Category icon */}
-                        <div style={{ width:36, height:36, borderRadius:11, background:cat.bg, border:`1px solid ${cat.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
-                          {cat.icon}
-                        </div>
-
-                        <div style={{ flex:1, minWidth:0 }}>
-                          {/* Badges row */}
-                          <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:6, alignItems:"center" }}>
-                            <Badge label={cat.label}  color={cat.color}  bg={cat.bg}  border={cat.border}  />
-                            <Badge label={prio.label} color={prio.color} bg={prio.bg} border={prio.border} />
-                            {!a.isRead && <div style={{ width:6, height:6, borderRadius:"50%", background:T.blue, boxShadow:`0 0 5px ${T.blue}`, flexShrink:0 }} />}
-                          </div>
-
-                          {/* Title */}
-                          <p style={{ fontFamily:T.syne, fontWeight:700, fontSize:13, color:T.text, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{a.title}</p>
-
-                          {/* Content preview */}
-                          <p style={{ color:T.muted, fontSize:12, lineHeight:1.55, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", marginBottom:7 }}>{a.content}</p>
-
-                          {/* Meta row */}
-                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                            <span style={{ fontFamily:T.mono, fontSize:10, color:T.dim }}>
-                              {new Date(a.createdAt).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})}
-                            </span>
-                            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                              {a.sender?.username && <span style={{ fontFamily:T.mono, fontSize:10, color:T.dim }}>by {a.sender.username}</span>}
-                              {a.commentCount > 0 && (
-                                <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                                  <svg width="11" height="11" fill="none" stroke={T.muted} strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                                  <span style={{ fontFamily:T.mono, fontSize:10, color:T.muted }}>{a.commentCount}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

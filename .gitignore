@@ -3,4 +3,9 @@ server/node_modules/
 dist/
 server/dist/
 .env
-*.log 
+.env.local
+.env.*.local
+.env.development
+.env.production
+*.log
+.zcode/

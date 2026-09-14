@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+import { API_BASE } from "../../lib/constants";
 
 async function req(path, { method = "GET", token, body, formData } = {}) {
   const headers = token ? { Authorization: `Bearer ${token}` } : {};

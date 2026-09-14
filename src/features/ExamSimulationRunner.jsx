@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, ChevronRight, ChevronLeft, CheckCircle2, XCircle, Clock, Trophy, Zap, Flame } from "lucide-react";
 import QuestionCard from "./QuestionCard.jsx";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 function getAuthHeaders() {
   try {

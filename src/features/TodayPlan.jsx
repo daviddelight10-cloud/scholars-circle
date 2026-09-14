@@ -853,7 +853,7 @@ export function TodayScreen({
       {/* ── What to do right now ── */}
       {(() => {
         const firstIncomplete = todaysTasks.find((t, i) => !isDone(t.sid, t.taskIndex));
-        let action = null;
+        let action;
         if (dueCards?.length > 0) {
           action = { icon:"🧠", color:"#80cbc4", bg:"#001a18", border:"#004a44", label:"Review overdue cards", desc:`${dueCards.length} flashcard${dueCards.length > 1 ? "s" : ""} due for spaced repetition`, onClick: onStartSpaced };
         } else if (weakest?.m !== undefined && weakest.m < 50 && weakest.s) {

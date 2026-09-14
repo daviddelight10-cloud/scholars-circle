@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import MarkdownText from "../../components/MarkdownText.jsx";
+import { API_BASE } from "../../lib/constants";
+import { toast } from "../../components/Toast";
 
 // ─── Voice helpers ─────────────────────────────────────────────────────────────
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -33,7 +35,6 @@ export function ChatMode({ tutor }) {
   });
   const recognitionRef = useRef(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
   useEffect(() => {
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
@@ -75,7 +76,7 @@ export function ChatMode({ tutor }) {
   // ─── STT (Speech-to-Text) ─────────────────────────────────────────────────
   function toggleListening() {
     if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in your browser. Try Chrome or Edge.");
+      toast.error("Speech recognition is not supported in your browser. Try Chrome or Edge.");
       return;
     }
     if (listening) {

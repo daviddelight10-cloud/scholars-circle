@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { callAI } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
 const BASE_LEVEL_BONUS = 100;
 const FIRST_LEVEL_SIZE = 5;

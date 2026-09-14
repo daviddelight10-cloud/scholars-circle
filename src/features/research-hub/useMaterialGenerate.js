@@ -2,8 +2,8 @@ import { useState, useCallback, useRef } from "react";
 import { extractFileText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
 import { generateMcqs, generateFlashcards, generateSummary, mcqsToFlashcards } from "../../lib/generationCore";
+import { API_BASE } from "../../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const FETCH_TIMEOUT_MS = 30_000;
 
 function getAuthHeaders() {

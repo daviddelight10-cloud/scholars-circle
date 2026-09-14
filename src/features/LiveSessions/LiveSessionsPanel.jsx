@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { liveSessionsApi } from "./api.js";
 import { LiveSessionRoom } from "./LiveSessionRoom.jsx";
+import { toast } from "../../components/Toast";
 
 export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentUser, token }) {
   const [sessions, setSessions] = useState([]);
@@ -55,7 +56,7 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
       setShowCreate(false);
       await load();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setCreating(false);
     }
@@ -68,7 +69,7 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
       setActiveSession({ ...session, ...updated, classroom: { id: classroomId, name: classroomName } });
       load();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     }
   }
 
@@ -82,7 +83,7 @@ export function LiveSessionsPanel({ classroomId, classroomName, isHost, currentU
       await liveSessionsApi.cancel(session.id, token);
       load();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     }
   }
 

@@ -6,9 +6,9 @@ import {
   recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
   getMastery, recordPracticeSession, getMasteryColor, getMasteryEmoji,
 } from "../lib/studyHistory.js";
+import { API_BASE } from "../lib/constants";
 import { copyShareToken } from "../lib/researchUtils.js";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 const JSZIP_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
@@ -428,7 +428,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
       const question = qLine.replace(/^Q\d*[:.)]?\s*/i, "").trim();
       const options = {};
       for (const line of lines) {
-        const m = line.match(/^([A-D])[\.\):]\s*(.+)/);
+        const m = line.match(/^([A-D])[.):]\s*(.+)/);
         if (m) options[m[1]] = m[2].trim();
       }
       if (Object.keys(options).length < 2) continue;
@@ -458,7 +458,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
     setPracticeLocked({});
     setPracticeIdx(0);
 
-    let promptText = "";
+    let promptText;
     let imageToSend = null;
 
     if (contentType === "image" && imageData) {

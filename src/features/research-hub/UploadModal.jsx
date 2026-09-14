@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { extractFileText } from "../../lib/extractFileText";
 import { generateMcqs, MAX_QUESTIONS } from "../../lib/generationCore";
+import { toast } from "../../components/Toast";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 const emptyMcqRow = () => ({ question: "", options: { A: "", B: "", C: "", D: "" }, correct: "A", explanation: "" });
 
@@ -28,6 +30,8 @@ export default function UploadModal({
   const [aiQuestionCount, setAiQuestionCount] = useState("");
   const aiFileInputRef = useRef(null);
   const [aiDragOver, setAiDragOver] = useState(false);
+  const headingId = useId();
+  const { modalProps, focusRef } = useModalA11y({ isOpen: show, onClose, labelledBy: headingId });
 
   useEffect(() => {
     if (show) {
@@ -50,7 +54,7 @@ export default function UploadModal({
 
   const handleFileSelected = (file) => {
     if (!file) return;
-    if (file.size > 50 * 1024 * 1024) { alert("File too large — 50MB max"); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.warning("File too large — 50MB max"); return; }
     setUploadFile(file);
     const detected = extToContentType(file.name);
     if (detected) setUploadType(detected);
@@ -153,10 +157,10 @@ export default function UploadModal({
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
-      <div className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6" onClick={(e) => e.stopPropagation()}>
+      <div ref={focusRef} {...modalProps} className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="m-0 text-xl font-bold text-gold">Add material</h2>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 text-base text-hub-text-muted transition-colors hover:text-hub-text">✕</button>
+          <h2 id={headingId} className="m-0 text-xl font-bold text-gold">Add material</h2>
+          <button onClick={onClose} aria-label="Close dialog" className="rounded-lg px-2 py-1 text-base text-hub-text-muted transition-colors hover:text-hub-text">✕</button>
         </div>
 
         <div className="mb-4 flex flex-wrap gap-1.5">

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { extractTextFromFile } from "./AITutor/fileExtract.js";
 import { callAI, extractJSON } from "../lib/aiClient.js";
+import { API_BASE } from "../lib/constants";
+import { toast } from "../components/Toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 const SUBJECTS = ["Biology","Chemistry","Physics","Mathematics","Anatomy","Physiology","Pharmacology","GST","Other"];
 const SUB_COLOR = {
@@ -251,7 +252,7 @@ export default function TeacherHub({ token, auth }) {
       }]);
       setQForm(emptyQForm());
     } catch (e) {
-      alert(e.message || "Failed to add question");
+      toast.error(e.message || "Failed to add question");
     }
     setSaving(false);
   }
@@ -265,7 +266,7 @@ export default function TeacherHub({ token, auth }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       setQuestions(prev => prev.filter(q => q.id !== id));
-    } catch { alert("Failed to delete"); }
+    } catch { toast.error("Failed to delete"); }
   }
 
   async function addN() {
@@ -279,7 +280,7 @@ export default function TeacherHub({ token, auth }) {
       localStorage.setItem("sc_teacher_hub_notes", JSON.stringify(stored));
       setNotes(stored);
       setNForm(emptyNForm());
-    } catch { alert("Failed to save note"); }
+    } catch { toast.error("Failed to save note"); }
     setSaving(false);
   }
 
@@ -292,7 +293,7 @@ export default function TeacherHub({ token, auth }) {
 
   // AI Generation from content
   async function generateFromAI() {
-    if (!aiText.trim() && !aiFile) { alert("Paste text or upload a file"); return; }
+    if (!aiText.trim() && !aiFile) { toast.warning("Paste text or upload a file"); return; }
     setAiGenerating(true);
     try {
       let text = aiText.trim();
@@ -316,9 +317,9 @@ export default function TeacherHub({ token, auth }) {
       setQuestions(prev => [...prev, ...generated]);
       setAiText("");
       setAiFile(null);
-      alert(`Generated ${generated.length} questions! Review them below.`);
+      toast.success(`Generated ${generated.length} questions! Review them below.`);
     } catch (e) {
-      alert(e.message || "AI generation failed");
+      toast.error(e.message || "AI generation failed");
     }
     setAiGenerating(false);
   }

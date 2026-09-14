@@ -3,8 +3,8 @@ import { X, ChevronRight, ChevronLeft, RotateCcw, Target, Flame, Zap } from "luc
 import QuestionCard from "./QuestionCard.jsx";
 import { useComboStreak } from "../lib/useComboStreak.js";
 import { STREAK_BONUS } from "../data.js";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 function getAuthHeaders() {
   try {

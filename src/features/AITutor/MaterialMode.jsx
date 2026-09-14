@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { extractTextFromFile } from "./fileExtract.js";
+import { toast } from "../../components/Toast";
 
 const STORAGE_KEY = "scholars-circle-saved-materials";
 
@@ -62,7 +63,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
 
   async function run(action) {
     if (!text.trim() && images.length === 0) {
-      alert("Please upload a file or paste text first.");
+      toast.warning("Please upload a file or paste text first.");
       return;
     }
     setBusy(action);
@@ -87,7 +88,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
         setOutput({ kind: "flash", text: result.text, parsed: result.parsed });
       }
     } catch (err) {
-      alert("AI request failed: " + err.message);
+      toast.error("AI request failed: " + err.message);
     } finally {
       setBusy(null);
     }
@@ -241,7 +242,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
                               explanation: q.explanation || ""
                             }));
                             onImportQuestions(subject.id, questions);
-                            alert(`✓ ${questions.length} questions added to ${subject.label}`);
+                            toast.success(`✓ ${questions.length} questions added to ${subject.label}`);
                           }}
                           style={{ ...smallBtn, marginTop: 0, padding: "4px 10px", fontSize: 11 }}
                         >
@@ -256,7 +257,7 @@ export function MaterialMode({ tutor, subject, onImportFlashcards, onImportQuest
                               front: c.front,
                               back: c.back
                             })));
-                            alert(`✓ ${item.data.length} flashcards added to ${subject.label}`);
+                            toast.success(`✓ ${item.data.length} flashcards added to ${subject.label}`);
                           }}
                           style={{ ...smallBtn, marginTop: 0, padding: "4px 10px", fontSize: 11 }}
                         >
@@ -358,7 +359,7 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave
               onClick={() => {
                 saveMaterial("mcq", output.parsed, subject);
                 onSave?.();
-                alert("✓ Saved to local storage");
+                toast.success("✓ Saved to local storage");
               }}
               style={{ ...smallBtn, background: "rgba(34,197,94,0.2)", borderColor: "rgba(34,197,94,0.4)" }}
             >
@@ -375,7 +376,7 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave
                     explanation: q.explanation || ""
                   }));
                   onImportQuestions(subject.id, questions);
-                  alert(`✓ ${questions.length} questions added to ${subject.label}`);
+                  toast.success(`✓ ${questions.length} questions added to ${subject.label}`);
                 }}
                 style={smallBtn}
               >
@@ -415,13 +416,13 @@ function Output({ output, subject, onImportFlashcards, onImportQuestions, onSave
         </div>
       );
     }
-    return <FlashcardViewer cards={output.parsed} subject={subject} onImport={onImportFlashcards} />;
+    return <FlashcardViewer cards={output.parsed} subject={subject} onImport={onImportFlashcards} onSave={onSave} />;
   }
 
   return null;
 }
 
-function FlashcardViewer({ cards, subject, onImport }) {
+function FlashcardViewer({ cards, subject, onImport, onSave }) {
   const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const card = cards[i];
@@ -437,7 +438,7 @@ function FlashcardViewer({ cards, subject, onImport }) {
               onClick={() => {
                 saveMaterial("flash", cards, subject);
                 onSave?.();
-                alert("✓ Saved to local storage");
+                toast.success("✓ Saved to local storage");
               }}
               style={{ ...smallBtn, background: "rgba(34,197,94,0.2)", borderColor: "rgba(34,197,94,0.4)" }}
             >
@@ -451,7 +452,7 @@ function FlashcardViewer({ cards, subject, onImport }) {
                     front: c.front,
                     back: c.back
                   })));
-                  alert(`✓ ${cards.length} flashcards added to ${subject.label}`);
+                  toast.success(`✓ ${cards.length} flashcards added to ${subject.label}`);
                 }}
                 style={smallBtn}
               >

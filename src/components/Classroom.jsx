@@ -4,6 +4,7 @@ import { LiveSessionsPanel } from "../features/LiveSessions/LiveSessionsPanel.js
 import { ClassroomAssignmentsPanel } from "../features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
 import { AttendancePanel } from "../features/LiveSessions/AttendancePanel.jsx";
 import { BulkImport, AIQuestionGen } from "./SmallComponents";
+import { API_BASE } from "../lib/constants";
 
 const TABS = [
   { id: "announcements", icon: "📢", label: "Announcements" },
@@ -40,7 +41,6 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
   const [showQuestionTools, setShowQuestionTools] = useState(false);
   const touchStartX = useRef(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);

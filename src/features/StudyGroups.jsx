@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import StudyGroupHub from "./study-group/StudyGroupHub.jsx";
+import { toast } from "../components/Toast";
 
 const STUDY_GROUPS_KEY = "sc_study_groups_v1";
 const GROUP_MEMBERS_KEY = "sc_group_members_v1";
@@ -73,14 +74,19 @@ function loadGroupQuizState() {
 }
 function saveGroupQuizState(data) { localStorage.setItem(GROUP_QUIZ_STATE_KEY, JSON.stringify(data)); }
 
-export function StudyGroups({ stats, username, subjects = [] }) {
-  const { token: authToken, user: authUser, isFaculty } = useAuth();
-  const [hubMode, setHubMode] = useState("local");
-  // Early return if critical props are missing
-  if (!stats) {
+// Wrapper keeps the loading guard out of the hook-bearing component so hook
+// order is stable across renders (fixes rules-of-hooks violation).
+export function StudyGroups(props) {
+  if (!props.stats) {
     console.error("StudyGroups: stats prop is missing");
     return <div className="card">Loading stats...</div>;
   }
+  return <StudyGroupsInner {...props} />;
+}
+
+function StudyGroupsInner({ stats, username, subjects = [] }) {
+  const { token: authToken, user: authUser, isFaculty } = useAuth();
+  const [hubMode, setHubMode] = useState("local");
 
   const [studyGroups, setStudyGroups] = useState(loadStudyGroups());
   const [groupMembers, setGroupMembers] = useState(loadGroupMembers());
@@ -678,13 +684,13 @@ export function StudyGroups({ stats, username, subjects = [] }) {
                 <p className="muted" style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   Code: <strong style={{ color: "#fbbf24", fontSize: 16 }}>{selectedGroup.joinCode}</strong>
                   <button
-                    onClick={() => { navigator.clipboard?.writeText(selectedGroup.joinCode).then(() => alert("Copied!")); }}
+                    onClick={() => { navigator.clipboard?.writeText(selectedGroup.joinCode).then(() => toast.success("Copied!")); }}
                     style={{ background: "#374151", color: "#FFD700", border: "1px solid #4b5563", padding: "2px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
                   >
                     📋 Copy
                   </button>
                   <button
-                    onClick={() => { const link = `${window.location.origin}${window.location.pathname}?join=${selectedGroup.joinCode}`; navigator.clipboard?.writeText(link).then(() => alert("Invite link copied!")); }}
+                    onClick={() => { const link = `${window.location.origin}${window.location.pathname}?join=${selectedGroup.joinCode}`; navigator.clipboard?.writeText(link).then(() => toast.success("Invite link copied!")); }}
                     style={{ background: "#374151", color: "#FFD700", border: "1px solid #4b5563", padding: "2px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
                   >
                     🔗 Link
@@ -1069,7 +1075,7 @@ export function StudyGroups({ stats, username, subjects = [] }) {
               {sortedMembers.map((member, index) => {
                 const isCurrentUser = member.username === username;
                 const rank = index + 1;
-                let rankIcon = "";
+                let rankIcon;
                 if (rank === 1) rankIcon = "🥇";
                 else if (rank === 2) rankIcon = "🥈";
                 else if (rank === 3) rankIcon = "🥉";

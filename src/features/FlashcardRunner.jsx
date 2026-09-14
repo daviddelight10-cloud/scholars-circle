@@ -1,11 +1,8 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { recordPracticeResult, getWeakSpotQuestions } from "../lib/studyHistory.js";
 import { callAI, extractJSON } from "../lib/aiClient.js";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://scholars-circle-production.up.railway.app";
 const LANES = 3;
 const CENTER_LANE = (LANES - 1) / 2;
 const START_LANE = Math.floor(CENTER_LANE);
@@ -297,7 +294,7 @@ export default function FlashcardRunner({
   const gameQuestions = useMemo(() => {
     const source = shortQuestions || rawParsed;
     if (!source.length) return [];
-    let sorted = source;
+    let sorted;
     if (resource?.id) {
       try {
         sorted = getWeakSpotQuestions(resource.id, source);
@@ -1517,7 +1514,6 @@ export default function FlashcardRunner({
   if (gameQuestions.length === 0) {
     return (
       <div style={{
-        minHeight: "100vh",
         minHeight: "100dvh",
         background: "#06080f",
         display: "flex",
@@ -1558,7 +1554,6 @@ export default function FlashcardRunner({
 
   return (
     <div style={{
-      minHeight: "100vh",
       minHeight: "100dvh",
       background: "#06080f",
       display: "flex",

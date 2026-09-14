@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { searchYouTube, fetchTranscript, fetchVideoDetails, getTranscriptWindow, formatTime } from "./youtubeApi.js";
 import { speak, stopSpeaking, SpeechRecognitionAPI } from "./voice.js";
 import MarkdownText from "../../components/MarkdownText.jsx";
+import { toast } from "../../components/Toast";
 
 // ─── YouTube IFrame Player loader (singleton) ────────────────────────────────
 let ytApiPromise = null;
@@ -383,7 +384,7 @@ Transcript: "${fullText}"`;
 
   function toggleListening() {
     if (!SpeechRecognitionAPI) {
-      alert("Speech recognition not supported in this browser. Try Chrome or Edge.");
+      toast.error("Speech recognition not supported in this browser. Try Chrome or Edge.");
       return;
     }
     if (listening) {

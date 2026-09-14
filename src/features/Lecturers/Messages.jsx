@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { lecturersApi } from "./api.js";
+import { toast } from "../../components/Toast";
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(
@@ -65,7 +66,7 @@ export function Messages({ token, currentUser, initialPartner, onBack }) {
       setThread((t) => [...t, msg]);
       setDraft("");
     } catch (e) {
-      alert("Failed to send: " + e.message);
+      toast.error("Failed to send: " + e.message);
     } finally {
       setSending(false);
     }

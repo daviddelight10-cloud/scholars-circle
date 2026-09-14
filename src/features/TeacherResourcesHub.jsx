@@ -5,8 +5,8 @@ import { getDepartments } from "../lib/departments.js";
 import { getMyProfile } from "../lib/profileApi.js";
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, getPendingResources } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 export default function TeacherResourcesHub({ onBack } = {}) {
   const navigate = useNavigate();

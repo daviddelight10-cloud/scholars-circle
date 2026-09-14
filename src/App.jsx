@@ -1,4 +1,5 @@
-﻿import { useEffect, useMemo, useState, useRef, useCallback, lazy, Suspense } from "react";
+﻿import { useEffect, useMemo, useState, useRef, useCallback, Suspense } from "react";
+import { useModalA11y } from "./hooks/useModalA11y";
 import { createPortal } from "react-dom";
 import { lazyWithRetry } from "./lib/lazyWithRetry.js";
 
@@ -26,6 +27,7 @@ import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPL
 
 
 import { supabase } from "./lib/supabaseClient.js";
+import { createClient } from "@supabase/supabase-js";
 
 
 
@@ -821,6 +823,12 @@ function App() {
 
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  const paymentModalA11y = useModalA11y({
+    isOpen: showPaymentModal,
+    onClose: () => setShowPaymentModal(false),
+    label: "Upgrade to Premium",
+  });
 
   const [selectedPlan, setSelectedPlan] = useState(null);
 
@@ -1851,7 +1859,7 @@ function App() {
 
     }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [demoMode, demoUsage.trialStartDate]);
 
 
@@ -2415,7 +2423,6 @@ function App() {
 
 
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   }, [auth.user?.id]);
 
@@ -4279,7 +4286,6 @@ function App() {
 
     };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   }, [auth.user?.id, auth.user?.isActivated]);
 
@@ -4367,7 +4373,6 @@ function App() {
 
     };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   }, [token, auth.user?.id, demoMode]);
 
@@ -7706,13 +7711,13 @@ function App() {
 
       {showPaymentModal && (
         <div className="modal-overlay" onClick={() => setShowPaymentModal(false)} style={{ zIndex: 10001 }}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, padding: 0 }}>
+          <div ref={paymentModalA11y.focusRef} {...paymentModalA11y.modalProps} className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, padding: 0 }}>
             {/* Compact header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 16, fontWeight: 700 }}>
                 <span>⭐</span> Upgrade
               </div>
-              <button onClick={() => setShowPaymentModal(false)} style={{ background: "none", border: "none", color: "#7b82b8", fontSize: 20, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+              <button onClick={() => setShowPaymentModal(false)} aria-label="Close dialog" style={{ background: "none", border: "none", color: "#7b82b8", fontSize: 20, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: "16px 20px" }}>
               {/* Plan picker — horizontal row */}
@@ -7802,7 +7807,7 @@ function App() {
                             onCancel: () => {},
                           });
                         } catch (err) {
-                          alert(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
+                          toast.error(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
                         }
                       }}
                       style={{
@@ -7855,7 +7860,7 @@ function App() {
 
         <div className="modal-overlay" style={{ zIndex: 10000 }}>
 
-          <div className="modal-box" style={{ maxWidth: 500, textAlign: "center", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
+          <div role="dialog" aria-modal="true" aria-label="Daily time limit reached" className="modal-box" style={{ maxWidth: 500, textAlign: "center", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
 
             <div style={{ fontSize: 64, marginBottom: 16 }}>📱</div>
 
@@ -8073,7 +8078,7 @@ function App() {
 
         <div className="modal-overlay" style={{ zIndex: 9999 }}>
 
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{
+          <div role="dialog" aria-modal="true" aria-label="Important announcement" className="modal-content" onClick={(e) => e.stopPropagation()} style={{
 
             maxWidth: 500,
 
@@ -8722,7 +8727,7 @@ function App() {
 
       <aside className={`app-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
 
-        <button className="app-sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)}>
+        <button className="app-sidebar-toggle" onClick={() => setSidebarCollapsed(v => !v)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
 
           <ChevronLeft size={18} />
 

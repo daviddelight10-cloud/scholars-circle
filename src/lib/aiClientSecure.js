@@ -1,9 +1,9 @@
+import { API_BASE } from "./constants";
 /**
  * Secure AI Client - Uses backend proxy to keep API keys server-side
  * This replaces direct AI API calls with proxied requests
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
 /**
  * Call AI through secure backend proxy

@@ -3,8 +3,8 @@ import { Flame, Zap } from "lucide-react";
 import { useComboStreak } from "../lib/useComboStreak.js";
 import { STREAK_BONUS } from "../data.js";
 import { getSubjectColor } from "./research-hub/subjectColors.js";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 const XP_PER_CORRECT = 20;
 const BASE_LEVEL_BONUS = 100;

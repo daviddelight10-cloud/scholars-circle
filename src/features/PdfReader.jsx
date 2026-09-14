@@ -12,11 +12,11 @@ import {
   recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
   getMastery, recordPracticeSession, getMasteryColor, getMasteryEmoji,
 } from "../lib/studyHistory.js";
+import { API_BASE } from "../lib/constants";
 import { copyShareToken } from "../lib/researchUtils.js";
 
 const VOICE_OPTIONS = ["Aoede", "Puck", "Charon", "Kore", "Fenrir"];
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -1229,7 +1229,7 @@ ${text}
 
       const options = {};
       for (const line of lines) {
-        const m = line.match(/^([A-D])[\.\):]\s*(.+)/);
+        const m = line.match(/^([A-D])[.):]\s*(.+)/);
         if (m) options[m[1]] = m[2].trim();
       }
       if (Object.keys(options).length < 2) continue;
@@ -4156,7 +4156,7 @@ ${extractedText}
             {/* Mobile single-row toolbar */}
             <div style={s.toolbarRow}>
               {onBack && (
-                <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0, marginRight: 2 }} onClick={onBack} title="Back">
+                <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0, marginRight: 2 }} onClick={onBack} title="Back" aria-label="Back">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
                 </button>
               )}
@@ -4172,6 +4172,7 @@ ${extractedText}
                 }}
                 onClick={() => { setAnnotatePopOpen((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}
                 title="Annotate"
+                aria-label="Annotate"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
               </button>
@@ -4185,6 +4186,7 @@ ${extractedText}
                 }}
                 onClick={() => { toggleTool("circle"); setAnnotatePopOpen(false); }}
                 title="Circle to Ask AI"
+                aria-label="Circle to Ask AI"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
               </button>
@@ -4198,6 +4200,7 @@ ${extractedText}
                 }}
                 onClick={() => { setShowOverflow((v) => !v); setOverflowBackdropOpen((v) => !v); setAnnotatePopOpen(false); }}
                 title="More"
+                aria-label="More options"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
               </button>
@@ -4244,8 +4247,7 @@ ${extractedText}
                           boxShadow: penColor === c.value ? `0 0 0 2px ${T.toolbar}, 0 0 0 4px ${CHROME.blue}` : "none",
                         }}
                         onClick={() => setPenColor(c.value)}
-                        title={c.name}
-                      />
+                        title={c.name} aria-label={c.name} />
                     ))}
                   </div>
                   <div style={s.popRowLabel}>Stroke</div>
@@ -4426,7 +4428,7 @@ ${extractedText}
           /* Desktop: single row */
           <div style={s.toolbarRow}>
             {onBack && (
-              <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0 }} onClick={onBack} title="Back">
+              <button style={{ ...s.iconBtn, color: T.muted, flexShrink: 0 }} onClick={onBack} title="Back" aria-label="Back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
               </button>
             )}
@@ -4438,6 +4440,7 @@ ${extractedText}
             style={{ ...s.iconBtn, color: tool === "highlight" ? T.accent : T.muted, background: tool === "highlight" ? T.hover : "none" }}
             onClick={() => { toggleTool("highlight"); setShowColorPicker((v) => !v); }}
             title="Highlight"
+            aria-label="Highlight"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4M9 11l3 3"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/><path d="M3 18h6l-3 3z" fill="currentColor"/></svg>
           </button>
@@ -4456,6 +4459,7 @@ ${extractedText}
                 style={{ ...s.iconBtn, width: 28, height: 28, color: T.muted }}
                 onClick={clearPageAnnotations}
                 title="Clear page highlights"
+                aria-label="Clear page highlights"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
               </button>
@@ -4468,6 +4472,7 @@ ${extractedText}
           style={{ ...s.iconBtn, color: tool === "erase" ? T.accent : T.muted, background: tool === "erase" ? T.hover : "none" }}
           onClick={() => toggleTool("erase")}
           title="Eraser"
+          aria-label="Eraser"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/><path d="M18 13L8 3"/></svg>
         </button>
@@ -4484,7 +4489,7 @@ ${extractedText}
         <div style={s.sep} />
 
         {/* Page nav */}
-        <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} title="Previous page">
+        <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} title="Previous page" aria-label="Previous page">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         <span style={s.pageIndicator}>{numPages ? `${currentPage} / ${numPages}` : "– / –"}</span>
@@ -4499,18 +4504,18 @@ ${extractedText}
             if (!isNaN(v)) goToPage(v);
           }}
         />
-        <button style={{ ...s.iconBtn, opacity: currentPage === numPages ? 0.35 : 1 }} onClick={() => goToPage(currentPage + 1)} disabled={currentPage === numPages} title="Next page">
+        <button style={{ ...s.iconBtn, opacity: currentPage === numPages ? 0.35 : 1 }} onClick={() => goToPage(currentPage + 1)} disabled={currentPage === numPages} title="Next page" aria-label="Next page">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6"/></svg>
         </button>
 
         <div style={s.sep} />
 
         {/* Zoom */}
-        <button style={s.iconBtn} onClick={handleZoomOut} title="Zoom out">
+        <button style={s.iconBtn} onClick={handleZoomOut} title="Zoom out" aria-label="Zoom out">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M8 11h6"/></svg>
         </button>
         <span style={s.zoomLabel}>{Math.round(scale * 100)}%</span>
-        <button style={s.iconBtn} onClick={handleZoomIn} title="Zoom in">
+        <button style={s.iconBtn} onClick={handleZoomIn} title="Zoom in" aria-label="Zoom in">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5M11 8v6M8 11h6"/></svg>
         </button>
 
@@ -4687,6 +4692,7 @@ ${extractedText}
               style={s.iconBtn}
               onClick={exportAnnotations}
               title="Export notes (highlights + bookmarks)"
+              aria-label="Export notes"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             </button>
@@ -4696,6 +4702,7 @@ ${extractedText}
               style={s.iconBtn}
               onClick={() => setShowStats(true)}
               title="Reading stats"
+              aria-label="Reading stats"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
             </button>
@@ -5152,11 +5159,11 @@ ${extractedText}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
                 <span style={s.navDivider} />
-                <button style={s.navBtn} onClick={handleZoomOut} title="Zoom out">
+                <button style={s.navBtn} onClick={handleZoomOut} title="Zoom out" aria-label="Zoom out">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
                 </button>
                 <span style={s.zoomChip}>{Math.round(scale * 100)}%</span>
-                <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in">
+                <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in" aria-label="Zoom in">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                 </button>
                 <span style={s.navDivider} />

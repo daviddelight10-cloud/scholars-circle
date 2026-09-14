@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { detectFileType, detectFileTypeSync } from "./detectMimeType";
+import { API_BASE } from "./constants";
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 
@@ -23,7 +24,6 @@ async function ensureScript(src, windowKey) {
   await _scriptPromises[src];
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 function getAuthToken() {
   try {

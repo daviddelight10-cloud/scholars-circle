@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { extractTextFromFile } from "../features/AITutor/fileExtract.js";
 import { extractJSON } from "../lib/aiClient.js";
+import { API_BASE } from "../lib/constants";
 
 const DRAFT_KEY = "sc_teacher_drafts_v1";
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 const inp = {
   width: "100%",

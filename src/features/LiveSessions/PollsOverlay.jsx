@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE } from "../../lib/constants";
+import { toast } from "../../components/Toast";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 async function pollsApi(path, { method = "GET", token, body } = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -137,7 +138,7 @@ function CreatePollForm({ sessionId, token, onCreated }) {
       setOptions(["", ""]);
       onCreated?.();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setBusy(false);
     }
@@ -201,7 +202,7 @@ function PollCard({ poll, isHost, token, onChange }) {
       await pollsApi(`/polls/${poll.id}/vote`, { method: "POST", token, body: { optionIndex: idx } });
       await loadResults();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setBusy(false);
     }
@@ -213,7 +214,7 @@ function PollCard({ poll, isHost, token, onChange }) {
       await pollsApi(`/polls/${poll.id}/end`, { method: "POST", token });
       onChange?.();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     }
   }
 

@@ -7,8 +7,8 @@ import { callAI } from "../lib/aiClient.js";
 import { recordPracticeResult, getWeakSpotQuestions } from "../lib/studyHistory.js";
 import McqSurvivalRunner from "./McqSurvivalRunner.jsx";
 import McqCascadeRunner from "./McqCascadeRunner.jsx";
+import { API_BASE } from "../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const XP_PER_CORRECT = 20;
 
 function shuffleArray(arr) {
@@ -56,10 +56,13 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function McqQuizRunner({ resource, shareToken, sessionConfig, onBack, onQuizComplete, switchMode, onStreakUpdate, onXpUpdate }) {
-  const isMobile = useIsMobile();
+// Wrapper routes survival/cascade to their dedicated runners before the
+// hook-bearing quiz body mounts, so hook order is stable across renders
+// (fixes rules-of-hooks violation).
+export default function McqQuizRunner(props) {
+  const { resource, sessionConfig } = props;
   const rawQuestions = useMemo(() => {
-    const raw = resource.mcqData;
+    const raw = resource?.mcqData;
     if (!raw) return [];
     if (Array.isArray(raw)) return raw;
     if (typeof raw === "string") {
@@ -73,12 +76,12 @@ export default function McqQuizRunner({ resource, shareToken, sessionConfig, onB
     return (
       <McqSurvivalRunner
         resource={resource}
-        shareToken={shareToken}
+        shareToken={props.shareToken}
         questions={rawQuestions}
-        onBack={onBack}
-        onQuizComplete={onQuizComplete}
-        onStreakUpdate={onStreakUpdate}
-        onXpUpdate={onXpUpdate}
+        onBack={props.onBack}
+        onQuizComplete={props.onQuizComplete}
+        onStreakUpdate={props.onStreakUpdate}
+        onXpUpdate={props.onXpUpdate}
       />
     );
   }
@@ -88,15 +91,30 @@ export default function McqQuizRunner({ resource, shareToken, sessionConfig, onB
     return (
       <McqCascadeRunner
         resource={resource}
-        shareToken={shareToken}
+        shareToken={props.shareToken}
         questions={rawQuestions}
-        onBack={onBack}
-        onQuizComplete={onQuizComplete}
-        onStreakUpdate={onStreakUpdate}
-        onXpUpdate={onXpUpdate}
+        onBack={props.onBack}
+        onQuizComplete={props.onQuizComplete}
+        onStreakUpdate={props.onStreakUpdate}
+        onXpUpdate={props.onXpUpdate}
       />
     );
   }
+
+  return <McqQuizRunnerBody {...props} />;
+}
+
+function McqQuizRunnerBody({ resource, shareToken, sessionConfig, onBack, onQuizComplete, switchMode, onStreakUpdate, onXpUpdate }) {
+  const isMobile = useIsMobile();
+  const rawQuestions = useMemo(() => {
+    const raw = resource.mcqData;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === "string") {
+      try { return JSON.parse(raw); } catch { return []; }
+    }
+    return [];
+  }, [resource]);
 
   const [shuffledQuestions, setShuffledQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -908,6 +926,7 @@ export default function McqQuizRunner({ resource, shareToken, sessionConfig, onB
                 </div>
                 <button
                   onClick={handleFlag}
+                  aria-label={isFlagged ? "Remove flag from question" : "Flag question for review"}
                   style={{
                     flexShrink: 0, width: 34, height: 34, borderRadius: 10,
                     display: "flex", alignItems: "center", justifyContent: "center",

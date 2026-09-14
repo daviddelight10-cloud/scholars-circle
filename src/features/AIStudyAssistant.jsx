@@ -3,6 +3,7 @@ import { callAI, callAIMultimodal, extractJSON as extractJSONShared } from "../l
 import { chunkText } from "../lib/extractFileText";
 import { jsPDF } from "jspdf";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { API_BASE } from "../lib/constants";
 
 const STORE_KEY = "sc_ai_study_assistant_v1";
 const SUBJECTS_KEY = "sc_custom_subjects_v1";
@@ -74,7 +75,6 @@ export function AIStudyAssistant({ subjects, onImportQuestions, demoMode, demoUs
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [aiUsage, setAiUsage] = useState(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || "https://scholars-circle-production.up.railway.app";
 
   useEffect(() => {
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");

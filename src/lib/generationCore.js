@@ -106,13 +106,13 @@ export function countExistingMcqs(text) {
   if (!text || text.trim().length < 100) return 0;
 
   // Count option-marker lines: A), B., (C), D:, a), (a), a. etc.
-  const optionMarkerRe = /^\s*\(?[A-Da-d][\)\.:)]\s+\S/gm;
+  const optionMarkerRe = /^\s*\(?[A-Da-d][).:]\s+\S/gm;
   const optionMatches = text.match(optionMarkerRe) || [];
   const optionGroups = Math.floor(optionMatches.length / 4);
 
   // Count numbered question stems: "1.", "1)", "Q1.", "Question 1:", etc.
   // Broader: any numbered line that looks like a question (with or without ?)
-  const questionStemRe = /^\s*(?:\d+[\)\.:)]\s+\S|Q\d+[\)\.:)]?\s+\S|Question\s*\d+[\)\.:)]?\s+\S)/gim;
+  const questionStemRe = /^\s*(?:\d+[).:]\s+\S|Q\d+[).:]?\s+\S|Question\s*\d+[).:]?\s+\S)/gim;
   const questionStems = text.match(questionStemRe) || [];
 
   // Also count lines ending with ? as potential questions

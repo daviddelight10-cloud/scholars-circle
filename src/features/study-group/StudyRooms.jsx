@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { API_BASE } from "../../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 export default function StudyRooms({ classroomId, token, currentUser }) {
   const [rooms, setRooms] = useState([]);

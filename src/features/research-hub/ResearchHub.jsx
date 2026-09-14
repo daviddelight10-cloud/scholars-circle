@@ -30,7 +30,6 @@ import McqFolderRunner from "../McqFolderRunner.jsx";
 import { useMaterialGenerate } from "./useMaterialGenerate.js";
 import "../../research-hub.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const CACHE_TTL = 5 * 60 * 1000;
 
 const communityTabs = [
@@ -1602,3 +1601,5 @@ function FabAction({ icon, label, subtitle, onClick }) {
     </div>
   );
 }
+
+import { API_BASE } from "../../lib/constants";

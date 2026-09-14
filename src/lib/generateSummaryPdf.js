@@ -20,7 +20,7 @@ const PAGE = {
 export function generateSummaryPdf(title, subject, summaryText) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const contentWidth = PAGE.width - PAGE.marginX * 2;
-  let y = PAGE.marginTop;
+  let y;
 
   // ── Header band ──
   doc.setFillColor(20, 20, 28);

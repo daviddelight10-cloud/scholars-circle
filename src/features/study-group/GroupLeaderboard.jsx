@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { API_BASE } from "../../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const SORT_OPTIONS = [
   { value: "xp", label: "Weekly XP", emoji: "⚡" },
   { value: "streak", label: "Streak", emoji: "🔥" },

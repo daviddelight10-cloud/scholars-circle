@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { assignmentsApi } from "./api.js";
+import { API_BASE } from "../../lib/constants";
+import { toast } from "../../components/Toast";
 
 export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, token }) {
   const [view, setView] = useState("list"); // list | detail | gradebook
@@ -20,7 +22,7 @@ export function ClassroomAssignmentsPanel({ classroomId, isHost, currentUser, to
     }
   }
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [classroomId]);
+  useEffect(() => { load(); }, [classroomId]);
 
   if (view === "detail" && selected) {
     return (
@@ -135,7 +137,7 @@ function CreateAssignmentForm({ classroomId, token, onCreated }) {
       }, token);
       onCreated?.();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setBusy(false);
     }
@@ -181,12 +183,12 @@ function AssignmentDetail({ assignmentId, token, currentUser, onBack }) {
       const d = await assignmentsApi.get(assignmentId, token);
       setData(d);
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setLoading(false);
     }
   }
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [assignmentId]);
+  useEffect(() => { load(); }, [assignmentId]);
 
   if (loading || !data) return <div className="cr-glass" style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading…</div>;
 
@@ -231,11 +233,11 @@ function SubmissionForm({ assignment, mySubmission, token, onSubmitted }) {
     setBusy(true);
     try {
       await assignmentsApi.submit(assignment.id, { content, file }, token);
-      alert("Submitted!");
+      toast.success("Submitted!");
       setFile(null);
       onSubmitted?.();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setBusy(false);
     }
@@ -295,7 +297,7 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
       setExpanded(false);
       onGraded?.();
     } catch (e) {
-      alert("Failed: " + e.message);
+      toast.error("Failed: " + e.message);
     } finally {
       setBusy(false);
     }
@@ -334,13 +336,13 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
           {submission.fileUrl && (
             <div style={{ marginBottom: 12 }}>
               <a
-                href={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000"}/classroom-assignments/submissions/${submission.id}/download`}
+                href={`${API_BASE}/classroom-assignments/submissions/${submission.id}/download`}
                 target="_blank"
                 rel="noreferrer"
                 onClick={async (e) => {
                   e.preventDefault();
                   try {
-                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:4000"}/classroom-assignments/submissions/${submission.id}/download`, {
+                    const res = await fetch(`${API_BASE}/classroom-assignments/submissions/${submission.id}/download`, {
                       headers: { Authorization: `Bearer ${token}` }
                     });
                     const blob = await res.blob();
@@ -351,7 +353,7 @@ function SubmissionRow({ submission, maxPoints, token, onGraded }) {
                     link.click();
                     URL.revokeObjectURL(url);
                   } catch (err) {
-                    alert("Download failed: " + err.message);
+                    toast.error("Download failed: " + err.message);
                   }
                 }}
                 style={{ color: "#FFD700", fontSize: 12 }}
@@ -388,7 +390,7 @@ function Gradebook({ classroomId, token, onBack }) {
     setLoading(true);
     assignmentsApi.gradebook(classroomId, token)
       .then(setData)
-      .catch((e) => alert("Failed: " + e.message))
+      .catch((e) => toast.error("Failed: " + e.message))
       .finally(() => setLoading(false));
   }, [classroomId, token]);
 

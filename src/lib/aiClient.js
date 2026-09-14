@@ -307,14 +307,15 @@ export function extractJSON(raw, kind = "object") {
       let fixed = jsonStr;
       
       // Remove trailing commas before ] or }
-      fixed = fixed.replace(/,\s*([\]\}])/g, '$1');
-      
+      fixed = fixed.replace(/,\s*([\]}])/g, '$1');
+
       // Remove control characters that break JSON.parse
+      // eslint-disable-next-line no-control-regex -- intentionally matching control chars to strip them
       fixed = fixed.replace(/[\x00-\x1f]/g, ch => ch === '\n' || ch === '\t' || ch === '\r' ? ch : ' ');
-      
+
       // Try to close truncated arrays/objects (AI hit token limit)
-      const openBrackets = (fixed.match(/[\[{]/g) || []).length;
-      const closeBrackets = (fixed.match(/[\]}]/g) || []).length;
+      const openBrackets = (fixed.match(/[{[]/g) || []).length;
+      const closeBrackets = (fixed.match(/[}\]]/g) || []).length;
       if (openBrackets > closeBrackets) {
         const diff = openBrackets - closeBrackets;
         // Find the last valid element and close properly

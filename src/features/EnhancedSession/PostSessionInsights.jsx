@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { callAI } from "../../lib/aiClient";
 import { generateTipsPrompt } from "./SmartEngine";
+import { toast } from "../../components/Toast";
 
 /**
  * Beautiful post-session insights with:
@@ -341,7 +342,7 @@ export default function PostSessionInsights({ analytics, session, results, quest
           onClick={() => {
             const text = `📊 ${session.source?.label || "Practice"} Results\n🏆 Score: ${pct}% (${analytics.score}/${analytics.total})\n🔥 Streak: ${analytics.longestStreak}\n⏱️ Time: ${Math.floor(analytics.duration / 60)}m\n\n— Scholar's Circle`;
             if (navigator.share) navigator.share({ title: "My Results", text });
-            else navigator.clipboard?.writeText(text).then(() => alert("Copied!"));
+            else navigator.clipboard?.writeText(text).then(() => toast.success("Copied!"));
           }}
           style={{
             background: "rgba(255, 215, 0, 0.2)", border: "1px solid rgba(255, 215, 0, 0.3)",

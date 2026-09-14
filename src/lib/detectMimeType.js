@@ -24,7 +24,7 @@ export async function detectFileType(file) {
   else if (mime === "application/msword") result = "doc";
   else {
     // Read first 12 bytes for magic number detection
-    let header = null;
+    let header;
     try {
       const slice = file.slice(0, 12);
       const buf = await slice.arrayBuffer();

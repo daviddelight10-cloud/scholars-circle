@@ -3,6 +3,7 @@ import { DISCIPLINES } from "./AITutor/disciplines.js";
 import { getUniversities, getUniversityDepartments, FALLBACK_UNIVERSITIES } from "../lib/universities.js";
 import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
 import UniversitySelect from "../components/UniversitySelect.jsx";
+import { API_BASE } from "../lib/constants";
 
 const PROFILE_KEY = "sc_student_profile_v1";
 
@@ -368,7 +369,6 @@ export function StudentProfile({ profile, onSave, authUser, onUsernameChange }) 
                   setUsernameError("");
                   try {
                     const token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken;
-                    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
                     const res = await fetch(`${API_BASE}/auth/username`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import PaystackPop from "@paystack/inline-js";
+import { toast } from "../components/Toast";
 
 const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_2c321f6a4471b672ee716506912ede6f6f99d8cd";
 const OPAY_ACCOUNT = "9069372522";
@@ -92,7 +93,7 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onC
       });
     } catch (err) {
       console.error("Paystack error:", err);
-      alert(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
+      toast.error(`Payment error: ${err.message || "Unknown error"}. Please refresh and try again.`);
     }
   }
 

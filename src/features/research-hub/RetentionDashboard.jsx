@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { API_BASE } from "../../lib/constants";
 
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 
 function getAuthHeaders() {
   try {

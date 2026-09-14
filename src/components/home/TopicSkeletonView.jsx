@@ -294,24 +294,6 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
     }
   }
 
-  async function handleCorroborate(topicId) {
-    try {
-      await corroborateTopic(topicId);
-      loadData(selectedCourse);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  async function handleDispute(topicId) {
-    try {
-      await disputeTopic(topicId);
-      loadData(selectedCourse);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: D.ink, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header */}

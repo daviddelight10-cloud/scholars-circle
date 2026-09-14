@@ -182,7 +182,7 @@ function splitOversizedParagraph(para, maxChars) {
   if (numberedSplit.length > 1) return reassemblePieces(numberedSplit, maxChars, "\n");
 
   // Try splitting on bulleted list items: "- ", "* ", "• "
-  const bulletedSplit = para.split(/\n(?=[•\-\*]\s)/);
+  const bulletedSplit = para.split(/\n(?=[•*-]\s)/);
   if (bulletedSplit.length > 1) return reassemblePieces(bulletedSplit, maxChars, "\n");
 
   // Try splitting on lettered list items: "a. ", "B) ", etc.

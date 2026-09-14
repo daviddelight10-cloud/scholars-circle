@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000";
+import { API_BASE } from "../../lib/constants";
 
 function masteryLevel(pct) {
   if (pct >= 81) return { label: "Mastered", color: "#10b981", bg: "#0f2a1a" };
@@ -21,7 +20,7 @@ export default function TopicScreen({ subject, mastery, onClose, onStartPractice
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${BASE}/api/topics?subjectId=${subject.id}`);
+        const res = await fetch(`${API_BASE}/api/topics?subjectId=${subject.id}`);
         if (res.ok) {
           const data = await res.json();
           setTopics(data);

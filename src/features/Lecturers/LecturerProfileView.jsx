@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { lecturersApi } from "./api.js";
+import { toast } from "../../components/Toast";
 
 export function LecturerProfileView({ lecturerId, token, onBack, onMessage, currentUser }) {
   const [lecturer, setLecturer] = useState(null);
@@ -58,7 +59,7 @@ export function LecturerProfileView({ lecturerId, token, onBack, onMessage, curr
       const refreshed = await lecturersApi.get(lecturerId, token);
       setLecturer(refreshed);
     } catch (e) {
-      alert("Failed to rate: " + e.message);
+      toast.error("Failed to rate: " + e.message);
     }
   }
 

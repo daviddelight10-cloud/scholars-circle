@@ -4,6 +4,11 @@ import { VitePWA } from "vite-plugin-pwa";
 import blogPlugin from "./src/blog/blogPlugin.js";
 
 export default defineConfig({
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: "./src/test/setup.js",
+  },
   build: {
     chunkSizeWarningLimit: 600,
     rollupOptions: {
