@@ -1593,7 +1593,7 @@ function App() {
 
               provider: saved.provider,
 
-              model: saved.model,
+              model: saved.model === "google/gemini-2.5-flash" ? "z-ai/glm-5.3-flash" : saved.model,
 
               apiKey: saved.apiKey ?? "",
 

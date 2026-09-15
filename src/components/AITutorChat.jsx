@@ -86,7 +86,8 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
           }
           responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response.";
         } else {
-          const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          const isOpenRouter = aiConfig.provider === "openrouter";
+          const res = await fetch(isOpenRouter ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
