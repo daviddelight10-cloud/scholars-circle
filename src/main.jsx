@@ -12,6 +12,9 @@ import "./styles.css";
 // Stale SW chunk recovery — global error listeners + lazyWithRetry wrapper
 import "./lib/lazyWithRetry.js";
 
+// Quota-safe localStorage — auto-evicts re-fetchable caches when storage is full
+import "./lib/safeStorage.js";
+
 // ── Disable pinch-zoom and double-tap-zoom app-wide ──────────────────────────
 // Allows zoom inside elements with the .zoom-allowed class (e.g. document viewers)
 function isInsideZoomAllowed(el) {
