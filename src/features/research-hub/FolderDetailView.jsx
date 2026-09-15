@@ -282,9 +282,13 @@ export default function FolderDetailView({
           </div>
         )}
 
-        {/* Topics roadmap */}
-        {tab === "topics" && folderDetail?.courseCode && (
-          <div className="mt-4 px-5 md:px-8 lg:px-12">
+        {/* Topics roadmap — stays mounted (hidden) so tab switches don't refetch */}
+        {showTopicsTab && folderDetail?.courseCode && (
+          <div
+            className="mt-4 px-5 md:px-8 lg:px-12"
+            style={{ display: tab === "topics" ? undefined : "none" }}
+            aria-hidden={tab !== "topics"}
+          >
             {folderLoading ? (
               <LoadingState grid count={4} />
             ) : (

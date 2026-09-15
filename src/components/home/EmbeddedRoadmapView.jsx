@@ -17,6 +17,24 @@ import {
 
 const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
 
+const ROADMAP_CACHE_TTL = 30 * 60 * 1000; // 30 min — files use the same pattern
+const roadmapCacheKey = (courseCode) => `sc_roadmap_${courseCode}`;
+
+function readRoadmapCache(courseCode) {
+  try {
+    const raw = localStorage.getItem(roadmapCacheKey(courseCode));
+    if (raw) {
+      const { data, ts } = JSON.parse(raw);
+      if (Date.now() - ts < ROADMAP_CACHE_TTL) return data;
+    }
+  } catch {}
+  return null;
+}
+
+function writeRoadmapCache(courseCode, data) {
+  try { localStorage.setItem(roadmapCacheKey(courseCode), JSON.stringify({ data, ts: Date.now() })); } catch {}
+}
+
 export default function EmbeddedRoadmapView({
   courseCode,
   folderId,
@@ -47,9 +65,19 @@ export default function EmbeddedRoadmapView({
   const listRef = useRef(null);
   const dragStateRef = useRef(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async ({ silent = false } = {}) => {
     if (!courseCode) { setLoading(false); return; }
-    setLoading(true);
+    if (!silent) {
+      // Render cached topics instantly — refresh in the background like files do
+      const cached = readRoadmapCache(courseCode);
+      if (cached) {
+        setTopics(cached.topics || []);
+        setProgress(cached.progress ?? null);
+        setMatches(cached.matches || []);
+      } else {
+        setLoading(true);
+      }
+    }
     setError("");
     try {
       const t = await fetchSkeleton(courseCode);
@@ -61,15 +89,14 @@ export default function EmbeddedRoadmapView({
         ]);
         setProgress(prog);
         setMatches(mtch);
+        writeRoadmapCache(courseCode, { topics: t, progress: prog, matches: mtch });
       } else {
         setProgress(null);
         setMatches([]);
+        writeRoadmapCache(courseCode, { topics: [], progress: null, matches: [] });
       }
     } catch (err) {
-      setError(err.message);
-      setTopics([]);
-      setProgress(null);
-      setMatches([]);
+      if (!silent) setError(err.message);
     } finally {
       setLoading(false);
     }
