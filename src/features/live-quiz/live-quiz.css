@@ -23,7 +23,7 @@
 @keyframes lq-float-up { 0% { opacity: 0; transform: translateY(0) scale(0.5); } 20% { opacity: 1; transform: translateY(-20px) scale(1.2); } 100% { opacity: 0; transform: translateY(-250px) scale(1); } }
 
 /* Header */
-.lq-header { position: absolute; top: 0; left: 0; right: 0; padding: max(12px, env(safe-area-inset-top)) 16px 10px; background: #0A0C10; z-index: 12; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.lq-header { position: absolute; top: 0; left: 0; right: 0; padding: max(12px, env(safe-area-inset-top)) 16px 0; background: #0A0C10; z-index: 12; }
 .lq-header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .lq-icon-btn { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #9CA3AF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: all 0.2s ease; }
 .lq-icon-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
@@ -34,8 +34,17 @@
 .lq-live-badge { display: flex; align-items: center; gap: 5px; background: rgba(255,107,94,0.12); color: #FF6B5E; font-size: 10px; font-weight: 700; padding: 6px 10px; border-radius: 8px; }
 .lq-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #FF6B5E; animation: lq-pulse-dot 1.5s infinite; }
 
-/* Avatars */
-.lq-avatar-row { display: flex; gap: 14px; justify-content: flex-start; }
+/* Avatars — strip under the header on mobile, left rail on desktop */
+.lq-avatar-row {
+  position: absolute;
+  top: calc(46px + max(12px, env(safe-area-inset-top)));
+  left: 0; right: 0;
+  display: flex; gap: 14px; justify-content: flex-start;
+  padding: 2px 16px 10px;
+  background: #0A0C10;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  z-index: 11;
+}
 .lq-avatar-wrap { position: relative; width: 40px; height: 40px; margin: 0 auto; }
 .lq-avatar { width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; border: 2px solid transparent; transition: all 0.3s ease; }
 .lq-avatar.speaking { border-color: #3DD68C; box-shadow: 0 0 12px rgba(61,214,140,0.5); }
@@ -195,54 +204,53 @@
 /* Poll overlay */
 .lq-poll-overlay { position: absolute; bottom: 84px; left: 0; right: 0; background: rgba(18,22,31,0.98); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.08); padding: 20px; z-index: 13; display: flex; flex-direction: column; gap: 10px; margin: 0 12px; border-radius: 16px 16px 0 0; }
 
-/* ── Small laptop / tablet landscape: widen the stage a bit ── */
+/* ── Small laptop / tablet landscape ── */
 @media (min-width: 769px) and (max-width: 1023px) {
-  .lq-app { max-width: 680px; }
+  .lq-app { max-width: none; }
   .lq-options, .lq-reveal-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
   .lq-q-text { font-size: 21px; }
+  .lq-view { max-width: 720px; margin: 0 auto; width: 100%; }
 }
 
 /* ── Desktop / laptop layout ──
-   Stage: participants rail left · content column center · chat rail right */
+   Full-bleed stage: participants rail left · content column center · chat rail right */
 @media (min-width: 1024px) {
-  .lq-app {
-    max-width: 1240px;
-    border-left: 1px solid rgba(255,255,255,0.08);
-    border-right: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 0 80px rgba(0,0,0,0.6);
-  }
+  .lq-app { max-width: none; border: none; box-shadow: none; }
 
-  /* Slim top bar — participants move out of the header into the left rail */
-  .lq-header { padding: max(10px, env(safe-area-inset-top)) 24px 10px; }
+  /* Slim top bar spanning the full width */
+  .lq-header { padding: max(12px, env(safe-area-inset-top)) 24px 0; border-bottom: none; }
+  .lq-header-top { max-width: 100%; }
   .lq-header-title .title { font-size: 16px; }
 
+  /* Participants rail — own column in a reserved left gutter */
   .lq-avatar-row {
-    position: absolute;
-    top: calc(100% + 14px);
-    left: 18px;
+    top: 72px;
+    left: 24px;
+    right: auto;
+    bottom: 96px;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     gap: 14px;
-    width: 64px;
-    max-height: calc(100dvh - 240px);
-    overflow-y: auto;
-    padding: 12px 0;
+    width: 68px;
+    padding: 14px 0;
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 18px;
+    overflow-y: auto;
     scrollbar-width: none;
   }
   .lq-avatar-row::-webkit-scrollbar { display: none; }
   .lq-avatar-row:not(:has(.lq-avatar-wrap)) { display: none; }
-  .lq-avatar-wrap { width: 44px; height: 44px; }
+  .lq-avatar-wrap { width: 44px; height: 44px; margin: 0; }
 
-  /* Content column: clear the left rail, centered */
-  .lq-body { padding: 84px 48px 104px 112px; }
-  .lq-view { max-width: 780px; margin: 0 auto; width: 100%; }
+  /* Content column: reserved left gutter clears the rail, centered */
+  .lq-body { padding: 84px 56px 110px 132px; }
+  .lq-view { max-width: 800px; margin: 0 auto; width: 100%; }
   .lq-title { font-size: 30px; }
   .lq-subtitle { font-size: 15px; }
 
@@ -267,12 +275,11 @@
     border-top: none;
     border-left: 1px solid rgba(255,255,255,0.08);
     box-shadow: -16px 0 40px rgba(0,0,0,0.35);
-    padding-top: 76px;
+    padding-top: 68px;
   }
   .lq-chat-messages { max-height: none; flex: 1; }
-  .lq-app:has(.lq-chat-panel) .lq-body { padding-right: 368px; }
+  .lq-app:has(.lq-chat-panel) .lq-body { padding-right: 376px; }
   .lq-app:has(.lq-chat-panel) .lq-footer { padding-right: 348px; }
-  .lq-app:has(.lq-chat-panel) .lq-view { margin: 0; }
 
   /* Poll overlay becomes a floating card on the right */
   .lq-poll-overlay {
@@ -289,8 +296,7 @@
 }
 
 @media (min-width: 1400px) {
-  .lq-app { max-width: 1360px; }
-  .lq-view { max-width: 860px; }
+  .lq-view { max-width: 880px; }
 }
 .lq-poll-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .lq-poll-title { font-size: 12px; color: #7FADF5; font-weight: 700; letter-spacing: 0.03em; margin: 0; }

@@ -121,7 +121,8 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
             </button>
           )}
         </div>
-        <div className="lq-avatar-row">
+      </div>
+      <div className="lq-avatar-row">
           {room.participants.map((p) => (
             <div className="lq-avatar-wrap" key={p.userId} title={p.username}>
               <div
@@ -140,7 +141,6 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
               )}
             </div>
           ))}
-        </div>
       </div>
 
       <div className="lq-body">
