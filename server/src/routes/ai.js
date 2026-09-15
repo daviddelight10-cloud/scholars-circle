@@ -84,7 +84,8 @@ async function tryOpenRouter(prompt, model, system, messages) {
       body: JSON.stringify({
         model: model || DEFAULT_OPENROUTER_MODEL,
         messages: msgs,
-        max_tokens: 8192,
+        max_tokens: 32768,
+        reasoning: { effort: "low" },
       }),
     });
     const data = await r.json().catch(() => ({}));

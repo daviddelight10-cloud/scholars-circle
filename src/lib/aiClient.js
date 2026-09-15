@@ -125,7 +125,8 @@ async function callDirect(prompt, aiConfig) {
       body: JSON.stringify({
         model: model,
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 8192,
+        max_tokens: 32768,
+        reasoning: { effort: "low" },
       }),
     });
     const data = await r.json();
