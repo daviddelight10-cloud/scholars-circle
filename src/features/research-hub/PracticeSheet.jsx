@@ -62,6 +62,7 @@ export default function PracticeSheet({
   onGenerate,
   onGuidedStudy,
   onExamSimulation,
+  onGoLive,
   generating,
   preparingStudy,
   mcqProgress,
@@ -230,10 +231,11 @@ export default function PracticeSheet({
           <SheetBtn
             icon="👥" iconBg="rgba(245,166,35,0.1)"
             label="Go live with friends"
-            sub="Study this together, in real time"
-            badge="COMING SOON"
+            sub={mcq ? "Quiz together, in real time" : "Generate MCQs first"}
+            subColor={mcq ? undefined : "#F5A623"}
             variant="golive"
-            disabled
+            disabled={!mcq || generating}
+            onClick={act(() => onGoLive?.(file))}
           />
         </div>
       </div>

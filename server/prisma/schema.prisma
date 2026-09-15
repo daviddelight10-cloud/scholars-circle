@@ -211,6 +211,7 @@ model User {
   studyRoomParticipants ClassroomStudyRoomParticipant[]
   classroomDuelsStarted   ClassroomDuel[]  @relation("ClassDuelChallenger")
   classroomDuelsReceived  ClassroomDuel[]  @relation("ClassDuelChallenged")
+  liveQuizSessionsHosted  LiveQuizSession[] @relation("LiveQuizHost")
 
 }
 
@@ -1998,3 +1999,35 @@ model ClassroomDuel {
 
 }
 
+
+model LiveQuizSession {
+
+  id            String   @id @default(cuid())
+
+  code          String   @unique
+
+  hostId        String
+
+  host          User     @relation("LiveQuizHost", fields: [hostId], references: [id], onDelete: Cascade)
+
+  resourceId    String?
+
+  mcqResourceId String?
+
+  title         String
+
+  settings      Json?
+
+  status        String   @default("lobby")  // lobby | live | complete | ended
+
+  startedAt     DateTime @default(now())
+
+  endedAt       DateTime?
+
+  results       Json?
+
+  createdAt     DateTime @default(now())
+
+  @@index([hostId])
+
+}

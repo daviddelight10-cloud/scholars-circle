@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
 import { copyShareToken } from "../../lib/researchUtils";
 import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder } from "../../lib/foldersApi";
 import { getMyProfile } from "../../lib/profileApi.js";
@@ -54,6 +56,7 @@ const emptyMessages = {
 
 export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, activeSemester } = {}) {
   const { setLastActivity } = useUserData();
+  const navigate = useNavigate();
 
   const [resources, setResources] = useState(() => {
     try {
@@ -1017,6 +1020,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   }, [preparingStudy]);
 
+  const [goingLive, setGoingLive] = useState(false);
+
+  const handleGoLive = useCallback(async (file) => {
+    const mcq = file?.variants?.mcq;
+    if (!mcq || goingLive) return;
+    setGoingLive(true);
+    try {
+      const res = await createLiveRoom(mcq.id);
+      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
+    } catch (err) {
+      showToast(err.message || "Couldn't start live session");
+    } finally {
+      setGoingLive(false);
+    }
+  }, [goingLive, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleGenerateFromMaterial = useCallback((resource, kind) => {
     let existingMcqData = null;
     if (resource.variants?.mcq?.mcqData) {
@@ -1280,6 +1299,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         createFolderModal={createFolderModal}
         bookmarkPicker={bookmarkPicker}
         onGuidedStudy={handleGuidedStudy}
+        onGoLive={handleGoLive}
         preparingStudy={preparingStudy}
         onDeleteResource={handleDeleteResource}
         canDeleteFile={canDeleteFile}

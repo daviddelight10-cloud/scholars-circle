@@ -38,6 +38,7 @@ import voiceSessionRoutes, { getActiveSession, deleteActiveSession, getActiveSes
 import curriculumRoutes from "./routes/curriculum.js";
 import studyCacheRoutes from "./routes/studyCache.js";
 import studyGroupRoutes from "./routes/studyGroup.js";
+import liveQuizRoutes, { attachLiveQuizSocket } from "./routes/liveQuiz.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
@@ -148,6 +149,7 @@ app.use("/payment", paymentRoutes);
 app.use("/api/voice-session", voiceSessionRoutes);
 app.use("/api/curriculum", curriculumRoutes);
 app.use("/api/study-cache", studyCacheRoutes);
+app.use("/api/live-quiz", liveQuizRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));
@@ -160,6 +162,17 @@ const wss = new WebSocketServer({ noServer: true });
 // The actual listener is attached to `server` further below, after app.listen().
 async function handleVoiceWsUpgrade(request, socket, head) {
   const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+
+  const liveQuizMatch = pathname.match(/^\/api\/live-quiz\/([^/]+)\/ws$/);
+  if (liveQuizMatch) {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      const ok = attachLiveQuizSocket(request, ws);
+      if (!ok) {
+        try { ws.close(1008, "Unauthorized"); } catch {}
+      }
+    });
+    return;
+  }
 
   const voiceWsMatch = pathname.match(/^\/api\/voice-session\/([^/]+)\/ws$/);
   if (!voiceWsMatch) {

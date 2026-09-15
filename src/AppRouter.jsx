@@ -9,6 +9,7 @@ const ResearchHub = lazyWithRetry(() => import('./features/research-hub/Research
 const ResourceViewer = lazyWithRetry(() => import('./features/ResourceViewer'));
 const TeacherResourcesHub = lazyWithRetry(() => import('./features/TeacherResourcesHub'));
 const SharedFolderView = lazyWithRetry(() => import('./features/SharedFolderView'));
+const LiveQuizPage = lazyWithRetry(() => import('./features/live-quiz/LiveQuizPage'));
 const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
 const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
 const BlogPost = lazyWithRetry(() => import('./blog/BlogPost'));
@@ -76,6 +77,9 @@ export default function AppRouter() {
 
       {/* Shared folder route */}
       <Route path="/folders/:shareToken" element={<div className="app dark"><SharedFolderView /></div>} />
+
+      {/* Live quiz room — invite link target */}
+      <Route path="/live/:code" element={<RequireAuth><LiveQuizPage /></RequireAuth>} />
 
       {/* Blog routes */}
       <Route path="/blog" element={<BlogList />} />
