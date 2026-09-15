@@ -1,0 +1,1098 @@
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { callAI } from '../../lib/aiClient.js';
+import { recordPracticeResult } from '../../lib/studyHistory.js';
+import { API_BASE } from '../../lib/constants';
+import { getMyLeague, getLeagueStandings, checkBadges } from '../../lib/gamificationApi.js';
+import {
+  loadSave, mutate, tickDay,
+  levelFromXP, xpIntoLevel, titleForLevel, XP_PER_LEVEL,
+  TIER_XP, TIER_GEMS,
+  activeQuests, questEvent, claimQuest,
+  ACHIEVEMENTS, checkAchievements,
+} from './survivalStore.js';
+import {
+  getAuthHeaders, isAuthed,
+  deriveRating, normalizeBank, normalizeQuestion,
+  initFsrs, fetchCardStates, rateQuestion,
+  pickPracticeIndex, masteryDots, buildForecast,
+} from './fsrsBridge.js';
+import { sound, setSoundEnabled } from './survivalAudio.js';
+import useConfetti from './useConfetti.js';
+import './streakSurvival.css';
+
+const MAX_LIVES = 3;
+const SPEED_WINDOW = 7000;
+
+const QUOTES = [
+  { t: 'Repetition is the mother of learning.', a: 'Latin proverb' },
+  { t: 'We are what we repeatedly do. Excellence is not an act, but a habit.', a: 'Will Durant' },
+  { t: 'Little by little, a little becomes a lot.', a: 'Tanzanian proverb' },
+  { t: 'Memory is the treasury and guardian of all things.', a: 'Cicero' },
+  { t: 'The art of remembering is the art of thinking.', a: 'William James' },
+];
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Burning the midnight oil?';
+  if (h < 12) return 'Good morning, scholar';
+  if (h < 17) return 'Good afternoon, scholar';
+  if (h < 21) return 'Good evening, scholar';
+  return 'Late-night grind';
+}
+
+function verdictFor(best, mode) {
+  if (mode === 'practice') return 'Practice complete';
+  if (best >= 30) return 'Godlike recall';
+  if (best >= 20) return 'Legendary run';
+  if (best >= 12) return 'On fire';
+  if (best >= 7) return 'Strong run';
+  if (best >= 3) return 'Warming up';
+  return 'Every legend starts at zero';
+}
+
+let floatId = 0;
+let toastId = 0;
+
+export default function StreakSurvival({ resource, items, mode: forcedMode, onBack, onQuizComplete, onStreakUpdate, onXpUpdate, onMoreModes }) {
+  // ── Save ──
+  const [save, setSave] = useState(() => { tickDay(); return { ...loadSave() }; });
+  const bump = useCallback(() => setSave({ ...loadSave() }), []);
+  const editSave = useCallback((fn) => { mutate(fn); bump(); }, [bump]);
+
+  // ── Bank ──
+  const isDaily = Array.isArray(items) && items.length > 0;
+  const bank = useMemo(() => {
+    if (isDaily) {
+      return items.map((it) => ({
+        ...normalizeQuestion(it.mcq, it.pageIndex, it.resourceId, it.itemType || 'mcq'),
+        _topic: it.topic,
+        _subject: it.subject,
+      }));
+    }
+    if (resource?.mcqData) return normalizeBank(resource.mcqData, resource.id);
+    return [];
+  }, [isDaily, items, resource]);
+
+  // ── FSRS state ──
+  const [cardStates, setCardStates] = useState({});
+  const [stats, setStats] = useState(null); // {streak, reviewedToday, dailyGoal, dueCount, masteredCount}
+
+  // ── Screens ──
+  const [screen, setScreen] = useState(bank.length === 0 ? 'home' : 'game');
+  const [runMode, setRunMode] = useState(isDaily || forcedMode === 'practice' ? 'practice' : 'survival');
+
+  // ── Run state ──
+  const [lives, setLives] = useState(MAX_LIVES);
+  const [streak, setStreak] = useState(0);
+  const [runBest, setRunBest] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
+  const [qNum, setQNum] = useState(0);
+  const [answered, setAnswered] = useState(0);
+  const [correctN, setCorrectN] = useState(0);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [sessionGems, setSessionGems] = useState(0);
+  const [current, setCurrent] = useState(null); // {q, idx}
+  const usedRef = useRef(new Set()); // bank indices already served this run
+  const lastIdxRef = useRef(-1);
+  const answersRef = useRef({}); // rawIndex -> picked letter (for weakspots)
+
+  // Per-card state
+  const [locked, setLocked] = useState(false);
+  const [picked, setPicked] = useState(null);
+  const [revealed, setRevealed] = useState(false);
+  const [hintUsed, setHintUsed] = useState(false);
+  const [eliminated, setEliminated] = useState(new Set());
+  const [fsrsNote, setFsrsNote] = useState(null);
+  const [explain, setExplain] = useState({ show: false, text: '', loading: false });
+  const qStartRef = useRef(Date.now());
+
+  // Review loop
+  const [reviewQueue, setReviewQueue] = useState([]);
+  const [clearedN, setClearedN] = useState(0);
+  const [missedTotal, setMissedTotal] = useState(0);
+  const [reviewBadge, setReviewBadge] = useState(null); // 'correct'|'wrong'|'neutral'
+  const reviewMissedRef = useRef([]);
+
+  // End screen
+  const [endInfo, setEndInfo] = useState(null);
+
+  // ── Chrome ──
+  const [timerPct, setTimerPct] = useState(100);
+  const timerRef = useRef(null);
+  const [shake, setShake] = useState(false);
+  const [flash, setFlash] = useState(''); // 'correct-flash'|'wrong-flash'|'milestone-flash'
+  const [comboPulse, setComboPulse] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [floats, setFloats] = useState([]);
+  const [levelUp, setLevelUp] = useState(null); // new level number
+  const [modal, setModal] = useState(null); // 'profile'|'league'|'chest'
+  const [league, setLeague] = useState(null);
+  const [leagueBusy, setLeagueBusy] = useState(false);
+  const [chestState, setChestState] = useState({ opened: false, reward: '' });
+  const [pendingChest, setPendingChest] = useState(null); // 'warmup'|'quest'
+
+  const { canvasRef, fire } = useConfetti();
+  const appRef = useRef(null);
+
+  const scope = isDaily ? 'global' : String(resource?.id || 'default');
+  const best = save.bestByScope?.[scope] || 0;
+  const tier = streak >= 6 ? 'hard' : streak >= 3 ? 'medium' : 'easy';
+  const tierColor = tier === 'hard' ? '#FF5E7E' : tier === 'medium' ? '#FFB627' : '#00E5FF';
+  const lvl = levelFromXP(save.xp);
+
+  // ── Init ──
+  useEffect(() => {
+    setSoundEnabled(loadSave().soundOn);
+    if (isAuthed()) {
+      fetch(`${API_BASE}/api/resources/fsrs/stats`, { headers: getAuthHeaders() })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && setStats(d))
+        .catch(() => {});
+    }
+    if (isDaily) {
+      const map = {};
+      for (const it of items) {
+        map[`${it.resourceId}:${it.pageIndex}`] = {
+          state: it.state, stability: it.stability, difficulty: it.difficulty,
+          dueAt: it.dueAt, isDue: true, isMastered: false, itemType: it.itemType || 'mcq',
+        };
+      }
+      setCardStates(map);
+    } else if (resource?.id && isAuthed()) {
+      initFsrs(resource.id).then(() => fetchCardStates(resource.id)).then((map) => {
+        const keyed = {};
+        for (const [pi, v] of Object.entries(map)) keyed[`${resource.id}:${pi}`] = v;
+        setCardStates(keyed);
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-start: daily items → practice; material → survival is the default mode
+  const startedRef = useRef(false);
+  useEffect(() => {
+    if (startedRef.current || bank.length === 0) return;
+    startedRef.current = true;
+    if (isDaily) {
+      serveIdx(0, 'practice');
+    } else {
+      startRun('survival');
+    }
+  }, [isDaily, bank]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Toasts & floats ──
+  const toast = useCallback((msg, color = '#FFB627', ms = 1600) => {
+    const id = ++toastId;
+    setToasts((t) => [...t, { id, msg, color }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ms);
+  }, []);
+
+  const xpFloat = useCallback((text, color = '#00E5FF') => {
+    const id = ++floatId;
+    const x = 40 + Math.random() * 20; // vw center-ish
+    const y = 22 + Math.random() * 6;
+    setFloats((f) => [...f, { id, text, color, x, y }]);
+    setTimeout(() => setFloats((f) => f.filter((x2) => x2.id !== id)), 1000);
+  }, []);
+
+  // questEvent + completion toast
+  const qe = useCallback((key, value, opts) => {
+    const done = questEvent(key, value, opts);
+    done.forEach((id) => {
+      const q = activeQuests().find((x) => x.id === id);
+      if (q) toast(`✅ ${q.name} — claim 💎${q.reward}`, '#4ADE80', 2400);
+    });
+    if (done.length) bump();
+  }, [toast, bump]);
+
+  // ── Economy ──
+  const grantXp = useCallback((n, label) => {
+    const before = lvl;
+    editSave((s) => { s.xp += n; });
+    const after = levelFromXP(loadSave().xp);
+    setSessionXp((v) => v + n);
+    xpFloat(`+${n} XP${label ? ` ${label}` : ''}`, '#00E5FF');
+    qe('xpToday', n);
+    if (after > before) {
+      setLevelUp(after);
+      sound.levelup();
+      setTimeout(() => setLevelUp(null), 1600);
+    }
+  }, [editSave, lvl, xpFloat, qe]);
+
+  const grantGems = useCallback((n, why) => {
+    editSave((s) => { s.gems += n; s.lifetimeGems += n; });
+    setSessionGems((v) => v + n);
+    xpFloat(`+${n} 💎${why ? ` ${why}` : ''}`, '#FFB627');
+  }, [editSave, xpFloat]);
+
+  // ── Question serving ──
+  function serveIdx(idx, mode) {
+    const q = bank[idx];
+    if (!q) { endRun(mode); return; }
+    lastIdxRef.current = idx;
+    usedRef.current.add(idx);
+    setCurrent({ q, idx });
+    setQNum((n) => n + 1);
+    setLocked(false); setPicked(null); setRevealed(false);
+    setHintUsed(false); setEliminated(new Set());
+    setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
+    qStartRef.current = Date.now();
+    setTimerPct(100);
+  }
+
+  function serveNext(mode) {
+    if (isDaily) {
+      // Daily review: sequential, finite
+      const nextIdx = bank.findIndex((_, i) => !usedRef.current.has(i));
+      if (nextIdx === -1) { endRun(mode); return; }
+      serveIdx(nextIdx, mode);
+      return;
+    }
+    if (mode === 'practice') {
+      serveIdx(pickPracticeIndex(bank, keyedStatesForBank(), lastIdxRef.current), mode);
+      return;
+    }
+    // Survival: random unused; reset when exhausted (endless)
+    let avail = bank.map((_, i) => i).filter((i) => !usedRef.current.has(i));
+    if (avail.length === 0) { usedRef.current.clear(); avail = bank.map((_, i) => i); }
+    serveIdx(avail[Math.floor(Math.random() * avail.length)], mode);
+  }
+
+  function keyedStatesForBank() {
+    // cardStates is keyed by _key; pickPracticeIndex wants bank-index keys
+    const map = {};
+    bank.forEach((q, i) => { if (cardStates[q._key]) map[i] = cardStates[q._key]; });
+    return map;
+  }
+
+  // ── Survival speed timer ──
+  useEffect(() => {
+    if (screen !== 'game' || runMode !== 'survival' || locked || !current) {
+      clearInterval(timerRef.current);
+      return undefined;
+    }
+    timerRef.current = setInterval(() => {
+      const elapsed = Date.now() - qStartRef.current;
+      const pct = Math.max(0, 100 - (elapsed / SPEED_WINDOW) * 100);
+      setTimerPct(pct);
+      if (pct <= 0) clearInterval(timerRef.current);
+    }, 50);
+    return () => clearInterval(timerRef.current);
+  }, [screen, runMode, locked, current]);
+
+  // ── Rating ──
+  function applyRating(q, correct, rev) {
+    const grade = deriveRating({
+      correct, revealed: rev, hintUsed, elapsedMs: Date.now() - qStartRef.current,
+    });
+    setFsrsNote({ grade, intervalLabel: null });
+    rateQuestion({
+      resourceId: q._resourceId ?? resource?.id,
+      pageIndex: q._pageIndex,
+      grade,
+      topic: q._topic || resource?.title,
+      subject: q._subject || resource?.subject,
+      itemType: cardStates[q._key]?.itemType || q._itemType || 'mcq',
+    }).then((data) => {
+      if (!data) return;
+      setFsrsNote({ grade, intervalLabel: data.intervalLabel });
+      setCardStates((prev) => ({
+        ...prev,
+        [q._key]: {
+          state: data.state, stability: data.stability, difficulty: data.difficulty,
+          dueAt: data.nextReviewAt, isDue: false, isMastered: data.stability >= 21,
+        },
+      }));
+      if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
+      if (data.xpAwarded > 0) {
+        if (onXpUpdate) onXpUpdate(data.xpAwarded);
+        else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: data.xpAwarded } }));
+      }
+      setStats((s) => (s ? { ...s, streak: data.streak ?? s.streak, reviewedToday: (s.reviewedToday ?? 0) + 1 } : s));
+    });
+    return grade;
+  }
+
+  // ── Answer (game mode) ──
+  function handlePick(i) {
+    if (locked || !current || eliminated.has(i)) return;
+    const q = current.q;
+    const isCorrect = i === q.a;
+    setPicked(i);
+    setLocked(true);
+    answersRef.current[q._pageIndex] = String.fromCharCode(65 + i);
+    applyRating(q, isCorrect, false);
+
+    const elapsed = Date.now() - qStartRef.current;
+    setAnswered((n) => n + 1);
+    qe('answered', 1);
+    editSave((s) => { s.stats.answered += 1; });
+
+    if (isCorrect) {
+      const newStreak = streak + 1;
+      const newCombo = combo + 1;
+      setStreak(newStreak);
+      setCombo(newCombo);
+      if (newStreak > runBest) setRunBest(newStreak);
+      if (newCombo > bestCombo) { setBestCombo(newCombo); qe('maxCombo', newCombo, { setMax: true }); }
+      setCorrectN((n) => n + 1);
+      qe('correct', 1);
+      editSave((s) => { s.stats.correct += 1; });
+      if (elapsed < 5000) qe('speedy', 1);
+      if (elapsed < 3000) checkSpeedy3();
+
+      // Tier XP + gems
+      const xp = TIER_XP[tier];
+      grantXp(xp);
+      if (newCombo > 0 && newCombo % 5 === 0) grantGems(TIER_GEMS[tier], 'combo');
+      if (newCombo === 10) grantXp(10, 'combo bonus');
+
+      sound.correct();
+      setFlash('correct-flash');
+      setTimeout(() => setFlash(''), 500);
+      setComboPulse(true);
+      setTimeout(() => setComboPulse(false), 400);
+
+      // Milestones
+      if (newStreak === 3) { toast('⚡ Warming up — medium XP', '#FFB627'); sound.milestone(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
+      else if (newStreak === 6) { toast('🔥 On fire — hard XP', '#FF5E7E'); sound.milestone(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
+      else if (newStreak > 0 && newStreak % 10 === 0) { toast(`🌟 ${newStreak} streak!`, '#FFB627'); sound.milestone(); fire(40); }
+      else if (newStreak > 0 && newStreak % 5 === 0) fire(24);
+    } else {
+      reviewMissedRef.current.push({ ...q, pickedIdx: i });
+      setStreak(0);
+      setCombo(0);
+      sound.wrong();
+      setFlash('wrong-flash');
+      setTimeout(() => setFlash(''), 500);
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+      if (runMode === 'survival') {
+        const nl = lives - 1;
+        setLives(nl);
+        if (nl <= 0) setTimeout(() => endRun('survival'), 700);
+        sound.heart();
+      }
+    }
+  }
+
+  const speedy3Ref = useRef(false);
+  function checkSpeedy3() {
+    if (!speedy3Ref.current) {
+      speedy3Ref.current = true;
+      checkAchievementsNow({ speedy3: true });
+    }
+  }
+
+  function handleReveal() {
+    if (locked || !current) return;
+    setRevealed(true);
+    setLocked(true);
+    applyRating(current.q, false, true);
+    reviewMissedRef.current.push({ ...current.q, pickedIdx: null });
+    setAnswered((n) => n + 1);
+    qe('answered', 1);
+    editSave((s) => { s.stats.answered += 1; });
+    setStreak(0);
+    setCombo(0);
+    sound.wrong();
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+    if (runMode === 'survival') {
+      const nl = lives - 1;
+      setLives(nl);
+      if (nl <= 0) setTimeout(() => endRun('survival'), 700);
+      sound.heart();
+    }
+  }
+
+  function handleHint() {
+    if (locked || !current) return;
+    setHintUsed(true);
+    sound.click();
+    const wrongKeys = current.q.opts.map((_, i) => i).filter((i) => i !== current.q.a && !eliminated.has(i));
+    if (wrongKeys.length <= 1) return;
+    setEliminated((prev) => new Set(prev).add(wrongKeys[Math.floor(Math.random() * wrongKeys.length)]));
+  }
+
+  async function handleExplain() {
+    if (!current) return;
+    setExplain({ show: true, text: '', loading: true });
+    try {
+      const q = current.q;
+      const optionsStr = q.opts.map((v, i) => `${String.fromCharCode(65 + i)}. ${v}`).join('\n');
+      const prompt = `You are a helpful study tutor. A student just answered this MCQ question:\n\nQuestion: ${q.q}\nOptions:\n${optionsStr}\nCorrect answer: ${q.opts[q.a]}\nStudent's answer: ${picked != null ? q.opts[picked] : '(revealed)'}\n\nGive a clear, concise explanation (2-3 sentences) of why the correct answer is right. Be educational and encouraging.`;
+      const text = await callAI(prompt, { provider: 'openrouter' });
+      setExplain({ show: true, text: text || 'No explanation generated.', loading: false });
+    } catch {
+      setExplain({ show: true, text: 'Could not get AI explanation. Please try again.', loading: false });
+    }
+  }
+
+  function handleContinue() {
+    if (runMode === 'survival' && lives <= 0) { endRun('survival'); return; }
+    serveNext(runMode);
+  }
+
+  // ── Review loop ──
+  function handleReviewPick(i) {
+    if (locked || !current) return;
+    const q = current.q;
+    const isCorrect = i === q.a;
+    setPicked(i);
+    setLocked(true);
+    applyRating(q, isCorrect, false);
+    if (isCorrect) {
+      setReviewBadge('correct');
+      sound.correct();
+      grantXp(5, 'review');
+      setClearedN((n) => n + 1);
+      qe('reviewCleared', 1);
+      editSave((s) => { s.stats.reviewCleared += 1; });
+    } else {
+      setReviewBadge('wrong');
+      sound.wrong();
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+    }
+  }
+
+  function handleReviewNext() {
+    const q = current.q;
+    const wasCorrect = reviewBadge === 'correct';
+    const rest = reviewQueue.filter((x) => x._key !== q._key);
+    const nextQueue = wasCorrect ? rest : [...rest, q];
+    setReviewQueue(nextQueue);
+    setReviewBadge(null);
+    if (nextQueue.length === 0) { finishToEnd(); return; }
+    const next = nextQueue[0];
+    const idx = bank.findIndex((b) => b._key === next._key);
+    setCurrent({ q: next, idx });
+    setQNum((n) => n + 1);
+    setLocked(false); setPicked(null); setRevealed(false);
+    setHintUsed(false); setEliminated(new Set());
+    setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
+    qStartRef.current = Date.now();
+  }
+
+  // ── Run lifecycle ──
+  function startRun(mode) {
+    sound.click();
+    // Daily warmup bonus once per day
+    const today = new Date().toISOString().slice(0, 10);
+    if (save.warmupDate !== today) {
+      editSave((s) => { s.warmupDate = today; s.gems += 5; s.lifetimeGems += 5; });
+      setPendingChest('warmup');
+    }
+    setRunMode(mode);
+    setLives(MAX_LIVES);
+    setStreak(0); setRunBest(0); setCombo(0); setBestCombo(0);
+    setQNum(0); setAnswered(0); setCorrectN(0);
+    setSessionXp(0); setSessionGems(0);
+    usedRef.current = new Set();
+    lastIdxRef.current = -1;
+    answersRef.current = {};
+    reviewMissedRef.current = [];
+    speedy3Ref.current = false;
+    runEndedRef.current = false;
+    setScreen('game');
+    setTimeout(() => serveNext(mode), 0);
+  }
+
+  const runEndedRef = useRef(false);
+  function endRun(mode) {
+    if (runEndedRef.current) return;
+    runEndedRef.current = true;
+    const missed = reviewMissedRef.current;
+    editSave((s) => { s.stats.runs += 1; });
+    if (missed.length > 0) {
+      setMissedTotal(missed.length);
+      setClearedN(0);
+      setReviewQueue(missed);
+      setScreen('review');
+      // serve first review card
+      const next = missed[0];
+      const idx = bank.findIndex((b) => b._key === next._key);
+      setCurrent({ q: next, idx });
+      setQNum((n) => n + 1);
+      setLocked(false); setPicked(null); setRevealed(false);
+      setHintUsed(false); setEliminated(new Set());
+      setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
+      qStartRef.current = Date.now();
+      return;
+    }
+    finishToEnd(mode);
+  }
+
+  function finishToEnd(mode = runMode) {
+    const acc = answered > 0 ? Math.round((correctN / answered) * 100) : 0;
+    const perfect = answered > 0 && reviewMissedRef.current.length === 0;
+    const newBest = runBest > best;
+    if (newBest) editSave((s) => { s.bestByScope = { ...(s.bestByScope || {}), [scope]: runBest }; });
+    if (perfect) { qe('perfectRun', 1); editSave((s) => { s.stats.perfectRuns += 1; }); }
+    if (runMode === 'survival' || mode === 'survival') sound.over();
+    if (perfect && answered > 0) { sound.perfect(); fire(80); }
+    checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: bestCombo, perfectRun: perfect });
+    fireServerCompletion();
+    // Warmup/quest chest surfaces over the end screen
+    if (pendingChest) { setChestState({ opened: false, reward: '' }); setModal('chest'); }
+    setEndInfo({
+      best: runBest, answered, correct: correctN, acc,
+      xp: sessionXp, gems: sessionGems, cleared: clearedN,
+      missed: missedTotal || reviewMissedRef.current.length,
+      newBest, perfect,
+      quote: QUOTES[Math.floor(Math.random() * QUOTES.length)],
+    });
+    setScreen('end');
+  }
+
+  function checkAchievementsNow(extra = {}) {
+    const s = loadSave();
+    const unlocked = checkAchievements({
+      bestStreak: extra.bestStreak ?? runBest,
+      combo: extra.combo ?? bestCombo,
+      perfectRun: extra.perfectRun ?? false,
+      speedy3: extra.speedy3 ?? false,
+      reviewClearedTotal: s.stats.reviewCleared,
+      answeredTotal: s.stats.answered,
+      runsTotal: s.stats.runs,
+    });
+    unlocked.forEach((a) => toast(`🏅 ${a.nm} · +${a.gm}💎`, '#FFB627', 2400));
+    if (unlocked.length) bump();
+  }
+
+  function fireServerCompletion() {
+    if (!isAuthed()) return;
+    // Server badges — runs for both material and daily sessions
+    try {
+      const token = JSON.parse(localStorage.getItem('scholars-circle-auth') || '{}').authToken;
+      if (token) checkBadges(token).catch(() => {});
+    } catch { /* ignore */ }
+    // quiz-attempts for material context (existing pattern)
+    if (resource?.id) {
+      try { recordPracticeResult(resource.id, rawMcqArr(), answersRef.current); } catch { /* ignore */ }
+      fetch(`${API_BASE}/api/resources/quiz-attempts`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ resourceId: resource.id, score: runBest, total: Math.max(answered, 1), details: [] }),
+      }).then((r) => (r.ok ? r.json() : null)).then((data) => {
+        if (!data) return;
+        if (onQuizComplete) onQuizComplete(data);
+        if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
+        if (data.xpAwarded > 0) {
+          if (onXpUpdate) onXpUpdate(data.xpAwarded);
+          else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: data.xpAwarded } }));
+        }
+      }).catch(() => {});
+    }
+  }
+
+  function rawMcqArr() {
+    const arr = typeof resource?.mcqData === 'string' ? JSON.parse(resource.mcqData) : resource?.mcqData;
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function quitRun() {
+    sound.click();
+    if (isDaily) { onBack?.(); return; }
+    setScreen('home');
+  }
+
+  // ── Modals ──
+  function openLeague() {
+    setModal('league');
+    if (!isAuthed()) return;
+    setLeagueBusy(true);
+    try {
+      const token = JSON.parse(localStorage.getItem('scholars-circle-auth') || '{}').authToken;
+      getMyLeague(token)
+        .then((mine) => getLeagueStandings(token, mine?.tier).then((rows) => setLeague({ mine, rows: Array.isArray(rows) ? rows : [] })))
+        .catch(() => setLeague({ mine: null, rows: [] }))
+        .finally(() => setLeagueBusy(false));
+    } catch { setLeagueBusy(false); }
+  }
+
+  function openChest(kind) {
+    setPendingChest(kind);
+    setChestState({ opened: false, reward: '' });
+    setModal('chest');
+  }
+
+  function popChest() {
+    if (chestState.opened) return;
+    sound.chest();
+    fire(60);
+    const reward = pendingChest === 'quest' ? 20 : 5;
+    editSave((s) => { s.gems += reward; s.lifetimeGems += reward; });
+    setChestState({ opened: true, reward: `+${reward} 💎` });
+    setPendingChest(null);
+  }
+
+  function toggleSound() {
+    const next = !save.soundOn;
+    editSave((s) => { s.soundOn = next; });
+    setSoundEnabled(next);
+    if (next) sound.click();
+  }
+
+  function buyFreeze() {
+    if (save.gems < 15) { toast('Not enough gems (15 💎)', '#FF5E7E'); return; }
+    editSave((s) => { s.gems -= 15; s.freezes += 1; });
+    toast('🧊 Streak freeze purchased', '#00E5FF');
+  }
+
+  function resetSave() {
+    if (!window.confirm('Reset all Streak Survival progress? (gems, XP, achievements)')) return;
+    editSave((s) => Object.assign(s, {
+      bestByScope: {}, xp: 0, gems: 20, lifetimeGems: 20, freezes: 0,
+      warmupDate: '', streakRewardDate: '', questDate: '', questProgress: {},
+      questClaimed: [], questBonus: false,
+      stats: { answered: 0, correct: 0, reviewCleared: 0, perfectRuns: 0, runs: 0 },
+      achievements: [], soundOn: true,
+    }));
+    toast('Progress reset', '#8b93a7');
+  }
+
+  // ── Keyboard ──
+  useEffect(() => {
+    const h = (e) => {
+      if (modal) { if (e.key === 'Escape') setModal(null); return; }
+      if (e.key === 'Escape') { quitRun(); return; }
+      if (screen !== 'game' && screen !== 'review') return;
+      if (!current) return;
+      if (locked) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); screen === 'review' ? handleReviewNext() : handleContinue(); }
+        return;
+      }
+      const k = e.key.toLowerCase();
+      const num = ['1', '2', '3', '4'].indexOf(k);
+      const letIdx = ['a', 'b', 'c', 'd'].indexOf(k);
+      const idx = num >= 0 ? num : letIdx;
+      if (idx >= 0 && idx < (current.q.opts?.length || 0)) {
+        screen === 'review' ? handleReviewPick(idx) : handlePick(idx);
+      } else if (k === 'h') handleHint();
+      else if (k === 'r' && screen === 'game') handleReveal();
+      else if (k === 'e' && locked) handleExplain();
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  });
+
+  // ── Derived ──
+  const forecast = buildForecast(cardStates);
+  const dueHere = Object.values(cardStates).filter((c) => c.isDue).length;
+  const ring = current ? masteryDots(cardStates[current.q._key]) : { dots: 0, mastered: false, due: false };
+  const quests = activeQuests();
+  const goalPct = stats?.dailyGoal ? Math.min(100, ((stats.reviewedToday || 0) / stats.dailyGoal) * 100) : 0;
+  const R = 26; const CIRC = 2 * Math.PI * R;
+
+  // ═══════════ RENDER ═══════════
+  return (
+    <div className="ss-root" style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: 'radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)' }}>
+      <canvas ref={canvasRef} className="confetti-canvas" />
+      <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
+
+        {/* Top bar */}
+        <div className="topbar">
+          <div className="stat-chips" onClick={() => setModal('profile')} title="Profile">
+            <span className="stat-chip">🔥 {stats?.streak ?? 0}<span className="chip-dim">day</span></span>
+            <span className="stat-chip">⚡ {save.xp}<span className="chip-dim">xp</span></span>
+            <span className="stat-chip">💎 {save.gems}</span>
+            {save.freezes > 0 && <span className="stat-chip">🧊 {save.freezes}</span>}
+          </div>
+          <div className="top-actions">
+            <button className="icon-btn" onClick={openLeague} title="League">🏆</button>
+            <button className="icon-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
+            <button className="icon-btn" onClick={onBack} title="Exit">✕</button>
+          </div>
+        </div>
+
+        {/* XP bar + goal ring */}
+        <div className="xpbar-row">
+          <span className="xp-level">Lv {lvl} · {titleForLevel(lvl)}</span>
+          <div className="xpbar"><div className="xpbar-fill" style={{ width: `${(xpIntoLevel(save.xp) / XP_PER_LEVEL) * 100}%` }} /></div>
+          <span className="xpbar-label">{xpIntoLevel(save.xp)}/{XP_PER_LEVEL}</span>
+          <svg className="goal-ring" viewBox="0 0 64 64" onClick={() => setModal('profile')} title="Daily goal">
+            <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
+            <circle className="goal-ring-fill" cx="32" cy="32" r={R} fill="none" stroke="#4ADE80" strokeWidth="7"
+              strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - goalPct / 100)}
+              transform="rotate(-90 32 32)" />
+            <text x="32" y="37" textAnchor="middle" fontSize="16" fill="#EAEEF7" fontFamily="JetBrains Mono, monospace">
+              {stats?.reviewedToday ?? 0}
+            </text>
+          </svg>
+        </div>
+
+        {/* ═══ HOME ═══ */}
+        {screen === 'home' && (
+          <div className="home-screen">
+            <div className="home-hero">
+              <div className="home-greet">{greeting()}</div>
+              <div className="home-title">{resource?.title || 'Streak Survival'}</div>
+              <div className="home-sub">
+                {bank.length} QUESTIONS · {dueHere} DUE · BEST {best}
+              </div>
+              <div className="home-status">
+                {stats?.dailyGoal != null && (
+                  <span className={`status-chip ${(stats.reviewedToday || 0) >= stats.dailyGoal ? 'green' : 'blue'}`}>
+                    🎯 {stats.reviewedToday || 0}/{stats.dailyGoal} today
+                  </span>
+                )}
+                {save.freezes > 0 && <span className="status-chip blue">🧊 {save.freezes} freeze{save.freezes > 1 ? 's' : ''}</span>}
+                {pendingChest && (
+                  <button className="status-chip gold" style={{ cursor: 'pointer' }} onClick={() => openChest(pendingChest)}>
+                    🎁 chest ready — tap
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button className="mode-card survival" onClick={() => startRun('survival')}>
+              <span className="mc-ico">🔥</span>
+              <span className="mc-mid">
+                <span className="mc-title">Survival Run</span>
+                <span className="mc-desc">3 lives · wrong = lose one · build the longest streak</span>
+              </span>
+              <span className="mc-arrow">›</span>
+            </button>
+            <button className="mode-card practice" onClick={() => startRun('practice')}>
+              <span className="mc-ico">📚</span>
+              <span className="mc-mid">
+                <span className="mc-title">Practice</span>
+                <span className="mc-desc">No lives · FSRS picks your weakest questions first</span>
+              </span>
+              <span className="mc-arrow">›</span>
+            </button>
+
+            {onMoreModes && (
+              <button className="mode-card" style={{ justifyContent: 'center', padding: '12px 16px' }} onClick={onMoreModes}>
+                <span className="mc-desc" style={{ margin: 0 }}>More modes — Cascade · Exam · Arcade ›</span>
+              </button>
+            )}
+
+            {forecast.some((n) => n > 0) && (
+              <button className="forecast-card" onClick={() => startRun('practice')}>
+                <div className="forecast-sum">
+                  Memory forecast — <span className="hot">{forecast[0]} due today</span>
+                  {forecast.slice(1).reduce((a, b) => a + b, 0) > 0 && ` · ${forecast.slice(1).reduce((a, b) => a + b, 0)} this week`}
+                </div>
+                <div className="forecast-bars">
+                  {forecast.map((n, i) => {
+                    const max = Math.max(...forecast, 1);
+                    const dow = (new Date().getDay() + i) % 7; // 0=Sun..6=Sat
+                    const lbl = i === 0 ? 'now' : ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'][dow];
+                    return (
+                      <div key={i} className={`fbar${i === 0 ? ' today' : ''}${n > 0 ? ' has' : ''}`}>
+                        <span className={`fbar-num${n > 0 ? ' has' : ''}`}>{n || ''}</span>
+                        <div className="fbar-fill" style={{ height: `${Math.max(3, (n / max) * 100)}%` }} />
+                        <span className="fbar-lbl">{lbl}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="forecast-cta">tap to start practice →</div>
+              </button>
+            )}
+
+            <div className="quests-card" style={{ marginTop: 10 }}>
+              {quests.map((q) => {
+                const prog = Math.min(save.questProgress?.[q.id] || 0, q.target);
+                const done = prog >= q.target;
+                const claimed = save.questClaimed?.includes(q.id);
+                return (
+                  <div key={q.id} className={`quest-row${claimed ? ' done' : ''}`}>
+                    <span className="quest-ico">{q.ico}</span>
+                    <div className="quest-mid">
+                      <div className="quest-name">{q.name}</div>
+                      <div className="quest-bar"><div className="quest-fill" style={{ width: `${(prog / q.target) * 100}%` }} /></div>
+                    </div>
+                    <div className="quest-right">
+                      {claimed ? <span className="quest-check">✓</span> : done ? (
+                        <button className="setting-btn on" onClick={() => { const r = claimQuest(q.id); if (r) { toast(`+${r} 💎`, '#FFB627'); bump(); if (loadSave().questBonus) openChest('quest'); } }}>Claim</button>
+                      ) : (
+                        <>
+                          <span className="quest-count">{prog}/{q.target}</span>
+                          <span className="quest-rwd">+{q.reward}💎</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ GAME / REVIEW ═══ */}
+        {(screen === 'game' || screen === 'review') && current && (
+          <div className={screen === 'review' ? 'review-screen' : 'game-screen'}>
+            <div className="run-stats">
+              {runMode === 'survival' && screen === 'game' ? (
+                <div className="lives">
+                  {[0, 1, 2].map((i) => <span key={i} className={`heart${i >= lives ? ' lost' : ''}`} />)}
+                </div>
+              ) : (
+                <span className="practice-lbl show">{screen === 'review' ? '🔁 REVIEW' : '📚 PRACTICE'}</span>
+              )}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {combo >= 2 && (
+                  <span className={`combo-pill show${combo >= 10 ? ' hot' : ''}${comboPulse ? ' pulse' : ''}`}>
+                    <span className="fire-emoji">🔥</span>{combo}
+                  </span>
+                )}
+                <button className="quit-btn" onClick={quitRun}>quit</button>
+              </div>
+            </div>
+
+            {/* Tier progress (survival) */}
+            {runMode === 'survival' && screen === 'game' && (
+              <div className="tier-bar">
+                {[3, 6, 9, 12].map((mark, i) => {
+                  const prev = i === 0 ? 0 : [3, 6, 9][i - 1];
+                  const p = Math.max(0, Math.min(1, (streak - prev) / (mark - prev)));
+                  return (
+                    <div key={mark} className={`tier-seg${streak >= mark ? ' full' : ''}`} style={{ '--p': `${p * 100}%` }}>
+                      <span className="seg-dot">{mark}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {screen === 'review' && (
+              <div className="review-head">
+                <span className="review-title">Clear your misses</span>
+                <span className="review-count">{reviewQueue.length} left · {clearedN} cleared</span>
+              </div>
+            )}
+
+            <div className={`qcard ${flash}`}>
+              {screen === 'review' && <span className="review-tag">missed — try again</span>}
+              {reviewBadge && (
+                <span className={`retry-badge show ${reviewBadge}`}>
+                  {reviewBadge === 'correct' ? '✓ cleared' : reviewBadge === 'wrong' ? '✗ back of queue' : 'revealed'}
+                </span>
+              )}
+              <div className="qcard-head">
+                <span className="difficulty-tag" style={{ color: tierColor }}>{runMode === 'survival' ? tier : 'practice'}</span>
+                <span className="mastery-ring">
+                  {ring.due && <span className="due-flag">⏰</span>}
+                  {ring.mastered ? '🌟' : [0, 1, 2].map((d) => <span key={d} className={`mrdot${ring.dots > d ? ' on' : ''}`} />)}
+                </span>
+              </div>
+
+              <div className="qtext">{current.q.q}</div>
+
+              {runMode === 'survival' && screen === 'game' && !locked && (
+                <div className="timer-bar">
+                  <div className={`timer-fill${timerPct < 35 ? ' low' : timerPct < 70 ? ' mid' : ''}`} style={{ width: `${timerPct}%` }} />
+                </div>
+              )}
+
+              {hintUsed && <div className="hint-box show">💡 {current.q.hint || 'One wrong option eliminated.'}</div>}
+
+              <div className="options">
+                {current.q.opts.map((opt, i) => {
+                  let cls = 'opt';
+                  if (eliminated.has(i)) cls += ' eliminated';
+                  if (locked) {
+                    if (i === current.q.a) cls += ' correct';
+                    else if (i === picked) cls += ' wrong picked-wrong';
+                  }
+                  return (
+                    <button key={i} className={cls} disabled={locked || eliminated.has(i)}
+                      onClick={() => (screen === 'review' ? handleReviewPick(i) : handlePick(i))}>
+                      <span className="ltr">{String.fromCharCode(65 + i)}</span>{opt}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {fsrsNote && (
+                <div className="fsrs-note show" style={{ color: { 1: '#FF5E7E', 2: '#FFB627', 3: '#4ADE80', 4: '#00E5FF' }[fsrsNote.grade] }}>
+                  🧠 {{ 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' }[fsrsNote.grade]}
+                  {fsrsNote.intervalLabel ? ` · next review in ${fsrsNote.intervalLabel}` : ''}
+                </div>
+              )}
+
+              {!locked && (
+                <div className="card-actions">
+                  <button type="button" onClick={handleHint}>💡 Hint</button>
+                  {screen === 'game' && <button type="button" onClick={handleReveal}>👁 Reveal</button>}
+                </div>
+              )}
+
+              {explain.show && (
+                <div className="explain-box show">
+                  <span className="explain-label">AI Explain</span>
+                  {explain.loading ? <span className="dot-loading">Thinking</span> : explain.text}
+                </div>
+              )}
+
+              {locked && (
+                <div className="post-actions show">
+                  <button type="button" className="btn-explain" onClick={handleExplain} disabled={explain.loading}>✨ Explain</button>
+                  <button type="button" className="btn-continue" onClick={screen === 'review' ? handleReviewNext : handleContinue}>
+                    {screen === 'review' ? 'Next →' : 'Continue →'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ END ═══ */}
+        {screen === 'end' && endInfo && (
+          <div className="end-screen show">
+            <div className="trophy rise">{endInfo.perfect ? '🏆' : endInfo.best >= 12 ? '🌟' : '💪'}</div>
+            <div className="end-verdict">{verdictFor(endInfo.best, runMode)}</div>
+            <div className="end-score">{runMode === 'survival' ? endInfo.best : endInfo.answered}</div>
+            <div className="end-label">{runMode === 'survival' ? 'best streak this run' : 'questions this session'}</div>
+            <div className="run-chips">
+              <span className="run-chip blue">+{endInfo.xp} XP</span>
+              <span className="run-chip gold">+{endInfo.gems} 💎</span>
+              <span className="run-chip">{endInfo.acc}% acc</span>
+              {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
+            </div>
+            {stats?.dailyGoal != null && (
+              <div className={`goal-nudge show ${(stats.reviewedToday || 0) >= stats.dailyGoal ? 'done' : (stats.dailyGoal - (stats.reviewedToday || 0)) <= 3 ? 'close' : 'far'}`}>
+                {(stats.reviewedToday || 0) >= stats.dailyGoal
+                  ? '🎯 Daily goal complete!'
+                  : `🎯 ${stats.dailyGoal - (stats.reviewedToday || 0)} more to hit your daily goal`}
+              </div>
+            )}
+            <div className="end-quote show">“{endInfo.quote.t}”<span className="q-author">— {endInfo.quote.a}</span></div>
+            <div className="best-row">
+              <span className="best-pill">best: {Math.max(best, endInfo.best)}</span>
+              {endInfo.newBest && <span className="new-best-pill show">NEW BEST!</span>}
+            </div>
+            <button className="primary" onClick={() => startRun(runMode)}>{runMode === 'survival' ? 'Run it back' : 'Practice again'}</button>
+            <div className="secondary-row">
+              {!isDaily && <button onClick={() => setScreen('home')}>Home</button>}
+              <button onClick={onBack}>{isDaily ? 'Done' : 'Exit'}</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Toasts */}
+      {toasts.map((t) => (
+        <div key={t.id} className="tier-toast show" style={{ color: t.color, border: `1px solid ${t.color}55`, background: '#111826f0' }}>{t.msg}</div>
+      ))}
+      {floats.map((f) => (
+        <div key={f.id} className="xp-float" style={{ left: `${f.x}vw`, top: `${f.y}vh`, color: f.color }}>{f.text}</div>
+      ))}
+
+      {/* Level-up overlay */}
+      {levelUp && (
+        <div className="level-overlay show">
+          <div className="level-box">
+            <div className="level-lbl">Level up</div>
+            <div className="level-big">{levelUp}</div>
+            <div className="level-lbl">{titleForLevel(levelUp)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ PROFILE MODAL ═══ */}
+      {modal === 'profile' && (
+        <div className="modal-overlay show" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal">
+            <div className="modal-head">
+              <span className="modal-title">Profile</span>
+              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+            </div>
+            <div className="modal-sub">Lv {lvl} {titleForLevel(lvl)} · {save.xp} lifetime XP</div>
+            <div className="stat-grid">
+              <div className="stat-box"><div className="num">{save.stats.answered}</div><div className="lbl">answered</div></div>
+              <div className="stat-box"><div className="num">{save.stats.answered ? Math.round((save.stats.correct / save.stats.answered) * 100) : 0}%</div><div className="lbl">accuracy</div></div>
+              <div className="stat-box"><div className="num">{Math.max(...Object.values(save.bestByScope || { x: 0 }), 0)}</div><div className="lbl">best streak</div></div>
+              <div className="stat-box"><div className="num">{save.stats.reviewCleared}</div><div className="lbl">reviews cleared</div></div>
+            </div>
+            {stats?.dailyGoal != null && (
+              <div className="goal-box">
+                <div className="goal-head"><span>daily goal</span><span>{stats.reviewedToday || 0}/{stats.dailyGoal}</span></div>
+                <div className="goal-bar"><div className="goal-fill" style={{ width: `${goalPct}%` }} /></div>
+              </div>
+            )}
+            <div className="mastery-line">
+              🌟 {Object.values(cardStates).filter((c) => c.isMastered).length} mastered
+              <span className="mastery-dot" style={{ background: '#4ADE80' }} />{Object.values(cardStates).filter((c) => !c.isMastered && !c.isDue && c.state > 0).length} strong
+              <span className="mastery-dot" style={{ background: '#FFB627' }} />{dueHere} due
+            </div>
+
+            <div className="section-lbl">Settings</div>
+            <div className="setting-row">
+              <span>Sound</span>
+              <button className={`setting-btn${save.soundOn ? ' on' : ''}`} onClick={toggleSound}>{save.soundOn ? 'ON' : 'OFF'}</button>
+            </div>
+            <div className="setting-row">
+              <span>Streak freeze<span className="freeze-count">×{save.freezes}</span></span>
+              <button className="setting-btn" onClick={buyFreeze} disabled={save.gems < 15}>Buy · 15💎</button>
+            </div>
+
+            <div className="section-lbl">Achievements · {save.achievements.length}/{ACHIEVEMENTS.length}</div>
+            <div className="ach-grid">
+              {ACHIEVEMENTS.map((a) => {
+                const un = save.achievements.includes(a.id);
+                return (
+                  <div key={a.id} className={`ach${un ? ' unlocked' : ''}`}>
+                    <span className="ico">{a.ico}</span>
+                    <div><div className="nm">{a.nm}</div><div className="ds">{a.ds}</div><div className="gm">+{a.gm}💎</div></div>
+                  </div>
+                );
+              })}
+            </div>
+            <button className="danger-btn" onClick={resetSave}>reset survival progress</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ LEAGUE MODAL ═══ */}
+      {modal === 'league' && (
+        <div className="modal-overlay show" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal">
+            <div className="modal-head">
+              <span className="modal-title">Weekly League</span>
+              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+            </div>
+            <div className="modal-sub">
+              {league?.mine ? `${league.mine.tier} tier · ${league.mine.weeklyXP} XP this week` : 'real players, weekly XP'}
+            </div>
+            {leagueBusy && <div className="modal-sub">Loading standings…</div>}
+            {!leagueBusy && league?.rows?.map((row, i) => {
+              const isYou = league.mine && row.userId === league.mine.userId;
+              return (
+                <div key={row.id || i} className={`lg-row${i < 3 ? ' top' : ''}${isYou ? ' you' : ''}`}>
+                  <span className="lg-rank">{i + 1}</span>
+                  <span className="lg-ava">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🎓'}</span>
+                  <span className="lg-name">{row.user?.username || 'player'}{isYou && <span className="you-tag">you</span>}</span>
+                  <span className="lg-xp">{row.weeklyXP} XP</span>
+                </div>
+              );
+            })}
+            {!leagueBusy && league && league.rows?.length === 0 && (
+              <div className="modal-sub">No standings yet — earn XP to appear here.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ CHEST MODAL ═══ */}
+      {modal === 'chest' && (
+        <div className="modal-overlay show" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal chest-modal">
+            <span className={`chest-emoji${chestState.opened ? ' pop' : ''}`} onClick={popChest} role="button" tabIndex={0}>
+              {chestState.opened ? '🎉' : '🎁'}
+            </span>
+            <div className="chest-title">{pendingChest === 'quest' ? 'Quest bonus chest' : 'Daily warmup'}</div>
+            <div className="chest-sub">{chestState.opened ? 'Nice. Come back tomorrow for more.' : 'Tap the chest to open it.'}</div>
+            {chestState.opened && <div className="chest-reward show">{chestState.reward}</div>}
+            <button className="primary" onClick={() => setModal(null)}>{chestState.opened ? 'Collect' : 'Later'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

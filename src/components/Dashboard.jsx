@@ -4,6 +4,7 @@ import { useUserData } from "../contexts/UserDataContext";
 import { getMyProfile } from "../lib/profileApi.js";
 import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
+import StreakSurvival from "../features/streak-survival/StreakSurvival.jsx";
 import { API_BASE } from "../lib/constants";
 import "../research-hub.css";
 
@@ -292,6 +293,7 @@ export default function Dashboard({
   const { lastActivity, srData } = useUserData();
   const [fsrsStats, setFsrsStats] = useState(null);
   const [showDailyReview, setShowDailyReview] = useState(false);
+  const [mcqPracticeItems, setMcqPracticeItems] = useState(null); // due-mcq items → practice runner
 
   const fetchFsrsStats = useCallback(async () => {
     try {
@@ -409,27 +411,10 @@ export default function Dashboard({
       const res = await fetch(`${API_BASE}/api/resources/fsrs/due-mcqs?limit=20`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
-        const items = data.items || [];
+        const items = (data.items || []).filter((i) => i.mcq);
         if (items.length > 0) {
-          const questions = items.map((item) => {
-            const mcq = item.mcq || {};
-            const rawOpts = mcq.options || {};
-            const optArr = Array.isArray(rawOpts) ? rawOpts : Object.values(rawOpts);
-            const correctIdx = typeof mcq.correct === "string"
-              ? mcq.correct.charCodeAt(0) - 65
-              : mcq.answer ?? mcq.correctIndex ?? 0;
-            return {
-              q: mcq.question || mcq.q || "Untitled question",
-              options: optArr,
-              answer: correctIdx,
-              explanation: mcq.explanation || "",
-              key: `fsrs-${item.id}`,
-              questionId: item.id,
-              subjectId: item.subject || "General",
-              _fsrs: { resourceId: item.resourceId, pageIndex: item.pageIndex, itemType: "mcq" },
-            };
-          });
-          onStartSpaced(questions);
+          // Practice-mode Streak Survival runner for daily FSRS questions
+          setMcqPracticeItems(items);
           return;
         }
       }
@@ -443,11 +428,11 @@ export default function Dashboard({
         const res = await fetch(`${API_BASE}/api/resources/fsrs/due?limit=50`, { headers: getAuthHeaders() });
         if (res.ok) {
           const data = await res.json();
-          const readingItem = (data.items || []).find(
-            (item) => ["whole_pdf", "page"].includes(item.itemType) && item.resource?.shareToken
+          const reviewItem = (data.items || []).find(
+            (item) => ["mcq", "legacy_mcq", "flashcard"].includes(item.itemType) && item.resource?.shareToken
           );
-          if (readingItem) {
-            onOpenResource(readingItem.resource.shareToken, readingItem.pageIndex);
+          if (reviewItem) {
+            onOpenResource(reviewItem.resource.shareToken, reviewItem.pageIndex);
             return;
           }
         }
@@ -579,9 +564,17 @@ export default function Dashboard({
           <DailyReview
             onBack={() => { setShowDailyReview(false); fetchFsrsStats(); }}
             onComplete={() => { fetchFsrsStats(); }}
-            onOpenPdf={onOpenResource}
           />
         </div>
+      )}
+
+      {/* Questions-only practice runner */}
+      {mcqPracticeItems && (
+        <StreakSurvival
+          items={mcqPracticeItems}
+          mode="practice"
+          onBack={() => { setMcqPracticeItems(null); fetchFsrsStats(); }}
+        />
       )}
 
     </div>

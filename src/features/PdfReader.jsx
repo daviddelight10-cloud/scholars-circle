@@ -466,11 +466,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     : 0;
 
   // ── FSRS Spaced Repetition state ────────────────────────────────────────────
-  const [fsrsStatus, setFsrsStatus] = useState(null); // per-resource FSRS data
-  const [fsrsRatingBar, setFsrsRatingBar] = useState(false); // show page rating bar
-  const [fsrsWholePdfRating, setFsrsWholePdfRating] = useState(false); // show whole-PDF rating
-  const [fsrsRatingBusy, setFsrsRatingBusy] = useState(false);
-  const [fsrsLastResult, setFsrsLastResult] = useState(null); // { intervalLabel, stateLabel }
   const [fsrsFlashcards, setFsrsFlashcards] = useState([]);
   const [fsrsFlashcardView, setFsrsFlashcardView] = useState("menu"); // "menu" | "generate" | "review" | "browse"
   const [fsrsFlashcardLoading, setFsrsFlashcardLoading] = useState(false);
@@ -487,25 +482,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [pageQuizRevealed, setPageQuizRevealed] = useState(false);
   const [pageQuizGenerating, setPageQuizGenerating] = useState(false);
   const [pageQuizError, setPageQuizError] = useState(null);
-  const visitedPagesRef = useRef(new Set());
-  const backgroundQueueRef = useRef(null);
-
-  // Lazy generation: generate questions for current page on first visit, queue rest
-  useEffect(() => {
-    if (!propResourceId || !numPages || loading) return;
-    if (visitedPagesRef.current.has(currentPage)) return;
-    visitedPagesRef.current.add(currentPage);
-
-    // Generate for current page immediately
-    generatePageQuiz([currentPage]);
-
-    // Queue background generation for remaining pages (only once)
-    if (!backgroundQueueRef.current) {
-      backgroundQueueRef.current = true;
-      queueBackgroundGeneration([currentPage]);
-    }
-  }, [currentPage, propResourceId, numPages, loading]);
-
   // ── Voice Tutor state ──────────────────────────────────────────────────────
   const voice = useVoiceSession();
   const [voiceMode, setVoiceMode] = useState("teach");
@@ -1930,7 +1906,6 @@ ${extractedText}
         headers: getFsrsAuthHeaders(),
         body: JSON.stringify({ resourceId: propResourceId, totalPages }),
       });
-      fetchFsrsStatus();
     } catch {}
   };
 
@@ -1994,38 +1969,6 @@ ${extractedText}
   };
 
   // Queue background generation for remaining pages
-  const queueBackgroundGeneration = async (skipPages) => {
-    if (!propResourceId) return;
-    const skipSet = new Set(skipPages || []);
-    const allPages = [];
-    for (let p = 1; p <= Math.min(numPages, 50); p++) {
-      if (!skipSet.has(p)) allPages.push(p);
-    }
-    if (allPages.length === 0) return;
-
-    // Process in small batches with delays to avoid rate limiting
-    for (let i = 0; i < allPages.length; i += 5) {
-      const batch = allPages.slice(i, i + 5);
-      const pagesWithText = [];
-      for (const p of batch) {
-        try {
-          const text = await getPageText(p);
-          if (text.trim()) pagesWithText.push({ pageIndex: p, text });
-        } catch {}
-      }
-      if (pagesWithText.length === 0) continue;
-      try {
-        await fetch(`${API_BASE}/api/resources/fsrs/page-questions/generate`, {
-          method: "POST",
-          headers: getFsrsAuthHeaders(),
-          body: JSON.stringify({ resourceId: propResourceId, pages: pagesWithText }),
-        });
-      } catch {}
-      // Small delay between batches
-      await new Promise(r => setTimeout(r, 2000));
-    }
-  };
-
   // Regenerate questions for current page (delete + recreate)
   const regeneratePageQuiz = async () => {
     if (!propResourceId || pageQuizGenerating) return;
@@ -2048,45 +1991,6 @@ ${extractedText}
     setFsrsRatingBar(false);
     setFsrsWholePdfRating(false);
     fetchPageQuiz();
-  };
-
-  const fetchFsrsStatus = async () => {
-    if (!propResourceId) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/status/${propResourceId}`, {
-        headers: getFsrsAuthHeaders(),
-      });
-      if (res.ok) setFsrsStatus(await res.json());
-    } catch {}
-  };
-
-  const rateFsrsItem = async (itemType, grade, pageIndex, flashcardId) => {
-    if (!propResourceId || fsrsRatingBusy) return;
-    setFsrsRatingBusy(true);
-    setFsrsLastResult(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/rate`, {
-        method: "POST",
-        headers: getFsrsAuthHeaders(),
-        body: JSON.stringify({ resourceId: propResourceId, itemType, grade, pageIndex, flashcardId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setFsrsLastResult(data);
-        fetchFsrsStatus();
-      }
-    } catch {}
-    setFsrsRatingBusy(false);
-  };
-
-  const ratePage = (grade) => {
-    rateFsrsItem("page", grade, currentPage);
-    setFsrsRatingBar(false);
-  };
-
-  const rateWholePdf = (grade) => {
-    rateFsrsItem("whole_pdf", grade);
-    setFsrsWholePdfRating(false);
   };
 
   const fetchFlashcards = async () => {
@@ -2144,17 +2048,6 @@ ${extractedText}
       setFsrsFlashcardError(err.message || "Failed to generate flashcards");
     }
     setFsrsFlashcardLoading(false);
-  };
-
-  const getPageDot = (page) => {
-    if (!fsrsStatus?.pages) return null;
-    const p = fsrsStatus.pages.find((x) => x.pageIndex === page);
-    if (!p) return null;
-    if (p.isMastered) return { color: "#22c55e", title: "Mastered" };
-    if (p.isDue) return { color: "#ef4444", title: "Due for review" };
-    if (p.state === 1 || p.state === 3) return { color: "#f59e0b", title: "Learning" };
-    if (p.state === 0) return { color: "#94a3b8", title: "New" };
-    return { color: theme === "light" ? "#2563EB" : "#FFD700", title: "Review" };
   };
 
   // ---- Chat popup ----
@@ -4617,32 +4510,10 @@ ${extractedText}
             {propResourceId && (
               <button
                 style={{ ...s.iconBtn, color: pageQuizOpen ? T.accent : T.muted, background: pageQuizOpen ? T.hover : "none" }}
-                onClick={() => { setPageQuizOpen((v) => !v); setFsrsRatingBar(false); setFsrsWholePdfRating(false); if (!pageQuizOpen) fetchPageQuiz(); }}
+                onClick={() => { setPageQuizOpen((v) => !v); if (!pageQuizOpen) fetchPageQuiz(); }}
                 title="Page Quiz (AI questions)"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </button>
-            )}
-
-            {/* FSRS Rate Page */}
-            {propResourceId && (
-              <button
-                style={{ ...s.iconBtn, color: fsrsRatingBar ? T.accent : T.muted, background: fsrsRatingBar ? T.hover : "none" }}
-                onClick={() => { setFsrsRatingBar((v) => !v); setFsrsWholePdfRating(false); setPageQuizOpen(false); }}
-                title="Rate this page (FSRS)"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
-              </button>
-            )}
-
-            {/* FSRS Rate Whole PDF */}
-            {propResourceId && (
-              <button
-                style={{ ...s.iconBtn, color: fsrsWholePdfRating ? T.accent : T.muted, background: fsrsWholePdfRating ? T.hover : "none" }}
-                onClick={() => { setFsrsWholePdfRating((v) => !v); setFsrsRatingBar(false); }}
-                title="Rate entire PDF (FSRS)"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 13l1.5 3.5L17 17l-3.5 1.5L12 22l-1.5-3.5L7 17l3.5-.5z"/></svg>
               </button>
             )}
 
@@ -4830,7 +4701,6 @@ ${extractedText}
                 </div>
               )}
               {filteredThumbs.map((t) => {
-                const dot = getPageDot(t.page);
                 return (
                 <button
                   key={t.page}
@@ -4849,7 +4719,6 @@ ${extractedText}
                     <div style={{ width: 84, height: 110, background: T.inputBg, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: T.muted }}>…</div>
                   )}
                   <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
-                  {dot && <span title={dot.title} style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: dot.color, border: "1px solid rgba(0,0,0,0.2)" }} />}
                 </button>
                 );
               })}
@@ -4893,7 +4762,6 @@ ${extractedText}
                 </div>
               )}
               {filteredThumbs.map((t) => {
-                const dot = getPageDot(t.page);
                 return (
                 <button
                   key={t.page}
@@ -4912,7 +4780,6 @@ ${extractedText}
                     <div style={{ width: 84, height: 110, background: T.inputBg, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: T.muted }}>…</div>
                   )}
                   <span style={{ ...s.thumbLabel, color: t.page === currentPage ? T.accent : T.muted }}>{t.page}</span>
-                  {dot && <span title={dot.title} style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: "50%", background: dot.color, border: "1px solid rgba(0,0,0,0.2)" }} />}
                 </button>
                 );
               })}
@@ -6384,56 +6251,6 @@ ${extractedText}
             </div>
           )}
 
-          {/* FSRS Page Rating Bar */}
-          {fsrsRatingBar && !loading && !loadError && (
-            <div style={{
-              position: "absolute", bottom: isMobile ? 60 : 16, left: "50%", transform: "translateX(-50%)",
-              background: T.toolbar, border: `0.5px solid ${T.border}`, borderRadius: 14,
-              padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, zIndex: 30,
-              boxShadow: `0 4px 20px ${T.shadow}`, maxWidth: isMobile ? "92%" : "auto",
-            }}>
-              <span style={{ fontSize: 12, color: T.text, fontWeight: 600, whiteSpace: "nowrap" }}>Rate p.{currentPage}:</span>
-              {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#FFD700" }].map((r) => (
-                <button key={r.g} disabled={fsrsRatingBusy} onClick={() => ratePage(r.g)}
-                  style={{
-                    padding: "6px 12px", borderRadius: 8, border: `1px solid ${r.c}40`, background: `${r.c}15`,
-                    color: r.c, fontSize: 12, fontWeight: 700, cursor: fsrsRatingBusy ? "not-allowed" : "pointer",
-                    opacity: fsrsRatingBusy ? 0.5 : 1,
-                  }}>
-                  {r.l}
-                </button>
-              ))}
-              <button onClick={() => setFsrsRatingBar(false)}
-                style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
-            </div>
-          )}
-
-          {/* FSRS Whole-PDF Rating Bar */}
-          {fsrsWholePdfRating && !loading && !loadError && (
-            <div style={{
-              position: "absolute", bottom: isMobile ? 60 : 16, left: "50%", transform: "translateX(-50%)",
-              background: T.toolbar, border: `0.5px solid ${T.accent}`, borderRadius: 14,
-              padding: "14px 20px", display: "flex", flexDirection: "column", gap: 10, zIndex: 30,
-              boxShadow: `0 4px 20px ${T.shadow}`, maxWidth: isMobile ? "92%" : 400,
-            }}>
-              <span style={{ fontSize: 13, color: T.text, fontWeight: 700, textAlign: "center" }}>How well did you understand this PDF?</span>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                {[{ g: 1, l: "Again", c: "#ef4444" }, { g: 2, l: "Hard", c: "#f59e0b" }, { g: 3, l: "Good", c: "#22c55e" }, { g: 4, l: "Easy", c: "#FFD700" }].map((r) => (
-                  <button key={r.g} disabled={fsrsRatingBusy} onClick={() => rateWholePdf(r.g)}
-                    style={{
-                      padding: "8px 16px", borderRadius: 10, border: `1px solid ${r.c}40`, background: `${r.c}15`,
-                      color: r.c, fontSize: 13, fontWeight: 700, cursor: fsrsRatingBusy ? "not-allowed" : "pointer",
-                      opacity: fsrsRatingBusy ? 0.5 : 1,
-                    }}>
-                    {r.l}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => setFsrsWholePdfRating(false)}
-                style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 14, padding: 2, alignSelf: "flex-end" }}>✕</button>
-            </div>
-          )}
-
           {/* Page Quiz Panel (AI-generated questions — study aid, does NOT update FSRS) */}
           {pageQuizOpen && !loading && !loadError && (
             <div style={{
@@ -6554,17 +6371,6 @@ ${extractedText}
                   </button>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* FSRS last result toast */}
-          {fsrsLastResult && (fsrsRatingBar || fsrsWholePdfRating) && (
-            <div style={{
-              position: "absolute", bottom: isMobile ? 120 : 80, left: "50%", transform: "translateX(-50%)",
-              background: T.hover, border: `0.5px solid ${T.border}`, borderRadius: 8,
-              padding: "6px 14px", fontSize: 11, color: T.muted, zIndex: 31, whiteSpace: "nowrap",
-            }}>
-              Next review: {fsrsLastResult.intervalLabel} · {fsrsLastResult.stateLabel}
             </div>
           )}
 

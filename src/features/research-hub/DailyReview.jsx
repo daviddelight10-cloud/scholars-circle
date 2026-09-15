@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { API_BASE } from "../../lib/constants";
+import PracticeMcqCard from "../streak-survival/PracticeMcqCard.jsx";
+import { normalizeQuestion } from "../streak-survival/fsrsBridge.js";
 
 
 function getAuthHeaders() {
@@ -20,7 +22,7 @@ const GRADE_LABELS = {
 
 const STATE_LABELS = { 0: "🆕 New", 1: "📖 Learning", 2: "🔄 Review", 3: "🔁 Relearning" };
 
-export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
+export default function DailyReview({ onBack, onComplete }) {
   const [items, setItems] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -30,26 +32,17 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
   const [sessionStats, setSessionStats] = useState({ reviewed: 0, correct: 0, total: 0 });
   const [finished, setFinished] = useState(false);
   const [dailyGoal, setDailyGoal] = useState(20);
-  const [selectedOption, setSelectedOption] = useState(null); // For MCQ answer selection
-
-  // Page review AI questions state
-  const [pageQuestions, setPageQuestions] = useState(null); // { questions: [...], pageIndex, resourceId }
-  const [pageAnswers, setPageAnswers] = useState({}); // { questionId: selectedOption }
-  const [pageQuestionsLoading, setPageQuestionsLoading] = useState(false);
-  const [pageQuizSubmitted, setPageQuizSubmitted] = useState(false);
-  const [pageQuizStep, setPageQuizStep] = useState("mcq"); // "mcq" | "sa_review" | "done"
-  const [saAssessments, setSaAssessments] = useState({}); // { questionId: "yes"|"partial"|"no" }
-  const [pageQuizResult, setPageQuizResult] = useState(null);
   const [fsrsStats, setFsrsStats] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  // Missed-MCQ review loop (prototype behavior): grade-1 MCQs are re-asked at session end
+  const [missedQueue, setMissedQueue] = useState([]);
+  const [reviewPhase, setReviewPhase] = useState(false);
+  const [clearedCount, setClearedCount] = useState(0);
 
   // Folder selection
   const [selectedFolder, setSelectedFolder] = useState(null); // null = show folder picker
   const [byFolder, setByFolder] = useState({});
   const [allItems, setAllItems] = useState([]);
-
-  // Short-answer text answers
-  const [saTextAnswers, setSaTextAnswers] = useState({}); // { questionId: typedText }
 
   // Scroll container ref for auto-scroll on item change
   const scrollRef = useRef(null);
@@ -97,11 +90,6 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
     }
   }, [currentIdx]);
 
-  // Reset selectedOption when current item changes
-  useEffect(() => {
-    setSelectedOption(null);
-  }, [currentIdx]);
-
   const fetchFsrsStats = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/stats`, { headers: getAuthHeaders() });
@@ -114,114 +102,59 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
 
   useEffect(() => { fetchFsrsStats(); }, [fetchFsrsStats]);
 
-  const currentItem = items[currentIdx];
+  const isMcqItem = (it) => it?.itemType === "mcq" || it?.itemType === "legacy_mcq";
+  // During the missed-review phase, serve from the missed queue head
+  const currentItem = reviewPhase ? missedQueue[0] : items[currentIdx];
+  const lastMcqAnswerRef = useRef(null); // last PracticeMcqCard answer (read on Continue)
+  const [cardNonce, setCardNonce] = useState(0);
 
-  // Fetch page questions when current item is a page
-  useEffect(() => {
-    if (!currentItem || currentItem.itemType !== "page") {
-      setPageQuestions(null);
-      setPageAnswers({});
-      setPageQuizSubmitted(false);
-      setPageQuizStep("mcq");
-      setSaAssessments({});
-      setPageQuizResult(null);
-      return;
-    }
-    const resourceId = currentItem.resource?.id;
-    const pageIndex = currentItem.pageIndex;
-    if (!resourceId || pageIndex == null) return;
-
-    setPageQuestionsLoading(true);
-    setPageQuestions(null);
-    setPageAnswers({});
-    setSaTextAnswers({});
-    setPageQuizSubmitted(false);
-    setPageQuizStep("mcq");
-    setSaAssessments({});
-    setPageQuizResult(null);
-
-    fetch(`${API_BASE}/api/resources/fsrs/page-questions/${resourceId}/${pageIndex}`, {
-      headers: getAuthHeaders(),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.questions && data.questions.length > 0) {
-          setPageQuestions(data);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setPageQuestionsLoading(false));
-  }, [currentItem]);
-
-  const handlePageAnswer = (questionId, optionKey) => {
-    if (pageQuizSubmitted) return;
-    setPageAnswers((prev) => ({ ...prev, [questionId]: optionKey }));
+  const finishSession = () => {
+    setFinished(true);
+    fetchFsrsStats();
+    onComplete?.();
   };
 
-  // Step 1: Submit MCQ answers, reveal results + SA model answers
-  const handleSubmitPageQuiz = () => {
-    if (!currentItem || pageQuizSubmitted) return;
-    setPageQuizSubmitted(true);
-    setPageQuizStep("sa_review");
-  };
-
-  // Step 2: Submit SA self-assessments + MCQ answers to rate endpoint
-  const handleSubmitSaAssessment = async () => {
-    if (!currentItem) return;
-    const resourceId = currentItem.resource?.id;
-    const pageIndex = currentItem.pageIndex;
-    if (!resourceId || pageIndex == null) return;
-
-    const mcqQuestions = (pageQuestions?.questions || []).filter((q) => q.questionType === "mcq");
-    const saQuestions = (pageQuestions?.questions || []).filter((q) => q.questionType === "short_answer");
-    const answers = mcqQuestions.map((q) => ({
-      questionId: q.id,
-      selectedAnswer: pageAnswers[q.id] || null,
-    }));
-    const saList = saQuestions.map((q) => ({
-      questionId: q.id,
-      rating: saAssessments[q.id] || "no",
-    }));
-
-    setPageQuizStep("done");
-
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/page-questions/rate`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ resourceId, pageIndex, answers, saAssessments: saList }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPageQuizResult(data);
-        setSessionStats((prev) => ({
-          ...prev,
-          reviewed: prev.reviewed + 1,
-          correct: prev.correct + (data.grade >= 3 ? 1 : 0),
-        }));
+  const advanceSession = () => {
+    if (currentIdx + 1 >= items.length || sessionStats.reviewed >= dailyGoal) {
+      if (missedQueue.length > 0) {
+        setReviewPhase(true);
+        setCardNonce(n => n + 1);
+      } else {
+        finishSession();
       }
-    } catch {}
-    window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
-  };
-
-  const advanceToNext = () => {
-    if (currentIdx + 1 >= items.length || sessionStats.reviewed + 1 >= dailyGoal) {
-      setFinished(true);
-      fetchFsrsStats();
-      onComplete?.();
     } else {
-      setCurrentIdx((i) => i + 1);
+      setCurrentIdx(i => i + 1);
       setShowAnswer(false);
       setRating(null);
-      setSelectedOption(null);
-      setPageQuestions(null);
-      setPageAnswers({});
-      setSaTextAnswers({});
-      setPageQuizSubmitted(false);
-      setPageQuizStep("mcq");
-      setSaAssessments({});
-      setPageQuizResult(null);
     }
+  };
+
+  // PracticeMcqCard callbacks — fires optimistically on answer, again with serverAck on response
+  const handleMcqRated = (res) => {
+    if (res.serverAck) return;
+    lastMcqAnswerRef.current = res;
+    window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
+    if (!reviewPhase) {
+      setSessionStats(prev => ({
+        ...prev,
+        reviewed: prev.reviewed + 1,
+        correct: prev.correct + (res.correct ? 1 : 0),
+      }));
+      if (!res.correct) setMissedQueue(q => [...q, currentItem]);
+    }
+  };
+
+  const handleMcqNext = () => {
+    if (reviewPhase) {
+      const wasCorrect = lastMcqAnswerRef.current?.correct;
+      const nextQueue = wasCorrect ? missedQueue.slice(1) : [...missedQueue.slice(1), missedQueue[0]];
+      setMissedQueue(nextQueue);
+      if (wasCorrect) setClearedCount(c => c + 1);
+      setCardNonce(n => n + 1);
+      if (nextQueue.length === 0) finishSession();
+      return;
+    }
+    advanceSession();
   };
 
   const handleRate = async (grade) => {
@@ -251,26 +184,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
       correct: prev.correct + (grade >= 3 ? 1 : 0),
     }));
 
-    setTimeout(() => {
-      if (currentIdx + 1 >= items.length || sessionStats.reviewed + 1 >= dailyGoal) {
-        setFinished(true);
-        fetchFsrsStats();
-        onComplete?.();
-      } else {
-        setCurrentIdx(i => i + 1);
-        setShowAnswer(false);
-        setRating(null);
-        setSelectedOption(null);
-        setSaTextAnswers({});
-      }
-    }, 500);
-  };
-
-  // Handle MCQ option selection
-  const handleMcqOptionSelect = (optionKey) => {
-    if (selectedOption !== null) return; // Already answered
-    setSelectedOption(optionKey);
-    setShowAnswer(true); // Reveal answer after selection
+    setTimeout(advanceSession, 500);
   };
 
   if (loading) {
@@ -345,7 +259,6 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
           {/* Individual folders */}
           <div className="space-y-2">
             {folderEntries.map(([key, f], idx) => {
-              const pageCount = f.items.filter(i => i.itemType === "page").length;
               const mcqCount = f.items.filter(i => i.itemType === "mcq" || i.itemType === "legacy_mcq").length;
               const fcCount = f.items.filter(i => i.itemType === "flashcard").length;
               return (
@@ -363,7 +276,6 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                       {key === "__unfiled__" ? "Unfiled" : f.folderName}
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-hub-text-dim">
-                      {pageCount > 0 && <span className="rounded bg-hub-bg px-1.5 py-0.5">📖 {pageCount}</span>}
                       {mcqCount > 0 && <span className="rounded bg-hub-bg px-1.5 py-0.5">❓ {mcqCount}</span>}
                       {fcCount > 0 && <span className="rounded bg-hub-bg px-1.5 py-0.5">🃏 {fcCount}</span>}
                     </div>
@@ -434,6 +346,9 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
           <div className="mb-3 text-4xl">🎉</div>
           <div className="text-xl font-extrabold text-gold">Session Complete!</div>
           <div className="mt-1 text-[12px] text-hub-text-dim">You reviewed {sessionStats.reviewed} {sessionStats.reviewed === 1 ? "card" : "cards"} this session</div>
+          {clearedCount > 0 && (
+            <div className="mt-1 text-[11px] font-semibold text-[#22c55e]">🔁 {clearedCount} missed question{clearedCount > 1 ? "s" : ""} cleared in review</div>
+          )}
         </div>
 
         {/* Stat cards */}
@@ -517,7 +432,7 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
         {/* Actions */}
         <div className="flex justify-center gap-2">
           {Object.keys(byFolder).length > 1 && (
-            <button onClick={() => { setFinished(false); setSelectedFolder(null); }} className="cursor-pointer rounded-xl border border-hub-border px-5 py-2.5 text-[12px] font-semibold text-hub-text-muted transition-all active:scale-95">← Folders</button>
+            <button onClick={() => { setFinished(false); setSelectedFolder(null); setReviewPhase(false); setMissedQueue([]); setClearedCount(0); }} className="cursor-pointer rounded-xl border border-hub-border px-5 py-2.5 text-[12px] font-semibold text-hub-text-muted transition-all active:scale-95">← Folders</button>
           )}
           <button onClick={onBack} className="cursor-pointer rounded-xl bg-gold px-6 py-2.5 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-95">← Back to Hub</button>
         </div>
@@ -525,8 +440,8 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
     );
   }
 
-  const typeIcon = { whole_pdf: "📄", page: "📖", flashcard: "🃏", mcq: "❓", legacy_mcq: "❓" }[currentItem?.itemType] || "📚";
-  const typeLabel = { whole_pdf: "PDF Review", page: "Page Review", flashcard: "Flashcard", mcq: "MCQ", legacy_mcq: "MCQ" }[currentItem?.itemType] || "Review";
+  const typeIcon = { flashcard: "🃏", mcq: "❓", legacy_mcq: "❓" }[currentItem?.itemType] || "📚";
+  const typeLabel = { flashcard: "Flashcard", mcq: "MCQ", legacy_mcq: "MCQ" }[currentItem?.itemType] || "Review";
 
   const progressPct = sessionStats.total > 0 ? Math.round((sessionStats.reviewed / sessionStats.total) * 100) : 0;
 
@@ -562,6 +477,9 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
           {currentItem.lapses > 0 && (
             <span className="rounded-full border border-coral-300 bg-coral-50 px-2.5 py-1 text-[10px] text-coral-400">🔁 {currentItem.lapses} lapse{currentItem.lapses > 1 ? "s" : ""}</span>
           )}
+          {reviewPhase && (
+            <span className="rounded-full border border-coral-300 bg-coral-50 px-2.5 py-1 text-[10px] text-coral-400">🔁 Review · {missedQueue.length} left</span>
+          )}
         </div>
 
         {/* Topic badge */}
@@ -571,7 +489,25 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
           </div>
         )}
 
-        {/* Card content */}
+        {/* MCQ items use the Streak Survival practice card (auto-graded via FSRS-6) */}
+        {isMcqItem(currentItem) && currentItem.mcq ? (
+          <div className="w-full">
+            <PracticeMcqCard
+              key={`${currentItem.resource?.id || "r"}:${currentItem.pageIndex}:${cardNonce}`}
+              question={normalizeQuestion(currentItem.mcq, currentItem.pageIndex, currentItem.resource?.id, currentItem.itemType)}
+              cardState={{
+                state: currentItem.state,
+                stability: currentItem.stability,
+                dueAt: currentItem.dueAt,
+                isDue: true,
+              }}
+              badge={reviewPhase ? "missed — try again" : undefined}
+              onRated={handleMcqRated}
+              onNext={handleMcqNext}
+            />
+          </div>
+        ) : (
+        /* Card content */
         <div className="w-full rounded-2xl border border-hub-border bg-hub-surface p-5 shadow-lg shadow-black/20">
           {currentItem.itemType === "flashcard" ? (
             <>
@@ -589,282 +525,19 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
                 </div>
               )}
             </>
-          ) : currentItem.itemType === "mcq" || currentItem.itemType === "legacy_mcq" ? (
-            <>
-              <div className="mb-4 text-[14px] font-bold leading-relaxed text-hub-text">
-                {currentItem.mcq?.question || currentItem.mcq?.q || `Question ${(currentItem.pageIndex || 0) + 1}`}
-              </div>
-              {currentItem.mcq?.options && (() => {
-                const opts = currentItem.mcq.options;
-                const correctKey = currentItem.mcq?.correct ?? currentItem.mcq?.answer ?? null;
-                const isAnswered = selectedOption !== null;
-                
-                return (
-                  <div className="space-y-2">
-                    {Array.isArray(opts) ? opts.map((opt, oi) => {
-                      const optionKey = String.fromCharCode(65 + oi);
-                      const isCorrect = optionKey === correctKey || oi === (currentItem.mcq?.correctIndex ?? currentItem.mcq?.answer);
-                      const isSelected = selectedOption === optionKey;
-                      const showCorrect = isAnswered && isCorrect;
-                      const showWrong = isAnswered && isSelected && !isCorrect;
-                      
-                      return (
-                        <button
-                          key={oi}
-                          onClick={() => handleMcqOptionSelect(optionKey)}
-                          disabled={isAnswered}
-                          className={`flex w-full items-start gap-2.5 rounded-xl border p-3 text-[12px] text-left transition-all ${
-                            isAnswered ? "cursor-default" : "cursor-pointer active:scale-[0.98]"
-                          } ${
-                            showCorrect ? "border-success-border bg-success-bg text-success-text" : 
-                            showWrong ? "border-coral-300 bg-coral-50 text-coral-400" : 
-                            isSelected ? "border-gold-border bg-gold-dim text-gold" : 
-                            "border-hub-border bg-hub-bg text-hub-text-muted"
-                          }`}
-                        >
-                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                            showCorrect ? "bg-[#22c55e] text-[#0a0a0a]" : 
-                            showWrong ? "bg-[#ef4444] text-[#0a0a0a]" : 
-                            isSelected ? "bg-gold text-[#0a0a0a]" : 
-                            "bg-hub-border text-hub-text-dim"
-                          }`}>{optionKey}</span>
-                          <span className="pt-0.5">{opt}</span>
-                          {showCorrect && <span className="ml-auto pt-0.5 text-[10px]">✓</span>}
-                          {showWrong && <span className="ml-auto pt-0.5 text-[10px]">✗</span>}
-                        </button>
-                      );
-                    }) : Object.entries(opts).map(([key, val]) => {
-                      const isCorrect = key === correctKey;
-                      const isSelected = selectedOption === key;
-                      const showCorrect = isAnswered && isCorrect;
-                      const showWrong = isAnswered && isSelected && !isCorrect;
-                      
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => handleMcqOptionSelect(key)}
-                          disabled={isAnswered}
-                          className={`flex w-full items-start gap-2.5 rounded-xl border p-3 text-[12px] text-left transition-all ${
-                            isAnswered ? "cursor-default" : "cursor-pointer active:scale-[0.98]"
-                          } ${
-                            showCorrect ? "border-success-border bg-success-bg text-success-text" : 
-                            showWrong ? "border-coral-300 bg-coral-50 text-coral-400" : 
-                            isSelected ? "border-gold-border bg-gold-dim text-gold" : 
-                            "border-hub-border bg-hub-bg text-hub-text-muted"
-                          }`}
-                        >
-                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                            showCorrect ? "bg-[#22c55e] text-[#0a0a0a]" : 
-                            showWrong ? "bg-[#ef4444] text-[#0a0a0a]" : 
-                            isSelected ? "bg-gold text-[#0a0a0a]" : 
-                            "bg-hub-border text-hub-text-dim"
-                          }`}>{key}</span>
-                          <span className="pt-0.5">{val}</span>
-                          {showCorrect && <span className="ml-auto pt-0.5 text-[10px]">✓</span>}
-                          {showWrong && <span className="ml-auto pt-0.5 text-[10px]">✗</span>}
-                        </button>
-                      );
-                    })}
-                    {isAnswered && currentItem.mcq?.explanation && (
-                      <div className="rounded-xl bg-hub-bg p-3 text-[11px] italic leading-relaxed text-hub-text-dim">
-                        {currentItem.mcq.explanation}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </>
-          ) : currentItem.itemType === "page" && pageQuestions && pageQuestions.questions.length > 0 ? (
-            <>
-              <div className="mb-1 text-[14px] font-bold text-hub-text">
-                {currentItem.resource?.title || "Review this content"}
-              </div>
-              <div className="mb-4 text-[11px] text-hub-text-dim">
-                Page {currentItem.pageIndex}{currentItem.subject ? ` · ${currentItem.subject}` : ""}
-              </div>
-
-              {/* MCQ Questions */}
-              <div className="space-y-3">
-                {pageQuestions.questions.filter(q => q.questionType === "mcq").map((q, qi) => {
-                  const selected = pageAnswers[q.id];
-                  const isCorrect = pageQuizSubmitted && selected === q.correctAnswer;
-                  const isWrong = pageQuizSubmitted && selected && selected !== q.correctAnswer;
-                  const opts = q.options || {};
-                  return (
-                    <div key={q.id} className="rounded-xl border border-hub-border bg-hub-bg p-3">
-                      <div className="mb-2.5 text-[12px] font-semibold leading-relaxed text-hub-text">
-                        {qi + 1}. {q.question}
-                      </div>
-                      <div className="space-y-1.5">
-                        {Object.entries(opts).map(([key, val]) => {
-                          let borderCls = "border-hub-border";
-                          let bgCls = "bg-hub-bg";
-                          let textCls = "text-hub-text-muted";
-                          let badgeBg = "bg-hub-border text-hub-text-dim";
-                          if (pageQuizSubmitted) {
-                            if (key === q.correctAnswer) { borderCls = "border-success-border"; bgCls = "bg-success-bg"; textCls = "text-success-text"; badgeBg = "bg-[#22c55e] text-[#0a0a0a]"; }
-                            else if (key === selected) { borderCls = "border-coral-300"; bgCls = "bg-coral-50"; textCls = "text-coral-400"; badgeBg = "bg-[#ef4444] text-[#0a0a0a]"; }
-                          } else if (key === selected) {
-                            borderCls = "border-gold-border"; bgCls = "bg-gold-dim"; textCls = "text-gold"; badgeBg = "bg-gold text-[#0a0a0a]";
-                          }
-                          return (
-                            <button
-                              key={key}
-                              onClick={() => handlePageAnswer(q.id, key)}
-                              disabled={pageQuizSubmitted}
-                              className={`flex w-full items-start gap-2.5 rounded-lg border ${borderCls} ${bgCls} p-2.5 text-left text-[11px] transition-all ${
-                                pageQuizSubmitted ? "cursor-default" : "cursor-pointer active:scale-[0.98]"
-                              } ${textCls}`}
-                            >
-                              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${badgeBg}`}>{key}</span>
-                              <span className="pt-0.5">{val}</span>
-                              {pageQuizSubmitted && key === q.correctAnswer && <span className="ml-auto pt-0.5 text-[10px]">✓</span>}
-                              {isWrong && key === selected && <span className="ml-auto pt-0.5 text-[10px]">✗</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {pageQuizSubmitted && q.explanation && (
-                        <div className="mt-2 rounded-lg bg-hub-surface p-2 text-[10px] italic leading-relaxed text-hub-text-dim">{q.explanation}</div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Short-answer questions */}
-                {pageQuestions.questions.filter(q => q.questionType === "short_answer").map((q, qi) => {
-                  const saRating = saAssessments[q.id];
-                  const saText = saTextAnswers[q.id] || "";
-                  return (
-                  <div key={q.id} className="rounded-xl border border-hub-border bg-hub-bg p-3">
-                    <div className="mb-2.5 flex items-start gap-2 text-[12px] font-semibold leading-relaxed text-hub-text">
-                      <span className="text-base">✏️</span>
-                      <span>{q.question}</span>
-                    </div>
-                    {pageQuizSubmitted ? (
-                      <>
-                        {saText && (
-                          <div className="mb-2 rounded-lg border border-hub-border bg-hub-surface p-2.5 text-[11px] leading-relaxed text-hub-text-muted">
-                            <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider text-hub-text-dim">Your Answer</div>
-                            {saText}
-                          </div>
-                        )}
-                        <div className="rounded-lg border border-success-border bg-success-bg p-2.5 text-[11px] leading-relaxed text-success-text">
-                          <div className="mb-0.5 text-[9px] font-bold uppercase tracking-wider opacity-70">Model Answer</div>
-                          {q.correctAnswer || "See explanation"}
-                          {q.explanation && <div className="mt-1 text-[10px] opacity-70">{q.explanation}</div>}
-                        </div>
-                        {pageQuizStep === "sa_review" && (
-                          <div className="mt-2.5">
-                            <div className="mb-1.5 text-[10px] font-medium text-hub-text-dim">How well did you match?</div>
-                            <div className="flex gap-2">
-                              {[{ key: "yes", label: "✓ Got it", color: "#22c55e" }, { key: "partial", label: "◐ Partial", color: "#f59e0b" }, { key: "no", label: "✗ Missed", color: "#ef4444" }].map((opt) => (
-                                <button
-                                  key={opt.key}
-                                  onClick={() => setSaAssessments(prev => ({ ...prev, [q.id]: opt.key }))}
-                                  className="flex-1 cursor-pointer rounded-lg border py-1.5 text-[10px] font-semibold transition-all active:scale-95"
-                                  style={{
-                                    borderColor: saRating === opt.key ? opt.color : "transparent",
-                                    background: saRating === opt.key ? `${opt.color}20` : "transparent",
-                                    color: saRating === opt.key ? opt.color : "#666",
-                                  }}
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <textarea
-                        value={saText}
-                        onChange={(e) => setSaTextAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                        placeholder="Type your answer here (1-3 sentences)…"
-                        rows={3}
-                        className="w-full rounded-lg border border-hub-border bg-[#0a0a14] p-2.5 text-[11px] leading-relaxed text-hub-text placeholder:text-hub-text-dim focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/30 resize-none transition-colors"
-                      />
-                    )}
-                  </div>
-                );})}
-              </div>
-
-              {/* Quiz result */}
-              {pageQuizResult && (
-                <div className="mt-4 w-full rounded-xl p-4 text-center" style={{
-                  background: pageQuizResult.grade >= 3 ? "#0a2a0a" : pageQuizResult.grade >= 2 ? "#2a1a0a" : "#2a0a0a",
-                  border: `1px solid ${pageQuizResult.grade >= 3 ? "#22c55e" : pageQuizResult.grade >= 2 ? "#f59e0b" : "#ef4444"}`,
-                }}>
-                  <div className="text-lg font-extrabold" style={{ color: pageQuizResult.grade >= 3 ? "#22c55e" : pageQuizResult.grade >= 2 ? "#f59e0b" : "#ef4444" }}>
-                    {pageQuizResult.combinedPct}% — {pageQuizResult.gradeLabel}
-                  </div>
-                  <div className="mt-1.5 flex items-center justify-center gap-3 text-[10px] text-hub-text-dim">
-                    <span>MCQ: {pageQuizResult.mcqScore}/{pageQuizResult.mcqTotal}</span>
-                    <span className="text-hub-border">|</span>
-                    <span>SA: {pageQuizResult.saScore}%</span>
-                    <span className="text-hub-border">|</span>
-                    <span>Next: {pageQuizResult.intervalLabel}</span>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : currentItem.itemType === "page" && pageQuestionsLoading ? (
-            <div className="flex flex-col items-center py-8">
-              <div className="mb-1 text-[14px] font-bold text-hub-text">{currentItem.resource?.title || "Review this content"}</div>
-              <div className="mb-4 text-[11px] text-hub-text-dim">Page {currentItem.pageIndex}</div>
-              <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-hub-border border-t-gold" />
-              <div className="mt-3 text-[11px] text-hub-text-dim">Loading questions…</div>
-            </div>
-          ) : (
-            <>
-              <div className="mb-1 text-[14px] font-bold text-hub-text">
-                {currentItem.resource?.title || "Review this content"}
-              </div>
-              <div className="mb-4 text-[11px] text-hub-text-dim">
-                {currentItem.itemType === "page" ? `Page ${currentItem.pageIndex}` : "Full document review"}
-                {currentItem.subject ? ` · ${currentItem.subject}` : ""}
-              </div>
-              {onOpenPdf && currentItem.resource?.shareToken && (
-                <button onClick={() => onOpenPdf(currentItem.resource.shareToken, currentItem.itemType === "page" ? currentItem.pageIndex : null)} className="mb-3 flex cursor-pointer items-center gap-2 rounded-xl border border-gold-border bg-gold-dim px-4 py-2.5 text-[12px] font-bold text-gold transition-all hover:bg-gold/20 active:scale-95">
-                  <span>{currentItem.itemType === "page" ? "📖" : "📄"}</span>
-                  {currentItem.itemType === "page" ? `Open Page ${currentItem.pageIndex}` : "Open Document"}
-                </button>
-              )}
-              {showAnswer && (
-                <div className="rounded-xl bg-hub-bg p-3 text-[12px] leading-relaxed text-hub-text-muted">
-                  How well did you remember the key concepts from this {currentItem.itemType === "page" ? "page" : "document"}? Rate your recall below.
-                </div>
-              )}
-            </>
-          )}
+          ) : null}
 
           {/* Action buttons inside card */}
-          {currentItem.itemType === "page" && pageQuestions && pageQuestions.questions.length > 0 ? (
-            <>
-              {!pageQuizSubmitted && (
-                <button onClick={handleSubmitPageQuiz}
-                  className="mt-4 w-full cursor-pointer rounded-xl bg-gold py-3 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-[0.98]">
-                  Submit Answers
-                </button>
-              )}
-              {pageQuizStep === "sa_review" && (
-                <button onClick={handleSubmitSaAssessment}
-                  className="mt-4 w-full cursor-pointer rounded-xl bg-gold py-3 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-[0.98]">
-                  Submit Assessment
-                </button>
-              )}
-            </>
-          ) : (
-            !showAnswer && currentItem.itemType !== "mcq" && currentItem.itemType !== "legacy_mcq" && (
-              <button onClick={() => setShowAnswer(true)} className="mt-4 w-full cursor-pointer rounded-xl bg-gold py-3 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-[0.98]">
-                {currentItem.itemType === "flashcard" ? "Show Answer" : "Reveal & Rate"}
-              </button>
-            )
+          {!showAnswer && (
+            <button onClick={() => setShowAnswer(true)} className="mt-4 w-full cursor-pointer rounded-xl bg-gold py-3 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-[0.98]">
+              Show Answer
+            </button>
           )}
         </div>
+        )}
 
-        {/* Rating buttons (non-page items or fallback) */}
-        {showAnswer && rating === null && !(currentItem.itemType === "page" && pageQuestions && pageQuestions.questions.length > 0) && (
+        {/* Rating buttons (non-MCQ items only — MCQs self-grade via PracticeMcqCard) */}
+        {!isMcqItem(currentItem) && showAnswer && rating === null && (
           <div className="mt-4 grid w-full grid-cols-4 gap-2">
             {[1, 2, 3, 4].map(g => (
               <button key={g} onClick={() => handleRate(g)} className="flex cursor-pointer flex-col items-center gap-1 rounded-xl border py-3 transition-all active:scale-95" style={{
@@ -880,18 +553,11 @@ export default function DailyReview({ onBack, onComplete, onOpenPdf }) {
         )}
 
         {/* Rating feedback */}
-        {rating !== null && (
+        {!isMcqItem(currentItem) && rating !== null && (
           <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-hub-border bg-hub-surface px-4 py-2.5 text-[12px]" style={{ color: GRADE_LABELS[rating]?.color || "#888" }}>
             <span className="text-base">{rating <= 2 ? "😕" : rating === 3 ? "🙂" : "😎"}</span>
             Rated: {GRADE_LABELS[rating]?.label} · Next card…
           </div>
-        )}
-
-        {/* Next button for page quiz */}
-        {pageQuizStep === "done" && currentItem.itemType === "page" && (
-          <button onClick={advanceToNext} className="mt-4 w-full cursor-pointer rounded-xl bg-gold py-3 text-[12px] font-bold text-[#0a0a0a] transition-all active:scale-[0.98]">
-            {currentIdx + 1 >= items.length || sessionStats.reviewed >= dailyGoal ? "Finish Session ✓" : "Next →"}
-          </button>
         )}
       </div>
     </div>

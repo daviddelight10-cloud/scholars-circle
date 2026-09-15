@@ -5,7 +5,7 @@ import { aiRateLimit } from "../middleware/aiRateLimit.js";
 import multer from "multer";
 import path from "path";
 import { uploadFile, deleteFile } from "../lib/supabaseStorage.js";
-import { sm2, computeQuality, computeDueDate, updateUniversalStreak } from "../lib/sm2.js";
+import { updateUniversalStreak } from "../lib/sm2.js";
 import { fsrsRate, fsrsNewCard, intervalLabel, stateLabel, isMastered } from "../lib/fsrs.js";
 import { pptxToPdf } from "../lib/pptxToPdf.js";
 import { matchDocumentToSkeleton } from "../lib/topicExtractionService.js";
@@ -939,32 +939,9 @@ router.post("/fsrs/init", requireAuth, async (req, res) => {
     const top = topic || resource.title || null;
     let created = 0;
 
-    // Create whole_pdf item
-    const existingWhole = await prisma.pdfReviewItem.findUnique({
-      where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId, itemType: "whole_pdf", pageIndex: -1, flashcardId: "none" } },
-    }).catch(() => null);
-    if (!existingWhole) {
-      await prisma.pdfReviewItem.create({
-        data: { userId: req.user.sub, resourceId, itemType: "whole_pdf", pageIndex: -1, flashcardId: "none", topic: top, subject: subj },
-      }).catch(() => {});
-      created++;
-    }
-
-    // Create per-page items for PDFs
-    if (resource.contentType === "pdf" && totalPages) {
-      const pages = Math.max(1, Math.min(totalPages || 1, 500));
-      for (let p = 1; p <= pages; p++) {
-        const exists = await prisma.pdfReviewItem.findUnique({
-          where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId, itemType: "page", pageIndex: p, flashcardId: "none" } },
-        }).catch(() => null);
-        if (!exists) {
-          await prisma.pdfReviewItem.create({
-            data: { userId: req.user.sub, resourceId, itemType: "page", pageIndex: p, flashcardId: "none", topic: top, subject: subj },
-          }).catch(() => {});
-          created++;
-        }
-      }
-    }
+    // NOTE: "whole_pdf" and "page" item types have been removed — they
+    // flooded the review queue with one item per PDF page and tested
+    // rereading (the weakest study technique). Only MCQ items are seeded.
 
     // Create MCQ items for MCQ resources
     if (resource.contentType === "mcq" && resource.mcqData) {
@@ -997,6 +974,11 @@ router.post("/fsrs/rate", requireAuth, async (req, res) => {
     const { resourceId, itemType, pageIndex, flashcardId, grade, topic, subject } = req.body;
     if (!resourceId || !itemType || grade === undefined) {
       return res.status(400).json({ error: "resourceId, itemType, and grade are required" });
+    }
+    // "page" and "whole_pdf" item types are deprecated — reject to prevent
+    // silent re-creation via the auto-create path.
+    if (itemType === "page" || itemType === "whole_pdf") {
+      return res.status(400).json({ error: "Page and whole-PDF review items are no longer supported. Use MCQs or flashcards instead." });
     }
     const g = Math.max(1, Math.min(4, Math.round(grade)));
     const pIdx = (itemType === "page" || itemType === "mcq" || itemType === "legacy_mcq") ? (pageIndex ?? -1) : -1;
@@ -1099,7 +1081,7 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 50));
     const subjectFilter = req.query.subject || null;
 
-    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } } };
+    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf"] } };
     if (subjectFilter) where.subject = subjectFilter;
 
     // Fetch ALL due items (not just `limit`) so we can prioritize properly before capping
@@ -1152,7 +1134,7 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
       if (i.itemType === "flashcard") {
         base.flashcard = fcMap.get(i.flashcardId) || null;
       }
-      if (i.itemType === "mcq" && i.resource?.mcqData) {
+      if ((i.itemType === "mcq" || i.itemType === "legacy_mcq") && i.resource?.mcqData) {
         const mcqData = typeof i.resource.mcqData === "string" ? JSON.parse(i.resource.mcqData) : i.resource.mcqData;
         if (Array.isArray(mcqData) && mcqData[i.pageIndex]) {
           base.mcq = mcqData[i.pageIndex];
@@ -1202,7 +1184,7 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
   try {
     const now = new Date();
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, resource: { folderId: { not: null } } },
+      where: { userId: req.user.sub, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf"] } },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
     });
 
@@ -1282,7 +1264,7 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
     since.setDate(since.getDate() - days);
 
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub },
+      where: { userId: req.user.sub, itemType: { notIn: ["page", "whole_pdf"] } },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true },
     });
 
@@ -1347,12 +1329,10 @@ router.get("/fsrs/status/:resourceId", requireAuth, async (req, res) => {
   try {
     const { resourceId } = req.params;
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, resourceId },
+      where: { userId: req.user.sub, resourceId, itemType: { notIn: ["page", "whole_pdf"] } },
       orderBy: { itemType: "asc" },
     });
 
-    const wholePdf = items.find((i) => i.itemType === "whole_pdf") || null;
-    const pages = items.filter((i) => i.itemType === "page").sort((a, b) => a.pageIndex - b.pageIndex);
     const flashcardItems = items.filter((i) => i.itemType === "flashcard");
     const mcqItems = items.filter((i) => i.itemType === "mcq" || i.itemType === "legacy_mcq");
 
@@ -1364,13 +1344,6 @@ router.get("/fsrs/status/:resourceId", requireAuth, async (req, res) => {
     const dueCount = items.filter((i) => new Date(i.dueAt) <= now).length;
 
     res.json({
-      wholePdf,
-      pages: pages.map((p) => ({
-        pageIndex: p.pageIndex,
-        state: p.state, stability: p.stability, difficulty: p.difficulty,
-        reps: p.reps, lapses: p.lapses, dueAt: p.dueAt, lastReviewAt: p.lastReviewAt,
-        isDue: new Date(p.dueAt) <= now, isMastered: isMastered(p),
-      })),
       flashcards: flashcardItems.map((i) => ({ ...i, flashcard: fcMap.get(i.flashcardId) || null })),
       mcqs: mcqItems.map((i) => ({ ...i, isDue: new Date(i.dueAt) <= now, isMastered: isMastered(i) })),
       totalItems: items.length,
@@ -2086,7 +2059,7 @@ router.get("/fsrs/weak-topics", requireAuth, async (req, res) => {
 
     const where = {
       userId: req.user.sub,
-      itemType: { in: ["mcq", "legacy_mcq", "page", "whole_pdf"] },
+      itemType: { in: ["mcq", "legacy_mcq"] },
     };
 
     if (subject) {
@@ -2457,110 +2430,6 @@ router.get("/fsrs/page-questions/:resourceId/:pageIndex", requireAuth, async (re
   } catch (error) {
     console.error("Error fetching page questions:", error);
     res.status(500).json({ error: "Failed to fetch page questions" });
-  }
-});
-
-// ── POST /api/resources/fsrs/page-questions/rate ──
-// Rate a page review: 50% MCQ correctness + 50% short-answer self-assessment
-router.post("/fsrs/page-questions/rate", requireAuth, async (req, res) => {
-  try {
-    const { resourceId, pageIndex, answers, saAssessments } = req.body;
-    if (!resourceId || pageIndex == null || !Array.isArray(answers)) {
-      return res.status(400).json({ error: "resourceId, pageIndex, and answers array are required" });
-    }
-
-    const mcqQuestions = await prisma.pageReviewQuestion.findMany({
-      where: { resourceId, pageIndex, questionType: "mcq" },
-    });
-    const saQuestions = await prisma.pageReviewQuestion.findMany({
-      where: { resourceId, pageIndex, questionType: "short_answer" },
-    });
-
-    if (mcqQuestions.length === 0 && saQuestions.length === 0) {
-      return res.status(404).json({ error: "No questions found for this page" });
-    }
-
-    // ── MCQ score (50%) ──
-    let mcqCorrect = 0;
-    for (const ans of answers) {
-      const question = mcqQuestions.find(q => q.id === ans.questionId);
-      if (question && question.correctAnswer === ans.selectedAnswer) mcqCorrect++;
-    }
-    const mcqPct = mcqQuestions.length > 0 ? mcqCorrect / mcqQuestions.length : 1;
-
-    // ── Short-answer score (50%) ──
-    // saAssessments: [{ questionId, rating: "yes"|"partial"|"no" }]
-    let saScore = 1; // default if no SA questions
-    if (saQuestions.length > 0 && saAssessments && Array.isArray(saAssessments)) {
-      let saTotal = 0;
-      for (const sa of saAssessments) {
-        if (sa.rating === "yes") saTotal += 1;
-        else if (sa.rating === "partial") saTotal += 0.5;
-        // "no" = 0
-      }
-      saScore = saTotal / saQuestions.length;
-    }
-
-    // ── Combined 50/50 score ──
-    const combinedPct = (mcqPct * 0.5) + (saScore * 0.5);
-
-    // Map to FSRS grade
-    let grade;
-    if (combinedPct >= 0.8) grade = 4;       // Easy
-    else if (combinedPct >= 0.6) grade = 3;  // Good
-    else if (combinedPct >= 0.4) grade = 2;  // Hard
-    else grade = 1;                           // Again
-
-    // Update FSRS state
-    const existing = await prisma.pdfReviewItem.findUnique({
-      where: {
-        userId_resourceId_itemType_pageIndex_flashcardId: {
-          userId: req.user.sub, resourceId, itemType: "page", pageIndex, flashcardId: "none",
-        },
-      },
-    }).catch(() => null);
-
-    const card = existing
-      ? { state: existing.state, stability: existing.stability, difficulty: existing.difficulty, reps: existing.reps, lapses: existing.lapses, lastReviewAt: existing.lastReviewAt }
-      : fsrsNewCard();
-
-    const result = fsrsRate(card, grade, new Date());
-
-    await prisma.pdfReviewItem.upsert({
-      where: {
-        userId_resourceId_itemType_pageIndex_flashcardId: {
-          userId: req.user.sub, resourceId, itemType: "page", pageIndex, flashcardId: "none",
-        },
-      },
-      create: {
-        userId: req.user.sub, resourceId, itemType: "page", pageIndex, flashcardId: "none",
-        state: result.state, stability: result.stability, difficulty: result.difficulty,
-        reps: result.reps, lapses: result.lapses,
-        lastReviewAt: result.lastReviewAt, nextReviewAt: result.nextReviewDate, dueAt: result.nextReviewDate,
-      },
-      update: {
-        state: result.state, stability: result.stability, difficulty: result.difficulty,
-        reps: result.reps, lapses: result.lapses,
-        lastReviewAt: result.lastReviewAt, nextReviewAt: result.nextReviewDate, dueAt: result.nextReviewDate,
-      },
-    }).catch(() => {});
-
-    res.json({
-      grade,
-      gradeLabel: { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" }[grade],
-      nextReviewAt: result.nextReviewDate,
-      intervalLabel: intervalLabel(result.intervalDays),
-      stateLabel: stateLabel(result.state),
-      mcqScore: mcqCorrect,
-      mcqTotal: mcqQuestions.length,
-      mcqPct: Math.round(mcqPct * 100),
-      saScore: Math.round(saScore * 100),
-      saTotal: saQuestions.length,
-      combinedPct: Math.round(combinedPct * 100),
-    });
-  } catch (error) {
-    console.error("Error rating page questions:", error);
-    res.status(500).json({ error: "Failed to rate page questions" });
   }
 });
 

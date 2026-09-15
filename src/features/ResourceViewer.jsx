@@ -5,6 +5,7 @@ import PdfReader from "./PdfReader.jsx";
 import DocumentReader from "./DocumentReader.jsx";
 import McqModeSelect from "./McqModeSelect.jsx";
 import McqQuizRunner from "./McqQuizRunner.jsx";
+import StreakSurvival from "./streak-survival/StreakSurvival.jsx";
 import McqExamRunner from "./McqExamRunner.jsx";
 import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import FlashcardRunner from "./FlashcardRunner.jsx";
@@ -331,8 +332,12 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         );
 
       case "mcq":
+        // "legacy" → the classic mode picker (Cascade/Exam/Arcade); default → Streak Survival
+        if (mcqMode === "legacy") {
+          return <McqModeSelect resource={resource} onBack={() => setMcqMode(null)} onSelect={(mode, sessionConfig) => { setMcqSessionConfig(sessionConfig); setMcqMode(mode); }} onQuizComplete={onQuizComplete} />;
+        }
         if (!mcqMode) {
-          return <McqModeSelect resource={resource} onBack={handleBack} onSelect={(mode, sessionConfig) => { setMcqSessionConfig(sessionConfig); setMcqMode(mode); }} onQuizComplete={onQuizComplete} />;
+          return <StreakSurvival resource={resource} onBack={handleBack} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} onMoreModes={() => setMcqMode("legacy")} />;
         }
         if (mcqMode === "arcade") {
           return <FlashcardRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
