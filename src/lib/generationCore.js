@@ -195,7 +195,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     const imgCount = customCount || Math.min(QUESTIONS_PER_CHUNK, MAX_QUESTIONS);
     onProgress?.(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
     const prompt = buildMcqPrompt("The images contain study material. Generate comprehensive MCQs covering all the content visible.", imgCount);
-    const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+    const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
     const rows = mapAiMcqsToRows(extractJSON(raw, "array"));
     if (rows.length === 0) throw new Error("AI didn't generate valid questions. Try again.");
     return { rows, warnings };
@@ -257,7 +257,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
         prompt = buildMcqPrompt(chunks[idx], requested);
       }
       batchPromises.push(
-        callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+        callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
           .then((raw) => {
             try {
               const rows = mapAiMcqsToRows(extractJSON(raw, "array"));
@@ -301,7 +301,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
           const retryCount = Math.max(5, Math.ceil(r.requested / 2));
           const prompt = buildMcqPrompt(chunks[r.idx], retryCount);
           retryBatchPromises.push(
-            callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+            callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
               .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
               .catch(() => [])
           );
@@ -330,7 +330,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
           const expectedPerChunk = Math.ceil(existingCount / chunks.length);
           const prompt = buildMcqPrompt(chunks[r.idx], 0, { extractMode: true, expectedCount: expectedPerChunk });
           retryBatchPromises.push(
-            callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+            callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
               .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
               .catch(() => [])
           );
@@ -388,7 +388,7 @@ export async function generateFlashcards(text, images, onProgress) {
     onProgress?.(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
     const contextText = "The images contain study material. Generate comprehensive content covering all the content visible.";
     const prompt = buildFlashcardPrompt(contextText, MAX_FLASHCARDS);
-    const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+    const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
     const cards = mapAiFlashcards(extractJSON(raw, "array"));
     if (cards.length === 0) throw new Error("AI didn't generate valid flashcards. Try again.");
     return cards;
@@ -404,7 +404,7 @@ export async function generateFlashcards(text, images, onProgress) {
 
   const promises = chunks.map((chunk) => {
     const prompt = buildFlashcardPrompt(chunk, cardsPerChunk);
-    return callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+    return callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
       .then((raw) => { try { return mapAiFlashcards(extractJSON(raw, "array")); } catch { return []; } })
       .catch(() => []);
   });
@@ -427,7 +427,7 @@ export async function generateSummary(text, images, onProgress) {
     onProgress?.(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
     const contextText = "The images contain study material. Generate comprehensive content covering all the content visible.";
     const prompt = buildSummaryPrompt(contextText);
-    const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+    const raw = await callAIMultimodal(prompt, images, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
     return raw || "No summary generated.";
   }
 
@@ -439,7 +439,7 @@ export async function generateSummary(text, images, onProgress) {
   onProgress?.(`Generating summary from ${chunks.length} section${chunks.length > 1 ? "s" : ""}…`);
   const combinedText = chunks.join("\n\n").slice(0, 20000);
   const prompt = buildSummaryPrompt(combinedText);
-  const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+  const raw = await callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
   if (!raw || !raw.trim()) throw new Error("AI didn't generate a summary. Try again.");
   return raw;
 }

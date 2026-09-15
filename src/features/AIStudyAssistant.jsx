@@ -305,10 +305,10 @@ Generate 10 flashcards. Keep all text concise but informative.`;
 
       let parsed;
       if (extractedImages.length > 0) {
-        const raw = await callAIMultimodal(summaryPrompt, extractedImages, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        const raw = await callAIMultimodal(summaryPrompt, extractedImages, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
         parsed = extractJSON(raw);
       } else {
-        const raw = await callAI(summaryPrompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        const raw = await callAI(summaryPrompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
         parsed = extractJSON(raw);
       }
 
@@ -361,7 +361,7 @@ Return this EXACT JSON structure (no other text):
 Generate ${requested} MCQ questions. Keep all text concise but informative.`;
 
             batchPromises.push(
-              callAI(mcqPrompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+              callAI(mcqPrompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
                 .then((raw) => {
                   try {
                     const arr = extractJSONArray(raw);
@@ -414,7 +414,7 @@ Return this EXACT JSON structure (no other text):
 Generate ${retryCount} MCQ questions. Keep all text concise but informative.`;
 
                 retryBatchPromises.push(
-                  callAI(mcqPrompt, { provider: "openrouter", model: "google/gemini-2.5-flash" })
+                  callAI(mcqPrompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
                     .then((raw) => { try { return extractJSONArray(raw) || []; } catch { return []; } })
                     .catch(() => [])
                 );
@@ -462,7 +462,7 @@ Return this EXACT JSON structure (no other text):
 
 Generate ${actualQuestionCount} MCQ questions. Keep all text concise but informative.`;
 
-        const raw = await callAIMultimodal(imgMcqPrompt, extractedImages, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        const raw = await callAIMultimodal(imgMcqPrompt, extractedImages, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
         try {
           const arr = extractJSONArray(raw) || [];
           parsed.mcq_questions = arr.filter((q, i) => {

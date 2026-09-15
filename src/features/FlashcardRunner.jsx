@@ -124,7 +124,7 @@ async function generateShortAnswers(rawParsed, resourceId, onProgress) {
   for (let b = 0; b < batches.length; b++) {
     onProgress?.(`Shortening answers… (${Math.min((b + 1) * ARCADE_BATCH_SIZE, rawParsed.length)}/${rawParsed.length})`);
     const prompt = buildShortenPrompt(batches[b]);
-    const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+    const raw = await callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
     const parsed = extractJSON(raw, "array");
 
     for (const item of parsed) {

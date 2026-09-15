@@ -1401,7 +1401,7 @@ router.post("/fsrs/flashcards/generate", requireAuth, aiRateLimit, async (req, r
       body: JSON.stringify({
         prompt: `You are an expert flashcard creator for university students. Generate exactly ${numCards} flashcards from the text below.\n\nFORMAT — return as a JSON array:\n[{"front": "question or prompt", "back": "concise answer"}]\n\nRules:\n- Front should be a clear question, definition prompt, or concept name\n- Back should be a concise but complete answer (1-3 sentences)\n- Cover the most important concepts from the text\n- Return ONLY the JSON array, no markdown or explanation\n\nTEXT:\n"""\n${combinedText}\n"""`,
         provider: "openrouter",
-        model: "google/gemini-2.5-flash",
+        model: "z-ai/glm-5.3-flash",
       }),
     }).catch(() => null);
 
@@ -2344,7 +2344,7 @@ ${batch.map(p => `--- PAGE ${p.pageIndex} ---\n${(p.text || "").slice(0, 4000)}`
             body: JSON.stringify({
               prompt,
               provider: "openrouter",
-              model: "google/gemini-2.5-flash",
+              model: "z-ai/glm-5.3-flash",
             }),
           });
 

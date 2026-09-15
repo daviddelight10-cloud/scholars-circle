@@ -137,7 +137,7 @@ export default function ResourceUploadForm() {
     try {
       const prompt = `You are an exam MCQ generator for university students. Generate exactly ${aiCount} multiple-choice questions based on this topic/notes:\n\n${aiNotes}\n\nRespond ONLY with a valid JSON array. No markdown, no extra text. Format:\n[\n  {\n    "question": "Question text?",\n    "options": {"A":"...","B":"...","C":"...","D":"..."},\n    "correct": "A",\n    "explanation": "Brief explanation of why the correct answer is right."\n  }\n]`;
 
-      const response = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      const response = await callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
       const parsed = extractJSON(response, "array");
 
       if (!Array.isArray(parsed) || parsed.length === 0) {

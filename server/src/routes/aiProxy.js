@@ -69,7 +69,7 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
 
       case "openrouter":
         apiKey = process.env.OPENROUTER_API_KEY;
-        const openrouterModel = model || "google/gemini-2.5-flash";
+        const openrouterModel = model || "z-ai/glm-5.3-flash";
         apiUrl = "https://openrouter.ai/api/v1/chat/completions";
         headers = {
           "Content-Type": "application/json",
@@ -192,7 +192,7 @@ router.post("/generate-multimodal", requireAuth, aiRateLimit, async (req, res) =
     switch (useProvider) {
       case "openrouter":
         apiKey = process.env.OPENROUTER_API_KEY;
-        const openrouterModel = model || "google/gemini-2.5-flash";
+        const openrouterModel = model || "z-ai/glm-5.3-flash";
         apiUrl = "https://openrouter.ai/api/v1/chat/completions";
         headers = {
           "Content-Type": "application/json",

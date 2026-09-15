@@ -445,7 +445,7 @@ function App() {
 
     provider: "openrouter",
 
-    model: "google/gemini-2.5-flash",
+    model: "z-ai/glm-5.3-flash",
 
     apiKey: "",
 

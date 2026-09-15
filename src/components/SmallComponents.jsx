@@ -97,7 +97,7 @@ export function AIQuestionGen({ onImportQuestions }) {
     setLoading(true); setError(""); setPreview([]);
     const prompt = `Generate exactly ${count} multiple-choice questions about "${topic}" for a first-year university student. Difficulty: ${difficulty}.\nReturn ONLY a JSON array with this structure (no extra text):\n[{"q":"question","options":["A","B","C","D"],"answer":0,"explanation":"why","difficulty":"${difficulty}"}]\nThe "answer" field is the index (0-3) of the correct option.`;
     try {
-      const raw = await callAI(prompt, { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      const raw = await callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
       const jsonStr = raw.startsWith("[") ? raw : raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1);
       const parsed = JSON.parse(jsonStr);
       setPreview(parsed);

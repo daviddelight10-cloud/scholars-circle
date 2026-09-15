@@ -14,7 +14,7 @@
 import { prisma } from "../db.js";
 import { logError, logInfo } from "./logger.js";
 
-const AI_MODEL = "google/gemini-2.5-flash";
+const AI_MODEL = "z-ai/glm-5.3-flash";
 const CONFIDENCE_THRESHOLD = 0.5;
 
 /**

@@ -1117,7 +1117,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (chunks.length <= 1) {
       if (onProgress) onProgress("Summarizing…");
       const prompt = buildSummaryPrompt(fullText);
-      return await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      return await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
     }
 
     // Map: summarize each chunk individually
@@ -1142,7 +1142,7 @@ TEXT (Part ${i + 1} of ${chunks.length}):
 """
 ${chunks[i]}
 """`;
-      const raw = await callAIMultimodal(chunkPrompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+      const raw = await callAIMultimodal(chunkPrompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
       chunkSummaries.push(raw || "");
     }
 
@@ -1173,7 +1173,7 @@ CHUNK SUMMARIES TO COMBINE:
 """
 ${chunkSummaries.join("\n\n---\n\n")}
 """`;
-    return await callAIMultimodal(combinedPrompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+    return await callAIMultimodal(combinedPrompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
   };
 
   const buildSummaryPrompt = (text) => {
@@ -1424,7 +1424,7 @@ Rules:
 - Keep explanations to 1–2 sentences
 - Base questions on what is visible in the page image`;
         try {
-          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
           if (!raw || raw.trim().length < 10) {
             setStudyError("AI returned an empty response. Try again.");
             setStudyStep("setup");
@@ -1467,7 +1467,7 @@ Use this structure with Markdown headings:
 
 Be thorough and comprehensive. Use bullet points and **bold** key terms throughout.`;
         try {
-          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
           if (!raw || raw.trim().length < 10) {
             setStudyError("AI returned an empty response. Try again.");
             setStudyStep("setup");
@@ -1527,7 +1527,7 @@ TEXT:
 ${extractedText}
 """`;
       try {
-        const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "google/gemini-2.5-flash" });
+        const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
         if (!raw || raw.trim().length < 10) {
           setStudyError("AI returned an empty response. Try again with a different page range.");
           setStudyStep("setup");

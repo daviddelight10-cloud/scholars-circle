@@ -89,7 +89,7 @@ async function callViaProxy(prompt, provider, model) {
 async function callDirect(prompt, aiConfig) {
   const provider = aiConfig?.provider || "openrouter";
   const model = aiConfig?.model || (provider === "gemini" ? "gemini-2.5-flash" : 
-                                     provider === "openrouter" ? "google/gemini-2.5-flash" : 
+                                     provider === "openrouter" ? "z-ai/glm-5.3-flash" : 
                                      "gpt-4o-mini");
   if (!aiConfig?.apiKey) {
     throw new Error("AI service unavailable. Please contact support or try again later.");
@@ -156,7 +156,7 @@ export async function callAI(prompt, aiConfig = {}) {
   if (status?.enabled) {
     const provider = aiConfig.provider || status.defaultProvider || "openrouter";
     const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : 
-                                     provider === "openrouter" ? "google/gemini-2.5-flash" : 
+                                     provider === "openrouter" ? "z-ai/glm-5.3-flash" : 
                                      "gpt-4o-mini");
     console.log(`Calling proxy with provider=${provider}, model=${model}`);
     try {
@@ -178,7 +178,7 @@ export async function callAI(prompt, aiConfig = {}) {
 // imageOrImages can be a single base64 data URL string or an array of strings.
 export async function callAIMultimodal(prompt, imageOrImages, history = [], aiConfig = {}) {
   const provider = aiConfig.provider || "openrouter";
-  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "google/gemini-2.5-flash");
+  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "z-ai/glm-5.3-flash");
 
   const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
   const token = authData.authToken;
@@ -230,7 +230,7 @@ export async function callAIChat({ system, messages, provider, model } = {}) {
   if (status?.enabled) {
     const useProvider = provider || status.defaultProvider || "openrouter";
     const useModel = model || (useProvider === "gemini" ? "gemini-2.5-flash" :
-                               useProvider === "openrouter" ? "google/gemini-2.5-flash" :
+                               useProvider === "openrouter" ? "z-ai/glm-5.3-flash" :
                                "gpt-4o-mini");
 
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
