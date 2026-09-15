@@ -2,17 +2,25 @@ import { callAI, callAIMultimodal, extractJSON } from "./aiClient";
 import { chunkText } from "./extractFileText";
 
 export const MAX_QUESTIONS = 1000;
-export const QUESTIONS_PER_CHUNK = 50;
+export const QUESTIONS_PER_CHUNK = 25;
 export const MAX_FLASHCARDS = 50;
 export const CONCURRENCY_LIMIT = 3;
 export const MAX_CHUNKS = 20;
 export const EXTRACT_MAX_CHUNKS = 50;
 export const MIN_CHUNK_SIZE = 5000;
+// Default target for normal documents scales with length (~1 question per
+// 5k chars ≈ 2.5 pages), bounded so small docs still get a useful set and
+// huge docs don't produce an unwieldy/expensive bank.
+export const DEFAULT_QUESTION_FLOOR = 10;
+export const DEFAULT_QUESTION_CAP = 150;
+const CHARS_PER_QUESTION = 5000;
+const EXTRACT_RETRY_ROUNDS = 2;
 
-export function buildMcqPrompt(text, questionCount, { extractMode = false, expectedCount = 0 } = {}) {
+export function buildMcqPrompt(text, questionCount, { extractMode = false, expectedCount = 0, retryHint = false } = {}) {
   if (extractMode) {
     const countHint = expectedCount > 0 ? ` This section contains approximately ${expectedCount} questions — extract ALL of them.` : "";
-    return `You are an expert exam MCQ extractor. Extract ALL multiple-choice questions that already exist in this content and format them properly.${countHint}
+    const retryText = retryHint ? " A previous pass missed questions — extract EVERY single one, do not stop early." : "";
+    return `You are an expert exam MCQ extractor. Extract ALL multiple-choice questions that already exist in this content and format them properly.${countHint}${retryText}
 
 """
 ${text}
@@ -222,9 +230,17 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
   const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / desiredChunks));
   const chunks = chunkText(text, chunkSize);
   const totalPossible = chunks.length * QUESTIONS_PER_CHUNK;
+  // Per-chunk expected question counts (extraction mode): run the same
+  // heuristic on each chunk so underproducing sections can be detected and
+  // retried later — the doc-wide estimate is the overall target, these are
+  // the per-section expectations.
+  const avgExpectedPerChunk = chunks.length ? Math.ceil(existingCount / chunks.length) : 0;
+  const chunkExpected = useExtractMode ? chunks.map((c) => countExistingMcqs(c)) : null;
   const targetCount = useExtractMode
     ? Math.min(existingCount, MAX_QUESTIONS)
-    : customCount ? Math.min(customCount, totalPossible) : Math.min(MAX_QUESTIONS, totalPossible);
+    : customCount
+      ? Math.min(customCount, totalPossible)
+      : Math.min(totalPossible, Math.max(DEFAULT_QUESTION_FLOOR, Math.min(DEFAULT_QUESTION_CAP, Math.round(text.length / CHARS_PER_QUESTION))));
   const questionsPerChunk = Math.min(QUESTIONS_PER_CHUNK, Math.ceil(targetCount / chunks.length));
 
   if (useExtractMode) {
@@ -248,8 +264,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       let prompt;
       let requested;
       if (useExtractMode) {
-        const expectedPerChunk = Math.ceil(existingCount / chunks.length);
-        prompt = buildMcqPrompt(chunks[idx], 0, { extractMode: true, expectedCount: expectedPerChunk });
+        prompt = buildMcqPrompt(chunks[idx], 0, { extractMode: true, expectedCount: chunkExpected[idx] || avgExpectedPerChunk });
         requested = 0;
       } else {
         const count = idx === chunks.length - 1 ? Math.min(QUESTIONS_PER_CHUNK, targetCount - (questionsPerChunk * (chunks.length - 1))) : questionsPerChunk;
@@ -313,33 +328,42 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     }
   }
 
-  // Extraction mode: retry chunks that produced 0 questions
-  if (useExtractMode) {
-    const emptyChunks = chunkResults
-      .map((r, idx) => ({ idx, produced: r.rows.length, error: r.error }))
-      .filter((r) => r.produced === 0);
+  // Extraction mode: retry chunks that produced FEWER questions than their
+  // per-chunk estimate, so a question-bank document yields its real count.
+  // Bounded by EXTRACT_RETRY_ROUNDS to cap token spend; deduped counts are
+  // used so a retry that resurfaces the same questions doesn't look like progress.
+  if (useExtractMode && allRows.length < existingCount) {
+    const deficits = () => chunkResults
+      .map((r, idx) => ({ idx, expected: chunkExpected[idx], produced: dedupeMcqs(r.rows).length }))
+      .filter((d) => d.produced < d.expected);
 
-    if (emptyChunks.length > 0 && allRows.length < MAX_QUESTIONS) {
-      onProgress?.(`Retrying ${emptyChunks.length} section${emptyChunks.length > 1 ? "s" : ""} that produced no questions…`);
-      const retryRows = [];
-      for (let rStart = 0; rStart < emptyChunks.length; rStart += CONCURRENCY_LIMIT) {
-        const rEnd = Math.min(rStart + CONCURRENCY_LIMIT, emptyChunks.length);
+    for (let round = 0, pending = deficits(); pending.length > 0 && round < EXTRACT_RETRY_ROUNDS && allRows.length < existingCount; round++) {
+      onProgress?.(`Re-checking ${pending.length} section${pending.length > 1 ? "s" : ""} that may still have questions…`);
+      for (let rStart = 0; rStart < pending.length; rStart += CONCURRENCY_LIMIT) {
+        const rEnd = Math.min(rStart + CONCURRENCY_LIMIT, pending.length);
         const retryBatchPromises = [];
         for (let ri = rStart; ri < rEnd; ri++) {
-          const r = emptyChunks[ri];
-          const expectedPerChunk = Math.ceil(existingCount / chunks.length);
-          const prompt = buildMcqPrompt(chunks[r.idx], 0, { extractMode: true, expectedCount: expectedPerChunk });
+          const d = pending[ri];
+          const prompt = buildMcqPrompt(chunks[d.idx], 0, { extractMode: true, expectedCount: d.expected, retryHint: true });
           retryBatchPromises.push(
             callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
-              .then((raw) => { try { return mapAiMcqsToRows(extractJSON(raw, "array")); } catch { return []; } })
-              .catch(() => [])
+              .then((raw) => { try { return { idx: d.idx, rows: mapAiMcqsToRows(extractJSON(raw, "array")) }; } catch { return { idx: d.idx, rows: [] }; } })
+              .catch(() => ({ idx: d.idx, rows: [] }))
           );
         }
         const batchRetryResults = await Promise.all(retryBatchPromises);
-        retryRows.push(...batchRetryResults);
+        for (const res of batchRetryResults) {
+          chunkResults[res.idx].rows.push(...res.rows);
+        }
       }
-      const retryDeduped = dedupeMcqs(retryRows.flat());
-      allRows = dedupeMcqs([...allRows, ...retryDeduped]).slice(0, MAX_QUESTIONS);
+      allRows = dedupeMcqs(chunkResults.flatMap((r) => r.rows)).slice(0, MAX_QUESTIONS);
+      pending = deficits();
+    }
+
+    if (allRows.length < existingCount) {
+      const w = `⚠️ Detected ~${existingCount} questions but extracted ${allRows.length} — some may have been missed.`;
+      warnings.push(w);
+      onWarning?.(w);
     }
   }
 

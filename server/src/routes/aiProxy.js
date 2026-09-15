@@ -89,7 +89,7 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
             model: openrouterModel,
             messages: msgs,
             max_tokens: 32768,
-            reasoning: { effort: "low" },
+            reasoning: { enabled: false },
           };
         }
         break;
@@ -239,7 +239,7 @@ router.post("/generate-multimodal", requireAuth, aiRateLimit, async (req, res) =
           model: openrouterModel,
           messages,
           max_tokens: 16384,
-          reasoning: { effort: "low" },
+          reasoning: { enabled: false },
         };
         break;
 

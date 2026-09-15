@@ -37,7 +37,7 @@ function saveCustomSubjects(list) {
 const extractJSON = (raw) => extractJSONShared(raw, "object");
 const extractJSONArray = (raw) => extractJSONShared(raw, "array");
 
-const ASA_QUESTIONS_PER_CHUNK = 50;
+const ASA_QUESTIONS_PER_CHUNK = 25;
 const ASA_CONCURRENCY_LIMIT = 3;
 const ASA_MAX_QUESTIONS = 1000;
 const ASA_MAX_CHUNKS = 20;
