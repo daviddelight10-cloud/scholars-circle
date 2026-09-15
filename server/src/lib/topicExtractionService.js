@@ -39,7 +39,7 @@ async function callAIServerSide(prompt) {
     model: AI_MODEL,
     messages: [{ role: "user", content: prompt }],
     max_tokens: 32768,
-    reasoning: { enabled: false },
+    reasoning: { effort: "low" },
   };
 
   const controller = new AbortController();
