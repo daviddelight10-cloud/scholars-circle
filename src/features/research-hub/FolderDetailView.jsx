@@ -11,7 +11,7 @@ export default function FolderDetailView({
   onUploadToFolder, onToggleFolderBookmark, folderBookmarkedIds, folderBookmarkBusyId,
   bookmarkedIds, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress,
   onSpacedReview, onAdaptiveDrill, onExamSimulation, onPracticeAll,
-  onGenerate, generatingId,
+  onGenerate, generatingId, genProgress, genError, genErrorId, onRetry, onDismissGenError,
   uploadModal, createFolderModal, bookmarkPicker,
   onStartStudying,
   onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy,
@@ -76,6 +76,7 @@ export default function FolderDetailView({
   }, [allFiles, fileSearch]);
 
   const allMcqIds = (folderCategorized.allMcqResources || []).map((r) => r.id);
+  const generatingFile = generatingId ? allFiles.find((f) => f.id === generatingId) : null;
   const showTopicsTab = !!folderDetail?.courseCode;
   const masteryPct = folderDetail?.masteryPct || 0;
 
@@ -328,6 +329,51 @@ export default function FolderDetailView({
         >
           <span className="animate-spin" style={{ display: "inline-block" }}>⏳</span>
           Preparing guided study…
+        </div>
+      )}
+
+      {/* AI generation indicator — the action sheet closes before generation
+          starts, so this toast is the only visible feedback while it runs */}
+      {generatingId && (
+        <div
+          className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
+          style={{ background: "#12161F", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
+          role="status"
+        >
+          <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#F5A623", borderTopColor: "transparent" }} />
+          <span className="truncate">
+            {genProgress || "Generating…"}{generatingFile?.title ? ` · ${generatingFile.title}` : ""}
+          </span>
+        </div>
+      )}
+
+      {/* Generation error — with retry */}
+      {!generatingId && genError && genErrorId && (
+        <div
+          className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
+          style={{ background: "#1a0808", borderColor: "rgba(255,84,112,0.4)", color: "#ff9aa8", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
+          role="alert"
+        >
+          <span className="truncate">{genError}</span>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold"
+              style={{ background: "rgba(255,84,112,0.15)", border: "0.5px solid rgba(255,84,112,0.4)", color: "#ff9aa8" }}
+            >
+              Retry
+            </button>
+          )}
+          {onDismissGenError && (
+            <button
+              onClick={onDismissGenError}
+              aria-label="Dismiss"
+              className="shrink-0 text-[15px] leading-none"
+              style={{ background: "none", border: "none", color: "#ff9aa8", cursor: "pointer", padding: "0 2px" }}
+            >
+              ✕
+            </button>
+          )}
         </div>
       )}
 
