@@ -85,7 +85,7 @@ router.post("/create", requireAuth, async (req, res) => {
       ticket,
       title: room.title,
       questionCount: questions.length,
-      maxQuestions: Math.min(20, questions.length),
+      maxQuestions: questions.length,
     });
   } catch (err) {
     console.error("Live quiz create error:", err);

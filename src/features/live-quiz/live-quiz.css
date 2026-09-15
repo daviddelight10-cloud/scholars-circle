@@ -1,7 +1,6 @@
 /* Live Quiz room styles — ported from the Go Live prototype, scoped under .lq-app */
 .lq-app {
   width: 100%;
-  max-width: 480px;
   height: 100dvh;
   margin: 0 auto;
   background: #0A0C10;
@@ -203,6 +202,11 @@
 
 /* Poll overlay */
 .lq-poll-overlay { position: absolute; bottom: 84px; left: 0; right: 0; background: rgba(18,22,31,0.98); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.08); padding: 20px; z-index: 13; display: flex; flex-direction: column; gap: 10px; margin: 0 12px; border-radius: 16px 16px 0 0; }
+
+/* ── Wider than a phone but not laptop: keep the column readable ── */
+@media (min-width: 481px) and (max-width: 768px) {
+  .lq-view { max-width: 640px; margin: 0 auto; width: 100%; }
+}
 
 /* ── Small laptop / tablet landscape ── */
 @media (min-width: 769px) and (max-width: 1023px) {

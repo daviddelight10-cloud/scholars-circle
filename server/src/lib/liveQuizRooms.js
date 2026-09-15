@@ -20,7 +20,6 @@ const LIFELINE_COST = 50;
 const XP_PER_CORRECT = 20;
 const XP_TEACHBACK = 50;
 const XP_WAGER = 30;
-const MAX_QUESTIONS_PER_SESSION = 20;
 
 const COLORS = ["#3B82F6", "#FF6B5E", "#F5C542", "#3DD68C", "#A78BFA", "#EC4899", "#14B8A6", "#F97316"];
 const EMOJI_ALLOWED = new Set(["💡", "🔥", "👏", "❤️", "😂", "🎉"]);
@@ -96,7 +95,7 @@ export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title,
     allQuestions: questions, // full shuffled pool from mcqData
     settings: {
       timePerQuestion: settings?.timePerQuestion || 30,
-      numQuestions: Math.min(settings?.numQuestions || 5, MAX_QUESTIONS_PER_SESSION, questions.length),
+      numQuestions: Math.min(settings?.numQuestions || 5, questions.length),
     },
     phase: "lobby",
     participants: new Map(),
@@ -166,7 +165,7 @@ function buildSnapshot(room, forUserId) {
     phase: room.phase,
     isHost: forUserId === room.hostId,
     settings: room.settings,
-    maxQuestions: Math.min(MAX_QUESTIONS_PER_SESSION, room.allQuestions.length),
+    maxQuestions: room.allQuestions.length,
     poolSize: room.allQuestions.length,
     participants: publicParticipants(room),
     talkedThrough: room.talkedThrough,
@@ -326,7 +325,7 @@ function applySettings(room, msg) {
   const t = parseInt(msg.timePerQuestion, 10);
   const n = parseInt(msg.numQuestions, 10);
   if ([15, 20, 30, 45, 60].includes(t)) room.settings.timePerQuestion = t;
-  if (n >= 1 && n <= Math.min(MAX_QUESTIONS_PER_SESSION, room.allQuestions.length)) {
+  if (n >= 1 && n <= room.allQuestions.length) {
     room.settings.numQuestions = n;
   }
 }
