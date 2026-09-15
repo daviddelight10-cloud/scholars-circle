@@ -51,14 +51,14 @@ export default function LiveQuizPage() {
 
   if (joined) {
     return (
-      <div className="app dark" style={{ height: "100dvh", background: "#05070a" }}>
+      <div className="dark" style={{ height: "100dvh", background: "#05070a" }}>
         <LiveQuizRoom roomId={joined.roomId} ticket={joined.ticket} myId={myId} onExit={exit} />
       </div>
     );
   }
 
   return (
-    <div className="app dark" style={{ minHeight: "100dvh", background: "#05070a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div className="dark" style={{ minHeight: "100dvh", background: "#05070a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div className="lq-app" style={{ height: "auto", minHeight: 0, maxWidth: 420, borderRadius: 24, padding: 28 }}>
         {error && !preview ? (
           <div style={{ textAlign: "center" }}>

@@ -2173,12 +2173,14 @@ body {
 }
 
 @media (min-width: 769px) {
-  .app {
+  /* Only offset content when the fixed sidebar is actually rendered —
+     standalone routes (/resources, /live/:code, shared folders) have none */
+  .app:has(.app-sidebar) {
     margin-left: 240px;
     transition: margin-left 0.2s ease;
   }
 
-  .app.sidebar-collapsed {
+  .app.sidebar-collapsed:has(.app-sidebar) {
     margin-left: 64px;
   }
 
@@ -2356,11 +2358,11 @@ body {
 
 /* Tablet: auto-collapse to icon-only */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .app {
+  .app:has(.app-sidebar) {
     margin-left: 64px;
   }
 
-  .app.sidebar-collapsed {
+  .app.sidebar-collapsed:has(.app-sidebar) {
     margin-left: 64px;
   }
 
