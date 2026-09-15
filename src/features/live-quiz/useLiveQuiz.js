@@ -80,6 +80,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) 
           ready: msg.ready || s.ready,
           teachBack: msg.teachBack || null,
           complete: msg.complete || null,
+          poll: null,
           serverOffset: offset,
         }));
         break;
@@ -239,6 +240,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) 
       sendChat: (text) => send({ type: "chat", text }),
       react: (emoji) => send({ type: "reaction", emoji }),
       clearPoll: () => patch({ poll: null }),
+      backToLobby: () => send({ type: "back_to_lobby" }),
       leave: () => send({ type: "leave" }),
       end: () => send({ type: "end" }),
     },

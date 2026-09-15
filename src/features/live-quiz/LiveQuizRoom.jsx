@@ -154,7 +154,9 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
         {room.phase === "transition" && <TransitionView room={room} />}
         {room.phase === "question" && <VotingView room={room} actions={room.actions} timeLeft={room.timeLeft} />}
         {(room.phase === "reveal" || room.phase === "teachback") && <RevealView room={room} myId={myId} actions={room.actions} />}
-        {room.phase === "complete" && <CompleteView room={room} myId={myId} onExit={onExit} />}
+        {room.phase === "complete" && (
+          <CompleteView room={room} myId={myId} onBackToLobby={room.actions.backToLobby} onExit={handleLeave} />
+        )}
         {room.phase === "ended" && (
           <div className="lq-view"><div className="lq-center">
             <p className="lq-title" style={{ fontSize: 20 }}>Session ended</p>

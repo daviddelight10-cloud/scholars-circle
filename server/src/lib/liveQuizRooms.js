@@ -309,6 +309,10 @@ export function handleMessage(room, userId, msg) {
       broadcast(room, { type: "reaction", userId, emoji });
       return;
     }
+    case "back_to_lobby":
+      if (room.phase !== "complete") return;
+      backToLobby(room);
+      return;
     case "leave":
       detachSocket(room, userId);
       return;
@@ -658,6 +662,37 @@ async function completeSession(room) {
   scheduleTimer(room, ROOM_TTL_MS, () => deleteRoom(room.id));
 }
 
+function backToLobby(room) {
+  if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
+  room.phase = "lobby";
+  room.qIndex = -1;
+  room.questions = [];
+  room.answers = new Map();
+  room.readySet = new Set();
+  room.wagers = new Map();
+  room.wagerEligible = new Set();
+  room.prevCorrect = new Set();
+  room.lifelineUsed = new Set();
+  room.teachBack = null;
+  room.xp = new Map();
+  room.groupStreak = 0;
+  room.talkedThrough = 0;
+  room.phaseDeadline = null;
+  room.results = null;
+  room.dbId = null; // next game persists as a fresh session row
+  // reshuffle the pool so the next round isn't identical
+  for (let i = room.allQuestions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [room.allQuestions[i], room.allQuestions[j]] = [room.allQuestions[j], room.allQuestions[i]];
+  }
+  for (const p of room.participants.values()) {
+    p.lobbyReady = p.userId === room.hostId;
+    p.score = 0;
+    p.stats = { times: [], correct: 0, lucky: 0 };
+    if (p.connected) send(p.ws, buildSnapshot(room, p.userId));
+  }
+}
+
 export function endRoom(room, reason = "ended_by_host") {
   if (room.phase === "ended") return;
   room.phase = "ended";
@@ -680,7 +715,7 @@ async function persistSession(room, status) {
     const data = {
       status,
       settings: room.settings,
-      endedAt: status === "complete" || status === "ended" ? new Date() : undefined,
+      endedAt: status === "complete" || status === "ended" ? new Date() : null,
       results: status === "complete" ? room.results : undefined,
     };
     if (!room.dbId) {

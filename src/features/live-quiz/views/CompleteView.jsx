@@ -12,7 +12,7 @@ const AWARD_STYLE = {
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-export default function CompleteView({ room, myId, onExit }) {
+export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
   const c = room.complete;
   if (!c) return null;
   const myXp = c.xpEarned?.[myId] || 0;
@@ -72,7 +72,8 @@ export default function CompleteView({ room, myId, onExit }) {
       </div>
 
       <div className="lq-action-group">
-        <button className="lq-btn-primary" onClick={onExit}>Back to My Space</button>
+        <button className="lq-btn-primary" onClick={onBackToLobby}>Back to Lobby</button>
+        <button className="lq-btn-secondary" onClick={onExit}>Leave Session</button>
       </div>
     </div>
   );
