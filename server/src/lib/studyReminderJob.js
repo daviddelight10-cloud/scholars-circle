@@ -5,7 +5,7 @@
 // Runs hourly; if the current UTC hour matches a slot, sends to all eligible users.
 
 import { prisma } from "../db.js";
-import { sendPushToUsers } from "./pushSender.js";
+import { sendPushToUsers, sendPushToUser } from "./pushSender.js";
 
 // === Content pools ===
 const MORNING_MOTIVATIONS = [
@@ -30,6 +30,13 @@ const EVENING_REMINDERS = [
   { title: "💡 One more session?", body: "Your brain consolidates while you sleep. Feed it something to work on tonight." },
   { title: "🧩 Close the loop on today", body: "Review one classroom announcement or do 3 past paper questions. Then rest guilt-free." },
   { title: "🎯 You showed up today?", body: "If yes — well done! If not — there's still time. 10 questions before bed beats 0." }
+];
+
+const STREAK_RISK_BODIES = [
+  "One quick review keeps it alive — 5 questions is all it takes.",
+  "You've built something real. Protect it with one session before midnight.",
+  "Don't let the momentum slip — a 5-minute review saves the whole streak.",
+  "It only takes one run to keep the flame burning. Open Daily Review now."
 ];
 
 const STUDY_TIPS = [
@@ -79,6 +86,25 @@ async function sendEveningReminder() {
   const allUserIds = [...new Set(subs.map((s) => s.userId))];
   if (allUserIds.length === 0) return { sent: 0, reason: "no_subscribers" };
 
+  // Streak-at-risk: streak > 0 but lastStudied is before today (UTC —
+  // updateUniversalStreak uses UTC day boundaries, so we match that here).
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  let atRisk = [];
+  try {
+    atRisk = await prisma.userProgress.findMany({
+      where: {
+        userId: { in: allUserIds },
+        streak: { gt: 0 },
+        OR: [{ lastStudied: null }, { lastStudied: { lt: todayStart } }]
+      },
+      select: { userId: true, streak: true }
+    });
+  } catch {
+    // model missing — fall back to the generic reminder for everyone
+  }
+  const atRiskIds = new Set(atRisk.map((u) => u.userId));
+
   // Best-effort: skip users who already have a study activity in the last 12h.
   // The schema may or may not have an "Activity" model — we silently skip if not.
   let inactiveUserIds = allUserIds;
@@ -97,21 +123,46 @@ async function sendEveningReminder() {
     // ignore — model may not exist
   }
 
-  if (inactiveUserIds.length === 0) return { sent: 0, reason: "everyone_studied_today" };
-
-  const m = pick(EVENING_REMINDERS);
-  const result = await sendPushToUsers(
-    inactiveUserIds,
-    {
-      title: m.title,
-      body: m.body,
-      tag: "daily-reminder",
-      data: { tab: "today", kind: "study_reminder" }
-    },
-    { category: "studyReminders" }
+  // Personalized streak-risk pushes (streak number in the title — hooks the
+  // motivation the user already has, Duolingo-style).
+  let streakSent = 0;
+  await Promise.all(
+    atRisk.map(async (u) => {
+      const r = await sendPushToUser(
+        u.userId,
+        {
+          title: `🔥 Your ${u.streak}-day streak ends tonight!`,
+          body: pick(STREAK_RISK_BODIES),
+          tag: "streak-risk",
+          data: { tab: "today", kind: "streak_risk" }
+        },
+        { category: "studyReminders" }
+      ).catch(() => ({ sent: 0 }));
+      streakSent += r.sent || 0;
+    })
   );
-  console.log(`[reminder] evening reminder -> ${result.sent}/${result.users}`);
-  return result;
+
+  const genericIds = inactiveUserIds.filter((id) => !atRiskIds.has(id));
+  let generic = { sent: 0 };
+  if (genericIds.length) {
+    const m = pick(EVENING_REMINDERS);
+    generic = await sendPushToUsers(
+      genericIds,
+      {
+        title: m.title,
+        body: m.body,
+        tag: "daily-reminder",
+        data: { tab: "today", kind: "study_reminder" }
+      },
+      { category: "studyReminders" }
+    );
+  }
+
+  if (streakSent === 0 && generic.sent === 0 && !atRisk.length && !genericIds.length) {
+    return { sent: 0, reason: "everyone_studied_today" };
+  }
+  console.log(`[reminder] evening -> streak-risk ${streakSent}/${atRisk.length}, generic ${generic.sent}/${genericIds.length}`);
+  return { sent: streakSent + generic.sent, users: atRisk.length + genericIds.length };
 }
 
 // Track which slots we've already fired today to avoid duplicates if the loop fires twice in one hour.
