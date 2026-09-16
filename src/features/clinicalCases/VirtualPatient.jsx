@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { callAIChat, extractJSON } from "../../lib/aiClient";
-import { CASES, EXAM_LABELS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE } from "./caseData";
+import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS } from "./caseData";
 import "./virtualPatient.css";
-import { toast } from "../../components/Toast";
 
 const ACTIVE_CONSULT_KEY = "scc_active_consult";
 const GAME_MODE_KEY = "scc_game_mode";
 const CLINICAL_PROFILE_KEY = "scc_clinical_profile";
+const PACE_KEY = "scc_pace_sec";
+const ONBOARD_KEY = "scc_onboarded_v1";
+const OB_STEPS = 4;
 
 function getStorageKey(base) {
   try {
@@ -92,6 +94,10 @@ function getDueItems(profile) {
 export default function VirtualPatient({ aiConfig, stats, updateStats }) {
   const [screen, setScreen] = useState("select");
   const [gameMode, setGameMode] = useState(() => loadLocal(getStorageKey(GAME_MODE_KEY), "osce"));
+  const [paceSec, setPaceSec] = useState(() => {
+    const v = loadLocal(getStorageKey(PACE_KEY), null);
+    return v && PACE_OPTIONS.some(p => p.min * 60 === v) ? v : 600;
+  });
   const [specialtyFilter, setSpecialtyFilter] = useState("All");
   const [profile, setProfile] = useState(() => loadLocal(getStorageKey(CLINICAL_PROFILE_KEY), DEFAULT_PROFILE));
   const [resumeSnapshot, setResumeSnapshot] = useState(null);
@@ -118,20 +124,38 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
   const [gradeError, setGradeError] = useState(false);
   const [progressInfo, setProgressInfo] = useState(null);
   const [toolsDrawerOpen, setToolsDrawerOpen] = useState(false);
+  const [vitalsDrawerOpen, setVitalsDrawerOpen] = useState(false);
   const [saveIndicator, setSaveIndicator] = useState(false);
+
+  // Live vitals
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [currentHr, setCurrentHr] = useState(88);
+  const [vitalAlert, setVitalAlert] = useState("");
+  const [monitorDeteriorating, setMonitorDeteriorating] = useState(false);
+  const [deterPct, setDeterPct] = useState(0);
+  const [patientStatus, setPatientStatus] = useState("stable");
+
+  // Onboarding wizard
+  const [ob, setOb] = useState({ open: false, step: 0, mode: "osce", specialty: "Any", pace: 15, caseIdx: null });
+
+  // Confirm modal
+  const [modal, setModal] = useState(null);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Refs
   const startTimeRef = useRef(Date.now());
   const timerIntervalRef = useRef(null);
   const stabilizedAtSecRef = useRef(null);
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const [currentHr, setCurrentHr] = useState(88);
-  const [vitalAlert, setVitalAlert] = useState("");
-  const [monitorDeteriorating, setMonitorDeteriorating] = useState(false);
   const chatLogRef = useRef(null);
   const examLogRef = useRef(null);
   const snapshotTimerRef = useRef(null);
   const saveIndicatorTimerRef = useRef(null);
+  const consultScreenRef = useRef(null);
+
+  // Mirror of latest state for interval callbacks (avoids stale closures)
+  const latest = useRef({});
+  latest.current = { screen, gameMode, paceSec, activeCase, messages, examinerMessages, invOrdered, examViewed, dx1, dx2, dx3, mgmt, ob, modal };
 
   const specialties = useMemo(() => ["All", ...Array.from(new Set(CASES.map(c => c.specialty)))], []);
   const filteredIndices = useMemo(() =>
@@ -141,12 +165,30 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
 
   const dueItems = useMemo(() => getDueItems(profile), [profile]);
 
-  // Load resume snapshot on mount
+  const isF = gameMode === "foundations";
+  const timerM = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+  const timerS = String(elapsedSec % 60).padStart(2, "0");
+  const paceTarget = paceSec || 600;
+  const paceFrac = Math.min(1, elapsedSec / paceTarget);
+  const paceOver = elapsedSec > paceTarget;
+  const examKeys = activeCase ? Object.keys(EXAM_LABELS).filter(k => activeCase.exam[k]) : [];
+  const totalExams = examKeys.length;
+  const remainingExams = Math.max(0, totalExams - examViewed.length);
+  const examsPct = totalExams ? Math.round((examViewed.length / totalExams) * 100) : 0;
+  const questionsAsked = messages.filter(m => m.role === "doc").length;
+
+  // Load resume snapshot on mount; auto-open onboarding for first-time users
   useEffect(() => {
     const snap = loadLocal(getStorageKey(ACTIVE_CONSULT_KEY), null);
     if (snap && CASES[snap.caseIndex]) {
       setResumeSnapshot(snap);
+      return;
     }
+    if (profile.casesCompleted === 0 && !loadLocal(getStorageKey(ONBOARD_KEY), null)) {
+      openOnboarding();
+      saveLocal(getStorageKey(ONBOARD_KEY), "1");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-scroll chat
@@ -158,35 +200,62 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
     if (examLogRef.current) examLogRef.current.scrollTop = examLogRef.current.scrollHeight;
   }, [examinerMessages, isExamTyping]);
 
-  // Timer tick
+  // Timer tick — consult clock keeps running on the assessment sheet too
   useEffect(() => {
-    if (screen !== "consult") {
+    const running = screen === "consult" || screen === "assess";
+    if (!running) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       return;
     }
     timerIntervalRef.current = setInterval(() => {
       const secs = Math.floor((Date.now() - startTimeRef.current) / 1000);
       setElapsedSec(secs);
-      // Update vitals
       updateVitals(secs);
-      // Auto-snapshot every 15s
       if (secs > 0 && secs % 15 === 0) doSnapshot();
     }, 1000);
     return () => { if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
+  // Keyboard: F toggles fullscreen on consult, Escape closes modal/wizard/drawers
+  useEffect(() => {
+    function onKeyDown(e) {
+      if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const t = e.target;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+        if (latest.current.screen === "consult") toggleConsultFullscreen();
+      }
+      if (e.key === "Escape") {
+        if (latest.current.modal) setModal(null);
+        else if (latest.current.ob.open) setOb(o => ({ ...o, open: false }));
+        else closeAllDrawers();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
   function updateVitals(secs) {
-    const vp = activeCase?.vitalsProfile;
+    const L = latest.current;
+    const vp = L.activeCase?.vitalsProfile;
     if (!vp) {
       setCurrentHr(88);
       setVitalAlert("");
       setMonitorDeteriorating(false);
+      setDeterPct(0);
+      setPatientStatus("stable");
       return;
     }
     if (stabilizedAtSecRef.current == null) {
       const key = (vp.stabilizing_action || "").toLowerCase();
-      const done = invOrdered.some(i => i.name.toLowerCase() === key);
+      const done = L.invOrdered.some(i => i.name.toLowerCase() === key);
       if (done) stabilizedAtSecRef.current = secs;
     }
     const anchorSecs = stabilizedAtSecRef.current != null ? stabilizedAtSecRef.current : secs;
@@ -195,29 +264,30 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
     const jitter = Math.floor(Math.random() * 5) - 2;
     const hr = Math.round(vp.baseline_hr + (vp.critical_hr - vp.baseline_hr) * t) + jitter;
     setCurrentHr(hr);
+    setDeterPct(Math.round(t * 100));
 
     const deteriorating = t > 0.05 && stabilizedAtSecRef.current == null;
     const recognizedRecently = stabilizedAtSecRef.current != null && (secs - stabilizedAtSecRef.current) < 6;
     setMonitorDeteriorating(deteriorating);
-    if (deteriorating) setVitalAlert("⚠ DETERIORATING");
-    else if (recognizedRecently) setVitalAlert("✓ RECOGNIZED");
-    else setVitalAlert("");
+    setPatientStatus(deteriorating ? "deteriorating" : stabilizedAtSecRef.current != null ? "stabilised" : "stable");
+    setVitalAlert(deteriorating ? "⚠ DETERIORATING" : recognizedRecently ? "✓ RECOGNIZED" : "");
   }
 
   function doSnapshot() {
-    if (!activeCase) return;
-    const idx = CASES.indexOf(activeCase);
+    const L = latest.current;
+    if (!L.activeCase) return;
+    const idx = CASES.indexOf(L.activeCase);
     if (idx < 0) return;
     const snap = {
       caseIndex: idx,
-      mode: gameMode,
-      messages,
-      examinerMessages,
-      invOrdered,
-      examViewed,
+      mode: L.gameMode,
+      messages: L.messages,
+      examinerMessages: L.examinerMessages,
+      invOrdered: L.invOrdered,
+      examViewed: L.examViewed,
       elapsedMs: Date.now() - startTimeRef.current,
       stabilizedElapsedMs: stabilizedAtSecRef.current != null ? stabilizedAtSecRef.current * 1000 : null,
-      dx1, dx2, dx3, mgmt,
+      dx1: L.dx1, dx2: L.dx2, dx3: L.dx3, mgmt: L.mgmt,
       savedAt: Date.now()
     };
     saveLocal(getStorageKey(ACTIVE_CONSULT_KEY), snap);
@@ -252,6 +322,51 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
     }
   }
 
+  /* ============ ONBOARDING WIZARD ============ */
+  function openOnboarding() {
+    const found = PACE_OPTIONS.find(p => p.min * 60 === paceSec);
+    setOb({ open: true, step: 0, mode: gameMode, specialty: "Any", pace: found ? found.min : 15, caseIdx: null });
+  }
+
+  function closeOnboarding() {
+    setOb(o => ({ ...o, open: false }));
+  }
+
+  function obBack() {
+    setOb(o => (o.step === 0 ? { ...o, open: false } : { ...o, step: o.step - 1, caseIdx: null }));
+  }
+
+  function obPool() {
+    return ob.specialty === "Any"
+      ? CASES.map((c, i) => i)
+      : CASES.map((c, i) => (c.specialty === ob.specialty ? i : -1)).filter(i => i >= 0);
+  }
+
+  function obNext() {
+    if (ob.step === 1 && obPool().length === 0) return;
+    if (ob.step === 2) {
+      const secs = ob.pace * 60;
+      setPaceSec(secs);
+      saveLocal(getStorageKey(PACE_KEY), secs);
+      const pool = obPool();
+      setOb(o => ({ ...o, caseIdx: pool[Math.floor(Math.random() * pool.length)], step: 3 }));
+      return;
+    }
+    if (ob.step === OB_STEPS - 1) {
+      obStart();
+      return;
+    }
+    setOb(o => ({ ...o, step: o.step + 1 }));
+  }
+
+  function obStart() {
+    if (ob.caseIdx == null) return;
+    saveGameMode(ob.mode);
+    closeOnboarding();
+    startCase(ob.caseIdx);
+  }
+
+  /* ============ NAVIGATION ============ */
   function startCase(idx) {
     const c = CASES[idx];
     setActiveCase(c);
@@ -263,11 +378,22 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
     setChatInput(""); setExamInput(""); setInvCustomInput("");
     setGrade(null); setGradeError(false); setProgressInfo(null);
     setToolsDrawerOpen(false);
+    setVitalsDrawerOpen(false);
     stabilizedAtSecRef.current = null;
     startTimeRef.current = Date.now();
     setElapsedSec(0);
+    setCurrentHr(88);
+    setDeterPct(0);
+    setVitalAlert("");
+    setMonitorDeteriorating(false);
+    setPatientStatus("stable");
     setScreen("consult");
     setTimeout(doSnapshot, 100);
+  }
+
+  function startRandomCase() {
+    const indices = CASES.map((c, i) => i);
+    startCase(indices[Math.floor(Math.random() * indices.length)]);
   }
 
   function resumeCase() {
@@ -284,10 +410,17 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
     setMgmt(snap.mgmt || "");
     setGrade(null); setGradeError(false); setProgressInfo(null);
     setToolsDrawerOpen(false);
+    setVitalsDrawerOpen(false);
     stabilizedAtSecRef.current = snap.stabilizedElapsedMs != null ? Math.floor(snap.stabilizedElapsedMs / 1000) : null;
     startTimeRef.current = Date.now() - (snap.elapsedMs || 0);
+    setElapsedSec(Math.floor((snap.elapsedMs || 0) / 1000));
     setResumeSnapshot(null);
     setScreen("consult");
+    setTimeout(() => {
+      const secs = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      setElapsedSec(secs);
+      updateVitals(secs);
+    }, 50);
   }
 
   function discardResume() {
@@ -298,11 +431,45 @@ export default function VirtualPatient({ aiConfig, stats, updateStats }) {
   function goToSelect() {
     setScreen("select");
     setToolsDrawerOpen(false);
+    setVitalsDrawerOpen(false);
+    setModal(null);
     setVitalAlert("");
     setMonitorDeteriorating(false);
+    setDeterPct(0);
+    setPatientStatus("stable");
+    if (document.fullscreenElement) document.exitFullscreen();
     clearActiveSnapshot();
   }
 
+  function openAssessment() {
+    if (!activeCase) return;
+    setToolsDrawerOpen(false);
+    setVitalsDrawerOpen(false);
+    setScreen("assess");
+  }
+
+  function closeAllDrawers() {
+    setToolsDrawerOpen(false);
+    setVitalsDrawerOpen(false);
+  }
+
+  function toggleConsultFullscreen() {
+    const el = consultScreenRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }
+
+  /* ============ MODAL ============ */
+  function showModal({ title, body, confirmText = "Confirm", cancelText = "Cancel", tone = "confirm", onConfirm = null }) {
+    setModal({ title, body, confirmText, cancelText, tone, onConfirm });
+  }
+
+  function closeModal() {
+    setModal(null);
+  }
+
+  /* ============ PATIENT CHAT (AI) ============ */
   async function sendQuestion() {
     const question = chatInput.trim();
     if (!question || isTyping) return;
@@ -343,6 +510,7 @@ RULES:
     setIsTyping(false);
   }
 
+  /* ============ EXAM ============ */
   function doExam(key) {
     const finding = activeCase.exam[key] || "Nothing significant found on this examination.";
     setExamViewed(prev => [...prev, { key, finding }]);
@@ -350,6 +518,7 @@ RULES:
     debouncedSnapshot();
   }
 
+  /* ============ INVESTIGATIONS ============ */
   function orderInvestigation(name) {
     const key = name.toLowerCase().trim();
     if (!key) return;
@@ -369,20 +538,48 @@ RULES:
     orderInvestigation(name);
   }
 
-  async function submitForGrading() {
-    const isF = gameMode === "foundations";
-    const questionsAsked = messages.filter(m => m.role === "doc").length;
-
+  /* ============ SUBMIT + GRADING ============ */
+  function attemptSubmit() {
+    if (!activeCase) return;
     if (isF) {
       if (questionsAsked < 1) {
-        toast.warning("Ask the patient at least one question before finishing this practice round.");
+        showModal({
+          title: "Ask a question first",
+          body: "Ask the patient at least one question before finishing this practice round.",
+          confirmText: "Back to consult",
+          cancelText: "",
+          tone: "danger",
+          onConfirm: () => setScreen("consult")
+        });
         return;
       }
     } else if (!dx1.trim() || !mgmt.trim()) {
-      toast.warning("Please enter at least your top diagnosis and a management plan before submitting.");
+      showModal({
+        title: "Incomplete assessment",
+        body: "Enter at least your top diagnosis and a management plan before submitting.",
+        confirmText: "Got it",
+        cancelText: "",
+        tone: "danger"
+      });
       return;
     }
 
+    const exN = examViewed.length, ivN = invOrdered.length;
+    const summary = isF
+      ? `You asked ${questionsAsked} question${questionsAsked === 1 ? "" : "s"}. In Foundations mode only your history-taking is scored — diagnosis and management are optional practice and won't affect your grade.`
+      : `You asked ${questionsAsked} question${questionsAsked === 1 ? "" : "s"}, performed ${exN} examination${exN === 1 ? "" : "s"}, and ordered ${ivN} investigation${ivN === 1 ? "" : "s"}. Submitting ends the consult and grades all four OSCE domains — this can't be undone.`;
+
+    showModal({
+      title: isF ? "Finish history practice?" : "Submit for grading?",
+      body: summary,
+      confirmText: isF ? "Finish history practice" : "Submit & grade",
+      cancelText: "Keep working",
+      tone: "confirm",
+      onConfirm: submitForGrading
+    });
+  }
+
+  async function submitForGrading() {
     const dxList = [dx1, dx2, dx3].filter(Boolean).map(s => s.trim());
     setIsGrading(true);
     setGradeError(false);
@@ -441,6 +638,7 @@ Rules:
 - diagnosis_rank_matched is the 1-based position in the student's differential list where the correct diagnosis (or an unambiguous synonym) appears, or null if it doesn't appear anywhere in the list.
 - Feedback should be specific and short (2-3 sentences each), addressed to the student as "you".`;
 
+    if (document.fullscreenElement) document.exitFullscreen();
     setScreen("grade");
 
     let raw;
@@ -541,6 +739,7 @@ Rules:
     setIsGrading(false);
   }
 
+  /* ============ POST-GRADE EXAMINER CHAT (AI) ============ */
   async function askExaminer() {
     const question = examInput.trim();
     if (!question || isExamTyping) return;
@@ -576,6 +775,7 @@ Answer the student's follow-up questions about their performance and the underly
     setIsExamTyping(false);
   }
 
+  /* ============ REVIEW DECK ============ */
   function openReviewPanel() {
     setReviewQueue(dueItems);
     setShowReviewPanel(true);
@@ -592,27 +792,24 @@ Answer the student's follow-up questions about their performance and the underly
     setReviewQueue(prev => prev.slice(1));
   }
 
-  const isF = gameMode === "foundations";
-  const timerM = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
-  const timerS = String(elapsedSec % 60).padStart(2, "0");
-  const examChips = activeCase ? Object.keys(EXAM_LABELS).filter(k => activeCase.exam[k]) : [];
+  /* ============================================================
+     RENDER
+     ============================================================ */
+  const obPoolList = obPool();
+  const obCtaDisabled = ob.step === 1 && obPoolList.length === 0;
+  const obCtaText = ob.step === OB_STEPS - 1 ? "▶ Start Simulation" : "Continue";
+  const obNoteText = ob.step === 0
+    ? "You can change this later on the home screen."
+    : ob.step === 1
+      ? (obPoolList.length ? `${obPoolList.length} case${obPoolList.length === 1 ? "" : "s"} available in this pool.` : "No cases in this specialty yet — pick another.")
+      : ob.step === 2
+        ? "Sets the pace target on your consult clock."
+        : "The clock starts the moment you step in.";
+  const vitalsCharted = examViewed.find(e => e.key === "vitals");
+  const briefCase = ob.caseIdx != null ? CASES[ob.caseIdx] : null;
 
   return (
     <div className="vp-root">
-      {/* Monitor strip */}
-      <div className={`vp-monitor ${monitorDeteriorating ? "deteriorating" : ""}`}>
-        <div className="vp-brand">Scholar's <span>Circle</span><span className="long"> — Clinical Challenge</span></div>
-        <div className="vp-ecg-wrap">
-          <svg viewBox="0 0 600 34" preserveAspectRatio="none">
-            <polyline fill="none" stroke="#3ECF8E" strokeWidth="1.6" points="0,17 40,17 50,17 55,4 60,30 65,10 70,17 140,17 180,17 190,17 195,4 200,30 205,10 210,17 300,17 340,17 350,17 355,4 360,30 365,10 370,17 440,17 480,17 490,17 495,4 500,30 505,10 510,17 600,17" opacity="0.85" />
-          </svg>
-        </div>
-        <div className={`vp-vital-alert ${vitalAlert ? "show" : ""}`}>{vitalAlert}</div>
-        <div className={`vp-save-indicator ${saveIndicator ? "show" : ""}`}>✓ saved</div>
-        <div className="vp-vital"><span className="vp-num">{currentHr}</span><span className="vp-lbl">HR BPM</span></div>
-        <div className="vp-vital"><span className="vp-timer-num">{timerM}:{timerS}</span><span className="vp-timer-lbl">CONSULT TIME</span></div>
-      </div>
-
       {/* SCREEN 1: CASE SELECT */}
       {screen === "select" && (
         <div>
@@ -620,18 +817,6 @@ Answer the student's follow-up questions about their performance and the underly
             <div className="vp-eyebrow">AI Clinical Challenge</div>
             <h1>Meet your patient.</h1>
             <p className="vp-sub">Take a history, examine, order investigations, then commit to a diagnosis and a management plan. You'll be graded on all four — the way an OSCE examiner would.</p>
-          </div>
-
-          <div className="vp-mode-select-row">
-            <div className="vp-mode-select-label">Mode</div>
-            <div className="vp-mode-toggle">
-              <button className={`vp-mode-btn ${isF ? "active" : ""}`} onClick={() => saveGameMode("foundations")}>
-                🌱 Foundations<span className="vp-mode-sub">Pre-clinical · history only, no penalties</span>
-              </button>
-              <button className={`vp-mode-btn ${!isF ? "active" : ""}`} onClick={() => saveGameMode("osce")}>
-                🩺 Full OSCE<span className="vp-mode-sub">Clinical years · all 4 domains scored</span>
-              </button>
-            </div>
           </div>
 
           {resumeSnapshot && (
@@ -700,30 +885,69 @@ Answer the student's follow-up questions about their performance and the underly
             })}
           </div>
 
-          {filteredIndices.length > 0 && (
-            <button className="vp-glass vp-chip vp-random-btn" style={{ padding: "12px 18px", fontSize: 13 }} onClick={() => startCase(filteredIndices[Math.floor(Math.random() * filteredIndices.length)])}>
-              🎲 Random case
-            </button>
-          )}
+          <div className="vp-cta-bar">
+            <button className="vp-cta-start" onClick={openOnboarding}>▶ Start patient case</button>
+            <button className="vp-cta-dice" onClick={startRandomCase} title="Instant random case">🎲</button>
+          </div>
         </div>
       )}
 
       {/* SCREEN 2: CONSULT */}
       {screen === "consult" && activeCase && (
-        <div>
-          <div className="vp-glass vp-case-header">
-            <div>
-              <div className="vp-bed-tag">{activeCase.bed}</div>
-              <span className={`vp-mode-badge ${isF ? "vp-mode-badge-f" : "vp-mode-badge-o"}`}>{isF ? "FOUNDATIONS" : "FULL OSCE"}</span>
-              <div className="vp-cc-line">"{activeCase.cc}"</div>
-            </div>
-            <button className="vp-back-btn" onClick={goToSelect}>← New case</button>
-          </div>
+        <div className="vp-consult-screen" ref={consultScreenRef}>
+          <div className="vp-consult-col">
+            <header className={`vp-glass vp-case-top ${monitorDeteriorating ? "deteriorating" : ""}`}>
+              <div className="vp-ct-row1">
+                <button className="vp-ct-back" onClick={goToSelect} title="New case">←</button>
+                <div className="vp-ct-title-wrap">
+                  <div className="vp-ct-title">
+                    <span className={`vp-dot ${patientStatus === "deteriorating" ? "st-bad" : patientStatus === "stabilised" ? "st-ok" : ""}`} />
+                    <span>{activeCase.specialty}</span>
+                  </div>
+                  <div className="vp-ct-sub">
+                    {activeCase.bed} · {activeCase.demo} · <span className={patientStatus === "deteriorating" ? "vp-st-bad" : "vp-st-stable"}>{patientStatus}</span>
+                  </div>
+                </div>
+                <div className="vp-ct-right">
+                  <span className={`vp-mode-badge ${isF ? "vp-mode-badge-f" : "vp-mode-badge-o"}`}>{isF ? "FOUNDATIONS" : "FULL OSCE"}</span>
+                  <span className={`vp-save-indicator ${saveIndicator ? "show" : ""}`}>✓ saved</span>
+                  <button className="vp-ct-mini" onClick={toggleConsultFullscreen} title="Fullscreen (F)">{isFullscreen ? "⤡" : "⛶"}</button>
+                </div>
+              </div>
 
-          <div className="vp-consult-grid">
-            {/* Chat */}
-            <div className="vp-glass vp-chat-panel">
-              <div className="vp-panel-title">History Taking</div>
+              <div className="vp-ct-ecg">
+                <svg viewBox="0 0 600 30" preserveAspectRatio="none">
+                  <polyline fill="none" stroke="#3ECF8E" strokeWidth="1.6" points="0,15 40,15 50,15 55,3 60,27 65,9 70,15 140,15 180,15 190,15 195,3 200,27 205,9 210,15 300,15 340,15 350,15 355,3 360,27 365,9 370,15 440,15 480,15 490,15 495,3 500,27 505,9 510,15 600,15" opacity="0.9" />
+                </svg>
+                <span className="vp-hr-mini"><b>{currentHr}</b> bpm</span>
+              </div>
+              <div className={`vp-vital-alert ${vitalAlert ? "show" : ""}`}>{vitalAlert}</div>
+
+              <div className="vp-ct-meters">
+                <div className="vp-meter">
+                  <div className="vp-meter-top">
+                    <span className="vp-m-lbl"><span className="vp-m-ic">⏱</span>{paceOver ? "Over target" : "On pace"}</span>
+                    <span className="vp-m-val">{timerM}:{timerS}</span>
+                  </div>
+                  <div className="vp-bar"><div className={`vp-bar-fill ${paceOver ? "over" : ""}`} style={{ width: `${paceFrac * 100}%` }} /></div>
+                </div>
+                <div className="vp-meter">
+                  <div className="vp-meter-top">
+                    <span className="vp-m-lbl"><span className="vp-m-ic">🫀</span>Patient</span>
+                    <span className="vp-m-val red">{deterPct}%</span>
+                  </div>
+                  <div className="vp-bar"><div className="vp-bar-fill red" style={{ width: `${deterPct}%` }} /></div>
+                </div>
+              </div>
+
+              <div className="vp-ct-actions">
+                <button className="vp-act-btn" onClick={() => setVitalsDrawerOpen(true)}>❤️ Vitals</button>
+                <button className="vp-act-btn" onClick={() => setToolsDrawerOpen(true)}>📋 Orders <span className="vp-cnt">{remainingExams > 0 ? remainingExams : ""}</span></button>
+                <button className="vp-act-btn gold" onClick={openAssessment}>📝 Assess</button>
+              </div>
+            </header>
+
+            <div className="vp-chat-scroll">
               <div className="vp-chat-log" ref={chatLogRef}>
                 {messages.map((m, i) => (
                   <div key={i} className={`vp-bubble ${m.role === "doc" ? "doc" : "pt"}`}>
@@ -735,97 +959,233 @@ Answer the student's follow-up questions about their performance and the underly
                   <div className="vp-typing"><span></span><span></span><span></span></div>
                 )}
               </div>
-              <div className="vp-chat-input-row">
-                <input
-                  type="text"
-                  placeholder="Ask the patient a question…"
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && sendQuestion()}
-                  disabled={isTyping}
-                />
-                <button className="vp-send-btn" onClick={sendQuestion} disabled={isTyping || !chatInput.trim()}>Ask</button>
-              </div>
             </div>
 
-            {/* Tools */}
-            <div className="vp-glass vp-tools-panel">
-              <div className="vp-tool-block">
-                <div className="vp-panel-title" style={{ padding: "14px 18px 8px" }}>Clinical Tools</div>
-                <div style={{ padding: "0 18px" }}>
-                  <button className="vp-tools-trigger-btn" onClick={() => setToolsDrawerOpen(true)}>
-                    <span className="vp-ttb-label">🩺 Examine &amp; Order Tests</span>
-                    <span className="vp-tools-trigger-badge">
-                      {examViewed.length > 0 || invOrdered.length > 0
-                        ? `${examViewed.length} exam${examViewed.length > 1 ? "s" : ""}${examViewed.length > 0 && invOrdered.length > 0 ? " · " : ""}${invOrdered.length > 0 ? `${invOrdered.length} test${invOrdered.length > 1 ? "s" : ""}` : ""}`
-                        : ""}
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <div className="vp-diagnose-block">
-                <div className="vp-panel-title" style={{ padding: "0 0 6px" }}>Diagnosis &amp; Management</div>
-                {isF && (
-                  <div className="vp-foundations-hint">🌱 Foundations mode: only your history-taking is scored. Fill these in for practice if you'd like — they won't affect your grade or count against you.</div>
-                )}
-                <label className="vp-field-lbl">{isF ? "Differential diagnosis (optional practice — ungraded)" : "Differential diagnosis (most likely first)"}</label>
-                <div className="vp-diff-list">
-                  <div className="vp-diff-row"><span className="vp-diff-rank">1</span><input type="text" placeholder="Most likely diagnosis" value={dx1} onChange={e => { setDx1(e.target.value); debouncedSnapshot(); }} /></div>
-                  <div className="vp-diff-row"><span className="vp-diff-rank">2</span><input type="text" placeholder="Optional" value={dx2} onChange={e => { setDx2(e.target.value); debouncedSnapshot(); }} /></div>
-                  <div className="vp-diff-row"><span className="vp-diff-rank">3</span><input type="text" placeholder="Optional" value={dx3} onChange={e => { setDx3(e.target.value); debouncedSnapshot(); }} /></div>
-                </div>
-                <label className="vp-field-lbl" style={{ marginTop: 12, display: "block" }}>{isF ? "Management plan (optional practice — ungraded)" : "Management plan"}</label>
-                <textarea placeholder="What would you do next?" style={{ minHeight: 80 }} value={mgmt} onChange={e => { setMgmt(e.target.value); debouncedSnapshot(); }} />
-                <button className="vp-submit-btn" onClick={submitForGrading} disabled={isGrading}>
-                  {isGrading ? (isF ? "Reviewing…" : "Grading…") : (isF ? "Finish history practice" : "Submit for grading")}
-                </button>
-              </div>
+            <div className="vp-input-bar">
+              <input
+                type="text"
+                placeholder="Type an assessment, question, or intervention…"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && sendQuestion()}
+                disabled={isTyping}
+              />
+              <button className="vp-send-round" onClick={sendQuestion} disabled={isTyping || !chatInput.trim()}>➤</button>
             </div>
           </div>
 
-          {/* Tools drawer */}
-          <div className={`vp-drawer-backdrop ${toolsDrawerOpen ? "show" : ""}`} onClick={() => setToolsDrawerOpen(false)} />
+          {/* BOTTOM SHEET: VITALS */}
+          <div className={`vp-drawer-backdrop ${vitalsDrawerOpen ? "show" : ""}`} onClick={closeAllDrawers} />
+          <div className={`vp-tools-drawer ${vitalsDrawerOpen ? "open" : ""}`}>
+            <div className="vp-drawer-handle" />
+            <div className="vp-drawer-header">
+              <div className="vp-dh-icon green">🩺</div>
+              <div className="vp-dh-titles">
+                <div className="vp-dh-title">Live Vitals</div>
+                <div className="vp-dh-sub">Telemetry{activeCase.vitalsProfile ? " · live" : ""}</div>
+              </div>
+              <button className="vp-drawer-close" onClick={closeAllDrawers}>✕</button>
+            </div>
+            <div className="vp-drawer-scroll">
+              <div className="vp-vitals-hero">
+                <div className="vp-vh-hr">{currentHr}</div>
+                <div className="vp-vh-lbl">HEART RATE · BPM</div>
+              </div>
+              <div className="vp-vitals-rows">
+                <div className="vp-vrow">
+                  <span className="vp-vl">Condition</span>
+                  <span className={`vp-vv ${patientStatus === "deteriorating" ? "bad" : "ok"}`}>
+                    {patientStatus === "deteriorating" ? "Deteriorating" : patientStatus === "stabilised" ? "Stabilised" : "Stable"}
+                  </span>
+                </div>
+                <div className="vp-vrow">
+                  <span className="vp-vl">Deterioration</span>
+                  <span className={`vp-vv ${deterPct > 30 ? "bad" : "ok"}`}>{deterPct}%</span>
+                </div>
+              </div>
+              <div className="vp-panel-title">Charted Vitals</div>
+              {vitalsCharted ? (
+                <div className="vp-task done">
+                  <div className="vp-task-ic">🩺</div>
+                  <div className="vp-task-main">
+                    <div className="vp-task-t">Full Vitals Charted</div>
+                    <div className="vp-task-finding">{vitalsCharted.finding}</div>
+                    <div className="vp-task-status ok">✓ Done</div>
+                  </div>
+                </div>
+              ) : activeCase.exam.vitals ? (
+                <div className="vp-task">
+                  <div className="vp-task-ic">🩺</div>
+                  <div className="vp-task-main">
+                    <div className="vp-task-t">Chart Full Vitals</div>
+                    <div className="vp-task-cat">Examination · BP, RR, SpO2, temp</div>
+                    <div className="vp-task-status">Pending</div>
+                  </div>
+                  <button className="vp-task-go" onClick={() => doExam("vitals")}>Perform action</button>
+                </div>
+              ) : (
+                <div className="vp-empty-hint">No formal vitals chart available for this case.</div>
+              )}
+            </div>
+          </div>
+
+          {/* BOTTOM SHEET: DOCTOR'S ORDERS */}
+          <div className={`vp-drawer-backdrop ${toolsDrawerOpen ? "show" : ""}`} onClick={closeAllDrawers} />
           <div className={`vp-tools-drawer ${toolsDrawerOpen ? "open" : ""}`}>
             <div className="vp-drawer-handle" />
             <div className="vp-drawer-header">
-              <div className="vp-panel-title">Clinical Tools</div>
-              <button className="vp-drawer-close" onClick={() => setToolsDrawerOpen(false)}>✕</button>
+              <div className="vp-dh-icon">📋</div>
+              <div className="vp-dh-titles">
+                <div className="vp-dh-title">Doctor's Orders</div>
+                <div className="vp-dh-sub">{examViewed.length} exams · {invOrdered.length} tests</div>
+              </div>
+              <button className="vp-drawer-close" onClick={closeAllDrawers}>✕</button>
+            </div>
+            <div className="vp-drawer-progress">
+              <span>Progress</span>
+              <div className="vp-bar"><div className="vp-bar-fill" style={{ width: `${examsPct}%` }} /></div>
+              <b>{examsPct}%</b>
             </div>
             <div className="vp-drawer-scroll">
-              <div className="vp-tool-block">
-                <div className="vp-panel-title">Examine</div>
-                <div className="vp-chip-row">
-                  {examChips.map(k => (
-                    <div key={k} className="vp-chip" onClick={() => doExam(k)}>{EXAM_LABELS[k]}</div>
-                  ))}
-                </div>
-              </div>
-              <div className="vp-tool-block">
-                <div className="vp-panel-title">Investigations</div>
-                <div className="vp-chip-row">
-                  {INV_QUICK.map(name => (
-                    <div key={name} className="vp-chip" onClick={() => orderInvestigation(name)}>{name}</div>
-                  ))}
-                </div>
-                <div className="vp-inv-custom-row">
-                  <input type="text" placeholder="Order another test…" value={invCustomInput} onChange={e => setInvCustomInput(e.target.value)} onKeyDown={e => e.key === "Enter" && orderCustomInvestigation()} />
-                  <button onClick={orderCustomInvestigation}>Order</button>
-                </div>
-                <div className="vp-log-list">
-                  {invOrdered.map((i, idx) => (
-                    <div key={idx} className="vp-log-item" style={{ borderLeftColor: i.relevant ? "var(--vp-gold)" : "var(--vp-coral)" }}>
-                      <b>{i.name.toUpperCase()}{i.relevant ? "" : " · LOW YIELD"}</b>{i.result}
+              <div className="vp-panel-title">Examination</div>
+              {examKeys.map(k => {
+                const doneRec = examViewed.find(e => e.key === k);
+                return (
+                  <div key={k} className={`vp-task ${doneRec ? "done" : ""}`}>
+                    <div className="vp-task-ic">{EXAM_ICONS[k] || "🩺"}</div>
+                    <div className="vp-task-main">
+                      <div className="vp-task-t">{EXAM_LABELS[k]}</div>
+                      <div className="vp-task-cat">Examination</div>
+                      {doneRec && <div className="vp-task-finding">{doneRec.finding}</div>}
+                      <div className={`vp-task-status ${doneRec ? "ok" : ""}`}>{doneRec ? "✓ Done" : "Pending"}</div>
                     </div>
-                  ))}
-                </div>
-                {invOrdered.length === 0 && <div className="vp-empty-hint">No investigations ordered yet.</div>}
+                    {!doneRec && <button className="vp-task-go" onClick={() => doExam(k)}>Perform action</button>}
+                  </div>
+                );
+              })}
+              <div className="vp-panel-title">Investigations</div>
+              <div className="vp-chip-row">
+                {INV_QUICK.map(name => (
+                  <div key={name} className="vp-chip" onClick={() => orderInvestigation(name)}>{name}</div>
+                ))}
               </div>
+              <div className="vp-inv-custom-row">
+                <input
+                  type="text"
+                  placeholder="Order another test…"
+                  value={invCustomInput}
+                  onChange={e => setInvCustomInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && orderCustomInvestigation()}
+                />
+                <button onClick={orderCustomInvestigation}>Order</button>
+              </div>
+              <div className="vp-log-list">
+                {invOrdered.map((i, idx) => (
+                  <div key={idx} className="vp-log-item" style={{ borderLeftColor: i.relevant ? "var(--vp-gold)" : "var(--vp-coral)" }}>
+                    <b>{i.name.toUpperCase()}{i.relevant ? "" : " · LOW YIELD"}</b>{i.result}
+                  </div>
+                ))}
+              </div>
+              {invOrdered.length === 0 && <div className="vp-empty-hint">No investigations ordered yet.</div>}
             </div>
           </div>
         </div>
       )}
 
-      {/* SCREEN 3: GRADING */}
+      {/* SCREEN 3: ASSESSMENT SHEET */}
+      {screen === "assess" && activeCase && (
+        <div>
+          <header className="vp-glass vp-case-header">
+            <div>
+              <div className="vp-eyebrow" style={{ color: "var(--vp-blue)" }}>Case Assessment</div>
+              <div className="vp-cc-line">"{activeCase.cc}" — {activeCase.bed}</div>
+              <div className="vp-assess-meta">
+                <span className={`vp-mode-badge ${isF ? "vp-mode-badge-f" : "vp-mode-badge-o"}`}>{isF ? "FOUNDATIONS" : "FULL OSCE"}</span>
+                <span>Consult clock still running</span>
+              </div>
+            </div>
+            <div className="vp-assess-head-actions">
+              <button className="vp-back-btn" onClick={() => setScreen("consult")}>← Back to consult</button>
+              <button className="vp-back-btn" onClick={goToSelect}>New case</button>
+            </div>
+          </header>
+
+          <div className="vp-assess-grid">
+            <aside className="vp-glass vp-assess-recap">
+              <div className="vp-recap-sec">
+                <div className="vp-panel-title" style={{ padding: "0 0 6px" }}>Consult Summary</div>
+                <div className="vp-recap-kv"><span>Consult time</span><b>{timerM}:{timerS}</b></div>
+                <div className="vp-recap-kv"><span>Questions asked</span><b>{questionsAsked}</b></div>
+                <div className="vp-recap-kv"><span>Examinations performed</span><b>{examViewed.length}</b></div>
+                <div className="vp-recap-kv"><span>Investigations ordered</span><b>{invOrdered.length}</b></div>
+              </div>
+              <div className="vp-recap-sec">
+                <div className="vp-panel-title" style={{ padding: "0 0 2px" }}>Exam Findings</div>
+                <div className="vp-recap-list">
+                  {examViewed.length
+                    ? examViewed.map((e, idx) => (
+                      <div key={idx} className="vp-log-item"><b>{EXAM_LABELS[e.key] || e.key}</b>{e.finding}</div>
+                    ))
+                    : <div className="vp-recap-empty">No examinations performed yet.</div>}
+                </div>
+              </div>
+              <div className="vp-recap-sec">
+                <div className="vp-panel-title" style={{ padding: "0 0 2px" }}>Investigations</div>
+                <div className="vp-recap-list">
+                  {invOrdered.length
+                    ? invOrdered.map((i, idx) => (
+                      <div key={idx} className="vp-log-item" style={{ borderLeftColor: i.relevant ? "var(--vp-gold)" : "var(--vp-coral)" }}>
+                        <b>{i.name.toUpperCase()}{i.relevant ? "" : " · LOW YIELD"}</b>{i.result}
+                      </div>
+                    ))
+                    : <div className="vp-recap-empty">No investigations ordered yet.</div>}
+                </div>
+              </div>
+            </aside>
+
+            <section className="vp-glass vp-assess-sheet">
+              <div className="vp-sheet-sec">
+                <div className="vp-sheet-no">01</div>
+                <div className="vp-sheet-sec-body">
+                  {isF && (
+                    <div className="vp-foundations-hint">🌱 Foundations mode: only your history-taking is scored. Fill these in for practice if you'd like — they won't affect your grade or count against you.</div>
+                  )}
+                  <label className="vp-field-lbl">{isF ? "Differential diagnosis (optional practice — ungraded)" : "Differential diagnosis (most likely first)"}</label>
+                  <div className="vp-diff-list">
+                    <div className="vp-diff-row"><span className="vp-diff-rank">1</span><input type="text" placeholder="Most likely diagnosis" value={dx1} onChange={e => { setDx1(e.target.value); debouncedSnapshot(); }} /></div>
+                    <div className="vp-diff-row"><span className="vp-diff-rank">2</span><input type="text" placeholder="Optional" value={dx2} onChange={e => { setDx2(e.target.value); debouncedSnapshot(); }} /></div>
+                    <div className="vp-diff-row"><span className="vp-diff-rank">3</span><input type="text" placeholder="Optional" value={dx3} onChange={e => { setDx3(e.target.value); debouncedSnapshot(); }} /></div>
+                  </div>
+                </div>
+              </div>
+              <div className="vp-sheet-sec">
+                <div className="vp-sheet-no">02</div>
+                <div className="vp-sheet-sec-body">
+                  <label className="vp-field-lbl" style={{ display: "block" }}>{isF ? "Management plan (optional practice — ungraded)" : "Management plan"}</label>
+                  <textarea
+                    placeholder="What would you do next?"
+                    style={{ minHeight: 110 }}
+                    value={mgmt}
+                    onChange={e => { setMgmt(e.target.value); debouncedSnapshot(); }}
+                  />
+                </div>
+              </div>
+              <div className="vp-sheet-submit">
+                <button className="vp-submit-btn" onClick={attemptSubmit} disabled={isGrading}>
+                  {isGrading ? (isF ? "Reviewing…" : "Grading…") : (isF ? "Finish history practice" : "Submit for grading")}
+                </button>
+                <p className="vp-submit-note">
+                  {isF
+                    ? "Submitting ends the consult. Only your history-taking is scored — the diagnosis and plan below are practice."
+                    : "Submitting ends the consult and grades your performance."}
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
+      {/* SCREEN 4: GRADING */}
       {screen === "grade" && activeCase && (
         <div>
           <div className="vp-glass vp-case-header">
@@ -869,6 +1229,128 @@ Answer the student's follow-up questions about their performance and the underly
           )}
         </div>
       )}
+
+      {/* ONBOARDING WIZARD */}
+      <div className={`vp-drawer-backdrop ${ob.open ? "show" : ""}`} onClick={closeOnboarding} />
+      <div className={`vp-ob-sheet ${ob.open ? "open" : ""}`}>
+        <div className="vp-ob-head">
+          <button className="vp-ob-back" style={{ visibility: ob.step === 0 ? "hidden" : "visible" }} onClick={obBack}>←</button>
+          <div className="vp-ob-dots">
+            {Array.from({ length: OB_STEPS }).map((_, i) => (
+              <span key={i} className={i === ob.step ? "on" : i < ob.step ? "done" : ""} />
+            ))}
+          </div>
+          <button className="vp-ob-close" onClick={closeOnboarding}>✕</button>
+        </div>
+        <div className="vp-ob-body" key={ob.step}>
+          {ob.step === 0 && (
+            <div className="vp-ob-step">
+              <div className="vp-ob-title">How should we grade you?</div>
+              <div className="vp-ob-sub">Pick the style that matches where you are in training. This shapes what the examiner scores.</div>
+              <div className="vp-ob-grid2">
+                <button className={`vp-ob-card ${ob.mode === "foundations" ? "sel" : ""}`} onClick={() => setOb(o => ({ ...o, mode: "foundations" }))}>
+                  <span className="vp-ob-emoji">🌱</span>
+                  <span><span className="vp-ob-card-t">Foundations</span><span className="vp-ob-card-s">Pre-clinical · history only, no penalties</span></span>
+                  <span className="vp-ob-check">✓</span>
+                </button>
+                <button className={`vp-ob-card ${ob.mode === "osce" ? "sel" : ""}`} onClick={() => setOb(o => ({ ...o, mode: "osce" }))}>
+                  <span className="vp-ob-emoji">🩺</span>
+                  <span><span className="vp-ob-card-t">Full OSCE</span><span className="vp-ob-card-s">Clinical years · all 4 domains scored</span></span>
+                  <span className="vp-ob-check">✓</span>
+                </button>
+              </div>
+            </div>
+          )}
+          {ob.step === 1 && (
+            <div className="vp-ob-step">
+              <div className="vp-ob-title">Clinical Specialty</div>
+              <div className="vp-ob-sub">Choose the clinical focus for your case. We'll admit you to a random patient from this pool.</div>
+              <div className="vp-ob-grid2">
+                <button className={`vp-ob-card ${ob.specialty === "Any" ? "sel" : ""}`} onClick={() => setOb(o => ({ ...o, specialty: "Any", caseIdx: null }))}>
+                  <span className="vp-ob-emoji">🎲</span>
+                  <span><span className="vp-ob-card-t">Any specialty</span><span className="vp-ob-card-s">Surprise me — full hospital pool</span></span>
+                  <span className="vp-ob-check">✓</span>
+                </button>
+                {specialties.filter(s => s !== "All").map(s => {
+                  const m = SPECIALTY_META[s] || { icon: "🏥", tag: "Clinical cases" };
+                  const n = CASES.filter(c => c.specialty === s).length;
+                  return (
+                    <button key={s} className={`vp-ob-card ${ob.specialty === s ? "sel" : ""}`} onClick={() => setOb(o => ({ ...o, specialty: s, caseIdx: null }))}>
+                      <span className="vp-ob-emoji">{m.icon}</span>
+                      <span><span className="vp-ob-card-t">{s}</span><span className="vp-ob-card-s">{m.tag} · {n} case{n === 1 ? "" : "s"}</span></span>
+                      <span className="vp-ob-check">✓</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {ob.step === 2 && (
+            <div className="vp-ob-step">
+              <div className="vp-ob-title">Simulation Duration</div>
+              <div className="vp-ob-sub">How much time do you want on the clock? Shorter sessions train quick clinical decision-making.</div>
+              <div className="vp-ob-sec-lbl">Case timer · select session pace</div>
+              <div className="vp-ob-pace-grid">
+                {PACE_OPTIONS.map(p => (
+                  <button key={p.min} className={`vp-ob-pace ${ob.pace === p.min ? "sel" : ""}`} onClick={() => setOb(o => ({ ...o, pace: p.min }))}>
+                    <span className="vp-p-ic">{p.min <= 10 ? "⚡" : p.min <= 20 ? "🕐" : "⏳"}</span>
+                    <div className="vp-p-num">{p.min}<small> min</small></div>
+                    <div className="vp-p-lbl">{p.lbl}</div>
+                    <div className="vp-p-bar"><i style={{ width: `${p.frac * 100}%` }} /></div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {ob.step === 3 && briefCase && (
+            <div className="vp-ob-step">
+              <div className="vp-ob-title">You're on call.</div>
+              <div className="vp-ob-sub">Here's your admission. Review the brief, then step in — the patient is waiting.</div>
+              <div className="vp-ob-brief">
+                <div className="vp-bb-eyebrow">{(SPECIALTY_META[briefCase.specialty] || { icon: "🏥" }).icon} {briefCase.specialty} · {briefCase.bed}</div>
+                <div className="vp-bb-cc">"{briefCase.cc}"</div>
+                <div className="vp-bb-meta">{briefCase.demo} · {ob.pace} min on the clock</div>
+                <ul>
+                  <li>Ask focused questions — the chat is your history.</li>
+                  <li>Examine and order tests from <b>Doctor's Orders</b>.</li>
+                  <li>Commit to a differential and plan on the <b>Assessment sheet</b>, then submit for grading.</li>
+                </ul>
+                <div className="vp-ob-chips">
+                  {ob.mode === "foundations"
+                    ? <><span className="vp-ob-chip g">🌱 History only</span><span className="vp-ob-chip">No penalties</span></>
+                    : <><span className="vp-ob-chip b">History</span><span className="vp-ob-chip b">Investigations</span><span className="vp-ob-chip b">Diagnosis</span><span className="vp-ob-chip b">Management</span></>}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="vp-ob-foot">
+          <button className="vp-ob-cta" onClick={obNext} disabled={obCtaDisabled}>{obCtaText}</button>
+          <div className="vp-ob-note">{obNoteText}</div>
+        </div>
+      </div>
+
+      {/* CONFIRM MODAL */}
+      <div
+        className={`vp-modal-backdrop ${modal ? "show" : ""}`}
+        onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
+      >
+        {modal && (
+          <div className="vp-modal-card" role="dialog" aria-modal="true">
+            <div className="vp-modal-title">{modal.title}</div>
+            <div className="vp-modal-body">{modal.body}</div>
+            <div className="vp-modal-actions">
+              {modal.cancelText ? <button className="vp-btn-modal ghost" onClick={closeModal}>{modal.cancelText}</button> : null}
+              <button
+                className={`vp-btn-modal ${modal.tone === "danger" ? "danger" : "confirm"}`}
+                onClick={() => { const cb = modal.onConfirm; closeModal(); if (cb) cb(); }}
+              >
+                {modal.confirmText}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -903,7 +1385,6 @@ function ReviewPanel({ queue, onRate, onClose }) {
 
 function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, examinerMessages, isExamTyping, examInput, setExamInput, askExaminer, examLogRef, onNewCase }) {
   const isF = g.mode === "foundations";
-  const [cardIndex, setCardIndex] = useState(0);
   const idxRef = useRef(0);
   const barRefs = useRef([]);
 

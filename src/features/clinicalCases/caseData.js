@@ -408,6 +408,32 @@ export const EXAM_LABELS = {
 
 export const INV_QUICK = ["FBC", "ECG", "Troponin", "CXR", "Ultrasound", "Urinalysis", "Pregnancy test", "CRP"];
 
+export const EXAM_ICONS = {
+  general: "🧍", vitals: "🩺", cardiovascular: "🫀", respiratory: "🫁",
+  abdomen: "🤢", neuro: "🧠", msk: "🦴", mental_state: "💭", genitourinary: "🚻"
+};
+
+export const SPECIALTY_META = {
+  "Cardiology":               { icon: "🫀", tag: "Heart & vascular disease" },
+  "Respiratory":              { icon: "🫁", tag: "Lung & breathing cases" },
+  "General Surgery":          { icon: "🔪", tag: "Acute surgical abdomens" },
+  "Obstetrics & Gynaecology": { icon: "🤰", tag: "Pregnancy & women's health" },
+  "Family Medicine":          { icon: "🩺", tag: "Community & chronic care" },
+  "Neurology":                { icon: "🧠", tag: "Brain & nervous system" },
+  "Orthopaedics":             { icon: "🦴", tag: "Bones, joints & trauma" },
+  "Paediatrics":              { icon: "👶", tag: "Child & infant care" },
+  "Psychiatry":               { icon: "💭", tag: "Mental health care" },
+  "Urology":                  { icon: "💧", tag: "Kidneys & urinary tract" }
+};
+
+export const PACE_OPTIONS = [
+  { min: 5,  lbl: "Focused pace",  frac: 0.14 },
+  { min: 10, lbl: "Focused pace",  frac: 0.32 },
+  { min: 15, lbl: "Standard pace", frac: 0.52 },
+  { min: 20, lbl: "Standard pace", frac: 0.72 },
+  { min: 30, lbl: "Deep pace",     frac: 1.0  }
+];
+
 export const ACHIEVEMENT_LABELS = {
   first_case: '🏅 First Case',
   sharp_diagnosis: '🎯 Sharp Diagnosis',
