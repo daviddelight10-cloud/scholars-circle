@@ -4,6 +4,33 @@ import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// GET /api/study-cache/progress-index — {resourceId: {done,total,updatedAt}} built
+// from roadmap JSON blobs, for material-card progress badges.
+// Registered before /:topic so it isn't swallowed as a topic param.
+router.get("/progress-index", requireAuth, async (req, res) => {
+  try {
+    const rows = await prisma.studySessionCache.findMany({
+      where: { userId: req.user.sub },
+      select: { roadmap: true, updatedAt: true },
+    });
+    const index = {};
+    for (const row of rows) {
+      const rm = row.roadmap;
+      const rid = rm?.resourceId;
+      if (!rid || !Array.isArray(rm.sections) || !rm.sections.length) continue;
+      index[rid] = {
+        done: rm.progress?.studied ? Object.keys(rm.progress.studied).length : 0,
+        total: rm.sections.length,
+        updatedAt: row.updatedAt,
+      };
+    }
+    res.json(index);
+  } catch (err) {
+    console.error("Error building guided progress index:", err.message);
+    res.status(500).json({ error: "Failed to fetch guided progress" });
+  }
+});
+
 // GET /api/study-cache/:topic — Get cached study content for a topic
 router.get("/:topic", requireAuth, async (req, res) => {
   try {

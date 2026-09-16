@@ -100,6 +100,45 @@ export async function saveStudyCache(topic, data) {
   return merged;
 }
 
+const PROGRESS_INDEX_KEY = "sc_guided_progress_index";
+
+/**
+ * Record Guided Study progress for a material locally (instant card updates).
+ * The canonical record also lives server-side inside the study-cache roadmap blob.
+ */
+export function recordGuidedProgress(resourceId, record) {
+  if (!resourceId || !record) return;
+  try { localStorage.setItem(`sc_guided_progress_${resourceId}`, JSON.stringify(record)); } catch {}
+  try {
+    const idx = JSON.parse(localStorage.getItem(PROGRESS_INDEX_KEY) || "{}");
+    idx[resourceId] = record;
+    localStorage.setItem(PROGRESS_INDEX_KEY, JSON.stringify(idx));
+  } catch {}
+}
+
+/**
+ * Get {resourceId: {done,total,updatedAt}} for all materials with guided study
+ * progress — localStorage first, then merged with the server index so progress
+ * syncs across devices.
+ */
+export async function getGuidedProgressIndex() {
+  let local = {};
+  try { local = JSON.parse(localStorage.getItem(PROGRESS_INDEX_KEY) || "{}"); } catch {}
+  try {
+    const res = await authFetch(`${API_BASE}/api/study-cache/progress-index`);
+    if (res.ok) {
+      const data = await res.json();
+      const merged = { ...local };
+      for (const [rid, rec] of Object.entries(data || {})) {
+        if (!merged[rid] || new Date(rec.updatedAt || 0) >= new Date(merged[rid].updatedAt || 0)) merged[rid] = rec;
+      }
+      try { localStorage.setItem(PROGRESS_INDEX_KEY, JSON.stringify(merged)); } catch {}
+      return merged;
+    }
+  } catch {}
+  return local;
+}
+
 /**
  * Clear cache for a topic from both localStorage and server.
  */

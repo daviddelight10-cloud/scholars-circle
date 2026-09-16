@@ -9,7 +9,7 @@ export default function FolderDetailView({
   folderDetail, folderLoading, folderCategorized, activeFolderTab, setActiveFolderTab,
   folderIsOwner, onClose, onShareFolder, onDeleteFolder,
   onUploadToFolder, onToggleFolderBookmark, folderBookmarkedIds, folderBookmarkBusyId,
-  bookmarkedIds, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress,
+  bookmarkedIds, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress, guidedProgress,
   onSpacedReview, onAdaptiveDrill, onExamSimulation, onPracticeAll,
   onGenerate, generatingId, genProgress, genError, genErrorId, onRetry, onDismissGenError,
   uploadModal, createFolderModal, bookmarkPicker,
@@ -318,6 +318,7 @@ export default function FolderDetailView({
         generating={sheetFile ? generatingId === sheetFile.id : false}
         preparingStudy={preparingStudy}
         mcqProgress={mcqProgress}
+        guidedProgress={guidedProgress}
       />
 
       {/* Guided-study extraction indicator — persists until study opens */}

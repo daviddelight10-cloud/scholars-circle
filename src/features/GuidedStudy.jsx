@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { callAI } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText.jsx";
-import { getStudyCache, saveStudyCache, clearStudyCache } from "../lib/studyCache.js";
+import { getStudyCache, saveStudyCache, clearStudyCache, recordGuidedProgress } from "../lib/studyCache.js";
 import { useComboStreak } from "../lib/useComboStreak.js";
 import { haptics } from "../lib/haptics.js";
 import { api } from "../lib/appUtils.js";
@@ -623,14 +623,12 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   useEffect(() => {
     const rid = studyContext?.resourceId;
     if (!rid || !roadmap?.sections?.length) return;
-    try {
-      localStorage.setItem(`sc_guided_progress_${rid}`, JSON.stringify({
-        done: Object.keys(studied).length,
-        total: roadmap.sections.length,
-        title: roadmap.title || topic,
-        updatedAt: new Date().toISOString(),
-      }));
-    } catch {}
+    recordGuidedProgress(rid, {
+      done: Object.keys(studied).length,
+      total: roadmap.sections.length,
+      title: roadmap.title || topic,
+      updatedAt: new Date().toISOString(),
+    });
   }, [studied, roadmap]);
 
   // ── Auto-launch when startMode is provided with a topic ──
@@ -659,7 +657,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
   function persistProgress(studiedMap) {
     if (!roadmap) return;
-    saveStudyCache(docCacheKey(topic, sourceContent), { roadmap: { ...roadmap, progress: { studied: studiedMap } } });
+    saveStudyCache(docCacheKey(topic, sourceContent), { roadmap: { ...roadmap, resourceId: studyContext?.resourceId, progress: { studied: studiedMap } } });
   }
 
   function resetSessionState() {
@@ -707,7 +705,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         setRoadmap(result); setPhase("roadmap"); setFromCache(false);
         const entry = { topic: initialTopic || topicStr, cacheKey: cacheTopic, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
         saveSession(entry); setSessions(loadSessions());
-        saveStudyCache(cacheTopic, { roadmap: result });
+        saveStudyCache(cacheTopic, { roadmap: { ...result, resourceId: studyContext?.resourceId } });
       } else setAutoError("Couldn't parse the roadmap — please try again.");
     } catch (e) {
       setAutoError("AI request failed: " + (e?.message || "check your connection"));
@@ -729,7 +727,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         result = await aiRoadmap(topicStr, aiConfig, studyContext, content);
         if (result?.sections?.length) {
           setFromCache(false);
-          saveStudyCache(cacheTopic, { roadmap: result });
+          saveStudyCache(cacheTopic, { roadmap: { ...result, resourceId: studyContext?.resourceId } });
         }
       }
       if (!result?.sections?.length) { setAutoError("Couldn't build a roadmap — please try again."); return; }
@@ -783,7 +781,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         setPhase("roadmap"); setFromCache(false);
         const entry = { topic, cacheKey: key, date: new Date().toISOString(), sections: result.sections.map(s => s.title) };
         saveSession(entry); setSessions(loadSessions());
-        saveStudyCache(key, { roadmap: result });
+        saveStudyCache(key, { roadmap: { ...result, resourceId: studyContext?.resourceId } });
       }
     } finally { setLoading(false); }
   }
@@ -1168,7 +1166,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
               if (result?.sections?.length) {
                 resetSessionState();
                 setRoadmap(result);
-                saveStudyCache(key, { roadmap: result });
+                saveStudyCache(key, { roadmap: { ...result, resourceId: studyContext?.resourceId } });
               }
             } catch (e) {
               setAutoError("AI request failed: " + (e?.message || "check your connection"));

@@ -30,6 +30,7 @@ import AdaptiveDrillSession from "../AdaptiveDrillSession.jsx";
 import ExamSimulationRunner from "../ExamSimulationRunner.jsx";
 import McqFolderRunner from "../McqFolderRunner.jsx";
 import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
+import { getGuidedProgressIndex } from "../../lib/studyCache.js";
 import "../../research-hub.css";
 
 const CACHE_TTL = 5 * 60 * 1000;
@@ -164,6 +165,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     } catch {}
     return {};
   });
+  const [guidedProgress, setGuidedProgress] = useState(() => {
+    try {
+      const raw = localStorage.getItem("sc_guided_progress_index");
+      if (raw) return JSON.parse(raw) || {};
+    } catch {}
+    return {};
+  });
   const [sessionMode, setSessionMode] = useState(null); // { type: 'spaced'|'adaptive'|'exam'|'folder', subject, resourceIds, folder, mcqResources }
 
   const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, generate: generateFromMaterial, retry: retryMaterialGenerate, clearError: clearMaterialGenError } = useMaterialGenerate();
@@ -176,6 +184,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     fetchCommunityFolders();
     fetchBookmarks();
     fetchMcqProgress();
+    fetchGuidedProgress();
     fetchUserProfile();
   }, []);
 
@@ -209,6 +218,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       fetchCommunityFolders(),
       fetchBookmarks(),
       fetchMcqProgress(),
+      fetchGuidedProgress(),
     ]);
   }, []);
 
@@ -412,6 +422,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       setCommunityFolders(data);
       if (!searchTerm) saveCached(cacheKey, data);
     } catch {}
+  };
+
+  const fetchGuidedProgress = async () => {
+    setGuidedProgress(await getGuidedProgressIndex());
   };
 
   const fetchMcqProgress = async () => {
@@ -1283,6 +1297,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onToggleBookmark={toggleBookmark}
         onShare={handleShare}
         mcqProgress={mcqProgress}
+        guidedProgress={guidedProgress}
         onSpacedReview={(resourceIds) => startSpacedReview(null, resourceIds)}
         onAdaptiveDrill={(resourceIds) => startAdaptiveDrill(null, resourceIds)}
         onExamSimulation={(resourceIds) => startExamSimulation(null, resourceIds)}

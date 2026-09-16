@@ -66,6 +66,7 @@ export default function PracticeSheet({
   generating,
   preparingStudy,
   mcqProgress,
+  guidedProgress,
 }) {
   const { modalProps, focusRef } = useModalA11y({
     isOpen: !!file,
@@ -131,13 +132,15 @@ export default function PracticeSheet({
   const canExtract = !!(file.fileUrl || file.description);
   const act = (fn) => () => { onClose(); fn?.(); };
 
-  // Guided Study progress for this material (written by GuidedStudy when a
-  // session is generated/resumed — keyed by resource id)
-  let gsProg = null;
-  try {
-    const raw = localStorage.getItem(`sc_guided_progress_${file.id}`);
-    if (raw) { const p = JSON.parse(raw); if (p && p.total > 0) gsProg = p; }
-  } catch {}
+  // Guided Study progress for this material — server-synced index prop first,
+  // then the per-key localStorage record written by GuidedStudy itself.
+  let gsProg = guidedProgress?.[file.id] || null;
+  if (!gsProg) {
+    try {
+      const raw = localStorage.getItem(`sc_guided_progress_${file.id}`);
+      if (raw) { const p = JSON.parse(raw); if (p && p.total > 0) gsProg = p; }
+    } catch {}
+  }
 
   const mcqSub = mcq
     ? prog
