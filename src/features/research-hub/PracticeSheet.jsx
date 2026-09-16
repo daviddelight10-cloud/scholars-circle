@@ -131,6 +131,14 @@ export default function PracticeSheet({
   const canExtract = !!(file.fileUrl || file.description);
   const act = (fn) => () => { onClose(); fn?.(); };
 
+  // Guided Study progress for this material (written by GuidedStudy when a
+  // session is generated/resumed — keyed by resource id)
+  let gsProg = null;
+  try {
+    const raw = localStorage.getItem(`sc_guided_progress_${file.id}`);
+    if (raw) { const p = JSON.parse(raw); if (p && p.total > 0) gsProg = p; }
+  } catch {}
+
   const mcqSub = mcq
     ? prog
       ? `${prog.bestScore}/${prog.total} answered · ${mcqPct}%${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
@@ -186,8 +194,10 @@ export default function PracticeSheet({
             label="Guided study"
             sub={preparingStudy
               ? "Extracting document…"
-              : canExtract ? "AI walks you through the key concepts" : "No extractable text on this item"}
-            badge={preparingStudy ? undefined : "RECOMMENDED"}
+              : gsProg
+                ? (gsProg.done >= gsProg.total ? "All sections complete — review anytime" : `Continue — ${gsProg.done} of ${gsProg.total} sections done`)
+                : canExtract ? "AI walks you through the key concepts" : "No extractable text on this item"}
+            badge={preparingStudy ? undefined : gsProg ? (gsProg.done >= gsProg.total ? "DONE" : `${gsProg.done}/${gsProg.total}`) : "RECOMMENDED"}
             variant="recommended"
             disabled={!canExtract || generating || preparingStudy}
             onClick={act(() => onGuidedStudy?.(file))}

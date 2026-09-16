@@ -1010,7 +1010,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           topic: file.title,
           mode: "auto-roadmap",
           attachment: { name: file.fileName || file.title, content },
-          context: { matches: [{ title: file.title, contentType: file.contentType }] },
+          context: { resourceId: file.id, matches: [{ title: file.title, contentType: file.contentType }] },
         },
       }));
     } catch (err) {

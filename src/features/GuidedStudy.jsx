@@ -619,6 +619,20 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     return () => { mountedRef.current = false; window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
   }, []);
 
+  // ── Record progress for the material card that launched this session ──
+  useEffect(() => {
+    const rid = studyContext?.resourceId;
+    if (!rid || !roadmap?.sections?.length) return;
+    try {
+      localStorage.setItem(`sc_guided_progress_${rid}`, JSON.stringify({
+        done: Object.keys(studied).length,
+        total: roadmap.sections.length,
+        title: roadmap.title || topic,
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch {}
+  }, [studied, roadmap]);
+
   // ── Auto-launch when startMode is provided with a topic ──
   useEffect(() => {
     if (!initialTopic.trim() || startMode === "input") return;
