@@ -234,6 +234,11 @@
   touch-action: manipulation;
 }
 .ss-root .quit-btn:hover{border-color:var(--coral); color:var(--coral);}
+.ss-root .deck-progress{
+  font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--text-dim);
+  border:1px solid var(--card-border); background:rgba(255,255,255,0.04);
+  padding:4px 9px; border-radius:10px;
+}
 .ss-root .combo-pill{
   font-family:var(--font-mono); font-size:12px; font-weight:700;
   color:var(--gold); border:1px solid rgba(255,182,39,0.4);
@@ -454,6 +459,10 @@
   text-transform:uppercase; letter-spacing:0.1em;
 }
 .ss-root .review-summary{ text-transform:none; letter-spacing:0; margin-top:12px; line-height:1.5; }
+.ss-root .end-cleared-note{
+  font-family:var(--font-mono); font-size:11px; color:var(--gold);
+  margin-top:10px; line-height:1.5; max-width:340px;
+}
 .ss-root .run-chips{
   display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:16px;
 }

@@ -164,10 +164,10 @@ export function claimQuest(id) {
 export const ACHIEVEMENTS = [
   { id: 'first_run',   ico: '🎬', nm: 'First Run',     ds: 'Complete your first survival run',  gm: 5 },
   { id: 'streak10',    ico: '🔥', nm: 'On Fire',       ds: 'Reach a 10 streak',                  gm: 10 },
-  { id: 'streak25',    ico: '⚡', nm: 'Unstoppable',   ds: 'Reach a 25 streak',                  gm: 25 },
-  { id: 'streak50',    ico: '🌟', nm: 'Legendary',     ds: 'Reach a 50 streak',                  gm: 50 },
+  { id: 'streak25',    ico: '⚡', nm: 'Unstoppable',   ds: 'Reach a 15 streak — a flawless section', gm: 25 },
+  { id: 'streak50',    ico: '🌟', nm: 'Legendary',     ds: 'Complete 25 survival runs',          gm: 50 },
   { id: 'perfect_run', ico: '💎', nm: 'Flawless',      ds: 'Finish a run with zero misses',      gm: 15 },
-  { id: 'combo15',     ico: '🌀', nm: 'Combo Master',  ds: 'Hit a 15 combo',                     gm: 15 },
+  { id: 'combo15',     ico: '🌀', nm: 'Combo Master',  ds: 'Hit a 12 combo',                     gm: 15 },
   { id: 'speed_demon', ico: '💨', nm: 'Speed Demon',   ds: 'Answer correctly in under 3 seconds',gm: 10 },
   { id: 'reviewer',    ico: '🔁', nm: 'Diligent',      ds: 'Clear 10 missed reviews (lifetime)', gm: 15 },
   { id: 'centurion',   ico: '💯', nm: 'Centurion',     ds: 'Answer 100 questions (lifetime)',    gm: 20 },
@@ -191,10 +191,10 @@ export function checkAchievements(ctx) {
     };
     if (ctx.runsTotal >= 1) grant('first_run');
     if (ctx.bestStreak >= 10) grant('streak10');
-    if (ctx.bestStreak >= 25) grant('streak25');
-    if (ctx.bestStreak >= 50) grant('streak50');
+    if (ctx.bestStreak >= 15) grant('streak25');
+    if (ctx.runsTotal >= 25) grant('streak50');
     if (ctx.perfectRun) grant('perfect_run');
-    if (ctx.combo >= 15) grant('combo15');
+    if (ctx.combo >= 12) grant('combo15');
     if (ctx.speedy3) grant('speed_demon');
     if (ctx.reviewClearedTotal >= 10) grant('reviewer');
     if (ctx.answeredTotal >= 100) grant('centurion');

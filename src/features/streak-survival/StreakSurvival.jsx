@@ -42,11 +42,14 @@ function greeting() {
   return 'Late-night grind';
 }
 
+// Survival runs are finite sections of SECTION_SIZE questions (Duolingo-style:
+// a bounded session ends on completion, not on an endless recycle).
+const SECTION_SIZE = 15;
+
 function verdictFor(best, mode) {
   if (mode === 'practice') return 'Practice complete';
-  if (best >= 30) return 'Godlike recall';
-  if (best >= 20) return 'Legendary run';
-  if (best >= 12) return 'On fire';
+  if (best >= 15) return 'Flawless section';
+  if (best >= 10) return 'On fire';
   if (best >= 7) return 'Strong run';
   if (best >= 3) return 'Warming up';
   return 'Every legend starts at zero';
@@ -110,6 +113,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [sessionXp, setSessionXp] = useState(0);
   const [sessionGems, setSessionGems] = useState(0);
   const [current, setCurrent] = useState(null); // {q, idx}
+  const [sectionTarget, setSectionTarget] = useState(Math.min(SECTION_SIZE, bank.length)); // questions this survival section
   const usedRef = useRef(new Set()); // bank indices already served this run
   const lastIdxRef = useRef(-1);
   const answersRef = useRef({}); // rawIndex -> picked letter (for weakspots)
@@ -142,6 +146,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [revivesUsed, setRevivesUsed] = useState(0);
   const [streakCelebration, setStreakCelebration] = useState(null); // new streak day count
   const streakCelebrateRef = useRef(null); // pending streak increment, shown on end screen
+  const deckClearedRef = useRef(false); // survival: served the whole section
   const timesRef = useRef([]); // per-question ms, game phase only
   const [quitTarget, setQuitTarget] = useState(null); // 'home'|'exit' — confirm-quit modal
 
@@ -282,11 +287,27 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       serveIdx(pickPracticeIndex(bank, keyedStatesForBank(), lastIdxRef.current), mode);
       return;
     }
-    // Survival: unused only; resets when exhausted (endless). Question
-    // choice blends toward weak/due FSRS cards as the streak climbs.
-    let avail = bank.map((_, i) => i).filter((i) => !usedRef.current.has(i));
-    if (avail.length === 0) { usedRef.current.clear(); avail = bank.map((_, i) => i); }
-    serveIdx(pickSurvivalIndex(bank, keyedStatesForBank(), lastIdxRef.current, streak, new Set(avail)), mode);
+    // Survival: finite section — the run is won by clearing SECTION_SIZE
+    // questions (never recycled). Choice blends toward weak/due FSRS cards as
+    // the streak climbs; the final question prefers a strong card so the
+    // section ends on a win when possible.
+    if (qNum >= sectionTarget) {
+      deckClearedRef.current = true;
+      toast('🏁 Section complete — finishing up!', '#4ADE80', 2200);
+      endRun(mode);
+      return;
+    }
+    const avail = bank.map((_, i) => i).filter((i) => !usedRef.current.has(i));
+    const states = keyedStatesForBank();
+    let allowed = new Set(avail);
+    if (qNum === sectionTarget - 1) {
+      const strong = avail.filter((i) => {
+        const st = states[i];
+        return st && st.state === 2 && (st.stability || 0) >= 7;
+      });
+      if (strong.length > 0) allowed = new Set(strong);
+    }
+    serveIdx(pickSurvivalIndex(bank, states, lastIdxRef.current, streak, allowed), mode);
   }
 
   function keyedStatesForBank() {
@@ -576,6 +597,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setSessionXp(0); setSessionGems(0);
     setGameOver(false); setRevivesUsed(0);
     setStreakCelebration(null); streakCelebrateRef.current = null;
+    deckClearedRef.current = false;
+    setSectionTarget(Math.min(SECTION_SIZE, bank.length));
     timesRef.current = [];
     setQuitTarget(null);
     usedRef.current = new Set();
@@ -636,13 +659,17 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     }
     // Warmup/quest chest surfaces over the end screen
     if (pendingChest) { setChestState({ opened: false, reward: '' }); setModal('chest'); }
+    // Section cleared → the finite-run win condition. Bonus XP + celebration.
+    const deckCleared = deckClearedRef.current && (runMode === 'survival' || mode === 'survival');
+    const clearBonus = deckCleared ? 25 : 0;
+    if (deckCleared) { grantXp(clearBonus, 'deck clear'); fire(80); sound.chest(); haptics.success(); }
     const times = timesRef.current;
     const avgSec = times.length ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) / 100) / 10 : 0;
     setEndInfo({
       best: runBest, answered, correct: correctN, acc, avgSec,
-      xp: sessionXp, gems: sessionGems, cleared: clearedN,
+      xp: sessionXp + clearBonus, gems: sessionGems, cleared: clearedN,
       missed: missedTotal || reviewMissedRef.current.length,
-      newBest, perfect, revives: revivesUsed,
+      newBest, perfect, revives: revivesUsed, deckCleared, clearBonus,
       quote: QUOTES[Math.floor(Math.random() * QUOTES.length)],
     });
     setScreen('end');
@@ -894,7 +921,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               <span className="mc-ico">🔥</span>
               <span className="mc-mid">
                 <span className="mc-title">Survival Run</span>
-                <span className="mc-desc">3 lives · wrong = lose one · build the longest streak</span>
+                <span className="mc-desc">3 lives · {Math.min(SECTION_SIZE, bank.length)} questions · clear the section</span>
               </span>
               <span className="mc-arrow">›</span>
             </button>
@@ -976,6 +1003,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                   <span className={`combo-pill show${combo >= 10 ? ' hot' : ''}${comboPulse ? ' pulse' : ''}`}>
                     <span className="fire-emoji">🔥</span>{combo}
                   </span>
+                )}
+                {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
+                  <span className="deck-progress">{Math.min(qNum, sectionTarget)}/{sectionTarget}</span>
                 )}
                 <button className="quit-btn" onClick={() => requestQuit('home')}>quit</button>
               </div>
@@ -1102,10 +1132,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         {/* ═══ END ═══ */}
         {screen === 'end' && endInfo && (
           <div className="end-screen show">
-            <div className="trophy rise">{endInfo.perfect ? '🏆' : endInfo.best >= 12 ? '🌟' : '💪'}</div>
-            <div className="end-verdict">{verdictFor(endInfo.best, runMode)}</div>
+            <div className="trophy rise">{endInfo.deckCleared ? '🏆' : endInfo.perfect ? '🏆' : endInfo.best >= 12 ? '🌟' : '💪'}</div>
+            <div className="end-verdict">{endInfo.deckCleared ? 'Section complete!' : verdictFor(endInfo.best, runMode)}</div>
             <div className="end-score">{runMode === 'survival' ? endInfo.best : endInfo.answered}</div>
             <div className="end-label">{runMode === 'survival' ? 'best streak this run' : 'questions this session'}</div>
+            {endInfo.deckCleared && (
+              <div className="end-cleared-note">All {sectionTarget} questions survived · +{endInfo.clearBonus} XP bonus — come back when cards are due, spacing makes it stick.</div>
+            )}
             <div className="run-chips">
               <span className="run-chip blue">+{endInfo.xp} XP</span>
               <span className="run-chip gold">+{endInfo.gems} 💎</span>
