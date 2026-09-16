@@ -121,7 +121,7 @@ export default function SmartStudyInput({ onOpenStudy, onOpenLearn }) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      setAttachment({ type: "doc", name: file.name, content: (ev.target.result || "").slice(0, 4000), dataUrl: null });
+      setAttachment({ type: "doc", name: file.name, content: (ev.target.result || "").slice(0, 200000), dataUrl: null });
     };
     reader.readAsText(file);
   }
