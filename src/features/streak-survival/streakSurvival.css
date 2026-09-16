@@ -866,3 +866,32 @@
 /* ---------- Quit-confirm modal ---------- */
 .ss-root .quit-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:6px; }
 .ss-root .setting-btn.danger{ color:var(--coral); border-color:rgba(255,94,126,0.4); }
+
+/* ---------- AI follow-up thread ---------- */
+.ss-root .explain-thread{
+  max-height:240px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:8px; padding-right:2px;
+  scroll-behavior:smooth;
+}
+.ss-root .explain-msg{ font-size:13px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+.ss-root .explain-msg.user{
+  align-self:flex-end; max-width:85%;
+  background:rgba(255,182,39,0.12); border:1px solid rgba(255,182,39,0.3);
+  color:var(--gold); border-radius:12px 12px 4px 12px;
+  padding:7px 11px; font-weight:600;
+}
+.ss-root .explain-msg.ai{ color:var(--text); }
+.ss-root .explain-typing{ color:var(--blue); font-size:12px; }
+.ss-root .explain-ask{ display:flex; gap:8px; margin-top:10px; }
+.ss-root .explain-ask input{
+  flex:1; min-width:0; background:rgba(255,255,255,0.04); border:1px solid var(--card-border);
+  color:var(--text); font-family:var(--font-body); font-size:13px;
+  border-radius:10px; padding:10px 12px; outline:none;
+}
+.ss-root .explain-ask input:focus{ border-color:rgba(0,229,255,0.4); }
+.ss-root .explain-ask button{
+  border:1px solid rgba(255,182,39,0.35); background:rgba(255,182,39,0.08); color:var(--gold);
+  border-radius:10px; width:42px; cursor:pointer; font-size:15px; font-weight:700;
+  touch-action: manipulation;
+}
+.ss-root .explain-ask button:disabled{ opacity:0.35; cursor:default; }

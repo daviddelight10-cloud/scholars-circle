@@ -121,7 +121,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [hintUsed, setHintUsed] = useState(false);
   const [eliminated, setEliminated] = useState(new Set());
   const [fsrsNote, setFsrsNote] = useState(null);
-  const [explain, setExplain] = useState({ show: false, text: '', loading: false });
+  const [explain, setExplain] = useState({ show: false, loading: false, thread: [] }); // thread: [{role:'ai'|'user', text}]
+  const [followUp, setFollowUp] = useState('');
+  const explainCtxRef = useRef(null); // question context for follow-up prompts
+  const explainThreadRef = useRef(null);
   const qStartRef = useRef(Date.now());
 
   // Review loop
@@ -262,7 +265,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setQNum((n) => n + 1);
     setLocked(false); setPicked(null); setRevealed(false);
     setHintUsed(false); setEliminated(new Set());
-    setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
+    setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
     qStartRef.current = Date.now();
     setTimerPct(100);
   }
@@ -475,15 +478,37 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   async function handleExplain() {
     if (!current) return;
-    setExplain({ show: true, text: '', loading: true });
+    const q = current.q;
+    const optionsStr = q.opts.map((v, i) => `${String.fromCharCode(65 + i)}. ${v}`).join('\n');
+    const pickedText = picked != null ? q.opts[picked] : '(revealed)';
+    explainCtxRef.current = { qText: q.q, optionsStr, correct: q.opts[q.a], pickedText };
+    setExplain({ show: true, loading: true, thread: [] });
     try {
-      const q = current.q;
-      const optionsStr = q.opts.map((v, i) => `${String.fromCharCode(65 + i)}. ${v}`).join('\n');
-      const prompt = `You are a helpful study tutor. A student just answered this MCQ question:\n\nQuestion: ${q.q}\nOptions:\n${optionsStr}\nCorrect answer: ${q.opts[q.a]}\nStudent's answer: ${picked != null ? q.opts[picked] : '(revealed)'}\n\nGive a clear, concise explanation (2-3 sentences) of why the correct answer is right. Be educational and encouraging.`;
+      const prompt = `You are a helpful study tutor. A student just answered this MCQ question:\n\nQuestion: ${q.q}\nOptions:\n${optionsStr}\nCorrect answer: ${q.opts[q.a]}\nStudent's answer: ${pickedText}\n\nGive a clear, concise explanation (2-3 sentences) of why the correct answer is right. Be educational and encouraging.`;
       const text = await callAI(prompt, { provider: 'openrouter' });
-      setExplain({ show: true, text: text || 'No explanation generated.', loading: false });
+      setExplain({ show: true, loading: false, thread: [{ role: 'ai', text: text || 'No explanation generated.' }] });
     } catch {
-      setExplain({ show: true, text: 'Could not get AI explanation. Please try again.', loading: false });
+      setExplain({ show: true, loading: false, thread: [{ role: 'ai', text: 'Could not get AI explanation. Please try again.' }] });
+    }
+  }
+
+  async function handleFollowUp(e) {
+    e?.preventDefault?.();
+    const text = followUp.trim();
+    if (!text || explain.loading || !explain.show) return;
+    const ctx = explainCtxRef.current;
+    setFollowUp('');
+    setExplain((s) => ({ ...s, loading: true, thread: [...s.thread, { role: 'user', text }] }));
+    try {
+      const context = ctx
+        ? `You are a helpful study tutor helping a student with this MCQ:\n\nQuestion: ${ctx.qText}\nOptions:\n${ctx.optionsStr}\nCorrect answer: ${ctx.correct}\nStudent's answer: ${ctx.pickedText}\n`
+        : 'You are a helpful study tutor. ';
+      const history = explain.thread.map((m) => `${m.role === 'user' ? 'Student' : 'Tutor'}: ${m.text}`).join('\n');
+      const prompt = `${context}\nConversation so far:\n${history}\n\nStudent asks: ${text}\n\nAnswer concisely (2-4 sentences), grounded in this question's material. If the student asks something unrelated, gently steer them back to the topic.`;
+      const reply = await callAI(prompt, { provider: 'openrouter' });
+      setExplain((s) => ({ ...s, loading: false, thread: [...s.thread, { role: 'ai', text: reply || 'No response generated.' }] }));
+    } catch {
+      setExplain((s) => ({ ...s, loading: false, thread: [...s.thread, { role: 'ai', text: 'Could not get a response — try again.' }] }));
     }
   }
 
@@ -531,7 +556,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setQNum((n) => n + 1);
     setLocked(false); setPicked(null); setRevealed(false);
     setHintUsed(false); setEliminated(new Set());
-    setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
+    setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
     qStartRef.current = Date.now();
   }
 
@@ -586,7 +611,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setQNum((n) => n + 1);
       setLocked(false); setPicked(null); setRevealed(false);
       setHintUsed(false); setEliminated(new Set());
-      setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
+      setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
       qStartRef.current = Date.now();
       return;
     }
@@ -757,9 +782,18 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     toast('Progress reset', '#8b93a7');
   }
 
+  // Keep the follow-up thread pinned to the latest message.
+  useEffect(() => {
+    const el = explainThreadRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [explain.thread, explain.loading]);
+
   // ── Keyboard ──
   useEffect(() => {
     const h = (e) => {
+      // Don't hijack shortcuts while the user is typing a follow-up question.
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (modal) { if (e.key === 'Escape') setModal(null); return; }
       if (quitTarget) {
         if (e.key === 'Escape') setQuitTarget(null);
@@ -1032,14 +1066,30 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
               {explain.show && (
                 <div className="explain-box show">
-                  <span className="explain-label">AI Explain</span>
-                  {explain.loading ? <span className="dot-loading">Thinking</span> : explain.text}
+                  <span className="explain-label">✨ AI Tutor</span>
+                  <div className="explain-thread" ref={explainThreadRef}>
+                    {explain.thread.map((m, i) => (
+                      <div key={i} className={`explain-msg ${m.role}`}>{m.text}</div>
+                    ))}
+                    {explain.loading && <span className="dot-loading explain-typing">Thinking</span>}
+                  </div>
+                  <form className="explain-ask" onSubmit={handleFollowUp}>
+                    <input
+                      type="text"
+                      value={followUp}
+                      onChange={(e) => setFollowUp(e.target.value)}
+                      placeholder="Ask a follow-up…"
+                      maxLength={300}
+                      aria-label="Ask a follow-up question"
+                    />
+                    <button type="submit" disabled={explain.loading || !followUp.trim()}>→</button>
+                  </form>
                 </div>
               )}
 
               {locked && (
                 <div className="post-actions show">
-                  <button type="button" className="btn-explain" onClick={handleExplain} disabled={explain.loading}>✨ Explain</button>
+                  <button type="button" className="btn-explain" onClick={handleExplain} disabled={explain.loading}>✨ Ask AI</button>
                   <button type="button" className="btn-continue" onClick={screen === 'review' ? handleReviewNext : handleContinue}>
                     {screen === 'review' ? 'Next →' : 'Continue →'}
                   </button>
