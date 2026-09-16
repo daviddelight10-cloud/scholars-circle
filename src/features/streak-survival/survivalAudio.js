@@ -68,4 +68,9 @@ export const sound = {
   over() {
     [440, 392, 330, 262].forEach((f, i) => tone(f, 0.25, 'sine', 0.08, i * 0.13));
   },
+  heartbreak() {
+    tone(392, 0.3, 'sawtooth', 0.10);
+    tone(196, 0.5, 'sawtooth', 0.08, 0.18);
+    tone(98, 0.8, 'sine', 0.12, 0.35);
+  },
 };

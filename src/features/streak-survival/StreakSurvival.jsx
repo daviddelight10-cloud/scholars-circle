@@ -17,11 +17,13 @@ import {
   pickPracticeIndex, masteryDots, buildForecast,
 } from './fsrsBridge.js';
 import { sound, setSoundEnabled } from './survivalAudio.js';
+import { haptics } from '../../lib/haptics';
 import useConfetti from './useConfetti.js';
 import './streakSurvival.css';
 
 const MAX_LIVES = 3;
 const SPEED_WINDOW = 7000;
+const REVIVE_COST = 15;
 
 const QUOTES = [
   { t: 'Repetition is the mother of learning.', a: 'Latin proverb' },
@@ -116,6 +118,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   // End screen
   const [endInfo, setEndInfo] = useState(null);
+
+  // Game over (hearts depleted) + timeout
+  const [gameOver, setGameOver] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [revivesUsed, setRevivesUsed] = useState(0);
 
   // ── Chrome ──
   const [timerPct, setTimerPct] = useState(100);
@@ -216,6 +223,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (after > before) {
       setLevelUp(after);
       sound.levelup();
+      haptics.success();
       setTimeout(() => setLevelUp(null), 1600);
     }
   }, [editSave, lvl, xpFloat, qe]);
@@ -234,7 +242,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     usedRef.current.add(idx);
     setCurrent({ q, idx });
     setQNum((n) => n + 1);
-    setLocked(false); setPicked(null); setRevealed(false);
+    setLocked(false); setPicked(null); setRevealed(false); setTimedOut(false);
     setHintUsed(false); setEliminated(new Set());
     setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
     qStartRef.current = Date.now();
@@ -266,20 +274,21 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     return map;
   }
 
-  // ── Survival speed timer ──
+  // ── Survival speed timer (window shrinks as the streak climbs) ──
   useEffect(() => {
-    if (screen !== 'game' || runMode !== 'survival' || locked || !current) {
+    if (screen !== 'game' || runMode !== 'survival' || locked || !current || gameOver) {
       clearInterval(timerRef.current);
       return undefined;
     }
+    const win = tier === 'hard' ? 5000 : tier === 'medium' ? 6000 : SPEED_WINDOW;
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - qStartRef.current;
-      const pct = Math.max(0, 100 - (elapsed / SPEED_WINDOW) * 100);
+      const pct = Math.max(0, 100 - (elapsed / win) * 100);
       setTimerPct(pct);
-      if (pct <= 0) clearInterval(timerRef.current);
+      if (pct <= 0) { clearInterval(timerRef.current); handleTimeout(); }
     }, 50);
     return () => clearInterval(timerRef.current);
-  }, [screen, runMode, locked, current]);
+  }, [screen, runMode, locked, current, streak, gameOver]);
 
   // ── Rating ──
   function applyRating(q, correct, rev) {
@@ -312,6 +321,62 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setStats((s) => (s ? { ...s, streak: data.streak ?? s.streak, reviewedToday: (s.reviewedToday ?? 0) + 1 } : s));
     });
     return grade;
+  }
+
+  // ── Timeout: ran out of time — treated like a miss ──
+  function handleTimeout() {
+    if (locked || !current) return;
+    const q = current.q;
+    setRevealed(true);
+    setPicked(null);
+    setTimedOut(true);
+    setLocked(true);
+    setFlash('timeout-flash');
+    setTimeout(() => setFlash(''), 700);
+    applyRating(q, false, true);
+    reviewMissedRef.current.push({ ...q, pickedIdx: null });
+    setAnswered((n) => n + 1);
+    qe('answered', 1);
+    editSave((s) => { s.stats.answered += 1; });
+    setStreak(0);
+    setCombo(0);
+    sound.wrong();
+    haptics.error();
+    setShake(true);
+    setTimeout(() => setShake(false), 400);
+    if (runMode === 'survival') loseLife();
+  }
+
+  function loseLife() {
+    const nl = lives - 1;
+    setLives(nl);
+    sound.heart();
+    if (nl <= 0) setTimeout(() => triggerGameOver(), 650);
+  }
+
+  function triggerGameOver() {
+    if (runEndedRef.current) return;
+    sound.heartbreak();
+    sound.over();
+    haptics.error();
+    setGameOver(true);
+  }
+
+  function dismissGameOver() {
+    setGameOver(false);
+    endRun(runMode);
+  }
+
+  function reviveWithGems() {
+    if (save.gems < REVIVE_COST) return;
+    editSave((s) => { s.gems -= REVIVE_COST; });
+    setRevivesUsed((n) => n + 1);
+    setLives(1);
+    setGameOver(false);
+    sound.levelup();
+    haptics.success();
+    toast('❤️ Revived — streak alive!', '#FF7A9E');
+    setTimeout(() => serveNext(runMode), 250);
   }
 
   // ── Answer (game mode) ──
@@ -349,31 +414,28 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       if (newCombo === 10) grantXp(10, 'combo bonus');
 
       sound.correct();
+      haptics.success();
       setFlash('correct-flash');
       setTimeout(() => setFlash(''), 500);
       setComboPulse(true);
       setTimeout(() => setComboPulse(false), 400);
 
       // Milestones
-      if (newStreak === 3) { toast('⚡ Warming up — medium XP', '#FFB627'); sound.milestone(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
-      else if (newStreak === 6) { toast('🔥 On fire — hard XP', '#FF5E7E'); sound.milestone(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
-      else if (newStreak > 0 && newStreak % 10 === 0) { toast(`🌟 ${newStreak} streak!`, '#FFB627'); sound.milestone(); fire(40); }
+      if (newStreak === 3) { toast('⚡ Warming up — medium XP', '#FFB627'); sound.milestone(); haptics.medium(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
+      else if (newStreak === 6) { toast('🔥 On fire — hard XP', '#FF5E7E'); sound.milestone(); haptics.medium(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
+      else if (newStreak > 0 && newStreak % 10 === 0) { toast(`🌟 ${newStreak} streak!`, '#FFB627'); sound.milestone(); haptics.medium(); fire(40); }
       else if (newStreak > 0 && newStreak % 5 === 0) fire(24);
     } else {
       reviewMissedRef.current.push({ ...q, pickedIdx: i });
       setStreak(0);
       setCombo(0);
       sound.wrong();
+      haptics.error();
       setFlash('wrong-flash');
       setTimeout(() => setFlash(''), 500);
       setShake(true);
       setTimeout(() => setShake(false), 400);
-      if (runMode === 'survival') {
-        const nl = lives - 1;
-        setLives(nl);
-        if (nl <= 0) setTimeout(() => endRun('survival'), 700);
-        sound.heart();
-      }
+      if (runMode === 'survival') loseLife();
     }
   }
 
@@ -397,14 +459,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setStreak(0);
     setCombo(0);
     sound.wrong();
+    haptics.error();
     setShake(true);
     setTimeout(() => setShake(false), 400);
-    if (runMode === 'survival') {
-      const nl = lives - 1;
-      setLives(nl);
-      if (nl <= 0) setTimeout(() => endRun('survival'), 700);
-      sound.heart();
-    }
+    if (runMode === 'survival') loseLife();
   }
 
   function handleHint() {
@@ -446,6 +504,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (isCorrect) {
       setReviewBadge('correct');
       sound.correct();
+      haptics.light();
       grantXp(5, 'review');
       setClearedN((n) => n + 1);
       qe('reviewCleared', 1);
@@ -453,6 +512,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     } else {
       setReviewBadge('wrong');
       sound.wrong();
+      haptics.error();
       setShake(true);
       setTimeout(() => setShake(false), 400);
     }
@@ -490,6 +550,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setStreak(0); setRunBest(0); setCombo(0); setBestCombo(0);
     setQNum(0); setAnswered(0); setCorrectN(0);
     setSessionXp(0); setSessionGems(0);
+    setGameOver(false); setTimedOut(false); setRevivesUsed(0);
     usedRef.current = new Set();
     lastIdxRef.current = -1;
     answersRef.current = {};
@@ -531,7 +592,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const newBest = runBest > best;
     if (newBest) editSave((s) => { s.bestByScope = { ...(s.bestByScope || {}), [scope]: runBest }; });
     if (perfect) { qe('perfectRun', 1); editSave((s) => { s.stats.perfectRuns += 1; }); }
-    if (runMode === 'survival' || mode === 'survival') sound.over();
+    if (runMode === 'survival' || mode === 'survival') { if (!gameOver) sound.over(); }
     if (perfect && answered > 0) { sound.perfect(); fire(80); }
     checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: bestCombo, perfectRun: perfect });
     fireServerCompletion();
@@ -541,7 +602,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       best: runBest, answered, correct: correctN, acc,
       xp: sessionXp, gems: sessionGems, cleared: clearedN,
       missed: missedTotal || reviewMissedRef.current.length,
-      newBest, perfect,
+      newBest, perfect, revives: revivesUsed,
       quote: QUOTES[Math.floor(Math.random() * QUOTES.length)],
     });
     setScreen('end');
@@ -575,7 +636,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       fetch(`${API_BASE}/api/resources/quiz-attempts`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ resourceId: resource.id, score: runBest, total: Math.max(answered, 1), details: [] }),
+        body: JSON.stringify({ resourceId: resource.id, score: correctN, total: Math.max(answered, 1), details: [] }),
       }).then((r) => (r.ok ? r.json() : null)).then((data) => {
         if (!data) return;
         if (onQuizComplete) onQuizComplete(data);
@@ -658,6 +719,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   useEffect(() => {
     const h = (e) => {
       if (modal) { if (e.key === 'Escape') setModal(null); return; }
+      if (gameOver) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (save.gems >= REVIVE_COST) reviveWithGems(); else dismissGameOver(); } return; }
       if (e.key === 'Escape') { quitRun(); return; }
       if (screen !== 'game' && screen !== 'review') return;
       if (!current) return;
@@ -868,6 +930,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             )}
 
             <div className={`qcard ${flash}`}>
+              {timedOut && locked && <div className="timeout-banner">⏰ TIME'S UP</div>}
               {screen === 'review' && <span className="review-tag">missed — try again</span>}
               {reviewBadge && (
                 <span className={`retry-badge show ${reviewBadge}`}>
@@ -954,6 +1017,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               <span className="run-chip gold">+{endInfo.gems} 💎</span>
               <span className="run-chip">{endInfo.acc}% acc</span>
               {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
+              {endInfo.revives > 0 && <span className="run-chip revive-chip">❤️‍🩹 {endInfo.revives} revive{endInfo.revives > 1 ? 's' : ''}</span>}
             </div>
             {stats?.dailyGoal != null && (
               <div className={`goal-nudge show ${(stats.reviewedToday || 0) >= stats.dailyGoal ? 'done' : (stats.dailyGoal - (stats.reviewedToday || 0)) <= 3 ? 'close' : 'far'}`}>
@@ -991,6 +1055,38 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             <div className="level-lbl">Level up</div>
             <div className="level-big">{levelUp}</div>
             <div className="level-lbl">{titleForLevel(levelUp)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Last-life tension vignette */}
+      {runMode === 'survival' && screen === 'game' && lives === 1 && !gameOver && !locked && (
+        <div className="danger-vignette" />
+      )}
+
+      {/* ═══ GAME OVER (hearts depleted) ═══ */}
+      {gameOver && (
+        <div className="gameover-overlay">
+          <div className="go-hearts">
+            <span className="go-heart" />
+            <span className="go-heart" />
+            <span className="go-heart" />
+          </div>
+          <div className="go-title">OUT OF HEARTS</div>
+          <div className="go-sub">
+            streak <span className="go-streak">{runBest}</span> · {answered} answered · {reviewMissedRef.current.length} to review
+          </div>
+          <div className="go-actions">
+            <button
+              className="go-revive"
+              disabled={save.gems < REVIVE_COST}
+              onClick={reviveWithGems}
+            >
+              {save.gems >= REVIVE_COST ? `💎 ${REVIVE_COST} — Revive & keep going` : `💎 Revive — need ${REVIVE_COST} gems`}
+            </button>
+            <button className="go-continue" onClick={dismissGameOver}>
+              {reviewMissedRef.current.length > 0 ? 'Review your misses →' : 'See results →'}
+            </button>
           </div>
         </div>
       )}
