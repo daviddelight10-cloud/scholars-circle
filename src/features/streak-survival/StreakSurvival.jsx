@@ -14,7 +14,7 @@ import {
   getAuthHeaders, isAuthed,
   deriveRating, normalizeBank, normalizeQuestion,
   initFsrs, fetchCardStates, rateQuestion,
-  pickPracticeIndex, masteryDots, buildForecast,
+  pickPracticeIndex, pickSurvivalIndex, masteryDots, buildForecast,
 } from './fsrsBridge.js';
 import { sound, setSoundEnabled } from './survivalAudio.js';
 import { haptics } from '../../lib/haptics';
@@ -55,7 +55,22 @@ function verdictFor(best, mode) {
 let floatId = 0;
 let toastId = 0;
 
-export default function StreakSurvival({ resource, items, mode: forcedMode, onBack, onQuizComplete, onStreakUpdate, onXpUpdate, onMoreModes }) {
+// Fisher–Yates shuffle of a question's options. Returns a new question with
+// remapped answer index; `_order[i]` = original index now shown at position i,
+// so picked letters can still be mapped back for weakspot reporting.
+function shuffleQuestion(q) {
+  const order = q.opts.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  // Compose with any previous shuffle so _order always maps a displayed
+  // position back to the ORIGINAL bank option index (weakspot letters).
+  const composed = q._order ? order.map((i) => q._order[i]) : order;
+  return { ...q, opts: order.map((i) => q.opts[i]), a: order.indexOf(q.a), _order: composed };
+}
+
+export default function StreakSurvival({ resource, items, mode: forcedMode, onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
   // ── Save ──
   const [save, setSave] = useState(() => { tickDay(); return { ...loadSave() }; });
   const bump = useCallback(() => setSave({ ...loadSave() }), []);
@@ -122,6 +137,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   // Game over (hearts depleted)
   const [gameOver, setGameOver] = useState(false);
   const [revivesUsed, setRevivesUsed] = useState(0);
+  const [streakCelebration, setStreakCelebration] = useState(null); // new streak day count
+  const streakCelebrateRef = useRef(null); // pending streak increment, shown on end screen
+  const timesRef = useRef([]); // per-question ms, game phase only
+  const [quitTarget, setQuitTarget] = useState(null); // 'home'|'exit' — confirm-quit modal
 
   // ── Chrome ──
   const [timerPct, setTimerPct] = useState(100);
@@ -239,7 +258,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (!q) { endRun(mode); return; }
     lastIdxRef.current = idx;
     usedRef.current.add(idx);
-    setCurrent({ q, idx });
+    setCurrent({ q: shuffleQuestion(q), idx });
     setQNum((n) => n + 1);
     setLocked(false); setPicked(null); setRevealed(false);
     setHintUsed(false); setEliminated(new Set());
@@ -260,10 +279,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       serveIdx(pickPracticeIndex(bank, keyedStatesForBank(), lastIdxRef.current), mode);
       return;
     }
-    // Survival: random unused; reset when exhausted (endless)
+    // Survival: unused only; resets when exhausted (endless). Question
+    // choice blends toward weak/due FSRS cards as the streak climbs.
     let avail = bank.map((_, i) => i).filter((i) => !usedRef.current.has(i));
     if (avail.length === 0) { usedRef.current.clear(); avail = bank.map((_, i) => i); }
-    serveIdx(avail[Math.floor(Math.random() * avail.length)], mode);
+    serveIdx(pickSurvivalIndex(bank, keyedStatesForBank(), lastIdxRef.current, streak, new Set(avail)), mode);
   }
 
   function keyedStatesForBank() {
@@ -316,7 +336,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         if (onXpUpdate) onXpUpdate(data.xpAwarded);
         else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: data.xpAwarded } }));
       }
-      setStats((s) => (s ? { ...s, streak: data.streak ?? s.streak, reviewedToday: (s.reviewedToday ?? 0) + 1 } : s));
+      setStats((s) => {
+        if (s && data.streak != null && data.streak > (s.streak ?? 0)) streakCelebrateRef.current = data.streak;
+        return s ? { ...s, streak: data.streak ?? s.streak, reviewedToday: (s.reviewedToday ?? 0) + 1 } : s;
+      });
     });
     return grade;
   }
@@ -360,10 +383,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const isCorrect = i === q.a;
     setPicked(i);
     setLocked(true);
-    answersRef.current[q._pageIndex] = String.fromCharCode(65 + i);
+    answersRef.current[q._pageIndex] = String.fromCharCode(65 + (q._order ? q._order[i] : i));
     applyRating(q, isCorrect, false);
 
     const elapsed = Date.now() - qStartRef.current;
+    timesRef.current.push(elapsed);
     setAnswered((n) => n + 1);
     qe('answered', 1);
     editSave((s) => { s.stats.answered += 1; });
@@ -427,6 +451,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setLocked(true);
     applyRating(current.q, false, true);
     reviewMissedRef.current.push({ ...current.q, pickedIdx: null });
+    timesRef.current.push(Date.now() - qStartRef.current);
     setAnswered((n) => n + 1);
     qe('answered', 1);
     editSave((s) => { s.stats.answered += 1; });
@@ -502,7 +527,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (nextQueue.length === 0) { finishToEnd(); return; }
     const next = nextQueue[0];
     const idx = bank.findIndex((b) => b._key === next._key);
-    setCurrent({ q: next, idx });
+    setCurrent({ q: shuffleQuestion(next), idx });
     setQNum((n) => n + 1);
     setLocked(false); setPicked(null); setRevealed(false);
     setHintUsed(false); setEliminated(new Set());
@@ -525,6 +550,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setQNum(0); setAnswered(0); setCorrectN(0);
     setSessionXp(0); setSessionGems(0);
     setGameOver(false); setRevivesUsed(0);
+    setStreakCelebration(null); streakCelebrateRef.current = null;
+    timesRef.current = [];
+    setQuitTarget(null);
     usedRef.current = new Set();
     lastIdxRef.current = -1;
     answersRef.current = {};
@@ -544,12 +572,17 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (missed.length > 0) {
       setMissedTotal(missed.length);
       setClearedN(0);
-      setReviewQueue(missed);
+      const queue = [...missed];
+      for (let i = queue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [queue[i], queue[j]] = [queue[j], queue[i]];
+      }
+      setReviewQueue(queue);
       setScreen('review');
       // serve first review card
-      const next = missed[0];
+      const next = queue[0];
       const idx = bank.findIndex((b) => b._key === next._key);
-      setCurrent({ q: next, idx });
+      setCurrent({ q: shuffleQuestion(next), idx });
       setQNum((n) => n + 1);
       setLocked(false); setPicked(null); setRevealed(false);
       setHintUsed(false); setEliminated(new Set());
@@ -570,10 +603,18 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (perfect && answered > 0) { sound.perfect(); fire(80); }
     checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: bestCombo, perfectRun: perfect });
     fireServerCompletion();
+    // Streak-extended celebration fires over the end screen (Duolingo-style:
+    // the streak increment is delivered inside the flow that earned it).
+    if (streakCelebrateRef.current) {
+      setStreakCelebration(streakCelebrateRef.current);
+      fire(60); sound.milestone(); haptics.success();
+    }
     // Warmup/quest chest surfaces over the end screen
     if (pendingChest) { setChestState({ opened: false, reward: '' }); setModal('chest'); }
+    const times = timesRef.current;
+    const avgSec = times.length ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) / 100) / 10 : 0;
     setEndInfo({
-      best: runBest, answered, correct: correctN, acc,
+      best: runBest, answered, correct: correctN, acc, avgSec,
       xp: sessionXp, gems: sessionGems, cleared: clearedN,
       missed: missedTotal || reviewMissedRef.current.length,
       newBest, perfect, revives: revivesUsed,
@@ -614,6 +655,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       }).then((r) => (r.ok ? r.json() : null)).then((data) => {
         if (!data) return;
         if (onQuizComplete) onQuizComplete(data);
+        if (data.streakIsNewDay && data.streak > 0) {
+          streakCelebrateRef.current = Math.max(streakCelebrateRef.current || 0, data.streak);
+          setStreakCelebration(streakCelebrateRef.current);
+          fire(50); sound.milestone(); haptics.success();
+        }
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0) {
           if (onXpUpdate) onXpUpdate(data.xpAwarded);
@@ -628,10 +674,32 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     return Array.isArray(arr) ? arr : [];
   }
 
-  function quitRun() {
+  function requestQuit(target) {
     sound.click();
-    if (isDaily) { onBack?.(); return; }
+    const inRun = !runEndedRef.current
+      && (screen === 'game' || screen === 'review')
+      && (answered > 0 || streak > 0 || reviewMissedRef.current.length > 0);
+    if (inRun) { setQuitTarget(target); return; }
+    if (target === 'exit' || isDaily) { onBack?.(); return; }
     setScreen('home');
+  }
+
+  function confirmQuit() {
+    const target = quitTarget;
+    setQuitTarget(null);
+    if (runEndedRef.current) { target === 'exit' ? onBack?.() : setScreen('home'); return; }
+    // Record the partial run so progress isn't silently discarded.
+    runEndedRef.current = true;
+    editSave((s) => { s.stats.runs += 1; });
+    setGameOver(false);
+    if (target === 'exit') {
+      if (runBest > best) editSave((s) => { s.bestByScope = { ...(s.bestByScope || {}), [scope]: runBest }; });
+      checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: bestCombo });
+      fireServerCompletion();
+      onBack?.();
+      return;
+    }
+    finishToEnd();
   }
 
   // ── Modals ──
@@ -693,8 +761,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   useEffect(() => {
     const h = (e) => {
       if (modal) { if (e.key === 'Escape') setModal(null); return; }
+      if (quitTarget) {
+        if (e.key === 'Escape') setQuitTarget(null);
+        else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); confirmQuit(); }
+        return;
+      }
       if (gameOver) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (save.gems >= REVIVE_COST) reviveWithGems(); else dismissGameOver(); } return; }
-      if (e.key === 'Escape') { quitRun(); return; }
+      if (e.key === 'Escape') { requestQuit('home'); return; }
       if (screen !== 'game' && screen !== 'review') return;
       if (!current) return;
       if (locked) {
@@ -729,35 +802,34 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       <canvas ref={canvasRef} className="confetti-canvas" />
       <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
 
-        {/* Top bar */}
-        <div className="topbar">
-          <div className="stat-chips" onClick={() => setModal('profile')} title="Profile">
-            <span className="stat-chip">🔥 {stats?.streak ?? 0}<span className="chip-dim">day</span></span>
-            <span className="stat-chip">⚡ {save.xp}<span className="chip-dim">xp</span></span>
-            <span className="stat-chip">💎 {save.gems}</span>
-            {save.freezes > 0 && <span className="stat-chip">🧊 {save.freezes}</span>}
+        {/* HUD */}
+        <div className="hud-card">
+          <div className="hud-top">
+            <div className="hud-stats" onClick={() => setModal('profile')} title="Profile">
+              <span className="hud-stat"><span className="hud-ico">🔥</span>{stats?.streak ?? 0}<span className="hud-dim">day</span></span>
+              <span className="hud-stat"><span className="hud-ico">💎</span>{save.gems}</span>
+              {save.freezes > 0 && <span className="hud-stat"><span className="hud-ico">🧊</span>{save.freezes}</span>}
+            </div>
+            <div className="hud-actions">
+              <button className="hud-btn" onClick={openLeague} title="League">🏆</button>
+              <button className="hud-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
+              <button className="hud-btn" onClick={() => requestQuit('exit')} title="Exit">✕</button>
+            </div>
           </div>
-          <div className="top-actions">
-            <button className="icon-btn" onClick={openLeague} title="League">🏆</button>
-            <button className="icon-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
-            <button className="icon-btn" onClick={onBack} title="Exit">✕</button>
+          <div className="xpbar-row">
+            <span className="xp-level">Lv {lvl} · {titleForLevel(lvl)}</span>
+            <div className="xpbar"><div className="xpbar-fill" style={{ width: `${(xpIntoLevel(save.xp) / XP_PER_LEVEL) * 100}%` }} /></div>
+            <span className="xpbar-label">{xpIntoLevel(save.xp)}/{XP_PER_LEVEL}</span>
+            <svg className="goal-ring" viewBox="0 0 64 64" onClick={() => setModal('profile')} title="Daily goal">
+              <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
+              <circle className="goal-ring-fill" cx="32" cy="32" r={R} fill="none" stroke="#4ADE80" strokeWidth="7"
+                strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - goalPct / 100)}
+                transform="rotate(-90 32 32)" />
+              <text x="32" y="37" textAnchor="middle" fontSize="16" fill="#EAEEF7" fontFamily="JetBrains Mono, monospace">
+                {stats?.reviewedToday ?? 0}
+              </text>
+            </svg>
           </div>
-        </div>
-
-        {/* XP bar + goal ring */}
-        <div className="xpbar-row">
-          <span className="xp-level">Lv {lvl} · {titleForLevel(lvl)}</span>
-          <div className="xpbar"><div className="xpbar-fill" style={{ width: `${(xpIntoLevel(save.xp) / XP_PER_LEVEL) * 100}%` }} /></div>
-          <span className="xpbar-label">{xpIntoLevel(save.xp)}/{XP_PER_LEVEL}</span>
-          <svg className="goal-ring" viewBox="0 0 64 64" onClick={() => setModal('profile')} title="Daily goal">
-            <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
-            <circle className="goal-ring-fill" cx="32" cy="32" r={R} fill="none" stroke="#4ADE80" strokeWidth="7"
-              strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - goalPct / 100)}
-              transform="rotate(-90 32 32)" />
-            <text x="32" y="37" textAnchor="middle" fontSize="16" fill="#EAEEF7" fontFamily="JetBrains Mono, monospace">
-              {stats?.reviewedToday ?? 0}
-            </text>
-          </svg>
         </div>
 
         {/* ═══ HOME ═══ */}
@@ -800,12 +872,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               </span>
               <span className="mc-arrow">›</span>
             </button>
-
-            {onMoreModes && (
-              <button className="mode-card" style={{ justifyContent: 'center', padding: '12px 16px' }} onClick={onMoreModes}>
-                <span className="mc-desc" style={{ margin: 0 }}>More modes — Cascade · Exam · Arcade ›</span>
-              </button>
-            )}
 
             {forecast.some((n) => n > 0) && (
               <button className="forecast-card" onClick={() => startRun('practice')}>
@@ -877,7 +943,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                     <span className="fire-emoji">🔥</span>{combo}
                   </span>
                 )}
-                <button className="quit-btn" onClick={quitRun}>quit</button>
+                <button className="quit-btn" onClick={() => requestQuit('home')}>quit</button>
               </div>
             </div>
 
@@ -893,6 +959,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                     </div>
                   );
                 })}
+                {best > 0 && (
+                  <div className="tier-best" style={{ left: `${(Math.min(best, 12) / 12) * 100}%` }}>
+                    <span className="tier-best-lbl">PB {best}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -989,6 +1060,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               <span className="run-chip blue">+{endInfo.xp} XP</span>
               <span className="run-chip gold">+{endInfo.gems} 💎</span>
               <span className="run-chip">{endInfo.acc}% acc</span>
+              {endInfo.avgSec > 0 && <span className="run-chip">⏱ {endInfo.avgSec}s avg</span>}
               {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
               {endInfo.revives > 0 && <span className="run-chip revive-chip">❤️‍🩹 {endInfo.revives} revive{endInfo.revives > 1 ? 's' : ''}</span>}
             </div>
@@ -1060,6 +1132,37 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             <button className="go-continue" onClick={dismissGameOver}>
               {reviewMissedRef.current.length > 0 ? 'Review your misses →' : 'See results →'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STREAK-EXTENDED CELEBRATION ═══ */}
+      {streakCelebration != null && (
+        <div className="streak-celebrate" onClick={() => setStreakCelebration(null)}>
+          <div className="streak-flame">🔥</div>
+          <div className="streak-num">{streakCelebration}</div>
+          <div className="streak-lbl">day streak — extended!</div>
+          <div className="streak-tap">tap to continue</div>
+        </div>
+      )}
+
+      {/* ═══ QUIT CONFIRM ═══ */}
+      {quitTarget && (
+        <div className="modal-overlay show" onClick={(e) => e.target === e.currentTarget && setQuitTarget(null)}>
+          <div className="modal">
+            <div className="modal-head">
+              <span className="modal-title">{quitTarget === 'exit' ? 'Exit run?' : 'End run?'}</span>
+              <button className="modal-close" onClick={() => setQuitTarget(null)}>✕</button>
+            </div>
+            <div className="modal-sub">
+              Your {runBest}-streak and {answered} answer{answered === 1 ? '' : 's'} will be recorded.
+            </div>
+            <div className="quit-actions">
+              <button className="setting-btn on" onClick={() => setQuitTarget(null)}>Keep going</button>
+              <button className="setting-btn danger" onClick={confirmQuit}>
+                {quitTarget === 'exit' ? 'Exit' : 'End run'}
+              </button>
+            </div>
           </div>
         </div>
       )}

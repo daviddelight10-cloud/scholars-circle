@@ -631,7 +631,7 @@ router.get("/my-mcq-progress", requireAuth, async (req, res) => {
       if (!progress[a.resourceId]) {
         progress[a.resourceId] = {
           bestScore: a.score,
-          total: a.total,
+          bestTotal: a.total, // paired: score and total always from the same attempt
           attempts: 1,
           lastAttemptedAt: a.createdAt,
         };
@@ -639,9 +639,45 @@ router.get("/my-mcq-progress", requireAuth, async (req, res) => {
         progress[a.resourceId].attempts += 1;
         if (a.score > progress[a.resourceId].bestScore) {
           progress[a.resourceId].bestScore = a.score;
+          progress[a.resourceId].bestTotal = a.total;
         }
         if (a.createdAt > progress[a.resourceId].lastAttemptedAt) {
           progress[a.resourceId].lastAttemptedAt = a.createdAt;
+        }
+      }
+    }
+
+    // Mastery-based progress: mastered FSRS items (stability >= 21d, same rule
+    // as the client's masteryDots) over the resource's total question count.
+    const ids = Object.keys(progress);
+    if (ids.length) {
+      const reviewItems = await prisma.pdfReviewItem.findMany({
+        where: {
+          userId: req.user.sub,
+          resourceId: { in: ids },
+          itemType: { in: ["mcq", "legacy_mcq"] },
+        },
+        select: { resourceId: true, state: true, stability: true },
+      });
+      const masteredByRes = {};
+      for (const it of reviewItems) {
+        if (isMastered(it)) {
+          masteredByRes[it.resourceId] = (masteredByRes[it.resourceId] || 0) + 1;
+        }
+      }
+      const resources = await prisma.resource.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, mcqData: true },
+      });
+      for (const r of resources) {
+        let total = 0;
+        try {
+          const arr = typeof r.mcqData === "string" ? JSON.parse(r.mcqData) : r.mcqData;
+          total = Array.isArray(arr) ? arr.length : 0;
+        } catch { /* unparseable mcqData — leave total 0 */ }
+        if (progress[r.id]) {
+          progress[r.id].mastered = masteredByRes[r.id] || 0;
+          progress[r.id].total = total;
         }
       }
     }

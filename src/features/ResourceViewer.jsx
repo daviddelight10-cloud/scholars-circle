@@ -3,12 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
 import PdfReader from "./PdfReader.jsx";
 import DocumentReader from "./DocumentReader.jsx";
-import McqModeSelect from "./McqModeSelect.jsx";
-import McqQuizRunner from "./McqQuizRunner.jsx";
 import StreakSurvival from "./streak-survival/StreakSurvival.jsx";
-import McqExamRunner from "./McqExamRunner.jsx";
 import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
-import FlashcardRunner from "./FlashcardRunner.jsx";
 import FlashcardModeSelect from "./FlashcardModeSelect.jsx";
 import MatchingPairsGame from "./MatchingPairsGame.jsx";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
@@ -40,8 +36,6 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState(null);
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
-  const [mcqMode, setMcqMode] = useState(null); // null | "practice" | "exam" | "arcade"
-  const [mcqSessionConfig, setMcqSessionConfig] = useState(null); // { sessionType, questionCount }
   const [flashcardMode, setFlashcardMode] = useState(null); // null | "study" | "matching"
   const [matchGameMode, setMatchGameMode] = useState("visible"); // "flip" | "visible"
 
@@ -332,20 +326,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         );
 
       case "mcq":
-        // "legacy" → the classic mode picker (Cascade/Exam/Arcade); default → Streak Survival
-        if (mcqMode === "legacy") {
-          return <McqModeSelect resource={resource} onBack={() => setMcqMode(null)} onSelect={(mode, sessionConfig) => { setMcqSessionConfig(sessionConfig); setMcqMode(mode); }} onQuizComplete={onQuizComplete} />;
-        }
-        if (!mcqMode) {
-          return <StreakSurvival resource={resource} onBack={handleBack} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} onMoreModes={() => setMcqMode("legacy")} />;
-        }
-        if (mcqMode === "arcade") {
-          return <FlashcardRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
-        }
-        if (mcqMode === "exam") {
-          return <McqExamRunner resource={resource} shareToken={resource.shareToken} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
-        }
-        return <McqQuizRunner resource={resource} shareToken={resource.shareToken} sessionConfig={mcqSessionConfig} onBack={() => setMcqMode(null)} onQuizComplete={onQuizComplete} switchMode={() => setMcqMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
+        // Streak Survival is the single MCQ runner.
+        return <StreakSurvival resource={resource} onBack={handleBack} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
 
       case "flashcard_deck":
         if (flashcardMode === "study") {

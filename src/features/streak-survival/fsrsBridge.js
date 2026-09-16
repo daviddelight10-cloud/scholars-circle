@@ -156,6 +156,30 @@ export function pickPracticeIndex(bank, cardStates, lastIdx) {
   return bank.length - 1;
 }
 
+// ── Survival picking ──────────────────────────────────
+// Uniform random at low streaks; as the streak climbs, blend toward
+// FSRS weakness (due cards first, then low stability) so the pressure
+// ramp is real difficulty, not just XP. `allowed` = unused bank indices.
+export function pickSurvivalIndex(bank, cardStates, lastIdx, streak, allowed) {
+  const intensity = Math.min(1, Math.max(0, streak) / 6);
+  let total = 0;
+  const weights = bank.map((_, i) => {
+    if (!allowed.has(i) || i === lastIdx) return 0;
+    const st = cardStates[i];
+    const weak = !st ? 1.2 : st.isDue ? 5 : Math.max(0.4, 3 - (st.stability || 0) / 7);
+    const w = 1 + weak * intensity * 2;
+    total += w;
+    return w;
+  });
+  if (total <= 0) return allowed.values().next().value ?? 0;
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return i;
+  }
+  return bank.length - 1;
+}
+
 // ── Mastery ring data ──────────────────────────────────
 // mastered (S ≥ 21d) → 🌟, else dots (S ≥ 7d → 2, else 1); due → ⏰
 export function masteryDots(cardState) {

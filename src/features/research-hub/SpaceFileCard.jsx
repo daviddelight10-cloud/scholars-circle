@@ -51,7 +51,7 @@ export default function SpaceFileCard({
   const mcqVariant = file.variants?.mcq;
   const prog = mcqVariant && mcqProgress ? mcqProgress[mcqVariant.id] : null;
   const coveredPct = prog && prog.total > 0
-    ? Math.min(100, Math.round((prog.bestScore / prog.total) * 100))
+    ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100))
     : null;
   const dashOffset = coveredPct != null ? RING_CIRC * (1 - coveredPct / 100) : RING_CIRC;
 
