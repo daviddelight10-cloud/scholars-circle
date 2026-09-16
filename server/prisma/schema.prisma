@@ -1686,6 +1686,7 @@ model FolderBookmark {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   folderId    String
   folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  courseCode  String?  // bookmarker's personal course code when the folder has none
   createdAt   DateTime @default(now())
 
   @@unique([userId, folderId])

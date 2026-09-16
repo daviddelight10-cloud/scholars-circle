@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FONTS } from "../../lib/theme";
 
 export const D = {
@@ -81,25 +82,127 @@ export function Badge({ text, bg, color }) {
   );
 }
 
-export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, isStartHere, resourceVariantsMap, resourceByIdMap, onGenerate }) {
+const DOC_ICONS = {
+  pdf: "📄", docx: "📝", doc: "📝", pptx: "📊", image: "🖼️",
+  txt: "📃", note: "📃", tutorial_question: "❓",
+  mcq: "✎", flashcard_deck: "🎴", summary: "📝",
+};
+
+// Tappable document row — opens the practice menu for that material.
+export function DocRow({ match, variants, onTap }) {
+  const [hover, setHover] = useState(false);
+  const r = match.resource || {};
+  const conf = match.confidence != null ? Math.round(match.confidence * 100) : null;
+  const chips = [variants?.mcq && "✎", variants?.flashcard && "🎴", variants?.summary && "📝"].filter(Boolean);
+  const meta = [r.contentType, conf != null ? `${conf}% match` : null, chips.length ? chips.join(" ") : null]
+    .filter(Boolean).join(" · ");
+  return (
+    <button
+      onClick={onTap}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+        padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+        background: hover ? "rgba(245,166,35,0.07)" : D.ink,
+        border: `0.5px solid ${hover ? D.gold + "44" : "transparent"}`,
+        transition: "background 0.15s, border-color 0.15s",
+      }}
+    >
+      <span style={{
+        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+        background: "rgba(245,166,35,0.1)", display: "flex",
+        alignItems: "center", justifyContent: "center", fontSize: 14,
+      }}>
+        {DOC_ICONS[r.contentType] || "📄"}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{
+          display: "block", fontSize: 12, fontWeight: 600, color: D.textHi,
+          fontFamily: FONTS.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {r.title || "Untitled"}
+        </span>
+        <span style={{ display: "block", fontSize: 10, color: D.textLow, fontFamily: FONTS.body, marginTop: 2 }}>
+          {meta}
+        </span>
+      </span>
+      <span style={{ color: hover ? D.gold : D.textLow, fontSize: 15, flexShrink: 0 }}>›</span>
+    </button>
+  );
+}
+
+// Compact practice sheet used when no host-level sheet is wired (standalone
+// roadmap view). Offers whatever is available for the tapped document.
+function DocPracticeSheet({ match, variants, topic, onOpenResource, onStartStudying, onClose }) {
+  if (!match) return null;
+  const r = match.resource || {};
+  const btn = (icon, label, sub, fn, primary) => (
+    <button key={label} onClick={() => { onClose(); fn?.(); }} style={{
+      display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
+      padding: "12px 14px", borderRadius: 12, cursor: "pointer", marginTop: 6,
+      background: primary ? "linear-gradient(135deg, #b8860b, #F5A623)" : "rgba(255,255,255,0.04)",
+      border: primary ? "none" : `0.5px solid ${D.border}`,
+    }}>
+      <span style={{ fontSize: 16 }}>{icon}</span>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: primary ? "#0a0a0a" : D.textHi, fontFamily: FONTS.body }}>{label}</span>
+        {sub && <span style={{ display: "block", fontSize: 10, color: primary ? "rgba(0,0,0,0.55)" : D.textLow, fontFamily: FONTS.body, marginTop: 1 }}>{sub}</span>}
+      </span>
+      <span style={{ color: primary ? "#0a0a0a" : D.textLow }}>›</span>
+    </button>
+  );
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 10050, background: "rgba(7,9,13,0.72)",
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 480, background: "#12161F",
+          border: `1px solid ${D.border}`, borderRadius: "20px 20px 0 0",
+          padding: "10px 18px 28px",
+        }}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: D.border, margin: "4px auto 14px" }} />
+        <div style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.mono, letterSpacing: "0.08em", marginBottom: 2 }}>PRACTICE</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display, marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {r.title || "Untitled"}
+        </div>
+        {variants?.mcq && btn("✎", "MCQs", "Practice questions", () => onOpenResource?.(variants.mcq.shareToken))}
+        {variants?.flashcard && btn("🎴", "Flashcards", "Review the deck", () => onOpenResource?.(variants.flashcard.shareToken))}
+        {variants?.summary && btn("📝", "Summary", "Read the AI summary", () => onOpenResource?.(variants.summary.shareToken))}
+        {r.shareToken && btn("📄", "View material", "Open the original document", () => onOpenResource?.(r.shareToken))}
+        {onStartStudying && btn("⚡", "Practice this topic", "AI Tutor with topic context", () => onStartStudying(topic), true)}
+      </div>
+    </div>
+  );
+}
+
+export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResource, onStartStudying, isStartHere, resourceVariantsMap, onPracticeDoc }) {
   const p = progress;
   const progressLabel = p?.label || "Not started";
   const progressColor = PROGRESS_COLORS[progressLabel] || D.textLow;
   const pct = progressPct(p);
+  const [docSheet, setDocSheet] = useState(null); // match tapped for practice (fallback sheet)
 
   const subtopicCount = (topic.subtopics?.length || 0);
   const estMinutes = (subtopicCount * 5) + (matches.length * 10);
   const estTimeStr = estMinutes >= 60 ? `${Math.floor(estMinutes / 60)}h ${estMinutes % 60}m` : `~${estMinutes}m`;
 
-  // Collect all study materials from matched documents
-  const studyMaterials = matches.map(m => {
-    const variants = resourceVariantsMap?.get(m.resourceId) || { summary: null, mcq: null, flashcard: null };
-    return { match: m, variants };
+  const hasAnyMaterial = matches.some((m) => {
+    const v = resourceVariantsMap?.get(m.resourceId);
+    return v?.mcq || v?.flashcard || v?.summary;
   });
-  const hasFlashcards = studyMaterials.some(sm => sm.variants?.flashcard);
-  const hasMcqs = studyMaterials.some(sm => sm.variants?.mcq);
-  const hasSummary = studyMaterials.some(sm => sm.variants?.summary);
-  const hasAnyMaterial = hasFlashcards || hasMcqs || hasSummary;
+
+  const openDocPractice = (m) => {
+    if (onPracticeDoc) { onPracticeDoc(m); return; }
+    setDocSheet(m);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -200,7 +303,33 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
         )}
       </div>
 
-      {/* Section 3: Subtopics checklist */}
+      {/* Section 3: Documents — one clean row per matched doc; tap opens its
+          practice menu (host PracticeSheet when wired, else the in-panel sheet) */}
+      <div style={{
+        background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
+      }}>
+        <div style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Documents ({matches.length})
+        </div>
+        {matches.length === 0 ? (
+          <div style={{ fontSize: 12, color: D.textMid, fontFamily: FONTS.body, fontStyle: "italic" }}>
+            No documents matched to this topic yet. Upload materials for this course to auto-match.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {matches.map((m) => (
+              <DocRow
+                key={m.id}
+                match={m}
+                variants={resourceVariantsMap?.get(m.resourceId)}
+                onTap={() => openDocPractice(m)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Section 4: Subtopics checklist */}
       {topic.subtopics && topic.subtopics.length > 0 && (
         <div style={{
           background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
@@ -226,144 +355,6 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
           </div>
         </div>
       )}
-
-      {/* Section 3b: Study Materials (flashcards, MCQs, summaries from matched docs) */}
-      {matches.length > 0 && (resourceVariantsMap || onGenerate) && (
-        <div style={{
-          background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
-        }}>
-          <div style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Study Materials
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {studyMaterials.map(({ match: m, variants }) => (
-              <div key={m.id} style={{
-                padding: "10px 12px", background: D.ink, borderRadius: 8,
-                display: "flex", flexDirection: "column", gap: 6,
-              }}>
-                <div style={{ fontSize: 10, color: D.textLow, fontFamily: FONTS.body, fontStyle: "italic" }}>
-                  from: {m.resource?.title || "Unknown"}
-                </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {/* Summary */}
-                  {variants?.summary ? (
-                    <button
-                      onClick={() => onOpenResource?.(variants.summary.shareToken)}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        background: "rgba(79,142,247,0.1)", border: `0.5px solid ${D.blue}33`,
-                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
-                        color: D.blue, cursor: "pointer", fontFamily: FONTS.body,
-                      }}
-                    >📝 Summary · Open</button>
-                  ) : onGenerate ? (
-                    <button
-                      onClick={() => onGenerate?.(resourceByIdMap?.get(m.resourceId) || m.resource, "summary")}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        background: "transparent", border: `0.5px dashed ${D.border}`,
-                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
-                        color: D.textLow, cursor: "pointer", fontFamily: FONTS.body,
-                      }}
-                    >+ Summary</button>
-                  ) : null}
-
-                  {/* Flashcards */}
-                  {variants?.flashcard ? (
-                    <button
-                      onClick={() => onOpenResource?.(variants.flashcard.shareToken)}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        background: "rgba(61,214,140,0.1)", border: `0.5px solid ${D.green}33`,
-                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
-                        color: D.green, cursor: "pointer", fontFamily: FONTS.body,
-                      }}
-                    >🎴 Flashcards · Study</button>
-                  ) : onGenerate ? (
-                    <button
-                      onClick={() => onGenerate?.(resourceByIdMap?.get(m.resourceId) || m.resource, "flashcards")}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        background: "transparent", border: `0.5px dashed ${D.border}`,
-                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
-                        color: D.textLow, cursor: "pointer", fontFamily: FONTS.body,
-                      }}
-                    >+ Flashcards</button>
-                  ) : null}
-
-                  {/* MCQs */}
-                  {variants?.mcq ? (
-                    <button
-                      onClick={() => onOpenResource?.(variants.mcq.shareToken)}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        background: "rgba(245,166,35,0.1)", border: `0.5px solid ${D.gold}33`,
-                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
-                        color: D.gold, cursor: "pointer", fontFamily: FONTS.body,
-                      }}
-                    >✎ MCQs · Practice</button>
-                  ) : onGenerate ? (
-                    <button
-                      onClick={() => onGenerate?.(resourceByIdMap?.get(m.resourceId) || m.resource, "mcqs")}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        background: "transparent", border: `0.5px dashed ${D.border}`,
-                        borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600,
-                        color: D.textLow, cursor: "pointer", fontFamily: FONTS.body,
-                      }}
-                    >+ MCQs</button>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Section 4: Mapped documents */}
-      <div style={{
-        background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 12, padding: "16px 20px",
-      }}>
-        <div style={{ fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-          Mapped Documents ({matches.length})
-        </div>
-        {matches.length === 0 ? (
-          <div style={{ fontSize: 12, color: D.textMid, fontFamily: FONTS.body, fontStyle: "italic" }}>
-            No documents matched to this topic yet. Upload materials for this course to auto-match.
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {matches.map((m) => (
-              <div key={m.id} style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 12px", background: D.ink, borderRadius: 8,
-              }}>
-                <span style={{ fontSize: 11, color: D.textHi, fontFamily: FONTS.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {m.resource?.title || "Unknown"}
-                </span>
-                <span style={{ fontSize: 9, color: D.textLow, fontFamily: FONTS.body }}>
-                  {m.resource?.contentType}
-                </span>
-                <span style={{ fontSize: 9, color: D.gold, fontFamily: FONTS.body }}>
-                  {Math.round(m.confidence * 100)}%
-                </span>
-                {m.resource?.shareToken && onOpenResource && (
-                  <button
-                    onClick={() => onOpenResource(m.resource.shareToken)}
-                    style={{
-                      background: "none", border: `0.5px solid ${D.border}`, borderRadius: 4,
-                      padding: "3px 10px", fontSize: 10, color: D.blue,
-                      cursor: "pointer", fontFamily: FONTS.body,
-                    }}
-                  >
-                    Open
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Section 5: Prerequisite chain */}
       {topic.prerequisiteIds && topic.prerequisiteIds.length > 0 && (
@@ -401,6 +392,18 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
             })}
           </div>
         </div>
+      )}
+
+      {/* Fallback practice menu — only when the host didn't wire onPracticeDoc */}
+      {!onPracticeDoc && (
+        <DocPracticeSheet
+          match={docSheet}
+          variants={docSheet ? resourceVariantsMap?.get(docSheet.resourceId) : null}
+          topic={topic}
+          onOpenResource={onOpenResource}
+          onStartStudying={onStartStudying}
+          onClose={() => setDocSheet(null)}
+        />
       )}
     </div>
   );

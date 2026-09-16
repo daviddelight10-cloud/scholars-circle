@@ -13,10 +13,11 @@ import { PRESET_SUBJECTS } from "../../features/research-hub/constants";
 import { FONTS } from "../../lib/theme";
 import {
   D, findStartHereTopic,
-  StatItem, TopicDetailPanel, OnboardingStep, TimelineTopicRow,
+  StatItem, TopicDetailPanel, OnboardingStep, TimelineTopicRow, DocRow,
 } from "./roadmapShared";
 
 const PRESET_SET = new Set(PRESET_SUBJECTS.filter((s) => s !== "Custom"));
+const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
 
 async function authFetch(url, opts = {}) {
   let token = null;
@@ -46,6 +47,8 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
   const [manualEntry, setManualEntry] = useState(false);
   const [courseGroups, setCourseGroups] = useState({ preset: [], user: [], folder: [] });
   const [showRegenPrompt, setShowRegenPrompt] = useState(false);
+  const [allResources, setAllResources] = useState([]); // user's resources, for the unsorted bucket
+  const [courseFolderIds, setCourseFolderIds] = useState({}); // courseCode -> Set of folder ids
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -61,12 +64,16 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
       try {
         const folders = await listFolders();
         const allFolders = [...(folders.own || []), ...(folders.shared || []), ...(folders.link || [])];
+        const folderMap = {};
         for (const f of allFolders) {
-          if (f.courseCode && !courseSet.has(f.courseCode)) {
+          if (!f.courseCode) continue;
+          if (!courseSet.has(f.courseCode)) {
             courseSet.add(f.courseCode);
             courseList.push(f.courseCode);
           }
+          (folderMap[f.courseCode] = folderMap[f.courseCode] || new Set()).add(f.id);
         }
+        setCourseFolderIds(folderMap);
       } catch {}
       // From preset subjects (same list as Upload Wizard — always available)
       const presetCourses = [];
@@ -84,6 +91,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
         const res = await authFetch(`${API_BASE}/api/resources`);
         if (res.ok) {
           const resources = await res.json();
+          setAllResources(resources);
           const currentUserId = authUser?.id ? String(authUser.id) : null;
           for (const r of resources) {
             if (!r.subject || courseSet.has(r.subject)) continue;
@@ -170,6 +178,20 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
     if (!selectedTopicId) return null;
     return topics.find((t) => t.id === selectedTopicId) || null;
   }, [selectedTopicId, topics]);
+
+  // Docs belonging to this course (by subject or folder course code) that
+  // aren't matched to any topic — surfaced so users can still practice them.
+  const unsortedDocs = useMemo(() => {
+    if (!selectedCourse || allResources.length === 0) return [];
+    const matchedIds = new Set(matches.map((m) => m.resourceId));
+    const folderIds = courseFolderIds[selectedCourse];
+    return allResources.filter((r) =>
+      FILE_TYPES.includes(r.contentType) &&
+      !r.sourceResourceId &&
+      !matchedIds.has(r.id) &&
+      (r.subject === selectedCourse || (folderIds && folderIds.has(r.folderId)))
+    );
+  }, [allResources, matches, selectedCourse, courseFolderIds]);
 
   // Enrich onStartStudying with roadmap context (matches, subtopics, progress, prerequisites)
   const handleStartStudying = useCallback((topic) => {
@@ -625,6 +647,36 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                   />
                 ))}
               </div>
+
+              {/* Unsorted docs — in this course but not matched to a topic */}
+              {unsortedDocs.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{
+                    fontSize: 11, color: D.textLow, fontFamily: FONTS.body, fontWeight: 600,
+                    marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em",
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    📦 Unsorted ({unsortedDocs.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {unsortedDocs.map((f) => (
+                      <DocRow
+                        key={f.id}
+                        match={{ resource: f }}
+                        variants={f.variants}
+                        onTap={() => f.shareToken && onOpenResource?.(f.shareToken)}
+                      />
+                    ))}
+                  </div>
+                  <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
+                    marginTop: 10, background: D.panel, border: `0.5px solid ${D.blue}44`, borderRadius: 8,
+                    padding: "8px 16px", fontSize: 11, color: D.blue, cursor: matchProgress ? "not-allowed" : "pointer",
+                    fontFamily: FONTS.body, fontWeight: 600,
+                  }}>
+                    {matchProgress ? "Matching…" : "🔗 Match to Topics"}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Right column — Sticky detail panel */}

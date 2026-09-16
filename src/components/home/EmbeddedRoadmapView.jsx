@@ -12,7 +12,7 @@ import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
 import {
   D, findStartHereTopic, progressPct,
-  TopicDetailPanel, OnboardingStep,
+  TopicDetailPanel, OnboardingStep, DocRow,
 } from "./roadmapShared";
 
 const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
@@ -41,7 +41,9 @@ export default function EmbeddedRoadmapView({
   folderResources,
   onOpenResource,
   onStartStudying,
-  onGenerate,
+  onPracticeFile,
+  onSetCourseCode,
+  codeEditable = true,
 }) {
   const [topics, setTopics] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -61,6 +63,9 @@ export default function EmbeddedRoadmapView({
   const [addTopicTitle, setAddTopicTitle] = useState("");
   const [addingTopic, setAddingTopic] = useState(false);
   const [toast, setToast] = useState(null);
+  const [editingCode, setEditingCode] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [savingCode, setSavingCode] = useState(false);
   const fileInputRef = useRef(null);
   const listRef = useRef(null);
   const dragStateRef = useRef(null);
@@ -145,7 +150,7 @@ export default function EmbeddedRoadmapView({
     return map;
   }, [folderResources]);
 
-  // Build a map of resourceId -> full resource object (for onGenerate which needs fileName, folderId, etc.)
+  // Build a map of resourceId -> full resource object (practice sheet needs the full resource with variants)
   const resourceByIdMap = useMemo(() => {
     const map = new Map();
     for (const r of folderResources) {
@@ -301,6 +306,23 @@ export default function EmbeddedRoadmapView({
     showToast._t = setTimeout(() => setToast(null), 1800);
   }
 
+  async function handleSaveCourseCode() {
+    const code = codeInput.trim();
+    if (!code || savingCode || !onSetCourseCode) return;
+    setSavingCode(true);
+    setError("");
+    try {
+      await onSetCourseCode(code);
+      setEditingCode(false);
+      setCodeInput("");
+      showToast("Course code saved");
+    } catch (err) {
+      setError(err.message || "Failed to save course code");
+    } finally {
+      setSavingCode(false);
+    }
+  }
+
   function moveTopic(topicId, dir) {
     const idx = topics.findIndex((t) => t.id === topicId);
     const next = idx + dir;
@@ -449,6 +471,57 @@ export default function EmbeddedRoadmapView({
     );
   }
 
+  const codeEditor = codeEditable && (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <input
+        value={codeInput}
+        onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+        onKeyDown={(e) => { if (e.key === "Enter") handleSaveCourseCode(); if (e.key === "Escape") setEditingCode(false); }}
+        placeholder="e.g. MED301"
+        autoFocus
+        style={{
+          background: "#0D1220", border: `0.5px solid ${D.gold}44`, borderRadius: 8,
+          padding: "8px 12px", fontSize: 13, color: D.textHi, fontFamily: FONTS.body,
+          width: 140, outline: "none", textTransform: "uppercase",
+        }}
+      />
+      <button className="sp-roadmap-btn" onClick={handleSaveCourseCode} disabled={savingCode || !codeInput.trim()}>
+        {savingCode ? "Saving…" : "Save"}
+      </button>
+      {courseCode && (
+        <button className="sp-roadmap-btn" onClick={() => { setEditingCode(false); setCodeInput(""); }}>
+          Cancel
+        </button>
+      )}
+    </div>
+  );
+
+  // No course code yet — let the user name the course to unlock the roadmap
+  if (!courseCode) {
+    return (
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+        padding: "48px 20px", textAlign: "center",
+      }}>
+        <div style={{ fontSize: 34 }}>🗺️</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display }}>
+          Name this course
+        </div>
+        <div style={{ fontSize: 12, color: D.textMid, fontFamily: FONTS.body, maxWidth: 340, lineHeight: 1.6 }}>
+          Set a course code (like <b style={{ color: D.gold }}>MED301</b>) to build a topic roadmap and organize these documents.
+        </div>
+        {codeEditable ? codeEditor : (
+          <div style={{ fontSize: 12, color: D.textLow, fontFamily: FONTS.body }}>
+            The folder owner hasn't set a course code yet.
+          </div>
+        )}
+        {error && (
+          <div style={{ fontSize: 12, color: D.coral, fontFamily: FONTS.body }}>{error}</div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {/* Hidden file input — always rendered so ref is available in empty state */}
@@ -466,12 +539,33 @@ export default function EmbeddedRoadmapView({
         marginTop: 8, marginBottom: 12, gap: 10,
       }}>
         <div>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "'Lora', Georgia, serif", margin: 0 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "'Lora', Georgia, serif", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             Roadmap
+            {courseCode && !editingCode && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: D.gold, fontFamily: FONTS.body,
+                background: "rgba(245,166,35,0.12)", border: `0.5px solid ${D.gold}33`,
+                borderRadius: 6, padding: "2px 8px", letterSpacing: "0.06em",
+                display: "inline-flex", alignItems: "center", gap: 5,
+              }}>
+                {courseCode}
+                {codeEditable && onSetCourseCode && (
+                  <button
+                    onClick={() => { setEditingCode(true); setCodeInput(courseCode); }}
+                    title="Edit course code"
+                    style={{ background: "none", border: "none", color: D.gold, cursor: "pointer", fontSize: 10, padding: 0, lineHeight: 1 }}
+                  >✎</button>
+                )}
+              </span>
+            )}
           </h3>
-          <p style={{ fontSize: 11, color: "#646E84", margin: "2px 0 0", fontFamily: "'Inter', sans-serif" }}>
-            {topics.length} topics · {stats?.mastered || 0} mastered
-          </p>
+          {editingCode ? (
+            <div style={{ marginTop: 8 }}>{codeEditor}</div>
+          ) : (
+            <p style={{ fontSize: 11, color: "#646E84", margin: "2px 0 0", fontFamily: "'Inter', sans-serif" }}>
+              {topics.length} topics · {stats?.mastered || 0} mastered
+            </p>
+          )}
         </div>
 
         {topics.length > 0 && (
@@ -806,30 +900,12 @@ export default function EmbeddedRoadmapView({
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {unsortedFiles.map((file) => (
-                  <div key={file.id} style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "8px 12px", background: D.panel, borderRadius: 8,
-                    border: `0.5px solid ${D.border}`,
-                  }}>
-                    <span style={{ fontSize: 11, color: D.textHi, fontFamily: FONTS.body, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {file.title}
-                    </span>
-                    <span style={{ fontSize: 9, color: D.textLow, fontFamily: FONTS.body }}>
-                      {file.contentType}
-                    </span>
-                    {file.shareToken && onOpenResource && (
-                      <button
-                        onClick={() => onOpenResource(file.shareToken)}
-                        style={{
-                          background: "none", border: `0.5px solid ${D.border}`, borderRadius: 4,
-                          padding: "3px 10px", fontSize: 10, color: D.blue, cursor: "pointer",
-                          fontFamily: FONTS.body,
-                        }}
-                      >
-                        Open
-                      </button>
-                    )}
-                  </div>
+                  <DocRow
+                    key={file.id}
+                    match={{ resource: file }}
+                    variants={file.variants}
+                    onTap={() => (onPracticeFile ? onPracticeFile(file) : file.shareToken && onOpenResource?.(file.shareToken))}
+                  />
                 ))}
               </div>
               <button onClick={handleRetroactiveMatch} disabled={!!matchProgress} style={{
@@ -882,8 +958,10 @@ export default function EmbeddedRoadmapView({
               onStartStudying={handleStartStudying}
               isStartHere={startHereTopic?.id === selectedTopic.id}
               resourceVariantsMap={resourceVariantsMap}
-              resourceByIdMap={resourceByIdMap}
-              onGenerate={onGenerate}
+              onPracticeDoc={(m) => {
+                const full = resourceByIdMap.get(m.resourceId) || m.resource;
+                if (full) onPracticeFile?.(full);
+              }}
             />
           </div>
         </div>

@@ -104,6 +104,19 @@ export async function unbookmarkFolder(folderId) {
   return res.json();
 }
 
+// Set the caller's personal course code on a bookmarked folder
+export async function updateFolderBookmark(folderId, courseCode) {
+  const res = await authFetch(`${API_BASE}/api/folders/${folderId}/bookmark`, {
+    method: "PATCH",
+    body: JSON.stringify({ courseCode }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to set course code");
+  }
+  return res.json();
+}
+
 // ─── Pending Contributions (staff only) ──────────────────────────────
 
 export async function getPendingResources(folderId) {

@@ -15,7 +15,7 @@ export default function FolderDetailView({
   uploadModal, createFolderModal, bookmarkPicker,
   onStartStudying,
   onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy,
-  onGoLive,
+  onGoLive, onSetCourseCode,
 }) {
   const [sheetFile, setSheetFile] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -77,11 +77,13 @@ export default function FolderDetailView({
 
   const allMcqIds = (folderCategorized.allMcqResources || []).map((r) => r.id);
   const generatingFile = generatingId ? allFiles.find((f) => f.id === generatingId) : null;
-  const showTopicsTab = !!folderDetail?.courseCode;
+  // Roadmap is available for every folder — the effective code is the folder's
+  // own courseCode, or the caller's personal one for bookmarked folders.
+  const effectiveCourseCode = folderDetail?.courseCode || folderDetail?.myCourseCode || "";
+  const codeEditable = folderIsOwner || folderBookmarkedIds?.has(folderDetail?.id);
   const masteryPct = folderDetail?.masteryPct || 0;
 
-  // If the topics tab isn't available, stay on files.
-  const tab = activeFolderTab === "topics" && !showTopicsTab ? "materials" : activeFolderTab;
+  const tab = activeFolderTab === "topics" ? "topics" : "materials";
   const levelSem = [folderDetail?.level, folderDetail?.semester].filter(Boolean).join(" · ");
 
   const menuItem = (label, fn, opts = {}) => (
@@ -209,16 +211,14 @@ export default function FolderDetailView({
             >
               Files
             </button>
-            {showTopicsTab && (
-              <button
-                role="tab"
-                aria-selected={tab === "topics"}
-                className={`sp-tab${tab === "topics" ? " active" : ""}`}
-                onClick={() => setActiveFolderTab("topics")}
-              >
-                Topics
-              </button>
-            )}
+            <button
+              role="tab"
+              aria-selected={tab === "topics"}
+              className={`sp-tab${tab === "topics" ? " active" : ""}`}
+              onClick={() => setActiveFolderTab("topics")}
+            >
+              Topics
+            </button>
           </div>
         </div>
 
@@ -283,8 +283,10 @@ export default function FolderDetailView({
           </div>
         )}
 
-        {/* Topics roadmap — stays mounted (hidden) so tab switches don't refetch */}
-        {showTopicsTab && folderDetail?.courseCode && (
+        {/* Topics roadmap — stays mounted (hidden) so tab switches don't refetch.
+            Rendered for every folder; EmbeddedRoadmapView shows the
+            course-code setup card when no code exists yet. */}
+        {folderDetail && (
           <div
             className="mt-4 px-5 md:px-8 lg:px-12"
             style={{ display: tab === "topics" ? undefined : "none" }}
@@ -294,12 +296,14 @@ export default function FolderDetailView({
               <LoadingState grid count={4} />
             ) : (
               <EmbeddedRoadmapView
-                courseCode={folderDetail.courseCode}
+                courseCode={effectiveCourseCode}
                 folderId={folderDetail.id}
                 folderResources={allFiles}
                 onOpenResource={onOpen}
                 onStartStudying={onStartStudying}
-                onGenerate={onGenerate}
+                onPracticeFile={setSheetFile}
+                onSetCourseCode={onSetCourseCode}
+                codeEditable={codeEditable}
               />
             )}
           </div>

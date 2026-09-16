@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
+import { cloneSkeletonForUser } from "../lib/topicExtractionService.js";
 
 const router = express.Router();
 
@@ -376,11 +377,18 @@ router.get("/:id", requireAuth, async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
+    // Caller's personal course code override (set on their folder bookmark)
+    const myBookmark = await prisma.folderBookmark.findUnique({
+      where: { userId_folderId: { userId, folderId: folder.id } },
+      select: { courseCode: true },
+    }).catch(() => null);
+
     res.json({
       ...folder,
       sharedResources,
       myResources,
       bookmarkedResources: bookmarkedResources.map((b) => b.resource),
+      myCourseCode: myBookmark?.courseCode || null,
     });
   } catch (error) {
     console.error("Error fetching folder:", error);
@@ -568,10 +576,48 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
       );
     }
 
-    res.status(201).json({ ...bookmark, resourcesBookmarked: resources.length });
+    // Clone the owner's topic skeleton so the bookmarker sees it in the
+    // roadmap. Skipped when the bookmarker already has their own skeleton
+    // for this courseCode — theirs wins.
+    let skeletonCloned = 0;
+    if (folder.courseCode) {
+      skeletonCloned = await cloneSkeletonForUser(folder.courseCode, folder.ownerId, userId, id)
+        .catch((err) => {
+          console.error("Skeleton clone on bookmark failed:", err.message);
+          return 0;
+        });
+    }
+
+    res.status(201).json({ ...bookmark, resourcesBookmarked: resources.length, skeletonCloned });
   } catch (error) {
     console.error("Error bookmarking folder:", error);
     res.status(500).json({ error: "Failed to bookmark folder" });
+  }
+});
+
+// PATCH /api/folders/:id/bookmark — Set the caller's personal course code for a bookmarked folder
+// Used when the folder has no courseCode: the bookmarker names it for their own roadmap
+router.patch("/:id/bookmark", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.sub;
+    const { courseCode } = req.body;
+
+    const bookmark = await prisma.folderBookmark.findUnique({
+      where: { userId_folderId: { userId, folderId: id } },
+    });
+    if (!bookmark) {
+      return res.status(404).json({ error: "Folder is not in your space" });
+    }
+
+    const updated = await prisma.folderBookmark.update({
+      where: { id: bookmark.id },
+      data: { courseCode: courseCode?.trim() || null },
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating folder bookmark:", error);
+    res.status(500).json({ error: "Failed to update folder bookmark" });
   }
 });
 

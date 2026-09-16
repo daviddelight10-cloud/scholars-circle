@@ -427,6 +427,95 @@ export async function matchDocumentToSkeleton(resource, courseCode, userId) {
 
 
 /**
+ * Clone a topic skeleton (topics + document matches) from one user to another.
+ * Used when a user bookmarks a shared folder whose owner built a skeleton —
+ * the bookmarker gets their own editable copy. Skipped entirely if the
+ * bookmarker already has topics for the courseCode (their own wins).
+ *
+ * @param {string} courseCode
+ * @param {string} fromUserId - Skeleton owner
+ * @param {string} toUserId - Bookmarker receiving the clone
+ * @param {string} [folderId] - Scope cloned matches to this folder's resources
+ * @returns {Promise<number>} Number of topics cloned (0 if skipped)
+ */
+export async function cloneSkeletonForUser(courseCode, fromUserId, toUserId, folderId) {
+  if (!courseCode || !fromUserId || !toUserId || fromUserId === toUserId) return 0;
+
+  const existing = await prisma.curriculumTopic.count({
+    where: { courseCode, createdBy: toUserId },
+  });
+  if (existing > 0) return 0;
+
+  const ownerTopics = await prisma.curriculumTopic.findMany({
+    where: { courseCode, createdBy: fromUserId },
+    orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
+  });
+  if (ownerTopics.length === 0) return 0;
+
+  const idMap = new Map();
+  for (const t of ownerTopics) {
+    const created = await prisma.curriculumTopic.create({
+      data: {
+        courseCode,
+        title: t.title,
+        description: t.description,
+        displayOrder: t.displayOrder,
+        subtopics: t.subtopics,
+        source: t.source,
+        status: t.status,
+        verified: t.verified,
+        createdBy: toUserId,
+      },
+    });
+    idMap.set(t.id, created.id);
+  }
+
+  for (const t of ownerTopics) {
+    if (!Array.isArray(t.prerequisiteIds) || t.prerequisiteIds.length === 0) continue;
+    const remapped = t.prerequisiteIds.map((pid) => idMap.get(pid)).filter(Boolean);
+    if (remapped.length > 0) {
+      await prisma.curriculumTopic.update({
+        where: { id: idMap.get(t.id) },
+        data: { prerequisiteIds: remapped },
+      });
+    }
+  }
+
+  const resourceWhere = folderId ? { folderId } : { folder: { courseCode } };
+  const folderResources = await prisma.resource.findMany({
+    where: resourceWhere,
+    select: { id: true },
+  });
+  const resourceIds = folderResources.map((r) => r.id);
+  if (resourceIds.length > 0) {
+    const ownerMatches = await prisma.documentTopicMatch.findMany({
+      where: {
+        userId: fromUserId,
+        topicId: { in: ownerTopics.map((t) => t.id) },
+        resourceId: { in: resourceIds },
+      },
+      select: { resourceId: true, topicId: true, confidence: true, matchSource: true },
+    });
+    for (const m of ownerMatches) {
+      const newTopicId = idMap.get(m.topicId);
+      if (!newTopicId) continue;
+      await prisma.documentTopicMatch.upsert({
+        where: { userId_resourceId_topicId: { userId: toUserId, resourceId: m.resourceId, topicId: newTopicId } },
+        update: { confidence: m.confidence, matchSource: m.matchSource },
+        create: { userId: toUserId, resourceId: m.resourceId, topicId: newTopicId, confidence: m.confidence, matchSource: m.matchSource },
+      });
+    }
+  }
+
+  logInfo(`[topicExtractionService] Cloned skeleton ${courseCode} from ${fromUserId} to ${toUserId}`, {
+    topicsCloned: ownerTopics.length,
+    folderId,
+  });
+
+  return ownerTopics.length;
+}
+
+/**
  * Batch-match all of a user's existing documents in a course to the skeleton.
  * Runs server-side, processing documents sequentially to avoid rate limits.
  *
@@ -445,15 +534,18 @@ export async function retroactiveMatchDocuments(courseCode, userId, folderId, on
     return { matchCount: 0, resourceCount: 0 };
   }
 
-  // Find resources for this course that belong to the user
+  // Find resources for this course that belong to the user — uploaded OR bookmarked
   // Prefer folder-scoped query when folderId is provided (unambiguous);
   // fall back to subject/courseCode OR-query for backward compat
+  const ownedOrBookmarked = {
+    OR: [{ uploadedBy: userId }, { bookmarks: { some: { userId } } }],
+  };
   const where = folderId
-    ? { folderId, uploadedBy: userId }
+    ? { AND: [{ folderId }, ownedOrBookmarked] }
     : {
-        OR: [
-          { subject: courseCode, uploadedBy: userId },
-          { folder: { courseCode }, uploadedBy: userId },
+        AND: [
+          { OR: [{ subject: courseCode }, { folder: { courseCode } }] },
+          ownedOrBookmarked,
         ],
       };
 

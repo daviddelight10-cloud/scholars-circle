@@ -333,10 +333,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }, [screen, runMode, locked, current, gameOver]);
 
   // ── Rating ──
-  function applyRating(q, correct, rev) {
+  // skipRate: review-queue re-serves aren't re-rated — the original miss
+  // already posted "Again"; a same-session correct would distort the schedule.
+  function applyRating(q, correct, rev, skipRate = false) {
     const grade = deriveRating({
       correct, revealed: rev, hintUsed, elapsedMs: Date.now() - qStartRef.current,
     });
+    if (skipRate) return grade;
     setFsrsNote({ grade, intervalLabel: null });
     rateQuestion({
       resourceId: q._resourceId ?? resource?.id,
@@ -545,7 +548,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const isCorrect = i === q.a;
     setPicked(i);
     setLocked(true);
-    applyRating(q, isCorrect, false);
+    applyRating(q, isCorrect, false, true);
     if (isCorrect) {
       setReviewBadge('correct');
       sound.correct();

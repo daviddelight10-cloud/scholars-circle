@@ -177,7 +177,10 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
     // Fetch derived resources for cascade bookmarking
     const source = await prisma.resource.findUnique({
       where: { id },
-      select: { derivedResources: { select: { id: true } } },
+      select: {
+        title: true, description: true, contentType: true, subject: true,
+        derivedResources: { select: { id: true } },
+      },
     });
     const derivedIds = source?.derivedResources?.map((r) => r.id) || [];
 
@@ -192,6 +195,30 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
         })
       )
     );
+
+    // Auto-match the bookmarked doc to the caller's topic skeleton (if one
+    // exists for its course). Fire-and-forget — failure just leaves the doc
+    // unsorted; "Match Docs" in the roadmap can retry it.
+    (async () => {
+      try {
+        const codes = new Set();
+        if (folderId) {
+          const folder = await prisma.folder.findUnique({ where: { id: folderId }, select: { courseCode: true } });
+          if (folder?.courseCode) codes.add(folder.courseCode);
+        }
+        if (source?.subject) codes.add(source.subject);
+        for (const code of codes) {
+          const hasSkeleton = await prisma.curriculumTopic.count({
+            where: { courseCode: code, createdBy: req.user.sub },
+          });
+          if (hasSkeleton > 0) {
+            await matchDocumentToSkeleton({ id, ...source }, code, req.user.sub);
+          }
+        }
+      } catch (err) {
+        logError(err, { context: "bookmark auto-match", resourceId: id });
+      }
+    })();
 
     res.status(201).json({ success: true, bookmarkedIds: allIds });
   } catch (error) {

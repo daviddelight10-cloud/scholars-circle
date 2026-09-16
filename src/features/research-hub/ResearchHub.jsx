@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
 import { copyShareToken } from "../../lib/researchUtils";
-import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder } from "../../lib/foldersApi";
+import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark } from "../../lib/foldersApi";
 import { getMyProfile } from "../../lib/profileApi.js";
 import { setUserDepartment } from "../../lib/departments.js";
 import { haptics } from "../../lib/haptics";
@@ -453,6 +453,24 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   };
 
+  // Set a course code on the open folder — owners edit the folder itself;
+  // non-owners get a personal code on their bookmark (auto-bookmarking first
+  // if they haven't saved the space yet).
+  const handleSetFolderCourseCode = async (code) => {
+    if (!folderDetail) return;
+    if (folderIsOwner) {
+      await apiUpdateFolder(folderDetail.id, { courseCode: code });
+    } else {
+      if (!folderBookmarkedIds.has(folderDetail.id)) {
+        const res = await apiBookmarkFolder(folderDetail.id);
+        setFolderBookmarkedIds((prev) => new Set(prev).add(folderDetail.id));
+        if (res?.skeletonCloned > 0) showToast("Roadmap included — check the Topics tab");
+      }
+      await apiUpdateFolderBookmark(folderDetail.id, code);
+    }
+    await fetchFolderDetail(folderDetail.id);
+  };
+
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(null), 2200);
@@ -539,7 +557,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       } else {
         const result = await apiBookmarkFolder(folder.id);
         const count = result?.resourcesBookmarked;
-        showToast(count > 0 ? `Folder + ${count} resources added to your space ✓` : "Folder added to your space ✓");
+        const cloned = result?.skeletonCloned > 0;
+        showToast(
+          cloned
+            ? "Folder + roadmap added to your space ✓"
+            : count > 0
+              ? `Folder + ${count} resources added to your space ✓`
+              : "Folder added to your space ✓"
+        );
       }
       fetchFolders();
       fetchCommunityFolders();
@@ -1315,6 +1340,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         bookmarkPicker={bookmarkPicker}
         onGuidedStudy={handleGuidedStudy}
         onGoLive={handleGoLive}
+        onSetCourseCode={handleSetFolderCourseCode}
         preparingStudy={preparingStudy}
         onDeleteResource={handleDeleteResource}
         canDeleteFile={canDeleteFile}

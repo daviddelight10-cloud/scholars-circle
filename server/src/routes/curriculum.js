@@ -410,12 +410,16 @@ router.post("/:courseCode/retroactive-match", requireAuth, async (req, res) => {
     }
 
     // Count resources — folder-scoped if folderId provided, else fallback to subject/courseCode OR
+    // Includes documents the user bookmarked, not just uploaded
+    const ownedOrBookmarked = {
+      OR: [{ uploadedBy: userId }, { bookmarks: { some: { userId } } }],
+    };
     const countWhere = folderId
-      ? { folderId, uploadedBy: userId }
+      ? { AND: [{ folderId }, ownedOrBookmarked] }
       : {
-          OR: [
-            { subject: courseCode, uploadedBy: userId },
-            { folder: { courseCode }, uploadedBy: userId },
+          AND: [
+            { OR: [{ subject: courseCode }, { folder: { courseCode } }] },
+            ownedOrBookmarked,
           ],
         };
     const resourceCount = await prisma.resource.count({ where: countWhere });
