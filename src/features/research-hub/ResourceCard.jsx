@@ -20,7 +20,7 @@ function McqProgressRing({ practiced, pct, progress }) {
   }
 
   return (
-    <div title={`Mastered: ${progress.mastered || 0}/${progress.total} (${pct}%) · Best: ${progress.bestScore}/${progress.bestTotal ?? progress.total} · ${progress.attempts} attempt${progress.attempts > 1 ? "s" : ""}`} className="relative h-7 w-7 shrink-0">
+    <div title={`${pct}% learned · Mastered: ${progress.mastered || 0}/${progress.total} · Best: ${progress.bestScore}/${progress.bestTotal ?? progress.total} · ${progress.attempts} attempt${progress.attempts > 1 ? "s" : ""}`} className="relative h-7 w-7 shrink-0">
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#2a2a2a" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={stroke}
@@ -55,7 +55,9 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
   const rating = resource.avgRating ? resource.avgRating.toFixed(1) : null;
   const isMcq = resource.contentType === "mcq";
   const progress = isMcq && mcqProgress ? mcqProgress[resource.id] : null;
-  const pct = progress && progress.total > 0 ? Math.min(100, Math.round(((progress.mastered || 0) / progress.total) * 100)) : 0;
+  const pct = progress
+    ? (progress.learnedPct ?? (progress.total > 0 ? Math.min(100, Math.round(((progress.mastered || 0) / progress.total) * 100)) : 0))
+    : 0;
   const practiced = progress != null;
   const relDate = formatRelativeDate(resource.createdAt);
   const typeConfig = contentTypeConfig[resource.contentType] || contentTypeConfig.note;

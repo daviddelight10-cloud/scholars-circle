@@ -50,8 +50,8 @@ export default function SpaceFileCard({
   // Coverage ring — driven by MCQ practice progress on this file's variant.
   const mcqVariant = file.variants?.mcq;
   const prog = mcqVariant && mcqProgress ? mcqProgress[mcqVariant.id] : null;
-  const coveredPct = prog && prog.total > 0
-    ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100))
+  const coveredPct = prog
+    ? (prog.learnedPct ?? (prog.total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100)) : null))
     : null;
   const dashOffset = coveredPct != null ? RING_CIRC * (1 - coveredPct / 100) : RING_CIRC;
 

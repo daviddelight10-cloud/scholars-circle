@@ -647,8 +647,9 @@ router.get("/my-mcq-progress", requireAuth, async (req, res) => {
       }
     }
 
-    // Mastery-based progress: mastered FSRS items (stability >= 21d, same rule
-    // as the client's masteryDots) over the resource's total question count.
+    // Mastery-based progress: staged score per question (0 → 1 as memory
+    // strengthens) plus the raw mastered count (isMastered: state=review &
+    // stability >= 21d), over the resource's total question count.
     const ids = Object.keys(progress);
     if (ids.length) {
       const reviewItems = await prisma.pdfReviewItem.findMany({
@@ -660,7 +661,13 @@ router.get("/my-mcq-progress", requireAuth, async (req, res) => {
         select: { resourceId: true, state: true, stability: true },
       });
       const masteredByRes = {};
+      const scoreByRes = {};
       for (const it of reviewItems) {
+        const s = it.stability || 0;
+        // Stages mirror the client's masteryDots tiers: learning/relearning
+        // 0.3, young review 0.5, strong (>= 7d) 0.75, mastered 1.0.
+        const stage = it.state === 2 ? (s >= 21 ? 1 : s >= 7 ? 0.75 : 0.5) : 0.3;
+        scoreByRes[it.resourceId] = (scoreByRes[it.resourceId] || 0) + stage;
         if (isMastered(it)) {
           masteredByRes[it.resourceId] = (masteredByRes[it.resourceId] || 0) + 1;
         }
@@ -678,6 +685,9 @@ router.get("/my-mcq-progress", requireAuth, async (req, res) => {
         if (progress[r.id]) {
           progress[r.id].mastered = masteredByRes[r.id] || 0;
           progress[r.id].total = total;
+          progress[r.id].learnedPct = total > 0
+            ? Math.min(100, Math.round(((scoreByRes[r.id] || 0) / total) * 100))
+            : 0;
         }
       }
     }

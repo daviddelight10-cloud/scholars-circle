@@ -128,7 +128,9 @@ export default function PracticeSheet({
   const mcqCount = getVariantCount(mcq);
   const cardCount = getVariantCount(flashcard);
   const prog = mcq && mcqProgress ? mcqProgress[mcq.id] : null;
-  const mcqPct = prog && prog.total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100)) : null;
+  const mcqPct = prog
+    ? (prog.learnedPct ?? (prog.total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100)) : null))
+    : null;
   const bestPct = prog && (prog.bestTotal || prog.total) > 0 ? Math.round((prog.bestScore / (prog.bestTotal || prog.total)) * 100) : null;
   const canExtract = !!(file.fileUrl || file.description);
   const act = (fn) => () => { onClose(); fn?.(); };
@@ -146,7 +148,7 @@ export default function PracticeSheet({
   const mcqSub = mcq
     ? prog
       ? (prog.total > 0
-        ? `🌟 ${prog.mastered || 0}/${prog.total} mastered · best ${bestPct}%${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
+        ? `${mcqPct}% learned · 🌟 ${prog.mastered || 0}/${prog.total} mastered · best ${bestPct}%${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
         : `best ${prog.bestScore}/${prog.bestTotal ?? "?"}${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`)
       : (mcqCount ? `${mcqCount} questions · ready` : "Ready to practice")
     : "Not generated yet · tap to create";
