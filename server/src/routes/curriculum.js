@@ -322,21 +322,40 @@ router.get("/:courseCode/topic-progress", requireAuth, async (req, res) => {
     });
 
     const topicToResourceIds = new Map();
+    const allSourceIds = new Set();
     for (const m of matches) {
       if (!topicToResourceIds.has(m.topicId)) topicToResourceIds.set(m.topicId, []);
       topicToResourceIds.get(m.topicId).push(m.resourceId);
+      allSourceIds.add(m.resourceId);
+    }
+
+    // FSRS review items are recorded against generated variants (MCQ /
+    // flashcard / summary resources), while matches point at source docs.
+    // Expand each topic's id set to include its variants so practicing a
+    // variant counts toward the topic's progress.
+    const variants = allSourceIds.size
+      ? await prisma.resource.findMany({
+          where: { sourceResourceId: { in: [...allSourceIds] } },
+          select: { id: true, sourceResourceId: true },
+        })
+      : [];
+    const variantIdsBySource = new Map();
+    for (const v of variants) {
+      if (!variantIdsBySource.has(v.sourceResourceId)) variantIdsBySource.set(v.sourceResourceId, []);
+      variantIdsBySource.get(v.sourceResourceId).push(v.id);
     }
 
     const result = {};
 
     for (const [topicId, resourceIds] of topicToResourceIds) {
-      if (resourceIds.length === 0) {
-        result[topicId] = { totalItems: 0, avgStability: 0, avgRetrievability: 0, masteredCount: 0, label: "Not started" };
-        continue;
+      const expandedIds = [...resourceIds];
+      for (const rid of resourceIds) {
+        const vs = variantIdsBySource.get(rid);
+        if (vs) expandedIds.push(...vs);
       }
 
       const items = await prisma.pdfReviewItem.findMany({
-        where: { userId, resourceId: { in: resourceIds } },
+        where: { userId, resourceId: { in: expandedIds } },
         select: { state: true, stability: true, reps: true, lapses: true, lastReviewAt: true },
       });
 
