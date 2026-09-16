@@ -119,9 +119,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   // End screen
   const [endInfo, setEndInfo] = useState(null);
 
-  // Game over (hearts depleted) + timeout
+  // Game over (hearts depleted)
   const [gameOver, setGameOver] = useState(false);
-  const [timedOut, setTimedOut] = useState(false);
   const [revivesUsed, setRevivesUsed] = useState(0);
 
   // ── Chrome ──
@@ -242,7 +241,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     usedRef.current.add(idx);
     setCurrent({ q, idx });
     setQNum((n) => n + 1);
-    setLocked(false); setPicked(null); setRevealed(false); setTimedOut(false);
+    setLocked(false); setPicked(null); setRevealed(false);
     setHintUsed(false); setEliminated(new Set());
     setFsrsNote(null); setExplain({ show: false, text: '', loading: false });
     qStartRef.current = Date.now();
@@ -274,21 +273,20 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     return map;
   }
 
-  // ── Survival speed timer (window shrinks as the streak climbs) ──
+  // ── Survival speed timer (visual only) ──
   useEffect(() => {
     if (screen !== 'game' || runMode !== 'survival' || locked || !current || gameOver) {
       clearInterval(timerRef.current);
       return undefined;
     }
-    const win = tier === 'hard' ? 5000 : tier === 'medium' ? 6000 : SPEED_WINDOW;
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - qStartRef.current;
-      const pct = Math.max(0, 100 - (elapsed / win) * 100);
+      const pct = Math.max(0, 100 - (elapsed / SPEED_WINDOW) * 100);
       setTimerPct(pct);
-      if (pct <= 0) { clearInterval(timerRef.current); handleTimeout(); }
+      if (pct <= 0) clearInterval(timerRef.current);
     }, 50);
     return () => clearInterval(timerRef.current);
-  }, [screen, runMode, locked, current, streak, gameOver]);
+  }, [screen, runMode, locked, current, gameOver]);
 
   // ── Rating ──
   function applyRating(q, correct, rev) {
@@ -321,30 +319,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setStats((s) => (s ? { ...s, streak: data.streak ?? s.streak, reviewedToday: (s.reviewedToday ?? 0) + 1 } : s));
     });
     return grade;
-  }
-
-  // ── Timeout: ran out of time — treated like a miss ──
-  function handleTimeout() {
-    if (locked || !current) return;
-    const q = current.q;
-    setRevealed(true);
-    setPicked(null);
-    setTimedOut(true);
-    setLocked(true);
-    setFlash('timeout-flash');
-    setTimeout(() => setFlash(''), 700);
-    applyRating(q, false, true);
-    reviewMissedRef.current.push({ ...q, pickedIdx: null });
-    setAnswered((n) => n + 1);
-    qe('answered', 1);
-    editSave((s) => { s.stats.answered += 1; });
-    setStreak(0);
-    setCombo(0);
-    sound.wrong();
-    haptics.error();
-    setShake(true);
-    setTimeout(() => setShake(false), 400);
-    if (runMode === 'survival') loseLife();
   }
 
   function loseLife() {
@@ -550,7 +524,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setStreak(0); setRunBest(0); setCombo(0); setBestCombo(0);
     setQNum(0); setAnswered(0); setCorrectN(0);
     setSessionXp(0); setSessionGems(0);
-    setGameOver(false); setTimedOut(false); setRevivesUsed(0);
+    setGameOver(false); setRevivesUsed(0);
     usedRef.current = new Set();
     lastIdxRef.current = -1;
     answersRef.current = {};
@@ -930,7 +904,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             )}
 
             <div className={`qcard ${flash}`}>
-              {timedOut && locked && <div className="timeout-banner">⏰ TIME'S UP</div>}
               {screen === 'review' && <span className="review-tag">missed — try again</span>}
               {reviewBadge && (
                 <span className={`retry-badge show ${reviewBadge}`}>

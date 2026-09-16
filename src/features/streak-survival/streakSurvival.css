@@ -815,16 +815,5 @@
 }
 @keyframes ssVignettePulse{ 0%,100%{opacity:0.4;} 50%{opacity:1;} }
 
-/* ---------- Timeout ---------- */
-.ss-root .qcard.timeout-flash{ animation:ssTimeoutGlow 0.7s ease; }
-@keyframes ssTimeoutGlow{
-  0%{ box-shadow:0 0 0 0 rgba(255,94,126,0.7); }
-  50%{ box-shadow:0 0 40px 10px rgba(255,94,126,0.25); }
-  100%{ box-shadow:0 0 0 0 rgba(255,94,126,0); }
-}
-.ss-root .timeout-banner{
-  font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--coral);
-  text-align:center; margin-bottom:10px; letter-spacing:0.08em;
-  animation:ssGoTextIn 0.4s cubic-bezier(0.2,1.4,0.4,1);
-}
+/* ---------- Revive chip (end screen) ---------- */
 .ss-root .revive-chip{ color:var(--rose); border-color:rgba(255,122,158,0.4); background:rgba(255,122,158,0.08); }
