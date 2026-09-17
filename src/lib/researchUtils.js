@@ -67,8 +67,7 @@ export function docKeyFromUrl(url) {
   return Math.abs(hash).toString(36);
 }
 
-// Local PDF reading progress: { pct, lastPage, numPages, done } | null
-// Reads the same localStorage keys PdfReader writes.
+// Local PDF reading progress: { pct, lastPage, numPages, done } | null// Reads the same localStorage keys PdfReader writes.
 export function getPdfReadingProgress(fileUrl) {
   if (!fileUrl) return null;
   try {
@@ -83,4 +82,18 @@ export function getPdfReadingProgress(fileUrl) {
   } catch {
     return null;
   }
+}
+
+// Pastel tile tints (Gizmo-style) — stable per-folder color picked by name hash.
+const TILE_TINTS = ["#FFB300", "#FF5C8A", "#4DA3FF", "#6EE787", "#B18CFF"];
+
+export function tileTintStyle(seed) {
+  let h = 0;
+  for (let i = 0; i < (seed || "").length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  const c = TILE_TINTS[Math.abs(h) % TILE_TINTS.length];
+  return {
+    background: `linear-gradient(160deg, ${c}3D, ${c}0F)`,
+    borderColor: `${c}4D`,
+    color: c,
+  };
 }

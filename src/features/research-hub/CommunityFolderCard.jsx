@@ -1,5 +1,6 @@
 import { memo, useCallback } from "react";
 import McIcon from "./McIcon.jsx";
+import { tileTintStyle } from "../../lib/researchUtils.js";
 
 const ACCENTS = ["", "acc-green", "acc-pink", "acc-blue"];
 
@@ -48,7 +49,7 @@ function CommunityFolderCard({
   return (
     <div className={`mc-c-card ${accent}`} onClick={onClick}>
       <div className="mc-c-top">
-        <div className="mc-tile">
+        <div className="mc-tile" style={tileTintStyle(folder.id || folder.name)}>
           <McIcon name="folder" />
         </div>
         <div className="mc-c-main">

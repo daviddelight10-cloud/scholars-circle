@@ -1,6 +1,7 @@
 import { memo } from "react";
 import McIcon from "./McIcon.jsx";
 import { useLongPress } from "./useLongPress.js";
+import { tileTintStyle } from "../../lib/researchUtils.js";
 
 const VISIBILITY_PILL = {
   private: { icon: "lock", label: "Private", cls: "private" },
@@ -56,7 +57,7 @@ function SpaceCard({
         </button>
       )}
 
-      <div className={`mc-tile${isPdfSpace ? " pdf" : ""}`}>
+      <div className="mc-tile" style={tileTintStyle(folder.id || folder.name)}>
         <McIcon name={isPdfSpace ? "filetext" : folder.visibility === "private" ? "folder" : "books"} />
       </div>
 
