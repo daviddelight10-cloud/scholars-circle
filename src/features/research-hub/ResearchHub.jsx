@@ -1610,7 +1610,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           </div>
           <div className="mc-top-pills">
             {fsrsStats?.streak > 0 && <span className="mc-stat-pill">🔥 {fsrsStats.streak}</span>}
-            {saveLevel > 1 && <span className="mc-stat-pill">⚡ Lv {saveLevel}</span>}
+            {saveLevel > 1 && <span className="mc-stat-pill">⚡ <span className="mc-lv-txt">Lv </span>{saveLevel}</span>}
           </div>
         </div>
         <div className="mc-search">

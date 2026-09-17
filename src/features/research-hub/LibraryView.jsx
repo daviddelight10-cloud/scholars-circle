@@ -229,10 +229,16 @@ export default function LibraryView({
         ) : (
         <>
           {/* SPACES — pinned own, saved, then the rest */}
-          {allSpaces.length > 0 && (
+          {(allSpaces.length > 0 || !search) && (
             <>
               <div className="mc-section-label">SPACES</div>
               <div className="mc-rows">
+                {!search && (
+                  <button className="mc-row mc-row-new" onClick={onCreateFolder}>
+                    <span className="mc-row-new-ic"><McIcon name="plus" /></span>
+                    <span className="mc-row-new-txt">Create new space</span>
+                  </button>
+                )}
                 {allSpaces.map((folder) => {
                   const isOwn = ownIds.has(folder.id);
                   return (
