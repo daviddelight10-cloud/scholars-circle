@@ -133,10 +133,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [librarySearch, setLibrarySearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef(null);
-  const activeQuery = activeTab === "library" ? librarySearch : search;
-  const setActiveQuery = activeTab === "library" ? setLibrarySearch : setSearch;
   const [activeTab, setActiveTab] = useState("library");
   const [communityType, setCommunityType] = useState("all"); // all | folders | pdf
+  const activeQuery = activeTab === "library" ? librarySearch : search;
+  const setActiveQuery = activeTab === "library" ? setLibrarySearch : setSearch;
   const [recycleItems, setRecycleItems] = useState([]);
   const [recycleBinBusyId, setRecycleBinBusyId] = useState(null);
   const [recycleBinOpen, setRecycleBinOpen] = useState(false);
