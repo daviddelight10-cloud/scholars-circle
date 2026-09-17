@@ -1570,10 +1570,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         )}
         <span>{ptr.isRefreshing ? "Refreshing…" : "Pull to refresh"}</span>
       </div>
-      <div className="mc-sticky-header -mx-4 mb-6 px-4 sm:-mx-6 sm:px-6">
+      <div className="mc-sticky-header -mx-4 mb-4 px-4 sm:-mx-6 sm:px-6">
         <div className="mc-header">
           <h1>My Circle</h1>
-          <p>Your personal study circle</p>
         </div>
         <div className="mc-seg">
           <button className={activeTab === "library" ? "active" : ""} onClick={() => setActiveTab("library")}>
