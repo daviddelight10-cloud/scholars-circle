@@ -84,10 +84,10 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
       </div>
 
       {attachOpen && (
-        <AttachPicker
+        <MaterialPicker
           token={token}
-          resources={myResources}
-          setResources={setMyResources}
+          cache={myResources}
+          setCache={setMyResources}
           onPick={(r) => { setAttached(r); setAttachOpen(false); }}
           onClose={() => setAttachOpen(false)}
         />
@@ -105,18 +105,34 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
   );
 }
 
-function AttachPicker({ token, resources, setResources, onPick, onClose }) {
-  const [loading, setLoading] = useState(resources.length === 0);
+// Library picker — your uploads + saved/bookmarked materials, deduped
+export function MaterialPicker({ token, cache, setCache, onPick, onClose }) {
+  const [loading, setLoading] = useState(!cache?.length);
   const [q, setQ] = useState("");
 
   useEffect(() => {
     let alive = true;
-    feedApi
-      .getMyResources({ token })
-      .then((list) => { if (alive) { setResources(list || []); setLoading(false); } })
-      .catch(() => alive && setLoading(false));
+    Promise.all([
+      feedApi.getMyResources({ token }).catch(() => []),
+      feedApi.getMyBookmarks({ token }).catch(() => []),
+    ])
+      .then(([uploads, bookmarks]) => {
+        if (!alive) return;
+        const seen = new Set();
+        const merged = [];
+        for (const r of [...(uploads || []), ...(bookmarks || [])]) {
+          if (r?.id && !seen.has(r.id)) {
+            seen.add(r.id);
+            merged.push(r);
+          }
+        }
+        setCache?.(merged);
+        setLoading(false);
+      });
     return () => { alive = false; };
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resources = cache || [];
 
   const filtered = resources.filter((r) =>
     !q || r.title?.toLowerCase().includes(q.toLowerCase()) || r.subject?.toLowerCase().includes(q.toLowerCase())
@@ -126,12 +142,12 @@ function AttachPicker({ token, resources, setResources, onPick, onClose }) {
     <div className="fd-sheet-backdrop" onClick={onClose}>
       <div className="fd-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="fd-sheet-head">
-          <b>Attach a resource</b>
+          <b>Pick a material</b>
           <button className="fd-icon-btn" onClick={onClose}>✕</button>
         </div>
         <input
           className="fd-sheet-search"
-          placeholder="Search your uploads…"
+          placeholder="Search your library…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           autoFocus
@@ -140,7 +156,7 @@ function AttachPicker({ token, resources, setResources, onPick, onClose }) {
           {loading && <div className="fd-comments-loading">Loading…</div>}
           {!loading && filtered.length === 0 && (
             <div className="fd-empty-sub" style={{ padding: 16 }}>
-              No uploads yet — upload a resource in My Space first.
+              No materials yet — upload or save resources in My Space first.
             </div>
           )}
           {filtered.slice(0, 30).map((r) => (
@@ -161,6 +177,8 @@ function AttachPicker({ token, resources, setResources, onPick, onClose }) {
 export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
+  const [material, setMaterial] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [seats, setSeats] = useState(8);
   const [busy, setBusy] = useState(false);
 
@@ -170,9 +188,10 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
     try {
       await feedApi.createPublicRoom({
         token,
-        name: name.trim() || "Focus Session",
-        subject: subject || undefined,
+        name: name.trim() || (material ? `Studying ${material.title}` : "Focus Session"),
+        subject: subject || material?.subject || undefined,
         maxSeats: seats,
+        resourceId: material?.id,
       });
       onRoomsChanged?.();
       onClose();
@@ -198,9 +217,21 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
           onChange={(e) => setName(e.target.value)}
           autoFocus
         />
+        <label className="fd-label">Material (optional)</label>
+        {material ? (
+          <div className="fd-attached" style={{ margin: "0 0 10px" }}>
+            <span className="fd-attached-icon">📄</span>
+            <span className="fd-attached-title">{material.title}</span>
+            <button className="fd-attached-x" onClick={() => setMaterial(null)}>✕</button>
+          </div>
+        ) : (
+          <button className="fd-pill" style={{ marginBottom: 10 }} onClick={() => setPickerOpen(true)}>
+            📄 Pick from your library
+          </button>
+        )}
         <label className="fd-label">Subject (optional)</label>
-        <select className="fd-sheet-input" value={subject} onChange={(e) => setSubject(e.target.value)}>
-          <option value="">Open study</option>
+        <select className="fd-sheet-input" value={subject || material?.subject || ""} onChange={(e) => setSubject(e.target.value)}>
+          <option value="">{material?.subject ? `${material.subject} (from material)` : "Open study"}</option>
           {subjects.map((s) => (
             <option key={s.id} value={s.label}>{s.label}</option>
           ))}
@@ -218,6 +249,13 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
           {busy ? "Opening…" : "Open the room"}
         </button>
       </div>
+      {pickerOpen && (
+        <MaterialPicker
+          token={token}
+          onPick={(r) => { setMaterial(r); setPickerOpen(false); }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

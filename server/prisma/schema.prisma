@@ -1498,6 +1498,7 @@ model Resource {
   voiceSessions    VoiceSession[]
   topicMatches     DocumentTopicMatch[]
   feedPosts        FeedPost[]
+  studyRooms       ClassroomStudyRoom[]
 
   @@index([contentType])
   @@index([subject])
@@ -1967,6 +1968,10 @@ model ClassroomStudyRoom {
   subject      String?
 
   focus        String?
+
+  resourceId   String?
+
+  resource     Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
 
   startedAt    DateTime @default(now())
 

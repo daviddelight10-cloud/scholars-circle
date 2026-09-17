@@ -46,6 +46,7 @@ export const feedApi = {
 
   // Resources (existing endpoints)
   getMyResources: ({ token } = {}) => req("/api/resources?mine=1", { token }),
+  getMyBookmarks: ({ token } = {}) => req("/api/resources/bookmarks", { token }),
   toggleBookmark: ({ token, resourceId, bookmarked }) =>
     req(`/api/resources/${resourceId}/bookmark`, { token, method: bookmarked ? "DELETE" : "POST" }),
   getResourceComments: ({ token, resourceId }) => req(`/api/resources/${resourceId}/comments`, { token }),
@@ -58,8 +59,8 @@ export const feedApi = {
 
   // Public study rooms — "go live with friends"
   getPublicRooms: ({ token } = {}) => req("/study-group/public-rooms", { token }),
-  createPublicRoom: ({ token, name, subject, focus, maxSeats }) =>
-    req("/study-group/public-rooms", { token, method: "POST", body: { name, subject, focus, maxSeats } }),
+  createPublicRoom: ({ token, name, subject, focus, maxSeats, resourceId }) =>
+    req("/study-group/public-rooms", { token, method: "POST", body: { name, subject, focus, maxSeats, resourceId } }),
   joinRoom: ({ token, roomId }) => req(`/study-group/study-rooms/${roomId}/join`, { token, method: "POST" }),
   leaveRoom: ({ token, roomId }) => req(`/study-group/study-rooms/${roomId}/leave`, { token, method: "POST" }),
   endRoom: ({ token, roomId }) => req(`/study-group/study-rooms/${roomId}/end`, { token, method: "POST" }),

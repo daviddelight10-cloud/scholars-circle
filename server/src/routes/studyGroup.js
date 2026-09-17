@@ -395,6 +395,7 @@ router.get("/public-rooms", requireAuth, async (req, res) => {
       where: { isPublic: true, status: "active" },
       include: {
         host: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } },
+        resource: { select: { id: true, title: true, subject: true, contentType: true, shareToken: true } },
         participants: {
           where: { leftAt: null },
           include: { user: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } } },
@@ -415,7 +416,16 @@ router.get("/public-rooms", requireAuth, async (req, res) => {
 router.post("/public-rooms", requireAuth, async (req, res) => {
   try {
     const userId = req.user.sub;
-    const { name, subject, focus, maxSeats, pomodoroMin, breakMin } = req.body || {};
+    const { name, subject, focus, maxSeats, pomodoroMin, breakMin, resourceId } = req.body || {};
+
+    let resource = null;
+    if (resourceId) {
+      resource = await prisma.resource.findUnique({
+        where: { id: resourceId },
+        select: { id: true, title: true, subject: true },
+      });
+      if (!resource) return res.status(404).json({ error: "Material not found" });
+    }
 
     const room = await prisma.classroomStudyRoom.create({
       data: {
@@ -423,8 +433,9 @@ router.post("/public-rooms", requireAuth, async (req, res) => {
         isPublic: true,
         name: name?.trim() || "Focus Session",
         hostId: userId,
-        subject: subject?.trim() || null,
+        subject: subject?.trim() || resource?.subject || null,
         focus: focus?.trim() || null,
+        resourceId: resource?.id || null,
         maxSeats: Math.min(Math.max(parseInt(maxSeats) || 8, 2), 50),
         pomodoroMin: pomodoroMin || 25,
         breakMin: breakMin || 5,
@@ -434,12 +445,32 @@ router.post("/public-rooms", requireAuth, async (req, res) => {
       },
       include: {
         host: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } },
+        resource: { select: { id: true, title: true, subject: true, contentType: true, shareToken: true } },
         participants: {
           where: { leftAt: null },
           include: { user: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } } },
         },
       },
     });
+
+    // Ping the host's circle — "went live studying X" appears in their feed
+    try {
+      const profile = await prisma.userProfile.findUnique({
+        where: { userId },
+        select: { universityId: true },
+      });
+      await prisma.feedPost.create({
+        data: {
+          authorId: userId,
+          kind: "activity",
+          text: `went live${resource ? ` studying ${resource.title}` : ` in ${room.name}`}`,
+          resourceId: resource?.id || null,
+          universityId: profile?.universityId || null,
+        },
+      });
+    } catch (err) {
+      console.warn("Go-live activity post failed:", err.message);
+    }
 
     res.status(201).json({ ...room, seatsUsed: room.participants.length });
   } catch (error) {

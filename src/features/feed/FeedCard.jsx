@@ -36,7 +36,7 @@ export function ActivityRow({ item, onOpenResource, onJoinRoom }) {
   );
 }
 
-export function RoomCard({ room, onJoin, compact }) {
+export function RoomCard({ room, onJoin, onOpenResource, compact }) {
   const seatsLeft = Math.max(0, (room.seats || room.maxSeats || 8) - (room.seatsUsed || 0));
   return (
     <div className={`fd-card fd-room ${compact ? "compact" : ""}`}>
@@ -49,6 +49,15 @@ export function RoomCard({ room, onJoin, compact }) {
         {[room.subject, room.focus, room.host?.name && `hosted by ${room.host.name}`]
           .filter(Boolean).join(" · ")}
       </div>
+      {room.resource && (
+        <button
+          className="fd-material-chip"
+          onClick={(e) => { e.stopPropagation(); room.resource.shareToken && onOpenResource?.(room.resource.shareToken); }}
+          title="Open the material they're studying"
+        >
+          📄 {room.resource.title}
+        </button>
+      )}
       {!compact && room.participants?.length > 0 && (
         <div className="fd-room-avatars">
           {room.participants.map((p, i) => (
@@ -180,7 +189,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
   }
 
   if (block.type === "room") {
-    return <RoomCard room={block.room} onJoin={() => onJoinRoom?.(block.room.id)} />;
+    return <RoomCard room={block.room} onJoin={() => onJoinRoom?.(block.room)} onOpenResource={onOpenResource} />;
   }
 
   if (block.type === "folder") {

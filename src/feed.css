@@ -475,6 +475,23 @@
 .fd-room-seats { font-size: 12px; font-weight: 700; color: var(--fd-muted); }
 .fd-room-name { font-weight: 800; font-size: 15.5px; margin-top: 6px; font-family: "Syne", "Manrope", sans-serif; }
 .fd-room-meta { font-size: 12.5px; color: var(--fd-muted); margin-top: 3px; }
+.fd-material-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  background: rgba(79, 142, 247, 0.1);
+  border: 1px solid rgba(79, 142, 247, 0.3);
+  border-radius: 999px;
+  color: var(--fd-blue);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .fd-room-avatars { display: flex; margin-top: 10px; }
 .fd-room-avatars .fd-avatar { margin-left: -7px; border: 2px solid var(--fd-bg); }
 .fd-room-avatars .fd-avatar:first-child { margin-left: 0; }

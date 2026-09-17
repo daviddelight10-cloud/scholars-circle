@@ -153,10 +153,13 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     }
   };
 
-  const handleJoinRoom = async (roomId) => {
+  const handleJoinRoom = async (roomOrId) => {
+    const room = typeof roomOrId === "string" ? { id: roomOrId } : roomOrId;
     try {
-      await feedApi.joinRoom({ token, roomId });
+      await feedApi.joinRoom({ token, roomId: room.id });
       feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {});
+      // Room is anchored on a material — open it so you study the same doc
+      if (room.resource?.shareToken) onOpenResource?.(room.resource.shareToken);
     } catch (err) {
       alert(err.message);
     }
@@ -225,9 +228,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                 <div key={r.id} className="fd-room-mini">
                   <div className="fd-room-mini-name">{r.name}</div>
                   <div className="fd-room-mini-meta">
-                    {r.subject || "Open study"} · {r.seatsUsed}/{r.maxSeats} seats
+                    {r.resource?.title || r.subject || "Open study"} · {r.seatsUsed}/{r.maxSeats} seats
                   </div>
-                  <button className="fd-join-btn" onClick={() => handleJoinRoom(r.id)}>Join</button>
+                  <button className="fd-join-btn" onClick={() => handleJoinRoom(r)}>Join</button>
                 </div>
               ))}
             </div>
@@ -365,6 +368,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
               subjects={subjects}
               onJoinRoom={handleJoinRoom}
               onJoinSession={handleJoinSession}
+              onOpenResource={onOpenResource}
               onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})}
             />
           )}
@@ -450,7 +454,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             <div className="fd-rail-card">
               <div className="fd-rail-title">Studying now</div>
               {rooms.slice(0, 4).map((r) => (
-                <RoomCard key={r.id} room={r} compact onJoin={() => handleJoinRoom(r.id)} />
+                <RoomCard key={r.id} room={r} compact onJoin={() => handleJoinRoom(r)} onOpenResource={onOpenResource} />
               ))}
             </div>
           )}
@@ -481,7 +485,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   );
 }
 
-function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onJoinSession, onRoomsChanged }) {
+function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onJoinSession, onOpenResource, onRoomsChanged }) {
   return (
     <div className="fd-live">
       <Composer
@@ -497,7 +501,7 @@ function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onJoinSessi
         <div className="fd-section">
           <DividerBlock label="Studying now" />
           {rooms.map((r) => (
-            <RoomCard key={r.id} room={r} onJoin={() => onJoinRoom(r.id)} />
+            <RoomCard key={r.id} room={r} onJoin={() => onJoinRoom(r)} onOpenResource={onOpenResource} />
           ))}
         </div>
       )}

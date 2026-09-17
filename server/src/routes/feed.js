@@ -150,6 +150,15 @@ function roomBlock(r) {
       seatsUsed: participants.length,
       pomodoroMin: r.pomodoroMin,
       host: publicUser(r.host),
+      resource: r.resource
+        ? {
+            id: r.resource.id,
+            title: r.resource.title,
+            subject: r.resource.subject,
+            contentType: r.resource.contentType,
+            shareToken: r.resource.shareToken,
+          }
+        : null,
       participants: participants.slice(0, 6).map((p) => publicUser(p.user)),
     },
   };
@@ -256,6 +265,7 @@ router.get("/", requireAuth, async (req, res) => {
         },
         include: {
           host: { select: AUTHOR_SELECT },
+          resource: { select: { id: true, title: true, subject: true, contentType: true, shareToken: true } },
           participants: {
             where: { leftAt: null },
             include: { user: { select: AUTHOR_SELECT } },

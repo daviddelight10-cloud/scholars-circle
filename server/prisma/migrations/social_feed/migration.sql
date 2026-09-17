@@ -70,4 +70,7 @@ ALTER TABLE "ClassroomStudyRoom" ADD COLUMN IF NOT EXISTS "isPublic" BOOLEAN NOT
 ALTER TABLE "ClassroomStudyRoom" ADD COLUMN IF NOT EXISTS "maxSeats" INTEGER NOT NULL DEFAULT 8;
 ALTER TABLE "ClassroomStudyRoom" ADD COLUMN IF NOT EXISTS "subject" TEXT;
 ALTER TABLE "ClassroomStudyRoom" ADD COLUMN IF NOT EXISTS "focus" TEXT;
+ALTER TABLE "ClassroomStudyRoom" ADD COLUMN IF NOT EXISTS "resourceId" TEXT;
+ALTER TABLE "ClassroomStudyRoom"
+    ADD CONSTRAINT "ClassroomStudyRoom_resourceId_fkey" FOREIGN KEY ("resourceId") REFERENCES "Resource"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 CREATE INDEX IF NOT EXISTS "ClassroomStudyRoom_isPublic_status_idx" ON "ClassroomStudyRoom"("isPublic", "status");
