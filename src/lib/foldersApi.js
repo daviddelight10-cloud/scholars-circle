@@ -80,6 +80,36 @@ export async function deleteFolder(id) {
   return res.json();
 }
 
+// ─── Recycle bin (soft delete, 30-day retention) ─────────────────────
+
+export async function getRecycleBin() {
+  const res = await authFetch(`${API_BASE}/api/folders/recycle-bin`);
+  if (!res.ok) throw new Error("Failed to load recycle bin");
+  return res.json();
+}
+
+export async function restoreFolder(id) {
+  const res = await authFetch(`${API_BASE}/api/folders/${id}/restore`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to restore folder");
+  }
+  return res.json();
+}
+
+export async function purgeFolder(id) {
+  const res = await authFetch(`${API_BASE}/api/folders/${id}/purge`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to delete folder forever");
+  }
+  return res.json();
+}
+
 // ─── Folder Bookmarks ─────────────────────────────────────────────────
 
 export async function bookmarkFolder(folderId) {

@@ -13,7 +13,7 @@ import {
   getMastery, recordPracticeSession, getMasteryColor, getMasteryEmoji,
 } from "../lib/studyHistory.js";
 import { API_BASE } from "../lib/constants";
-import { copyShareToken } from "../lib/researchUtils.js";
+import { copyShareToken, docKeyFromUrl } from "../lib/researchUtils.js";
 
 const VOICE_OPTIONS = ["Aoede", "Puck", "Charon", "Kore", "Fenrir"];
 
@@ -86,14 +86,7 @@ const PEN_WIDTHS = [1.5, 2.5, 4];
 const HIGHLIGHT_WIDTHS = [10, 16, 24];
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
-function docKeyFromUrl(url) {
-  let hash = 0;
-  for (let i = 0; i < url.length; i++) {
-    hash = ((hash << 5) - hash) + url.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(36);
-}
+// docKeyFromUrl is imported from src/lib/researchUtils.js (shared with community PDF cards)
 
 function loadStored(key, fallback) {
   try {
@@ -533,6 +526,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         if (cancelled) return;
         pdfDocRef.current = pdf;
         setNumPages(pdf.numPages);
+        // Persist page count so community PDF cards can show reading progress
+        try { saveStored(`sc_pdf_meta_${docKey}`, { numPages: pdf.numPages }); } catch {}
         const startPage = initialPage ? Math.max(1, Math.min(initialPage, pdf.numPages)) : 1;
         setCurrentPage(startPage);
         // Store first page dimensions for virtualization placeholders
@@ -1988,8 +1983,6 @@ ${extractedText}
 
   const openPageQuiz = () => {
     setPageQuizOpen(true);
-    setFsrsRatingBar(false);
-    setFsrsWholePdfRating(false);
     fetchPageQuiz();
   };
 

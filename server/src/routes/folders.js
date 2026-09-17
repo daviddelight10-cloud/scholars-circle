@@ -130,6 +130,7 @@ router.get("/community", requireAuth, async (req, res) => {
     const where = {
       ownerId: { not: userId },
       visibility: { in: ["shared", "link"] },
+      deletedAt: null,
       ...(search
         ? {
             OR: [
@@ -144,7 +145,15 @@ router.get("/community", requireAuth, async (req, res) => {
       where,
       include: {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
-        owner: { select: { id: true, username: true, role: true } },
+        owner: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+            lecturerProfile: { select: { fullName: true, title: true, department: true, institution: true, bio: true, isVerified: true } },
+            userProfile: { select: { fullName: true, level: true, programme: true, department: true, bio: true } },
+          },
+        },
         university: { select: { id: true, name: true } },
         _count: { select: { resources: true, folderBookmarks: true } },
       },
@@ -176,9 +185,9 @@ router.get("/", requireAuth, async (req, res) => {
       select: { departmentId: true },
     }).catch(() => null);
 
-    // Own folders
+    // Own folders (exclude soft-deleted)
     const ownFolders = await prisma.folder.findMany({
-      where: { ownerId: userId },
+      where: { ownerId: userId, deletedAt: null },
       include: {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
@@ -203,6 +212,7 @@ router.get("/", requireAuth, async (req, res) => {
             id: { in: sharedFolderIds },
             ownerId: { not: userId },
             visibility: "shared",
+            deletedAt: null,
           },
           include: {
             folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
@@ -220,6 +230,7 @@ router.get("/", requireAuth, async (req, res) => {
       where: { userId },
       include: {
         folder: {
+          where: { deletedAt: null },
           include: {
             folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
             owner: { select: { id: true, username: true, role: true } },
@@ -258,7 +269,7 @@ router.get("/shared/:shareToken", optionalAuth, async (req, res) => {
       },
     });
 
-    if (!folder || folder.visibility !== "link") {
+    if (!folder || folder.visibility !== "link" || folder.deletedAt) {
       return res.status(404).json({ error: "Folder not found" });
     }
 
@@ -303,6 +314,39 @@ router.get("/shared/:shareToken", optionalAuth, async (req, res) => {
   }
 });
 
+// GET /api/folders/recycle-bin — List own soft-deleted folders (auto-purges items older than 30 days)
+router.get("/recycle-bin", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Hard-delete expired folders (30-day retention)
+    await prisma.folder.deleteMany({
+      where: { ownerId: userId, deletedAt: { not: null, lt: cutoff } },
+    }).catch(() => null);
+
+    const folders = await prisma.folder.findMany({
+      where: { ownerId: userId, deletedAt: { not: null } },
+      include: {
+        folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
+        owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
+        _count: { select: { resources: true } },
+      },
+      orderBy: { deletedAt: "desc" },
+    });
+
+    const RETENTION_DAYS = 30;
+    res.json(folders.map((f) => {
+      const daysElapsed = Math.floor((Date.now() - new Date(f.deletedAt).getTime()) / 86400000);
+      return { ...f, daysElapsed, daysLeft: Math.max(0, RETENTION_DAYS - daysElapsed) };
+    }));
+  } catch (error) {
+    console.error("Error listing recycle bin:", error);
+    res.status(500).json({ error: "Failed to list recycle bin" });
+  }
+});
+
 // GET /api/folders/:id — Get folder detail with resources split into shared + mine
 router.get("/:id", requireAuth, async (req, res) => {
   try {
@@ -318,7 +362,7 @@ router.get("/:id", requireAuth, async (req, res) => {
       },
     });
 
-    if (!folder) {
+    if (!folder || folder.deletedAt) {
       return res.status(404).json({ error: "Folder not found" });
     }
 
@@ -403,7 +447,7 @@ router.get("/:id/pending", requireAuth, requireRole("TEACHER", "LECTURER"), asyn
     const userId = req.user.sub;
 
     const folder = await prisma.folder.findUnique({ where: { id } });
-    if (!folder) {
+    if (!folder || folder.deletedAt) {
       return res.status(404).json({ error: "Folder not found" });
     }
 
@@ -438,7 +482,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     const { name, courseCode, visibility, departmentIds, generateShareToken, level, semester } = req.body;
 
     const folder = await prisma.folder.findUnique({ where: { id } });
-    if (!folder) {
+    if (!folder || folder.deletedAt) {
       return res.status(404).json({ error: "Folder not found" });
     }
     if (folder.ownerId !== req.user.sub) {
@@ -503,8 +547,68 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/folders/:id — Delete folder (owner only, detaches resources)
+// DELETE /api/folders/:id — Soft delete folder (owner only, moves to recycle bin for 30 days)
 router.delete("/:id", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const folder = await prisma.folder.findUnique({ where: { id } });
+    if (!folder) {
+      return res.status(404).json({ error: "Folder not found" });
+    }
+    if (folder.ownerId !== req.user.sub) {
+      return res.status(403).json({ error: "Only the owner can delete this folder" });
+    }
+    if (folder.deletedAt) {
+      return res.status(400).json({ error: "Folder is already in the recycle bin" });
+    }
+
+    const deletedAt = new Date();
+    await prisma.folder.update({ where: { id }, data: { deletedAt } });
+
+    res.json({ success: true, deletedAt, retentionDays: 30 });
+  } catch (error) {
+    console.error("Error deleting folder:", error);
+    res.status(500).json({ error: "Failed to delete folder" });
+  }
+});
+
+// POST /api/folders/:id/restore — Restore a soft-deleted folder from the recycle bin (owner only)
+router.post("/:id/restore", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const folder = await prisma.folder.findUnique({ where: { id } });
+    if (!folder) {
+      return res.status(404).json({ error: "Folder not found" });
+    }
+    if (folder.ownerId !== req.user.sub) {
+      return res.status(403).json({ error: "Only the owner can restore this folder" });
+    }
+    if (!folder.deletedAt) {
+      return res.status(400).json({ error: "Folder is not in the recycle bin" });
+    }
+
+    const restored = await prisma.folder.update({
+      where: { id },
+      data: { deletedAt: null },
+      include: {
+        folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
+        owner: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
+        _count: { select: { resources: true } },
+      },
+    });
+
+    res.json(restored);
+  } catch (error) {
+    console.error("Error restoring folder:", error);
+    res.status(500).json({ error: "Failed to restore folder" });
+  }
+});
+
+// DELETE /api/folders/:id/purge — Hard delete folder forever (owner only)
+router.delete("/:id/purge", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -529,8 +633,8 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting folder:", error);
-    res.status(500).json({ error: "Failed to delete folder" });
+    console.error("Error purging folder:", error);
+    res.status(500).json({ error: "Failed to delete folder forever" });
   }
 });
 
@@ -541,7 +645,7 @@ router.post("/:id/bookmark", requireAuth, async (req, res) => {
     const userId = req.user.sub;
 
     const folder = await prisma.folder.findUnique({ where: { id } });
-    if (!folder) {
+    if (!folder || folder.deletedAt) {
       return res.status(404).json({ error: "Folder not found" });
     }
 

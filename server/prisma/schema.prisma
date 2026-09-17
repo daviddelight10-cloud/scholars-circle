@@ -193,6 +193,7 @@ model User {
   folders           Folder[] @relation("FolderOwner")
   folderBookmarks   FolderBookmark[]
   folderQuizAttempts FolderQuizAttempt[]
+  reports           Report[]
 
   totalXp           Int      @default(0)
 
@@ -1666,6 +1667,7 @@ model Folder {
   universityId String?
   university  University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
   shareToken  String?  @unique
+  deletedAt   DateTime? // soft delete (recycle bin) — null = active
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1678,6 +1680,7 @@ model Folder {
   @@index([ownerId])
   @@index([visibility])
   @@index([universityId])
+  @@index([deletedAt])
 }
 
 model FolderBookmark {
@@ -1720,6 +1723,23 @@ model FolderQuizAttempt {
   @@index([folderId])
   @@index([userId])
   @@index([mode])
+}
+
+// ============ CONTENT REPORTS (folders / resources) ============
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType String   // "folder" | "resource"
+  targetId   String
+  reason     String   // outdated | errors | course | spam
+  note       String?
+  status     String   @default("open") // open | reviewed | dismissed
+  createdAt  DateTime @default(now())
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([targetType, targetId])
+  @@index([status])
 }
 
 // ============ FSRS PAGE REVIEW QUESTIONS (AI-generated) ============

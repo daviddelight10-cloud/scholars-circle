@@ -56,3 +56,31 @@ export function formatViewCount(count) {
   }
   return count.toString();
 }
+
+// Stable storage key for a document URL (shared with PdfReader)
+export function docKeyFromUrl(url) {
+  let hash = 0;
+  for (let i = 0; i < (url || "").length; i++) {
+    hash = ((hash << 5) - hash) + (url || "").charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Local PDF reading progress: { pct, lastPage, numPages, done } | null
+// Reads the same localStorage keys PdfReader writes.
+export function getPdfReadingProgress(fileUrl) {
+  if (!fileUrl) return null;
+  try {
+    const docKey = docKeyFromUrl(fileUrl);
+    const meta = JSON.parse(localStorage.getItem(`sc_pdf_meta_${docKey}`) || "null");
+    const lastPage = JSON.parse(localStorage.getItem(`sc_pdf_lastpage_${docKey}`) || "null");
+    const numPages = meta?.numPages || 0;
+    if (!numPages || !lastPage || lastPage <= 1) return null;
+    const pct = Math.min(100, Math.round((lastPage / numPages) * 100));
+    if (pct <= 0) return null;
+    return { pct, lastPage, numPages, done: pct >= 98 };
+  } catch {
+    return null;
+  }
+}

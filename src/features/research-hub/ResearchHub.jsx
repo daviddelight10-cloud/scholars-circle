@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
 import { copyShareToken } from "../../lib/researchUtils";
-import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark } from "../../lib/foldersApi";
+import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, restoreFolder as apiRestoreFolder, purgeFolder as apiPurgeFolder, getRecycleBin, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark } from "../../lib/foldersApi";
+import { submitReport } from "../../lib/reportsApi.js";
 import { getMyProfile } from "../../lib/profileApi.js";
 import { setUserDepartment } from "../../lib/departments.js";
 import { haptics } from "../../lib/haptics";
@@ -10,25 +11,28 @@ import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
 
-import ResourceCard from "./ResourceCard";
-import MaterialCard from "./MaterialCard.jsx";
 import { categorizeResources } from "./lib/categorize.js";
-import FilterBar from "./FilterBar";
 import FolderDetailView from "./FolderDetailView";
 import UploadWizard from "./UploadWizard";
 import BookmarkSpacePicker from "./BookmarkSpacePicker";
 import CreateFolderModal from "./CreateFolderModal";
 import LibraryView from "./LibraryView.jsx";
 import DepartmentView from "./DepartmentView.jsx";
-import SubTabBar from "./SubTabBar.jsx";
 import EmptyState from "./EmptyState.jsx";
-import { FolderCard } from "./FolderGrid.jsx";
 import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
 import SpacedReviewSession from "../SpacedReviewSession.jsx";
 import AdaptiveDrillSession from "../AdaptiveDrillSession.jsx";
 import ExamSimulationRunner from "../ExamSimulationRunner.jsx";
 import McqFolderRunner from "../McqFolderRunner.jsx";
+import McIcon from "./McIcon.jsx";
+import CircleSheet from "./CircleSheet.jsx";
+import CardActionSheet from "./CardActionSheet.jsx";
+import ReportSheet from "./ReportSheet.jsx";
+import ProfileSheet from "./ProfileSheet.jsx";
+import RecycleBinSheet from "./RecycleBinSheet.jsx";
+import CommunityFolderCard from "./CommunityFolderCard.jsx";
+import PdfCard from "./PdfCard.jsx";
 import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
 import { getGuidedProgressIndex } from "../../lib/studyCache.js";
 import "../../research-hub.css";
@@ -36,23 +40,30 @@ import "../../research-hub.css";
 const CACHE_TTL = 5 * 60 * 1000;
 
 const communityTabs = [
-  { key: "folders", label: "Folders", icon: "📁", color: "#8B5CF6" },
-  { key: "materials", label: "Materials", icon: "📄", color: "#F5A623" },
-  { key: "pdf", label: "PDF", icon: "📕", color: "#EF4444" },
-  { key: "mcq", label: "MCQ", icon: "✎", color: "#F5A623" },
-  { key: "flashcard", label: "Flashcard", icon: "🎴", color: "#F5A623" },
+  { key: "all", label: "All", icon: "grid" },
+  { key: "folders", label: "Folders", icon: "folder" },
+  { key: "pdf", label: "PDF", icon: "filetext" },
 ];
 
 const communityEmptyStates = {
-  materials: { icon: "📄", title: "No materials yet", message: "Be the first to share study materials for your course." },
   pdf: { icon: "📕", title: "No PDFs found", message: "Try adjusting your filters or search." },
-  mcq: { icon: "✎", title: "No MCQ sets yet", message: "Generate MCQs from a material or upload your own." },
-  flashcard: { icon: "🎴", title: "No flashcard decks yet", message: "Generate flashcards from a material or upload your own." },
   folders: { icon: "📁", title: "No shared folders yet", message: "When teachers create shared folders, they'll appear here for you to bookmark." },
 };
 
 const emptyMessages = {
   "public": "No resources found. Try a different search or clear filters.",
+};
+
+const ownerDisplayName = (f) =>
+  f.owner?.lecturerProfile?.fullName || f.owner?.userProfile?.fullName || f.owner?.username || "";
+
+const folderMatchesSearch = (f, q) => {
+  const hay = [f.name, f.courseCode].filter(Boolean).join(" ").toLowerCase();
+  return hay.includes(q);
+};
+
+const ownerMatchesSearch = (f, q) => {
+  return (ownerDisplayName(f) || "").toLowerCase().includes(q);
 };
 
 export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, activeSemester } = {}) {
@@ -81,12 +92,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   });
   const [resourcesError, setResourcesError] = useState(null);
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("folders");
-  const [sortBy, setSortBy] = useState("recent");
   const [folderFilter, setFolderFilter] = useState("all"); // all | my-uni | my-dept | trending
   const [activeTab, setActiveTab] = useState("library");
   const [communitySubTab, setCommunitySubTab] = useState("all");
-  const [toast, setToast] = useState(null);
+  const [communityType, setCommunityType] = useState("folders"); // all | folders | pdf
+  const [lecturersOnly, setLecturersOnly] = useState(false);
+  const [resultFilter, setResultFilter] = useState("all"); // search result filter: all | folders | pdf | people
+  const [recycleItems, setRecycleItems] = useState([]);
+  const [recycleBinBusyId, setRecycleBinBusyId] = useState(null);
+  const [recycleBinOpen, setRecycleBinOpen] = useState(false);
+  const [actionTarget, setActionTarget] = useState(null); // { id, name, kind, type, shareToken }
+  const [showReport, setShowReport] = useState(false);
+  const [profileOwner, setProfileOwner] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // own space pending soft delete
+  const [toast, setToast] = useState(null); // { msg, icon, actLabel, actFn }
+  const toastTimer = useRef(null);
   const [viewerToken, setViewerToken] = useState(null);
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [bookmarkFolderMap, setBookmarkFolderMap] = useState({});
@@ -471,10 +491,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     await fetchFolderDetail(folderDetail.id);
   };
 
-  const showToast = (message) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 2200);
+  const showToast = (message, opts = {}) => {
+    setToast({ msg: message, icon: opts.icon || "check", actLabel: opts.actLabel || null, actFn: opts.actFn || null });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), opts.actLabel ? 4500 : 2400);
   };
+
+  const dismissToast = useCallback(() => {
+    clearTimeout(toastTimer.current);
+    setToast(null);
+  }, []);
+
+  const runToastAction = useCallback(() => {
+    const fn = toast?.actFn;
+    dismissToast();
+    if (fn) fn();
+  }, [toast, dismissToast]);
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) { showToast("Folder name required"); return; }
@@ -516,14 +548,165 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   };
 
   const handleDeleteFolder = async (folderId) => {
-    if (!confirm("Delete this folder? Resources inside will remain but lose folder association.")) return;
+    if (!confirm("Move this folder to the Recycle Bin? You can restore it for 30 days.")) return;
     try {
       await apiDeleteFolder(folderId);
       setFolders((prev) => ({ ...prev, own: (prev.own || []).filter((f) => f.id !== folderId) }));
       if (activeFolder === folderId) { setActiveFolder(null); setFolderDetail(null); }
-      showToast("Folder deleted");
+      fetchRecycleBinData();
+      showToast("Folder moved to the Recycle Bin", { icon: "trash" });
     } catch {
       showToast("Failed to delete folder");
+    }
+  };
+
+  // ── Recycle bin (30-day soft delete) ──────────────────────────────────
+  const fetchRecycleBinData = useCallback(async () => {
+    try {
+      const items = await getRecycleBin();
+      setRecycleItems(Array.isArray(items) ? items : []);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchRecycleBinData();
+  }, [fetchRecycleBinData]);
+
+  const openRecycleBin = useCallback(() => {
+    fetchRecycleBinData();
+    setRecycleBinOpen(true);
+  }, [fetchRecycleBinData]);
+
+  const openProfile = useCallback((owner) => {
+    haptics.light();
+    setProfileOwner(owner);
+  }, []);
+
+  // Reset the search result filter when the search is cleared
+  useEffect(() => {
+    if (!search) setResultFilter("all");
+  }, [search]);
+
+  const requestSpaceDelete = useCallback((folder) => {
+    haptics.medium();
+    setDeleteTarget(folder);
+  }, []);
+
+  const confirmSpaceDelete = async () => {
+    const folder = deleteTarget;
+    setDeleteTarget(null);
+    if (!folder) return;
+    try {
+      await apiDeleteFolder(folder.id);
+      setFolders((prev) => ({ ...prev, own: (prev.own || []).filter((f) => f.id !== folder.id) }));
+      fetchRecycleBinData();
+      showToast(`"${folder.name}" moved to bin`, {
+        icon: "trash",
+        actLabel: "Undo",
+        actFn: async () => {
+          try {
+            await apiRestoreFolder(folder.id);
+            setFolders((prev) => ({ ...prev, own: [folder, ...(prev.own || [])] }));
+            fetchRecycleBinData();
+          } catch {
+            showToast("Failed to restore folder");
+          }
+        },
+      });
+    } catch (err) {
+      showToast(err.message || "Failed to delete folder");
+    }
+  };
+
+  const handleRestoreTrash = async (item) => {
+    setRecycleBinBusyId(item.id);
+    try {
+      const restored = await apiRestoreFolder(item.id);
+      setFolders((prev) => ({ ...prev, own: [restored, ...(prev.own || [])] }));
+      setRecycleItems((prev) => prev.filter((t) => t.id !== item.id));
+      showToast(`Restored "${item.name}"`, { icon: "check" });
+    } catch {
+      showToast("Failed to restore folder");
+    } finally {
+      setRecycleBinBusyId(null);
+    }
+  };
+
+  const handlePurgeTrash = async (item) => {
+    setRecycleBinBusyId(item.id);
+    try {
+      await apiPurgeFolder(item.id);
+      setRecycleItems((prev) => prev.filter((t) => t.id !== item.id));
+      showToast("Deleted forever", { icon: "trash" });
+    } catch {
+      showToast("Failed to delete folder");
+    } finally {
+      setRecycleBinBusyId(null);
+    }
+  };
+
+  // ── Card actions (⋮): share / copy link / report ─────────────────────
+  const openCardActions = useCallback((item) => {
+    const isFolder = item.visibility != null;
+    setActionTarget({
+      id: item.id,
+      name: isFolder ? item.name : item.title,
+      kind: isFolder ? "Folder" : "PDF document",
+      type: isFolder ? "folder" : "resource",
+      shareToken: item.shareToken,
+    });
+  }, []);
+
+  const cardActionUrl = (t) => {
+    if (!t) return window.location.origin;
+    return t.type === "folder"
+      ? `${window.location.origin}/folders/${t.shareToken || ""}`
+      : `${window.location.origin}/resources/${t.shareToken || ""}`;
+  };
+
+  const handleActionShare = async () => {
+    const t = actionTarget;
+    setActionTarget(null);
+    if (!t) return;
+    const url = cardActionUrl(t);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: t.name, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        showToast("Link copied to clipboard", { icon: "link" });
+      }
+    } catch {
+      // user cancelled share — no-op
+    }
+  };
+
+  const handleActionCopyLink = async () => {
+    const t = actionTarget;
+    setActionTarget(null);
+    if (!t) return;
+    try {
+      await navigator.clipboard.writeText(cardActionUrl(t));
+      showToast("Link copied to clipboard", { icon: "link" });
+    } catch {
+      showToast("Could not copy link");
+    }
+  };
+
+  const handleActionReport = () => {
+    if (!actionTarget) return;
+    setShowReport(true);
+  };
+
+  const handleReportSubmit = async ({ target, reason, note }) => {
+    try {
+      await submitReport({ targetType: target.type, targetId: target.id, reason, note });
+      setActionTarget(null);
+      setShowReport(false);
+      showToast("Report received — our team will review it. Thank you!", { icon: "check" });
+    } catch (err) {
+      showToast(err.message || "Failed to submit report");
+      throw err;
     }
   };
 
@@ -1133,75 +1316,69 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         const aTier = (aSameUni && aSameLevel) ? 1 : aSameUni ? 2 : aSameLevel ? 3 : 4;
         const bTier = (bSameUni && bSameLevel) ? 1 : bSameUni ? 2 : bSameLevel ? 3 : 4;
         if (aTier !== bTier) return aTier - bTier;
-        if (sortBy === "views") return (b.viewCount || 0) - (a.viewCount || 0);
-        if (sortBy === "bookmarks") return (b._count?.bookmarks || 0) - (a._count?.bookmarks || 0);
         return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
       });
     } else {
-      if (sortBy === "views") sorted.sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0));
-      else if (sortBy === "recent") sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-      else if (sortBy === "bookmarks") sorted.sort((a, b) => (b._count?.bookmarks || 0) - (a._count?.bookmarks || 0));
+      sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     }
     return sorted;
-  }, [tabResources, search, filters, sortBy, userProfile]);
+  }, [tabResources, search, filters, userProfile]);
 
-  // Compute relevance tier per resource for badges + section headers
-  const resourceTiers = useMemo(() => {
-    const userUniId = userProfile?.universityId || userProfile?.university?.id;
-    const userLevel = userProfile?.level;
-    const tierMap = {};
-    for (const r of visibleResources) {
-      const sameUni = userUniId && r.universityId && String(r.universityId) === String(userUniId);
-      const sameLevel = userLevel && r.level === userLevel;
-      tierMap[r.id] = (sameUni && sameLevel) ? 1 : sameUni ? 2 : sameLevel ? 3 : 4;
-    }
-    return tierMap;
-  }, [visibleResources, userProfile]);
-
-  // Categorize community resources for the new tab system
+  // Categorize community resources (PDFs for the community tab)
   const communityCategorized = useMemo(() => {
-    if (activeTab !== "community") return { materials: [], pdfs: [], mcqs: [], flashcards: [], counts: { materials: 0, pdf: 0, mcq: 0, flashcard: 0 } };
+    if (activeTab !== "community") return { pdfs: [], counts: { pdf: 0 } };
     const cats = categorizeResources(visibleResources);
     const pdfs = cats.materials.filter((r) => r.contentType === "pdf");
     return {
-      materials: cats.materials,
       pdfs,
-      mcqs: cats.mcqs,
-      flashcards: cats.flashcards,
-      counts: {
-        materials: cats.materials.length,
-        pdf: pdfs.length,
-        mcq: cats.mcqs.length,
-        flashcard: cats.flashcards.length,
-      },
+      counts: { pdf: pdfs.length },
     };
   }, [visibleResources, activeTab]);
 
-  // Filter + group community folders
+  // Lecturer-owned folders (YOUR LECTURERS section)
+  const lecturerFolderList = useMemo(() => {
+    return communityFolders.filter((f) => f.owner?.role === "LECTURER" || f.owner?.role === "TEACHER");
+  }, [communityFolders]);
+
+  // PDFs for the community tab (scoped + searched)
+  const communityPdfs = useMemo(() => {
+    let list = communityCategorized.pdfs;
+    const userUniId = userProfile?.universityId || userProfile?.university?.id;
+    if (!search && folderFilter === "my-uni" && userUniId) {
+      list = list.filter((r) => r.universityId && String(r.universityId) === String(userUniId));
+    }
+    if (folderFilter === "trending") {
+      list = [...list].sort(
+        (a, b) => ((b._count?.bookmarks || 0) - (a._count?.bookmarks || 0)) || ((b.viewCount || 0) - (a.viewCount || 0))
+      );
+    }
+    return list;
+  }, [communityCategorized, folderFilter, search, userProfile]);
+
+  // Filter + group community folders (non-lecturer, scoped/searched)
   const communityFolderSections = useMemo(() => {
     const userUniId = userProfile?.universityId || userProfile?.university?.id;
-    const userDeptId = userDept?.departmentId;
-    const arr = [...communityFolders];
+    const arr = communityFolders.filter((f) => !(f.owner?.role === "LECTURER" || f.owner?.role === "TEACHER"));
 
-    // Apply filter
     let filtered = arr;
-    if (folderFilter === "my-uni") {
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = arr.filter((f) => folderMatchesSearch(f, q));
+    } else if (folderFilter === "my-uni") {
       filtered = arr.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
-    } else if (folderFilter === "my-dept") {
-      filtered = arr.filter((f) => (f.folderDepts || []).some((fd) => String(fd.department?.id) === String(userDeptId)));
     } else if (folderFilter === "trending") {
       filtered = arr.filter((f) => (f._count?.folderBookmarks || 0) >= 3);
     }
 
     // Sort by bookmarks desc, then recent
-    filtered.sort((a, b) => {
+    filtered = [...filtered].sort((a, b) => {
       const bmDiff = (b._count?.folderBookmarks || 0) - (a._count?.folderBookmarks || 0);
       if (bmDiff !== 0) return bmDiff;
       return new Date(b.updatedAt) - new Date(a.updatedAt);
     });
 
-    // Group into sections (only for "all" filter)
-    if (folderFilter === "all" && userUniId) {
+    // Group into sections (only for "all" filter when not searching)
+    if (!search && folderFilter === "all" && userUniId) {
       const fromUni = filtered.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
       const popular = filtered.filter((f) => (f._count?.folderBookmarks || 0) >= 5 && !(f.university?.id && String(f.university.id) === String(userUniId)));
       const fromUniIds = new Set(fromUni.map((f) => f.id));
@@ -1216,25 +1393,54 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
 
     return [{ label: null, folders: filtered }];
-  }, [communityFolders, folderFilter, userProfile, userDept]);
+  }, [communityFolders, folderFilter, search, userProfile]);
 
-  // Group resources by tier for section headers
-  const communitySections = useMemo(() => {
-    if (activeTab !== "community" || activeFilter !== "materials") return [];
-    const sections = [
-      { tier: 1, label: "From your university", items: [] },
-      { tier: 2, label: null, items: [] }, // merged with tier 1
-      { tier: 3, label: "Your level, other schools", items: [] },
-      { tier: 4, label: "More from the community", items: [] },
-    ];
-    for (const r of communityCategorized.materials) {
-      const tier = resourceTiers[r.id] || 4;
-      if (tier === 1 || tier === 2) sections[0].items.push(r);
-      else if (tier === 3) sections[2].items.push(r);
-      else sections[3].items.push(r);
+  // Lecturers section (scoped/searched)
+  const lecturerSections = useMemo(() => {
+    const userUniId = userProfile?.universityId || userProfile?.university?.id;
+    let filtered = lecturerFolderList;
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = lecturerFolderList.filter((f) => folderMatchesSearch(f, q) || ownerMatchesSearch(f, q));
+    } else if (folderFilter === "my-uni") {
+      filtered = lecturerFolderList.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
     }
-    return sections.filter((s) => s.items.length > 0);
-  }, [communityCategorized, resourceTiers, activeTab, activeFilter]);
+    return [...filtered].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  }, [lecturerFolderList, folderFilter, search, userProfile]);
+
+  // People matches (folders owned by people whose name matches the search)
+  const peopleMatches = useMemo(() => {
+    if (!search) return [];
+    const q = search.toLowerCase();
+    return communityFolders.filter((f) => ownerMatchesSearch(f, q) && !folderMatchesSearch(f, q));
+  }, [communityFolders, search]);
+
+  // Search result counts for the results bar
+  const searchCounts = useMemo(() => {
+    if (!search) return null;
+    const q = search.toLowerCase();
+    const folders = communityFolders.filter((f) => folderMatchesSearch(f, q));
+    const pdfs = communityPdfs.filter((r) =>
+      (r.title || "").toLowerCase().includes(q) || (r.subject || "").toLowerCase().includes(q)
+    );
+    const people = peopleMatches.length;
+    return { all: folders.length + pdfs.length + people, folders: folders.length, pdfs: pdfs.length, people };
+  }, [search, communityFolders, communityPdfs, peopleMatches]);
+
+  // Filtered PDF list honoring search + result filter
+  const visiblePdfs = useMemo(() => {
+    if (!search) return communityPdfs;
+    const q = search.toLowerCase();
+    return communityPdfs.filter((r) =>
+      (r.title || "").toLowerCase().includes(q) || (r.subject || "").toLowerCase().includes(q)
+    );
+  }, [communityPdfs, search]);
+
+  // Folders owned by the profile-sheet subject
+  const profileFolders = useMemo(() => {
+    if (!profileOwner) return [];
+    return communityFolders.filter((f) => f.owner?.id === profileOwner.id);
+  }, [communityFolders, profileOwner]);
 
   const uploadWizard = (
     <UploadWizard
@@ -1277,8 +1483,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       onCreateFolder={() => { setShowBookmarkPicker(false); setShowCreateFolder(true); }}
     />
   );
-
-  const communityResources = useMemo(() => resources.filter((r) => r.status !== "rejected"), [resources]);
 
   if (sessionMode) {
     if (sessionMode.type === "spaced") {
@@ -1357,7 +1561,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }
 
   return (
-    <div ref={ptr.ref} className="ptr-container mx-auto max-w-[1200px] p-4 sm:p-6">
+    <div ref={ptr.ref} className="ptr-container mc-root mx-auto max-w-[1200px] p-4 sm:p-6">
       <div style={ptr.indicatorStyle} className="ptr-indicator">
         {ptr.showSpinner ? (
           <div className="ptr-spinner" />
@@ -1367,24 +1571,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         <span>{ptr.isRefreshing ? "Refreshing…" : "Pull to refresh"}</span>
       </div>
       <div className="mc-sticky-header -mx-4 mb-6 px-4 sm:-mx-6 sm:px-6">
-        <div className="flex flex-col items-center pt-2 text-center">
-          <h1 className="text-gradient-gold text-2xl font-extrabold tracking-tight sm:text-3xl">My Circle</h1>
-          <p className="mt-1 text-[13px] text-hub-text-dim">Your personal study circle</p>
+        <div className="mc-header">
+          <h1>My Circle</h1>
+          <p>Your personal study circle</p>
         </div>
-        <div className="sc-tabrow flex justify-center gap-2 overflow-x-auto pb-2 pt-3">
-        {[["library", "📚 My Space"], ["community", "🌐 Community"]].map(([key, label]) => (
-          <button key={key} onClick={() => setActiveTab(key)} className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${
-            activeTab === key
-              ? "border border-gold-border bg-gold-dim font-bold text-gold"
-              : "border border-hub-border bg-hub-bg text-hub-text-dim hover:bg-hub-surface-hover hover:text-hub-text-muted"
-          }`}>
-            {label}
-            {key === "library" && fsrsStats && fsrsStats.dueCount > 0 && (
-              <span className="due-pulse rounded-full border border-coral-300 bg-coral-100 px-2 py-0.5 text-[10px] font-bold text-coral-400">{fsrsStats.dueCount}</span>
+        <div className="mc-seg">
+          <button className={activeTab === "library" ? "active" : ""} onClick={() => setActiveTab("library")}>
+            <McIcon name="books" />MY SPACE
+            {fsrsStats && fsrsStats.dueCount > 0 && (
+              <span className="mc-count">{fsrsStats.dueCount}</span>
             )}
           </button>
-        ))}
-      </div>
+          <button className={activeTab === "community" ? "active" : ""} onClick={() => setActiveTab("community")}>
+            <McIcon name="globe" />COMMUNITY
+          </button>
+        </div>
+        <div className="mc-glow-line" />
       </div>
 
       {activeTab === "library" ? (
@@ -1407,17 +1609,64 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           folderBookmarkedIds={folderBookmarkedIds}
           folderBookmarkBusyId={folderBookmarkBusyId}
           onToggleFolderBookmark={handleToggleFolderBookmark}
+          onOpenRecycleBin={openRecycleBin}
+          recycleCount={recycleItems.length}
+          onRequestDeleteSpace={requestSpaceDelete}
         />
       ) : (
-        <>
-          <SubTabBar
-            tabs={[
-              ["all", "All Resources"],
-              ["department", "🏛️ My Department", folders?.shared?.length || 0],
-            ]}
-            activeTab={communitySubTab}
-            onTabChange={setCommunitySubTab}
-          />
+        <div className="mc-root">
+          {/* Search pill */}
+          {communitySubTab !== "department" && (
+            <div className="mc-search">
+              <span className="mc-s-ic"><McIcon name="search" /></span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  if (lecturersOnly) setLecturersOnly(false);
+                }}
+                placeholder="Search materials, people, course codes…"
+              />
+            </div>
+          )}
+
+          {/* Scope row */}
+          <div className="mc-scope-row">
+            <button
+              className={`mc-chip${folderFilter === "my-uni" ? " active" : ""}`}
+              onClick={() => {
+                setFolderFilter(folderFilter === "my-uni" ? "all" : "my-uni");
+                if (communitySubTab === "department") setCommunitySubTab("all");
+              }}
+            >
+              <McIcon name="grad" />My University
+            </button>
+            <button
+              className={`mc-chip${communitySubTab === "department" ? " active" : ""}`}
+              onClick={() => setCommunitySubTab(communitySubTab === "department" ? "all" : "department")}
+            >
+              <McIcon name="landmark" />My Department
+            </button>
+            <button
+              className={`mc-chip${folderFilter === "trending" ? " active" : ""}`}
+              onClick={() => {
+                setFolderFilter(folderFilter === "trending" ? "all" : "trending");
+                if (communitySubTab === "department") setCommunitySubTab("all");
+              }}
+            >
+              <McIcon name="flame" />Trending
+            </button>
+            <button
+              className={`mc-chip lec${lecturersOnly ? " active" : ""}`}
+              onClick={() => {
+                setLecturersOnly((v) => !v);
+                if (communitySubTab === "department") setCommunitySubTab("all");
+              }}
+            >
+              <McIcon name="user" />Lecturers
+            </button>
+          </div>
 
           {communitySubTab === "department" ? (
             <DepartmentView
@@ -1439,224 +1688,255 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             />
           ) : (
             <>
-          {/* Sticky search + sort row */}
-          <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-hub-border bg-hub-surface/95 px-3 py-2.5 backdrop-blur">
-            <div className="flex min-h-[40px] flex-1 items-center gap-3 rounded-full border border-hub-border bg-hub-bg px-4 py-2">
-              <span className="text-lg text-hub-text-dim">🔍</span>
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search materials, MCQs, flashcards…"
-                className="flex-1 border-none bg-none text-sm text-hub-text outline-none placeholder:text-hub-text-dim" />
-            </div>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-              className={`min-h-[40px] rounded-lg border border-hub-border bg-hub-bg px-3 py-2 text-[12px] text-hub-text outline-none cursor-pointer ${activeFilter === "folders" ? "hidden" : ""}`}>
-              <option value="recent">Most recent</option>
-              <option value="views">Most viewed</option>
-              <option value="bookmarks">Most saved</option>
-            </select>
-          </div>
-
-          <FilterBar filters={filters} setFilters={setFilters} resources={communityResources} />
-
-          {/* Segmented control — Materials / PDF / MCQ / Flashcard */}
-          <div className="mb-6 flex gap-1 rounded-xl border border-hub-border bg-hub-bg p-1">
-            {communityTabs.map((tab) => {
-              const count = tab.key === "folders" ? communityFolders.length : (communityCategorized.counts[tab.key] || 0);
-              const isActive = activeFilter === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveFilter(tab.key)}
-                  className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg px-2 py-2 text-[11px] font-bold transition-all active:scale-95 ${
-                    isActive ? "bg-hub-surface text-hub-text" : "text-hub-text-muted hover:text-hub-text"
-                  }`}
-                  style={isActive ? { boxShadow: `inset 0 -2px 0 ${tab.color}` } : {}}
-                >
-                  <span className="text-base">{tab.icon}</span>
-                  <span>{tab.label}</span>
-                  {count > 0 && (
-                    <span className="text-[9px] font-semibold" style={{ color: tab.color, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {activeFilter === "folders" ? (
-            <>
-              {/* Filter pills */}
-              <div className="mb-4 flex flex-wrap gap-2">
-                {[
-                  { key: "all", label: "All", icon: "📋" },
-                  { key: "my-uni", label: "My University", icon: "🏫" },
-                  { key: "my-dept", label: "My Department", icon: "🏛️" },
-                  { key: "trending", label: "Trending", icon: "🔥" },
-                ].map((pill) => (
+              {/* Type chips */}
+              <div className={`mc-chips${search || lecturersOnly ? " dimmed" : ""}`}>
+                {communityTabs.map((tab) => (
                   <button
-                    key={pill.key}
-                    onClick={() => setFolderFilter(pill.key)}
-                    className={`rounded-full px-4 py-1.5 text-[12px] font-semibold transition-all active:scale-95 ${
-                      folderFilter === pill.key
-                        ? "bg-gold text-[#0a0a0a]"
-                        : "border border-hub-border bg-hub-surface text-hub-text-muted hover:text-hub-text"
-                    }`}
+                    key={tab.key}
+                    className={`mc-chip${communityType === tab.key ? " active" : ""}`}
+                    onClick={() => setCommunityType(tab.key)}
                   >
-                    {pill.icon} {pill.label}
+                    <McIcon name={tab.icon} />{tab.label}
+                    {tab.key === "folders" && !search && communityFolders.length > 0 && (
+                      <span className="n">{communityFolders.length}</span>
+                    )}
+                    {tab.key === "pdf" && !search && (communityCategorized.counts.pdf || 0) > 0 && (
+                      <span className="n">{communityCategorized.counts.pdf}</span>
+                    )}
                   </button>
                 ))}
               </div>
 
-              {communityFolderSections.length === 0 || communityFolderSections.every((s) => s.folders.length === 0) ? (
-                <EmptyState icon={communityEmptyStates.folders.icon} title={communityEmptyStates.folders.title} message={communityEmptyStates.folders.message} />
-              ) : (
-                <div className="space-y-6">
-                  {communityFolderSections.map((section, si) => (
-                    <div key={si}>
-                      {section.label && (
-                        <div className="mb-3 flex items-center gap-2">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">{section.label}</span>
-                          <span className="h-px flex-1 bg-hub-border" />
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {section.folders.map((folder, i) => (
-                          <FolderCard
-                            key={folder.id}
-                            folder={folder}
-                            shared
-                            onClick={() => openFolder(folder.id)}
-                            index={i}
-                            isBookmarked={folderBookmarkedIds.has(folder.id)}
-                            bookmarkBusy={folderBookmarkBusyId === folder.id}
-                            onToggleBookmark={handleToggleFolderBookmark}
-                          />
-                        ))}
-                      </div>
-                    </div>
+              {/* Search results bar */}
+              {search && searchCounts && (
+                <div className="mc-chips">
+                  <span className="mc-s-label">
+                    <b>{searchCounts.all}</b> results for "{search}"
+                  </span>
+                  {[
+                    ["all", "All", searchCounts.all],
+                    ["folders", "Folders", searchCounts.folders],
+                    ["pdf", "PDFs", searchCounts.pdfs],
+                    ["people", "People", searchCounts.people],
+                  ].map(([key, label, count]) => (
+                    <button
+                      key={key}
+                      className={`mc-chip rc${resultFilter === key ? " active" : ""}`}
+                      onClick={() => setResultFilter(key)}
+                    >
+                      {label} <span className="n">{count}</span>
+                    </button>
                   ))}
                 </div>
               )}
-            </>
-          ) : resourcesLoading ? (
-            <LoadingState grid count={4} />
-          ) : resourcesError ? (
-            <ErrorState message={resourcesError} onRetry={fetchResources} />
-          ) : activeFilter === "materials" ? (
-            communityCategorized.materials.length === 0 ? (
-              <EmptyState icon={communityEmptyStates.materials.icon} title={communityEmptyStates.materials.title} message={communityEmptyStates.materials.message} />
-            ) : (
-              <div className="space-y-6">
-                {communitySections.map((section, si) => (
-                  <div key={si}>
-                    {section.label && (
-                      <div className="mb-3 flex items-center gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">{section.label}</span>
-                        <span className="h-px flex-1 bg-hub-border" />
+
+              <div className="mc-content">
+                {lecturersOnly ? (
+                  <>
+                    <div className="mc-section-label">YOUR LECTURERS</div>
+                    <p className="mc-section-hint">
+                      Folders uploaded directly by your course lecturers. Tap a name to view their profile.
+                    </p>
+                    {lecturerSections.length === 0 ? (
+                      <EmptyState icon="🧑‍🏫" title="No lecturer folders yet" message="When lecturers share folders, they'll appear here." />
+                    ) : (
+                      <div className="mc-folders-grid">
+                        {lecturerSections.map((folder, i) => (
+                          <CommunityFolderCard
+                            key={folder.id}
+                            folder={folder}
+                            index={i}
+                            onClick={() => openFolder(folder.id)}
+                            isBookmarked={folderBookmarkedIds.has(folder.id)}
+                            bookmarkBusy={folderBookmarkBusyId === folder.id}
+                            onToggleBookmark={handleToggleFolderBookmark}
+                            onOpenProfile={openProfile}
+                            onOpenActions={openCardActions}
+                          />
+                        ))}
                       </div>
                     )}
-                    <div className="cs-grid grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))" }}>
-                      {section.items.map((file, i) => (
-                        <MaterialCard
-                          key={file.id}
-                          file={file}
-                          isBookmarked={bookmarkedIds.has(file.id)}
-                          bookmarkBusy={bookmarkBusyId === file.id}
-                          onOpen={handleOpen}
-                          onToggleBookmark={toggleBookmark}
-                          onShare={handleShare}
-                          onGenerate={handleGenerateFromMaterial}
-                          generatingId={generatingId}
-                          genProgress={genProgress}
-                          index={i}
-                          showBookmark={true}
-                          relevanceTier={resourceTiers[file.id] || null}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  </>
+                ) : search ? (
+                  <>
+                    {(resultFilter === "all" || resultFilter === "folders") && (communityFolderSections[0]?.folders || []).length > 0 && (
+                      <>
+                        <div className="mc-section-label">FOLDERS</div>
+                        <div className="mc-folders-grid">
+                          {communityFolderSections[0].folders.map((folder, i) => (
+                            <CommunityFolderCard
+                              key={folder.id}
+                              folder={folder}
+                              index={i}
+                              onClick={() => openFolder(folder.id)}
+                              isBookmarked={folderBookmarkedIds.has(folder.id)}
+                              bookmarkBusy={folderBookmarkBusyId === folder.id}
+                              onToggleBookmark={handleToggleFolderBookmark}
+                              onOpenProfile={openProfile}
+                              onOpenActions={openCardActions}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {(resultFilter === "all" || resultFilter === "people") && peopleMatches.length > 0 && (
+                      <>
+                        <div className="mc-section-label">PEOPLE</div>
+                        <div className="mc-folders-grid">
+                          {peopleMatches.map((folder, i) => (
+                            <CommunityFolderCard
+                              key={folder.id}
+                              folder={folder}
+                              index={i}
+                              onClick={() => openFolder(folder.id)}
+                              isBookmarked={folderBookmarkedIds.has(folder.id)}
+                              bookmarkBusy={folderBookmarkBusyId === folder.id}
+                              onToggleBookmark={handleToggleFolderBookmark}
+                              onOpenProfile={openProfile}
+                              onOpenActions={openCardActions}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {(resultFilter === "all" || resultFilter === "pdf") && visiblePdfs.length > 0 && (
+                      <>
+                        <div className="mc-section-label">PDF DOCUMENTS</div>
+                        <div className="mc-pdfs-grid">
+                          {visiblePdfs.map((resource) => (
+                            <PdfCard
+                              key={resource.id}
+                              resource={resource}
+                              isBookmarked={bookmarkedIds.has(resource.id)}
+                              bookmarkBusy={bookmarkBusyId === resource.id}
+                              onOpen={(r) => handleOpen(r.shareToken)}
+                              onToggleBookmark={toggleBookmark}
+                              onOpenActions={openCardActions}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {searchCounts && searchCounts.all === 0 && (
+                      <div className="mc-search-empty">
+                        <McIcon name="search" />
+                        <b>No results for "{search}"</b>
+                        <p>
+                          Try a course code like <span className="mc-code">PHY 201</span>,<br />
+                          a person's name, or a subject.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Folders */}
+                    {communityType !== "pdf" && (
+                      <>
+                        {communityFolderSections.every((s) => s.folders.length === 0) ? (
+                          <EmptyState
+                            icon={communityEmptyStates.folders.icon}
+                            title={communityEmptyStates.folders.title}
+                            message={communityEmptyStates.folders.message}
+                          />
+                        ) : (
+                          communityFolderSections.map((section, si) => (
+                            <div key={section.label || si}>
+                              {section.label && (
+                                <div className="mc-section-label">{section.label.toUpperCase()}</div>
+                              )}
+                              <div className="mc-folders-grid">
+                                {section.folders.map((folder, i) => (
+                                  <CommunityFolderCard
+                                    key={folder.id}
+                                    folder={folder}
+                                    index={i}
+                                    onClick={() => openFolder(folder.id)}
+                                    isBookmarked={folderBookmarkedIds.has(folder.id)}
+                                    bookmarkBusy={folderBookmarkBusyId === folder.id}
+                                    onToggleBookmark={handleToggleFolderBookmark}
+                                    onOpenProfile={openProfile}
+                                    onOpenActions={openCardActions}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+
+                        {/* Lecturers section */}
+                        {lecturerSections.length > 0 && (
+                          <>
+                            <div className="mc-section-label">YOUR LECTURERS</div>
+                            <p className="mc-section-hint">
+                              Folders uploaded directly by your course lecturers. Tap a name to view their profile.
+                            </p>
+                            <div className="mc-folders-grid">
+                              {lecturerSections.map((folder, i) => (
+                                <CommunityFolderCard
+                                  key={folder.id}
+                                  folder={folder}
+                                  index={i}
+                                  onClick={() => openFolder(folder.id)}
+                                  isBookmarked={folderBookmarkedIds.has(folder.id)}
+                                  bookmarkBusy={folderBookmarkBusyId === folder.id}
+                                  onToggleBookmark={handleToggleFolderBookmark}
+                                  onOpenProfile={openProfile}
+                                  onOpenActions={openCardActions}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+
+                    {/* PDFs */}
+                    {communityType !== "folders" && (
+                      <>
+                        <div className="mc-section-label">PDF DOCUMENTS</div>
+                        {resourcesLoading ? (
+                          <LoadingState grid count={4} />
+                        ) : resourcesError ? (
+                          <ErrorState message={resourcesError} onRetry={fetchResources} />
+                        ) : visiblePdfs.length === 0 ? (
+                          <EmptyState
+                            icon={communityEmptyStates.pdf.icon}
+                            title={communityEmptyStates.pdf.title}
+                            message={communityEmptyStates.pdf.message}
+                          />
+                        ) : (
+                          <div className="mc-pdfs-grid">
+                            {visiblePdfs.map((resource) => (
+                              <PdfCard
+                                key={resource.id}
+                                resource={resource}
+                                isBookmarked={bookmarkedIds.has(resource.id)}
+                                bookmarkBusy={bookmarkBusyId === resource.id}
+                                onOpen={(r) => handleOpen(r.shareToken)}
+                                onToggleBookmark={toggleBookmark}
+                                onOpenActions={openCardActions}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
-            )
-          ) : activeFilter === "pdf" ? (
-            communityCategorized.pdfs.length === 0 ? (
-              <EmptyState icon={communityEmptyStates.pdf.icon} title={communityEmptyStates.pdf.title} message={communityEmptyStates.pdf.message} />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {communityCategorized.pdfs.map((resource, i) => (
-                  <ResourceCard
-                    key={resource.id}
-                    resource={resource}
-                    isBookmarked={bookmarkedIds.has(resource.id)}
-                    bookmarkBusy={bookmarkBusyId === resource.id}
-                    onOpen={handleOpen}
-                    onToggleBookmark={toggleBookmark}
-                    onShare={handleShare}
-                    mcqProgress={mcqProgress}
-                    index={i}
-                    relevanceTier={resourceTiers[resource.id] || null}
-                  />
-                ))}
-              </div>
-            )
-          ) : activeFilter === "mcq" ? (
-            communityCategorized.mcqs.length === 0 ? (
-              <EmptyState icon={communityEmptyStates.mcq.icon} title={communityEmptyStates.mcq.title} message={communityEmptyStates.mcq.message} />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {communityCategorized.mcqs.map((item, i) => {
-                  const variant = item.variants?.mcq;
-                  const mcqRes = variant ? { ...item, ...variant, derivedResources: undefined } : item;
-                  return (
-                    <ResourceCard
-                      key={mcqRes.id}
-                      resource={mcqRes}
-                      isBookmarked={bookmarkedIds.has(mcqRes.id)}
-                      bookmarkBusy={bookmarkBusyId === mcqRes.id}
-                      onOpen={handleOpen}
-                      onToggleBookmark={toggleBookmark}
-                      onShare={handleShare}
-                      mcqProgress={mcqProgress}
-                      index={i}
-                      relevanceTier={resourceTiers[item.id] || null}
-                    />
-                  );
-                })}
-              </div>
-            )
-          ) : activeFilter === "flashcard" ? (
-            communityCategorized.flashcards.length === 0 ? (
-              <EmptyState icon={communityEmptyStates.flashcard.icon} title={communityEmptyStates.flashcard.title} message={communityEmptyStates.flashcard.message} />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {communityCategorized.flashcards.map((item, i) => {
-                  const variant = item.variants?.flashcard;
-                  const fcRes = variant ? { ...item, ...variant, derivedResources: undefined } : item;
-                  return (
-                    <ResourceCard
-                      key={fcRes.id}
-                      resource={fcRes}
-                      isBookmarked={bookmarkedIds.has(fcRes.id)}
-                      bookmarkBusy={bookmarkBusyId === fcRes.id}
-                      onOpen={handleOpen}
-                      onToggleBookmark={toggleBookmark}
-                      onShare={handleShare}
-                      mcqProgress={mcqProgress}
-                      index={i}
-                      relevanceTier={resourceTiers[item.id] || null}
-                    />
-                  );
-                })}
-              </div>
-            )
-          ) : null}
             </>
           )}
-        </>
+        </div>
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 z-[1001] flex -translate-x-1/2 items-center gap-2 rounded-full border border-gold-border bg-hub-surface px-4 py-2.5 text-[13px] font-semibold text-gold shadow-lg" style={{ animation: "fade-up 0.2s ease both" }}>
-          <span>✓</span>{toast}
+        <div className="mc-toast show">
+          <McIcon name={toast.icon || "check"} />
+          <span>{toast.msg}</span>
+          {toast.actLabel && (
+            <button className="mc-toast-act" onClick={runToastAction}>{toast.actLabel}</button>
+          )}
         </div>
       )}
 
@@ -1682,21 +1962,63 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           </>
         )}
         {(activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
-        <button
-          onClick={() => setShowFab((v) => !v)}
-          className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-gold text-2xl font-bold transition-all duration-200 active:scale-90"
-          style={{
-            background: showFab ? "#141414" : "linear-gradient(135deg, #FFD700, #DAA520, #B8860B)",
-            boxShadow: showFab ? "0 4px 16px rgba(0,0,0,0.4)" : "0 8px 28px rgba(255,215,0,0.45), 0 2px 8px rgba(0,0,0,0.3)",
-            color: showFab ? "#FFD700" : "#0a0a0a",
-            transform: showFab ? "rotate(45deg)" : "rotate(0deg)",
-            cursor: "pointer",
-          }}
-        >
-          +
-        </button>
+          <button
+            onClick={() => setShowFab((v) => !v)}
+            className="mc-fab"
+            style={{ transform: showFab ? "rotate(45deg)" : undefined }}
+            title="Quick actions"
+          >
+            <McIcon name="plus" />
+          </button>
         )}
       </div>
+
+      {/* My Circle sheets */}
+      <CardActionSheet
+        open={!!actionTarget && !showReport}
+        onClose={() => setActionTarget(null)}
+        target={actionTarget}
+        onShare={handleActionShare}
+        onCopyLink={handleActionCopyLink}
+        onReport={handleActionReport}
+      />
+      <ReportSheet
+        open={showReport}
+        onClose={() => { setShowReport(false); setActionTarget(null); }}
+        target={actionTarget}
+        onSubmit={handleReportSubmit}
+      />
+      <ProfileSheet
+        open={!!profileOwner}
+        onClose={() => setProfileOwner(null)}
+        owner={profileOwner}
+        folders={profileFolders}
+        onOpenFolder={openFolder}
+      />
+      <RecycleBinSheet
+        open={recycleBinOpen}
+        onClose={() => setRecycleBinOpen(false)}
+        items={recycleItems}
+        onRestore={handleRestoreTrash}
+        onPurge={handlePurgeTrash}
+        busyId={recycleBinBusyId}
+      />
+      <CircleSheet open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={deleteTarget?.name} kind="Space">
+        <p className="mc-sheet-hint">
+          This space and its items will be moved to the Recycle Bin. You can restore it any time within <b>30 days</b>.
+        </p>
+        <button className="mc-act-row danger" onClick={confirmSpaceDelete}>
+          <McIcon name="trash" />
+          <div>
+            <div className="mc-r-t">Move to Recycle Bin</div>
+            <div className="mc-r-s">Restorable for 30 days, then removed forever</div>
+          </div>
+        </button>
+        <button className="mc-act-row" onClick={() => setDeleteTarget(null)}>
+          <McIcon name="x" />
+          <div><div className="mc-r-t">Cancel</div></div>
+        </button>
+      </CircleSheet>
 
       {uploadWizard}
       {createFolderModal}
