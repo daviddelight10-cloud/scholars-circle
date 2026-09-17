@@ -85,7 +85,7 @@ import {
 } from "./components/SmallComponents";
 const SessionPlayer = lazyWithRetry(() => import("./components/SessionPlayer"));
 const TimetableBuilder = lazyWithRetry(() => import("./components/StudyTools").then(m => ({ default: m.TimetableBuilder })));
-const DiscussionBoard = lazyWithRetry(() => import("./components/Discussion").then(m => ({ default: m.DiscussionBoard })));
+const Feed = lazyWithRetry(() => import("./features/feed/Feed"));
 const StudyReminders = lazyWithRetry(() => import("./components/StudyReminders").then(m => ({ default: m.StudyReminders })));
 import { KeyManagement, LockedScreen } from "./components/AdminComponents";
 
@@ -1326,7 +1326,7 @@ function App() {
 
 
 
-      { label: "Open Discussion", run: () => setTab("discuss") },
+      { label: "Open Feed", run: () => setTab("discuss") },
 
 
 
@@ -8585,7 +8585,7 @@ function App() {
 
               <button className={tab === "discuss" ? "active" : ""} onClick={() => { setTab("discuss"); setShowMobileMenu(false); }}>
 
-                <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Discussion
+                <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Feed
 
               </button>
 
@@ -8845,7 +8845,7 @@ function App() {
 
             {[
 
-              ["discuss", "Discussion", MessageCircle],
+              ["discuss", "Feed", MessageCircle],
 
               ["timetable", "Schedule", CalendarDays],
 
@@ -10300,7 +10300,14 @@ function App() {
 
       {tab === "discuss" && (
         <Suspense fallback={<TabSkeleton />}>
-        <DiscussionBoard subjects={subjects} discussion={discussion} setDiscussion={setDiscussion} username={auth.user.username} isTeacher={isFaculty} />
+        <Feed
+          authUser={auth.user}
+          token={token}
+          subjects={subjects}
+          onOpenTab={setTab}
+          onOpenSearch={() => setShowPalette(true)}
+          onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerToken(shareToken); }}
+        />
         </Suspense>
       )}
 

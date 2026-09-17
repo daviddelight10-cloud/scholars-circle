@@ -64,9 +64,10 @@ async function generateShareToken() {
 // GET /api/resources - List resources with filters
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const { search, type, subject, department, level, semester, universityId, courseCode } = req.query;
+    const { search, type, subject, department, level, semester, universityId, courseCode, mine } = req.query;
 
     const where = {
+      ...(mine === "1" && { uploadedBy: req.user.sub }),
       ...(search && {
         OR: [
           { title: { contains: search, mode: "insensitive" } },

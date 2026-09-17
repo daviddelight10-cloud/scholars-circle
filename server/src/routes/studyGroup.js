@@ -388,6 +388,66 @@ router.post("/:classroomId/study-rooms", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/study-group/public-rooms — active public study rooms ("who's studying now")
+router.get("/public-rooms", requireAuth, async (req, res) => {
+  try {
+    const rooms = await prisma.classroomStudyRoom.findMany({
+      where: { isPublic: true, status: "active" },
+      include: {
+        host: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } },
+        participants: {
+          where: { leftAt: null },
+          include: { user: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } } },
+        },
+      },
+      orderBy: { startedAt: "desc" },
+      take: 50,
+    });
+
+    res.json(rooms.map((r) => ({ ...r, seatsUsed: r.participants.length })));
+  } catch (error) {
+    console.error("Error fetching public rooms:", error);
+    res.status(500).json({ error: "Failed to fetch rooms" });
+  }
+});
+
+// POST /api/study-group/public-rooms — "go live with friends" (any user can host)
+router.post("/public-rooms", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { name, subject, focus, maxSeats, pomodoroMin, breakMin } = req.body || {};
+
+    const room = await prisma.classroomStudyRoom.create({
+      data: {
+        classroomId: null,
+        isPublic: true,
+        name: name?.trim() || "Focus Session",
+        hostId: userId,
+        subject: subject?.trim() || null,
+        focus: focus?.trim() || null,
+        maxSeats: Math.min(Math.max(parseInt(maxSeats) || 8, 2), 50),
+        pomodoroMin: pomodoroMin || 25,
+        breakMin: breakMin || 5,
+        participants: {
+          create: { userId },
+        },
+      },
+      include: {
+        host: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } },
+        participants: {
+          where: { leftAt: null },
+          include: { user: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } } },
+        },
+      },
+    });
+
+    res.status(201).json({ ...room, seatsUsed: room.participants.length });
+  } catch (error) {
+    console.error("Error creating public room:", error);
+    res.status(500).json({ error: "Failed to create room" });
+  }
+});
+
 // POST /api/study-group/study-rooms/:roomId/join
 router.post("/study-rooms/:roomId/join", requireAuth, async (req, res) => {
   try {

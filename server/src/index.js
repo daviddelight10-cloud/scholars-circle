@@ -39,6 +39,7 @@ import voiceSessionRoutes, { getActiveSession, deleteActiveSession, getActiveSes
 import curriculumRoutes from "./routes/curriculum.js";
 import studyCacheRoutes from "./routes/studyCache.js";
 import studyGroupRoutes from "./routes/studyGroup.js";
+import feedRoutes from "./routes/feed.js";
 import liveQuizRoutes, { attachLiveQuizSocket } from "./routes/liveQuiz.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
@@ -152,6 +153,7 @@ app.use("/api/voice-session", voiceSessionRoutes);
 app.use("/api/curriculum", curriculumRoutes);
 app.use("/api/study-cache", studyCacheRoutes);
 app.use("/api/live-quiz", liveQuizRoutes);
+app.use("/api/feed", feedRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

@@ -214,6 +214,11 @@ model User {
   classroomDuelsReceived  ClassroomDuel[]  @relation("ClassDuelChallenged")
   liveQuizSessionsHosted  LiveQuizSession[] @relation("LiveQuizHost")
 
+  feedPosts         FeedPost[]
+  feedLikes         FeedLike[]
+  feedComments      FeedComment[]
+  feedCommentLikes  FeedCommentLike[]
+
 }
 
 model UserFollow {
@@ -1492,6 +1497,7 @@ model Resource {
   resourceDepts    ResourceDepartment[]
   voiceSessions    VoiceSession[]
   topicMatches     DocumentTopicMatch[]
+  feedPosts        FeedPost[]
 
   @@index([contentType])
   @@index([subject])
@@ -1942,7 +1948,7 @@ model ClassroomStudyRoom {
 
   id           String   @id @default(cuid())
 
-  classroomId  String
+  classroomId  String?
 
   name         String
 
@@ -1954,15 +1960,24 @@ model ClassroomStudyRoom {
 
   status       String   @default("active")  // active | completed
 
+  isPublic     Boolean  @default(false)
+
+  maxSeats     Int      @default(8)
+
+  subject      String?
+
+  focus        String?
+
   startedAt    DateTime @default(now())
 
   endedAt      DateTime?
 
-  classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  classroom    Classroom? @relation(fields: [classroomId], references: [id], onDelete: Cascade)
 
   participants ClassroomStudyRoomParticipant[]
 
   @@index([classroomId, status])
+  @@index([isPublic, status])
 
 }
 
@@ -2052,5 +2067,95 @@ model LiveQuizSession {
   createdAt     DateTime @default(now())
 
   @@index([hostId])
+
+}
+
+
+// ============ SOCIAL FEED ============
+
+model FeedPost {
+
+  id           String        @id @default(cuid())
+
+  authorId     String
+
+  author       User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  kind         String        @default("post")  // post | question | activity
+
+  text         String        @default("")
+
+  resourceId   String?
+
+  resource     Resource?     @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+
+  universityId String?
+
+  createdAt    DateTime      @default(now())
+
+  likes        FeedLike[]
+
+  comments     FeedComment[]
+
+  @@index([createdAt])
+
+  @@index([authorId, createdAt])
+
+}
+
+
+model FeedLike {
+
+  id     String   @id @default(cuid())
+
+  postId String
+
+  post   FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId String
+
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+
+}
+
+
+model FeedComment {
+
+  id        String            @id @default(cuid())
+
+  postId    String
+
+  post      FeedPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId    String
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  text      String
+
+  createdAt DateTime          @default(now())
+
+  likes     FeedCommentLike[]
+
+  @@index([postId, createdAt])
+
+}
+
+
+model FeedCommentLike {
+
+  id        String      @id @default(cuid())
+
+  commentId String
+
+  comment   FeedComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  userId    String
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
 
 }

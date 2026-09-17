@@ -190,6 +190,27 @@ export async function updateUniversalStreak(userId, prisma) {
     },
   });
 
+  // Streak milestones → activity post in the social feed
+  const MILESTONES = [7, 14, 30, 50, 100, 200, 365];
+  if (MILESTONES.includes(newStreak)) {
+    try {
+      const profile = await prisma.userProfile.findUnique({
+        where: { userId },
+        select: { universityId: true },
+      });
+      await prisma.feedPost.create({
+        data: {
+          authorId: userId,
+          kind: "activity",
+          text: `hit a ${newStreak}-day streak`,
+          universityId: profile?.universityId || null,
+        },
+      });
+    } catch (err) {
+      console.warn("Streak milestone post failed:", err.message);
+    }
+  }
+
   return {
     streak: newStreak,
     longestStreak: newLongest,
