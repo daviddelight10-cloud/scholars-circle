@@ -4,7 +4,6 @@ import EmptyState from "./EmptyState";
 import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
 import SpaceCard from "./SpaceCard.jsx";
-import StudyHeroCard from "./StudyHeroCard.jsx";
 import McIcon from "./McIcon.jsx";
 import { getSubjectIcon } from "./subjectColors";
 
@@ -61,8 +60,6 @@ export default function LibraryView({
   onOpenRecycleBin,
   recycleCount = 0,
   onRequestDeleteSpace,
-  fsrsStats,
-  onStudyNow,
 }) {
   const [search, setSearch] = useState("");
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -230,7 +227,6 @@ export default function LibraryView({
       </div>
 
       <div className="mc-content">
-        <StudyHeroCard fsrsStats={fsrsStats} onStudyNow={onStudyNow} />
         {isEmpty ? (
           <div className="px-5 py-16 text-center">
             <div className="mb-6 text-6xl">📚</div>

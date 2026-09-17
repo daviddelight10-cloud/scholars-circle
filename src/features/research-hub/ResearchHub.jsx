@@ -33,7 +33,6 @@ import ProfileSheet from "./ProfileSheet.jsx";
 import RecycleBinSheet from "./RecycleBinSheet.jsx";
 import CommunityFolderCard from "./CommunityFolderCard.jsx";
 import PdfCard from "./PdfCard.jsx";
-import DailyReview from "./DailyReview.jsx";
 import { loadSave, levelFromXP } from "../streak-survival/survivalStore.js";
 import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
 import { getGuidedProgressIndex } from "../../lib/studyCache.js";
@@ -130,7 +129,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     } catch {}
     return null;
   });
-  const [showDailyReview, setShowDailyReview] = useState(false);
   const [saveLevel] = useState(() => {
     try { return levelFromXP(loadSave().xp); } catch { return 1; }
   });
@@ -1591,11 +1589,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             <McIcon name="globe" />COMMUNITY
           </button>
         </div>
-        {(fsrsStats?.streak > 0 || fsrsStats?.dueCount > 0 || saveLevel > 1) && (
+        {(fsrsStats?.streak > 0 || saveLevel > 1) && (
           <div className="mc-stats-row">
             {fsrsStats?.streak > 0 && <span className="mc-stat">🔥 {fsrsStats.streak}-day streak</span>}
             {saveLevel > 1 && <span className="mc-stat">⚡ Lv {saveLevel}</span>}
-            {fsrsStats?.dueCount > 0 && <span className="mc-stat">📚 {fsrsStats.dueCount} due</span>}
           </div>
         )}
         <div className="mc-glow-line" />
@@ -1624,8 +1621,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           onOpenRecycleBin={openRecycleBin}
           recycleCount={recycleItems.length}
           onRequestDeleteSpace={requestSpaceDelete}
-          fsrsStats={fsrsStats}
-          onStudyNow={() => setShowDailyReview(true)}
         />
       ) : (
         <div className="mc-root">
@@ -2037,15 +2032,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       {uploadWizard}
       {createFolderModal}
       {bookmarkPicker}
-
-      {showDailyReview && (
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-hub-bg">
-          <DailyReview
-            onBack={() => { setShowDailyReview(false); fetchFsrsStats(); fetchFsrsAnalytics(); }}
-            onComplete={() => { fetchFsrsStats(); fetchFsrsAnalytics(); }}
-          />
-        </div>
-      )}
     </div>
   );
 }

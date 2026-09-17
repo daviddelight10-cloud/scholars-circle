@@ -1194,29 +1194,6 @@
   border-radius: 999px; padding: 3px 10px; white-space: nowrap;
 }
 
-/* ── Due-today hero (Gizmo-style) ────────────────────────────────────── */
-.mc-hero {
-  display: flex; align-items: center; gap: 14px;
-  margin: 0 auto 16px; width: calc(100% - 32px); max-width: 688px;
-  padding: 14px 16px; border-radius: 20px;
-  background: linear-gradient(135deg, rgba(255,179,0,.16), rgba(255,92,138,.10) 60%, rgba(77,163,255,.08));
-  border: 1px solid rgba(255,179,0,.28);
-  box-shadow: 0 8px 24px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
-}
-.mc-hero-main { flex: 1; min-width: 0; }
-.mc-hero-title { font-size: 15px; font-weight: 800; color: var(--mc-text); }
-.mc-hero-sub { font-size: 12px; color: var(--mc-muted); margin-top: 2px; }
-.mc-hero-cta {
-  flex-shrink: 0; border: none; cursor: pointer; font-family: inherit;
-  background: linear-gradient(160deg, #FFC933, #FFB300 55%, #F09000);
-  color: #151005; font-size: 13px; font-weight: 800;
-  padding: 10px 18px; border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(255,179,0,.3);
-  transition: transform .15s;
-}
-.mc-hero-cta:hover { transform: scale(1.04); }
-.mc-hero-cta:active { transform: scale(.96); }
-
 /* ── Search ─────────────────────────────────────────────────────────── */
 .mc-search {
   display: flex; align-items: center; gap: 10px; margin: 0 auto 12px;
