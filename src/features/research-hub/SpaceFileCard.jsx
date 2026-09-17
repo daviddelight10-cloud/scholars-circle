@@ -47,6 +47,13 @@ export default function SpaceFileCard({
   })[file.contentType] || (file.contentType || "file").toUpperCase();
   const delay = `${Math.min(index * 50, 400)}ms`;
 
+  // Study-material badges — which generated variants live inside this doc.
+  const variantBadges = [
+    file.variants?.mcq && ["✎", "MCQs"],
+    file.variants?.flashcard && ["🎴", "Flashcards"],
+    file.variants?.summary && ["📝", "Summary"],
+  ].filter(Boolean);
+
   // Coverage ring — driven by MCQ practice progress on this file's variant.
   const mcqVariant = file.variants?.mcq;
   const prog = mcqVariant && mcqProgress ? mcqProgress[mcqVariant.id] : null;
@@ -139,6 +146,9 @@ export default function SpaceFileCard({
         <span className="sp-tag sp-tag-gold">{typeLabel}</span>
         {file.subject && <span className="sp-tag sp-tag-gold">{file.subject}</span>}
         {file.courseCode && <span className="sp-tag sp-tag-gold">{file.courseCode}</span>}
+        {variantBadges.map(([icon, label]) => (
+          <span key={label} className="sp-tag sp-tag-variant" title={label}>{icon}</span>
+        ))}
         <span className="sp-meta">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 12s4 -7 10 -7 10 7 10 7 -4 7 -10 7 -10 -7 -10 -7z" /><circle cx="12" cy="12" r="3" />

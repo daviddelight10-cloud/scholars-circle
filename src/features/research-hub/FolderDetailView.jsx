@@ -33,26 +33,12 @@ export default function FolderDetailView({
 
   const counts = folderCategorized.counts || { materials: 0, summaries: 0, flashcards: 0, mcqs: 0 };
 
-  // Files tab = every document in the space: source files, their AI-generated
-  // variants (MCQs / flashcards / summaries saved by the AI tools), and
-  // standalone items with no source file — each rendered as its own card.
+  // Files tab = one card per document: source files plus standalone items
+  // with no source. AI-generated variants (MCQs / flashcards / summaries)
+  // nest inside their source card as badges and open via the practice sheet.
   const allFiles = useMemo(() => {
-    const asDoc = (r, selfKind) => ({
-      ...r,
-      variants: selfKind
-        ? { summary: selfKind === "summary" ? r : null, mcq: selfKind === "mcq" ? r : null, flashcard: selfKind === "flashcard" ? r : null }
-        : r.variants,
-    });
-    const docs = [];
-    const seen = new Set();
-    for (const m of folderCategorized.materials || []) {
-      docs.push(m);
-      seen.add(m.id);
-      for (const kind of ["summary", "mcq", "flashcard"]) {
-        const v = m.variants?.[kind];
-        if (v && !seen.has(v.id)) { docs.push(asDoc(v, kind)); seen.add(v.id); }
-      }
-    }
+    const docs = [...(folderCategorized.materials || [])];
+    const seen = new Set(docs.map((d) => d.id));
     for (const list of ["mcqs", "flashcards", "summaries"]) {
       for (const f of folderCategorized[list] || []) {
         // Standalone items the PDF viewer's study tool auto-saves are titled
