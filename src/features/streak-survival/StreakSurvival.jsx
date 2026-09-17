@@ -438,6 +438,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       if (newCombo > 0 && newCombo % 5 === 0) grantGems(TIER_GEMS[tier], 'combo');
       if (newCombo === 10) grantXp(10, 'combo bonus');
 
+      // Speed bonus — only on timed cards (learning/review) beaten inside the window
+      const wasTimed = runMode === 'survival' && [1, 2].includes(cardStates[q._key]?.state);
+      if (wasTimed && elapsed <= SPEED_WINDOW) {
+        grantXp(elapsed <= 3000 ? 5 : 2, elapsed <= 3000 ? '⚡⚡ lightning' : '⚡ fast');
+      }
+
       sound.correct();
       haptics.success();
       setFlash('correct-flash');
@@ -1058,7 +1064,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
               <div className="qtext">{current.q.q}</div>
 
-              {runMode === 'survival' && screen === 'game' && !locked && (
+              {/* Speed timer — only on cards the user has answered correctly
+                  before (FSRS learning=1 / review=2). New (0) and relearning
+                  (3, forgotten) cards get no clock pressure; the bar appearing
+                  is also a subtle "you know this one" cue. */}
+              {runMode === 'survival' && screen === 'game' && !locked && current
+                && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state) && (
                 <div className="timer-bar">
                   <div className={`timer-fill${timerPct < 35 ? ' low' : timerPct < 70 ? ' mid' : ''}`} style={{ width: `${timerPct}%` }} />
                 </div>
