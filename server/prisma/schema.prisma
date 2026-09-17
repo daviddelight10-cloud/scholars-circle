@@ -536,6 +536,8 @@ model UserProgress {
 
   longestStreak Int     @default(0)
 
+  freezes      Int      @default(0)
+
   coins        Int      @default(0)
 
   weeklyGoal   Int      @default(5)

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import HIcon from "./HIcon.jsx";
+import { lapsedSubjects } from "../../lib/homeUtils.js";
 
-const FREEZE_COST = 50;
+const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 const AV_COLORS = ["#FFC55C", "#9DB8E8", "#6EE7A0", "#C0B2FF", "#F9A8D4", "#7CC7FF"];
@@ -107,8 +108,9 @@ export function ShopSheet({ open, onClose, save, onBuyFreeze }) {
 }
 
 /* ── Leaderboard ── */
-export function BoardSheet({ open, onClose, entries, userName, onInvite }) {
+export function BoardSheet({ open, onClose, entries, userName, myIdx = -1, onInvite }) {
   const ranked = [...(entries || [])].sort((a, b) => (b.totalXP || b.xp || 0) - (a.totalXP || a.xp || 0)).slice(0, 5);
+  const meEntry = myIdx >= 5 ? entries?.find((e) => e.username === userName) : null;
   return (
     <Sheet open={open} onClose={onClose}>
       <SheetHead title="Circle leaderboard" onClose={onClose} right={<span className="hm-lb-reset">All-time</span>} />
@@ -136,6 +138,14 @@ export function BoardSheet({ open, onClose, entries, userName, onInvite }) {
             </div>
           );
         })}
+        {meEntry && (
+          <div className="hm-lb-row me" style={{ marginTop: 6, borderTop: "1px dashed var(--hm-stroke)" }}>
+            <span className="hm-lb-rank">{myIdx + 1}</span>
+            <div className="hm-lb-av" style={{ background: avColor("You") }}>{initials("You")}</div>
+            <div className="hm-lb-name"><h4>You</h4></div>
+            <span className="hm-lb-xp">{(meEntry.totalXP || meEntry.xp || 0).toLocaleString()} XP</span>
+          </div>
+        )}
       </div>
       <button className="hm-lb-invite" onClick={onInvite}>
         <HIcon name="userPlus" size={14} />Invite friends to your circle
@@ -184,6 +194,17 @@ export function StatsSheet({ open, onClose, fsrsStats, fsrsAnalytics, onOpenFull
         <div className="hm-an-mini"><b>{weekReviews}</b><span>reviews this week</span></div>
         <div className="hm-an-mini"><b>{masteredWeek ?? "—"}</b><span>mastered this week</span></div>
       </div>
+
+      {lapsedSubjects(fsrsAnalytics).length > 0 && (
+        <div className="hm-an-weak">
+          <h5>NEEDS WORK</h5>
+          <div className="hm-an-weak-row">
+            {lapsedSubjects(fsrsAnalytics).map((s) => (
+              <span key={s.name} className="hm-weak-chip">{s.name} · {s.rate}% lapse</span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <button className="hm-an-link" onClick={onOpenFull}>
         Open full analytics<HIcon name="arrowR" size={13} />

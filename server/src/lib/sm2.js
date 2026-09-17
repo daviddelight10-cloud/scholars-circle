@@ -160,8 +160,20 @@ export async function updateUniversalStreak(userId, prisma) {
   }
 
   let newStreak;
+  let freezesUsed = 0;
   if (lastDay === yesterday) {
     newStreak = up.streak + 1;
+  } else if (lastDay) {
+    // Missed days between lastStudied and today — one freeze covers one day.
+    const gapDays = Math.round((new Date(today) - new Date(lastDay)) / 86400000);
+    const missed = Math.max(0, gapDays - 1);
+    const available = up.freezes || 0;
+    if (missed > 0 && available >= missed) {
+      newStreak = up.streak + 1;
+      freezesUsed = missed;
+    } else {
+      newStreak = 1;
+    }
   } else {
     newStreak = 1;
   }
@@ -174,8 +186,15 @@ export async function updateUniversalStreak(userId, prisma) {
       streak: newStreak,
       longestStreak: newLongest,
       lastStudied: new Date(),
+      ...(freezesUsed > 0 ? { freezes: { decrement: freezesUsed } } : {}),
     },
   });
 
-  return { streak: newStreak, longestStreak: newLongest, isNewDay: true };
+  return {
+    streak: newStreak,
+    longestStreak: newLongest,
+    isNewDay: true,
+    freezesUsed,
+    freezes: (up.freezes || 0) - freezesUsed,
+  };
 }

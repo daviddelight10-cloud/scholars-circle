@@ -1299,7 +1299,7 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
 
     const up = await prisma.userProgress.findUnique({
       where: { userId: req.user.sub },
-      select: { streak: true, longestStreak: true, lastStudied: true },
+      select: { streak: true, longestStreak: true, lastStudied: true, freezes: true },
     }).catch(() => null);
 
     const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
@@ -1321,6 +1321,7 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
       nextDueAt: nextDue,
       streak: up?.streak ?? 0,
       longestStreak: up?.longestStreak ?? 0,
+      freezes: up?.freezes ?? 0,
     });
   } catch (error) {
     console.error("Error fetching FSRS stats:", error);
@@ -1537,6 +1538,23 @@ router.put("/fsrs/daily-goal", requireAuth, async (req, res) => {
     res.json({ dailyGoal: profile.dailyGoal });
   } catch (error) {
     res.status(500).json({ error: "Failed to update daily goal" });
+  }
+});
+
+// ── POST /api/resources/fsrs/freeze — Buy a streak freeze ──
+// Gems live client-side (localStorage), so the server only tracks the freeze
+// inventory itself. Consumption happens in updateUniversalStreak() when the
+// user studies again after missing day(s) — one freeze per missed day.
+router.post("/fsrs/freeze", requireAuth, async (req, res) => {
+  try {
+    const up = await prisma.userProgress.upsert({
+      where: { userId: req.user.sub },
+      create: { userId: req.user.sub, freezes: 1 },
+      update: { freezes: { increment: 1 } },
+    });
+    res.json({ freezes: up.freezes });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to buy streak freeze" });
   }
 });
 

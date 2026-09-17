@@ -803,6 +803,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   function buyFreeze() {
     if (save.gems < 15) { toast('Not enough gems (15 💎)', '#FF5E7E'); return; }
     editSave((s) => { s.gems -= 15; s.freezes += 1; });
+    // Sync freeze inventory to the server (fire-and-forget; stats resync reconciles)
+    try {
+      fetch(`${API_BASE}/api/resources/fsrs/freeze`, { method: 'POST', headers: getAuthHeaders() })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d && typeof d.freezes === 'number') editSave((s) => { s.freezes = d.freezes; }); })
+        .catch(() => {});
+    } catch {}
     toast('🧊 Streak freeze purchased', '#00E5FF');
   }
 

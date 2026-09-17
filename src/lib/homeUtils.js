@@ -17,6 +17,7 @@ export function recordRecentDoc(resource) {
     const next = [
       {
         shareToken,
+        resourceId: resource.id || null,
         title: resource.title,
         subject: resource.subject || null,
         contentType: resource.contentType || "pdf",
@@ -39,6 +40,20 @@ export function listRecentDocs() {
   } catch {
     return [];
   }
+}
+
+/**
+ * Subjects with the highest lapse rates from fsrsAnalytics.lapseBySubject
+ * ({ subject: { total, lapsed } }) — the "needs work" list.
+ */
+export function lapsedSubjects(fsrsAnalytics, limit = 3) {
+  const map = fsrsAnalytics?.lapseBySubject;
+  if (!map) return [];
+  return Object.entries(map)
+    .filter(([, s]) => (s?.total || 0) >= 3 && (s?.lapsed || 0) > 0)
+    .map(([name, s]) => ({ name, rate: Math.round((s.lapsed / s.total) * 100) }))
+    .sort((a, b) => b.rate - a.rate)
+    .slice(0, limit);
 }
 
 /**

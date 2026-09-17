@@ -4,8 +4,9 @@ import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
 import StreakSurvival from "../features/streak-survival/StreakSurvival.jsx";
 import { listCommunityFolders, bookmarkFolder } from "../lib/foldersApi.js";
-import { loadSave, mutate } from "../features/streak-survival/survivalStore.js";
+import { loadSave, mutate, tickDay, activeQuests, claimQuest } from "../features/streak-survival/survivalStore.js";
 import { listRecentDocs, weakestSubject } from "../lib/homeUtils.js";
+import { CASES } from "../features/clinicalCases/caseData.js";
 import { getPdfReadingProgress, tileTintStyle } from "../lib/researchUtils.js";
 import GameBar from "./home/GameBar.jsx";
 import HomeHero from "./home/HomeHero.jsx";
@@ -14,7 +15,7 @@ import HIcon from "./home/HIcon.jsx";
 import { API_BASE } from "../lib/constants";
 import "../home.css";
 
-const FREEZE_COST = 50;
+const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 
 function getAuthHeaders() {
   try {
@@ -57,7 +58,9 @@ export default function Dashboard({
   onStartSpaced, onStartSubject, onOpenTab, onOpenLeaderboard,
   onOpenAI, onOpenLearn, onOpenStudy, onOpenResource, token, authUser,
 }) {
-  const [fsrsStats, setFsrsStats] = useState(null);
+  const [fsrsStats, setFsrsStats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sc_fsrs_stats") || "null")?.data ?? null; } catch { return null; }
+  });
   const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
   const [showDailyReview, setShowDailyReview] = useState(false);
   const [mcqPracticeItems, setMcqPracticeItems] = useState(null);
@@ -76,11 +79,23 @@ export default function Dashboard({
   const fetchFsrsStats = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/stats`, { headers: getAuthHeaders() });
-      if (res.ok) setFsrsStats(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setFsrsStats(data);
+        try { localStorage.setItem("sc_fsrs_stats", JSON.stringify({ data, ts: Date.now() })); } catch {}
+        // Server owns freeze inventory — keep the local save in sync
+        if (typeof data.freezes === "number") {
+          mutate((s) => { s.freezes = data.freezes; });
+          setSave({ ...loadSave() });
+        }
+      }
     } catch {}
   }, []);
 
   useEffect(() => { fetchFsrsStats(); }, [fetchFsrsStats]);
+
+  // Day-rollover for quests (resets progress at local midnight)
+  useEffect(() => { tickDay(); setSave({ ...loadSave() }); }, []);
 
   useEffect(() => {
     const onRated = () => { try { localStorage.removeItem("sc_fsrs_stats"); } catch {} fetchFsrsStats(); };
@@ -110,6 +125,22 @@ export default function Dashboard({
   const [savedFolderIds, setSavedFolderIds] = useState(new Set());
   const [leaderboard, setLeaderboard] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
+  const [mcqProgress, setMcqProgress] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sc_mcq_progress") || "null")?.data || {}; } catch { return {}; }
+  });
+
+  const fetchBoard = useCallback(async () => {
+    try {
+      const lbRes = await fetch(`${API_BASE}/users/leaderboard`, { headers: getAuthHeaders() });
+      if (lbRes.ok) {
+        const data = await lbRes.json();
+        setLeaderboard(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchBoard(); }, [fetchBoard]);
+  useEffect(() => { if (openSheet === "board") fetchBoard(); }, [openSheet, fetchBoard]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,12 +184,12 @@ export default function Dashboard({
       try {
         folders = await listCommunityFolders();
       } catch {}
-      let board = [];
       try {
-        const lbRes = await fetch(`${API_BASE}/users/leaderboard`, { headers });
-        if (lbRes.ok) {
-          const data = await lbRes.json();
-          board = Array.isArray(data) ? data : [];
+        const mpRes = await fetch(`${API_BASE}/api/resources/my-mcq-progress`, { headers });
+        if (mpRes.ok) {
+          const mp = await mpRes.json();
+          if (!cancelled) setMcqProgress(mp);
+          try { localStorage.setItem("sc_mcq_progress", JSON.stringify({ data: mp, ts: Date.now() })); } catch {}
         }
       } catch {}
       if (cancelled) return;
@@ -176,7 +207,6 @@ export default function Dashboard({
       setResourceCounts({ dept: deptResources.length, saved, uploads });
       setCommunityFolders(Array.isArray(folders) ? folders : []);
       setFoldersLoaded(true);
-      setLeaderboard(board);
     }
     fetchHubData();
     return () => { cancelled = true; };
@@ -263,13 +293,25 @@ export default function Dashboard({
     window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { tab: "community", folderId: folder.id } }));
   }, []);
 
-  const handleBuyFreeze = useCallback(() => {
-    let ok = false;
-    mutate((s) => {
-      if ((s.gems || 0) >= FREEZE_COST) { s.gems -= FREEZE_COST; s.freezes = (s.freezes || 0) + 1; ok = true; }
-    });
-    if (ok) { refreshSave(); showToast("Streak Freeze added"); }
-    else showToast("Not enough gems");
+  const handleBuyFreeze = useCallback(async () => {
+    if ((save.gems || 0) < FREEZE_COST) { showToast("Not enough gems"); return; }
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/freeze`, {
+        method: "POST", headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      mutate((s) => { s.gems -= FREEZE_COST; s.freezes = data.freezes; });
+      refreshSave();
+      showToast("Streak Freeze added");
+    } catch {
+      showToast("Couldn't buy freeze — check your connection");
+    }
+  }, [save.gems, refreshSave, showToast]);
+
+  const handleClaimQuest = useCallback((id) => {
+    const reward = claimQuest(id);
+    if (reward > 0) { refreshSave(); showToast(`+${reward} gems — quest complete`); }
   }, [refreshSave, showToast]);
 
   const handleSetGoal = useCallback(async (n) => {
@@ -294,6 +336,21 @@ export default function Dashboard({
       showToast("Invite text copied");
     } catch {}
   }, [showToast]);
+
+  // Rotate a real VP case daily instead of fabricated banner text
+  const vpCase = useMemo(() => {
+    const now = new Date();
+    const day = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+    return CASES.length ? CASES[day % CASES.length] : null;
+  }, []);
+
+  const quests = useMemo(() => activeQuests(), [save]);
+  const myRank = useMemo(() => {
+    const ranked = [...leaderboard].sort((a, b) => (b.totalXP || b.xp || 0) - (a.totalXP || a.xp || 0));
+    const me = userName || authUser?.username;
+    const idx = ranked.findIndex((e) => e.username === me);
+    return { ranked, idx };
+  }, [leaderboard, userName, authUser]);
 
   const greeting = firstRun ? "Welcome," : `Good ${greetingWord()},`;
   const displayName = userName || authUser?.username || authUser?.name || "Scholar";
@@ -348,18 +405,50 @@ export default function Dashboard({
             />
           </div>
 
-          {/* ── Virtual patient banner ── */}
+          {/* ── Virtual patient banner (real case, rotates daily) ── */}
+          {vpCase && (
           <button className="hm-vp hm-sec-vp" onClick={() => onOpenTab?.("clinical-cases")}>
             <div className="hm-vp-ic"><HIcon name="stetho" size={18} /></div>
             <div className="hm-vp-t">
-              <h3>Virtual Patient · Dr. Amara</h3>
-              <p>New case available — chest pain, 34y/o</p>
+              <h3>Virtual Patient · {vpCase.specialty}</h3>
+              <p>{vpCase.demo} — “{vpCase.cc}”</p>
             </div>
             <div className="hm-vp-side">
               <span className="hm-vp-go">Start <HIcon name="arrowR" size={12} /></span>
-              <span className="hm-vp-xp">+40 XP</span>
+              <span className="hm-vp-xp">{vpCase.bed}</span>
             </div>
           </button>
+          )}
+
+          {/* ── Today's quests ── */}
+          <div className="hm-section hm-sec-quests">
+            <div className="hm-sec-head"><h2><HIcon name="target" size={15} color="#C0B2FF" />Today's quests</h2></div>
+            <div className="hm-quests">
+              {quests.map((q) => {
+                const prog = save.questProgress?.[q.id] || 0;
+                const claimed = (save.questClaimed || []).includes(q.id);
+                const done = prog >= q.target;
+                return (
+                  <button
+                    key={q.id}
+                    className={`hm-quest${done && !claimed ? " ready" : ""}${claimed ? " claimed" : ""}`}
+                    onClick={() => done && !claimed && handleClaimQuest(q.id)}
+                    disabled={!done || claimed}
+                  >
+                    <span className="hm-q-ico">{q.ico}</span>
+                    <span className="hm-q-info">
+                      <span className="hm-q-name">{q.name}</span>
+                      <span className="hm-q-bar"><i style={{ width: `${Math.min(100, (prog / q.target) * 100)}%` }} /></span>
+                      <span className="hm-q-meta">{Math.min(prog, q.target)}/{q.target} · <HIcon name="gem" size={9} color="#6EC1FF" />{q.reward}</span>
+                    </span>
+                    {claimed
+                      ? <HIcon name="check" size={14} color="#6EE7A0" />
+                      : done ? <span className="hm-q-claim">Claim</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* ── Jump back in ── */}
           {recents.length > 0 && (
@@ -370,16 +459,22 @@ export default function Dashboard({
               </div>
               <div className="hm-rail">
                 {recents.slice(0, 6).map((d) => {
-                  const prog = getPdfReadingProgress(d.fileUrl);
+                  const isMcq = d.contentType === "mcq";
+                  const mp = isMcq && d.resourceId ? mcqProgress[d.resourceId] : null;
+                  const prog = !isMcq ? getPdfReadingProgress(d.fileUrl) : null;
+                  const pct = isMcq ? (mp?.learnedPct ?? null) : (prog?.pct ?? null);
+                  const left = isMcq
+                    ? (mp ? `${mp.mastered || 0}/${mp.total || "?"} mastered · best ${mp.bestScore}/${mp.bestTotal}` : relTime(d.ts))
+                    : (prog ? `Page ${prog.lastPage} of ${prog.numPages}` : `Opened ${relTime(d.ts)}`);
                   return (
-                    <div key={d.shareToken} className="hm-doc" onClick={() => onOpenResource?.(d.shareToken)}>
-                      <span className="hm-badge">{d.subject || "Document"}</span>
+                    <div key={d.shareToken} className="hm-doc" onClick={() => onOpenResource?.(d.shareToken, prog?.lastPage)}>
+                      <span className="hm-badge">{isMcq ? "MCQ" : d.subject || "Document"}</span>
                       <h3>{d.title}</h3>
-                      <div className="hm-sub">{relTime(d.ts)}</div>
-                      {prog && <div className="hm-bar"><i style={{ width: `${prog.pct}%` }} /></div>}
+                      <div className="hm-sub">{isMcq ? relTime(d.ts) : d.subject || relTime(d.ts)}</div>
+                      {pct != null && <div className="hm-bar"><i style={{ width: `${pct}%` }} /></div>}
                       <div className="hm-meta">
-                        <span>{prog ? `Page ${prog.lastPage} of ${prog.numPages}` : "Not started"}</span>
-                        <span>{prog ? `${prog.pct}%` : ""}</span>
+                        <span>{left}</span>
+                        <span>{pct != null ? `${pct}%` : ""}</span>
                       </div>
                     </div>
                   );
@@ -487,7 +582,7 @@ export default function Dashboard({
 
       {/* ── Sheets ── */}
       <ShopSheet open={openSheet === "shop"} onClose={() => setOpenSheet(null)} save={save} onBuyFreeze={handleBuyFreeze} />
-      <BoardSheet open={openSheet === "board"} onClose={() => setOpenSheet(null)} entries={leaderboard} userName={userName || authUser?.username} onInvite={handleInvite} />
+      <BoardSheet open={openSheet === "board"} onClose={() => setOpenSheet(null)} entries={leaderboard} userName={userName || authUser?.username} myIdx={myRank.idx} onInvite={handleInvite} />
       <StatsSheet
         open={openSheet === "stats"} onClose={() => setOpenSheet(null)}
         fsrsStats={fsrsStats} fsrsAnalytics={fsrsAnalytics}

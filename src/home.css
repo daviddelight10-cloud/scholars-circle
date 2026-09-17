@@ -93,6 +93,45 @@
 .hm-due .hm-num { font-family: var(--hm-font-display); font-size: 36px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
 .hm-due .hm-cap { font-size: 12.5px; color: var(--hm-muted); line-height: 1.3; }
 .hm-due .hm-backlog { display: block; font-family: var(--hm-font-mono); font-size: 9.5px; color: var(--hm-faint); margin-top: 2px; }
+.hm-caught { font-family: var(--hm-font-display); font-size: 24px; font-weight: 800; letter-spacing: -.8px; color: #6EE7A0; }
+.hm-chips { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+.hm-chip {
+  font-family: var(--hm-font-mono); font-size: 9.5px; font-weight: 600; color: var(--hm-muted);
+  background: var(--hm-card); border: 1px solid var(--hm-stroke-soft);
+  padding: 4px 9px; border-radius: 99px;
+}
+
+/* quests strip */
+.hm-quests { display: flex; flex-direction: column; gap: 8px; }
+.hm-quest {
+  display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+  border-radius: 14px; background: var(--hm-card); border: 1px solid var(--hm-stroke-soft);
+  cursor: default; text-align: left; font-family: inherit; color: inherit; width: 100%;
+}
+.hm-quest.ready { border-color: rgba(255,181,71,.45); background: rgba(255,181,71,.06); cursor: pointer; }
+.hm-quest.claimed { opacity: .55; }
+.hm-quest:disabled { color: inherit; }
+.hm-q-ico { font-size: 18px; width: 34px; height: 34px; border-radius: 10px; background: var(--hm-card-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hm-q-info { flex: 1; min-width: 0; }
+.hm-q-name { display: block; font-size: 12px; font-weight: 600; }
+.hm-q-bar { display: block; height: 3px; border-radius: 99px; background: rgba(255,255,255,.07); margin-top: 5px; overflow: hidden; }
+.hm-q-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg,#8B6CFF,#C0B2FF); }
+.hm-quest.ready .hm-q-bar i { background: linear-gradient(90deg,#FFC55C,#F5A623); }
+.hm-q-meta { display: inline-flex; align-items: center; gap: 4px; font-family: var(--hm-font-mono); font-size: 9px; color: var(--hm-faint); margin-top: 4px; }
+.hm-q-claim {
+  font-family: var(--hm-font-mono); font-size: 10px; font-weight: 700; color: #211302;
+  background: linear-gradient(180deg,#FFC55C,#F5A623); padding: 6px 11px; border-radius: 9px; flex-shrink: 0;
+}
+
+/* needs-work chips (stats sheet) */
+.hm-an-weak { margin-top: 14px; }
+.hm-an-weak h5 { font-family: var(--hm-font-mono); font-size: 9px; letter-spacing: 1.5px; color: var(--hm-faint); margin: 0 0 7px; }
+.hm-an-weak-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.hm-weak-chip {
+  font-family: var(--hm-font-mono); font-size: 9.5px; font-weight: 600; color: #F9A8D4;
+  background: rgba(244,114,182,.08); border: 1px solid rgba(244,114,182,.25);
+  padding: 5px 10px; border-radius: 99px;
+}
 .hm-stats { display: grid; grid-template-columns: repeat(4,1fr); margin-top: 12px; border-top: 1px solid var(--hm-stroke-soft); padding-top: 10px; }
 .hm-stat { text-align: center; position: relative; }
 .hm-stat + .hm-stat::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1px; background: var(--hm-stroke-soft); }
@@ -430,10 +469,11 @@
   .hm-content {
     display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start;
     margin-top: 24px;
-    grid-template-areas: "hero vp" "hero jump" "foryou foryou" "library circle";
+    grid-template-areas: "hero vp" "hero quests" "hero jump" "foryou foryou" "library circle";
   }
   .hm-sec-hero { grid-area: hero; }
   .hm-sec-vp { grid-area: vp; margin-top: 0; }
+  .hm-sec-quests { grid-area: quests; }
   .hm-sec-jump { grid-area: jump; }
   .hm-sec-foryou { grid-area: foryou; }
   .hm-sec-library { grid-area: library; }

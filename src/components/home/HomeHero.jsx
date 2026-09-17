@@ -3,6 +3,14 @@ import HIcon from "./HIcon.jsx";
 
 const RING_C = 138.2; // 2πr for r=22
 
+function relIn(ts) {
+  const mins = Math.round((new Date(ts) - Date.now()) / 60000);
+  if (mins < 60) return `${Math.max(1, mins)}m`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.round(hrs / 24)}d`;
+}
+
 // Returning-user hero: real FSRS stats + goal ring.
 function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions, onReviewReadings }) {
   const due = (fsrsStats?.dueCount || 0) + (sm2DueCount || 0);
@@ -11,6 +19,11 @@ function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions
   const pct = goal > 0 ? Math.min(1, done / goal) : 0;
   const retention = fsrsStats?.avgRetrievability != null
     ? `${Math.round(fsrsStats.avgRetrievability * 100)}%` : "—";
+  const breakdown = [
+    fsrsStats?.mcqCount ? `${fsrsStats.mcqCount} questions` : null,
+    fsrsStats?.flashcardCount ? `${fsrsStats.flashcardCount} cards` : null,
+    fsrsStats?.pdfCount ? `${fsrsStats.pdfCount} pages` : null,
+  ].filter(Boolean);
   return (
     <div className="hm-hero">
       <div className="hm-hero-top">
@@ -29,12 +42,28 @@ function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions
         </div>
       </div>
       <div className="hm-due">
-        <div className="hm-num">{due}</div>
-        <div className="hm-cap">
-          item{due === 1 ? "" : "s"} due for review
-          <span className="hm-backlog">{fsrsStats?.totalItems || 0} cards total</span>
-        </div>
+        {due > 0 ? (
+          <>
+            <div className="hm-num">{due}</div>
+            <div className="hm-cap">
+              item{due === 1 ? "" : "s"} due for review
+              <span className="hm-backlog">{fsrsStats?.totalItems || 0} cards total</span>
+            </div>
+          </>
+        ) : (
+          <div className="hm-cap">
+            <b className="hm-caught">All caught up</b>
+            <span className="hm-backlog">
+              {fsrsStats?.nextDueAt ? `next card in ${relIn(fsrsStats.nextDueAt)}` : `${fsrsStats?.totalItems || 0} cards total`}
+            </span>
+          </div>
+        )}
       </div>
+      {breakdown.length > 0 && (
+        <div className="hm-chips">
+          {breakdown.map((p) => <span key={p} className="hm-chip">{p}</span>)}
+        </div>
+      )}
       <div className="hm-stats">
         <div className="hm-stat"><b>{retention}</b><span>Retention</span></div>
         <div className="hm-stat"><b>{fsrsStats?.masteredCount ?? "—"}</b><span>Mastered</span></div>
