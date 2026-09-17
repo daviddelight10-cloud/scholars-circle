@@ -1215,6 +1215,31 @@
   .mc-search input { font-size: 16px; }
 }
 
+/* Collapsible search (Gizmo-style) */
+@keyframes mc-search-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mc-search-anim { animation: mc-search-in .2s ease; }
+.mc-search-toggle {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--mc-border); background: rgba(255,255,255,.05);
+  color: var(--mc-muted); cursor: pointer; display: grid; place-items: center;
+  transition: all .18s; padding: 0; font-family: inherit;
+}
+.mc-search-toggle:hover { color: var(--mc-text); border-color: #3A3A3C; }
+.mc-search-toggle.on {
+  color: var(--mc-accent); border-color: rgba(255,179,0,.4);
+  background: rgba(255,179,0,.1);
+}
+.mc-s-clear {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  border: none; background: rgba(255,255,255,.07); color: var(--mc-muted);
+  cursor: pointer; display: grid; place-items: center; padding: 0;
+  transition: all .15s;
+}
+.mc-s-clear:hover { color: var(--mc-text); background: rgba(255,255,255,.12); }
+
 /* ── Sort row ───────────────────────────────────────────────────────── */
 .mc-sort-row {
   display: flex; align-items: center; gap: 8px; flex-shrink: 0;

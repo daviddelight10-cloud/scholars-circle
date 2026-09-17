@@ -131,6 +131,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [resourcesError, setResourcesError] = useState(null);
   const [search, setSearch] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
+  const activeQuery = activeTab === "library" ? librarySearch : search;
+  const setActiveQuery = activeTab === "library" ? setLibrarySearch : setSearch;
   const [activeTab, setActiveTab] = useState("library");
   const [communityType, setCommunityType] = useState("all"); // all | folders | pdf
   const [recycleItems, setRecycleItems] = useState([]);
@@ -327,6 +331,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       fetchCommunityFolders();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   const getAuthHeaders = () => {
     try {
@@ -1611,17 +1619,35 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           <div className="mc-top-pills">
             {fsrsStats?.streak > 0 && <span className="mc-stat-pill">🔥 {fsrsStats.streak}</span>}
             {saveLevel > 1 && <span className="mc-stat-pill">⚡ <span className="mc-lv-txt">Lv </span>{saveLevel}</span>}
+            <button
+              className={`mc-search-toggle${searchOpen || activeQuery ? " on" : ""}`}
+              aria-label={searchOpen ? "Close search" : "Search"}
+              onClick={() => {
+                if (searchOpen) { setActiveQuery(""); setSearchOpen(false); }
+                else setSearchOpen(true);
+              }}
+            >
+              <McIcon name={searchOpen ? "x" : "search"} size={14} />
+            </button>
           </div>
         </div>
-        <div className="mc-search">
-          <span className="mc-s-ic"><McIcon name="search" /></span>
-          <input
-            type="text"
-            value={activeTab === "library" ? librarySearch : search}
-            onChange={(e) => activeTab === "library" ? setLibrarySearch(e.target.value) : setSearch(e.target.value)}
-            placeholder={activeTab === "library" ? "Search your spaces…" : "Search materials, people, course codes…"}
-          />
-        </div>
+        {(searchOpen || activeQuery) && (
+          <div className="mc-search mc-search-anim">
+            <span className="mc-s-ic"><McIcon name="search" /></span>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={activeQuery}
+              onChange={(e) => setActiveQuery(e.target.value)}
+              placeholder={activeTab === "library" ? "Search your spaces…" : "Search materials, people, course codes…"}
+            />
+            {activeQuery && (
+              <button className="mc-s-clear" aria-label="Clear search" onClick={() => setActiveQuery("")}>
+                <McIcon name="x" size={13} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {activeTab === "library" ? (
