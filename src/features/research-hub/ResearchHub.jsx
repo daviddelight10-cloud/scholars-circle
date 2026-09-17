@@ -1617,7 +1617,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             </button>
           </div>
           <div className="mc-top-pills">
-            {fsrsStats?.streak > 0 && <span className="mc-stat-pill">🔥 {fsrsStats.streak}</span>}
             {saveLevel > 1 && <span className="mc-stat-pill">⚡ <span className="mc-lv-txt">Lv </span>{saveLevel}</span>}
             <button
               className={`mc-search-toggle${searchOpen || activeQuery ? " on" : ""}`}
