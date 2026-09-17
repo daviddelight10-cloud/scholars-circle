@@ -230,7 +230,6 @@ router.get("/", requireAuth, async (req, res) => {
       where: { userId },
       include: {
         folder: {
-          where: { deletedAt: null },
           include: {
             folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
             owner: { select: { id: true, username: true, role: true } },
@@ -243,7 +242,7 @@ router.get("/", requireAuth, async (req, res) => {
     });
     const bookmarkedFolders = folderBookmarks
       .map((b) => b.folder)
-      .filter((f) => f && f.ownerId !== userId); // exclude own folders (already in own)
+      .filter((f) => f && f.ownerId !== userId && !f.deletedAt); // exclude own + soft-deleted folders
 
     res.json({
       own: ownFolders,
