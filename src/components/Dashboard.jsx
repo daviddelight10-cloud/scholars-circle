@@ -106,6 +106,7 @@ export default function Dashboard({
 
   const [resourceCounts, setResourceCounts] = useState({ dept: 0, saved: 0, uploads: 0 });
   const [communityFolders, setCommunityFolders] = useState([]);
+  const [foldersLoaded, setFoldersLoaded] = useState(false);
   const [savedFolderIds, setSavedFolderIds] = useState(new Set());
   const [leaderboard, setLeaderboard] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
@@ -174,6 +175,7 @@ export default function Dashboard({
       setUserProfile(profile);
       setResourceCounts({ dept: deptResources.length, saved, uploads });
       setCommunityFolders(Array.isArray(folders) ? folders : []);
+      setFoldersLoaded(true);
       setLeaderboard(board);
     }
     fetchHubData();
@@ -296,7 +298,7 @@ export default function Dashboard({
   const greeting = firstRun ? "Welcome," : `Good ${greetingWord()},`;
   const displayName = userName || authUser?.username || authUser?.name || "Scholar";
   const streak = stats?.streak || fsrsStats?.streak || 0;
-  const uniName = userProfile?.university?.name || userProfile?.university;
+
 
   const reasonTag = (f) => {
     switch (f._reason) {
@@ -314,8 +316,7 @@ export default function Dashboard({
         <div className="hm-topbar">
           <div className="hm-head" style={{ flex: 1, minWidth: 0 }}>
             <div className="hm-greet">
-              <small>{greeting}</small>
-              <h1>{displayName}</h1>
+              <small>{greeting} {displayName}</small>
             </div>
             <div className="hm-head-right">
               <NotificationBellImproved token={token} currentUser={authUser} onOpenTab={onOpenTab} />
@@ -387,7 +388,8 @@ export default function Dashboard({
             </div>
           )}
 
-          {/* ── For you ── */}
+          {/* ── For you (hidden entirely when no community folders) ── */}
+          {foldersLoaded && forYouFolders.length > 0 && (
           <div className="hm-section hm-sec-foryou">
             <div className="hm-sec-head">
               <h2>For you</h2>
@@ -396,14 +398,6 @@ export default function Dashboard({
             <div className="hm-insight">
               <HIcon name="spark" size={13} />{insightText}
             </div>
-            {forYouFolders.length === 0 ? (
-              <div className="hm-empty">
-                <HIcon name="folder" size={22} color="#5B5B66" />
-                <h4>No community folders yet</h4>
-                <p>Folders shared by other scholars{uniName ? ` at ${uniName}` : ""} will show up here.</p>
-                <button className="hm-empty-link" onClick={() => openResearchHub("community")}>Browse community →</button>
-              </div>
-            ) : (
               <div className="hm-rail">
                 {forYouFolders.map((f) => {
                   const tint = tileTintStyle(f.name);
@@ -430,24 +424,24 @@ export default function Dashboard({
                           onClick={(e) => handleSaveFolder(e, f)}
                           title={saved ? "Saved" : "Save to My Space"}
                         >
-                          <HIcon name={saved ? "star" : "starO"} size={12} />
+                          <HIcon name={saved ? "bookmarkFill" : "bookmark"} size={12} />
                         </button>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )}
           </div>
+          )}
 
           {/* ── Your library ── */}
           <div className="hm-section hm-sec-library">
             <div className="hm-sec-head"><h2>Your library</h2></div>
             <div className="hm-lib">
-              <button className="hm-lib-card" onClick={() => openResearchHub("department")}>
-                <div className="hm-lib-ic blue"><HIcon name="layers" size={16} /></div>
-                <h3>My Department</h3>
-                <p>{resourceCounts.dept} materials</p>
+              <button className="hm-lib-card" onClick={() => openResearchHub("community")}>
+                <div className="hm-lib-ic blue"><HIcon name="users" size={16} /></div>
+                <h3>Community</h3>
+                <p>{communityFolders.length} shared folders</p>
               </button>
               <button className="hm-lib-card" onClick={() => openResearchHub("space", "saved")}>
                 <div className="hm-lib-ic amber"><HIcon name="folder" size={16} /></div>

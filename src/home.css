@@ -218,7 +218,7 @@
 .hm-f-save {
   margin-left: auto; width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; background: var(--hm-card);
-  border: 1px solid var(--hm-stroke); color: var(--hm-faint); cursor: pointer;
+  border: 1px solid var(--hm-stroke); color: #B9B9C6; cursor: pointer;
 }
 .hm-f-save.saved { color: var(--hm-amber); border-color: rgba(255,181,71,.4); background: rgba(255,181,71,.1); }
 
