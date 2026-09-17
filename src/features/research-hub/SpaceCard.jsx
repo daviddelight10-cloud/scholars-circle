@@ -10,9 +10,8 @@ const VISIBILITY_PILL = {
 };
 
 /**
- * My Space card — prototype "space-card".
- * Grid + list variants; star toggles bookmark; long-press/right-click
- * (own spaces only) opens the delete confirmation.
+ * My Space row — Gizmo-style: colored left edge, name, "N items", star pin.
+ * Long-press/right-click (own spaces only) opens the delete confirmation.
  */
 function SpaceCard({
   folder,
@@ -21,17 +20,16 @@ function SpaceCard({
   bookmarkBusy,
   onToggleBookmark,
   onRequestDelete,
-  listView = false,
 }) {
   const itemCount = folder._count?.resources ?? 0;
   const pill = VISIBILITY_PILL[folder.visibility] || VISIBILITY_PILL.private;
-  const isPdfSpace = /^(pdf|docs?|papers)/i.test(folder.name || "");
+  const tint = tileTintStyle(folder.id || folder.name);
 
   const longPress = useLongPress(() => onRequestDelete?.(folder));
 
   return (
     <div
-      className={`mc-space-card${listView ? "" : ""}`}
+      className="mc-row"
       onClick={onClick}
       {...(onRequestDelete ? {
         onPointerDown: longPress.onPointerDown,
@@ -43,11 +41,21 @@ function SpaceCard({
         onClickCapture: longPress.onClickCapture,
       } : {})}
     >
+      <span className="mc-row-edge" style={{ background: tint.color }} />
+      <div className="mc-row-body">
+        <h3>{folder.name}</h3>
+        <span className="mc-row-sub">
+          <b>{itemCount}</b> item{itemCount === 1 ? "" : "s"}
+          {folder.visibility !== "private" && (
+            <> · <span className={`mc-pill ${pill.cls}`}><McIcon name={pill.icon} />{pill.label}</span></>
+          )}
+        </span>
+      </div>
       {onToggleBookmark && (
         <button
           className={`mc-star${isBookmarked ? " starred" : ""}`}
           disabled={bookmarkBusy}
-          title={isBookmarked ? "Remove from saved" : "Save to pinned"}
+          title={isBookmarked ? "Unpin" : "Pin to top"}
           onClick={(e) => {
             e.stopPropagation();
             if (!bookmarkBusy) onToggleBookmark(folder);
@@ -56,21 +64,6 @@ function SpaceCard({
           <McIcon name="star" filled={isBookmarked} />
         </button>
       )}
-
-      <div className="mc-tile" style={tileTintStyle(folder.id || folder.name)}>
-        <McIcon name={isPdfSpace ? "filetext" : folder.visibility === "private" ? "folder" : "books"} />
-      </div>
-
-      <div className="mc-card-body">
-        <h3>{folder.name}</h3>
-        <div className="mc-meta">
-          <span><b>{itemCount}</b> item{itemCount === 1 ? "" : "s"}</span>
-          <span className={`mc-pill ${pill.cls}`}>
-            <McIcon name={pill.icon} />
-            {pill.label}
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

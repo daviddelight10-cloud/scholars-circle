@@ -488,7 +488,7 @@ export default function Dashboard({
           <div className="hm-section hm-sec-foryou">
             <div className="hm-sec-head">
               <h2>For you</h2>
-              <button onClick={() => openResearchHub("department")}>View all →</button>
+              <button onClick={() => openResearchHub("community")}>View all →</button>
             </div>
             <div className="hm-insight">
               <HIcon name="spark" size={13} />{insightText}

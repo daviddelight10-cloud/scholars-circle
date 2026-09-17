@@ -17,7 +17,6 @@ import UploadWizard from "./UploadWizard";
 import BookmarkSpacePicker from "./BookmarkSpacePicker";
 import CreateFolderModal from "./CreateFolderModal";
 import LibraryView from "./LibraryView.jsx";
-import DepartmentView from "./DepartmentView.jsx";
 import EmptyState from "./EmptyState.jsx";
 import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
@@ -40,19 +39,14 @@ import "../../research-hub.css";
 
 const CACHE_TTL = 5 * 60 * 1000;
 
-const communityTabs = [
-  { key: "all", label: "All", icon: "grid" },
-  { key: "folders", label: "Folders", icon: "folder" },
-  { key: "pdf", label: "PDF", icon: "filetext" },
+const TYPE_OPTIONS = [
+  { value: "folders", label: "Folders" },
+  { value: "pdf", label: "PDFs" },
 ];
 
 const communityEmptyStates = {
   pdf: { icon: "📕", title: "No PDFs found", message: "Try adjusting your filters or search." },
   folders: { icon: "📁", title: "No shared folders yet", message: "When teachers create shared folders, they'll appear here for you to bookmark." },
-};
-
-const emptyMessages = {
-  "public": "No resources found. Try a different search or clear filters.",
 };
 
 const ownerDisplayName = (f) =>
@@ -66,6 +60,49 @@ const folderMatchesSearch = (f, q) => {
 const ownerMatchesSearch = (f, q) => {
   return (ownerDisplayName(f) || "").toLowerCase().includes(q);
 };
+
+/** Gizmo-style dropdown filter pill — collapsed label, opens a small menu. */
+function FilterPill({ label, value, options, onChange, allLabel }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
+  }, [open]);
+
+  const active = value !== "all";
+  const current = options.find((o) => o.value === value)?.label;
+
+  return (
+    <div ref={ref} className="mc-fpill-wrap">
+      <button className={`mc-fpill${active ? " active" : ""}`} onClick={() => setOpen((v) => !v)}>
+        {active ? current : label}
+        <McIcon name="chev" size={11} />
+      </button>
+      {open && (
+        <div className="mc-fmenu">
+          <button className={!active ? "active" : ""} onClick={() => { onChange("all"); setOpen(false); }}>
+            {allLabel || `All ${label.toLowerCase()}`}
+          </button>
+          {options.map((o) => (
+            <button
+              key={o.value}
+              className={value === o.value ? "active" : ""}
+              onClick={() => { onChange(o.value); setOpen(false); }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, activeSemester } = {}) {
   const { setLastActivity } = useUserData();
@@ -93,12 +130,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   });
   const [resourcesError, setResourcesError] = useState(null);
   const [search, setSearch] = useState("");
-  const [folderFilter, setFolderFilter] = useState("all"); // all | my-uni | my-dept | trending
+  const [librarySearch, setLibrarySearch] = useState("");
   const [activeTab, setActiveTab] = useState("library");
-  const [communitySubTab, setCommunitySubTab] = useState("all");
-  const [communityType, setCommunityType] = useState("folders"); // all | folders | pdf
-  const [lecturersOnly, setLecturersOnly] = useState(false);
-  const [resultFilter, setResultFilter] = useState("all"); // search result filter: all | folders | pdf | people
+  const [communityType, setCommunityType] = useState("all"); // all | folders | pdf
   const [recycleItems, setRecycleItems] = useState([]);
   const [recycleBinBusyId, setRecycleBinBusyId] = useState(null);
   const [recycleBinOpen, setRecycleBinOpen] = useState(false);
@@ -131,13 +165,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   });
   const [saveLevel] = useState(() => {
     try { return levelFromXP(loadSave().xp); } catch { return 1; }
-  });
-  const [fsrsAnalytics, setFsrsAnalytics] = useState(() => {
-    try {
-      const raw = localStorage.getItem("sc_fsrs_analytics");
-      if (raw) { const { data } = JSON.parse(raw); return data; }
-    } catch {}
-    return null;
   });
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
 
@@ -255,7 +282,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         setActiveTab("library");
       } else if (tab === "department") {
         setActiveTab("community");
-        setCommunitySubTab("department");
       } else if (tab) {
         setActiveTab(tab);
       }
@@ -275,12 +301,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   useEffect(() => {
     if (window.__sc_pending_hub_tab) {
-      const { tab, subTab, openUpload, openCreateFolder } = window.__sc_pending_hub_tab;
+      const { tab, openUpload, openCreateFolder } = window.__sc_pending_hub_tab;
       if (tab === "space" || tab === "fsrs" || tab === "progress") {
         setActiveTab("library");
       } else if (tab === "department") {
         setActiveTab("community");
-        setCommunitySubTab("department");
       } else if (tab) {
         setActiveTab(tab);
       }
@@ -301,7 +326,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     if (activeTab === "community") {
       fetchCommunityFolders();
     }
-  }, [activeTab, communitySubTab]);
+  }, [activeTab]);
 
   const getAuthHeaders = () => {
     try {
@@ -405,15 +430,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     } catch {}
   };
 
+  // Warms the sc_fsrs_analytics cache for Home/RetentionDashboard
   const fetchFsrsAnalytics = async () => {
     const cacheKey = "sc_fsrs_analytics";
-    const cached = loadCached(cacheKey);
-    if (cached) setFsrsAnalytics(cached);
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/analytics?days=30`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
-        setFsrsAnalytics(data);
         saveCached(cacheKey, data);
       }
     } catch {}
@@ -585,11 +608,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     haptics.light();
     setProfileOwner(owner);
   }, []);
-
-  // Reset the search result filter when the search is cleared
-  useEffect(() => {
-    if (!search) setResultFilter("all");
-  }, [search]);
 
   const requestSpaceDelete = useCallback((folder) => {
     haptics.medium();
@@ -1344,22 +1362,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return communityFolders.filter((f) => f.owner?.role === "LECTURER" || f.owner?.role === "TEACHER");
   }, [communityFolders]);
 
-  // PDFs for the community tab (scoped + searched)
-  const communityPdfs = useMemo(() => {
-    let list = communityCategorized.pdfs;
-    const userUniId = userProfile?.universityId || userProfile?.university?.id;
-    if (!search && folderFilter === "my-uni" && userUniId) {
-      list = list.filter((r) => r.universityId && String(r.universityId) === String(userUniId));
-    }
-    if (folderFilter === "trending") {
-      list = [...list].sort(
-        (a, b) => ((b._count?.bookmarks || 0) - (a._count?.bookmarks || 0)) || ((b.viewCount || 0) - (a.viewCount || 0))
-      );
-    }
-    return list;
-  }, [communityCategorized, folderFilter, search, userProfile]);
+  // PDFs for the community tab (visibleResources already applies search + filter pills)
+  const communityPdfs = communityCategorized.pdfs;
 
-  // Filter + group community folders (non-lecturer, scoped/searched)
+  // Filter + group community folders (non-lecturer, searched/filter-pilled)
   const communityFolderSections = useMemo(() => {
     const userUniId = userProfile?.universityId || userProfile?.university?.id;
     const arr = communityFolders.filter((f) => !(f.owner?.role === "LECTURER" || f.owner?.role === "TEACHER"));
@@ -1368,10 +1374,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     if (search) {
       const q = search.toLowerCase();
       filtered = arr.filter((f) => folderMatchesSearch(f, q));
-    } else if (folderFilter === "my-uni") {
-      filtered = arr.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
-    } else if (folderFilter === "trending") {
-      filtered = arr.filter((f) => (f._count?.folderBookmarks || 0) >= 3);
+    }
+    if (filters.university !== "all") {
+      filtered = filtered.filter((f) => f.university?.name === filters.university);
+    }
+    if (filters.level !== "all") {
+      filtered = filtered.filter((f) => f.level === filters.level);
     }
 
     // Sort by bookmarks desc, then recent
@@ -1381,8 +1389,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       return new Date(b.updatedAt) - new Date(a.updatedAt);
     });
 
-    // Group into sections (only for "all" filter when not searching)
-    if (!search && folderFilter === "all" && userUniId) {
+    const filtersActive = search || filters.university !== "all" || filters.level !== "all" || filters.subject !== "all";
+    // Group into sections (only when browsing unfiltered)
+    if (!filtersActive && userUniId) {
       const fromUni = filtered.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
       const popular = filtered.filter((f) => (f._count?.folderBookmarks || 0) >= 5 && !(f.university?.id && String(f.university.id) === String(userUniId)));
       const fromUniIds = new Set(fromUni.map((f) => f.id));
@@ -1397,20 +1406,23 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
 
     return [{ label: null, folders: filtered }];
-  }, [communityFolders, folderFilter, search, userProfile]);
+  }, [communityFolders, filters, search, userProfile]);
 
-  // Lecturers section (scoped/searched)
+  // Lecturers section (searched/filter-pilled)
   const lecturerSections = useMemo(() => {
-    const userUniId = userProfile?.universityId || userProfile?.university?.id;
     let filtered = lecturerFolderList;
     if (search) {
       const q = search.toLowerCase();
       filtered = lecturerFolderList.filter((f) => folderMatchesSearch(f, q) || ownerMatchesSearch(f, q));
-    } else if (folderFilter === "my-uni") {
-      filtered = lecturerFolderList.filter((f) => f.university?.id && String(f.university.id) === String(userUniId));
+    }
+    if (filters.university !== "all") {
+      filtered = filtered.filter((f) => f.university?.name === filters.university);
+    }
+    if (filters.level !== "all") {
+      filtered = filtered.filter((f) => f.level === filters.level);
     }
     return [...filtered].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-  }, [lecturerFolderList, folderFilter, search, userProfile]);
+  }, [lecturerFolderList, filters, search]);
 
   // People matches (folders owned by people whose name matches the search)
   const peopleMatches = useMemo(() => {
@@ -1431,14 +1443,23 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return { all: folders.length + pdfs.length + people, folders: folders.length, pdfs: pdfs.length, people };
   }, [search, communityFolders, communityPdfs, peopleMatches]);
 
-  // Filtered PDF list honoring search + result filter
-  const visiblePdfs = useMemo(() => {
-    if (!search) return communityPdfs;
-    const q = search.toLowerCase();
-    return communityPdfs.filter((r) =>
-      (r.title || "").toLowerCase().includes(q) || (r.subject || "").toLowerCase().includes(q)
-    );
-  }, [communityPdfs, search]);
+  // Filtered PDF list (search + filters already applied upstream)
+  const visiblePdfs = communityPdfs;
+
+  // Filter-pill option lists (levels + schools seen in the community feed)
+  const levelOptions = useMemo(() => {
+    const set = new Set();
+    tabResources.forEach((r) => r.level && set.add(r.level));
+    communityFolders.forEach((f) => f.level && set.add(f.level));
+    return Array.from(set).sort();
+  }, [tabResources, communityFolders]);
+
+  const schoolOptions = useMemo(() => {
+    const set = new Set();
+    tabResources.forEach((r) => r.university?.name && set.add(r.university.name));
+    communityFolders.forEach((f) => f.university?.name && set.add(f.university.name));
+    return Array.from(set).sort();
+  }, [tabResources, communityFolders]);
 
   // Folders owned by the profile-sheet subject
   const profileFolders = useMemo(() => {
@@ -1575,27 +1596,32 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         <span>{ptr.isRefreshing ? "Refreshing…" : "Pull to refresh"}</span>
       </div>
       <div className="mc-sticky-header -mx-4 mb-4 px-4 sm:-mx-6 sm:px-6">
-        <div className="mc-header">
-          <h1>My Circle</h1>
-        </div>
-        <div className="mc-seg">
-          <button className={activeTab === "library" ? "active" : ""} onClick={() => setActiveTab("library")}>
-            <McIcon name="books" />MY SPACE
-            {fsrsStats && fsrsStats.dueCount > 0 && (
-              <span className="mc-count">{fsrsStats.dueCount}</span>
-            )}
-          </button>
-          <button className={activeTab === "community" ? "active" : ""} onClick={() => setActiveTab("community")}>
-            <McIcon name="globe" />COMMUNITY
-          </button>
-        </div>
-        {(fsrsStats?.streak > 0 || saveLevel > 1) && (
-          <div className="mc-stats-row">
-            {fsrsStats?.streak > 0 && <span className="mc-stat">🔥 {fsrsStats.streak}-day streak</span>}
-            {saveLevel > 1 && <span className="mc-stat">⚡ Lv {saveLevel}</span>}
+        <div className="mc-toprow">
+          <div className="mc-tabs">
+            <button className={activeTab === "library" ? "active" : ""} onClick={() => setActiveTab("library")}>
+              My Space
+              {fsrsStats && fsrsStats.dueCount > 0 && (
+                <span className="mc-count">{fsrsStats.dueCount}</span>
+              )}
+            </button>
+            <button className={activeTab === "community" ? "active" : ""} onClick={() => setActiveTab("community")}>
+              Community
+            </button>
           </div>
-        )}
-        <div className="mc-glow-line" />
+          <div className="mc-top-pills">
+            {fsrsStats?.streak > 0 && <span className="mc-stat-pill">🔥 {fsrsStats.streak}</span>}
+            {saveLevel > 1 && <span className="mc-stat-pill">⚡ Lv {saveLevel}</span>}
+          </div>
+        </div>
+        <div className="mc-search">
+          <span className="mc-s-ic"><McIcon name="search" /></span>
+          <input
+            type="text"
+            value={activeTab === "library" ? librarySearch : search}
+            onChange={(e) => activeTab === "library" ? setLibrarySearch(e.target.value) : setSearch(e.target.value)}
+            placeholder={activeTab === "library" ? "Search your spaces…" : "Search materials, people, course codes…"}
+          />
+        </div>
       </div>
 
       {activeTab === "library" ? (
@@ -1621,154 +1647,66 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           onOpenRecycleBin={openRecycleBin}
           recycleCount={recycleItems.length}
           onRequestDeleteSpace={requestSpaceDelete}
+          search={librarySearch}
+          fsrsStats={fsrsStats}
         />
       ) : (
         <div className="mc-root">
-          {/* Search pill */}
-          {communitySubTab !== "department" && (
-            <div className="mc-search">
-              <span className="mc-s-ic"><McIcon name="search" /></span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  if (lecturersOnly) setLecturersOnly(false);
-                }}
-                placeholder="Search materials, people, course codes…"
+          {/* Filter pills */}
+          <div className="mc-fpills">
+            <FilterPill
+              label="Type"
+              value={communityType}
+              onChange={setCommunityType}
+              options={TYPE_OPTIONS}
+              allLabel="All types"
+            />
+            {levelOptions.length > 0 && (
+              <FilterPill
+                label="Level"
+                value={filters.level}
+                onChange={(v) => setFilters((f) => ({ ...f, level: v }))}
+                options={levelOptions.map((l) => ({ value: l, label: l }))}
+                allLabel="All levels"
               />
+            )}
+            {subjects.length > 0 && (
+              <FilterPill
+                label="Subject"
+                value={filters.subject}
+                onChange={(v) => setFilters((f) => ({ ...f, subject: v }))}
+                options={subjects.map((s) => ({ value: s, label: s }))}
+                allLabel="All subjects"
+              />
+            )}
+            {schoolOptions.length > 0 && (
+              <FilterPill
+                label="School"
+                value={filters.university}
+                onChange={(v) => setFilters((f) => ({ ...f, university: v }))}
+                options={schoolOptions.map((s) => ({ value: s, label: s }))}
+                allLabel="All schools"
+              />
+            )}
+          </div>
+
+          {/* University banner */}
+          {!search && communityType !== "pdf" && userProfile?.university?.name && (
+            <div className="mc-uni-banner">
+              <McIcon name="flame" />
+              <span>Popular at <b>{userProfile.university.name}</b></span>
             </div>
           )}
 
-          {/* Scope row */}
-          <div className="mc-scope-row">
-            <button
-              className={`mc-chip${folderFilter === "my-uni" ? " active" : ""}`}
-              onClick={() => {
-                setFolderFilter(folderFilter === "my-uni" ? "all" : "my-uni");
-                if (communitySubTab === "department") setCommunitySubTab("all");
-              }}
-            >
-              <McIcon name="grad" />My University
-            </button>
-            <button
-              className={`mc-chip${communitySubTab === "department" ? " active" : ""}`}
-              onClick={() => setCommunitySubTab(communitySubTab === "department" ? "all" : "department")}
-            >
-              <McIcon name="landmark" />My Department
-            </button>
-            <button
-              className={`mc-chip${folderFilter === "trending" ? " active" : ""}`}
-              onClick={() => {
-                setFolderFilter(folderFilter === "trending" ? "all" : "trending");
-                if (communitySubTab === "department") setCommunitySubTab("all");
-              }}
-            >
-              <McIcon name="flame" />Trending
-            </button>
-            <button
-              className={`mc-chip lec${lecturersOnly ? " active" : ""}`}
-              onClick={() => {
-                setLecturersOnly((v) => !v);
-                if (communitySubTab === "department") setCommunitySubTab("all");
-              }}
-            >
-              <McIcon name="user" />Lecturers
-            </button>
-          </div>
+          {/* Results count */}
+          {search && searchCounts && (
+            <div className="mc-results-line"><b>{searchCounts.all}</b> results for "{search}"</div>
+          )}
 
-          {communitySubTab === "department" ? (
-            <DepartmentView
-              resources={resources}
-              resourcesLoading={resourcesLoading}
-              resourcesError={resourcesError}
-              onRetry={fetchResources}
-              currentUserId={getCurrentUserId()}
-              userProfile={userProfile}
-              folders={folders}
-              bookmarkedIds={bookmarkedIds}
-              bookmarkBusyId={bookmarkBusyId}
-              mcqProgress={mcqProgress}
-              onOpen={handleOpen}
-              onToggleBookmark={toggleBookmark}
-              onShare={handleShare}
-              onOpenFolder={openFolder}
-              onCreateFolder={() => setShowCreateFolder(true)}
-            />
-          ) : (
-            <>
-              {/* Type chips */}
-              <div className={`mc-chips${search || lecturersOnly ? " dimmed" : ""}`}>
-                {communityTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    className={`mc-chip${communityType === tab.key ? " active" : ""}`}
-                    onClick={() => setCommunityType(tab.key)}
-                  >
-                    <McIcon name={tab.icon} />{tab.label}
-                    {tab.key === "folders" && !search && communityFolders.length > 0 && (
-                      <span className="n">{communityFolders.length}</span>
-                    )}
-                    {tab.key === "pdf" && !search && (communityCategorized.counts.pdf || 0) > 0 && (
-                      <span className="n">{communityCategorized.counts.pdf}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search results bar */}
-              {search && searchCounts && (
-                <div className="mc-chips">
-                  <span className="mc-s-label">
-                    <b>{searchCounts.all}</b> results for "{search}"
-                  </span>
-                  {[
-                    ["all", "All", searchCounts.all],
-                    ["folders", "Folders", searchCounts.folders],
-                    ["pdf", "PDFs", searchCounts.pdfs],
-                    ["people", "People", searchCounts.people],
-                  ].map(([key, label, count]) => (
-                    <button
-                      key={key}
-                      className={`mc-chip rc${resultFilter === key ? " active" : ""}`}
-                      onClick={() => setResultFilter(key)}
-                    >
-                      {label} <span className="n">{count}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="mc-content">
-                {lecturersOnly ? (
+          <div className="mc-content">
+            {search ? (
                   <>
-                    <div className="mc-section-label">YOUR LECTURERS</div>
-                    <p className="mc-section-hint">
-                      Folders uploaded directly by your course lecturers. Tap a name to view their profile.
-                    </p>
-                    {lecturerSections.length === 0 ? (
-                      <EmptyState icon="🧑‍🏫" title="No lecturer folders yet" message="When lecturers share folders, they'll appear here." />
-                    ) : (
-                      <div className="mc-folders-grid">
-                        {lecturerSections.map((folder, i) => (
-                          <CommunityFolderCard
-                            key={folder.id}
-                            folder={folder}
-                            index={i}
-                            onClick={() => openFolder(folder.id)}
-                            isBookmarked={folderBookmarkedIds.has(folder.id)}
-                            bookmarkBusy={folderBookmarkBusyId === folder.id}
-                            onToggleBookmark={handleToggleFolderBookmark}
-                            onOpenProfile={openProfile}
-                            onOpenActions={openCardActions}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                ) : search ? (
-                  <>
-                    {(resultFilter === "all" || resultFilter === "folders") && (communityFolderSections[0]?.folders || []).length > 0 && (
+                    {communityType !== "pdf" && (communityFolderSections[0]?.folders || []).length > 0 && (
                       <>
                         <div className="mc-section-label">FOLDERS</div>
                         <div className="mc-folders-grid">
@@ -1788,7 +1726,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                         </div>
                       </>
                     )}
-                    {(resultFilter === "all" || resultFilter === "people") && peopleMatches.length > 0 && (
+                    {communityType !== "pdf" && peopleMatches.length > 0 && (
                       <>
                         <div className="mc-section-label">PEOPLE</div>
                         <div className="mc-folders-grid">
@@ -1808,7 +1746,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                         </div>
                       </>
                     )}
-                    {(resultFilter === "all" || resultFilter === "pdf") && visiblePdfs.length > 0 && (
+                    {communityType !== "folders" && visiblePdfs.length > 0 && (
                       <>
                         <div className="mc-section-label">PDF DOCUMENTS</div>
                         <div className="mc-pdfs-grid">
@@ -1933,9 +1871,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                     )}
                   </>
                 )}
-              </div>
-            </>
-          )}
+          </div>
         </div>
       )}
 
@@ -1949,12 +1885,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         </div>
       )}
 
-      {showFab && (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
+      {showFab && activeTab === "library" && (
         <div onClick={() => setShowFab(false)} className="mc-fab-overlay fixed inset-0 z-[998] bg-black/50" style={{ animation: "fade-up 0.15s ease" }} />
       )}
 
       <div className="mc-fab-container fixed bottom-24 right-6 z-[999] flex flex-col items-end gap-3">
-        {showFab && (activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
+        {showFab && activeTab === "library" && (
           <>
             <FabAction
               icon="📎"
@@ -1970,7 +1906,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             />
           </>
         )}
-        {(activeTab === "library" || (activeTab === "community" && communitySubTab === "department")) && (
+        {activeTab === "library" && (
           <button
             onClick={() => setShowFab((v) => !v)}
             className={`mc-fab${showFab ? " open" : ""}`}

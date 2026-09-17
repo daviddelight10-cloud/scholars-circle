@@ -5,7 +5,7 @@ import LoadingState from "./LoadingState";
 import ErrorState from "./ErrorState";
 import SpaceCard from "./SpaceCard.jsx";
 import McIcon from "./McIcon.jsx";
-import { getSubjectIcon } from "./subjectColors";
+import { getSubjectIcon, getSubjectColor } from "./subjectColors";
 
 function groupBySubject(resources, currentUserId, bookmarkedIds, bookmarkFolderMap) {
   const filtered = resources.filter((r) => {
@@ -60,28 +60,17 @@ export default function LibraryView({
   onOpenRecycleBin,
   recycleCount = 0,
   onRequestDeleteSpace,
+  search = "",
+  fsrsStats,
 }) {
-  const [search, setSearch] = useState("");
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [savedOnly, setSavedOnly] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [spaceSort, setSpaceSort] = useState("recent");
-  const [listView, setListView] = useState(() => {
-    try {
-      const saved = localStorage.getItem("mc_space_view");
-      if (saved) return saved === "list";
-    } catch {}
-    return typeof window !== "undefined" && window.innerWidth < 640;
-  });
   // Local pins for own spaces (the backend bookmark is reserved for others' folders)
   const [ownPins, setOwnPins] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem("mc_own_pins") || "[]")); } catch { return new Set(); }
   });
   const sortRef = useRef(null);
-
-  useEffect(() => {
-    try { localStorage.setItem("mc_space_view", listView ? "list" : "grid"); } catch {}
-  }, [listView]);
 
   useEffect(() => {
     try { localStorage.setItem("mc_own_pins", JSON.stringify([...ownPins])); } catch {}
@@ -96,10 +85,6 @@ export default function LibraryView({
       return next;
     });
   }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem("mc_space_view", listView ? "list" : "grid"); } catch {}
-  }, [listView]);
 
   useEffect(() => {
     if (!sortOpen) return;
@@ -165,10 +150,11 @@ export default function LibraryView({
   const hasFolders = (filteredOwnFolders.length > 0 || filteredBookmarkedFolders.length > 0);
   const hasLooseMaterials = grouped.length > 0;
   const isEmpty = !hasFolders && !hasLooseMaterials && !search;
-  const sortedOwn = sortFolders(filteredOwnFolders);
-  const sortedPinned = sortFolders(filteredBookmarkedFolders);
-  const pinnedOwn = sortedOwn.filter((f) => ownPins.has(f.id));
-  const pinnedAll = [...pinnedOwn, ...sortedPinned];
+  const ownIds = new Set(filteredOwnFolders.map((f) => f.id));
+  // One flat list: pinned own → saved (bookmarked) → rest of own
+  const pinnedOwn = sortFolders(filteredOwnFolders).filter((f) => ownPins.has(f.id));
+  const restOwn = sortFolders(filteredOwnFolders).filter((f) => !ownPins.has(f.id));
+  const allSpaces = [...pinnedOwn, ...sortFolders(filteredBookmarkedFolders), ...restOwn];
 
   if (resourcesLoading) {
     return <LoadingState grid count={4} />;
@@ -179,17 +165,6 @@ export default function LibraryView({
 
   return (
     <div className="mc-root">
-      {/* Search pill */}
-      <div className="mc-search">
-        <span className="mc-s-ic"><McIcon name="search" /></span>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search your spaces…"
-        />
-      </div>
-
       {/* Sort row */}
       <div className="mc-sort-row">
         <div ref={sortRef} style={{ position: "relative" }}>
@@ -207,9 +182,6 @@ export default function LibraryView({
             </div>
           )}
         </div>
-        <button className={`mc-chip-sm${savedOnly ? " active" : ""}`} onClick={() => setSavedOnly((v) => !v)}>
-          <McIcon name="star" filled={savedOnly} size={13} /> Saved
-        </button>
         <span className="mc-spacer" />
         {onOpenRecycleBin && (
           <button className="mc-icon-btn" title="Recycle bin" onClick={onOpenRecycleBin}>
@@ -217,13 +189,6 @@ export default function LibraryView({
             {recycleCount > 0 && <span className="mc-tn">{recycleCount}</span>}
           </button>
         )}
-        <button
-          className={`mc-icon-btn${listView ? " active" : ""}`}
-          title={listView ? "Grid view" : "List view"}
-          onClick={() => setListView((v) => !v)}
-        >
-          <McIcon name={listView ? "list" : "grid"} />
-        </button>
       </div>
 
       <div className="mc-content">
@@ -263,93 +228,56 @@ export default function LibraryView({
           </div>
         ) : (
         <>
-          {/* PINNED — starred own spaces + bookmarked (saved) spaces */}
-          {pinnedAll.length > 0 && (
+          {/* SPACES — pinned own, saved, then the rest */}
+          {allSpaces.length > 0 && (
             <>
-              <div className="mc-section-label">PINNED</div>
-              <div className={`mc-grid${listView ? " mc-list-view" : ""}`}>
-                {pinnedAll.map((folder) => (
-                  <SpaceCard
-                    key={folder.id}
-                    folder={folder}
-                    onClick={() => onOpenFolder(folder.id)}
-                    isBookmarked={ownPins.has(folder.id) || folderBookmarkedIds?.has(folder.id)}
-                    bookmarkBusy={folderBookmarkBusyId === folder.id}
-                    onToggleBookmark={ownPins.has(folder.id) ? toggleOwnPin : onToggleFolderBookmark}
-                    listView={listView}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* ALL SPACES — own folders */}
-          {!savedOnly && (
-            <>
-              <div className="mc-section-label">ALL SPACES</div>
-              <div className={`mc-grid${listView ? " mc-list-view" : ""}`}>
-                <div
-                  className="mc-space-card"
-                  onClick={onCreateFolder}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    borderStyle: "dashed", background: "transparent", boxShadow: "none",
-                    minHeight: listView ? 66 : 132,
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#555" }}>
-                    <McIcon name="plus" size={24} />
-                    <span style={{ fontSize: 11, fontWeight: 700 }}>Create new space</span>
-                  </div>
-                </div>
-
-                {sortedOwn.map((folder) => (
-                  <SpaceCard
-                    key={folder.id}
-                    folder={folder}
-                    onClick={() => onOpenFolder(folder.id)}
-                    isBookmarked={ownPins.has(folder.id)}
-                    bookmarkBusy={false}
-                    onToggleBookmark={toggleOwnPin}
-                    onRequestDelete={onRequestDeleteSpace}
-                    listView={listView}
-                  />
-                ))}
+              <div className="mc-section-label">SPACES</div>
+              <div className="mc-rows">
+                {allSpaces.map((folder) => {
+                  const isOwn = ownIds.has(folder.id);
+                  return (
+                    <SpaceCard
+                      key={folder.id}
+                      folder={folder}
+                      onClick={() => onOpenFolder(folder.id)}
+                      isBookmarked={isOwn ? ownPins.has(folder.id) : true}
+                      bookmarkBusy={folderBookmarkBusyId === folder.id}
+                      onToggleBookmark={isOwn ? toggleOwnPin : onToggleFolderBookmark}
+                      onRequestDelete={isOwn ? onRequestDeleteSpace : undefined}
+                    />
+                  );
+                })}
               </div>
             </>
           )}
 
           {/* MATERIALS — loose (folder-less) subject groups */}
-          {!savedOnly && grouped.length > 0 && (
+          {grouped.length > 0 && (
             <>
               <div className="mc-section-label">MATERIALS</div>
-              <div className={`mc-grid${listView ? " mc-list-view" : ""}`}>
-                {grouped.map((s) => (
-                  <div
-                    key={s.subject}
-                    className="mc-space-card"
-                    onClick={() => setSelectedSubject({ subject: s.subject, resources: s.resources })}
-                  >
-                    <div className="mc-tile"><span style={{ fontSize: 20 }}>{getSubjectIcon(s.subject)}</span></div>
-                    <div className="mc-card-body">
-                      <h3>{s.subject}</h3>
-                      <div className="mc-meta">
-                        <span><b>{s.resources.length}</b> item{s.resources.length === 1 ? "" : "s"}</span>
-                        <span className="mc-pill link">
-                          <McIcon name="books" />Loose
-                        </span>
+              <div className="mc-rows">
+                {grouped.map((s) => {
+                  const sc = getSubjectColor(s.subject);
+                  const st = fsrsStats?.bySubject?.[s.subject];
+                  const pct = st && st.total > 0 ? Math.round((st.mastered / st.total) * 100) : null;
+                  return (
+                    <div
+                      key={s.subject}
+                      className="mc-row"
+                      onClick={() => setSelectedSubject({ subject: s.subject, resources: s.resources })}
+                    >
+                      <span className="mc-row-edge" style={{ background: sc.accent }} />
+                      <span className="mc-row-ic">{getSubjectIcon(s.subject)}</span>
+                      <div className="mc-row-body">
+                        <h3>{s.subject}</h3>
+                        <span className="mc-row-sub"><b>{s.resources.length}</b> item{s.resources.length === 1 ? "" : "s"} · Loose</span>
                       </div>
+                      {pct != null && <span className="mc-row-pct">{pct}%</span>}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
-          )}
-
-          {savedOnly && pinnedAll.length === 0 && (
-            <div className="mc-empty-note">
-              No saved spaces yet — tap the star on a space to pin it.
-            </div>
           )}
 
           {search && !hasFolders && !hasLooseMaterials && (
