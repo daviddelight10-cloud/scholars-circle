@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
+import { recordRecentDoc } from "../lib/homeUtils.js";
 import PdfReader from "./PdfReader.jsx";
 import DocumentReader from "./DocumentReader.jsx";
 import StreakSurvival from "./streak-survival/StreakSurvival.jsx";
@@ -55,6 +56,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   useEffect(() => {
     if (token) fetchResource();
   }, [token]);
+
+  // Track opens for the Home "Jump back in" rail
+  useEffect(() => { recordRecentDoc(resource); }, [resource]);
 
   const checkAuth = () => {
     try {
