@@ -32,7 +32,6 @@ import ProfileSheet from "./ProfileSheet.jsx";
 import RecycleBinSheet from "./RecycleBinSheet.jsx";
 import CommunityFolderCard from "./CommunityFolderCard.jsx";
 import PdfCard from "./PdfCard.jsx";
-import { loadSave, levelFromXP } from "../streak-survival/survivalStore.js";
 import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
 import { getGuidedProgressIndex } from "../../lib/studyCache.js";
 import "../../research-hub.css";
@@ -167,9 +166,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     } catch {}
     return null;
   });
-  const [saveLevel] = useState(() => {
-    try { return levelFromXP(loadSave().xp); } catch { return 1; }
-  });
+
   const [viewerInitialPage, setViewerInitialPage] = useState(null);
 
   const [showUploadWizard, setShowUploadWizard] = useState(false);
@@ -1617,7 +1614,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
             </button>
           </div>
           <div className="mc-top-pills">
-            {saveLevel > 1 && <span className="mc-stat-pill">⚡ <span className="mc-lv-txt">Lv </span>{saveLevel}</span>}
             <button
               className={`mc-search-toggle${searchOpen || activeQuery ? " on" : ""}`}
               aria-label={searchOpen ? "Close search" : "Search"}
