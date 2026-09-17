@@ -528,7 +528,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   };
 
   const handleShareFolder = async (folder) => {
-    if (!folder.shareToken) { showToast("Share not available"); return; }
+    if (!folder?.shareToken) { showToast("Share not available"); return; }
     const url = `${window.location.origin}/folders/${folder.shareToken}`;
     try {
       await navigator.clipboard.writeText(url);

@@ -813,7 +813,7 @@
   font-weight: 600;
 }
 
-/* Topics grid */
+/* Topics grid (legacy card layout — kept for drag placeholder styling) */
 .sp-topic-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -834,6 +834,52 @@
 .sp-topic-card.cs-dragging {
   transition: none !important;
   animation: none !important;
+}
+
+/* Topic spine — skeleton timeline: ring nodes on a continuous vertical line */
+.sp-topic-spine {
+  display: flex;
+  flex-direction: column;
+}
+.sp-spine-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+.sp-spine-row:last-child { border-bottom: none; }
+.sp-spine-row:hover { background: rgba(245,166,35,0.05); }
+.sp-spine-row.selected { background: rgba(245,166,35,0.08); }
+.sp-spine-node {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+.sp-spine-line {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 24px; /* row bottom pad (12) + next row top pad (12) */
+  margin-left: -1px;
+  background: rgba(255,255,255,0.08);
+}
+.sp-topic-spine.editing .sp-spine-row { cursor: default; }
+.sp-topic-spine.editing .sp-spine-row:hover { background: transparent; }
+.sp-spine-row.cs-dragging {
+  transition: none !important;
+  animation: none !important;
+  background: #151A24;
+  border-radius: 12px;
 }
 
 /* Bottom-sheet action rows (card style) */

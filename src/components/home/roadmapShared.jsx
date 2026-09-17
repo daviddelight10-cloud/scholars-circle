@@ -474,6 +474,9 @@ export function OnboardingStep({ number, title, description, icon, done, actionL
  */
 export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic, selectedTopicId, startHereTopic, onSelectTopic, onStartStudying, isMobile, isLast, editMode, onDragStart }) {
   const p = progress?.[topic.id];
+  const pct = progressPct(p);
+  const ringColor = p?.label === "Mastered" ? "#3DD68C" : pct > 0 ? "#F5A623" : "rgba(255,255,255,0.12)";
+  const RC = 2 * Math.PI * 15; // r=15 ring around the node
   const topicMatches = matchesByTopic.get(topic.id) || [];
   const isSelected = selectedTopicId === topic.id;
   const isStartHere = startHereTopic?.id === topic.id;
@@ -505,7 +508,13 @@ export function TimelineTopicRow({ topic, idx, topics, progress, matchesByTopic,
         </svg>
       </div>
 
-      <div className={nodeClass}>
+      <div className={nodeClass} style={{ position: "relative" }}>
+        <svg width="36" height="36" viewBox="0 0 36 36" style={{ position: "absolute", left: -4, top: -4, pointerEvents: "none" }}>
+          <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="2.5" />
+          <circle cx="18" cy="18" r="15" fill="none" stroke={ringColor} strokeWidth="2.5" strokeLinecap="round"
+            strokeDasharray={RC.toFixed(1)} strokeDashoffset={(RC * (1 - pct / 100)).toFixed(1)}
+            transform="rotate(-90 18 18)" />
+        </svg>
         {idx + 1}
       </div>
       {!isLast && !editMode && <div className="cs-topic-line" />}

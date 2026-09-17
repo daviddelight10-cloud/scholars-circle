@@ -644,6 +644,7 @@ export default function TopicSkeletonView({ courseCode: initialCourseCode, onExi
                     onSelectTopic={(id) => { setSelectedTopicId(id); if (isMobile) setShowDetailMobile(true); }}
                     onStartStudying={handleStartStudying}
                     isMobile={isMobile}
+                    isLast={idx === topics.length - 1}
                   />
                 ))}
               </div>

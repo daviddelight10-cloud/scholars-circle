@@ -134,7 +134,7 @@ export default function FolderDetailView({
                   <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
                 </svg>
               </button>
-              {menuOpen && (
+              {menuOpen && folderDetail && (
                 <div className="cs-menu" role="menu">
                     {!folderIsOwner && folderDetail.visibility !== "private" &&
                       menuItem(

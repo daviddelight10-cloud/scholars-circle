@@ -729,10 +729,10 @@ export default function EmbeddedRoadmapView({
             </button>
           )}
 
-          {/* Topic grid */}
+          {/* Topic spine — nodes connected by a continuous vertical line */}
           <div
             ref={listRef}
-            className={`sp-topic-grid${editMode ? " editing" : ""}`}
+            className={`sp-topic-spine${editMode ? " editing" : ""}`}
             style={{ marginTop: 12 }}
           >
             {topics.map((topic, idx) => {
@@ -746,80 +746,81 @@ export default function EmbeddedRoadmapView({
                 : pct > 0
                   ? { background: "rgba(245,166,35,0.12)", color: "#F5A623", borderColor: "rgba(245,166,35,0.2)" }
                   : { background: "rgba(255,255,255,0.03)", color: "#646E84", borderColor: "rgba(255,255,255,0.07)" };
+              const isLast = idx === topics.length - 1;
               const C = 2 * Math.PI * 16; // r=16 ring
               return (
                 <div
                   key={topic.id}
                   data-topic-id={topic.id}
-                  className={`sp-topic-card sp-fade-up${selectedTopicId === topic.id ? " selected" : ""}`}
+                  className={`sp-spine-row sp-fade-up${selectedTopicId === topic.id ? " selected" : ""}`}
                   style={{ animationDelay: `${Math.min(idx * 50, 400)}ms` }}
                   onClick={() => { if (!editMode) { setSelectedTopicId(topic.id); setDetailOpen(true); } }}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => { if (!editMode && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setSelectedTopicId(topic.id); setDetailOpen(true); } }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    {editMode && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                        <button
-                          aria-label={`Move ${topic.title} up`}
-                          disabled={idx === 0}
-                          onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, -1); }}
-                          style={{
-                            background: "transparent", border: "none", color: idx === 0 ? "#3a4150" : "#9AA3B5",
-                            cursor: idx === 0 ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
-                          }}
-                        >
-                          ▲
-                        </button>
-                        <button
-                          aria-label={`Drag to reorder ${topic.title}`}
-                          onPointerDown={(e) => handleDragStart(e, topic.id)}
-                          style={{
-                            background: "transparent", border: "none", color: "#646E84",
-                            cursor: "grab", fontSize: 15, padding: "4px 2px",
-                            touchAction: "none",
-                          }}
-                        >
-                          ⠿
-                        </button>
-                        <button
-                          aria-label={`Move ${topic.title} down`}
-                          disabled={idx === topics.length - 1}
-                          onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, 1); }}
-                          style={{
-                            background: "transparent", border: "none", color: idx === topics.length - 1 ? "#3a4150" : "#9AA3B5",
-                            cursor: idx === topics.length - 1 ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
-                          }}
-                        >
-                          ▼
-                        </button>
-                      </div>
-                    )}
-                    <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
-                      <svg width="40" height="40" viewBox="0 0 40 40">
-                        <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
-                        <circle cx="20" cy="20" r="16" fill="none" stroke={ringColor} strokeWidth="3" strokeLinecap="round"
-                          strokeDasharray={C.toFixed(1)} strokeDashoffset={(C * (1 - pct / 100)).toFixed(1)}
-                          transform="rotate(-90 20 20)" />
-                      </svg>
-                      <div style={{
-                        position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 9, fontWeight: 700, color: pct > 0 ? ringColor : "#646E84",
-                      }}>
-                        {pct}%
-                      </div>
+                  {editMode && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                      <button
+                        aria-label={`Move ${topic.title} up`}
+                        disabled={idx === 0}
+                        onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, -1); }}
+                        style={{
+                          background: "transparent", border: "none", color: idx === 0 ? "#3a4150" : "#9AA3B5",
+                          cursor: idx === 0 ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        aria-label={`Drag to reorder ${topic.title}`}
+                        onPointerDown={(e) => handleDragStart(e, topic.id)}
+                        style={{
+                          background: "transparent", border: "none", color: "#646E84",
+                          cursor: "grab", fontSize: 15, padding: "4px 2px",
+                          touchAction: "none",
+                        }}
+                      >
+                        ⠿
+                      </button>
+                      <button
+                        aria-label={`Move ${topic.title} down`}
+                        disabled={isLast}
+                        onClick={(e) => { e.stopPropagation(); moveTopic(topic.id, 1); }}
+                        style={{
+                          background: "transparent", border: "none", color: isLast ? "#3a4150" : "#9AA3B5",
+                          cursor: isLast ? "default" : "pointer", fontSize: 13, padding: "4px 2px",
+                        }}
+                      >
+                        ▼
+                      </button>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 600, color: "#EDEFF5", margin: 0, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {topic.title}
-                      </h3>
-                      <p style={{ fontSize: 10, margin: "2px 0 0", fontFamily: "'Inter', sans-serif", color: pct > 0 ? ringColor : "#646E84" }}>
-                        {label} · {docCount} doc{docCount === 1 ? "" : "s"}
-                      </p>
+                  )}
+                  {/* Ring node on the spine — connector drops from its bottom to the next node */}
+                  <div className="sp-spine-node">
+                    <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: "block", background: "transparent" }}>
+                      <circle cx="20" cy="20" r="16" fill="#10141C" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+                      <circle cx="20" cy="20" r="16" fill="none" stroke={ringColor} strokeWidth="3" strokeLinecap="round"
+                        strokeDasharray={C.toFixed(1)} strokeDashoffset={(C * (1 - pct / 100)).toFixed(1)}
+                        transform="rotate(-90 20 20)" />
+                    </svg>
+                    <div style={{
+                      position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 700, color: pct > 0 ? ringColor : "#646E84",
+                    }}>
+                      {pct}%
                     </div>
-                    <span className="sp-topic-badge" style={badgeStyle}>{label}</span>
+                    {!isLast && !editMode && <div className="sp-spine-line" />}
                   </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 600, color: "#EDEFF5", margin: 0, fontFamily: "'Inter', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {topic.title}
+                    </h3>
+                    <p style={{ fontSize: 10, margin: "2px 0 0", fontFamily: "'Inter', sans-serif", color: pct > 0 ? ringColor : "#646E84" }}>
+                      {label} · {docCount} doc{docCount === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <span className="sp-topic-badge" style={badgeStyle}>{label}</span>
                 </div>
               );
             })}
