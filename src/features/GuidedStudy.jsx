@@ -71,6 +71,23 @@ function extractJSON(text) {
   return null;
 }
 
+// Lenient JSON.parse: escapes literal newlines/tabs inside string values —
+// a common model mistake that makes otherwise-valid output unparseable.
+function parseJsonLoose(s) {
+  try { return JSON.parse(s); } catch {}
+  let out = "", inStr = false, esc = false;
+  for (const ch of s) {
+    if (esc) { out += ch; esc = false; continue; }
+    if (ch === "\\") { out += ch; esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; out += ch; continue; }
+    if (inStr && ch === "\n") { out += "\\n"; continue; }
+    if (inStr && ch === "\r") continue;
+    if (inStr && ch === "\t") { out += "\\t"; continue; }
+    out += ch;
+  }
+  try { return JSON.parse(out); } catch { return undefined; }
+}
+
 // Scan text for balanced {...} regions and return each that parses as an object.
 // Salvages individual objects even when the surrounding JSON is malformed or truncated.
 function extractObjectsLoose(text) {
@@ -89,10 +106,8 @@ function extractObjectsLoose(text) {
         else if (ch === "}") { depth--; if (depth === 0) { j++; break; } }
       }
       if (depth === 0) {
-        try {
-          const obj = JSON.parse(text.slice(i, j));
-          if (obj && typeof obj === "object" && !Array.isArray(obj)) objs.push(obj);
-        } catch {}
+        const obj = parseJsonLoose(text.slice(i, j));
+        if (obj && typeof obj === "object" && !Array.isArray(obj)) objs.push(obj);
         i = j;
       } else i++;
     } else i++;
@@ -119,10 +134,8 @@ function extractStudyJSON(raw) {
   // Fast path: whole object parses cleanly
   const end = text.lastIndexOf("}");
   if (end !== -1) {
-    try {
-      const obj = JSON.parse(text.slice(0, end + 1));
-      if (obj && Array.isArray(obj.chunks) && obj.chunks.length) return obj;
-    } catch {}
+    const obj = parseJsonLoose(text.slice(0, end + 1));
+    if (obj && Array.isArray(obj.chunks) && obj.chunks.length) return obj;
   }
 
   // Salvage path: recover each chunk-shaped object individually
@@ -130,7 +143,7 @@ function extractStudyJSON(raw) {
   let tldr = "";
   if (tldrMatch) { try { tldr = JSON.parse(`"${tldrMatch[1]}"`); } catch { tldr = tldrMatch[1]; } }
   const chunks = extractObjectsLoose(text)
-    .filter(o => !o.chunks && (o.markdown || o.text || o.heading));
+    .filter(o => !o.chunks && (o.markdown || o.text || o.content || o.body || o.heading));
   return chunks.length ? { tldr, chunks } : null;
 }
 
@@ -213,7 +226,7 @@ function normalizeCheck(c) {
 
 function normalizeChunk(chunk) {
   if (!chunk) return null;
-  const markdown = String(chunk.markdown || chunk.text || "");
+  const markdown = String(chunk.markdown || chunk.text || chunk.content || chunk.body || chunk.explanation || "");
   if (!markdown.trim()) return null;
   return { heading: String(chunk.heading || ""), markdown, check: normalizeCheck(chunk.check) };
 }
@@ -314,7 +327,10 @@ Rules:
     if (chunks.length > 0) return { tldr: String(parsed.tldr || ""), chunks };
   }
   // Response looked like JSON but nothing salvageable — don't dump raw JSON on screen
-  if (raw.trim().startsWith("{") || raw.includes('"chunks"')) return { parseError: true };
+  if (raw.trim().startsWith("{") || raw.includes('"chunks"')) {
+    console.warn("[GuidedStudy] unparseable section response:", raw.slice(0, 2000));
+    return { parseError: true };
+  }
   return { text: raw };
 }
 
