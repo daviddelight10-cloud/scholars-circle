@@ -1,12 +1,14 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { callAI, callAIMultimodal, extractJSON } from "../lib/aiClient";
 import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
 import { detectDiscipline } from "./AITutor/disciplines.js";
 import { extractTextFromFile } from "./AITutor/fileExtract.js";
+import { resolvePractice, searchQuestionBank, hasPracticeIntent, buildAppCatalog, APP_FEATURES } from "./AITutor/appKnowledge.js";
 import LearningRoom from "./AITutor/LearningRoom";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { API_BASE } from "../lib/constants";
+import { toast } from "../components/Toast";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -30,36 +32,68 @@ const D = {
 
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&display=swap');`;
 
-const CHIPS = [
-  "What is a Cell?",
-  "Explain Ohm's Law",
-  "Define osmosis",
-  "What is photosynthesis?",
-];
+// Build suggestion chips — surface real subjects so the practice feature is discoverable
+function buildChips(subjects) {
+  const withQs = (subjects || []).filter(s => (s.questions || []).length > 0);
+  const chips = [];
+  if (withQs[0]) chips.push(`📋 ${withQs[0].label} practice questions`);
+  chips.push("Explain a concept simply");
+  if (withQs[1]) chips.push(`📋 ${withQs[1].label} practice questions`);
+  chips.push("How do I use this app?");
+  chips.push("Make me a study plan");
+  return chips.slice(0, 5);
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function searchQuestionBank(query, subjects) {
-  if (!subjects?.length) return { found: false };
-  const ql = query.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
-  const words = ql.split(/\s+/).filter(w => w.length > 3);
-  if (!words.length) return { found: false };
-  for (const subj of subjects) {
-    const pool = (subj.questions || []).filter(q => {
-      const qt = ((q.q || q.question || "") + " " + (q.topic || "") + " " + subj.label).toLowerCase();
-      return words.some(w => qt.includes(w));
-    });
-    if (pool.length >= 2) {
-      return {
-        found: true,
-        questions: pool.slice(0, 15),
-        subjectLabel: subj.label,
-        subjectIcon: subj.icon || "📚",
-        topic: `${subj.icon || "📚"} ${subj.label}`,
-        bankCount: pool.length,
-      };
-    }
-  }
-  return { found: false };
+
+// Downscale an image (File or data URL) to a JPEG data URL — keeps payloads
+// under the server's 10mb limit and speeds up multimodal calls.
+function downscaleImage(src, maxDim = 1400, quality = 0.82) {
+  const toDataUrl = typeof src === "string"
+    ? Promise.resolve(src)
+    : new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = e => resolve(e.target.result);
+        r.onerror = () => reject(new Error("Failed to read image file"));
+        r.readAsDataURL(src);
+      });
+  return toDataUrl.then(dataUrl => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => reject(new Error("Couldn't read that image format."));
+    img.src = dataUrl;
+  }));
+}
+
+// Map resolved bank questions to the ExamSimulator session shape.
+function toExamSession(practice, maxQuestions = 50) {
+  const pool = [...(practice.questions || [])]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, maxQuestions)
+    .map((q, i) => ({
+      ...q,
+      q: q.q || q.question,
+      options: q.options || [],
+      answer: q.answer ?? q.correctIndex ?? 0,
+      key: `${practice.subjectId || "bank"}-${i}`,
+      subjectId: practice.subjectId,
+      subjectLabel: practice.subjectLabel,
+      subjectIcon: practice.subjectIcon,
+    }));
+  return {
+    mode: "exam",
+    source: { id: practice.subjectId, label: practice.subjectLabel, icon: practice.subjectIcon },
+    questions: pool,
+    totalSeconds: pool.length * 90,
+  };
 }
 
 async function fetchYouTubeVideo(ytQuery) {
@@ -87,16 +121,21 @@ async function fetchYouTubeVideo(ytQuery) {
   return null;
 }
 
-async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null, images = null) {
+async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null, images = null, subjects = null) {
   const disciplineId = detectDiscipline(subject?.label);
   const system = buildSystemPrompt({ mode: "chat", disciplineId, subject });
   const convo = buildConversationContext(conversationHistory, 8);
+  const catalog = buildAppCatalog(subjects);
   const prompt =
-    `${system}${convo}\n\n` +
+    `${system}\n\n${APP_FEATURES}\n\n${catalog ? `${catalog}\n\n` : ""}${convo}\n\n` +
     `The student asked: "${query}"\n\n` +
-    `Reply ONLY with valid JSON (no markdown, no code fences):\n` +
-    `{"definition":"1-2 sentence clear definition","explanation":"3-4 sentence educational explanation with examples","ytQuery":"6-8 word YouTube search query","followUps":["follow-up question 1","follow-up question 2","follow-up question 3"]}\n\n` +
-    `The followUps should be natural student questions that go deeper into the topic, progressively from basic to advanced. Max 60 chars each.`;
+    `Reply ONLY with valid JSON (no markdown code fences):\n` +
+    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"practice":{"subject":"<exact subject label from the question-bank list>","topic":"<exact topic label or topic phrase>"}}\n\n` +
+    `Rules:\n` +
+    `- "answer" is REQUIRED and must never be empty.\n` +
+    `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the bank covers. Copy labels EXACTLY from the question-bank list. Omit the field entirely otherwise.\n` +
+    `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
+    `- If the student asks how to use the app, answer using the feature list above.`;
   const raw = images && images.length > 0
     ? await callAIMultimodal(prompt, images, [], aiConfig)
     : await callAI(prompt, aiConfig);
@@ -104,9 +143,13 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
     const s = raw.indexOf("{"), e = raw.lastIndexOf("}") + 1;
     const parsed = JSON.parse(raw.slice(s, e));
     if (!parsed.followUps || !Array.isArray(parsed.followUps)) parsed.followUps = [];
+    if (!parsed.answer) {
+      // Legacy-shaped reply or model used different keys — salvage whatever text exists
+      parsed.answer = [parsed.definition, parsed.explanation].filter(Boolean).join("\n\n") || raw;
+    }
     return parsed;
   } catch {
-    return { definition: raw.slice(0, 220), explanation: raw, ytQuery: `${query} explained`, followUps: [] };
+    return { answer: raw, ytQuery: `${query} explained`, followUps: [] };
   }
 }
 
@@ -147,40 +190,6 @@ function TypingDots() {
         }} />
       ))}
       <style>{`@keyframes scBounce{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-5px)}}`}</style>
-    </div>
-  );
-}
-
-function CollapseSection({ icon, iconBg, iconBdr, label, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div style={{ borderBottom: `0.5px solid ${D.line2}` }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          width: "100%", background: "none", border: "none", cursor: "pointer",
-          display: "flex", alignItems: "center", gap: 9, padding: "10px 12px",
-          textAlign: "left",
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = D.accent}
-        onMouseLeave={e => e.currentTarget.style.background = "none"}
-      >
-        <span style={{
-          width: 26, height: 26, borderRadius: 8, flexShrink: 0,
-          background: iconBg, border: `0.5px solid ${iconBdr}`,
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
-        }}>{icon}</span>
-        <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: D.accent2, fontFamily: "Manrope,sans-serif" }}>{label}</span>
-        <span style={{
-          fontSize: 13, color: D.faint, display: "inline-block",
-          transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s",
-        }}>›</span>
-      </button>
-      {open && (
-        <div style={{ padding: "0 12px 12px 47px", fontSize: 12, color: D.muted, lineHeight: 1.7, fontFamily: "Manrope,sans-serif" }}>
-          {children}
-        </div>
-      )}
     </div>
   );
 }
@@ -240,10 +249,71 @@ function VideoLesson({ video }) {
   );
 }
 
-function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
+// Rough markdown → plain text for speech synthesis
+function stripMd(s) {
+  return (s || "")
+    .replace(/```[\s\S]*?```/g, " code block ")
+    .replace(/[#>*`_~]/g, "")
+    .replace(/\$([^$]+)\$/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Studocu-style practice card — real questions pulled from the app's bank
+function PracticeCard({ practice, onQuick, onExam }) {
+  const total = practice.total ?? practice.questions?.length ?? 0;
+  return (
+    <div style={{
+      margin: "10px 0 2px", padding: "12px 14px", borderRadius: 12,
+      background: "linear-gradient(135deg, rgba(255,215,0,0.09), rgba(255,215,0,0.03))",
+      border: `0.5px solid ${D.border}`,
+      fontFamily: "Manrope,sans-serif",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
+        <span style={{ fontSize: 20 }}>{practice.subjectIcon || "📚"}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: D.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {practice.subjectLabel}{practice.topic ? ` · ${practice.topic}` : ""}
+          </div>
+          <div style={{ fontSize: 10.5, color: D.muted, marginTop: 2 }}>
+            {total} practice question{total !== 1 ? "s" : ""} pulled from your question bank
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          onClick={onQuick}
+          style={{
+            flex: 1, minWidth: 130, padding: "8px 12px", borderRadius: 9,
+            background: `linear-gradient(135deg, ${D.border}, #DAA520)`, border: "none",
+            color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+            fontFamily: "Manrope,sans-serif",
+          }}
+        >⚡ Quick practice</button>
+        {onExam && (
+          <button
+            onClick={onExam}
+            style={{
+              flex: 1, minWidth: 130, padding: "8px 12px", borderRadius: 9,
+              background: "transparent", border: `0.5px solid ${D.border}`,
+              color: D.accent2, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              fontFamily: "Manrope,sans-serif",
+            }}
+          >📝 Full exam (timed)</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction }) {
   const [copied, setCopied] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
-  const followUps = data.followUps || [];
+  const followUps = (data.followUps || []).slice(0, 3);
+  // Freeform answer (new) with legacy definition+explanation fallback (old saved convos)
+  const answer = data.answer || [data.definition, data.explanation].filter(Boolean).join("\n\n");
+  const hasBank = (data.practice?.questions?.length || 0) > 0 || (data.questions || []).length > 0;
   const quickActions = [
     { icon: "🔍", label: "Simpler", action: () => onQuickAction?.("explain_simpler", data.topic) },
     { icon: "📝", label: "Test me", action: () => onQuickAction?.("test_me", data.topic) },
@@ -251,13 +321,36 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
     { icon: "📖", label: "Example", action: () => onQuickAction?.("example", data.topic) },
   ];
 
+  useEffect(() => () => { if (speaking) window.speechSynthesis?.cancel(); }, [speaking]);
+
   function copyAnswer() {
-    const text = `${data.definition || ""}\n\n${data.explanation || ""}`.trim();
-    navigator.clipboard.writeText(text).then(() => {
+    navigator.clipboard.writeText(answer).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   }
+
+  function toggleSpeak() {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    if (speaking) { synth.cancel(); setSpeaking(false); return; }
+    const u = new SpeechSynthesisUtterance(stripMd(answer).slice(0, 3000));
+    u.rate = 0.95;
+    u.onend = () => setSpeaking(false);
+    u.onerror = () => setSpeaking(false);
+    synth.cancel();
+    synth.speak(u);
+    setSpeaking(true);
+  }
+
+  const iconBtn = (active) => ({
+    display: "inline-flex", alignItems: "center", gap: 4,
+    padding: "4px 9px", borderRadius: 7,
+    background: active ? D.accent : "transparent",
+    border: `0.5px solid ${active ? D.border : D.line}`,
+    fontSize: 11, color: active ? D.accent2 : D.hint,
+    cursor: "pointer", fontFamily: "Manrope,sans-serif", transition: "all 0.15s",
+  });
 
   return (
     <div style={{
@@ -266,126 +359,85 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
     }}>
       <style>{`@keyframes scSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-      {/* AI avatar + bubble */}
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
         <div style={{
-          width: 28, height: 28, borderRadius: 9, flexShrink: 0,
+          width: 28, height: 28, borderRadius: 9, flexShrink: 0, marginTop: 2,
           background: D.accent, border: `0.5px solid ${D.border}`,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 13, color: D.accent2,
         }}>✦</div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Main content — definition + explanation as flowing text */}
-          <div style={{ padding: "4px 0 10px" }}>
-            {data.definition && (
-              <div style={{
-                fontSize: 13, fontWeight: 600, color: D.accent2,
-                marginBottom: data.explanation ? 8 : 0,
-                fontFamily: "Manrope,sans-serif", lineHeight: 1.5,
-              }}>
-                <MarkdownText theme="gold">{data.definition}</MarkdownText>
-              </div>
-            )}
-            {data.explanation && (
-              <div style={{
-                fontSize: 13, color: D.text, lineHeight: 1.65,
-                fontFamily: "Manrope,sans-serif",
-              }}>
-                <MarkdownText theme="gold">{data.explanation}</MarkdownText>
-              </div>
-            )}
-          </div>
+          {/* Freeform markdown answer */}
+          <MarkdownText theme="gold">{answer}</MarkdownText>
 
-          {/* Video toggle — inline, compact */}
-          {data.video && (
-            <div style={{ borderTop: `0.5px solid ${D.line2}` }}>
+          {/* Practice card — real bank questions */}
+          {data.practice && hasBank && (
+            <PracticeCard
+              practice={data.practice}
+              onQuick={onStartPractice}
+              onExam={onStartExam ? () => onStartExam(data.practice) : null}
+            />
+          )}
+
+          {/* Fallback — no bank match, offer AI-generated practice */}
+          {!hasBank && (
+            <div style={{ margin: "8px 0 2px" }}>
               <button
-                onClick={() => setShowVideo(o => !o)}
+                onClick={onStartPractice}
                 style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 7,
-                  padding: "8px 0", background: "none", border: "none",
-                  cursor: "pointer", fontSize: 11, color: D.muted,
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "6px 13px", borderRadius: 16,
+                  background: D.accent, border: `0.5px solid ${D.border}`,
+                  fontSize: 11, fontWeight: 600, color: D.accent2, cursor: "pointer",
                   fontFamily: "Manrope,sans-serif",
                 }}
-              >
-                <span style={{ fontSize: 13 }}>▶️</span>
-                <span>{showVideo ? "Hide video" : "Watch video lesson"}</span>
-                <span style={{ marginLeft: "auto", fontSize: 10, color: D.faint }}>
-                  {showVideo ? "▲" : "▼"}
-                </span>
-              </button>
-              {showVideo && (
-                <div style={{ padding: "0 0 12px" }}>
-                  <VideoLesson video={data.video} />
-                </div>
-              )}
+              >✦ Generate practice questions</button>
             </div>
           )}
 
-          {/* Practice button — inline */}
-          <div style={{
-            borderTop: `0.5px solid ${D.line2}`,
-            padding: "8px 0",
-            display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <button
-              onClick={onStartPractice}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: 5,
-                padding: "5px 12px", borderRadius: 16,
-                background: D.accent, border: `0.5px solid ${D.border}`,
-                fontSize: 11, fontWeight: 600, color: D.accent2, cursor: "pointer",
-                fontFamily: "Manrope,sans-serif",
-              }}
-            >
-              {data.source === "bank" && data.bankCount
-                ? `▶ Practice — ${data.bankCount} questions`
-                : "✦ Generate Practice"}
-            </button>
-            <button
-              onClick={copyAnswer}
-              title="Copy answer"
-              style={{
-                marginLeft: "auto", width: 26, height: 26, borderRadius: 7,
-                background: "transparent", border: `0.5px solid ${D.line}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", fontSize: 12, color: copied ? "#4caf50" : D.hint,
-                transition: "all 0.15s",
-              }}
-            >{copied ? "✓" : "⧉"}</button>
-          </div>
+          {/* Video (collapsed by default) */}
+          {showVideo && data.video && (
+            <div style={{ padding: "4px 0 8px" }}>
+              <VideoLesson video={data.video} />
+            </div>
+          )}
 
-          {/* Quick action chips */}
+          {/* Slim action bar */}
           <div style={{
-            display: "flex", gap: 6, flexWrap: "wrap",
-            padding: "8px 0", borderTop: `0.5px solid ${D.line2}`,
+            display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
+            marginTop: 8, paddingTop: 8, borderTop: `0.5px solid ${D.line2}`,
           }}>
+            <button onClick={copyAnswer} style={iconBtn(copied)} title="Copy answer">
+              {copied ? "✓ Copied" : "⧉ Copy"}
+            </button>
+            {window.speechSynthesis && (
+              <button onClick={toggleSpeak} style={iconBtn(speaking)} title="Read aloud">
+                {speaking ? "⏹ Stop" : "🔊 Listen"}
+              </button>
+            )}
+            {data.video && (
+              <button onClick={() => setShowVideo(o => !o)} style={iconBtn(showVideo)} title="Video lesson">
+                {showVideo ? "▲ Hide video" : "▶️ Video"}
+              </button>
+            )}
+            <span style={{ flex: 1 }} />
             {quickActions.map((qa) => (
               <button
                 key={qa.label}
                 onClick={qa.action}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 4,
-                  padding: "4px 10px", borderRadius: 14,
-                  background: "transparent", border: `0.5px solid ${D.line}`,
-                  fontSize: 10, fontWeight: 600, color: D.muted, cursor: "pointer",
-                  fontFamily: "Manrope,sans-serif", transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = D.accent2; e.currentTarget.style.background = D.accent; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.muted; e.currentTarget.style.background = "transparent"; }}
+                style={iconBtn(false)}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = D.accent2; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.hint; }}
               >
-                <span style={{ fontSize: 11 }}>{qa.icon}</span>{qa.label}
+                <span>{qa.icon}</span>{qa.label}
               </button>
             ))}
           </div>
 
           {/* Follow-up suggestions */}
           {followUps.length > 0 && (
-            <div style={{ padding: "8px 0 4px", borderTop: `0.5px solid ${D.line2}` }}>
-              <div style={{ fontSize: 10, color: D.faint, fontWeight: 600, marginBottom: 7, fontFamily: "Manrope,sans-serif" }}>
-                💡 Suggested follow-up questions
-              </div>
+            <div style={{ padding: "10px 0 2px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {followUps.map((fu, i) => (
                   <button
@@ -395,14 +447,14 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
                       display: "flex", alignItems: "center", gap: 7, width: "100%",
                       padding: "7px 10px", borderRadius: 9,
                       background: "transparent", border: `0.5px solid ${D.line}`,
-                      fontSize: 12, color: D.text, cursor: "pointer",
+                      fontSize: 12, color: D.muted, cursor: "pointer",
                       fontFamily: "Manrope,sans-serif", textAlign: "left",
                       transition: "all 0.15s",
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.background = D.accent; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.background = "transparent"; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.background = D.accent; e.currentTarget.style.color = D.text; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = D.muted; }}
                   >
-                    <span style={{ fontSize: 10, color: D.faint, flexShrink: 0 }}>{i + 1}.</span>
+                    <span style={{ fontSize: 10, color: D.faint, flexShrink: 0 }}>💡</span>
                     <span>{fu}</span>
                     <span style={{ marginLeft: "auto", fontSize: 11, color: D.faint }}>→</span>
                   </button>
@@ -416,17 +468,22 @@ function AIMessageBubble({ data, onStartPractice, onFollowUp, onQuickAction }) {
   );
 }
 
-function PracticeView({ data, onBack, aiConfig }) {
+function PracticeView({ data, onBack, aiConfig, onStartExam }) {
   const [answered, setAnswered] = useState({});
   const [extraQuestions, setExtraQuestions] = useState(null);
-  const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState(null);
+  const genStarted = useRef(false);
 
-  const bankQuestions = (data.questions || []).slice(0, 10);
+  const bankQuestions = (data.questions || []).slice(0, 20);
   const questions = bankQuestions.length > 0 ? bankQuestions : (extraQuestions || []);
   const total = questions.length;
   const done  = Object.keys(answered).length;
   const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+  const correct = questions.reduce((acc, q, i) => {
+    const ci = q.answer ?? q.correctIndex ?? 0;
+    return acc + (answered[i] === ci ? 1 : 0);
+  }, 0);
+  const finished = total > 0 && done === total;
 
   function pick(qi, oi) {
     if (answered[qi] !== undefined) return;
@@ -436,25 +493,24 @@ function PracticeView({ data, onBack, aiConfig }) {
   const topic = data.topic || data.ytQuery || "";
 
   useEffect(() => {
-    if (bankQuestions.length === 0 && !extraQuestions && !genLoading && !genError && aiConfig && topic) {
-      setGenLoading(true);
-      generateAIQuestions(topic, aiConfig, data.subjectLabel ? { label: data.subjectLabel } : null)
-        .then(qs => {
-          if (qs && qs.length > 0) {
-            setExtraQuestions(qs);
-          } else {
-            setGenError("No questions could be generated. Try rephrasing your topic.");
-          }
-        })
-        .catch(err => {
-          setGenError(err?.message || "Failed to generate questions. Check your AI settings.");
-        })
-        .finally(() => setGenLoading(false));
-    }
-  }, [bankQuestions.length, extraQuestions, genLoading, genError, aiConfig, topic, data.subjectLabel]);
+    if (genStarted.current) return;
+    if (bankQuestions.length > 0 || extraQuestions || !aiConfig || !topic) return;
+    genStarted.current = true;
+    generateAIQuestions(topic, aiConfig, data.subjectLabel ? { label: data.subjectLabel } : null)
+      .then(qs => {
+        if (qs && qs.length > 0) {
+          setExtraQuestions(qs);
+        } else {
+          setGenError("No questions could be generated. Try rephrasing your topic.");
+        }
+      })
+      .catch(err => {
+        setGenError(err?.message || "Failed to generate questions. Check your AI settings.");
+      });
+  }, [bankQuestions.length, extraQuestions, genError, aiConfig, topic, data.subjectLabel]);
 
   if (!total) {
-    if (genLoading) {
+    if (!genError && aiConfig && topic) {
       return (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, gap: 14 }}>
           <div style={{ width: 40, height: 40, borderRadius: "50%", border: `2px solid ${D.line}`, borderTopColor: D.border, animation: "scSpin 0.8s linear infinite" }} />
@@ -474,7 +530,7 @@ function PracticeView({ data, onBack, aiConfig }) {
             {genError}<br />
             <span style={{ fontSize: 11, color: D.hint }}>No questions in the bank for this topic yet.</span>
           </div>
-          <button onClick={() => { setGenError(null); setGenLoading(false); }}
+          <button onClick={() => { setGenError(null); genStarted.current = false; }}
             style={{
               padding: "7px 16px", borderRadius: 20,
               background: D.accent, border: `0.5px solid ${D.border}`,
@@ -589,6 +645,56 @@ function PracticeView({ data, onBack, aiConfig }) {
             </div>
           );
         })}
+
+        {/* Results summary */}
+        {finished && (
+          <div style={{
+            margin: "4px 0 20px", padding: 16, borderRadius: 14, textAlign: "center",
+            background: "linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.03))",
+            border: `0.5px solid ${D.border}`, fontFamily: "Manrope,sans-serif",
+          }}>
+            <div style={{ fontSize: 28, marginBottom: 4 }}>
+              {pct === 100 ? "🏆" : correct / total >= 0.7 ? "🎉" : correct / total >= 0.4 ? "💪" : "📚"}
+            </div>
+            <div style={{ fontFamily: "Syne,sans-serif", fontSize: 20, fontWeight: 700, color: D.text }}>
+              {correct}/{total} correct
+            </div>
+            <div style={{ fontSize: 11, color: D.muted, marginTop: 3 }}>
+              {Math.round((correct / total) * 100)}% · scroll up to review explanations
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, flexWrap: "wrap" }}>
+              <button
+                onClick={() => setAnswered({})}
+                style={{
+                  padding: "8px 16px", borderRadius: 20,
+                  background: D.accent, border: `0.5px solid ${D.border}`,
+                  color: D.accent2, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  fontFamily: "Manrope,sans-serif",
+                }}
+              >↻ Retake</button>
+              {onStartExam && data.practice && (
+                <button
+                  onClick={() => onStartExam(data.practice)}
+                  style={{
+                    padding: "8px 16px", borderRadius: 20,
+                    background: `linear-gradient(135deg, ${D.border}, #DAA520)`, border: "none",
+                    color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    fontFamily: "Manrope,sans-serif",
+                  }}
+                >📝 Take as full exam</button>
+              )}
+              <button
+                onClick={onBack}
+                style={{
+                  padding: "8px 16px", borderRadius: 20,
+                  background: "transparent", border: `0.5px solid ${D.line}`,
+                  color: D.muted, fontSize: 12, cursor: "pointer",
+                  fontFamily: "Manrope,sans-serif",
+                }}
+              >← Back to chat</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -783,13 +889,12 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
 // ─── Voice hook ──────────────────────────────────────────────────────────────
 function useVoiceInput(onTranscript) {
   const [listening, setListening]   = useState(false);
-  const [supported, setSupported]   = useState(false);
+  const supported                   = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   const recognitionRef              = useRef(null);
 
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SR) {
-      setSupported(true);
       const r = new SR();
       r.continuous      = false;
       r.interimResults  = true;
@@ -824,7 +929,7 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
   const [uploadOpen, setUploadOpen] = useState(false);
   const docRef = useRef(null);
   const imgRef = useRef(null);
-  const canSend = !loading && (value.trim().length > 0 || !!attachment);
+  const canSend = !loading && !attachment?.loading && (value.trim().length > 0 || !!attachment);
 
   const voice = useVoiceInput((transcript, isFinal) => {
     onChange({ target: { value: transcript } });
@@ -842,13 +947,26 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
       <input ref={imgRef} type="file" accept="image/*" style={{ display: "none" }}
         onChange={e => { onSelectImg?.(e.target.files[0]); e.target.value = ""; }} />
 
+      <div style={{ maxWidth: 780, margin: "0 auto" }}>
       {/* Attachment preview strip */}
       {attachment && (
         <div style={{
           display: "flex", alignItems: "center", gap: 8,
           padding: "8px 12px 0", background: D.bar,
         }}>
-          {attachment.type === "img" ? (
+          {attachment.loading ? (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 7,
+              background: D.bar, border: `0.5px solid ${D.line}`,
+              borderRadius: 8, padding: "6px 10px",
+            }}>
+              <span style={{ fontSize: 14, display: "inline-block", animation: "scSpin 0.9s linear infinite" }}>⏳</span>
+              <style>{`@keyframes scSpin{to{transform:rotate(360deg)}}`}</style>
+              <span style={{ fontSize: 11, color: D.muted, fontFamily: "Manrope,sans-serif", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                Reading {attachment.name}…
+              </span>
+            </div>
+          ) : attachment.type === "img" ? (
             <img src={attachment.dataUrl} alt="preview" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", border: `0.5px solid ${D.line}` }} />
           ) : (
             <div style={{
@@ -898,17 +1016,28 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
             />
           </div>
         )}
-        <input
+        <textarea
           value={value} onChange={onChange}
-          onKeyDown={e => e.key === "Enter" && canSend && onSend()}
+          rows={1}
+          onKeyDown={e => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              if (canSend) onSend();
+            }
+          }}
+          onInput={e => {
+            e.target.style.height = "auto";
+            e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+          }}
           placeholder={voice.listening ? "🎤 Listening…" : placeholder}
           style={{
-            flex: 1, background: D.bar,
+            flex: 1, background: D.bar, resize: "none",
             border: voice.listening ? "0.5px solid #ef4444" : `0.5px solid ${D.line}`,
-            borderRadius: 20, padding: "9px 14px", fontSize: 12,
+            borderRadius: 18, padding: "9px 14px", fontSize: 12,
             color: voice.listening ? "#fca5a5" : D.accent2,
-            fontFamily: "Manrope,sans-serif",
+            fontFamily: "Manrope,sans-serif", lineHeight: 1.5,
             outline: "none", transition: "border-color 0.2s, color 0.2s",
+            maxHeight: 120, overflowY: "auto",
           }}
           onFocus={e => { if (!voice.listening) e.target.style.borderColor = D.border; }}
           onBlur={e  => { if (!voice.listening) e.target.style.borderColor = D.line;   }}
@@ -948,12 +1077,13 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
           }}
         >→</button>
       </div>
+      </div>
     </div>
   );
 }
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
-export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat", studyTopic = "", studyMode = "input", studyAttachment = null, studyContext = null }) {
+export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat", studyTopic = "", studyMode = "input", studyAttachment = null, studyContext = null, onStartExam }) {
   const [view, setView]             = useState(defaultView || "chat");
   const [messages, setMsgs]         = useState([]);
   const [input, setInput]           = useState("");
@@ -971,32 +1101,37 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     setAttachment({ type: "doc", name: file.name, content: "Extracting text…", dataUrl: null, loading: true });
     try {
       const result = await extractTextFromFile(file);
-      const text = (result.text || "").slice(0, 4000);
-      const images = result.images || [];
+      const rawText = result.text || "";
+      const text = rawText.length > 14000 ? rawText.slice(0, 14000) + "\n\n[...document truncated...]" : rawText;
+      // Scanned PDFs come back as PNG page renders — compress to JPEG
+      const images = [];
+      for (const img of (result.images || []).slice(0, 4)) {
+        try { images.push(await downscaleImage(img, 1400, 0.8)); } catch {}
+      }
       setAttachment({
         type: images.length > 0 && !text ? "img" : "doc",
         name: file.name,
         content: text || (images.length > 0 ? "(scanned document — sending as images)" : ""),
         dataUrl: images[0] || null,
-        images: images,
+        images,
         loading: false,
       });
     } catch (err) {
-      setAttachment({
-        type: "doc", name: file.name,
-        content: `Failed to extract text: ${err.message}`,
-        dataUrl: null, loading: false,
-      });
+      setAttachment(null);
+      toast.error(`Couldn't read "${file.name}": ${err.message}`);
     }
   }
 
-  function handleImgSelect(file) {
+  async function handleImgSelect(file) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      setAttachment({ type: "img", name: file.name, content: null, dataUrl: ev.target.result });
-    };
-    reader.readAsDataURL(file);
+    setAttachment({ type: "img", name: file.name, content: null, dataUrl: null, loading: true });
+    try {
+      const dataUrl = await downscaleImage(file, 1400, 0.82);
+      setAttachment({ type: "img", name: file.name, content: null, dataUrl });
+    } catch (err) {
+      setAttachment(null);
+      toast.error(err.message || "Couldn't read that image.");
+    }
   }
 
   useEffect(() => {
@@ -1027,8 +1162,22 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   }
 
   function loadConvo(c) {
-    setMsgs(c.messages);
-    setData(c.lastData || null);
+    // Re-resolve practice cards — questions are stripped when persisting
+    const revived = (c.messages || []).map(m => {
+      if (m.type === "ai" && m.data?.practice && !m.data.practice.questions?.length) {
+        const r = resolvePractice(
+          { subject: m.data.practice.subjectLabel || m.data.practice.subject?.label, topic: m.data.practice.topic },
+          subjects
+        );
+        if (r) {
+          return { ...m, data: { ...m.data, practice: r, questions: r.questions, bankCount: r.total } };
+        }
+      }
+      return m;
+    });
+    setMsgs(revived);
+    const lastAi = [...revived].reverse().find(m => m.type === "ai");
+    setData(lastAi?.data || null);
     setView("chat");
     setCurrentId(c.id);
   }
@@ -1040,28 +1189,54 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     if (currentId === id) startNewChat();
   }
 
+  // Strip bulky fields before writing to localStorage
+  function slimMessage(m) {
+    if (m.type === "user" && m.attachment) {
+      return { ...m, attachment: { type: m.attachment.type, name: m.attachment.name, dataUrl: null, images: [] } };
+    }
+    if (m.type === "ai" && m.data) {
+      const d = { ...m.data, questions: undefined };
+      if (d.practice) d.practice = { ...d.practice, questions: undefined, subject: undefined };
+      return { ...m, data: d };
+    }
+    if (m.type === "error") {
+      return { type: "error", text: m.text };
+    }
+    return m;
+  }
+
   function persistConvo(msgs, lastData, q) {
     const id = currentId || genId();
     const title = q.length > 60 ? q.slice(0, 60) + "…" : q;
-    const entry = { id, title, ts: Date.now(), messages: msgs, lastData };
+    const entry = {
+      id, title, ts: Date.now(),
+      messages: msgs.map(slimMessage),
+      lastData: lastData ? slimMessage({ type: "ai", data: lastData }).data : null,
+    };
     const updated = [entry, ...conversations.filter(c => c.id !== id)];
     setConvos(updated);
     saveConvos(updated);
     setCurrentId(id);
   }
 
-  async function ask(rawQ) {
-    const hasAttachment = !!attachment;
-    const q = rawQ?.trim() || (hasAttachment ? `Analyze this ${attachment.type === "img" ? "image" : "document"}: ${attachment.name}` : "");
+  function handleExamStart(practice) {
+    if (!practice?.questions?.length || !onStartExam) return;
+    onStartExam(toExamSession(practice));
+  }
+
+  async function ask(rawQ, attachOverride) {
+    const attach = attachOverride !== undefined ? attachOverride : attachment;
+    const hasAttachment = !!attach;
+    const q = rawQ?.trim() || (hasAttachment ? `Analyze this ${attach.type === "img" ? "image" : "document"}: ${attach.name}` : "");
     if (!q || loading) return;
     setInput("");
     setView("chat");
     setLoading(true);
 
     // Build user message with optional attachment
-    const userMsg = { type: "user", text: q, attachment: attachment ? { ...attachment } : null };
+    const userMsg = { type: "user", text: q, attachment: attach ? { ...attach } : null };
     setMsgs(p => [...p, userMsg, { type: "loading" }]);
-    const capturedAttachment = attachment;
+    const capturedAttachment = attach;
     setAttachment(null);
 
     // Collect images for multimodal AI call
@@ -1081,26 +1256,64 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     }
 
     try {
-      const bankRes = searchQuestionBank(q, subjects);
-      let aiRes = { definition: "", explanation: "", ytQuery: `${q} explained`, followUps: [] };
-      try { aiRes = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images); } catch {}
-      const ytQuery = aiRes.ytQuery || `${q} explained`;
-      const video   = await fetchYouTubeVideo(ytQuery);
+      let aiRes = null;
+      let aiError = null;
+      try {
+        aiRes = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects);
+      } catch (err) {
+        aiError = err?.message || "The AI request failed. Please try again.";
+      }
 
-      const result = bankRes.found
-        ? { source: "bank", ...bankRes, ...aiRes, ytQuery, video }
-        : { source: "ai", ...aiRes, ytQuery, video, questions: [], bankCount: 0, subjectLabel: selectedSubject?.label || null, topic: q };
+      // Resolve real practice questions from the bank — model-flagged first,
+      // then keyword fallback when the user clearly wants to practice
+      let practice = null;
+      if (aiRes?.practice) {
+        practice = resolvePractice(
+          { subject: aiRes.practice.subject || selectedSubject?.label, topic: aiRes.practice.topic },
+          subjects
+        );
+      }
+      if (!practice && hasPracticeIntent(q)) {
+        if (selectedSubject) {
+          practice = resolvePractice({ subject: selectedSubject.label, topic: q }, subjects);
+        }
+        if (!practice) {
+          const bankRes = searchQuestionBank(q, subjects);
+          if (bankRes.found) {
+            practice = {
+              subject: bankRes.subject, subjectId: bankRes.subject?.id,
+              subjectLabel: bankRes.subjectLabel, subjectIcon: bankRes.subjectIcon,
+              topic: bankRes.topic, questions: bankRes.questions, total: bankRes.bankCount,
+            };
+          }
+        }
+      }
 
-      const finalMsgs = [...messages, userMsg].filter(m => m.type !== "loading").concat({ type: "ai", data: result });
-      setData(result);
+      const ytQuery = aiRes?.ytQuery || `${q} explained`;
+      const video = aiError ? null : await fetchYouTubeVideo(ytQuery);
+
+      const base = [...messages, userMsg].filter(m => m.type !== "loading");
+      let finalMsgs;
+      if (aiError) {
+        finalMsgs = base.concat({ type: "error", text: aiError, retryQ: q, retryAttach: capturedAttachment });
+      } else {
+        const result = {
+          source: practice ? "bank" : "ai",
+          answer: aiRes?.answer || "",
+          ytQuery, video,
+          followUps: aiRes?.followUps || [],
+          practice,
+          questions: practice?.questions || [],
+          bankCount: practice?.total || 0,
+          subjectLabel: practice?.subjectLabel || selectedSubject?.label || null,
+          topic: practice?.topic || q,
+        };
+        finalMsgs = base.concat({ type: "ai", data: result });
+        setData(result);
+      }
       setMsgs(finalMsgs);
       setView("chat");
-      persistConvo(finalMsgs, result, q);
-    } catch (e) {
-      setMsgs(p => p.filter(m => m.type !== "loading").concat({
-        type: "ai",
-        data: { source: "ai", definition: "Something went wrong — check your AI settings.", explanation: String(e?.message || ""), ytQuery: q, video: null, questions: [], bankCount: 0, subjectLabel: selectedSubject?.label || null, topic: q },
-      }));
+      persistConvo(finalMsgs, finalMsgs[finalMsgs.length - 1]?.data || null, q);
     } finally {
       setLoading(false);
     }
@@ -1118,7 +1331,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     <>
       <style>{FONTS + `
         .sc-ol *{box-sizing:border-box}
-        .sc-ol input::placeholder{color:#4A5266}
+        .sc-ol input::placeholder,.sc-ol textarea::placeholder{color:#4A5266}
       `}</style>
 
       <div className="sc-ol" style={{
@@ -1221,8 +1434,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         {/* ══ VIEW: CHAT (unified — includes AI responses inline) ══ */}
         {view === "chat" && (
           <>
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", display: "flex", flexDirection: "column", gap: 14, scrollbarWidth: "none" }}>
-
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", scrollbarWidth: "none" }}>
+              <div style={{ maxWidth: 780, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
               {messages.length === 0 ? (
                 <>
                   <div style={{ textAlign: "center", padding: "28px 8px 12px" }}>
@@ -1241,7 +1454,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                   </div>
 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", padding: "4px 0" }}>
-                    {CHIPS.map(c => (
+                    {buildChips(subjects).map(c => (
                       <button
                         key={c} onClick={() => ask(c)}
                         style={{
@@ -1272,17 +1485,17 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                     <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {m.type === "user" && (
                         <div style={{ alignSelf: "flex-end", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, maxWidth: "82%" }}>
-                          {m.attachment?.type === "img" && (
+                          {m.attachment?.type === "img" && m.attachment.dataUrl && (
                             <img src={m.attachment.dataUrl} alt={m.attachment.name}
                               style={{ width: 160, borderRadius: 10, border: `0.5px solid ${D.line}`, objectFit: "cover" }} />
                           )}
-                          {m.attachment?.type === "doc" && (
+                          {m.attachment && (m.attachment.type === "doc" || (m.attachment.type === "img" && !m.attachment.dataUrl)) && (
                             <div style={{
                               display: "flex", alignItems: "center", gap: 7,
                               background: D.bar, border: `0.5px solid ${D.line}`,
                               borderRadius: 10, padding: "7px 12px",
                             }}>
-                              <span style={{ fontSize: 18 }}>📄</span>
+                              <span style={{ fontSize: 18 }}>{m.attachment.type === "img" ? "🖼️" : "📄"}</span>
                               <span style={{ fontSize: 11, color: D.muted, fontFamily: "Manrope,sans-serif", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.attachment.name}</span>
                             </div>
                           )}
@@ -1300,10 +1513,45 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           <TypingDots />
                         </div>
                       )}
+                      {m.type === "error" && (
+                        <div style={{ alignSelf: "flex-start", display: "flex", gap: 9, alignItems: "flex-start", maxWidth: "92%" }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 9, flexShrink: 0, marginTop: 2,
+                            background: "rgba(239,68,68,0.12)", border: "0.5px solid rgba(239,68,68,0.4)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 13, color: "#fca5a5",
+                          }}>⚠</div>
+                          <div>
+                            <div style={{
+                              padding: "10px 14px", borderRadius: "4px 14px 14px 14px",
+                              background: "rgba(239,68,68,0.08)", border: "0.5px solid rgba(239,68,68,0.3)",
+                              fontSize: 13, color: "#fca5a5", fontFamily: "Manrope,sans-serif", lineHeight: 1.55,
+                            }}>
+                              {m.text}
+                            </div>
+                            {m.retryQ && (
+                              <button
+                                onClick={() => ask(m.retryQ, m.retryAttach)}
+                                style={{
+                                  marginTop: 6, padding: "5px 12px", borderRadius: 8,
+                                  background: "transparent", border: "0.5px solid rgba(239,68,68,0.4)",
+                                  color: "#fca5a5", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                                  fontFamily: "Manrope,sans-serif",
+                                }}
+                              >↻ Try again</button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       {m.type === "ai" && m.data && (
                         <AIMessageBubble
                           data={m.data}
-                          onStartPractice={() => { setData(m.data); setView("practice"); }}
+                          onStartPractice={() => {
+                            const qs = [...(m.data.questions || [])].sort(() => Math.random() - 0.5);
+                            setData({ ...m.data, questions: qs });
+                            setView("practice");
+                          }}
+                          onStartExam={onStartExam ? handleExamStart : null}
                           onFollowUp={(q) => ask(q)}
                           onQuickAction={(action, topic) => {
                             const prompts = {
@@ -1321,6 +1569,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                 </>
               )}
               <div ref={bottomRef} />
+              </div>
             </div>
 
             <InputBar
@@ -1339,7 +1588,12 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
         {/* ══ VIEW: PRACTICE ══ */}
         {view === "practice" && data && (
-          <PracticeView data={data} onBack={() => setView("chat")} aiConfig={aiConfig} />
+          <PracticeView
+            data={data}
+            onBack={() => setView("chat")}
+            aiConfig={aiConfig}
+            onStartExam={onStartExam ? handleExamStart : null}
+          />
         )}
 
         {/* ══ VIEW: LEARN (Video Lessons) ══ */}

@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import { memo } from "react";
 import AISectionOverlay from "../features/AISectionOverlay.jsx";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { useUI } from "../contexts/UIContext";
@@ -14,6 +14,7 @@ function AITutor({
   aiConfig: aiConfigProp,
   subjects: subjectsProp,
   onExit,
+  onStartExam,
   loading,
 }) {
   const { aiConfig: ctxAiConfig } = useUI();
@@ -35,6 +36,7 @@ function AITutor({
       aiConfig={aiConfig}
       subjects={subjects}
       onExit={onExit}
+      onStartExam={onStartExam}
     />
   );
 }

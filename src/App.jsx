@@ -10071,6 +10071,10 @@ function App() {
           aiConfig={aiConfig}
           subjects={subjects}
           onExit={() => setTab("today")}
+          onStartExam={(session) => {
+            if (!session?.questions?.length) return;
+            setActiveSession(session);
+          }}
         />
                 </Suspense>
         </ErrorBoundary>

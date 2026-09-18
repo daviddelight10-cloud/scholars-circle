@@ -178,8 +178,17 @@ export async function callAI(prompt, aiConfig = {}) {
 // Uses the backend multimodal proxy endpoint. Returns plain text string.
 // imageOrImages can be a single base64 data URL string or an array of strings.
 export async function callAIMultimodal(prompt, imageOrImages, history = [], aiConfig = {}) {
-  const provider = aiConfig.provider || "openrouter";
-  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "z-ai/glm-5.3-flash");
+  // The backend multimodal endpoint only supports openrouter/gemini — and API
+  // keys live server-side, so falling back to openrouter is always safe.
+  // When we swap providers, also swap to a known vision-capable default model.
+  let provider = aiConfig.provider || "openrouter";
+  let model;
+  if (provider === "openrouter" || provider === "gemini") {
+    model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "z-ai/glm-5.3-flash");
+  } else {
+    provider = "openrouter";
+    model = "z-ai/glm-5.3-flash";
+  }
 
   const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
   const token = authData.authToken;
