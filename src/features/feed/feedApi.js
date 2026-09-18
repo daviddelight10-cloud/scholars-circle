@@ -52,6 +52,7 @@ export const feedApi = {
   // Resources (existing endpoints)
   getMyResources: ({ token } = {}) => req("/api/resources?mine=1", { token }),
   getMyBookmarks: ({ token } = {}) => req("/api/resources/bookmarks", { token }),
+  getMcqResources: ({ token } = {}) => req("/api/resources?type=mcq", { token }),
   toggleBookmark: ({ token, resourceId, bookmarked }) =>
     req(`/api/resources/${resourceId}/bookmark`, { token, method: bookmarked ? "DELETE" : "POST" }),
   getResourceComments: ({ token, resourceId }) => req(`/api/resources/${resourceId}/comments`, { token }),

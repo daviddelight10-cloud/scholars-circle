@@ -148,6 +148,9 @@ router.get("/bookmarks", requireAuth, async (req, res) => {
             uploader: { select: { id: true, username: true, role: true } },
             _count: { select: { bookmarks: true } },
             resourceDepts: { include: { department: { select: { id: true, name: true } } } },
+            derivedResources: {
+              select: { id: true, contentType: true, title: true, shareToken: true, mcqData: true, flashcardData: true, fileName: true, description: true }
+            },
           },
         },
       },

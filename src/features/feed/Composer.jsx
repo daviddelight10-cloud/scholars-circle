@@ -136,12 +136,14 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
     Promise.all([
       feedApi.getMyResources({ token }).catch(() => []),
       feedApi.getMyBookmarks({ token }).catch(() => []),
+      ...(mcqOnly ? [feedApi.getMcqResources({ token }).catch(() => [])] : []),
     ])
-      .then(([uploads, bookmarks]) => {
+      .then(([uploads, bookmarks, community]) => {
         if (!alive) return;
         const seen = new Set();
         const merged = [];
-        for (const r of [...(uploads || []), ...(bookmarks || [])]) {
+        // Own library first, then community MCQ sets
+        for (const r of [...(uploads || []), ...(bookmarks || []), ...(community || [])]) {
           if (r?.id && !seen.has(r.id)) {
             seen.add(r.id);
             merged.push(r);
@@ -151,7 +153,7 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
         setLoading(false);
       });
     return () => { alive = false; };
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token, mcqOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resources = mcqOnly ? (cache || []).filter((r) => mcqVariant(r)) : (cache || []);
 
@@ -178,7 +180,7 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
           {!loading && filtered.length === 0 && (
             <div className="fd-empty-sub" style={{ padding: 16 }}>
               {mcqOnly
-                ? "No MCQ materials yet — generate MCQs on a material in My Space first."
+                ? "No MCQ sets found — generate MCQs on a material in My Space first."
                 : "No materials yet — upload or save resources in My Space first."}
             </div>
           )}
@@ -188,7 +190,11 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
               <span className="fd-sheet-item-info">
                 <span className="fd-sheet-item-title">{r.title}</span>
                 <span className="fd-sheet-item-meta">
-                  {r.subject} · {mcqOnly ? `${mcqQuestionCount(r)} questions` : r.contentType}
+                  {[
+                    r.subject,
+                    mcqOnly ? `${mcqQuestionCount(r)} questions` : r.contentType,
+                    r.uploader?.fullName || r.uploader?.username ? `by ${r.uploader.fullName || r.uploader.username}` : null,
+                  ].filter(Boolean).join(" · ")}
                 </span>
               </span>
             </button>
