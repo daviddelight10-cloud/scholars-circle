@@ -3,7 +3,7 @@
    Fonts: Syne (display) · Manrope (body) · JetBrains Mono (meta).      */
 
 .hm-root {
-  --hm-screen: #0A0A10; --hm-card: rgba(255,255,255,.035); --hm-card-2: rgba(255,255,255,.05);
+  --hm-screen: #0A0D13; --hm-card: rgba(255,255,255,.035); --hm-card-2: rgba(255,255,255,.05);
   --hm-stroke: rgba(255,255,255,.09); --hm-stroke-soft: rgba(255,255,255,.06);
   --hm-text: #F5F5F7; --hm-muted: #8B8B98; --hm-faint: #5B5B66;
   --hm-amber: #FFB547; --hm-blue: #6C9EFF; --hm-green: #4ADE80; --hm-violet: #8B6CFF;
@@ -16,6 +16,7 @@
   color: var(--hm-text);
   position: relative;
   min-height: 100%;
+  padding-top: env(safe-area-inset-top);
   background-color: var(--hm-screen);
   background-image:
     radial-gradient(440px 280px at 80% -60px, rgba(255,165,40,.10), transparent 70%),
@@ -204,6 +205,7 @@
 
 /* sections — tighter within a tier, wider between tiers */
 .hm-section { margin-top: 22px; }
+.hm-sec-hero { margin-top: 14px; }
 .hm-sec-jump { margin-top: 14px; }
 .hm-sec-quests { margin-top: 16px; }
 .hm-sec-foryou { margin-top: 32px; }
@@ -277,7 +279,7 @@
 .hm-f-save.saved { color: var(--hm-amber); border-color: rgba(255,181,71,.4); background: rgba(255,181,71,.1); }
 
 /* library */
-.hm-lib { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hm-lib { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
 .hm-lib-card {
   border-radius: 16px; padding: 12px; background: rgba(255,255,255,.02);
   border: 1px solid var(--hm-stroke-soft); cursor: pointer; text-align: left;
@@ -482,7 +484,7 @@
   .hm-gb-sp { display: none; }
 
   .hm-content {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start;
+    display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; align-items: start;
     margin-top: 24px;
     grid-template-areas:
       "hero jump"
@@ -490,6 +492,7 @@
       "foryou foryou"
       "library circle";
   }
+  .hm-content > * { min-width: 0; }
   .hm-sec-hero { grid-area: hero; }
   .hm-sec-vp { grid-area: vp; margin-top: 0; }
   .hm-sec-quests { grid-area: quests; }
@@ -500,11 +503,14 @@
   .hm-section { margin-top: 0; }
   .hm-sec-hero { margin-top: 0; }
   .hm-sec-vp.hm-vp { margin-top: 0; }
+  .hm-hero { margin-top: 0; }
 
-  .hm-rail { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; overflow: visible; }
+  .hm-rail { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; overflow: visible; }
+  .hm-rail > * { min-width: 0; }
   .hm-doc { flex: auto; width: auto; }
-  .hm-sec-foryou .hm-rail { grid-template-columns: repeat(3,1fr); }
+  .hm-sec-foryou .hm-rail { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .hm-folder { flex: auto; width: auto; }
+  .hm-lib { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
 
   .hm-due .hm-num { font-size: 46px; }
   .hm-hero { padding: 18px; }

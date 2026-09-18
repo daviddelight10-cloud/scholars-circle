@@ -395,7 +395,7 @@ export default function Dashboard({
 
         <div className="hm-content">
           {/* ── Hero ── */}
-          <div className="hm-sec-hero" style={{ marginTop: 14 }}>
+          <div className="hm-sec-hero">
             <HomeHero
               firstRun={firstRun}
               fsrsStats={fsrsStats}

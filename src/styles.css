@@ -2167,6 +2167,17 @@ body {
   box-sizing: border-box;
 }
 
+/* Home tab paints its own full-bleed background (.hm-root) — neutralize the
+   shell padding so it reaches the screen edges. Other tabs keep .app padding. */
+.app:has(.hm-root) { padding-left: 0; padding-right: 0; padding-top: 0; }
+@media (max-width: 768px) {
+  .app:has(.hm-root) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+  }
+}
+
 /* ── Desktop Sidebar Navigation ── */
 .app-sidebar {
   display: none;
