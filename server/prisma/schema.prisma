@@ -2102,6 +2102,8 @@ model FeedPost {
 
   acceptedComment FeedComment? @relation("AcceptedAnswer", fields: [acceptedCommentId], references: [id], onDelete: SetNull)
 
+  liveCode     String?
+
   universityId String?
 
   createdAt    DateTime      @default(now())

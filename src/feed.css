@@ -864,3 +864,28 @@
 .fd-profile-post-text {
   font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* ===== Live quiz battles ===== */
+.fd-mode-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.fd-mode-tab {
+  flex: 1; padding: 9px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  background: var(--fd-card); border: 1px solid var(--fd-card-border);
+  color: var(--fd-muted); cursor: pointer;
+}
+.fd-mode-tab.active {
+  color: var(--fd-gold); border-color: rgba(245, 197, 66, 0.4);
+  background: rgba(245, 197, 66, 0.08);
+}
+.fd-joinlive-btn {
+  margin-top: 6px; align-self: flex-start; font-size: 12px; font-weight: 700;
+  color: var(--fd-gold); background: rgba(245, 197, 66, 0.12);
+  border: 1px solid rgba(245, 197, 66, 0.4); border-radius: 999px;
+  padding: 5px 14px; cursor: pointer;
+}
+.fd-joinlive-btn:hover { background: rgba(245, 197, 66, 0.2); }
+.fd-quiz { border-color: rgba(245, 197, 66, 0.25); }
+.fd-join-btn.quiz {
+  background: rgba(245, 197, 66, 0.14); color: var(--fd-gold);
+  border: 1px solid rgba(245, 197, 66, 0.4);
+}
+.fd-join-btn.quiz:hover { background: rgba(245, 197, 66, 0.22); }

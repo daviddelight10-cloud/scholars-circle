@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
 import { FeedCard, ActivityRow, RoomCard, DividerBlock } from "./FeedCard";
 import { Composer } from "./Composer";
@@ -15,6 +16,7 @@ const TABS = [
 ];
 
 export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenSearch, onOpenResource }) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState("forYou");
   const [subject, setSubject] = useState(null);
   const [blocks, setBlocks] = useState([]);
@@ -26,6 +28,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [suggested, setSuggested] = useState([]);
   const [circle, setCircle] = useState({ following: [], digest: [] });
   const [rooms, setRooms] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
   const [sessions, setSessions] = useState({ live: [], upcoming: [] });
   const [streakOpen, setStreakOpen] = useState(false);
   const [fsrsStats, setFsrsStats] = useState(null);
@@ -91,6 +94,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       feedApi.getCircle({ token }).then(setCircle).catch(() => {});
     }
     if (tab === "live") {
+      feedApi.getActiveQuizzes({ token }).then(setQuizzes).catch(() => setQuizzes([]));
       Promise.all([
         feedApi.getLiveSessions({ token }).catch(() => []),
         feedApi.getUpcomingSessions({ token }).catch(() => []),
@@ -189,6 +193,10 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const handleJoinQuiz = (code) => {
+    if (code) navigate(`/live/${code}`);
   };
 
   const handleJoinSession = async (session) => {
@@ -305,6 +313,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           onLeaveRoom={handleLeaveRoom}
           onEndRoom={handleEndRoom}
           onOpenProfile={setProfileUserId}
+          onJoinQuiz={handleJoinQuiz}
         />
       );
     });
@@ -428,12 +437,14 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
               token={token}
               me={me}
               rooms={rooms}
+              quizzes={quizzes}
               sessions={sessions}
               subjects={subjects}
               onJoinRoom={handleJoinRoom}
               onLeaveRoom={handleLeaveRoom}
               onEndRoom={handleEndRoom}
               onJoinSession={handleJoinSession}
+              onJoinQuiz={handleJoinQuiz}
               onOpenResource={onOpenResource}
               onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})}
             />
@@ -575,7 +586,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   );
 }
 
-function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onLeaveRoom, onEndRoom, onJoinSession, onOpenResource, onRoomsChanged }) {
+function LiveTab({ token, me, rooms, quizzes = [], sessions, subjects, onJoinRoom, onLeaveRoom, onEndRoom, onJoinSession, onJoinQuiz, onOpenResource, onRoomsChanged }) {
   return (
     <div className="fd-live">
       <Composer
@@ -586,6 +597,27 @@ function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onLeaveRoom
         onPosted={() => {}}
         onRoomsChanged={onRoomsChanged}
       />
+
+      {quizzes.length > 0 && (
+        <div className="fd-section">
+          <DividerBlock label="⚡ Live quiz battles" />
+          {quizzes.map((q) => (
+            <div key={q.code} className="fd-card fd-quiz">
+              <div className="fd-room-top">
+                <div className="fd-live-badge">● LIVE</div>
+                <div className="fd-room-seats">{q.players}/{q.maxPlayers} players</div>
+              </div>
+              <div className="fd-room-name">{q.title}</div>
+              <div className="fd-room-meta">
+                hosted by {q.host} · {q.questions} questions
+              </div>
+              <button className="fd-join-btn quiz" onClick={() => onJoinQuiz?.(q.code)}>
+                {q.isMember ? "Rejoin lobby" : "Join battle"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {rooms.length > 0 && (
         <div className="fd-section">
@@ -632,10 +664,10 @@ function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onLeaveRoom
         </div>
       )}
 
-      {rooms.length === 0 && sessions.live.length === 0 && sessions.upcoming.length === 0 && (
+      {quizzes.length === 0 && rooms.length === 0 && sessions.live.length === 0 && sessions.upcoming.length === 0 && (
         <div className="fd-empty">
           <div className="fd-empty-title">Nobody's live right now</div>
-          <div className="fd-empty-sub">Go live with friends and your circle gets to join your study room.</div>
+          <div className="fd-empty-sub">Go live with a quiz battle or a quiet study room — your circle can join.</div>
         </div>
       )}
     </div>

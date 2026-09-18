@@ -33,6 +33,10 @@ export function getRoomByCode(code) {
   return id ? rooms.get(id) : null;
 }
 
+export function listRooms() {
+  return rooms.values();
+}
+
 function generateCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";

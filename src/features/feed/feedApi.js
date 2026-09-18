@@ -70,6 +70,9 @@ export const feedApi = {
   leaveRoom: ({ token, roomId }) => req(`/study-group/study-rooms/${roomId}/leave`, { token, method: "POST" }),
   endRoom: ({ token, roomId }) => req(`/study-group/study-rooms/${roomId}/end`, { token, method: "POST" }),
 
+  // Live quiz battles (synchronized MCQ rooms)
+  getActiveQuizzes: ({ token } = {}) => req("/api/live-quiz/active", { token }),
+
   // Classroom live sessions (only when user has classrooms)
   getLiveSessions: ({ token } = {}) => req("/live-sessions/live", { token }),
   getUpcomingSessions: ({ token } = {}) => req("/live-sessions/upcoming", { token }),

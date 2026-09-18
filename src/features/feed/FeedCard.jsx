@@ -194,7 +194,7 @@ function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount })
   );
 }
 
-export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile }) {
+export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile, onJoinQuiz }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(block.comments || 0);
   const [acceptedId, setAcceptedId] = useState(block.acceptedCommentId || null);
@@ -328,9 +328,14 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
 
       {isActivity ? (
         <div className="fd-activity">
-          <span className="fd-activity-icon">🔥</span>
+          <span className="fd-activity-icon">{block.liveCode ? "⚡" : "🔥"}</span>
           <div className="fd-activity-body">
             <span className="fd-activity-text"><b>{block.author?.name}</b> {block.text}</span>
+            {block.liveCode && (
+              <button className="fd-joinlive-btn" onClick={() => onJoinQuiz?.(block.liveCode)}>
+                ⚡ Join live
+              </button>
+            )}
           </div>
         </div>
       ) : (

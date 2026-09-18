@@ -104,6 +104,7 @@ function postBlock(p, myId) {
     comments: p._count?.comments || 0,
     liked: (p.likes || []).length > 0,
     acceptedCommentId: p.acceptedCommentId || null,
+    liveCode: p.liveCode || null,
   };
 }
 

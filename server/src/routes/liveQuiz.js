@@ -7,6 +7,7 @@ import {
   createRoom,
   getRoom,
   getRoomByCode,
+  listRooms,
   registerParticipant,
   attachSocket,
   detachSocket,
@@ -87,9 +88,86 @@ router.post("/create", requireAuth, async (req, res) => {
       questionCount: questions.length,
       maxQuestions: questions.length,
     });
+
+    // Announce to the host's circle: feed post + follower push (best-effort)
+    const uid = userId(req);
+    (async () => {
+      try {
+        const profile = await prisma.userProfile.findUnique({
+          where: { userId: uid },
+          select: { universityId: true },
+        });
+        await prisma.feedPost.create({
+          data: {
+            authorId: uid,
+            kind: "activity",
+            text: `went live with ${mcq.title} — ${questions.length} question${questions.length === 1 ? "" : "s"} ⚡`,
+            resourceId: mcq.sourceResourceId || mcq.id,
+            liveCode: room.code,
+            universityId: profile?.universityId || null,
+          },
+        });
+        const [host, followers] = await Promise.all([
+          prisma.user.findUnique({ where: { id: uid }, select: { fullName: true, username: true } }),
+          prisma.userFollow.findMany({
+            where: { followingId: uid },
+            select: { followerId: true },
+            take: 200,
+          }),
+        ]);
+        if (followers.length > 0) {
+          const { sendPushToUsers } = await import("../lib/pushSender.js");
+          await sendPushToUsers(
+            followers.map((f) => f.followerId),
+            {
+              title: `${host?.fullName || host?.username || "A friend"} went live ⚡`,
+              body: `${mcq.title} · ${questions.length} questions — tap to join`,
+              tag: `quiz-${room.code}`,
+              data: { tab: "discuss", liveCode: room.code },
+            },
+            { category: "social" }
+          );
+        }
+      } catch (e) {
+        console.warn("[live-quiz] announce failed:", e?.message);
+      }
+    })();
   } catch (err) {
     console.error("Live quiz create error:", err);
     res.status(500).json({ error: "Failed to create live session" });
+  }
+});
+
+// GET /api/live-quiz/active — joinable quiz lobbies ("who's live now")
+// NOTE: must be registered before /:code so "active" isn't treated as a code.
+router.get("/active", requireAuth, async (req, res) => {
+  try {
+    const uid = userId(req);
+    const out = [];
+    for (const room of listRooms()) {
+      if (room.phase !== "lobby" && room.phase !== "transition") continue;
+      const connected = [...room.participants.values()].filter((p) => p.connected).length;
+      const total = room.participants.size;
+      if (total >= 8 && !room.participants.has(uid)) continue;
+      const host = room.participants.get(room.hostId);
+      out.push({
+        code: room.code,
+        title: room.title,
+        host: host?.username || "Host",
+        isHost: room.hostId === uid,
+        isMember: room.participants.has(uid),
+        players: total,
+        connected,
+        maxPlayers: 8,
+        questions: Math.min(room.settings?.numQuestions || room.allQuestions?.length || 0, room.allQuestions?.length || 0),
+        createdAt: room.createdAt,
+      });
+    }
+    out.sort((a, b) => b.createdAt - a.createdAt);
+    res.json(out.slice(0, 20));
+  } catch (err) {
+    console.error("Live quiz active error:", err);
+    res.status(500).json({ error: "Failed to load live quizzes" });
   }
 });
 

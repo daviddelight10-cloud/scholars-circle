@@ -5,3 +5,4 @@ ALTER TABLE "FeedPost"
     FOREIGN KEY ("acceptedCommentId") REFERENCES "FeedComment"("id")
     ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "NotificationPreference" ADD COLUMN IF NOT EXISTS "social" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "FeedPost" ADD COLUMN IF NOT EXISTS "liveCode" TEXT;
