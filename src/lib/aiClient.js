@@ -174,6 +174,104 @@ export async function callAI(prompt, aiConfig = {}) {
   return callDirect(prompt, aiConfig);
 }
 
+// Tutor call: server-side Research Hub retrieval + SSE streaming.
+// Streams raw text via onToken(accumulatedRaw); matched documents arrive via
+// the returned `documents` (and onMeta as they stream). Falls back to the
+// classic /generate endpoint on older servers, or a direct call when the
+// proxy is disabled. The prompt may contain a {{DOC_CATALOG}} placeholder
+// which the server replaces with query-matched resources.
+export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, onMeta, fallbackCatalog = "" } = {}) {
+  const status = await getProxyStatus();
+  const provider = aiConfig.provider || status?.defaultProvider || "openrouter";
+  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : provider === "openrouter" ? "z-ai/glm-5.3-flash" : "gpt-4o-mini");
+
+  if (!status?.enabled) {
+    const raw = await callDirect(prompt.replace("{{DOC_CATALOG}}", fallbackCatalog), { ...aiConfig, provider, model });
+    return { raw, documents: [] };
+  }
+
+  const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+  const token = authData.authToken;
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/ai-proxy/tutor`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: JSON.stringify({ prompt, provider, model, query }),
+      signal: AbortSignal.timeout(120000),
+    });
+  } catch (netErr) {
+    if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
+      throw new Error("AI request timed out. Please try again with a shorter prompt.");
+    }
+    throw new Error("Network error reaching AI service. Please check your connection.");
+  }
+
+  // Older server without /tutor — fall back to the classic endpoint
+  if (res.status === 404) {
+    const raw = await callViaProxy(prompt.replace("{{DOC_CATALOG}}", fallbackCatalog), provider, model);
+    return { raw, documents: [] };
+  }
+
+  if (!res.ok) {
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (res.status === 429) {
+      window.dispatchEvent(new CustomEvent("ai-limit", {
+        detail: { used: data?.used, limit: data?.limit, plan: data?.plan },
+      }));
+      throw new Error(`Daily AI limit reached (${data?.used || "?"}/${data?.limit || "?"}). Upgrade to Premium for unlimited access.`);
+    }
+    throw new Error(data?.error || `AI service error (${res.status})`);
+  }
+
+  // SSE stream — each `data:` line is a JSON event: {type: meta|token|done|error}
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let raw = "";
+  const documents = [];
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const eventBlock = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of eventBlock.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          let evt;
+          try { evt = JSON.parse(payload); } catch { continue; }
+          if (evt.type === "meta") {
+            if (Array.isArray(evt.documents)) documents.push(...evt.documents);
+            onMeta?.(evt);
+          } else if (evt.type === "token") {
+            raw += evt.text || "";
+            onToken?.(raw);
+          } else if (evt.type === "error") {
+            throw new Error(evt.message || "AI stream failed.");
+          }
+        }
+      }
+    }
+  } catch (streamErr) {
+    if (streamErr.name === "AbortError" || streamErr.name === "TimeoutError") {
+      throw new Error("AI request timed out. Please try again.");
+    }
+    throw streamErr;
+  }
+  if (!raw) throw new Error("AI returned an empty response.");
+  return { raw, documents };
+}
+
 // Multimodal AI call with image(s) + text + conversation history.
 // Uses the backend multimodal proxy endpoint. Returns plain text string.
 // imageOrImages can be a single base64 data URL string or an array of strings.

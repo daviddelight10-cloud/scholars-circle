@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { callAI, callAIMultimodal, extractJSON } from "../lib/aiClient";
+import { callAI, callAIMultimodal, callAITutor, extractJSON } from "../lib/aiClient";
 import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
 import { detectDiscipline } from "./AITutor/disciplines.js";
 import { extractTextFromFile } from "./AITutor/fileExtract.js";
@@ -7,6 +7,7 @@ import { resolvePractice, searchQuestionBank, hasPracticeIntent, buildAppCatalog
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { API_BASE } from "../lib/constants";
+import { listFolders, createFolder } from "../lib/foldersApi";
 import { toast } from "../components/Toast";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -121,26 +122,45 @@ async function fetchYouTubeVideo(ytQuery) {
   return null;
 }
 
-async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null, images = null, subjects = null, resources = null) {
-  const disciplineId = detectDiscipline(subject?.label);
-  const system = buildSystemPrompt({ mode: "chat", disciplineId, subject });
-  const convo = buildConversationContext(conversationHistory, 8);
-  const catalog = buildAppCatalog(subjects);
-  const docCatalog = buildDocCatalog(resources, { prefer: subject?.label });
-  const prompt =
-    `${system}\n\n${APP_FEATURES}\n\n${docCatalog ? `${docCatalog}\n\n` : ""}${catalog ? `${catalog}\n\n` : ""}${convo}\n\n` +
-    `The student asked: "${query}"\n\n` +
-    `Reply ONLY with valid JSON (no markdown code fences):\n` +
-    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"}}\n\n` +
-    `Rules:\n` +
-    `- "answer" is REQUIRED and must never be empty.\n` +
-    `- "documents": list up to 3 EXACT document titles from the Research Hub list when the student asks for notes/materials/PDFs, or when a listed document clearly covers their question. Copy titles EXACTLY. Omit the field otherwise.\n` +
-    `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
-    `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
-    `- If the student asks how to use the app, answer using the feature list above.`;
-  const raw = images && images.length > 0
-    ? await callAIMultimodal(prompt, images, [], aiConfig)
-    : await callAI(prompt, aiConfig);
+// Saved answers go into a dedicated "✦ AI Notes" space (a private folder) so
+// they don't mix with regular materials in My Space. Find-or-create + cached id.
+const AI_NOTES_FOLDER = "✦ AI Notes";
+const AI_NOTES_FOLDER_KEY = "sc_ai_notes_folder_id";
+
+async function ensureAINotesFolder() {
+  try {
+    const cached = localStorage.getItem(AI_NOTES_FOLDER_KEY);
+    if (cached) return cached;
+    const data = await listFolders();
+    const existing = (data?.own || []).find(f => f.name === AI_NOTES_FOLDER);
+    if (existing?.id) {
+      try { localStorage.setItem(AI_NOTES_FOLDER_KEY, existing.id); } catch {}
+      return existing.id;
+    }
+    const created = await createFolder({ name: AI_NOTES_FOLDER });
+    if (created?.id) {
+      try { localStorage.setItem(AI_NOTES_FOLDER_KEY, created.id); } catch {}
+      return created.id;
+    }
+  } catch {}
+  return null; // save loose if the folder can't be resolved
+}
+
+// Extract the in-progress "answer" string from partially-streamed JSON so the
+// UI can render markdown as it arrives. Returns "" until the answer field starts.
+function extractPartialAnswer(raw) {
+  const m = raw.match(/"answer"\s*:\s*"/);
+  if (!m) return "";
+  let s = raw.slice(m.index + m[0].length);
+  const next = s.search(/",\s*"/); // start of the next JSON field
+  if (next >= 0) s = s.slice(0, next);
+  if (s.endsWith("\\")) s = s.slice(0, -1); // mid-escape at stream boundary
+  try { return JSON.parse(`"${s}"`); } catch {
+    return s.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  }
+}
+
+function parseAIResponse(raw, query) {
   try {
     const s = raw.indexOf("{"), e = raw.lastIndexOf("}") + 1;
     const parsed = JSON.parse(raw.slice(s, e));
@@ -156,12 +176,48 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
   }
 }
 
-async function generateAIQuestions(topic, aiConfig, subject = null) {
+async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null, images = null, subjects = null, resources = null, opts = {}) {
+  const disciplineId = detectDiscipline(subject?.label);
+  const system = buildSystemPrompt({ mode: "chat", disciplineId, subject });
+  const convo = buildConversationContext(conversationHistory, 8);
+  const catalog = buildAppCatalog(subjects);
+  // {{DOC_CATALOG}} is filled server-side with documents matching this question;
+  // non-streaming fallbacks replace it with the client-side catalog.
+  const docCatalog = buildDocCatalog(resources, { prefer: subject?.label });
+  const prompt =
+    `${system}\n\n${APP_FEATURES}\n\n{{DOC_CATALOG}}\n\n${catalog ? `${catalog}\n\n` : ""}${convo}\n\n` +
+    `The student asked: "${query}"\n\n` +
+    `Reply ONLY with valid JSON (no markdown code fences):\n` +
+    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"}}\n\n` +
+    `Rules:\n` +
+    `- "answer" is REQUIRED and must never be empty.\n` +
+    `- "documents": list up to 3 EXACT document titles from the Research Hub list when the student asks for notes/materials/PDFs, or when a listed document clearly covers their question. Copy titles EXACTLY. Omit the field otherwise.\n` +
+    `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
+    `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
+    `- If the student asks how to use the app, answer using the feature list above.`;
+
+  // Multimodal (images/scanned PDFs) — classic endpoint, client-side doc catalog
+  if (images && images.length > 0) {
+    const raw = await callAIMultimodal(prompt.replace("{{DOC_CATALOG}}", docCatalog || ""), images, [], aiConfig);
+    return { parsed: parseAIResponse(raw, query), metaDocs: [] };
+  }
+
+  // Streaming tutor path — server matches Research Hub docs to the query
+  const { raw, documents } = await callAITutor(prompt, aiConfig, {
+    query: opts.query || query,
+    onToken: opts.onToken,
+    fallbackCatalog: docCatalog || "",
+  });
+  return { parsed: parseAIResponse(raw, query), metaDocs: documents };
+}
+
+async function generateAIQuestions(topic, aiConfig, subject = null, context = null) {
   const disciplineId = detectDiscipline(subject?.label);
   const system = buildSystemPrompt({ mode: "generate_quiz", disciplineId, subject });
   const prompt =
     `${system}\n\n` +
     `Generate a practice quiz about: "${topic}"\n\n` +
+    (context ? `Base the questions on this study material:\n\n${context.slice(0, 12000)}\n\n` : "") +
     `Output STRICTLY a JSON array. NO prose before or after.\n` +
     `Each item: {"q": "question", "options": ["A","B","C","D"], "answer": 0, "explanation": "why correct"}\n` +
     `- "answer" is the 0-indexed correct option.\n` +
@@ -309,10 +365,14 @@ function PracticeCard({ practice, onQuick, onExam }) {
   );
 }
 
-function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc }) {
+function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc, onQuizDoc, onSave }) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [video, setVideo] = useState(data.video || null);
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const followUps = (data.followUps || []).slice(0, 3);
   // Freeform answer (new) with legacy definition+explanation fallback (old saved convos)
   const answer = data.answer || [data.definition, data.explanation].filter(Boolean).join("\n\n");
@@ -344,6 +404,28 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
     synth.cancel();
     synth.speak(u);
     setSpeaking(true);
+  }
+
+  // YouTube is lazy — only searched when the student actually clicks Video
+  async function toggleVideo() {
+    if (video) { setShowVideo(o => !o); return; }
+    if (videoBusy || !data.ytQuery) return;
+    setVideoBusy(true);
+    try {
+      const v = await fetchYouTubeVideo(data.ytQuery);
+      if (v) { setVideo(v); setShowVideo(true); }
+      else toast.info("No video found for this topic.");
+    } finally {
+      setVideoBusy(false);
+    }
+  }
+
+  async function handleSave() {
+    if (saving || saved || !onSave) return;
+    setSaving(true);
+    const ok = await onSave(data);
+    setSaving(false);
+    if (ok) setSaved(true);
   }
 
   const iconBtn = (active) => ({
@@ -383,6 +465,7 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
                   doc={doc}
                   onOpen={onOpenResource ? () => onOpenResource(doc.shareToken) : null}
                   onAsk={onAskDoc}
+                  onQuiz={onQuizDoc}
                 />
               ))}
             </div>
@@ -413,10 +496,10 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
             </div>
           )}
 
-          {/* Video (collapsed by default) */}
-          {showVideo && data.video && (
+          {/* Video (lazy — fetched on first click) */}
+          {showVideo && video && (
             <div style={{ padding: "4px 0 8px" }}>
-              <VideoLesson video={data.video} />
+              <VideoLesson video={video} />
             </div>
           )}
 
@@ -433,9 +516,14 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
                 {speaking ? "⏹ Stop" : "🔊 Listen"}
               </button>
             )}
-            {data.video && (
-              <button onClick={() => setShowVideo(o => !o)} style={iconBtn(showVideo)} title="Video lesson">
-                {showVideo ? "▲ Hide video" : "▶️ Video"}
+            {(video || data.ytQuery) && (
+              <button onClick={toggleVideo} disabled={videoBusy} style={iconBtn(showVideo)} title="Video lesson">
+                {videoBusy ? "⏳ Loading…" : showVideo ? "▲ Hide video" : "▶️ Video"}
+              </button>
+            )}
+            {onSave && (
+              <button onClick={handleSave} disabled={saving || saved} style={iconBtn(saved)} title="Save to Research Hub">
+                {saved ? "✓ Saved" : saving ? "⏳ Saving…" : "💾 Save"}
               </button>
             )}
             <span style={{ flex: 1 }} />
@@ -485,7 +573,7 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
   );
 }
 
-function PracticeView({ data, onBack, aiConfig, onStartExam }) {
+function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes }) {
   const [answered, setAnswered] = useState({});
   const [extraQuestions, setExtraQuestions] = useState(null);
   const [genError, setGenError] = useState(null);
@@ -501,6 +589,16 @@ function PracticeView({ data, onBack, aiConfig, onStartExam }) {
     return acc + (answered[i] === ci ? 1 : 0);
   }, 0);
   const finished = total > 0 && done === total;
+  const wrong = finished
+    ? questions
+        .map((q, i) => ({ q, sel: answered[i] }))
+        .filter(({ q, sel }) => sel !== undefined && sel !== (q.answer ?? q.correctIndex ?? 0))
+        .map(({ q, sel }) => ({
+          q: q.q || q.question,
+          chosen: (q.options || [])[sel],
+          correct: (q.options || [])[q.answer ?? q.correctIndex ?? 0],
+        }))
+    : [];
 
   function pick(qi, oi) {
     if (answered[qi] !== undefined) return;
@@ -513,7 +611,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam }) {
     if (genStarted.current) return;
     if (bankQuestions.length > 0 || extraQuestions || !aiConfig || !topic) return;
     genStarted.current = true;
-    generateAIQuestions(topic, aiConfig, data.subjectLabel ? { label: data.subjectLabel } : null)
+    generateAIQuestions(topic, aiConfig, data.subjectLabel ? { label: data.subjectLabel } : null, data.docContext || null)
       .then(qs => {
         if (qs && qs.length > 0) {
           setExtraQuestions(qs);
@@ -524,7 +622,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam }) {
       .catch(err => {
         setGenError(err?.message || "Failed to generate questions. Check your AI settings.");
       });
-  }, [bankQuestions.length, extraQuestions, genError, aiConfig, topic, data.subjectLabel]);
+  }, [bankQuestions.length, extraQuestions, genError, aiConfig, topic, data.subjectLabel, data.docContext]);
 
   if (!total) {
     if (!genError && aiConfig && topic) {
@@ -699,6 +797,17 @@ function PracticeView({ data, onBack, aiConfig, onStartExam }) {
                     fontFamily: "Manrope,sans-serif",
                   }}
                 >📝 Take as full exam</button>
+              )}
+              {wrong.length > 0 && onReviewMistakes && (
+                <button
+                  onClick={() => onReviewMistakes(wrong)}
+                  style={{
+                    padding: "8px 16px", borderRadius: 20,
+                    background: D.accent, border: `0.5px solid ${D.border}`,
+                    color: D.accent2, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "Manrope,sans-serif",
+                  }}
+                >💬 Review {wrong.length} mistake{wrong.length !== 1 ? "s" : ""} with AI</button>
               )}
               <button
                 onClick={onBack}
@@ -927,7 +1036,7 @@ function resolveDocRefs(titles, resources, max = 3) {
   return out;
 }
 
-function DocCard({ doc, onOpen, onAsk }) {
+function DocCard({ doc, onOpen, onAsk, onQuiz }) {
   const meta = docTypeMeta(doc.contentType);
   return (
     <div style={{
@@ -955,6 +1064,14 @@ function DocCard({ doc, onOpen, onAsk }) {
             background: "transparent", border: `0.5px solid ${D.line}`,
             color: D.muted, fontSize: 11, fontFamily: "Manrope,sans-serif", fontWeight: 600,
           }}>✦ Ask AI</button>
+      )}
+      {onQuiz && (
+        <button onClick={() => onQuiz(doc)} title="Generate practice questions from this document"
+          style={{
+            padding: "6px 10px", borderRadius: 8, flexShrink: 0, cursor: "pointer",
+            background: "transparent", border: `0.5px solid ${D.line}`,
+            color: D.muted, fontSize: 11, fontFamily: "Manrope,sans-serif", fontWeight: 600,
+          }}>✎ Quiz</button>
       )}
       {onOpen && (
         <button onClick={onOpen} title="Open document"
@@ -1184,6 +1301,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     } catch {}
     return [];
   });
+  const [activeDoc, setActiveDoc]   = useState(null); // pinned document context (slim doc)
   const bottomRef                   = useRef(null);
   const docTextCache                = useRef({}); // resourceId -> { text, images }
 
@@ -1307,6 +1425,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     setView("chat");
     setCurrentId(null);
     setShowHistory(false);
+    setActiveDoc(null);
   }
 
   function loadConvo(c) {
@@ -1326,6 +1445,13 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     setData(lastAi?.data || null);
     setView("chat");
     setCurrentId(c.id);
+    // Restore the pinned document context (re-resolve to the live resource if possible)
+    if (c.activeDoc?.shareToken) {
+      const full = resources.find(r => r.shareToken === c.activeDoc.shareToken);
+      setActiveDoc(full ? slimDoc(full) : c.activeDoc);
+    } else {
+      setActiveDoc(null);
+    }
   }
 
   function deleteConvo(id) {
@@ -1341,7 +1467,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       return { ...m, attachment: { type: m.attachment.type, name: m.attachment.name, dataUrl: null, images: [] } };
     }
     if (m.type === "ai" && m.data) {
-      const d = { ...m.data, questions: undefined };
+      const d = { ...m.data, questions: undefined, docContext: undefined };
       if (d.practice) d.practice = { ...d.practice, questions: undefined, subject: undefined, resource: undefined };
       if (Array.isArray(d.documents)) d.documents = d.documents.map(x => ({ id: x.id, shareToken: x.shareToken, title: x.title, contentType: x.contentType, subject: x.subject || null, courseCode: x.courseCode || null }));
       return { ...m, data: d };
@@ -1352,13 +1478,14 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     return m;
   }
 
-  function persistConvo(msgs, lastData, q) {
+  function persistConvo(msgs, lastData, q, docCtx) {
     const id = currentId || genId();
     const title = q.length > 60 ? q.slice(0, 60) + "…" : q;
     const entry = {
       id, title, ts: Date.now(),
       messages: msgs.map(slimMessage),
       lastData: lastData ? slimMessage({ type: "ai", data: lastData }).data : null,
+      activeDoc: docCtx !== undefined ? docCtx : activeDoc,
     };
     const updated = [entry, ...conversations.filter(c => c.id !== id)];
     setConvos(updated);
@@ -1369,6 +1496,82 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   function handleExamStart(practice) {
     if (!practice?.questions?.length || !onStartExam) return;
     onStartExam(toExamSession(practice));
+  }
+
+  // "Quiz" on a document card — MCQ sets go straight to practice; other docs
+  // get AI-generated questions seeded with the document's extracted content
+  async function startDocQuiz(doc) {
+    const full = resources.find(r => r.shareToken === doc.shareToken) || doc;
+    setActiveDoc(slimDoc(full));
+    const mcqPractice = full.contentType === "mcq" ? resolveMcqPractice({}, [full]) : null;
+    if (mcqPractice) {
+      setData({ topic: full.title, subjectLabel: full.title, questions: mcqPractice.questions, practice: mcqPractice, bankCount: mcqPractice.total });
+      setView("practice");
+      return;
+    }
+    const content = await fetchDocContent(full);
+    setData({
+      topic: full.title, subjectLabel: full.title,
+      docContext: content?.text || null,
+      questions: [],
+      practice: { subjectLabel: full.title, subjectIcon: "📄", questions: [], total: 0, resource: full },
+      bankCount: 0,
+    });
+    setView("practice");
+    if (!content?.text) toast.info("Couldn't read that file — the quiz will be generated from the title only.");
+  }
+
+  // Save a useful AI answer as a note inside the dedicated "✦ AI Notes" space
+  async function saveAnswerToHub(data) {
+    try {
+      const folderId = await ensureAINotesFolder();
+      const body = {
+        title: `AI notes — ${(data.topic || "study answer").slice(0, 60)}`,
+        subject: data.subjectLabel || "AI Notes",
+        contentType: "note",
+        description: `**Q:** ${data.topic || ""}\n\n${data.answer || ""}`,
+        isPublic: false,
+      };
+      if (folderId) body.folderId = folderId;
+      let res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok && folderId) {
+        // Cached folder may have been deleted — retry as a loose note
+        try { localStorage.removeItem(AI_NOTES_FOLDER_KEY); } catch {}
+        delete body.folderId;
+        res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
+          method: "POST",
+          headers: { ...authHeaders(), "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+      if (!res.ok) throw new Error("Save failed");
+      const saved = await res.json();
+      const resource = saved?.resource || saved;
+      if (resource?.id) {
+        setResources(prev => [resource, ...prev.filter(r => r.id !== resource.id)]);
+        try { localStorage.removeItem("sc_resources_list"); } catch {}
+      }
+      toast.success(folderId ? "Saved to your AI Notes space ✓" : "Saved to your Research Hub ✓");
+      return true;
+    } catch {
+      toast.error("Couldn't save — try again");
+      return false;
+    }
+  }
+
+  // Practice feedback loop — send missed questions back into the conversation
+  function reviewMistakes(wrong, subjectLabel) {
+    if (!wrong?.length) return;
+    setView("chat");
+    ask(
+      `I just finished a ${subjectLabel || "practice"} session and missed ${wrong.length} question${wrong.length !== 1 ? "s" : ""}. ` +
+      `Explain the correct answers and where my reasoning went wrong:\n\n` +
+      wrong.map((w, i) => `${i + 1}. ${w.q}\n   My answer: ${w.chosen}\n   Correct answer: ${w.correct}`).join("\n")
+    );
   }
 
   async function ask(rawQ, attachOverride, docOverride) {
@@ -1406,13 +1609,20 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     // If the student references a real document (or clicked "Ask AI" on a doc
     // card), fetch its content and inject it so the model can read it.
     let citedDocs = [];
+    let pinnedDoc = activeDoc;
     let docMatch = docOverride || null;
     if (!docMatch && !capturedAttachment && resources.length > 0 && hasDocIntent(q)) {
       const [hit] = searchDocuments(q, resources, 1);
       if (hit) docMatch = hit;
     }
+    // Pinned document context — follow-up questions keep reading the same doc
+    if (!docMatch && !capturedAttachment && activeDoc) {
+      docMatch = resources.find(r => r.shareToken === activeDoc.shareToken) || activeDoc;
+    }
     if (docMatch) {
-      citedDocs = [slimDoc(docMatch)];
+      const slim = slimDoc(docMatch);
+      citedDocs = [slim];
+      if (slim.shareToken !== activeDoc?.shareToken) { setActiveDoc(slim); pinnedDoc = slim; }
       const content = await fetchDocContent(docMatch);
       if (content && (content.text || content.images?.length)) {
         if (content.images?.length) images = content.images;
@@ -1423,8 +1633,19 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     try {
       let aiRes = null;
       let aiError = null;
+      let metaDocs = [];
+      // Stream partial answers into a live message bubble
+      const onToken = (acc) => {
+        const partial = extractPartialAnswer(acc);
+        setMsgs(p => p.map((m, i) =>
+          i === p.length - 1 && (m.type === "loading" || m.type === "streaming")
+            ? { type: "streaming", partial }
+            : m));
+      };
       try {
-        aiRes = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources);
+        const result = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources, { onToken, query: q });
+        aiRes = result.parsed;
+        metaDocs = result.metaDocs || [];
       } catch (err) {
         aiError = err?.message || "The AI request failed. Please try again.";
       }
@@ -1466,10 +1687,19 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         citedDocs = citedDocs.slice(0, 3);
       }
 
-      const ytQuery = aiRes?.ytQuery || `${q} explained`;
-      const video = aiError ? null : await fetchYouTubeVideo(ytQuery);
+      // Server-side retrieval matched these docs to the query — cite them even
+      // when the model didn't name them explicitly
+      if (metaDocs.length) {
+        const used = new Set(citedDocs.map(d => d.shareToken));
+        for (const d of metaDocs.map(slimDoc)) {
+          if (d.shareToken && !used.has(d.shareToken)) { used.add(d.shareToken); citedDocs.push(d); }
+        }
+        citedDocs = citedDocs.slice(0, 3);
+      }
 
-      const base = [...messages, userMsg].filter(m => m.type !== "loading");
+      const ytQuery = aiRes?.ytQuery || `${q} explained`;
+
+      const base = [...messages, userMsg].filter(m => m.type !== "loading" && m.type !== "streaming");
       let finalMsgs;
       if (aiError) {
         finalMsgs = base.concat({ type: "error", text: aiError, retryQ: q, retryAttach: capturedAttachment });
@@ -1477,7 +1707,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         const result = {
           source: practice ? (practice.resource ? "mcq-resource" : "bank") : "ai",
           answer: aiRes?.answer || "",
-          ytQuery, video,
+          ytQuery, video: null, // lazy — fetched on first Video click
           followUps: aiRes?.followUps || [],
           documents: citedDocs,
           practice,
@@ -1491,7 +1721,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       }
       setMsgs(finalMsgs);
       setView("chat");
-      persistConvo(finalMsgs, finalMsgs[finalMsgs.length - 1]?.data || null, q);
+      persistConvo(finalMsgs, finalMsgs[finalMsgs.length - 1]?.data || null, q, pinnedDoc);
     } finally {
       setLoading(false);
     }
@@ -1690,6 +1920,27 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           <TypingDots />
                         </div>
                       )}
+                      {m.type === "streaming" && (
+                        <div style={{ alignSelf: "flex-start", width: "100%", display: "flex", gap: 9, alignItems: "flex-start" }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 9, flexShrink: 0, marginTop: 2,
+                            background: D.accent, border: `0.5px solid ${D.border}`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 13, color: D.accent2,
+                          }}>✦</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {m.partial ? (
+                              <>
+                                <MarkdownText theme="gold">{m.partial}</MarkdownText>
+                                <span style={{ display: "inline-block", width: 7, height: 14, background: D.accent2, borderRadius: 2, verticalAlign: "text-bottom", animation: "scBlink 0.9s steps(1) infinite", marginLeft: 2 }} />
+                              </>
+                            ) : (
+                              <TypingDots />
+                            )}
+                            <style>{`@keyframes scBlink{50%{opacity:0}}`}</style>
+                          </div>
+                        </div>
+                      )}
                       {m.type === "error" && (
                         <div style={{ alignSelf: "flex-start", display: "flex", gap: 9, alignItems: "flex-start", maxWidth: "92%" }}>
                           <div style={{
@@ -1735,6 +1986,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                             const full = resources.find(r => r.shareToken === doc.shareToken) || doc;
                             ask(`Help me study "${doc.title}" — summarize the key points`, undefined, full);
                           }}
+                          onQuizDoc={startDocQuiz}
+                          onSave={saveAnswerToHub}
                           onQuickAction={(action, topic) => {
                             const prompts = {
                               explain_simpler: `Explain ${topic} in simpler terms, as if for a beginner`,
@@ -1753,6 +2006,37 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               <div ref={bottomRef} />
               </div>
             </div>
+
+            {/* Pinned document context — follow-ups keep reading this doc */}
+            {activeDoc && (
+              <div style={{ padding: "6px 14px 0", background: D.bar, flexShrink: 0 }}>
+                <div style={{ maxWidth: 780, margin: "0 auto" }}>
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 7,
+                    padding: "4px 10px", borderRadius: 14,
+                    background: D.accent, border: `0.5px solid ${D.border}`,
+                    fontSize: 10.5, color: D.accent2, fontFamily: "Manrope,sans-serif",
+                  }}>
+                    <span style={{ fontSize: 11 }}>📄</span>
+                    <span style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      Reading: {activeDoc.title}
+                    </span>
+                    {onOpenResource && activeDoc.shareToken && (
+                      <button
+                        onClick={() => onOpenResource(activeDoc.shareToken)}
+                        title="Open document"
+                        style={{ background: "none", border: "none", color: D.accent2, cursor: "pointer", fontSize: 10, padding: 0, fontFamily: "Manrope,sans-serif", opacity: 0.75 }}
+                      >open ↗</button>
+                    )}
+                    <button
+                      onClick={() => setActiveDoc(null)}
+                      title="Stop reading this document"
+                      style={{ background: "none", border: "none", color: D.muted, cursor: "pointer", fontSize: 12, padding: "0 2px", lineHeight: 1 }}
+                    >✕</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <InputBar
               value={input}
@@ -1775,6 +2059,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             onBack={() => setView("chat")}
             aiConfig={aiConfig}
             onStartExam={onStartExam ? handleExamStart : null}
+            onReviewMistakes={(wrong) => reviewMistakes(wrong, data.subjectLabel)}
           />
         )}
 

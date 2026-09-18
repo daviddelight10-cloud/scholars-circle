@@ -169,6 +169,194 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
   }
 });
 
+// POST /ai-proxy/tutor - Tutor call: server-side Research Hub retrieval + SSE streaming.
+// The client embeds a {{DOC_CATALOG}} placeholder in its prompt; we replace it with
+// documents matching the student's query, then stream the model response back as
+// normalized SSE events: meta (matched docs) → token* → done.
+router.post("/tutor", requireAuth, aiRateLimit, async (req, res) => {
+  try {
+    const { prompt, provider, model, query } = req.body;
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    // ── Research Hub retrieval: match documents to the student's question ──
+    let matchedDocs = [];
+    let docBlock = "";
+    if (query && typeof query === "string") {
+      const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2).slice(0, 8);
+      if (words.length) {
+        try {
+          matchedDocs = await prisma.resource.findMany({
+            where: {
+              status: "approved",
+              OR: [
+                ...words.map(w => ({ title: { contains: w, mode: "insensitive" } })),
+                ...words.map(w => ({ subject: { contains: w, mode: "insensitive" } })),
+                ...words.map(w => ({ courseCode: { contains: w, mode: "insensitive" } })),
+                ...words.map(w => ({ tags: { has: w } })),
+              ],
+            },
+            select: {
+              id: true, shareToken: true, title: true, subject: true, contentType: true,
+              courseCode: true, fileUrl: true, fileName: true, mimeType: true, mcqData: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 8,
+          });
+          if (matchedDocs.length) {
+            docBlock =
+              "## Scholar's Circle Research Hub (documents matching this question — cite exact titles)\n" +
+              matchedDocs.map(r =>
+                `- "${r.title}" [${r.contentType}${r.contentType === "mcq" && Array.isArray(r.mcqData) ? ` · ${r.mcqData.length} questions` : ""}${r.subject ? ` · ${r.subject}` : ""}${r.courseCode ? ` · ${r.courseCode}` : ""}]`
+              ).join("\n");
+          }
+        } catch (e) {
+          console.error("Tutor doc search failed:", e.message);
+        }
+      }
+    }
+
+    const finalPrompt = prompt.replace("{{DOC_CATALOG}}", docBlock);
+
+    // ── Provider setup (streaming variants) ──
+    const useProvider = provider || "openrouter";
+    let apiKey, apiUrl, requestBody, headers;
+    switch (useProvider) {
+      case "openrouter": {
+        apiKey = process.env.OPENROUTER_API_KEY;
+        apiUrl = "https://openrouter.ai/api/v1/chat/completions";
+        headers = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:5173",
+          "X-Title": "Scholar's Circle",
+        };
+        requestBody = {
+          model: model || "z-ai/glm-5.3-flash",
+          messages: [{ role: "user", content: finalPrompt }],
+          max_tokens: 32768,
+          reasoning: { effort: "low" },
+          stream: true,
+        };
+        break;
+      }
+      case "openai": {
+        apiKey = process.env.OPENAI_API_KEY;
+        apiUrl = "https://api.openai.com/v1/chat/completions";
+        headers = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        };
+        requestBody = {
+          model: model || "gpt-4o-mini",
+          messages: [{ role: "user", content: finalPrompt }],
+          max_tokens: 8192,
+          stream: true,
+        };
+        break;
+      }
+      case "gemini": {
+        apiKey = process.env.GEMINI_API_KEY;
+        const geminiModel = model || "gemini-2.5-flash";
+        apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+        headers = { "Content-Type": "application/json" };
+        requestBody = {
+          contents: [{ parts: [{ text: finalPrompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
+        };
+        break;
+      }
+      default:
+        return res.status(400).json({ error: "Invalid provider. Use 'gemini', 'openrouter', or 'openai'" });
+    }
+
+    if (!apiKey) {
+      logSecurityEvent(req.user.sub, 'ai_proxy_missing_key', { provider: useProvider }, req);
+      return res.status(500).json({ error: `${useProvider} API key not configured on server` });
+    }
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`AI Provider Error (${useProvider} tutor):`, errorText);
+      logSecurityEvent(req.user.sub, 'ai_proxy_error', { provider: useProvider, status: response.status }, req);
+      return res.status(response.status).json({
+        error: `AI provider error: ${response.statusText}`,
+        details: process.env.NODE_ENV === 'development' ? errorText : undefined,
+      });
+    }
+
+    // Upstream confirmed — switch to SSE mode
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders?.();
+
+    const emit = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
+    emit({
+      type: "meta",
+      documents: matchedDocs.map(r => ({
+        id: r.id, shareToken: r.shareToken, title: r.title,
+        contentType: r.contentType, subject: r.subject || null, courseCode: r.courseCode || null,
+        fileUrl: r.fileUrl || null, fileName: r.fileName || null, mimeType: r.mimeType || null,
+        mcqData: r.mcqData || null,
+      })),
+    });
+
+    // Pipe upstream SSE chunks → normalized token events
+    const reader = response.body.getReader();
+    req.on("close", () => { try { reader.cancel(); } catch {} });
+    const decoder = new TextDecoder();
+    let buf = "";
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, idx).trim();
+          buf = buf.slice(idx + 1);
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          let chunk;
+          try { chunk = JSON.parse(payload); } catch { continue; }
+          const text = useProvider === "gemini"
+            ? (chunk.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("")
+            : chunk.choices?.[0]?.delta?.content;
+          if (text) emit({ type: "token", text });
+        }
+      }
+      emit({ type: "done" });
+      logSecurityEvent(req.user.sub, 'ai_proxy_tutor_success', { provider: useProvider, model, docsMatched: matchedDocs.length }, req);
+    } catch (streamErr) {
+      console.error("Tutor stream error:", streamErr.message);
+      emit({ type: "error", message: "The response was interrupted. Please try again." });
+    }
+    res.end();
+
+  } catch (error) {
+    console.error("AI Tutor Proxy Error:", error);
+    if (res.headersSent) {
+      try { res.write(`data: ${JSON.stringify({ type: "error", message: "Failed to process AI request" })}\n\n`); res.end(); } catch {}
+      return;
+    }
+    logSecurityEvent(req.user.sub, 'ai_proxy_exception', { error: error.message }, req);
+    return res.status(500).json({
+      error: "Failed to process AI request",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+});
+
 // POST /ai-proxy/generate-multimodal - Proxy multimodal (image+text) AI requests
 // Supports conversation history for follow-up turns
 router.post("/generate-multimodal", requireAuth, aiRateLimit, async (req, res) => {
