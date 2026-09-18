@@ -128,7 +128,11 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
 // Library picker — your uploads + saved/bookmarked materials, deduped.
 // mcqOnly narrows to materials that have MCQ questions to play.
 export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnly }) {
-  const [loading, setLoading] = useState(!cache?.length);
+  // Callers may share an external cache (attach picker) — without one, keep local state
+  const [internal, setInternal] = useState(null);
+  const store = setCache || setInternal;
+  const items = cache ?? internal;
+  const [loading, setLoading] = useState(!items?.length);
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -149,13 +153,13 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
             merged.push(r);
           }
         }
-        setCache?.(merged);
+        store(merged);
         setLoading(false);
       });
     return () => { alive = false; };
   }, [token, mcqOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const resources = mcqOnly ? (cache || []).filter((r) => mcqVariant(r)) : (cache || []);
+  const resources = mcqOnly ? (items || []).filter((r) => mcqVariant(r)) : (items || []);
 
   const filtered = resources.filter((r) =>
     !q || r.title?.toLowerCase().includes(q.toLowerCase()) || r.subject?.toLowerCase().includes(q.toLowerCase())
