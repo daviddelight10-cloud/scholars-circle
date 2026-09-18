@@ -71,15 +71,41 @@ function extractJSON(text) {
   return null;
 }
 
-// Lenient JSON.parse: escapes literal newlines/tabs inside string values —
-// a common model mistake that makes otherwise-valid output unparseable.
+// Heuristic: a `"` encountered inside a string only really closes it when the
+// next non-space char is , } ] : or end of input — otherwise it's a literal
+// quote the model forgot to escape (e.g. writing "peptidases" inside markdown).
+function quoteEndsString(text, i) {
+  for (let k = i + 1; k < text.length; k++) {
+    const c = text[k];
+    if (c === " " || c === "\t" || c === "\n" || c === "\r") continue;
+    return c === "," || c === "}" || c === "]" || c === ":";
+  }
+  return true;
+}
+
+// Lenient JSON.parse for model output. Repairs three common mistakes:
+// literal newlines inside strings, unescaped `"` inside strings (via
+// quoteEndsString), and invalid \ escapes like LaTeX \( or \{.
 function parseJsonLoose(s) {
   try { return JSON.parse(s); } catch {}
   let out = "", inStr = false, esc = false;
-  for (const ch of s) {
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
     if (esc) { out += ch; esc = false; continue; }
-    if (ch === "\\") { out += ch; esc = true; continue; }
-    if (ch === '"') { inStr = !inStr; out += ch; continue; }
+    if (ch === "\\") {
+      if (inStr) {
+        const n = s[i + 1];
+        const valid = n === '"' || n === "\\" || n === "/" || n === "b" || n === "f" ||
+                      n === "n" || n === "r" || n === "t" ||
+                      (n === "u" && /^[0-9a-fA-F]{4}/.test(s.slice(i + 2, i + 6)));
+        if (!valid) { out += "\\\\"; continue; } // bad escape — literalize the backslash
+      }
+      out += ch; esc = true; continue;
+    }
+    if (ch === '"') {
+      if (inStr && !quoteEndsString(s, i)) { out += '\\"'; continue; }
+      inStr = !inStr; out += ch; continue;
+    }
     if (inStr && ch === "\n") { out += "\\n"; continue; }
     if (inStr && ch === "\r") continue;
     if (inStr && ch === "\t") { out += "\\t"; continue; }
@@ -100,7 +126,7 @@ function extractObjectsLoose(text) {
         const ch = text[j];
         if (esc) { esc = false; continue; }
         if (ch === "\\") { esc = true; continue; }
-        if (ch === '"') { inStr = !inStr; continue; }
+        if (ch === '"') { if (!inStr || quoteEndsString(text, j)) inStr = !inStr; continue; }
         if (inStr) continue;
         if (ch === "{") depth++;
         else if (ch === "}") { depth--; if (depth === 0) { j++; break; } }
@@ -328,7 +354,7 @@ Rules:
   }
   // Response looked like JSON but nothing salvageable — don't dump raw JSON on screen
   if (raw.trim().startsWith("{") || raw.includes('"chunks"')) {
-    console.warn("[GuidedStudy] unparseable section response:", raw.slice(0, 2000));
+    console.warn(`[GuidedStudy] unparseable section response (len=${raw.length}):\n--- head ---\n${raw.slice(0, 1500)}\n--- tail ---\n${raw.slice(-400)}`);
     return { parseError: true };
   }
   return { text: raw };
