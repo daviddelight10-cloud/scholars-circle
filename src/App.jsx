@@ -641,6 +641,8 @@ function App() {
 
   const [homeViewerPage, setHomeViewerPage] = useState(null);
 
+  const [homeViewerReturnTab, setHomeViewerReturnTab] = useState("research-hub");
+
   const [progressSubTab, setProgressSubTab] = useState("stats");
 
 
@@ -9008,7 +9010,7 @@ function App() {
 
           onOpenAI={(topic) => { setAiDefaultView("chat"); setAiStudyTopic(topic || ""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
-          onOpenLearn={() => { setAiDefaultView("learn"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
+          onOpenLearn={() => { setAiDefaultView("chat"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
           onOpenStudy={(topic, mode, attachment, context) => {
             setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiStudyContext(context || null); setAiKey(k => k + 1); setTab("aitutor");
@@ -9020,7 +9022,7 @@ function App() {
             }
           }}
 
-          onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerToken(shareToken); }}
+          onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerReturnTab("research-hub"); setHomeViewerToken(shareToken); }}
 
           token={token}
 
@@ -9073,7 +9075,7 @@ function App() {
               <ResourceViewer
                 token={homeViewerToken}
                 initialPage={homeViewerPage}
-                onBack={() => { setHomeViewerToken(null); setHomeViewerPage(null); setTab("research-hub"); window.dispatchEvent(new CustomEvent("sc-practice-complete")); }}
+                onBack={() => { setHomeViewerToken(null); setHomeViewerPage(null); setTab(homeViewerReturnTab); window.dispatchEvent(new CustomEvent("sc-practice-complete")); }}
               />
             </Suspense>
           </ErrorBoundary>
@@ -10075,6 +10077,12 @@ function App() {
             if (!session?.questions?.length) return;
             setActiveSession(session);
           }}
+          onOpenResource={(shareToken) => {
+            if (!shareToken) return;
+            setHomeViewerPage(null);
+            setHomeViewerReturnTab("aitutor");
+            setHomeViewerToken(shareToken);
+          }}
         />
                 </Suspense>
         </ErrorBoundary>
@@ -10310,7 +10318,7 @@ function App() {
           subjects={subjects}
           onOpenTab={setTab}
           onOpenSearch={() => setShowPalette(true)}
-          onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerToken(shareToken); }}
+          onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerReturnTab("research-hub"); setHomeViewerToken(shareToken); }}
         />
         </Suspense>
       )}

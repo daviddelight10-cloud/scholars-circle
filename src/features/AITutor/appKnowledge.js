@@ -170,19 +170,184 @@ export function searchQuestionBank(query, subjects) {
   return { found: false };
 }
 
-// ─── Catalog for the system prompt ───────────────────────────────────────────
+// ─── Research Hub (document library) ─────────────────────────────────────────
 
-const APP_FEATURES = `Scholar's Circle app features (answer "how do I…" questions with these):
-- Practice tab: MCQ practice + timed Exam Simulator per subject (quick practice, survival, cascade modes)
-- Flashcards: decks + spaced repetition (FSRS) review
-- Folders & Resources: shared course materials, PDFs, past questions — read, bookmark, quiz
-- Guided Study (📚 button here): roadmap → explain → questions → flashcards on any topic
-- Voice Tutor: hands-free spoken lessons
-- Learn tab here: YouTube lessons with AI follow-along
-- Study Groups & Live Sessions: real-time quiz battles with classmates
-- Clinical tools: clinical cases, OSCE practice, drug reference, lab values, medical calculators
-- Gamification: XP, streaks, leagues/leaderboard, badges
-- This AI chat: attachments (+ button), voice input (mic), practice questions pulled from the real question bank`;
+export function authHeaders() {
+  try {
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    return authData.authToken ? { Authorization: `Bearer ${authData.authToken}` } : {};
+  } catch {
+    return {};
+  }
+}
+
+const DOC_INTENT = /\b(notes?|pdfs?|docs?|documents?|materials?|handouts?|slides?|past.?questions?|textbook|read|summari[sz]e|open|show me|fetch|find|explain .*(doc|pdf|note|file))\b/i;
+
+export function hasDocIntent(text) {
+  return DOC_INTENT.test(text || "");
+}
+
+// Score a resource against a free-text reference — title, subject, courseCode
+function scoreResource(needle, r) {
+  if (!needle) return 0;
+  const fields = [
+    scoreSubject(needle, { label: r.title }),
+    scoreSubject(needle, { label: r.subject }),
+    scoreSubject(needle, { label: r.courseCode }),
+  ];
+  let best = Math.max(...fields);
+  // tag hits
+  const nq = norm(needle);
+  for (const t of r.tags || []) {
+    if (nq.includes(norm(t)) || norm(t).includes(nq)) best = Math.max(best, 55);
+  }
+  return best;
+}
+
+export function findResources(ref, resources, limit = 5) {
+  if (!ref || !resources?.length) return [];
+  return resources
+    .map(r => ({ r, s: scoreResource(ref, r) }))
+    .filter(x => x.s >= 30)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, limit)
+    .map(x => x.r);
+}
+
+/**
+ * Ranked keyword search over Research Hub documents.
+ * Used to pre-resolve a document the student is asking about.
+ */
+export function searchDocuments(query, resources, limit = 5) {
+  if (!resources?.length || !query) return [];
+  const words = tokens(query).filter(w => w.length > 2);
+  if (!words.length) return [];
+  return resources
+    .map(r => {
+      const hay = norm(`${r.title || ""} ${r.subject || ""} ${r.courseCode || ""} ${(r.tags || []).join(" ")} ${r.description || ""}`);
+      let s = 0;
+      for (const w of words) if (hay.includes(w)) s += 1;
+      return { r, s };
+    })
+    .filter(x => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, limit)
+    .map(x => x.r);
+}
+
+const CONTENT_TYPE_META = {
+  pdf: { tag: "PDF", icon: "📄" },
+  docx: { tag: "DOCX", icon: "📝" },
+  pptx: { tag: "PPT", icon: "📊" },
+  txt: { tag: "Text", icon: "📃" },
+  image: { tag: "Image", icon: "🖼" },
+  note: { tag: "Note", icon: "📝" },
+  mcq: { tag: "MCQ set", icon: "✎" },
+  flashcard_deck: { tag: "Flashcards", icon: "🎴" },
+  tutorial_question: { tag: "Tutorial Qs", icon: "❓" },
+};
+
+export function docTypeMeta(contentType) {
+  return CONTENT_TYPE_META[contentType] || { tag: contentType || "Doc", icon: "�" };
+}
+
+/**
+ * Compact Research Hub catalog injected into the prompt so the model knows
+ * which real documents exist and can cite exact titles.
+ */
+export function buildDocCatalog(resources, { limit = 80, prefer = "" } = {}) {
+  if (!resources?.length) return "";
+  const pref = norm(prefer);
+  const scored = resources.map(r => {
+    let s = 0;
+    if (pref && norm(`${r.subject || ""} ${r.courseCode || ""} ${r.title || ""}`).includes(pref)) s = 1;
+    return { r, s };
+  });
+  scored.sort((a, b) => b.s - a.s || new Date(b.r.createdAt || 0) - new Date(a.r.createdAt || 0));
+  const lines = scored.slice(0, limit).map(({ r }) => {
+    const meta = docTypeMeta(r.contentType);
+    const bits = [meta.tag];
+    if (r.contentType === "mcq" && Array.isArray(r.mcqData)) bits.push(`${r.mcqData.length} questions`);
+    if (r.subject) bits.push(r.subject);
+    if (r.courseCode) bits.push(r.courseCode);
+    return `- "${r.title}" [${bits.join(" · ")}]`;
+  });
+  return `## Scholar's Circle Research Hub (REAL documents — cite exact titles)\n${lines.join("\n")}`;
+}
+
+// ─── MCQ resource practice ───────────────────────────────────────────────────
+
+// Adapt a Research Hub mcqData item to the {q, options[], answer} shape used
+// by PracticeView / ExamSimulator.
+function mcqToBank(item) {
+  if (!item || typeof item !== "object") return null;
+  const opts = item.options;
+  let options;
+  let answer;
+  if (Array.isArray(opts)) {
+    options = opts;
+    answer = typeof item.correct === "number" ? item.correct : 0;
+  } else if (opts && typeof opts === "object") {
+    const keys = Object.keys(opts).sort();
+    options = keys.map(k => opts[k]);
+    const ci = keys.indexOf(String(item.correct || "A").toUpperCase());
+    answer = ci >= 0 ? ci : 0;
+  } else {
+    return null;
+  }
+  const q = item.question || item.q || "";
+  if (!q || options.length < 2) return null;
+  return { q, options, answer, explanation: item.explanation || item.explain || "", topic: item.topic };
+}
+
+/**
+ * Resolve a practice request against MCQ resources in Research Hub.
+ * @returns {null | {resource, subjectLabel, subjectIcon, topic, questions, total}}
+ */
+export function resolveMcqPractice(req, resources) {
+  if (!resources?.length) return null;
+  const mcqs = resources.filter(r => r.contentType === "mcq" && Array.isArray(r.mcqData) && r.mcqData.length);
+  if (!mcqs.length) return null;
+
+  const subjectRef = req?.subject || "";
+  const topicRef = req?.topic || "";
+  const needle = subjectRef || topicRef;
+
+  let candidates = mcqs;
+  if (needle) {
+    const matched = mcqs
+      .map(r => ({ r, s: scoreResource(needle, r) }))
+      .filter(x => x.s >= 30)
+      .sort((a, b) => b.s - a.s);
+    if (matched.length) candidates = matched.map(x => x.r);
+  }
+
+  // Pick the best single resource (largest matching pool)
+  const best = candidates
+    .map(r => {
+      let questions = r.mcqData.map(mcqToBank).filter(Boolean);
+      if (topicRef && questions.some(q => q.topic)) {
+        const tw = tokens(topicRef);
+        const hit = questions.filter(q => tw.some(w => norm(q.topic || "").includes(w)));
+        if (hit.length) questions = hit;
+      }
+      return { r, questions };
+    })
+    .filter(x => x.questions.length)
+    .sort((a, b) => b.questions.length - a.questions.length)[0];
+
+  if (!best) return null;
+  return {
+    resource: best.r,
+    subject: { id: best.r.id, label: best.r.title, icon: "✎" },
+    subjectId: best.r.id,
+    subjectLabel: best.r.title,
+    subjectIcon: "✎",
+    topic: topicRef || best.r.subject || null,
+    questions: best.questions,
+    total: best.questions.length,
+  };
+}
 
 /**
  * Compact catalog injected into the tutor prompt so the model knows the app's
@@ -201,5 +366,16 @@ export function buildAppCatalog(subjects, maxTopicsPerSubject = 12) {
   if (!lines.length) return "";
   return `## Scholar's Circle question bank (REAL data — cite exact labels)\n${lines.join("\n")}`;
 }
+
+const APP_FEATURES = `Scholar's Circle app features (answer "how do I…" questions with these):
+- Research Hub: the student's document library — PDFs, notes, MCQ sets, tutorial questions, flashcard decks. You can cite documents from the list below and the student can open them directly.
+- Practice tab: MCQ practice + timed Exam Simulator (quick practice, survival, cascade modes)
+- Flashcards: decks + spaced repetition (FSRS) review
+- Guided Study (📚 button here): roadmap → explain → questions → flashcards on any topic
+- Voice Tutor: hands-free spoken lessons
+- Study Groups & Live Sessions: real-time quiz battles with classmates
+- Clinical tools: clinical cases, OSCE practice, drug reference, lab values, medical calculators
+- Gamification: XP, streaks, leagues/leaderboard, badges
+- This AI chat: attachments (+ button), voice input (mic), practice questions pulled from real MCQ sets, and Research Hub documents`;
 
 export { APP_FEATURES };

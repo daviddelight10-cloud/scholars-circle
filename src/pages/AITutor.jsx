@@ -15,6 +15,7 @@ function AITutor({
   subjects: subjectsProp,
   onExit,
   onStartExam,
+  onOpenResource,
   loading,
 }) {
   const { aiConfig: ctxAiConfig } = useUI();
@@ -37,6 +38,7 @@ function AITutor({
       subjects={subjects}
       onExit={onExit}
       onStartExam={onStartExam}
+      onOpenResource={onOpenResource}
     />
   );
 }

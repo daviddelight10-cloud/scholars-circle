@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { callAI, callAIMultimodal, extractJSON } from "../lib/aiClient";
 import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
 import { detectDiscipline } from "./AITutor/disciplines.js";
 import { extractTextFromFile } from "./AITutor/fileExtract.js";
-import { resolvePractice, searchQuestionBank, hasPracticeIntent, buildAppCatalog, APP_FEATURES } from "./AITutor/appKnowledge.js";
-import LearningRoom from "./AITutor/LearningRoom";
+import { resolvePractice, searchQuestionBank, hasPracticeIntent, buildAppCatalog, APP_FEATURES, buildDocCatalog, findResources, searchDocuments, hasDocIntent, resolveMcqPractice, authHeaders, docTypeMeta } from "./AITutor/appKnowledge.js";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { API_BASE } from "../lib/constants";
@@ -33,14 +32,15 @@ const D = {
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&display=swap');`;
 
 // Build suggestion chips — surface real subjects so the practice feature is discoverable
-function buildChips(subjects) {
+function buildChips(subjects, resources) {
   const withQs = (subjects || []).filter(s => (s.questions || []).length > 0);
   const chips = [];
+  const topDoc = (resources || []).find(r => ["pdf", "docx", "note"].includes(r.contentType));
+  if (topDoc) chips.push(`📄 Summarize "${(topDoc.title || "").slice(0, 34)}"`);
   if (withQs[0]) chips.push(`📋 ${withQs[0].label} practice questions`);
   chips.push("Explain a concept simply");
   if (withQs[1]) chips.push(`📋 ${withQs[1].label} practice questions`);
   chips.push("How do I use this app?");
-  chips.push("Make me a study plan");
   return chips.slice(0, 5);
 }
 
@@ -121,19 +121,21 @@ async function fetchYouTubeVideo(ytQuery) {
   return null;
 }
 
-async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null, images = null, subjects = null) {
+async function generateAIResponse(query, aiConfig, conversationHistory = [], subject = null, images = null, subjects = null, resources = null) {
   const disciplineId = detectDiscipline(subject?.label);
   const system = buildSystemPrompt({ mode: "chat", disciplineId, subject });
   const convo = buildConversationContext(conversationHistory, 8);
   const catalog = buildAppCatalog(subjects);
+  const docCatalog = buildDocCatalog(resources, { prefer: subject?.label });
   const prompt =
-    `${system}\n\n${APP_FEATURES}\n\n${catalog ? `${catalog}\n\n` : ""}${convo}\n\n` +
+    `${system}\n\n${APP_FEATURES}\n\n${docCatalog ? `${docCatalog}\n\n` : ""}${catalog ? `${catalog}\n\n` : ""}${convo}\n\n` +
     `The student asked: "${query}"\n\n` +
     `Reply ONLY with valid JSON (no markdown code fences):\n` +
-    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"practice":{"subject":"<exact subject label from the question-bank list>","topic":"<exact topic label or topic phrase>"}}\n\n` +
+    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"}}\n\n` +
     `Rules:\n` +
     `- "answer" is REQUIRED and must never be empty.\n` +
-    `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the bank covers. Copy labels EXACTLY from the question-bank list. Omit the field entirely otherwise.\n` +
+    `- "documents": list up to 3 EXACT document titles from the Research Hub list when the student asks for notes/materials/PDFs, or when a listed document clearly covers their question. Copy titles EXACTLY. Omit the field otherwise.\n` +
+    `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
     `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
     `- If the student asks how to use the app, answer using the feature list above.`;
   const raw = images && images.length > 0
@@ -143,13 +145,14 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
     const s = raw.indexOf("{"), e = raw.lastIndexOf("}") + 1;
     const parsed = JSON.parse(raw.slice(s, e));
     if (!parsed.followUps || !Array.isArray(parsed.followUps)) parsed.followUps = [];
+    if (!Array.isArray(parsed.documents)) parsed.documents = [];
     if (!parsed.answer) {
       // Legacy-shaped reply or model used different keys — salvage whatever text exists
       parsed.answer = [parsed.definition, parsed.explanation].filter(Boolean).join("\n\n") || raw;
     }
     return parsed;
   } catch {
-    return { answer: raw, ytQuery: `${query} explained`, followUps: [] };
+    return { answer: raw, ytQuery: `${query} explained`, followUps: [], documents: [] };
   }
 }
 
@@ -276,7 +279,7 @@ function PracticeCard({ practice, onQuick, onExam }) {
             {practice.subjectLabel}{practice.topic ? ` · ${practice.topic}` : ""}
           </div>
           <div style={{ fontSize: 10.5, color: D.muted, marginTop: 2 }}>
-            {total} practice question{total !== 1 ? "s" : ""} pulled from your question bank
+            {total} question{total !== 1 ? "s" : ""} · {practice.resource ? "from your Research Hub" : "from your question bank"}
           </div>
         </div>
       </div>
@@ -306,7 +309,7 @@ function PracticeCard({ practice, onQuick, onExam }) {
   );
 }
 
-function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction }) {
+function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc }) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
@@ -370,6 +373,20 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Freeform markdown answer */}
           <MarkdownText theme="gold">{answer}</MarkdownText>
+
+          {/* Research Hub documents the AI cited */}
+          {(data.documents || []).length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, margin: "10px 0 2px" }}>
+              {(data.documents || []).slice(0, 3).map((doc, i) => (
+                <DocCard
+                  key={doc.shareToken || doc.id || i}
+                  doc={doc}
+                  onOpen={onOpenResource ? () => onOpenResource(doc.shareToken) : null}
+                  onAsk={onAskDoc}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Practice card — real bank questions */}
           {data.practice && hasBank && (
@@ -886,7 +903,71 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
   );
 }
 
-// ─── Voice hook ──────────────────────────────────────────────────────────────
+// ─── Research Hub document cards ─────────────────────────────────────────────
+
+function slimDoc(r) {
+  return {
+    id: r.id, shareToken: r.shareToken, title: r.title,
+    contentType: r.contentType, subject: r.subject || null, courseCode: r.courseCode || null,
+  };
+}
+
+// Match AI-cited document titles against real Research Hub resources
+function resolveDocRefs(titles, resources, max = 3) {
+  if (!Array.isArray(titles) || !resources?.length) return [];
+  const out = [];
+  const used = new Set();
+  for (const t of titles.slice(0, max)) {
+    const [match] = findResources(String(t), resources, 1);
+    if (match && !used.has(match.id)) {
+      used.add(match.id);
+      out.push(slimDoc(match));
+    }
+  }
+  return out;
+}
+
+function DocCard({ doc, onOpen, onAsk }) {
+  const meta = docTypeMeta(doc.contentType);
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+      borderRadius: 11, background: D.card, border: `0.5px solid ${D.line}`,
+      fontFamily: "Manrope,sans-serif",
+    }}>
+      <span style={{
+        width: 34, height: 34, borderRadius: 9, flexShrink: 0, fontSize: 16,
+        background: D.accent, border: `0.5px solid ${D.line}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>{meta.icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: D.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {doc.title}
+        </div>
+        <div style={{ fontSize: 10.5, color: D.hint, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {meta.tag}{doc.subject ? ` · ${doc.subject}` : ""}{doc.courseCode ? ` · ${doc.courseCode}` : ""}
+        </div>
+      </div>
+      {onAsk && (
+        <button onClick={() => onAsk(doc)} title="Read this document with AI"
+          style={{
+            padding: "6px 10px", borderRadius: 8, flexShrink: 0, cursor: "pointer",
+            background: "transparent", border: `0.5px solid ${D.line}`,
+            color: D.muted, fontSize: 11, fontFamily: "Manrope,sans-serif", fontWeight: 600,
+          }}>✦ Ask AI</button>
+      )}
+      {onOpen && (
+        <button onClick={onOpen} title="Open document"
+          style={{
+            padding: "6px 12px", borderRadius: 8, flexShrink: 0, cursor: "pointer",
+            background: `linear-gradient(135deg, ${D.border}, #DAA520)`, border: "none",
+            color: "#fff", fontSize: 11, fontWeight: 700, fontFamily: "Manrope,sans-serif",
+          }}>Open</button>
+      )}
+    </div>
+  );
+}
+
 function useVoiceInput(onTranscript) {
   const [listening, setListening]   = useState(false);
   const supported                   = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -1083,8 +1164,8 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
 }
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
-export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat", studyTopic = "", studyMode = "input", studyAttachment = null, studyContext = null, onStartExam }) {
-  const [view, setView]             = useState(defaultView || "chat");
+export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat", studyTopic = "", studyMode = "input", studyAttachment = null, studyContext = null, onStartExam, onOpenResource }) {
+  const [view, setView]             = useState(defaultView === "learn" ? "chat" : (defaultView || "chat"));
   const [messages, setMsgs]         = useState([]);
   const [input, setInput]           = useState("");
   const [loading, setLoading]       = useState(false);
@@ -1094,7 +1175,17 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   const [conversations, setConvos]  = useState(() => loadConvos());
   const [currentId, setCurrentId]   = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
+  const [resources, setResources] = useState(() => {
+    // Seed from the same cache Research Hub writes — instant catalog, refreshed below
+    try {
+      const raw = localStorage.getItem("sc_resources_list");
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed?.data) && parsed.data.length) return parsed.data;
+    } catch {}
+    return [];
+  });
   const bottomRef                   = useRef(null);
+  const docTextCache                = useRef({}); // resourceId -> { text, images }
 
   async function handleDocSelect(file) {
     if (!file) return;
@@ -1138,16 +1229,73 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, view]);
 
-  const fakeTutor = useMemo(() => ({
-    generate: async ({ input }) => {
-      const text = await callAI(input, aiConfig);
-      return { text };
-    },
-  }), [aiConfig]);
+  // ── Research Hub: refresh the document list (seeded from localStorage) ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/resources`, { headers: authHeaders() });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length && !cancelled) {
+          setResources(data);
+          try { localStorage.setItem("sc_resources_list", JSON.stringify({ data, ts: Date.now() })); } catch {}
+        }
+      } catch { /* offline/401 — keep seeded cache */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch + extract a Research Hub document's content so the AI can read it
+  async function fetchDocContent(resource) {
+    if (!resource) return null;
+    const key = resource.id || resource.shareToken;
+    if (docTextCache.current[key]) return docTextCache.current[key];
+
+    // MCQ sets / tutorial questions — serialize the questions themselves
+    if (Array.isArray(resource.mcqData) && resource.mcqData.length) {
+      const text = resource.mcqData
+        .map((q, i) => `${i + 1}. ${q.question || q.q}\n${Object.entries(q.options || {}).map(([k, v]) => `   ${k}. ${v}`).join("\n")}${q.correct ? `\n   Correct: ${q.correct}` : ""}`)
+        .join("\n\n");
+      const out = { text: `Question set "${resource.title}" (${resource.mcqData.length} questions):\n\n${text}` };
+      docTextCache.current[key] = out;
+      return out;
+    }
+
+    if (!resource.fileUrl) return null;
+    try {
+      // proxy-pdf streams the file through the server (avoids CORS); fall back to direct URL
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}`, { headers: authHeaders() });
+        if (!res.ok) res = await fetch(resource.fileUrl);
+      } catch {
+        res = await fetch(resource.fileUrl);
+      }
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const fileName = resource.fileName || `${resource.title || "document"}.${resource.contentType === "docx" ? "docx" : resource.contentType === "pptx" ? "pptx" : "pdf"}`;
+      const file = new File([blob], fileName, { type: blob.type || resource.mimeType || "application/pdf" });
+      const result = await extractTextFromFile(file);
+      let text = result.text || "";
+      if (text.length > 14000) text = text.slice(0, 14000) + "\n\n[...document truncated...]";
+      const images = [];
+      for (const img of (result.images || []).slice(0, 4)) {
+        try { images.push(await downscaleImage(img, 1400, 0.8)); } catch {}
+      }
+      const out = {
+        text: text || (images.length ? "(scanned document — provided as page images)" : ""),
+        images,
+      };
+      docTextCache.current[key] = out;
+      return out;
+    } catch {
+      return null;
+    }
+  }
 
   function handleBack() {
     if (showHistory) { setShowHistory(false); return; }
-    if (view === "learn")    { setView("chat"); return; }
     if (view === "study")    { setView("chat"); return; }
     if (view === "practice") { setView("chat"); return; }
     onExit?.();
@@ -1165,10 +1313,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     // Re-resolve practice cards — questions are stripped when persisting
     const revived = (c.messages || []).map(m => {
       if (m.type === "ai" && m.data?.practice && !m.data.practice.questions?.length) {
-        const r = resolvePractice(
-          { subject: m.data.practice.subjectLabel || m.data.practice.subject?.label, topic: m.data.practice.topic },
-          subjects
-        );
+        const req = { subject: m.data.practice.subjectLabel || m.data.practice.subject?.label, topic: m.data.practice.topic };
+        const r = resolveMcqPractice(req, resources) || resolvePractice(req, subjects);
         if (r) {
           return { ...m, data: { ...m.data, practice: r, questions: r.questions, bankCount: r.total } };
         }
@@ -1196,7 +1342,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     }
     if (m.type === "ai" && m.data) {
       const d = { ...m.data, questions: undefined };
-      if (d.practice) d.practice = { ...d.practice, questions: undefined, subject: undefined };
+      if (d.practice) d.practice = { ...d.practice, questions: undefined, subject: undefined, resource: undefined };
+      if (Array.isArray(d.documents)) d.documents = d.documents.map(x => ({ id: x.id, shareToken: x.shareToken, title: x.title, contentType: x.contentType, subject: x.subject || null, courseCode: x.courseCode || null }));
       return { ...m, data: d };
     }
     if (m.type === "error") {
@@ -1224,7 +1371,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     onStartExam(toExamSession(practice));
   }
 
-  async function ask(rawQ, attachOverride) {
+  async function ask(rawQ, attachOverride, docOverride) {
     const attach = attachOverride !== undefined ? attachOverride : attachment;
     const hasAttachment = !!attach;
     const q = rawQ?.trim() || (hasAttachment ? `Analyze this ${attach.type === "img" ? "image" : "document"}: ${attach.name}` : "");
@@ -1255,38 +1402,68 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       aiQuery = `The student uploaded an image named "${capturedAttachment.name}". Please analyze the image and answer: ${q}`;
     }
 
+    // ── Research Hub document pre-resolution ──
+    // If the student references a real document (or clicked "Ask AI" on a doc
+    // card), fetch its content and inject it so the model can read it.
+    let citedDocs = [];
+    let docMatch = docOverride || null;
+    if (!docMatch && !capturedAttachment && resources.length > 0 && hasDocIntent(q)) {
+      const [hit] = searchDocuments(q, resources, 1);
+      if (hit) docMatch = hit;
+    }
+    if (docMatch) {
+      citedDocs = [slimDoc(docMatch)];
+      const content = await fetchDocContent(docMatch);
+      if (content && (content.text || content.images?.length)) {
+        if (content.images?.length) images = content.images;
+        aiQuery = `The student is asking about their Research Hub document "${docMatch.title}"${docMatch.subject ? ` (${docMatch.subject})` : ""}.\n\nDocument content:\n\n${content.text || "(scanned document — provided as page images)"}\n\nBased on this document, answer: ${q}`;
+      }
+    }
+
     try {
       let aiRes = null;
       let aiError = null;
       try {
-        aiRes = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects);
+        aiRes = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources);
       } catch (err) {
         aiError = err?.message || "The AI request failed. Please try again.";
       }
 
-      // Resolve real practice questions from the bank — model-flagged first,
-      // then keyword fallback when the user clearly wants to practice
+      // Resolve real practice questions — MCQ resources in Research Hub first,
+      // then the subject bank as fallback
       let practice = null;
       if (aiRes?.practice) {
-        practice = resolvePractice(
-          { subject: aiRes.practice.subject || selectedSubject?.label, topic: aiRes.practice.topic },
-          subjects
-        );
+        const req = { subject: aiRes.practice.subject || selectedSubject?.label, topic: aiRes.practice.topic };
+        practice = resolveMcqPractice(req, resources) || resolvePractice(req, subjects);
       }
       if (!practice && hasPracticeIntent(q)) {
         if (selectedSubject) {
-          practice = resolvePractice({ subject: selectedSubject.label, topic: q }, subjects);
+          practice = resolveMcqPractice({ subject: selectedSubject.label, topic: q }, resources)
+            || resolvePractice({ subject: selectedSubject.label, topic: q }, subjects);
         }
         if (!practice) {
-          const bankRes = searchQuestionBank(q, subjects);
-          if (bankRes.found) {
-            practice = {
-              subject: bankRes.subject, subjectId: bankRes.subject?.id,
-              subjectLabel: bankRes.subjectLabel, subjectIcon: bankRes.subjectIcon,
-              topic: bankRes.topic, questions: bankRes.questions, total: bankRes.bankCount,
-            };
+          const mcqRes = resolveMcqPractice({ subject: q, topic: q }, resources);
+          if (mcqRes) {
+            practice = mcqRes;
+          } else {
+            const bankRes = searchQuestionBank(q, subjects);
+            if (bankRes.found) {
+              practice = {
+                subject: bankRes.subject, subjectId: bankRes.subject?.id,
+                subjectLabel: bankRes.subjectLabel, subjectIcon: bankRes.subjectIcon,
+                topic: bankRes.topic, questions: bankRes.questions, total: bankRes.bankCount,
+              };
+            }
           }
         }
+      }
+
+      // Resolve AI-cited document titles into real Research Hub docs
+      const aiDocs = resolveDocRefs(aiRes?.documents || [], resources);
+      if (aiDocs.length) {
+        const used = new Set(citedDocs.map(d => d.shareToken));
+        for (const d of aiDocs) if (!used.has(d.shareToken)) citedDocs.push(d);
+        citedDocs = citedDocs.slice(0, 3);
       }
 
       const ytQuery = aiRes?.ytQuery || `${q} explained`;
@@ -1298,10 +1475,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         finalMsgs = base.concat({ type: "error", text: aiError, retryQ: q, retryAttach: capturedAttachment });
       } else {
         const result = {
-          source: practice ? "bank" : "ai",
+          source: practice ? (practice.resource ? "mcq-resource" : "bank") : "ai",
           answer: aiRes?.answer || "",
           ytQuery, video,
           followUps: aiRes?.followUps || [],
+          documents: citedDocs,
           practice,
           questions: practice?.questions || [],
           bankCount: practice?.total || 0,
@@ -1319,11 +1497,10 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     }
   }
 
-  const topTitle = { chat: "AI Tutor", practice: "Practice Mode", learn: "Video Lessons", study: "Guided Study" }[view] || "AI Tutor";
+  const topTitle = { chat: "AI Tutor", practice: "Practice Mode", study: "Guided Study" }[view] || "AI Tutor";
   const topSub   = {
     chat:     selectedSubject ? `${selectedSubject.label || selectedSubject.id} · Ask anything` : "Scholar's Circle · Ask anything",
     practice: data ? `${data.subjectLabel || "AI"} · ${data.bankCount || 0} questions` : "",
-    learn:    "Watch a video · Ask AI questions as you go",
     study:    "Roadmap → Explain → Questions → Flashcards",
   }[view] || "";
 
@@ -1449,12 +1626,12 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                       What do you want to learn?
                     </div>
                     <div style={{ fontSize: 12, color: D.hint, lineHeight: 1.65 }}>
-                      Ask any question — get a clear answer,<br />follow-up suggestions, and a video lesson.
+                      Ask anything — I can read your Research Hub documents,<br />pull practice questions, and explain any concept.
                     </div>
                   </div>
 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", padding: "4px 0" }}>
-                    {buildChips(subjects).map(c => (
+                    {buildChips(subjects, resources).map(c => (
                       <button
                         key={c} onClick={() => ask(c)}
                         style={{
@@ -1553,6 +1730,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           }}
                           onStartExam={onStartExam ? handleExamStart : null}
                           onFollowUp={(q) => ask(q)}
+                          onOpenResource={onOpenResource ? (token) => onOpenResource(token) : null}
+                          onAskDoc={(doc) => {
+                            const full = resources.find(r => r.shareToken === doc.shareToken) || doc;
+                            ask(`Help me study "${doc.title}" — summarize the key points`, undefined, full);
+                          }}
                           onQuickAction={(action, topic) => {
                             const prompts = {
                               explain_simpler: `Explain ${topic} in simpler terms, as if for a beginner`,
@@ -1594,13 +1776,6 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             aiConfig={aiConfig}
             onStartExam={onStartExam ? handleExamStart : null}
           />
-        )}
-
-        {/* ══ VIEW: LEARN (Video Lessons) ══ */}
-        {view === "learn" && (
-          <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" }}>
-            <LearningRoom tutor={fakeTutor} aiConfig={aiConfig} />
-          </div>
         )}
 
         {/* ══ VIEW: STUDY (Guided Study) ══ */}
