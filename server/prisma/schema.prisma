@@ -310,6 +310,7 @@ model NotificationPreference {
   liveSessions        Boolean  @default(true)
   directMessages      Boolean  @default(true)
   studyReminders      Boolean  @default(true)
+  social              Boolean  @default(true)
   updatedAt           DateTime @updatedAt
 }
 
@@ -2097,6 +2098,10 @@ model FeedPost {
 
   resource     Resource?     @relation(fields: [resourceId], references: [id], onDelete: SetNull)
 
+  acceptedCommentId String?
+
+  acceptedComment FeedComment? @relation("AcceptedAnswer", fields: [acceptedCommentId], references: [id], onDelete: SetNull)
+
   universityId String?
 
   createdAt    DateTime      @default(now())
@@ -2146,6 +2151,8 @@ model FeedComment {
   createdAt DateTime          @default(now())
 
   likes     FeedCommentLike[]
+
+  acceptedFor FeedPost[]      @relation("AcceptedAnswer")
 
   @@index([postId, createdAt])
 

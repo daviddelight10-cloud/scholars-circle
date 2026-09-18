@@ -51,6 +51,25 @@ export async function awardBadge(userId, badgeKey) {
     data: { userId, badgeId: badge.id },
     include: { badge: true },
   });
+
+  // Emit an activity post so the user's circle sees the milestone (best-effort)
+  try {
+    const profile = await prisma.userProfile.findUnique({
+      where: { userId },
+      select: { universityId: true },
+    });
+    await prisma.feedPost.create({
+      data: {
+        authorId: userId,
+        kind: "activity",
+        text: `earned the ${badge.name} badge ${badge.icon || ""}`.trim(),
+        universityId: profile?.universityId || null,
+      },
+    });
+  } catch (e) {
+    console.warn("[badges] activity post failed:", e?.message);
+  }
+
   return ub;
 }
 

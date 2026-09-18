@@ -268,11 +268,35 @@ router.post("/:userId/follow", requireAuth, async (req, res) => {
   const { userId } = req.params;
   if (userId === req.user.sub) return res.status(400).json({ error: "Cannot follow yourself" });
   try {
+    const existing = await prisma.userFollow.findUnique({
+      where: { followerId_followingId: { followerId: req.user.sub, followingId: userId } },
+    });
     await prisma.userFollow.upsert({
       where: { followerId_followingId: { followerId: req.user.sub, followingId: userId } },
       create: { followerId: req.user.sub, followingId: userId },
       update: {},
     });
+    if (!existing) {
+      try {
+        const me = await prisma.user.findUnique({
+          where: { id: req.user.sub },
+          select: { fullName: true, username: true },
+        });
+        const { sendPushToUser } = await import("../lib/pushSender.js");
+        await sendPushToUser(
+          userId,
+          {
+            title: `${me?.fullName || me?.username || "Someone"} started following you`,
+            body: "Tap to view their profile",
+            tag: "social",
+            data: { tab: "discuss" },
+          },
+          { category: "social" }
+        );
+      } catch (e) {
+        console.warn("[users] follow push failed:", e?.message);
+      }
+    }
     res.json({ following: true });
   } catch (error) {
     console.error("Follow error:", error);

@@ -16,13 +16,13 @@ export function DividerBlock({ label }) {
   );
 }
 
-export function ActivityRow({ item, onOpenResource, onJoinRoom }) {
+export function ActivityRow({ item, onOpenResource, onJoinRoom, onOpenProfile }) {
   return (
     <div className="fd-activity">
       <span className="fd-activity-icon">{item.icon}</span>
       <div className="fd-activity-body">
         <span className="fd-activity-text">
-          <b>{item.actor?.name}</b> {item.text}
+          <b className="fd-name-btn" onClick={() => item.actor?.id && onOpenProfile?.(item.actor.id)}>{item.actor?.name}</b> {item.text}
         </span>
         <span className="fd-activity-ts">{relTime(item.ts)}</span>
       </div>
@@ -36,8 +36,12 @@ export function ActivityRow({ item, onOpenResource, onJoinRoom }) {
   );
 }
 
-export function RoomCard({ room, onJoin, onOpenResource, compact }) {
+export function RoomCard({ room, me, onJoin, onLeave, onEnd, onOpenResource, compact }) {
   const seatsLeft = Math.max(0, (room.seats || room.maxSeats || 8) - (room.seatsUsed || 0));
+  const isHost = me?.id && room.host?.id === me.id;
+  const isIn = me?.id && (isHost || (room.participants || []).some(
+    (p) => (p?.id === me.id) || (p?.userId === me.id) || (p?.user?.id === me.id)
+  ));
   return (
     <div className={`fd-card fd-room ${compact ? "compact" : ""}`}>
       <div className="fd-room-top">
@@ -65,13 +69,25 @@ export function RoomCard({ room, onJoin, onOpenResource, compact }) {
           ))}
         </div>
       )}
-      <button
-        className={`fd-join-btn ${seatsLeft === 0 ? "disabled" : ""}`}
-        disabled={seatsLeft === 0}
-        onClick={onJoin}
-      >
-        {seatsLeft === 0 ? "Room full" : "Join room"}
-      </button>
+      {isIn ? (
+        <div className="fd-room-inrow">
+          <span className="fd-in-chip">✓ You're in</span>
+          {!isHost && (
+            <button className="fd-join-btn ghost" onClick={onLeave}>Leave</button>
+          )}
+          {isHost && (
+            <button className="fd-join-btn danger" onClick={onEnd}>End room</button>
+          )}
+        </div>
+      ) : (
+        <button
+          className={`fd-join-btn ${seatsLeft === 0 ? "disabled" : ""}`}
+          disabled={seatsLeft === 0}
+          onClick={onJoin}
+        >
+          {seatsLeft === 0 ? "Room full" : "Join room"}
+        </button>
+      )}
     </div>
   );
 }
@@ -114,6 +130,7 @@ function ResourceInner({ resource, uni, token, onOpenResource }) {
 }
 
 function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount }) {
+  const isActivityPost = block.kind === "activity";
   const [liked, setLiked] = useState(block.liked);
   const [likes, setLikes] = useState(block.likes || 0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -148,8 +165,13 @@ function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount })
 
   return (
     <div className="fd-actions">
-      <button className={`fd-action ${liked ? "liked" : ""}`} onClick={toggleLike}>
-        {liked ? "♥" : "♡"} {likes > 0 ? likes : ""}
+      <button
+        className={`fd-action ${liked ? "liked" : ""} ${isActivityPost ? "cheer" : ""}`}
+        onClick={toggleLike}
+        title={isActivityPost ? "Cheer them on" : "Like"}
+      >
+        {isActivityPost ? "🔥" : liked ? "♥" : "♡"} {likes > 0 ? likes : ""}
+        {isActivityPost ? (liked ? " Cheered" : " Cheer") : ""}
       </button>
       <button className="fd-action" onClick={() => setCommentsOpen((v) => !v)}>
         💬 {commentCount > 0 ? commentCount : ""}
@@ -172,9 +194,10 @@ function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount })
   );
 }
 
-export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom }) {
+export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(block.comments || 0);
+  const [acceptedId, setAcceptedId] = useState(block.acceptedCommentId || null);
 
   if (block.type === "divider") return <DividerBlock label={block.label} />;
 
@@ -184,21 +207,37 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
         item={{ icon: block.icon, actor: block.actor, text: block.text, ts: block.ts, resource: block.resource, roomId: block.roomId }}
         onOpenResource={onOpenResource}
         onJoinRoom={onJoinRoom}
+        onOpenProfile={onOpenProfile}
       />
     );
   }
 
   if (block.type === "room") {
-    return <RoomCard room={block.room} onJoin={() => onJoinRoom?.(block.room)} onOpenResource={onOpenResource} />;
+    return (
+      <RoomCard
+        room={block.room}
+        me={me}
+        onJoin={() => onJoinRoom?.(block.room)}
+        onLeave={() => onLeaveRoom?.(block.room)}
+        onEnd={() => onEndRoom?.(block.room)}
+        onOpenResource={onOpenResource}
+      />
+    );
   }
 
   if (block.type === "folder") {
     return (
       <div className="fd-card">
         <div className="fd-card-head">
-          <Avatar user={block.author} />
+          <button className="fd-who-btn" onClick={() => block.author?.id && onOpenProfile?.(block.author.id)}>
+            <Avatar user={block.author} />
+          </button>
           <div className="fd-card-who">
-            <div className="fd-card-name">{block.author?.name}</div>
+            <div className="fd-card-name">
+              <button className="fd-name-btn" onClick={() => block.author?.id && onOpenProfile?.(block.author.id)}>
+                {block.author?.name}
+              </button>
+            </div>
             <div className="fd-card-meta">{block.author?.uni || block.author?.handle || ""} · {relTime(block.ts)}</div>
           </div>
           <span className="fd-card-kind">shared a space</span>
@@ -224,9 +263,15 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
     return (
       <div className="fd-card">
         <div className="fd-card-head">
-          <Avatar user={block.author} />
+          <button className="fd-who-btn" onClick={() => block.author?.id && onOpenProfile?.(block.author.id)}>
+            <Avatar user={block.author} />
+          </button>
           <div className="fd-card-who">
-            <div className="fd-card-name">{block.author?.name}</div>
+            <div className="fd-card-name">
+              <button className="fd-name-btn" onClick={() => block.author?.id && onOpenProfile?.(block.author.id)}>
+                {block.author?.name}
+              </button>
+            </div>
             <div className="fd-card-meta">{block.author?.uni || block.author?.handle || ""} · {relTime(block.ts)}</div>
           </div>
           <span className="fd-card-kind">uploaded a resource</span>
@@ -258,10 +303,14 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
   return (
     <div className={`fd-card ${isActivity ? "fd-activity-card" : ""}`}>
       <div className="fd-card-head">
-        <Avatar user={block.author} />
+        <button className="fd-who-btn" onClick={() => block.author?.id && onOpenProfile?.(block.author.id)}>
+          <Avatar user={block.author} />
+        </button>
         <div className="fd-card-who">
           <div className="fd-card-name">
-            {block.author?.name}
+            <button className="fd-name-btn" onClick={() => block.author?.id && onOpenProfile?.(block.author.id)}>
+              {block.author?.name}
+            </button>
             {block.author?.role === "LECTURER" || block.author?.role === "TEACHER" ? (
               <span className="fd-badge">Faculty</span>
             ) : null}
@@ -270,7 +319,11 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
             {block.author?.uni || block.author?.handle || ""} · {relTime(block.ts)}
           </div>
         </div>
-        {block.kind === "question" && <span className="fd-card-kind question">Question</span>}
+        {block.kind === "question" && (
+          <span className={`fd-card-kind question ${acceptedId ? "answered" : ""}`}>
+            {acceptedId ? "✓ Answered" : "Question"}
+          </span>
+        )}
       </div>
 
       {isActivity ? (
@@ -302,6 +355,11 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
           me={me}
           kind="post"
           targetId={block.id}
+          isQuestion={block.kind === "question"}
+          postAuthorId={block.author?.id}
+          acceptedCommentId={acceptedId}
+          onAccepted={setAcceptedId}
+          onOpenProfile={onOpenProfile}
           onCountChange={setCommentCount}
         />
       )}

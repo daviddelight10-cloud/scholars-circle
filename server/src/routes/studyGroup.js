@@ -472,6 +472,31 @@ router.post("/public-rooms", requireAuth, async (req, res) => {
       console.warn("Go-live activity post failed:", err.message);
     }
 
+    // Notify the host's followers that they went live (bounded fan-out)
+    try {
+      const followers = await prisma.userFollow.findMany({
+        where: { followingId: userId },
+        select: { followerId: true },
+        take: 200,
+      });
+      if (followers.length > 0) {
+        const { sendPushToUsers } = await import("../lib/pushSender.js");
+        const who = room.host?.fullName || room.host?.username || "A friend";
+        await sendPushToUsers(
+          followers.map((f) => f.followerId),
+          {
+            title: `${who} went live`,
+            body: `Studying ${resource?.title || room.name} · ${room.maxSeats} seats`,
+            tag: `golive-${room.id}`,
+            data: { tab: "discuss" },
+          },
+          { category: "social" }
+        );
+      }
+    } catch (err) {
+      console.warn("Go-live push failed:", err.message);
+    }
+
     res.status(201).json({ ...room, seatsUsed: room.participants.length });
   } catch (error) {
     console.error("Error creating public room:", error);
@@ -484,6 +509,18 @@ router.post("/study-rooms/:roomId/join", requireAuth, async (req, res) => {
   try {
     const { roomId } = req.params;
     const userId = req.user.sub;
+
+    const room = await prisma.classroomStudyRoom.findUnique({
+      where: { id: roomId },
+      include: { participants: { where: { leftAt: null }, select: { userId: true } } },
+    });
+    if (!room || room.status !== "active") {
+      return res.status(404).json({ error: "Room is no longer active" });
+    }
+    const alreadyIn = room.participants.some((p) => p.userId === userId);
+    if (!alreadyIn && room.participants.length >= room.maxSeats) {
+      return res.status(409).json({ error: "Room is full" });
+    }
 
     const participant = await prisma.classroomStudyRoomParticipant.upsert({
       where: { studyRoomId_userId: { studyRoomId: roomId, userId } },

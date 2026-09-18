@@ -8,6 +8,17 @@ function userId(req) {
   return req.user.sub || req.user.id;
 }
 
+// Fire-and-forget social push. Category "social" respects NotificationPreference.social.
+async function socialPush(uid, payload) {
+  if (!uid) return;
+  try {
+    const { sendPushToUser } = await import("../lib/pushSender.js");
+    await sendPushToUser(uid, { tag: "social", data: { tab: "discuss" }, ...payload }, { category: "social" });
+  } catch (e) {
+    console.warn("[feed] social push failed:", e?.message);
+  }
+}
+
 const AUTHOR_SELECT = {
   id: true,
   username: true,
@@ -92,6 +103,7 @@ function postBlock(p, myId) {
     likes: p._count?.likes || 0,
     comments: p._count?.comments || 0,
     liked: (p.likes || []).length > 0,
+    acceptedCommentId: p.acceptedCommentId || null,
   };
 }
 
@@ -449,6 +461,21 @@ router.post("/posts/:id/like", requireAuth, async (req, res) => {
       await prisma.feedLike.create({ data: { postId, userId: uid } });
     }
     const count = await prisma.feedLike.count({ where: { postId } });
+    if (!existing) {
+      const post = await prisma.feedPost.findUnique({
+        where: { id: postId },
+        select: { authorId: true, kind: true, text: true },
+      });
+      if (post && post.authorId !== uid) {
+        const liker = await prisma.user.findUnique({ where: { id: uid }, select: { fullName: true, username: true } });
+        const who = liker?.fullName || liker?.username || "Someone";
+        const verb = post.kind === "activity" ? "cheered" : "liked";
+        socialPush(post.authorId, {
+          title: `${who} ${verb} your ${post.kind === "question" ? "question" : "post"}`,
+          body: post.text?.slice(0, 80) || "",
+        });
+      }
+    }
     res.json({ liked: !existing, count });
   } catch (err) {
     console.error("Like error:", err);
@@ -461,6 +488,11 @@ router.post("/posts/:id/like", requireAuth, async (req, res) => {
 router.get("/posts/:id/comments", requireAuth, async (req, res) => {
   try {
     const uid = userId(req);
+    const post = await prisma.feedPost.findUnique({
+      where: { id: req.params.id },
+      select: { authorId: true, acceptedCommentId: true },
+    });
+    if (!post) return res.status(404).json({ error: "Post not found" });
     const comments = await prisma.feedComment.findMany({
       where: { postId: req.params.id },
       include: {
@@ -480,6 +512,8 @@ router.get("/posts/:id/comments", requireAuth, async (req, res) => {
         likes: c._count.likes,
         liked: c.likes.length > 0,
         isMine: c.userId === uid,
+        isAccepted: c.id === post.acceptedCommentId,
+        canAccept: post.authorId === uid,
       }))
     );
   } catch (err) {
@@ -494,13 +528,23 @@ router.post("/posts/:id/comments", requireAuth, async (req, res) => {
     const { text } = req.body || {};
     if (!text?.trim()) return res.status(400).json({ error: "Comment text required" });
 
-    const post = await prisma.feedPost.findUnique({ where: { id: req.params.id }, select: { id: true } });
+    const post = await prisma.feedPost.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, authorId: true, kind: true, text: true },
+    });
     if (!post) return res.status(404).json({ error: "Post not found" });
 
     const comment = await prisma.feedComment.create({
       data: { postId: post.id, userId: uid, text: text.trim() },
       include: { user: { select: AUTHOR_SELECT } },
     });
+    if (post.authorId !== uid) {
+      const who = comment.user?.fullName || comment.user?.username || "Someone";
+      socialPush(post.authorId, {
+        title: `${who} ${post.kind === "question" ? "answered your question" : "commented on your post"}`,
+        body: comment.text.slice(0, 80),
+      });
+    }
     res.status(201).json({
       id: comment.id,
       text: comment.text,
@@ -533,6 +577,78 @@ router.post("/comments/:id/like", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Comment like error:", err);
     res.status(500).json({ error: "Failed to toggle like" });
+  }
+});
+
+// ============ ACCEPTED ANSWER ============
+
+// POST /api/feed/posts/:id/accept — question author marks a comment as the answer.
+// Answerer gets +50 XP, asker +25 (Brainly-style). Re-marking is free after the first award.
+const ACCEPT_ANSWER_XP = 50;
+const ACCEPT_ASKER_XP = 25;
+
+router.post("/posts/:id/accept", requireAuth, async (req, res) => {
+  try {
+    const uid = userId(req);
+    const { commentId } = req.body || {};
+    if (!commentId) return res.status(400).json({ error: "commentId required" });
+
+    const post = await prisma.feedPost.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, authorId: true, kind: true, acceptedCommentId: true, text: true },
+    });
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    if (post.authorId !== uid) return res.status(403).json({ error: "Only the asker can accept an answer" });
+
+    const comment = await prisma.feedComment.findUnique({
+      where: { id: commentId },
+      select: { id: true, postId: true, userId: true },
+    });
+    if (!comment || comment.postId !== post.id) {
+      return res.status(400).json({ error: "Comment does not belong to this post" });
+    }
+
+    const firstAward = !post.acceptedCommentId;
+    await prisma.feedPost.update({
+      where: { id: post.id },
+      data: { acceptedCommentId: comment.id },
+    });
+
+    if (firstAward) {
+      if (comment.userId !== uid) {
+        await prisma.userProgress.upsert({
+          where: { userId: comment.userId },
+          update: { xp: { increment: ACCEPT_ANSWER_XP } },
+          create: { userId: comment.userId, xp: ACCEPT_ANSWER_XP },
+        });
+        await prisma.user.update({
+          where: { id: comment.userId },
+          data: { totalXp: { increment: ACCEPT_ANSWER_XP } },
+        }).catch(() => {});
+      }
+      await prisma.userProgress.upsert({
+        where: { userId: uid },
+        update: { xp: { increment: ACCEPT_ASKER_XP } },
+        create: { userId: uid, xp: ACCEPT_ASKER_XP },
+      });
+      await prisma.user.update({
+        where: { id: uid },
+        data: { totalXp: { increment: ACCEPT_ASKER_XP } },
+      }).catch(() => {});
+
+      if (comment.userId !== uid) {
+        const asker = await prisma.user.findUnique({ where: { id: uid }, select: { fullName: true, username: true } });
+        socialPush(comment.userId, {
+          title: `${asker?.fullName || asker?.username || "Someone"} accepted your answer ✓`,
+          body: `+${ACCEPT_ANSWER_XP} XP · ${post.text?.slice(0, 60) || ""}`,
+        });
+      }
+    }
+
+    res.json({ acceptedCommentId: comment.id, xpAwarded: firstAward });
+  } catch (err) {
+    console.error("Accept answer error:", err);
+    res.status(500).json({ error: "Failed to accept answer" });
   }
 });
 
@@ -650,6 +766,141 @@ router.get("/suggested", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Suggested error:", err);
     res.status(500).json({ error: "Failed to load suggestions" });
+  }
+});
+
+// GET /api/feed/trending — most-saved resources at my university in the last 7d.
+// Falls back to global trending when the user has no university.
+router.get("/trending", requireAuth, async (req, res) => {
+  try {
+    const uid = userId(req);
+    const me = await prisma.userProfile.findUnique({
+      where: { userId: uid },
+      select: { universityId: true },
+    });
+    const myUni = me?.universityId || null;
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const groupArgs = (uniScoped) => ({
+      by: ["resourceId"],
+      where: {
+        createdAt: { gte: since },
+        ...(uniScoped ? { resource: { universityId: myUni } } : {}),
+      },
+      _count: { resourceId: true },
+      orderBy: { _count: { resourceId: "desc" } },
+      take: 5,
+    });
+
+    let grouped = myUni ? await prisma.resourceBookmark.groupBy(groupArgs(true)) : [];
+    const uniScoped = grouped.length > 0;
+    if (!uniScoped) grouped = await prisma.resourceBookmark.groupBy(groupArgs(false));
+    if (grouped.length === 0) return res.json({ uni: uniScoped ? myUni : null, resources: [] });
+
+    const resources = await prisma.resource.findMany({
+      where: { id: { in: grouped.map((g) => g.resourceId) } },
+      include: {
+        uploader: { select: AUTHOR_SELECT },
+        university: { select: { name: true } },
+        _count: { select: { bookmarks: true } },
+      },
+    });
+    const byId = Object.fromEntries(resources.map((r) => [r.id, r]));
+
+    res.json({
+      uni: uniScoped ? resources[0]?.university?.name || null : null,
+      resources: grouped
+        .map((g) => {
+          const r = byId[g.resourceId];
+          if (!r) return null;
+          return {
+            id: r.id,
+            title: r.title,
+            subject: r.subject,
+            contentType: r.contentType,
+            shareToken: r.shareToken,
+            weeklySaves: g._count.resourceId,
+            totalSaves: r._count.bookmarks,
+            uploader: publicUser(r.uploader),
+          };
+        })
+        .filter(Boolean),
+    });
+  } catch (err) {
+    console.error("Trending error:", err);
+    res.status(500).json({ error: "Failed to load trending" });
+  }
+});
+
+// GET /api/feed/users/:id — profile sheet: identity + stats + follow state + recent posts.
+router.get("/users/:id", requireAuth, async (req, res) => {
+  try {
+    const uid = userId(req);
+    const targetId = req.params.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: {
+        ...AUTHOR_SELECT,
+        createdAt: true,
+        progress: { select: { xp: true, streak: true, sessions: true, totalCorrect: true } },
+        _count: { select: { followers: true, following: true } },
+      },
+    });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const [isFollowing, isFollower, posts, badges] = await Promise.all([
+      prisma.userFollow.findUnique({
+        where: { followerId_followingId: { followerId: uid, followingId: targetId } },
+      }),
+      prisma.userFollow.findUnique({
+        where: { followerId_followingId: { followerId: targetId, followingId: uid } },
+      }),
+      prisma.feedPost.findMany({
+        where: { authorId: targetId },
+        include: {
+          author: { select: AUTHOR_SELECT },
+          resource: {
+            select: {
+              id: true, title: true, subject: true, contentType: true,
+              shareToken: true, viewCount: true,
+              _count: { select: { bookmarks: true } },
+            },
+          },
+          likes: { where: { userId: uid }, select: { id: true } },
+          _count: { select: { likes: true, comments: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      prisma.userBadge.findMany({
+        where: { userId: targetId },
+        include: { badge: { select: { name: true, icon: true } } },
+        orderBy: { awardedAt: "desc" },
+        take: 6,
+      }),
+    ]);
+
+    res.json({
+      user: {
+        ...publicUser(user),
+        joined: user.createdAt,
+        xp: user.progress?.xp || 0,
+        streak: user.progress?.streak || 0,
+        sessions: user.progress?.sessions || 0,
+        totalCorrect: user.progress?.totalCorrect || 0,
+        followers: user._count.followers,
+        following: user._count.following,
+      },
+      isMe: targetId === uid,
+      isFollowing: !!isFollowing,
+      followsMe: !!isFollower,
+      badges: badges.map((b) => ({ name: b.badge?.name, icon: b.badge?.icon })),
+      posts: posts.map((p) => postBlock(p, uid)),
+    });
+  } catch (err) {
+    console.error("Feed profile error:", err);
+    res.status(500).json({ error: "Failed to load profile" });
   }
 });
 

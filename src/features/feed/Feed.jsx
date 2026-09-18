@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { feedApi } from "./feedApi";
 import { FeedCard, ActivityRow, RoomCard, DividerBlock } from "./FeedCard";
 import { Composer } from "./Composer";
+import { ProfileSheet } from "./ProfileSheet";
 import { Avatar } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import NotificationBell from "../NotificationBellImproved.jsx";
@@ -30,6 +31,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [fsrsStats, setFsrsStats] = useState(null);
   const [dailyReviews, setDailyReviews] = useState({});
   const [followBusy, setFollowBusy] = useState({});
+  const [trending, setTrending] = useState(null);
+  const [profileUserId, setProfileUserId] = useState(null);
   const topRef = useRef(null);
 
   const me = useMemo(
@@ -78,6 +81,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const loadAux = useCallback(async () => {
     feedApi.getSuggested({ token }).then(setSuggested).catch(() => {});
     feedApi.getPublicRooms({ token }).then(setRooms).catch(() => setRooms([]));
+    feedApi.getTrending({ token }).then(setTrending).catch(() => {});
     feedApi.getFsrsStats({ token }).then(setFsrsStats).catch(() => {});
     feedApi
       .getFsrsAnalytics({ token })
@@ -165,6 +169,28 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     }
   };
 
+  const handleLeaveRoom = async (roomOrId) => {
+    const room = typeof roomOrId === "string" ? { id: roomOrId } : roomOrId;
+    try {
+      await feedApi.leaveRoom({ token, roomId: room.id });
+      feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {});
+      loadFeed({ quiet: true });
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleEndRoom = async (roomOrId) => {
+    const room = typeof roomOrId === "string" ? { id: roomOrId } : roomOrId;
+    try {
+      await feedApi.endRoom({ token, roomId: room.id });
+      feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {});
+      setBlocks((prev) => prev.filter((b) => !(b.type === "room" && b.room?.id === room.id)));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const handleJoinSession = async (session) => {
     try {
       const res = await feedApi.joinSession({ token, sessionId: session.id });
@@ -188,6 +214,33 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const renderBlocks = () => {
     const out = [];
     blocks.forEach((b, i) => {
+      // Trending at your university after the 2nd card
+      if (i === 2 && tab === "forYou" && trending?.resources?.length > 0) {
+        out.push(
+          <div key="trending-card" className="fd-trending">
+            <div className="fd-strip-head">
+              <span>📈 Trending {trending.uni ? `at ${trending.uni}` : "this week"}</span>
+              <span className="fd-strip-hint">Most saved in 7 days</span>
+            </div>
+            {trending.resources.map((r, idx) => (
+              <button
+                key={r.id}
+                className="fd-trending-row"
+                onClick={() => r.shareToken && onOpenResource?.(r.shareToken)}
+              >
+                <span className="fd-trending-rank">{idx + 1}</span>
+                <span className="fd-trending-info">
+                  <span className="fd-trending-title">{r.title}</span>
+                  <span className="fd-trending-meta">
+                    {[r.subject, r.uploader?.name && `by ${r.uploader.name}`].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <span className="fd-trending-saves">🔖 {r.weeklySaves}</span>
+              </button>
+            ))}
+          </div>
+        );
+      }
       // Suggested people strip after the 4th card
       if (i === 4 && suggested.length > 0 && tab !== "circle") {
         out.push(
@@ -199,7 +252,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             <div className="fd-strip-scroll">
               {suggested.map((u) => (
                 <div key={u.id} className="fd-person">
-                  <Avatar user={u} size={44} />
+                  <button className="fd-who-btn" onClick={() => setProfileUserId(u.id)}>
+                    <Avatar user={u} size={44} />
+                  </button>
                   <div className="fd-person-name">{u.name}</div>
                   <div className="fd-person-meta">{u.uni || `${u.xp} XP`}</div>
                   <button
@@ -247,6 +302,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           onOpenTab={onOpenTab}
           onDelete={handleDeletePost}
           onJoinRoom={handleJoinRoom}
+          onLeaveRoom={handleLeaveRoom}
+          onEndRoom={handleEndRoom}
+          onOpenProfile={setProfileUserId}
         />
       );
     });
@@ -340,7 +398,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                     <div className="fd-empty-inline">Follow people to build your circle</div>
                   )}
                   {circle.following.map((u) => (
-                    <div key={u.id} className="fd-person">
+                    <div key={u.id} className="fd-person" onClick={() => setProfileUserId(u.id)} role="button">
                       <Avatar user={u} size={44} />
                       <div className="fd-person-name">{u.name}</div>
                       <div className="fd-person-meta">{u.handle}</div>
@@ -352,7 +410,13 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                 <div className="fd-digest">
                   <DividerBlock label="From your circle today" />
                   {circle.digest.map((d, i) => (
-                    <ActivityRow key={i} item={d} onOpenResource={onOpenResource} onJoinRoom={handleJoinRoom} />
+                    <ActivityRow
+                      key={i}
+                      item={d}
+                      onOpenResource={onOpenResource}
+                      onJoinRoom={handleJoinRoom}
+                      onOpenProfile={setProfileUserId}
+                    />
                   ))}
                 </div>
               )}
@@ -367,6 +431,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
               sessions={sessions}
               subjects={subjects}
               onJoinRoom={handleJoinRoom}
+              onLeaveRoom={handleLeaveRoom}
+              onEndRoom={handleEndRoom}
               onJoinSession={handleJoinSession}
               onOpenResource={onOpenResource}
               onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})}
@@ -454,7 +520,16 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             <div className="fd-rail-card">
               <div className="fd-rail-title">Studying now</div>
               {rooms.slice(0, 4).map((r) => (
-                <RoomCard key={r.id} room={r} compact onJoin={() => handleJoinRoom(r)} onOpenResource={onOpenResource} />
+                <RoomCard
+                  key={r.id}
+                  room={r}
+                  me={me}
+                  compact
+                  onJoin={() => handleJoinRoom(r)}
+                  onLeave={() => handleLeaveRoom(r)}
+                  onEnd={() => handleEndRoom(r)}
+                  onOpenResource={onOpenResource}
+                />
               ))}
             </div>
           )}
@@ -463,7 +538,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
               <div className="fd-rail-title">People to follow</div>
               {suggested.slice(0, 5).map((u) => (
                 <div key={u.id} className="fd-rail-person">
-                  <Avatar user={u} size={34} />
+                  <button className="fd-who-btn" onClick={() => setProfileUserId(u.id)}>
+                    <Avatar user={u} size={34} />
+                  </button>
                   <div className="fd-rail-person-info">
                     <div className="fd-person-name">{u.name}</div>
                     <div className="fd-person-meta">{u.uni || `${u.xp} XP`}</div>
@@ -481,11 +558,24 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           )}
         </aside>
       </div>
+
+      {profileUserId && (
+        <ProfileSheet
+          token={token}
+          userId={profileUserId}
+          onClose={() => setProfileUserId(null)}
+          onOpenResource={onOpenResource}
+          onFollowChanged={() => {
+            feedApi.getSuggested({ token }).then(setSuggested).catch(() => {});
+            if (tab === "circle") feedApi.getCircle({ token }).then(setCircle).catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onJoinSession, onOpenResource, onRoomsChanged }) {
+function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onLeaveRoom, onEndRoom, onJoinSession, onOpenResource, onRoomsChanged }) {
   return (
     <div className="fd-live">
       <Composer
@@ -501,7 +591,15 @@ function LiveTab({ token, me, rooms, sessions, subjects, onJoinRoom, onJoinSessi
         <div className="fd-section">
           <DividerBlock label="Studying now" />
           {rooms.map((r) => (
-            <RoomCard key={r.id} room={r} onJoin={() => onJoinRoom(r)} onOpenResource={onOpenResource} />
+            <RoomCard
+              key={r.id}
+              room={r}
+              me={me}
+              onJoin={() => onJoinRoom(r)}
+              onLeave={() => onLeaveRoom?.(r)}
+              onEnd={() => onEndRoom?.(r)}
+              onOpenResource={onOpenResource}
+            />
           ))}
         </div>
       )}

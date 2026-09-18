@@ -32,6 +32,11 @@ export const feedApi = {
   },
   getCircle: ({ token } = {}) => req("/api/feed/circle", { token }),
   getSuggested: ({ token } = {}) => req("/api/feed/suggested", { token }),
+  getTrending: ({ token } = {}) => req("/api/feed/trending", { token }),
+  getFeedUser: ({ token, userId }) => req(`/api/feed/users/${userId}`, { token }),
+
+  acceptAnswer: ({ token, postId, commentId }) =>
+    req(`/api/feed/posts/${postId}/accept`, { token, method: "POST", body: { commentId } }),
 
   createPost: ({ token, text, kind = "post", resourceId } = {}) =>
     req("/api/feed/posts", { token, method: "POST", body: { text, kind, resourceId } }),

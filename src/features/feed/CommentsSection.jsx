@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { feedApi } from "./feedApi";
 import { Avatar, relTime } from "./feedUi";
 
-export function CommentsSection({ token, me, kind, targetId, onCountChange }) {
+export function CommentsSection({ token, me, kind, targetId, isQuestion, postAuthorId, acceptedCommentId, onAccepted, onOpenProfile, onCountChange }) {
   const [comments, setComments] = useState(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acceptBusy, setAcceptBusy] = useState(null);
   const isPost = kind === "post";
+  const canAccept = isPost && isQuestion && postAuthorId && me?.id === postAuthorId;
 
   useEffect(() => {
     let alive = true;
@@ -24,6 +26,7 @@ export function CommentsSection({ token, me, kind, targetId, onCountChange }) {
           likes: c.likes || 0,
           liked: !!c.liked,
           isMine: c.isMine || c.user?.id === me?.id,
+          isAccepted: !!c.isAccepted,
         }));
         setComments(normalized);
         onCountChange?.(normalized.length);
@@ -70,18 +73,64 @@ export function CommentsSection({ token, me, kind, targetId, onCountChange }) {
     } catch {}
   };
 
+  const accept = async (c) => {
+    if (acceptBusy) return;
+    setAcceptBusy(c.id);
+    try {
+      const res = await feedApi.acceptAnswer({ token, postId: targetId, commentId: c.id });
+      const aid = res.acceptedCommentId;
+      setComments((prev) => prev.map((x) => ({ ...x, isAccepted: x.id === aid })));
+      onAccepted?.(aid);
+    } catch {} finally {
+      setAcceptBusy(null);
+    }
+  };
+
+  const accepted = comments?.find((c) => c.isAccepted || c.id === acceptedCommentId);
+
   return (
     <div className="fd-comments">
       {comments === null && <div className="fd-comments-loading">Loading…</div>}
-      {comments?.map((c) => (
+      {accepted && (
+        <div className="fd-comment accepted">
+          <Avatar user={accepted.author} size={28} />
+          <div className="fd-comment-body">
+            <div className="fd-comment-head">
+              <b className="fd-name-btn" onClick={() => accepted.author?.id && onOpenProfile?.(accepted.author.id)}>{accepted.author?.name}</b>
+              <span className="fd-accepted-chip">✓ Best answer</span>
+            </div>
+            <div className="fd-comment-text">{accepted.text}</div>
+          </div>
+        </div>
+      )}
+      {comments?.filter((c) => !c.isAccepted && c.id !== acceptedCommentId).map((c) => (
         <div key={c.id} className="fd-comment">
           <Avatar user={c.author} size={28} />
           <div className="fd-comment-body">
             <div className="fd-comment-head">
-              <b>{c.author?.name}</b>
+              <b className="fd-name-btn" onClick={() => c.author?.id && onOpenProfile?.(c.author.id)}>{c.author?.name}</b>
               <span className="fd-activity-ts">{relTime(c.ts)}</span>
             </div>
             <div className="fd-comment-text">{c.text}</div>
+            {canAccept && !accepted && (
+              <button
+                className="fd-accept-btn"
+                disabled={acceptBusy === c.id}
+                onClick={() => accept(c)}
+              >
+                {acceptBusy === c.id ? "Marking…" : "✓ Mark as answer"}
+              </button>
+            )}
+            {canAccept && accepted && (
+              <button
+                className="fd-accept-btn ghost"
+                disabled={acceptBusy === c.id}
+                onClick={() => accept(c)}
+                title="Change the accepted answer"
+              >
+                {acceptBusy === c.id ? "Marking…" : "Mark instead"}
+              </button>
+            )}
           </div>
           {isPost && (
             <button
