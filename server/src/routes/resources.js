@@ -92,12 +92,15 @@ router.get("/", requireAuth, async (req, res) => {
       where: {
         AND: [
           where,
-          {
-            OR: [
-              { status: "approved" },
-              { uploadedBy: req.user.sub, status: "rejected" },
-            ],
-          },
+          // Own library (mine=1) includes private/pending materials
+          ...(mine === "1"
+            ? []
+            : [{
+                OR: [
+                  { status: "approved" },
+                  { uploadedBy: req.user.sub, status: "rejected" },
+                ],
+              }]),
         ],
       },
       include: {
