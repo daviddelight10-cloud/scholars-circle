@@ -133,8 +133,8 @@ function extractObjectsLoose(text) {
       }
       if (depth === 0) {
         const obj = parseJsonLoose(text.slice(i, j));
-        if (obj && typeof obj === "object" && !Array.isArray(obj)) objs.push(obj);
-        i = j;
+        if (obj && typeof obj === "object" && !Array.isArray(obj)) { objs.push(obj); i = j; }
+        else i++; // region malformed — descend into it so inner objects can still salvage
       } else i++;
     } else i++;
   }
