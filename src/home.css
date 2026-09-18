@@ -27,7 +27,10 @@
 /* header */
 .hm-topbar { display: flex; flex-direction: column; }
 .hm-head { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
-.hm-greet small { display: block; font-size: 11.5px; color: var(--hm-muted); }
+.hm-greet small {
+  display: block; font-family: var(--hm-font-mono); font-size: 10px;
+  letter-spacing: 1.2px; color: var(--hm-faint); text-transform: uppercase;
+}
 .hm-greet h1 { font-family: var(--hm-font-display); font-size: 21px; font-weight: 800; margin: 1px 0 0; letter-spacing: -.4px; }
 .hm-head-right { display: flex; gap: 8px; align-items: center; }
 .hm-icon-btn {
@@ -101,14 +104,18 @@
   padding: 4px 9px; border-radius: 99px;
 }
 
-/* quests strip */
-.hm-quests { display: flex; flex-direction: column; gap: 8px; }
+/* quests — one grouped list, hairline dividers between rows */
+.hm-quests {
+  border-radius: 16px; background: var(--hm-card);
+  border: 1px solid var(--hm-stroke-soft); overflow: hidden;
+}
 .hm-quest {
-  display: flex; align-items: center; gap: 11px; padding: 10px 12px;
-  border-radius: 14px; background: var(--hm-card); border: 1px solid var(--hm-stroke-soft);
+  display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+  background: transparent; border: none;
   cursor: default; text-align: left; font-family: inherit; color: inherit; width: 100%;
 }
-.hm-quest.ready { border-color: rgba(255,181,71,.45); background: rgba(255,181,71,.06); cursor: pointer; }
+.hm-quest + .hm-quest { border-top: 1px solid var(--hm-stroke-soft); }
+.hm-quest.ready { background: rgba(255,181,71,.06); box-shadow: inset 3px 0 0 rgba(255,181,71,.6); cursor: pointer; }
 .hm-quest.claimed { opacity: .55; }
 .hm-quest:disabled { color: inherit; }
 .hm-q-ico { font-size: 18px; width: 34px; height: 34px; border-radius: 10px; background: var(--hm-card-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -195,13 +202,21 @@
 .hm-vp-go { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #C0B2FF; white-space: nowrap; }
 .hm-vp-xp { font-family: var(--hm-font-mono); font-size: 8.5px; color: rgba(192,178,255,.6); }
 
-/* sections */
-.hm-section { margin-top: 20px; }
+/* sections — tighter within a tier, wider between tiers */
+.hm-section { margin-top: 22px; }
+.hm-sec-jump { margin-top: 14px; }
+.hm-sec-quests { margin-top: 16px; }
+.hm-sec-foryou { margin-top: 32px; }
 .hm-sec-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
 .hm-sec-head h2 {
   font-family: var(--hm-font-display); font-size: 16.5px; font-weight: 700;
   letter-spacing: -.2px; display: inline-flex; align-items: center; gap: 7px; margin: 0;
   color: var(--hm-text);
+}
+.hm-count {
+  font-family: var(--hm-font-mono); font-size: 9.5px; font-weight: 700;
+  color: var(--hm-muted); background: var(--hm-card-2);
+  border: 1px solid var(--hm-stroke-soft); padding: 2px 8px; border-radius: 99px;
 }
 .hm-sec-head button, .hm-sec-head a {
   font-size: 11.5px; color: var(--hm-blue); text-decoration: none; font-weight: 600;
@@ -264,7 +279,7 @@
 /* library */
 .hm-lib { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .hm-lib-card {
-  border-radius: 16px; padding: 12px; background: var(--hm-card);
+  border-radius: 16px; padding: 12px; background: rgba(255,255,255,.02);
   border: 1px solid var(--hm-stroke-soft); cursor: pointer; text-align: left;
   font-family: inherit; color: inherit;
 }
@@ -287,7 +302,7 @@
 
 /* study circle */
 .hm-board {
-  border-radius: 16px; padding: 14px; background: var(--hm-card);
+  border-radius: 16px; padding: 14px; background: rgba(255,255,255,.02);
   border: 1px solid var(--hm-stroke-soft); text-align: center;
 }
 .hm-stack { display: flex; justify-content: center; margin-bottom: 10px; }
@@ -469,7 +484,11 @@
   .hm-content {
     display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start;
     margin-top: 24px;
-    grid-template-areas: "hero vp" "hero quests" "hero jump" "foryou foryou" "library circle";
+    grid-template-areas:
+      "hero jump"
+      "vp quests"
+      "foryou foryou"
+      "library circle";
   }
   .hm-sec-hero { grid-area: hero; }
   .hm-sec-vp { grid-area: vp; margin-top: 0; }

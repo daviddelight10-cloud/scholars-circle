@@ -355,6 +355,8 @@ export default function Dashboard({
   const greeting = firstRun ? "Welcome," : `Good ${greetingWord()},`;
   const displayName = userName || authUser?.username || authUser?.name || "Scholar";
   const streak = stats?.streak || fsrsStats?.streak || 0;
+  const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase();
+  const questsDone = quests.filter((q) => (save.questProgress?.[q.id] || 0) >= q.target).length;
 
 
   const reasonTag = (f) => {
@@ -373,7 +375,8 @@ export default function Dashboard({
         <div className="hm-topbar">
           <div className="hm-head" style={{ flex: 1, minWidth: 0 }}>
             <div className="hm-greet">
-              <small>{greeting} {displayName}</small>
+              <small>{todayLabel}</small>
+              <h1>{greeting} {displayName}</h1>
             </div>
             <div className="hm-head-right">
               <NotificationBellImproved token={token} currentUser={authUser} onOpenTab={onOpenTab} />
@@ -405,56 +408,11 @@ export default function Dashboard({
             />
           </div>
 
-          {/* ── Virtual patient banner (real case, rotates daily) ── */}
-          {vpCase && (
-          <button className="hm-vp hm-sec-vp" onClick={() => onOpenTab?.("clinical-cases")}>
-            <div className="hm-vp-ic"><HIcon name="stetho" size={18} /></div>
-            <div className="hm-vp-t">
-              <h3>Virtual Patient · {vpCase.specialty}</h3>
-              <p>{vpCase.demo} — “{vpCase.cc}”</p>
-            </div>
-            <div className="hm-vp-side">
-              <span className="hm-vp-go">Start <HIcon name="arrowR" size={12} /></span>
-              <span className="hm-vp-xp">{vpCase.bed}</span>
-            </div>
-          </button>
-          )}
-
-          {/* ── Today's quests ── */}
-          <div className="hm-section hm-sec-quests">
-            <div className="hm-sec-head"><h2><HIcon name="target" size={15} color="#C0B2FF" />Today's quests</h2></div>
-            <div className="hm-quests">
-              {quests.map((q) => {
-                const prog = save.questProgress?.[q.id] || 0;
-                const claimed = (save.questClaimed || []).includes(q.id);
-                const done = prog >= q.target;
-                return (
-                  <button
-                    key={q.id}
-                    className={`hm-quest${done && !claimed ? " ready" : ""}${claimed ? " claimed" : ""}`}
-                    onClick={() => done && !claimed && handleClaimQuest(q.id)}
-                    disabled={!done || claimed}
-                  >
-                    <span className="hm-q-ico">{q.ico}</span>
-                    <span className="hm-q-info">
-                      <span className="hm-q-name">{q.name}</span>
-                      <span className="hm-q-bar"><i style={{ width: `${Math.min(100, (prog / q.target) * 100)}%` }} /></span>
-                      <span className="hm-q-meta">{Math.min(prog, q.target)}/{q.target} · <HIcon name="gem" size={9} color="#6EC1FF" />{q.reward}</span>
-                    </span>
-                    {claimed
-                      ? <HIcon name="check" size={14} color="#6EE7A0" />
-                      : done ? <span className="hm-q-claim">Claim</span> : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* ── Jump back in ── */}
           {recents.length > 0 && (
             <div className="hm-section hm-sec-jump">
               <div className="hm-sec-head">
-                <h2><HIcon name="clock" size={15} color="#9DB8E8" />Jump back in</h2>
+                <h2><HIcon name="clock" size={15} color="#9DB8E8" />Jump back in <span className="hm-count">{Math.min(recents.length, 6)}</span></h2>
                 <button onClick={() => openResearchHub("library")}>History →</button>
               </div>
               <div className="hm-rail">
@@ -483,11 +441,56 @@ export default function Dashboard({
             </div>
           )}
 
+          {/* ── Virtual patient banner (real case, rotates daily) ── */}
+          {vpCase && (
+          <button className="hm-vp hm-sec-vp" onClick={() => onOpenTab?.("clinical-cases")}>
+            <div className="hm-vp-ic"><HIcon name="stetho" size={18} /></div>
+            <div className="hm-vp-t">
+              <h3>Virtual Patient · {vpCase.specialty}</h3>
+              <p>{vpCase.demo} — “{vpCase.cc}”</p>
+            </div>
+            <div className="hm-vp-side">
+              <span className="hm-vp-go">Start <HIcon name="arrowR" size={12} /></span>
+              <span className="hm-vp-xp">{vpCase.bed}</span>
+            </div>
+          </button>
+          )}
+
+          {/* ── Today's quests ── */}
+          <div className="hm-section hm-sec-quests">
+            <div className="hm-sec-head"><h2><HIcon name="target" size={15} color="#C0B2FF" />Today's quests <span className="hm-count">{questsDone}/{quests.length}</span></h2></div>
+            <div className="hm-quests">
+              {quests.map((q) => {
+                const prog = save.questProgress?.[q.id] || 0;
+                const claimed = (save.questClaimed || []).includes(q.id);
+                const done = prog >= q.target;
+                return (
+                  <button
+                    key={q.id}
+                    className={`hm-quest${done && !claimed ? " ready" : ""}${claimed ? " claimed" : ""}`}
+                    onClick={() => done && !claimed && handleClaimQuest(q.id)}
+                    disabled={!done || claimed}
+                  >
+                    <span className="hm-q-ico">{q.ico}</span>
+                    <span className="hm-q-info">
+                      <span className="hm-q-name">{q.name}</span>
+                      <span className="hm-q-bar"><i style={{ width: `${Math.min(100, (prog / q.target) * 100)}%` }} /></span>
+                      <span className="hm-q-meta">{Math.min(prog, q.target)}/{q.target} · <HIcon name="gem" size={9} color="#6EC1FF" />{q.reward}</span>
+                    </span>
+                    {claimed
+                      ? <HIcon name="check" size={14} color="#6EE7A0" />
+                      : done ? <span className="hm-q-claim">Claim</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* ── For you (hidden entirely when no community folders) ── */}
           {foldersLoaded && forYouFolders.length > 0 && (
           <div className="hm-section hm-sec-foryou">
             <div className="hm-sec-head">
-              <h2>For you</h2>
+              <h2>For you <span className="hm-count">{forYouFolders.length}</span></h2>
               <button onClick={() => openResearchHub("community")}>View all →</button>
             </div>
             <div className="hm-insight">
@@ -548,7 +551,7 @@ export default function Dashboard({
 
           {/* ── Study circle ── */}
           <div className="hm-section hm-sec-circle">
-            <div className="hm-sec-head"><h2>Your study circle</h2></div>
+            <div className="hm-sec-head"><h2>Your study circle {leaderboard.length > 0 && <span className="hm-count">{leaderboard.length}</span>}</h2></div>
             <div className="hm-board">
               {leaderboard.length > 0 ? (
                 <>
