@@ -3,6 +3,7 @@ import { callAI, callAIMultimodal, callAITutor, extractJSON } from "../lib/aiCli
 import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
 import { detectDiscipline } from "./AITutor/disciplines.js";
 import { extractTextFromFile } from "./AITutor/fileExtract.js";
+import { fetchTranscript, formatTime } from "./AITutor/youtubeApi.js";
 import { resolvePractice, searchQuestionBank, hasPracticeIntent, buildAppCatalog, APP_FEATURES, buildDocCatalog, findResources, searchDocuments, hasDocIntent, resolveMcqPractice, authHeaders, docTypeMeta } from "./AITutor/appKnowledge.js";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
@@ -171,7 +172,7 @@ const MODE_INTENTS = [
   { mode: "flashcards", re: /\bflash\s?cards?\b|\brevision cards?\b/i },
   { mode: "exam",       re: /\b(mock|timed|full)\s+exams?\b|\bexam\s*(prep|simulation|mode)\b|\btake (an?|the) exam\b/i },
   { mode: "quiz",       re: /\bquiz\b|\btest me\b|\bpractice questions?\b|\bpast questions?\b|\bmcqs?\b/i },
-  { mode: "video",      re: /\bvideo\b|\byoutube\b|\bvideo lesson\b/i },
+  { mode: "video",      re: /\b(?:watch|show me|find|get|play|recommend|suggest|search)\b.{0,25}\b(?:video|youtube|lesson)\b|\b(?:video|youtube)\s+(?:lesson|tutorial|about|on|explaining)\b|\bvideo lesson\b/i },
   { mode: "materials",  re: /\b(find|open|read|summari[sz]e|use)\s+(my|the|this|our)?\s*(notes?|pdfs?|documents?|materials?|slides|handouts?)\b/i },
 ];
 function detectModeIntent(q) {
@@ -191,6 +192,29 @@ function extractPartialAnswer(raw) {
   try { return JSON.parse(`"${s}"`); } catch {
     return s.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   }
+}
+
+// Pick the transcript segments most relevant to a question — keyword-scored,
+// returned in chronological order, capped at maxChars. Falls back to the
+// opening segments when nothing matches.
+function transcriptExcerpt(segments, query, maxChars = 3200) {
+  if (!segments?.length) return "";
+  const words = (query || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+  const scored = segments.map(s => ({
+    s,
+    score: words.reduce((acc, w) => acc + (String(s.text || "").toLowerCase().includes(w) ? 1 : 0), 0),
+  }));
+  const hits = scored.filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 40);
+  const picked = (hits.length ? hits : scored.slice(0, 40))
+    .map(x => x.s)
+    .sort((a, b) => (a.start || 0) - (b.start || 0));
+  let out = "";
+  for (const s of picked) {
+    const line = `[${formatTime(s.start || 0)}] ${String(s.text || "").trim()}\n`;
+    if (out.length + line.length > maxChars) break;
+    out += line;
+  }
+  return out.trim();
 }
 
 function parseAIResponse(raw, query) {
@@ -413,12 +437,13 @@ function PracticeCard({ practice, onQuick, onExam }) {
   );
 }
 
-function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc, onQuizDoc, onSave, onSaveDeck, onSwitchMode, showFollowUps = true }) {
+function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onOpenResource, onAskDoc, onQuizDoc, onSave, onSaveDeck, onSwitchMode, onPracticeCards, showFollowUps = true }) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [showVideo, setShowVideo] = useState(!!data.autoVideo);
-  const [video, setVideo] = useState(data.video || null);
-  const [videoBusy, setVideoBusy] = useState(false);
+  // Video renders when the intent produced one — auto-expanded, and restored
+  // for video-intent replies in saved conversations.
+  const [showVideo] = useState(!!data.autoVideo || (data.mode === "video" && !!data.video));
+  const [video] = useState(data.video || null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deckSaved, setDeckSaved] = useState(false);
@@ -427,12 +452,6 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
   // Freeform answer (new) with legacy definition+explanation fallback (old saved convos)
   const answer = data.answer || [data.definition, data.explanation].filter(Boolean).join("\n\n");
   const hasBank = (data.practice?.questions?.length || 0) > 0 || (data.questions || []).length > 0;
-  const quickActions = [
-    { icon: "🔍", label: "Simpler", action: () => onQuickAction?.("explain_simpler", data.topic) },
-    { icon: "📝", label: "Test me", action: () => onQuickAction?.("test_me", data.topic) },
-    { icon: "🃏", label: "Flashcards", action: () => onQuickAction?.("flashcards", data.topic) },
-    { icon: "📖", label: "Example", action: () => onQuickAction?.("example", data.topic) },
-  ];
 
   useEffect(() => () => { if (speaking) window.speechSynthesis?.cancel(); }, [speaking]);
 
@@ -454,20 +473,6 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
     synth.cancel();
     synth.speak(u);
     setSpeaking(true);
-  }
-
-  // YouTube is lazy — only searched when the student actually clicks Video
-  async function toggleVideo() {
-    if (video) { setShowVideo(o => !o); return; }
-    if (videoBusy || !data.ytQuery) return;
-    setVideoBusy(true);
-    try {
-      const v = await fetchYouTubeVideo(data.ytQuery);
-      if (v) { setVideo(v); setShowVideo(true); }
-      else toast.info("No video found for this topic.");
-    } finally {
-      setVideoBusy(false);
-    }
   }
 
   async function handleSave() {
@@ -576,8 +581,8 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
             />
           )}
 
-          {/* Fallback — no bank match, offer AI-generated practice (not in General) */}
-          {!hasBank && data.mode !== "general" && (
+          {/* Fallback — no bank match, offer AI-generated practice (quiz/exam intents only) */}
+          {!hasBank && (data.mode === "quiz" || data.mode === "exam") && (
             <div style={{ margin: "8px 0 2px" }}>
               <button
                 onClick={onStartPractice}
@@ -592,13 +597,14 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
             </div>
           )}
 
-          {/* Flashcards (Flashcards mode) */}
+          {/* Flashcards (Flashcards intent) */}
           {(data.flashcards || []).length > 0 && (
             <FlashcardList
               cards={data.flashcards}
               onSave={onSaveDeck ? handleSaveDeck : null}
               saved={deckSaved}
               saving={deckSaving}
+              onPractice={onPracticeCards ? () => onPracticeCards(data.flashcards) : null}
             />
           )}
 
@@ -622,28 +628,11 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
                 {speaking ? "⏹ Stop" : "🔊 Listen"}
               </button>
             )}
-            {(video || data.ytQuery) && (
-              <button onClick={toggleVideo} disabled={videoBusy} style={iconBtn(showVideo)} title="Video lesson">
-                {videoBusy ? "⏳ Loading…" : showVideo ? "▲ Hide video" : "▶️ Video"}
-              </button>
-            )}
             {onSave && (
               <button onClick={handleSave} disabled={saving || saved} style={iconBtn(saved)} title="Save to Research Hub">
                 {saved ? "✓ Saved" : saving ? "⏳ Saving…" : "💾 Save"}
               </button>
             )}
-            <span style={{ flex: 1 }} />
-            {quickActions.map((qa) => (
-              <button
-                key={qa.label}
-                onClick={qa.action}
-                style={iconBtn(false)}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = D.accent2; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.hint; }}
-              >
-                <span>{qa.icon}</span>{qa.label}
-              </button>
-            ))}
           </div>
 
           {/* Follow-up suggestions — only on the latest reply (ChatGPT-style) */}
@@ -1221,8 +1210,135 @@ function ModeBar({ mode, onChange }) {
   );
 }
 
+// Simple flip-through deck practice — one card at a time, flip + known count
+function FlashcardPractice({ cards, onBack }) {
+  const [order, setOrder] = useState(() => cards.map((_, i) => i));
+  const [idx, setIdx] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [known, setKnown] = useState(() => new Set());
+  const [done, setDone] = useState(false);
+  const total = order.length;
+  const card = cards[order[idx]];
+
+  function next(mark) {
+    if (mark) setKnown(p => new Set(p).add(order[idx]));
+    setFlipped(false);
+    if (idx + 1 >= total) setDone(true); else setIdx(i => i + 1);
+  }
+  function shuffle() {
+    setOrder(o => [...o].sort(() => Math.random() - 0.5));
+    setIdx(0); setFlipped(false); setDone(false); setKnown(new Set());
+  }
+
+  return (
+    <div style={{
+      flex: 1, display: "flex", flexDirection: "column",
+      maxWidth: 780, margin: "0 auto", width: "100%", padding: "18px 16px",
+      fontFamily: "Manrope,sans-serif",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <button onClick={onBack} style={{
+          width: 32, height: 32, borderRadius: "50%", background: D.accent,
+          border: `0.5px solid ${D.line}`, color: D.muted, fontSize: 16,
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: D.text, fontFamily: "Syne,sans-serif" }}>🃏 Flashcard practice</div>
+          <div style={{ fontSize: 11, color: D.hint }}>{total} cards · {known.size} known</div>
+        </div>
+        <button onClick={shuffle} style={{
+          padding: "6px 12px", borderRadius: 9, background: "transparent",
+          border: `0.5px solid ${D.line}`, color: D.muted, fontSize: 11,
+          cursor: "pointer", fontFamily: "Manrope,sans-serif",
+        }}>🔀 Shuffle</button>
+      </div>
+
+      {done ? (
+        <div style={{
+          flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", gap: 14, textAlign: "center",
+        }}>
+          <div style={{ fontSize: 40 }}>🎉</div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: D.text, fontFamily: "Syne,sans-serif" }}>
+            Deck complete
+          </div>
+          <div style={{ fontSize: 13, color: D.muted }}>
+            Reviewed {total} cards · <span style={{ color: D.accent2, fontWeight: 700 }}>{known.size} known</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={shuffle} style={{
+              padding: "9px 18px", borderRadius: 10, background: D.accent,
+              border: `0.5px solid ${D.border}`, color: D.accent2, fontSize: 12,
+              fontWeight: 700, cursor: "pointer", fontFamily: "Manrope,sans-serif",
+            }}>↻ Review again</button>
+            <button onClick={onBack} style={{
+              padding: "9px 18px", borderRadius: 10, background: "transparent",
+              border: `0.5px solid ${D.line}`, color: D.muted, fontSize: 12,
+              fontWeight: 600, cursor: "pointer", fontFamily: "Manrope,sans-serif",
+            }}>Back to chat</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Progress */}
+          <div style={{ height: 3, borderRadius: 2, background: D.line2, marginBottom: 16, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${((idx) / total) * 100}%`, background: D.accent2, borderRadius: 2, transition: "width 0.25s" }} />
+          </div>
+
+          {/* Card */}
+          <div
+            onClick={() => setFlipped(f => !f)}
+            style={{
+              flex: 1, minHeight: 220, borderRadius: 16, cursor: "pointer",
+              background: flipped ? D.accent : D.card,
+              border: `0.5px solid ${flipped ? D.border : D.line}`,
+              display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "center", padding: "28px 24px", textAlign: "center",
+              transition: "border-color 0.2s, background 0.2s",
+            }}
+          >
+            <div style={{ fontSize: 9.5, color: D.faint, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>
+              {flipped ? "ANSWER" : "QUESTION"} · {idx + 1} / {total}
+              {known.has(order[idx]) && <span style={{ color: "#66bb6a" }}> · ✓ known</span>}
+            </div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: flipped ? D.accent2 : D.text, fontWeight: 500 }}>
+              {flipped ? card?.back : card?.front}
+            </div>
+            <div style={{ fontSize: 10, color: D.faint, marginTop: 18 }}>tap to {flipped ? "see question" : "reveal"}</div>
+          </div>
+
+          {/* Controls */}
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            <button
+              onClick={() => { if (idx > 0) { setIdx(i => i - 1); setFlipped(false); } }}
+              disabled={idx === 0}
+              style={{
+                padding: "10px 16px", borderRadius: 10, background: "transparent",
+                border: `0.5px solid ${D.line}`, color: idx === 0 ? D.faint : D.muted,
+                fontSize: 12, fontWeight: 600, cursor: idx === 0 ? "default" : "pointer",
+                fontFamily: "Manrope,sans-serif",
+              }}
+            >← Prev</button>
+            <button onClick={() => next(false)} style={{
+              flex: 1, padding: "10px 16px", borderRadius: 10, background: "transparent",
+              border: `0.5px solid ${D.line}`, color: D.muted, fontSize: 12,
+              fontWeight: 600, cursor: "pointer", fontFamily: "Manrope,sans-serif",
+            }}>Skip →</button>
+            <button onClick={() => next(true)} style={{
+              flex: 1, padding: "10px 16px", borderRadius: 10,
+              background: D.accent, border: `0.5px solid ${D.border}`,
+              color: D.accent2, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              fontFamily: "Manrope,sans-serif",
+            }}>✓ Got it</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Tap-to-flip flashcard grid for Flashcards mode
-function FlashcardList({ cards, onSave, saved, saving }) {
+function FlashcardList({ cards, onSave, saved, saving, onPractice }) {
   const [flipped, setFlipped] = useState({});
   return (
     <div style={{ margin: "10px 0 2px" }}>
@@ -1247,19 +1363,32 @@ function FlashcardList({ cards, onSave, saved, saving }) {
           </button>
         ))}
       </div>
-      {onSave && (
-        <button
-          onClick={onSave}
-          disabled={saving || saved}
-          style={{
-            marginTop: 9, padding: "6px 13px", borderRadius: 16,
-            background: saved ? "transparent" : D.accent,
-            border: `0.5px solid ${saved ? D.line : D.border}`,
-            color: saved ? D.hint : D.accent2, fontSize: 11, fontWeight: 600,
-            cursor: saved ? "default" : "pointer", fontFamily: "Manrope,sans-serif",
-          }}
-        >{saving ? "⏳ Saving…" : saved ? "✓ Deck saved to AI Notes" : `💾 Save ${cards.length}-card deck`}</button>
-      )}
+      <div style={{ display: "flex", gap: 7, marginTop: 9, flexWrap: "wrap" }}>
+        {onPractice && (
+          <button
+            onClick={onPractice}
+            style={{
+              padding: "6px 13px", borderRadius: 16,
+              background: D.accent, border: `0.5px solid ${D.border}`,
+              color: D.accent2, fontSize: 11, fontWeight: 700,
+              cursor: "pointer", fontFamily: "Manrope,sans-serif",
+            }}
+          >▶ Practice this deck</button>
+        )}
+        {onSave && (
+          <button
+            onClick={onSave}
+            disabled={saving || saved}
+            style={{
+              padding: "6px 13px", borderRadius: 16,
+              background: saved ? "transparent" : "transparent",
+              border: `0.5px solid ${saved ? D.line : D.line}`,
+              color: saved ? D.hint : D.muted, fontSize: 11, fontWeight: 600,
+              cursor: saved ? "default" : "pointer", fontFamily: "Manrope,sans-serif",
+            }}
+          >{saving ? "⏳ Saving…" : saved ? "✓ Deck saved to AI Notes" : `💾 Save ${cards.length}-card deck`}</button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1479,6 +1608,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   const [input, setInput]           = useState("");
   const [loading, setLoading]       = useState(false);
   const [data, setData]             = useState(null);
+  const [cardDeck, setCardDeck]     = useState(null); // flashcards for the practice view
   const [attachment, setAttachment] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConvos]  = useState(() => loadConvos());
@@ -1494,6 +1624,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     return [];
   });
   const [activeDoc, setActiveDoc]   = useState(null); // pinned document context (slim doc)
+  const [activeVideo, setActiveVideo] = useState(null); // pinned video {videoId,title,channel,url}
+  const videoTranscripts            = useRef({}); // videoId -> transcript segments
   const [mode, setMode]             = useState("general"); // tutor mode selector
   const [streamCtl, setStreamCtl]   = useState(null); // AbortController for the in-flight tutor stream
   const [streamStatus, setStreamStatus] = useState(null); // "Searching your Research Hub…" etc.
@@ -1621,6 +1753,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     setCurrentId(null);
     setShowHistory(false);
     setActiveDoc(null);
+    setActiveVideo(null);
     setMode("general");
   }
 
@@ -1648,6 +1781,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     } else {
       setActiveDoc(null);
     }
+    setActiveVideo(c.activeVideo || null); // transcript re-fetches lazily on next question
   }
 
   function deleteConvo(id) {
@@ -1674,7 +1808,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     return m;
   }
 
-  function persistConvo(msgs, lastData, q, docCtx) {
+  function persistConvo(msgs, lastData, q, docCtx, videoCtx) {
     const id = currentId || genId();
     const title = q.length > 60 ? q.slice(0, 60) + "…" : q;
     const entry = {
@@ -1682,6 +1816,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       messages: msgs.map(slimMessage),
       lastData: lastData ? slimMessage({ type: "ai", data: lastData }).data : null,
       activeDoc: docCtx !== undefined ? docCtx : activeDoc,
+      activeVideo: videoCtx !== undefined ? videoCtx : activeVideo,
     };
     const updated = [entry, ...conversations.filter(c => c.id !== id)];
     setConvos(updated);
@@ -1796,16 +1931,16 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     const hasAttachment = !!attach;
     const q = rawQ?.trim() || (hasAttachment ? `Analyze this ${attach.type === "img" ? "image" : "document"}: ${attach.name}` : "");
     if (!q || loading) return;
+    // Per-message intent — in General, obvious keywords produce the right
+    // artifact inline (badge on the reply shows what was used) without ever
+    // touching the selector. A deliberately picked pill is a one-shot
+    // "force this output" that resets to General after the message sends.
     let askMode = modeOverride || mode;
-    // Keyword intent — General auto-routes obvious requests to the right mode
-    if (askMode === "general") {
-      const intent = detectModeIntent(q);
-      if (intent) {
-        askMode = intent;
-        setMode(intent);
-        toast.info(`Switched to ${MODE_META[intent].icon} ${MODE_META[intent].label} mode`);
-      }
-    }
+    if (askMode === "general") askMode = detectModeIntent(q) || "general";
+    // "what does the video say about…" while a video is pinned = a question
+    // about it (transcript answers), not a request to fetch a new one
+    if (askMode === "video" && activeVideo && /\b(?:the|this|that)\s+video\b/i.test(q)) askMode = "general";
+    if (mode !== "general" && !modeOverride) setMode("general");
     setInput("");
     setView("chat");
     setLoading(true);
@@ -1837,6 +1972,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     // card), fetch its content and inject it so the model can read it.
     let citedDocs = [];
     let pinnedDoc = activeDoc;
+    let pinnedVideo = activeVideo;
     let docMatch = docOverride || null;
     if (!docMatch && !capturedAttachment && resources.length > 0 && hasDocIntent(q)) {
       const [hit] = searchDocuments(q, resources, 1);
@@ -1857,6 +1993,24 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         if (content.images?.length) images = content.images;
         aiQuery = `The student is asking about their Research Hub document "${docMatch.title}"${docMatch.subject ? ` (${docMatch.subject})` : ""}.\n\nDocument content:\n\n${content.text || "(scanned document — provided as page images)"}\n\nBased on this document, answer: ${q}`;
       }
+    }
+
+    // Pinned video context — follow-ups answer from the video's transcript
+    // (captions fetched when the video was pinned; title fallback otherwise)
+    if (!docMatch && !capturedAttachment && activeVideo) {
+      let segs = videoTranscripts.current[activeVideo.videoId];
+      if (segs === undefined) {
+        // Restored pin from a saved convo — fetch captions in the background
+        videoTranscripts.current[activeVideo.videoId] = null;
+        fetchTranscript(activeVideo.videoId)
+          .then(s => { videoTranscripts.current[activeVideo.videoId] = s || []; })
+          .catch(() => { videoTranscripts.current[activeVideo.videoId] = []; });
+        segs = null;
+      }
+      const excerpt = segs?.length ? transcriptExcerpt(segs, q) : "";
+      aiQuery = excerpt
+        ? `The student is watching the YouTube lesson "${activeVideo.title}"${activeVideo.channel ? ` by ${activeVideo.channel}` : ""}. Transcript excerpts relevant to their question (with timestamps):\n\n${excerpt}\n\nAnswer from what the video actually says — reference the video's content, not generic textbook answers: ${q}`
+        : `The student is watching the YouTube lesson "${activeVideo.title}"${activeVideo.channel ? ` by ${activeVideo.channel}` : ""} (captions unavailable). Answer their question about the video's topic: ${q}`;
     }
 
     try {
@@ -1883,6 +2037,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         let practice = null;
         let questions = null;
         let docContext = capturedAttachment?.content || null;
+        // Pinned video → generate questions from its transcript
+        if (!docContext && !docMatch && activeVideo) {
+          const segs = videoTranscripts.current[activeVideo.videoId];
+          if (segs?.length) docContext = transcriptExcerpt(segs, q, 8000);
+        }
         // Pinned/matched doc first: MCQ sets → stored questions; other docs →
         // generate from extracted content. Only then fall back to catalog MCQs.
         if (docMatch?.contentType === "mcq") {
@@ -1926,7 +2085,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         const finalMsgs = base.concat({ type: "ai", data: aiData });
         setMsgs(finalMsgs);
         setData({ ...aiData, docContext });
-        persistConvo(finalMsgs, aiData, q, pinnedDoc);
+        persistConvo(finalMsgs, aiData, q, pinnedDoc, pinnedVideo);
         if (askMode === "exam" && onStartExam && questions?.length) {
           handleExamStart(practiceObj);
         } else {
@@ -1985,9 +2144,12 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         }
       }
 
-      // Resolve AI-cited + server-matched documents into cards — skipped in
-      // General mode, which stays pure text (the model can suggest Materials)
-      if (askMode !== "general") {
+      // Doc cards only when the student actually asked for materials —
+      // Materials intent, doc-intent phrasing, the pinned/read doc, or titles
+      // the AI explicitly cited. Server metaDocs feed the model's knowledge
+      // but never render unrequested (no more random wrong-subject cards).
+      const showDocs = askMode === "materials" || !!docMatch || hasDocIntent(q);
+      if (askMode !== "general" && showDocs) {
         const aiDocs = resolveDocRefs(aiRes?.documents || [], resources);
         const used = new Set(citedDocs.map(d => d.shareToken));
         for (const d of aiDocs) if (!used.has(d.shareToken)) { used.add(d.shareToken); citedDocs.push(d); }
@@ -1995,15 +2157,29 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           if (d.shareToken && !used.has(d.shareToken)) { used.add(d.shareToken); citedDocs.push(d); }
         }
         citedDocs = citedDocs.slice(0, 3);
+      } else {
+        citedDocs = citedDocs.slice(0, askMode === "general" ? 0 : 1);
       }
 
       const ytQuery = aiRes?.ytQuery || `${q} explained`;
 
-      // Video mode — fetch + auto-expand instead of waiting for a click
+      // Video intent — fetch, auto-expand, and pin it so follow-up questions
+      // can be answered from the transcript
       let video = null, autoVideo = false;
       if (!aiError && askMode === "video") {
         video = await fetchYouTubeVideo(ytQuery);
         autoVideo = !!video;
+        if (video) {
+          pinnedVideo = { videoId: video.videoId, title: video.title, channel: video.channel, url: video.url };
+          setActiveVideo(pinnedVideo);
+          if (videoTranscripts.current[video.videoId] === undefined) {
+            videoTranscripts.current[video.videoId] = null; // in-flight marker
+            fetchTranscript(video.videoId).then(segs => {
+              videoTranscripts.current[video.videoId] = segs || [];
+              if (segs?.length) toast.success("📜 Transcript ready — ask me anything about this video");
+            }).catch(() => { videoTranscripts.current[video.videoId] = []; });
+          }
+        }
       }
 
       const base = [...messages, userMsg].filter(m => m.type !== "loading" && m.type !== "streaming");
@@ -2047,7 +2223,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       }
       setMsgs(finalMsgs);
       setView("chat");
-      persistConvo(finalMsgs, finalMsgs[finalMsgs.length - 1]?.data || null, q, pinnedDoc);
+      persistConvo(finalMsgs, finalMsgs[finalMsgs.length - 1]?.data || null, q, pinnedDoc, pinnedVideo);
     } finally {
       setStreamCtl(null);
       setStreamStatus(null);
@@ -2319,7 +2495,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           data={m.data}
                           showFollowUps={i === messages.length - 1}
                           onSwitchMode={(newMode, origQ) => {
-                            setMode(newMode);
+                            // Suggestion chip = re-ask with that intent — the pill stays put
                             ask(origQ || `Continue in ${MODE_META[newMode]?.label || newMode} mode`, undefined, undefined, newMode);
                           }}
                           onStartPractice={() => {
@@ -2337,15 +2513,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           onQuizDoc={startDocQuiz}
                           onSave={saveAnswerToHub}
                           onSaveDeck={saveDeckToHub}
-                          onQuickAction={(action, topic) => {
-                            const prompts = {
-                              explain_simpler: `Explain ${topic} in simpler terms, as if for a beginner`,
-                              test_me: `Generate 3 multiple-choice questions about ${topic} to test my understanding`,
-                              flashcards: `Generate 5 flashcards about ${topic}`,
-                              example: `Give me a concrete real-world example of ${topic}`,
-                            };
-                            ask(prompts[action] || topic);
-                          }}
+                          onPracticeCards={(cards) => { setCardDeck(cards); setView("cards"); }}
                         />
                       )}
                     </div>
@@ -2387,6 +2555,37 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               </div>
             )}
 
+            {/* Pinned video context — follow-ups answer from the transcript */}
+            {activeVideo && (
+              <div style={{ padding: "6px 14px 0", background: D.bar, flexShrink: 0 }}>
+                <div style={{ maxWidth: 780, margin: "0 auto" }}>
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 7,
+                    padding: "4px 10px", borderRadius: 14,
+                    background: "rgba(239,83,80,0.10)", border: "0.5px solid rgba(239,83,80,0.35)",
+                    fontSize: 10.5, color: "#e57373", fontFamily: "Manrope,sans-serif",
+                  }}>
+                    <span style={{ fontSize: 11 }}>▶️</span>
+                    <span style={{ maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      Watching: {activeVideo.title}
+                    </span>
+                    {activeVideo.url && (
+                      <a
+                        href={activeVideo.url} target="_blank" rel="noopener noreferrer"
+                        title="Open on YouTube"
+                        style={{ color: "#e57373", fontSize: 10, opacity: 0.75, textDecoration: "none" }}
+                      >open ↗</a>
+                    )}
+                    <button
+                      onClick={() => setActiveVideo(null)}
+                      title="Stop asking about this video"
+                      style={{ background: "none", border: "none", color: D.muted, cursor: "pointer", fontSize: 12, padding: "0 2px", lineHeight: 1 }}
+                    >✕</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Mode selector — General / Materials / Video / Flashcards / Quiz / Exam prep */}
             <ModeBar mode={mode} onChange={setMode} />
 
@@ -2414,6 +2613,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             onStartExam={onStartExam ? handleExamStart : null}
             onReviewMistakes={(wrong) => reviewMistakes(wrong, data.subjectLabel)}
           />
+        )}
+
+        {/* ══ VIEW: FLASHCARD PRACTICE ══ */}
+        {view === "cards" && cardDeck && (
+          <FlashcardPractice cards={cardDeck} onBack={() => setView("chat")} />
         )}
 
         {/* ══ VIEW: STUDY (Guided Study) ══ */}

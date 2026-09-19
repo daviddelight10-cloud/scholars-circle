@@ -126,7 +126,7 @@ import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboard
 
 
 
-const AITutor = lazyWithRetry(() => import("./features/AITutor/index.jsx"));
+
 
 
 
@@ -648,7 +648,7 @@ function App() {
 
   const [resourcesSubTab, setResourcesSubTab] = useState("notes");
 
-  const [aiTutorSubTab, setAiTutorSubTab] = useState("chat");
+
 
   const [voiceTutorResourceId, setVoiceTutorResourceId] = useState(null);
 
@@ -1268,7 +1268,7 @@ function App() {
   useEffect(() => { ctxUI.setDemoUsage(demoUsage); }, [demoUsage]);
   useEffect(() => { ctxUI.setProgressSubTab(progressSubTab); }, [progressSubTab]);
   useEffect(() => { ctxUI.setResourcesSubTab(resourcesSubTab); }, [resourcesSubTab]);
-  useEffect(() => { ctxUI.setAiTutorSubTab(aiTutorSubTab); }, [aiTutorSubTab]);
+
   useEffect(() => { ctxUI.setAiConfig(aiConfig); }, [aiConfig]);
   // --- End context sync ---
 
@@ -10100,133 +10100,6 @@ function App() {
         </ErrorBoundary>
       )}
 
-      {tab === "aitutor_legacy" && (
-
-        <div>
-
-          {/* AI Tutor Hub sub-tabs */}
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-
-            <button
-
-              onClick={() => setAiTutorSubTab("chat")}
-
-              style={{
-
-                padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-
-                border: aiTutorSubTab === "chat" ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.25)",
-
-                background: aiTutorSubTab === "chat" ? "linear-gradient(135deg,#FFD700,#DAA520)" : "rgba(20,20,20,0.6)",
-
-                color: aiTutorSubTab === "chat" ? "#fff" : "#FFD700",
-
-              }}
-
-            >🧠 AI Chat</button>
-
-            <button
-
-              onClick={() => setAiTutorSubTab("lectures")}
-
-              style={{
-
-                padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-
-                border: aiTutorSubTab === "lectures" ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.25)",
-
-                background: aiTutorSubTab === "lectures" ? "linear-gradient(135deg,#FFD700,#DAA520)" : "rgba(20,20,20,0.6)",
-
-                color: aiTutorSubTab === "lectures" ? "#fff" : "#FFD700",
-
-              }}
-
-            >🎙️ Lecture to Notes</button>
-
-          </div>
-
-
-
-          {aiTutorSubTab === "chat" && (
-            <Suspense fallback={<div className="card"><p className="muted">Loading AI Tutor...</p></div>}>
-            <AITutor
-              aiConfig={aiConfig}
-              subjects={subjects}
-              studentProfile={studentProfile}
-              onImportFlashcards={(cards) => setCustomFlashcards((p) => [...p, ...cards])}
-              onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-              token={token}
-              demoMode={demoMode}
-              demoUsage={demoUsage}
-              setDemoUsage={setDemoUsage}
-              onNavigate={(target) => setTab(target)}
-            />
-            </Suspense>
-          )}
-
-
-
-          {aiTutorSubTab === "lectures" && (
-
-            demoMode && (() => {
-
-              const today = new Date().toDateString();
-
-              const usedToday = demoUsage.lectureToNotesDate === today ? demoUsage.lectureToNotesUsed : 0;
-
-              return usedToday >= DEMO_LIMITS.lectureToNotesDaily;
-
-            })() ? (
-
-              <DemoLockedOverlay
-
-                title="Lecture to Notes"
-
-                description={`You've used your daily limit (${DEMO_LIMITS.lectureToNotesDaily}/day). Upgrade for unlimited access!`}
-
-                icon="⏱️"
-
-                features={["Unlimited lecture conversions", "AI-powered summaries", "Auto-generated flashcards", "Key term extraction"]}
-
-                showPlans={true}
-
-              />
-
-            ) : (
-
-              <>
-
-                {demoMode && (
-
-                  <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-
-                    <span style={{ fontSize: 13 }}>? Demo: {DEMO_LIMITS.lectureToNotesDaily - (demoUsage.lectureToNotesDate === new Date().toDateString() ? demoUsage.lectureToNotesUsed : 0)} conversion(s) remaining today.</span>
-
-                  </div>
-
-                )}
-
-                <Suspense fallback={<TabSkeleton />}>
-                <LectureToNotes
-                  subjects={subjects}
-                  aiConfig={aiConfig}
-                  onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-                  demoMode={demoMode}
-                  demoUsage={demoUsage}
-                  setDemoUsage={setDemoUsage}
-                />
-                </Suspense>
-
-              </>
-
-            )
-
-          )}
-
-        </div>
-
-      )}
 
 
 

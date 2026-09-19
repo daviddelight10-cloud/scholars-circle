@@ -181,13 +181,40 @@ router.post("/tutor", requireAuth, aiRateLimit, async (req, res) => {
     }
 
     // ── Research Hub retrieval: match documents to the student's question ──
+    // Broad OR-candidates from Postgres, then JS relevance scoring so weak
+    // single-word hits ("explain", "the") can't pull unrelated documents.
+    const QUERY_STOPWORDS = new Set([
+      "the", "and", "for", "are", "was", "were", "what", "when", "where", "which", "who", "whom", "why", "how",
+      "explain", "tell", "show", "give", "give me", "find", "get", "use", "using", "about", "with", "from",
+      "this", "that", "these", "those", "your", "yours", "mine", "our", "ours", "their", "its",
+      "please", "help", "want", "need", "know", "does", "did", "can", "could", "would", "should",
+      "into", "onto", "between", "under", "over", "again", "once", "here", "there",
+    ]);
+    const scoreDoc = (r, words) => {
+      const title = (r.title || "").toLowerCase();
+      const subject = (r.subject || "").toLowerCase();
+      const code = (r.courseCode || "").toLowerCase();
+      const tags = (r.tags || []).map(t => String(t).toLowerCase());
+      let score = 0;
+      let titleHits = 0;
+      for (const w of words) {
+        if (code && code.includes(w)) score += 4;
+        if (title.includes(w)) { score += 3; titleHits++; }
+        if (subject && subject.includes(w)) score += 2;
+        if (tags.some(t => t === w)) score += 2;
+      }
+      if (titleHits >= 2) score += 2; // multi-word title match = strong topicality
+      return score;
+    };
+
     let matchedDocs = [];
     let docBlock = "";
     if (query && typeof query === "string") {
-      const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2).slice(0, 8);
+      const words = query.toLowerCase().split(/[^a-z0-9]+/)
+        .filter(w => w.length > 2 && !QUERY_STOPWORDS.has(w)).slice(0, 8);
       if (words.length) {
         try {
-          matchedDocs = await prisma.resource.findMany({
+          const candidates = await prisma.resource.findMany({
             where: {
               status: "approved",
               OR: [
@@ -200,10 +227,19 @@ router.post("/tutor", requireAuth, aiRateLimit, async (req, res) => {
             select: {
               id: true, shareToken: true, title: true, subject: true, contentType: true,
               courseCode: true, fileUrl: true, fileName: true, mimeType: true, mcqData: true,
+              tags: true,
             },
             orderBy: { createdAt: "desc" },
-            take: 8,
+            take: 40,
           });
+          // Minimum score 4 = at least one strong field hit (courseCode, title,
+          // or a subject/tag pair). Single weak hits are dropped entirely.
+          matchedDocs = candidates
+            .map(r => ({ r, s: scoreDoc(r, words) }))
+            .filter(x => x.s >= 4)
+            .sort((a, b) => b.s - a.s)
+            .slice(0, 6)
+            .map(x => x.r);
           if (matchedDocs.length) {
             docBlock =
               "## Scholar's Circle Research Hub (documents matching this question — cite exact titles)\n" +
