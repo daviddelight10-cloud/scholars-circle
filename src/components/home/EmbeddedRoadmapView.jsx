@@ -12,8 +12,9 @@ import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
 import {
   D, findStartHereTopic, progressPct,
-  TopicDetailPanel, OnboardingStep, DocRow,
+  OnboardingStep, DocRow,
 } from "./roadmapShared";
+import TopicSheet from "./TopicSheet";
 
 const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
 
@@ -44,6 +45,7 @@ export default function EmbeddedRoadmapView({
   onPracticeFile,
   onSetCourseCode,
   codeEditable = true,
+  mcqProgress,
 }) {
   const [topics, setTopics] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -921,51 +923,25 @@ export default function EmbeddedRoadmapView({
         </div>
       )}
 
-      {/* Topic detail modal */}
+      {/* Topic detail sheet */}
       {detailOpen && selectedTopic && (
-        <div
-          className="cs-sheet-backdrop"
-          style={{ alignItems: "center", padding: 16 }}
-          onClick={() => setDetailOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-label={selectedTopic.title}
-            style={{
-              width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto",
-              background: "#12161F", border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 20, padding: 20,
-              scrollbarWidth: "none",
-            }}
-          >
-            <button
-              onClick={() => setDetailOpen(false)}
-              className="cs-sheet-close"
-              aria-label="Close topic detail"
-              style={{ float: "right" }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18" /><path d="M6 6l12 12" />
-              </svg>
-            </button>
-            <TopicDetailPanel
-              topic={selectedTopic}
-              topics={topics}
-              progress={progress?.[selectedTopic.id]}
-              matches={matchesByTopic.get(selectedTopic.id) || []}
-              onOpenResource={onOpenResource}
-              onStartStudying={handleStartStudying}
-              isStartHere={startHereTopic?.id === selectedTopic.id}
-              resourceVariantsMap={resourceVariantsMap}
-              onPracticeDoc={(m) => {
-                const full = resourceByIdMap.get(m.resourceId) || m.resource;
-                if (full) onPracticeFile?.(full);
-              }}
-            />
-          </div>
-        </div>
+        <TopicSheet
+          key={selectedTopic.id}
+          topic={selectedTopic}
+          topics={topics}
+          progress={progress?.[selectedTopic.id]}
+          matches={matchesByTopic.get(selectedTopic.id) || []}
+          isStartHere={startHereTopic?.id === selectedTopic.id}
+          resourceVariantsMap={resourceVariantsMap}
+          mcqProgress={mcqProgress}
+          onOpenResource={onOpenResource}
+          onStartStudying={handleStartStudying}
+          onPracticeDoc={(m) => {
+            const full = resourceByIdMap.get(m.resourceId) || m.resource;
+            if (full) onPracticeFile?.(full);
+          }}
+          onClose={() => setDetailOpen(false)}
+        />
       )}
 
       {toast && (

@@ -291,6 +291,7 @@ export default function FolderDetailView({
                 onPracticeFile={setSheetFile}
                 onSetCourseCode={onSetCourseCode}
                 codeEditable={codeEditable}
+                mcqProgress={mcqProgress}
               />
             )}
           </div>
