@@ -45,7 +45,7 @@ function BlogPostView({ post, slug }) {
   }, [post]);
 
   return (
-    <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 17, lineHeight: 1.7, minHeight: '100vh' }}>
+    <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 17, lineHeight: 1.7, minHeight: '100dvh' }}>
       <style>{`
         a { color: inherit; text-decoration: none; }
         .prose h1 { font-family: 'Syne', sans-serif; font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; margin: 0 0 16px; line-height: 1.15; }

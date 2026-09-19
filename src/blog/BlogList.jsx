@@ -15,7 +15,7 @@ const blue = '#FFD700';
 
 export default function BlogList() {
   return (
-    <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.55, minHeight: '100vh' }}>
+    <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.55, minHeight: '100dvh' }}>
       <style>{`
         a { color: inherit; text-decoration: none; }
         .blog-card { transition: border-color 0.2s ease, transform 0.2s ease; }

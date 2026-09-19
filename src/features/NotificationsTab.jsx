@@ -435,7 +435,7 @@ export default function NotificationsTab({ token, currentUser }) {
       })()}
 
       {/* ── Main Notifications View ── */}
-      <div style={{ minHeight:"100vh", background:T.bg, padding:"20px", animation:"scFadeIn 0.4s ease" }}>
+      <div style={{ minHeight:"100dvh", background:T.bg, padding:"20px", animation:"scFadeIn 0.4s ease" }}>
         <div style={{ maxWidth:1200, margin:"0 auto" }}>
           
           {/* Header */}
@@ -503,7 +503,7 @@ export default function NotificationsTab({ token, currentUser }) {
           </div>
 
           {/* Notifications list */}
-          <div className="sc-notif-scroll" style={{ overflowY:"auto", maxHeight:"calc(100vh - 240px)" }}>
+          <div className="sc-notif-scroll" style={{ overflowY:"auto", maxHeight:"calc(100dvh - 240px)" }}>
             {isLoading ? (
               <div style={{ display:"flex", justifyContent:"center", padding:"60px 0" }}>
                 <div style={{ width:32, height:32, border:`3px solid rgba(61,126,255,0.3)`, borderTopColor:T.blue, borderRadius:"50%", animation:"scSpin 0.8s linear infinite" }} />

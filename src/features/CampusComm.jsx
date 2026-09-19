@@ -203,7 +203,7 @@ export default function CampusComm({ token, currentUser }) {
   const myAnnouncements = announcements.filter((a) => a.senderId === currentUser?.id);
 
   return (
-    <div style={{ fontFamily: T.body, color: T.text, minHeight: "100vh", background: T.bg, padding: "20px 16px" }}>
+    <div style={{ fontFamily: T.body, color: T.text, minHeight: "100dvh", background: T.bg, padding: "20px 16px" }}>
 
       {/* ── Global keyframes ── */}
       <style>{`

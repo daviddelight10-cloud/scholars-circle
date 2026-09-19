@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { useUI } from "../contexts/UIContext.jsx";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import {
@@ -99,6 +101,7 @@ const SMART_CHIPS = [
 ];
 
 export default function DocumentReader({ fileUrl, title, contentType, resourceId, folderId, onBack }) {
+  const { setMobileNavHidden } = useUI();
   const [theme, setTheme] = useState(() => localStorage.getItem("sc_doc_theme") || "dark");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -690,26 +693,34 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
     setSearchResults(results);
   };
 
+  // This reader is always fullscreen — hide the bottom nav for its lifetime
+  useEffect(() => {
+    setMobileNavHidden(true);
+    return () => setMobileNavHidden(false);
+  }, [setMobileNavHidden]);
+
   if (loading) {
-    return (
+    return createPortal(
       <div className="zoom-allowed" style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
         <div style={{ fontSize: "32px", marginBottom: "12px" }}>📖</div>
         <div style={{ color: t.muted, fontSize: "14px" }}>Loading document…</div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   if (error) {
-    return (
+    return createPortal(
       <div className="zoom-allowed" style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg }}>
         <div style={{ fontSize: "32px", marginBottom: "12px" }}>⚠️</div>
         <div style={{ color: t.accent, fontSize: "14px", marginBottom: "16px" }}>{error}</div>
         {onBack && <button onClick={onBack} style={{ padding: "8px 20px", borderRadius: "8px", border: `0.5px solid ${t.border}`, background: t.toolbar, color: t.text, cursor: "pointer" }}>← Back</button>}
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div className="zoom-allowed" style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", flexDirection: "column", background: t.bg }}>
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 14px", background: t.toolbar, borderBottom: `0.5px solid ${t.border}`, flexShrink: 0 }}>
@@ -1233,6 +1244,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
           )}
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

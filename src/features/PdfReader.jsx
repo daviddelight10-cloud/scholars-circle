@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
+import { useUI } from "../contexts/UIContext.jsx";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import TypewriterText from "../components/TypewriterText.jsx";
@@ -178,6 +180,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [fullscreen, setFullscreen] = useState(initialFullscreen);
+  const { setMobileNavHidden } = useUI();
 
   // Theme
   const [theme, setTheme] = useState(() => loadStored("sc_pdf_theme", "light"));
@@ -2772,6 +2775,14 @@ ${extractedText}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
+  // ---- Hide bottom nav while fullscreen (portal lifts us above it too;
+  //      this flag covers any other overlay rendered inside #root) ----
+  useEffect(() => {
+    if (!fullscreen) return;
+    setMobileNavHidden(true);
+    return () => setMobileNavHidden(false);
+  }, [fullscreen, setMobileNavHidden]);
+
   // ---- Styles ----
   const s = {
     container: {
@@ -3993,7 +4004,7 @@ ${extractedText}
     } catch (e) {}
   };
 
-  return (
+  const reader = (
     <div className="zoom-allowed" style={s.container}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -6836,4 +6847,8 @@ ${extractedText}
           )}
     </div>
   );
+
+  // iOS: in fullscreen, mount on document.body — fixed elements inside the
+  // #root overflow scroller lose z-order to body-level fixed elements (nav)
+  return fullscreen ? createPortal(reader, document.body) : reader;
 }

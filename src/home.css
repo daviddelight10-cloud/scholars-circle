@@ -334,7 +334,7 @@
   background: #101018; border: 1px solid var(--hm-stroke); border-bottom: none;
   border-radius: 24px 24px 0 0; transform: translateY(105%);
   transition: .32s cubic-bezier(.2,.8,.2,1); padding: 10px 18px 24px;
-  max-height: 80vh; overflow-y: auto; scrollbar-width: none; color: var(--hm-text);
+  max-height: 80vh; max-height: 80dvh; overflow-y: auto; scrollbar-width: none; color: var(--hm-text);
   font-family: var(--hm-font-body);
 }
 .hm-sheet::-webkit-scrollbar { display: none; }

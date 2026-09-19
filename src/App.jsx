@@ -6168,7 +6168,7 @@ function App() {
 
     return (
 
-      <main style={{ minHeight: '100vh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.5, WebkitFontSmoothing: 'antialiased', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
+      <main style={{ minHeight: '100dvh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.5, WebkitFontSmoothing: 'antialiased', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
 
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -6248,7 +6248,7 @@ function App() {
           @media (max-width: 900px) {
             .auth-shell { grid-template-columns: 1fr !important; }
             .auth-visual-panel { display: none !important; }
-            .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; align-items: flex-start !important; padding-top: 60px !important; }
+            .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; min-height: 100dvh; align-items: flex-start !important; padding-top: 60px !important; }
             .auth-mobile-banner { display: flex !important; align-items: center; gap: 10px; margin-bottom: 28px; }
           }
           @media (max-width: 560px) {
@@ -6294,7 +6294,7 @@ function App() {
           </div>
         )}
 
-        <div className="auth-shell" style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+        <div className="auth-shell" style={{ minHeight: '100dvh', display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
 
           {/* Visual Panel */}
           <div className="auth-visual-panel" style={{
@@ -8324,7 +8324,7 @@ function App() {
 
       {/* Mobile Bottom Navigation */}
 
-      {!(tab === "voice-tutor" && voiceSessionActive) && createPortal(
+      {!ctxUI.hideMobileNav && !homeViewerToken && !(tab === "voice-tutor" && voiceSessionActive) && createPortal(
       <nav className="mobile-nav">
 
         <button
@@ -8403,7 +8403,7 @@ function App() {
 
       {/* FAB Quick Actions — floating bottom-right like ResearchHub */}
 
-      {fabOpen && !(tab === "voice-tutor" && voiceSessionActive) && (
+      {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !(tab === "voice-tutor" && voiceSessionActive) && (
 
         <div onClick={() => setFabOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 998, background: "rgba(0,0,0,0.5)", animation: "sc-fabfade 0.15s ease" }} />
 
@@ -8411,7 +8411,7 @@ function App() {
 
       <div style={{ position: "fixed", bottom: "calc(80px + env(safe-area-inset-bottom))", right: 16, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
 
-        {fabOpen && !(tab === "voice-tutor" && voiceSessionActive) && (
+        {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !(tab === "voice-tutor" && voiceSessionActive) && (
 
           <>
 
@@ -9068,7 +9068,7 @@ function App() {
 
       )}
 
-      {homeViewerToken && (
+      {homeViewerToken && createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#0a0a0a", display: "flex", flexDirection: "column" }}>
           <ErrorBoundary>
             <Suspense fallback={<TabSkeleton />}>
@@ -9079,7 +9079,8 @@ function App() {
               />
             </Suspense>
           </ErrorBoundary>
-        </div>
+        </div>,
+        document.body
       )}
 
       {tab === "lectures" && (

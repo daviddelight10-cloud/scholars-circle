@@ -6,6 +6,7 @@ const initialState = {
   tab: "today",
   darkMode: true,
   showMobileMenu: false,
+  hideMobileNav: false,
   showDeleteModal: false,
   deletePassword: "",
   deleteLoading: false,
@@ -42,6 +43,8 @@ function uiReducer(state, action) {
       return { ...state, showMobileMenu: action.payload };
     case "TOGGLE_MOBILE_MENU":
       return { ...state, showMobileMenu: !state.showMobileMenu };
+    case "SET_MOBILE_NAV_HIDDEN":
+      return { ...state, hideMobileNav: action.payload };
     case "SET_DELETE_MODAL":
       return { ...state, showDeleteModal: action.payload };
     case "SET_DELETE_PASSWORD":
@@ -96,6 +99,7 @@ export function UIProvider({ children }) {
     setDarkMode: (darkMode) => dispatch({ type: "SET_DARK_MODE", payload: darkMode }),
     setMobileMenu: (show) => dispatch({ type: "SET_MOBILE_MENU", payload: show }),
     toggleMobileMenu: () => dispatch({ type: "TOGGLE_MOBILE_MENU" }),
+    setMobileNavHidden: (hidden) => dispatch({ type: "SET_MOBILE_NAV_HIDDEN", payload: hidden }),
     setDeleteModal: (show) => dispatch({ type: "SET_DELETE_MODAL", payload: show }),
     setDeletePassword: (password) => dispatch({ type: "SET_DELETE_PASSWORD", payload: password }),
     setDeleteLoading: (loading) => dispatch({ type: "SET_DELETE_LOADING", payload: loading }),

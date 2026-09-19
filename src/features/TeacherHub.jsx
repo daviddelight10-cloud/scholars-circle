@@ -398,7 +398,7 @@ export default function TeacherHub({ token, auth }) {
   `;
 
   return (
-    <div style={{ minHeight:"100vh", background:"#0A0D13", color:"#E8E9F0", fontFamily:"'Manrope',sans-serif" }}>
+    <div style={{ minHeight:"100dvh", background:"#0A0D13", color:"#E8E9F0", fontFamily:"'Manrope',sans-serif" }}>
       <style>{CSS}</style>
 
       {/* ── TOP HEADER ── */}

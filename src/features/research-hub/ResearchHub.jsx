@@ -10,6 +10,7 @@ import { haptics } from "../../lib/haptics";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
+import { useUI } from "../../contexts/UIContext.jsx";
 
 import { categorizeResources } from "./lib/categorize.js";
 import FolderDetailView from "./FolderDetailView";
@@ -146,6 +147,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [toast, setToast] = useState(null); // { msg, icon, actLabel, actFn }
   const toastTimer = useRef(null);
   const [viewerToken, setViewerToken] = useState(null);
+  const { setMobileNavHidden } = useUI();
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [bookmarkFolderMap, setBookmarkFolderMap] = useState({});
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
@@ -225,6 +227,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return {};
   });
   const [sessionMode, setSessionMode] = useState(null); // { type: 'spaced'|'adaptive'|'exam'|'folder', subject, resourceIds, folder, mcqResources }
+
+  // Hide the bottom nav while an immersive view is open (resource viewer,
+  // session runners). They render inside #root, whose fixed children lose
+  // z-order to the body-level nav on iOS — so we unmount the nav instead.
+  useEffect(() => {
+    setMobileNavHidden(Boolean(viewerToken || sessionMode));
+    return () => setMobileNavHidden(false);
+  }, [viewerToken, sessionMode, setMobileNavHidden]);
 
   const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, generate: generateFromMaterial, retry: retryMaterialGenerate, clearError: clearMaterialGenError } = useMaterialGenerate();
 

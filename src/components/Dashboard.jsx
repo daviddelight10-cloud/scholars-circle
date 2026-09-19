@@ -369,7 +369,7 @@ export default function Dashboard({
   };
 
   return (
-    <div className="hm-root" style={{ minHeight: "100vh" }}>
+    <div className="hm-root" style={{ minHeight: "100dvh" }}>
       <div className="hm-inner" style={{ paddingBottom: 28 }}>
         {/* ── Header + gamebar ── */}
         <div className="hm-topbar">

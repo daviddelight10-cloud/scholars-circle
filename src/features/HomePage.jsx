@@ -173,7 +173,7 @@ export default function HomePage() {
   const green = '#3DD68C';
 
   return (
-    <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.55, minHeight: '100vh', overflowX: 'clip' }}>
+    <main style={{ background: ink, color: text, fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.55, minHeight: '100dvh', overflowX: 'clip' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

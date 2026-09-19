@@ -296,7 +296,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
 
   if (isFaculty) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div className="card" style={{ maxWidth: 480, textAlign: "center" }}>
           <div style={{ fontSize: 64, marginBottom: 12 }}>✅</div>
           <h2>Account Created Successfully!</h2>
@@ -312,7 +312,7 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(255,215,0,0.05), rgba(218,165,32,0.05))" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "linear-gradient(135deg, rgba(255,215,0,0.05), rgba(218,165,32,0.05))" }}>
       <div style={{ maxWidth: 900, width: "100%" }}>
         {/* Install App Button - Top Right */}
         {deferredPrompt && !isIOS && (

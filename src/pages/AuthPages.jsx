@@ -213,7 +213,7 @@ export default function AuthPages() {
 
   if (resetPasswordMode) {
     return (
-      <main style={{ minHeight: '100vh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <main style={{ minHeight: '100dvh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -283,7 +283,7 @@ export default function AuthPages() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif' }}>
+    <main style={{ minHeight: '100dvh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -322,12 +322,12 @@ export default function AuthPages() {
           transition: border-color 0.15s ease;
         }
         .auth-google-btn:hover { border-color: #9AA3B5; }
-        .auth-shell { display: grid; grid-template-columns: 1fr 1fr; minHeight: '100vh'; }
+        .auth-shell { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; min-height: 100dvh; }
         .auth-mobile-banner { display: none; }
         @media (max-width: 900px) {
           .auth-shell { grid-template-columns: 1fr !important; }
           .auth-visual-panel { display: none !important; }
-          .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; align-items: flex-start !important; padding-top: 60px !important; }
+          .auth-form-panel { padding: 32px 24px !important; min-height: 100vh; min-height: 100dvh; align-items: flex-start !important; padding-top: 60px !important; }
           .auth-mobile-banner { display: flex !important; align-items: center; gap: 10px; margin-bottom: 28px; }
         }
         @media (max-width: 560px) {

@@ -6,6 +6,8 @@ html {
   overflow: hidden;
   width: 100%;
   height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
 }
 
 :root {
@@ -110,6 +112,7 @@ html {
   }
   100% {
     transform: translateY(100vh) rotate(720deg);
+    transform: translateY(100dvh) rotate(720deg);
     opacity: 0;
   }
 }
@@ -342,6 +345,7 @@ html {
   cursor: default;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .today-tile::before {
@@ -647,6 +651,7 @@ button:active {
   border-radius: 20px;
   padding: 20px;
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 215, 0, 0.05);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -783,6 +788,7 @@ button:active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .subject-btn::before {
@@ -1449,6 +1455,7 @@ button:active {
   border-radius: 12px;
   margin-bottom: 16px;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .demo-banner.warning {
@@ -1510,6 +1517,7 @@ button:active {
   padding-top: calc(16px + env(safe-area-inset-top));
   background: linear-gradient(180deg, rgba(10, 10, 10, 0.95), rgba(10, 10, 10, 0.85));
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 215, 0, 0.15);
 }
 
@@ -1701,6 +1709,7 @@ button:active {
   border-radius: 12px;
   padding: 8px;
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   z-index: 1000;
   opacity: 0;
@@ -1770,6 +1779,7 @@ button:active {
   border: 1px solid rgba(255, 215, 0, 0.2);
   border-radius: 16px;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   margin-top: 12px;
   position: relative;
   overflow: hidden;
@@ -2071,6 +2081,8 @@ body {
   overflow: hidden;
   width: 100%;
   height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
   overscroll-behavior-x: none;
   overscroll-behavior-y: none;
   -webkit-text-size-adjust: 100%;
@@ -2079,9 +2091,11 @@ body {
 #root {
   overflow-y: auto;
   height: 100%;
+  height: -webkit-fill-available;
   height: 100dvh;
   overscroll-behavior: none;
   scroll-behavior: smooth;
+  background: #0A0D13;
 }
 
 
@@ -2107,6 +2121,7 @@ body {
   z-index: 1200;
 
   backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 
   pointer-events: all;
 
@@ -3476,6 +3491,7 @@ textarea {
   top: 0;
   z-index: 50;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .tab-back-btn {
@@ -4171,6 +4187,7 @@ textarea {
     padding: 16px;
     width: 100%;
     max-height: 70vh;
+    max-height: 70dvh;
     overflow-y: auto;
     animation: slideUp 0.3s ease;
     touch-action: pan-y;
@@ -4249,10 +4266,6 @@ textarea {
     text-size-adjust: 100%;
   }
   
-  #root {
-    -webkit-overflow-scrolling: touch;
-  }
-  
   .row {
     flex-wrap: wrap;
     gap: 8px;
@@ -4265,18 +4278,6 @@ textarea {
   
   input, textarea, select {
     font-size: 16px; /* Prevents zoom on iOS */
-  }
-  
-  /* Prevent white flash on scroll */
-  .app::after {
-    content: '';
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: env(safe-area-inset-bottom);
-    background: inherit;
-    z-index: -1;
   }
   
   /* Optimize heatmap for mobile */
@@ -4341,6 +4342,7 @@ textarea {
   }
   100% {
     transform: translateY(100vh) rotate(720deg);
+    transform: translateY(100dvh) rotate(720deg);
     opacity: 0;
   }
 }
@@ -4734,6 +4736,7 @@ textarea {
   inset: 0;
   background: rgba(8, 9, 18, 0.78);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 1000;
   display: flex;
   align-items: flex-start;
@@ -5449,8 +5452,10 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
 }
 
 @keyframes tabSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  /* Opacity only: a lingering transform makes .tab-enter a containing block,
+     mis-positioning fixed overlays opened during the tab transition */
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ─── Connection quality indicator ─────────────────────────────────────────── */
@@ -5796,6 +5801,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   border: 1px solid rgba(255, 215, 0, 0.12);
   border-radius: 16px;
   max-height: calc(100vh - 140px);
+  max-height: calc(100dvh - 140px);
   overflow-y: auto;
   transition: width 0.25s ease, padding 0.25s ease;
   touch-action: pan-y;
@@ -8031,6 +8037,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   left: 0;
   z-index: 10;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .sg-emoji-btn {
@@ -9047,6 +9054,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   padding: 32px 40px;
   text-align: center;
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 0 40px rgba(255, 215, 0, 0.2);
 }
 
