@@ -166,6 +166,19 @@ const MODE_PROMPTS = {
   general: "",
 };
 
+// Keyword intent map — obvious phrases auto-route General mode to the right mode
+const MODE_INTENTS = [
+  { mode: "flashcards", re: /\bflash\s?cards?\b|\brevision cards?\b/i },
+  { mode: "exam",       re: /\b(mock|timed|full)\s+exams?\b|\bexam\s*(prep|simulation|mode)\b|\btake (an?|the) exam\b/i },
+  { mode: "quiz",       re: /\bquiz\b|\btest me\b|\bpractice questions?\b|\bpast questions?\b|\bmcqs?\b/i },
+  { mode: "video",      re: /\bvideo\b|\byoutube\b|\bvideo lesson\b/i },
+  { mode: "materials",  re: /\b(find|open|read|summari[sz]e|use)\s+(my|the|this|our)?\s*(notes?|pdfs?|documents?|materials?|slides|handouts?)\b/i },
+];
+function detectModeIntent(q) {
+  for (const { mode, re } of MODE_INTENTS) if (re.test(q)) return mode;
+  return null;
+}
+
 // Extract the in-progress "answer" string from partially-streamed JSON so the
 // UI can render markdown as it arrives. Returns "" until the answer field starts.
 function extractPartialAnswer(raw) {
@@ -205,18 +218,29 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
   // non-streaming fallbacks replace it with the client-side catalog.
   const docCatalog = buildDocCatalog(resources, { prefer: subject?.label });
   const modeSchema = opts.mode === "flashcards" ? `,"flashcards":[{"front":"<term or question>","back":"<concise answer>"}]` : "";
+  const isGeneral = !opts.mode || opts.mode === "general";
   const prompt =
     `${system}\n\n${APP_FEATURES}\n\n{{DOC_CATALOG}}\n\n${catalog ? `${catalog}\n\n` : ""}${convo}\n\n` +
     `The student asked: "${query}"\n\n` +
     `Reply ONLY with valid JSON (no markdown code fences):\n` +
-    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"}${modeSchema}}\n\n` +
-    `Rules:\n` +
-    `- "answer" is REQUIRED and must never be empty.\n` +
-    `- "documents": list up to 3 EXACT document titles from the Research Hub list when the student asks for notes/materials/PDFs, or when a listed document clearly covers their question. Copy titles EXACTLY. Omit the field otherwise.\n` +
-    `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
-    `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
-    `- If the student asks how to use the app, answer using the feature list above.` +
-    (MODE_PROMPTS[opts.mode] || "");
+    (isGeneral
+      // General mode — pure text chat. No documents/practice/video fields; the
+      // model only suggests a better mode via "suggestMode" when clearly needed.
+      ? `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"suggestMode":"<one of: materials|video|flashcards|quiz|exam>"}\n\n` +
+        `Rules:\n` +
+        `- "answer" is REQUIRED and must never be empty.\n` +
+        `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
+        `- "suggestMode": include ONLY when another mode clearly fits the request better — flashcards for cards/memorization, quiz when they want to be tested, exam for timed/mock tests, video when they want to watch a lesson, materials when they ask for their notes/documents. Omit it otherwise.\n` +
+        `- If the student asks how to use the app, answer using the feature list above.`
+      : `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"},"suggestMode":"<one of: materials|video|flashcards|quiz|exam>"${modeSchema}}\n\n` +
+        `Rules:\n` +
+        `- "answer" is REQUIRED and must never be empty.\n` +
+        `- "documents": list up to 3 EXACT document titles from the Research Hub list when the student asks for notes/materials/PDFs, or when a listed document clearly covers their question. Copy titles EXACTLY. Omit the field otherwise.\n` +
+        `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
+        `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
+        `- "suggestMode": include ONLY when another mode clearly fits the request better; omit otherwise.\n` +
+        `- If the student asks how to use the app, answer using the feature list above.` +
+        (MODE_PROMPTS[opts.mode] || ""));
 
   // Multimodal (images/scanned PDFs) — classic endpoint, client-side doc catalog
   if (images && images.length > 0) {
@@ -387,7 +411,7 @@ function PracticeCard({ practice, onQuick, onExam }) {
   );
 }
 
-function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc, onQuizDoc, onSave, onSaveDeck }) {
+function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc, onQuizDoc, onSave, onSaveDeck, onSwitchMode, showFollowUps = true }) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [showVideo, setShowVideo] = useState(!!data.autoVideo);
@@ -499,6 +523,24 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
           {/* Freeform markdown answer */}
           <MarkdownText theme="gold">{answer}</MarkdownText>
 
+          {/* Mode suggestion — one tap switches mode and re-asks the question */}
+          {data.suggestMode && MODE_META[data.suggestMode] && onSwitchMode && (
+            <div style={{ margin: "8px 0 2px" }}>
+              <button
+                onClick={() => onSwitchMode(data.suggestMode, data.question || data.topic)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "6px 13px", borderRadius: 16,
+                  background: "transparent", border: `0.5px dashed ${D.border}`,
+                  color: D.accent2, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                  fontFamily: "Manrope,sans-serif", transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = D.accent; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+              >{MODE_META[data.suggestMode].icon} Switch to {MODE_META[data.suggestMode].label} →</button>
+            </div>
+          )}
+
           {/* Research Hub documents the AI cited */}
           {(data.documents || []).length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 7, margin: "10px 0 2px" }}>
@@ -523,8 +565,8 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
             />
           )}
 
-          {/* Fallback — no bank match, offer AI-generated practice */}
-          {!hasBank && (
+          {/* Fallback — no bank match, offer AI-generated practice (not in General) */}
+          {!hasBank && data.mode !== "general" && (
             <div style={{ margin: "8px 0 2px" }}>
               <button
                 onClick={onStartPractice}
@@ -593,8 +635,8 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
             ))}
           </div>
 
-          {/* Follow-up suggestions */}
-          {followUps.length > 0 && (
+          {/* Follow-up suggestions — only on the latest reply (ChatGPT-style) */}
+          {showFollowUps && followUps.length > 0 && (
             <div style={{ padding: "10px 0 2px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {followUps.map((fu, i) => (
@@ -1723,12 +1765,21 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     );
   }
 
-  async function ask(rawQ, attachOverride, docOverride) {
+  async function ask(rawQ, attachOverride, docOverride, modeOverride) {
     const attach = attachOverride !== undefined ? attachOverride : attachment;
     const hasAttachment = !!attach;
     const q = rawQ?.trim() || (hasAttachment ? `Analyze this ${attach.type === "img" ? "image" : "document"}: ${attach.name}` : "");
     if (!q || loading) return;
-    const askMode = mode;
+    let askMode = modeOverride || mode;
+    // Keyword intent — General auto-routes obvious requests to the right mode
+    if (askMode === "general") {
+      const intent = detectModeIntent(q);
+      if (intent) {
+        askMode = intent;
+        setMode(intent);
+        toast.info(`Switched to ${MODE_META[intent].icon} ${MODE_META[intent].label} mode`);
+      }
+    }
     setInput("");
     setView("chat");
     setLoading(true);
@@ -1857,46 +1908,42 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       }
 
       // Resolve real practice questions — MCQ resources in Research Hub first,
-      // then the subject bank as fallback
+      // then the subject bank as fallback. General mode stays text-only.
       let practice = null;
-      if (aiRes?.practice) {
-        const req = { subject: aiRes.practice.subject || selectedSubject?.label, topic: aiRes.practice.topic };
-        practice = resolveMcqPractice(req, resources) || resolvePractice(req, subjects);
-      }
-      if (!practice && hasPracticeIntent(q)) {
-        if (selectedSubject) {
-          practice = resolveMcqPractice({ subject: selectedSubject.label, topic: q }, resources)
-            || resolvePractice({ subject: selectedSubject.label, topic: q }, subjects);
+      if (askMode !== "general") {
+        if (aiRes?.practice) {
+          const req = { subject: aiRes.practice.subject || selectedSubject?.label, topic: aiRes.practice.topic };
+          practice = resolveMcqPractice(req, resources) || resolvePractice(req, subjects);
         }
-        if (!practice) {
-          const mcqRes = resolveMcqPractice({ subject: q, topic: q }, resources);
-          if (mcqRes) {
-            practice = mcqRes;
-          } else {
-            const bankRes = searchQuestionBank(q, subjects);
-            if (bankRes.found) {
-              practice = {
-                subject: bankRes.subject, subjectId: bankRes.subject?.id,
-                subjectLabel: bankRes.subjectLabel, subjectIcon: bankRes.subjectIcon,
-                topic: bankRes.topic, questions: bankRes.questions, total: bankRes.bankCount,
-              };
+        if (!practice && hasPracticeIntent(q)) {
+          if (selectedSubject) {
+            practice = resolveMcqPractice({ subject: selectedSubject.label, topic: q }, resources)
+              || resolvePractice({ subject: selectedSubject.label, topic: q }, subjects);
+          }
+          if (!practice) {
+            const mcqRes = resolveMcqPractice({ subject: q, topic: q }, resources);
+            if (mcqRes) {
+              practice = mcqRes;
+            } else {
+              const bankRes = searchQuestionBank(q, subjects);
+              if (bankRes.found) {
+                practice = {
+                  subject: bankRes.subject, subjectId: bankRes.subject?.id,
+                  subjectLabel: bankRes.subjectLabel, subjectIcon: bankRes.subjectIcon,
+                  topic: bankRes.topic, questions: bankRes.questions, total: bankRes.bankCount,
+                };
+              }
             }
           }
         }
       }
 
-      // Resolve AI-cited document titles into real Research Hub docs
-      const aiDocs = resolveDocRefs(aiRes?.documents || [], resources);
-      if (aiDocs.length) {
+      // Resolve AI-cited + server-matched documents into cards — skipped in
+      // General mode, which stays pure text (the model can suggest Materials)
+      if (askMode !== "general") {
+        const aiDocs = resolveDocRefs(aiRes?.documents || [], resources);
         const used = new Set(citedDocs.map(d => d.shareToken));
-        for (const d of aiDocs) if (!used.has(d.shareToken)) citedDocs.push(d);
-        citedDocs = citedDocs.slice(0, 3);
-      }
-
-      // Server-side retrieval matched these docs to the query — cite them even
-      // when the model didn't name them explicitly
-      if (metaDocs.length) {
-        const used = new Set(citedDocs.map(d => d.shareToken));
+        for (const d of aiDocs) if (!used.has(d.shareToken)) { used.add(d.shareToken); citedDocs.push(d); }
         for (const d of metaDocs.map(slimDoc)) {
           if (d.shareToken && !used.has(d.shareToken)) { used.add(d.shareToken); citedDocs.push(d); }
         }
@@ -1930,6 +1977,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           bankCount: practice?.total || 0,
           subjectLabel: practice?.subjectLabel || selectedSubject?.label || null,
           topic: practice?.topic || q,
+          suggestMode: (typeof aiRes?.suggestMode === "string" && MODE_META[aiRes.suggestMode] && aiRes.suggestMode !== askMode) ? aiRes.suggestMode : null,
+          question: q,
         };
         finalMsgs = base.concat({ type: "ai", data: result });
         setData(result);
@@ -2189,6 +2238,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                       {m.type === "ai" && m.data && (
                         <AIMessageBubble
                           data={m.data}
+                          showFollowUps={i === messages.length - 1}
+                          onSwitchMode={(newMode, origQ) => {
+                            setMode(newMode);
+                            ask(origQ || `Continue in ${MODE_META[newMode]?.label || newMode} mode`, undefined, undefined, newMode);
+                          }}
                           onStartPractice={() => {
                             const qs = [...(m.data.questions || [])].sort(() => Math.random() - 0.5);
                             setData({ ...m.data, questions: qs });
