@@ -14,7 +14,7 @@ export default function FolderDetailView({
   onGenerate, generatingId, genProgress, genError, genErrorId, onRetry, onDismissGenError,
   uploadModal, createFolderModal, bookmarkPicker,
   onStartStudying,
-  onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy,
+  onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy, onRenameResource,
   onGoLive, onSetCourseCode,
 }) {
   const [sheetFile, setSheetFile] = useState(null);
@@ -238,7 +238,7 @@ export default function FolderDetailView({
 
         {/* Files grid */}
         {tab !== "topics" && (
-          <div className="mt-4 grid grid-cols-1 gap-4 px-5 md:grid-cols-2 md:px-8 lg:px-12 xl:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-2 px-5 md:grid-cols-2 md:px-8 lg:px-12 xl:grid-cols-3">
             {folderLoading ? (
               <div className="col-span-full"><LoadingState grid count={4} /></div>
             ) : files.length > 0 ? (
@@ -252,6 +252,7 @@ export default function FolderDetailView({
                   onShare={onShare}
                   onDelete={onDeleteResource}
                   canDelete={canDeleteFile?.(file)}
+                  onRename={onRenameResource}
                   onPractice={setSheetFile}
                   mcqProgress={mcqProgress}
                   index={i}

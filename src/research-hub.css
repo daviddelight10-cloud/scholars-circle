@@ -726,6 +726,93 @@
 .sp-progress-inner { display: flex; align-items: center; gap: 10px; }
 .sp-progress-text { font-size: 12px; color: #D1D5DB; font-weight: 500; font-family: 'Inter', sans-serif; }
 
+/* ── Compact file row (prototype) ──────────────────────────────────── */
+.sp-ic { width: 1em; height: 1em; flex: none; display: inline-block; vertical-align: -0.125em; }
+
+.sp-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 6px 10px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.sp-row:hover { background: rgba(255,255,255,0.07); }
+.sp-row:active { transform: scale(0.985); }
+.sp-row:focus-visible {
+  outline: 2px solid #F5A623;
+  outline-offset: 2px;
+}
+
+.sp-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #EDEFF5;
+}
+.sp-ring-svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.sp-ring .track { stroke: rgba(255,255,255,0.12); }
+.sp-ring .bar { stroke: #F5A623; stroke-linecap: round; transition: stroke-dasharray 0.4s ease; }
+.sp-ring .sp-ic { font-size: 18px; }
+.sp-ring.done .bar { stroke: #3DD68C; }
+.sp-ring.done .sp-ic { color: #3DD68C; }
+.sp-ring.empty .sp-ic { color: #646E84; }
+.sp-ring-pct { position: relative; }
+
+.sp-row-body { flex: 1; min-width: 0; }
+.sp-row-title-row { display: flex; align-items: center; gap: 6px; }
+.sp-row-title {
+  font-family: 'Syne', 'Lora', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.3;
+  color: #EDEFF5;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sp-row-flag { color: #F5A623; font-size: 14px; flex: none; }
+.sp-row-flag .sp-ic { fill: #F5A623; }
+
+.sp-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #646E84;
+  white-space: nowrap;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+}
+.sp-row-meta .sp-ic { font-size: 14px; }
+.sp-row-meta .sub { color: #9AA3B5; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.sp-row-meta .grow { flex: 1; }
+.sp-row-tools { display: flex; gap: 6px; padding-right: 2px; color: #646E84; }
+.sp-row-tools .sp-ic { font-size: 14px; }
+
+.sp-row-kebab-wrap { flex: none; }
+.sp-row-kebab {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  background: none; border: 0; border-radius: 10px;
+  color: #646E84; cursor: pointer; font-size: 20px;
+}
+.sp-row-kebab:hover { background: rgba(255,255,255,0.06); color: #EDEFF5; }
+.sp-row-menu { min-width: 168px; }
+.sp-row-menu .cs-menu-item { display: flex; align-items: center; gap: 10px; }
+.sp-row-menu .sp-ic { font-size: 16px; }
+
 /* Roadmap header buttons */
 .sp-roadmap-btn {
   padding: 6px 12px;

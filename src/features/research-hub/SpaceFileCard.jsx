@@ -1,16 +1,87 @@
 import { useEffect, useRef, useState } from "react";
-import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
+import { formatViewCount } from "../../lib/researchUtils";
 import { formatRelativeDate } from "./constants";
 
-const RING_R = 10;
-const RING_CIRC = 2 * Math.PI * RING_R; // ~62.8
+const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
+
+const IC = {
+  file: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" /><path d="M9 13h6" /><path d="M9 17h6" />
+    </svg>
+  ),
+  check: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <path d="M5 12l5 5l10 -10" />
+    </svg>
+  ),
+  eye: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <circle cx="12" cy="12" r="2" /><path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" />
+    </svg>
+  ),
+  pencil: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  ),
+  cards: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <rect x="3" y="8" width="12" height="13" rx="2" /><path d="M8 4h9a2 2 0 0 1 2 2v11" />
+    </svg>
+  ),
+  notes: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 7h6" /><path d="M9 11h6" /><path d="M9 15h4" />
+    </svg>
+  ),
+  dots: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" />
+    </svg>
+  ),
+  bookmark: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <path d="M18 7v14l-6 -4l-6 4v-14a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4" />
+    </svg>
+  ),
+  share: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1 -1v-7" /><path d="M16 6l-4 -4l-4 4" /><path d="M12 2v14" />
+    </svg>
+  ),
+  trash: (
+    <svg className="sp-ic" viewBox="0 0 24 24" width="1em" height="1em" {...stroke} aria-hidden="true">
+      <path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  ),
+};
+
+function ProgressRing({ pct }) {
+  const done = pct >= 100;
+  const has = pct > 0;
+  const C = 2 * Math.PI * 18;
+  const dash = (Math.min(pct, 100) / 100) * C;
+  return (
+    <div className={`sp-ring${done ? " done" : has ? "" : " empty"}`} aria-hidden="true">
+      <svg className="sp-ring-svg" viewBox="0 0 44 44">
+        <circle className="track" cx="22" cy="22" r="18" fill="none" strokeWidth="3" />
+        {has && (
+          <circle
+            className="bar" cx="22" cy="22" r="18" fill="none" strokeWidth="3"
+            strokeDasharray={`${dash.toFixed(1)} ${C.toFixed(1)}`}
+          />
+        )}
+      </svg>
+      {done ? IC.check : has ? <span className="sp-ring-pct">{pct}</span> : IC.file}
+    </div>
+  );
+}
 
 /**
- * Course-space file card matching the prototype:
- * accent bar, icon box, serif title, mono filename, ⋯ menu (Share/Delete),
- * bookmark button, tags row (type · subject · views · date), and a
- * progress-ring footer that opens the practice sheet. The whole card
- * body also opens the sheet.
+ * Compact file row — prototype-matched.
+ * Ring (coverage) | title + bookmark flag | meta row | ⋯ menu.
+ * Card click opens the practice sheet; kebab opens a dropdown menu.
  */
 export default function SpaceFileCard({
   file,
@@ -20,6 +91,7 @@ export default function SpaceFileCard({
   onShare,
   onDelete,
   canDelete,
+  onRename,
   onPractice,
   mcqProgress,
   index = 0,
@@ -36,145 +108,87 @@ export default function SpaceFileCard({
     return () => document.removeEventListener("pointerdown", onDocDown);
   }, [menuOpen]);
 
-  const icon = getContentTypeIcon(file.contentType);
-  const relDate = formatRelativeDate(file.createdAt);
-  const fileName = file.fileName || file.title || "";
-  const typeLabel = ({
-    mcq: "MCQ",
-    flashcard_deck: "CARDS",
-    tutorial_question: "TQ",
-    image: "IMG",
-  })[file.contentType] || (file.contentType || "file").toUpperCase();
-  const delay = `${Math.min(index * 50, 400)}ms`;
-
-  // Study-material badges — which generated variants live inside this doc.
-  const variantBadges = [
-    file.variants?.mcq && ["✎", "MCQs"],
-    file.variants?.flashcard && ["🎴", "Flashcards"],
-    file.variants?.summary && ["📝", "Summary"],
-  ].filter(Boolean);
-
-  // Coverage ring — driven by MCQ practice progress on this file's variant.
   const mcqVariant = file.variants?.mcq;
   const prog = mcqVariant && mcqProgress ? mcqProgress[mcqVariant.id] : null;
-  const coveredPct = prog
-    ? (prog.learnedPct ?? (prog.total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100)) : null))
-    : null;
-  const dashOffset = coveredPct != null ? RING_CIRC * (1 - coveredPct / 100) : RING_CIRC;
+  const pct = prog && prog.total > 0 ? Math.min(100, Math.round((prog.bestScore / prog.total) * 100)) : 0;
 
-  const onCardClick = (e) => {
-    // Let menu / bookmark / dropdown interactions handle themselves.
-    if (e.target.closest(".sp-action") || e.target.closest(".cs-menu")) return;
-    onPractice(file);
-  };
+  // Which study tools exist for this file — shown as mini icons in the meta row
+  const tools = [
+    file.variants?.mcq ? IC.pencil : null,
+    file.variants?.flashcard ? IC.cards : null,
+    file.variants?.summary ? IC.notes : null,
+  ].filter(Boolean);
+
+  const stop = (e) => e.stopPropagation();
+  const item = (icon, label, fn, danger, disabled) => (
+    <button
+      role="menuitem"
+      className={`cs-menu-item${danger ? " cs-menu-danger" : ""}`}
+      disabled={disabled}
+      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); fn?.(); }}
+    >
+      {icon}{label}
+    </button>
+  );
+
+  const label = pct >= 100 ? "fully covered" : pct > 0 ? `${pct}% covered` : "not started";
 
   return (
     <div
-      className="sp-card sp-fade-up"
-      style={{ animationDelay: delay }}
-      onClick={onCardClick}
+      className="sp-row sp-fade-up"
+      style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPractice(file); } }}
-      aria-label={`Open practice options for ${file.title}`}
+      aria-label={`Practice ${file.title}, ${label}`}
+      onClick={() => { setMenuOpen(false); onPractice?.(file); }}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+          e.preventDefault();
+          onPractice?.(file);
+        }
+      }}
     >
-      <div className="sp-accent-bar" />
+      <ProgressRing pct={pct} />
 
-      {/* Header: icon + title + menu + bookmark */}
-      <div className="sp-card-head">
-        <div className="sp-icon-box">{icon}</div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <p className="sp-card-title">{file.title}</p>
-          <p className="sp-card-sub">{fileName}</p>
+      <div className="sp-row-body">
+        <div className="sp-row-title-row">
+          <p className="sp-row-title">{file.title}</p>
+          {isBookmarked && <span className="sp-row-flag" aria-label="Bookmarked">{IC.bookmark}</span>}
         </div>
-
-        <div className="cs-menu-wrap" ref={menuRef}>
-          <button
-            className="sp-action"
-            aria-label="More options"
-            aria-expanded={menuOpen}
-            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ pointerEvents: "none" }}>
-              <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
-            </svg>
-          </button>
-          {menuOpen && (
-            <div className="cs-menu" role="menu">
-              <button
-                role="menuitem"
-                className="cs-menu-item"
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onShare(file.shareToken); }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="6" cy="12" r="3" /><circle cx="18" cy="6" r="3" /><circle cx="18" cy="18" r="3" />
-                  <path d="M8.7 10.7l6.6 -3.4" /><path d="M8.7 13.3l6.6 3.4" />
-                </svg>
-                <span>Share</span>
-              </button>
-              {canDelete && (
-                <button
-                  role="menuitem"
-                  className="cs-menu-item cs-menu-danger"
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(file); }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1 -2 2H7a2 2 0 0 1 -2 -2V6" /><path d="M8 6V4a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2" />
-                    <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
-                  </svg>
-                  <span>Delete</span>
-                </button>
-              )}
-            </div>
+        <div className="sp-row-meta">
+          {(file.subject || file.courseCode) && (
+            <>
+              <span className="sub">{file.subject || file.courseCode}</span><span>·</span>
+            </>
           )}
+          <span>{formatRelativeDate(file.createdAt)}</span>
+          <span>·</span>
+          {IC.eye}
+          <span>{formatViewCount(file.viewCount || 0)}</span>
+          <span className="grow" />
+          {tools.length > 0 && <span className="sp-row-tools">{tools.map((t, i) => <span key={i}>{t}</span>)}</span>}
         </div>
+      </div>
 
+      <div className="cs-menu-wrap sp-row-kebab-wrap" ref={menuRef} onClick={stop}>
         <button
-          className={`sp-action${isBookmarked ? " active" : ""}`}
-          aria-label={isBookmarked ? "Remove bookmark" : "Bookmark"}
-          disabled={bookmarkBusy}
-          onClick={(e) => { e.stopPropagation(); onToggleBookmark(file); }}
+          className="sp-row-kebab"
+          aria-label="More options"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((o) => !o)}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: "none" }}>
-            <path d="M9 4h6a2 2 0 0 1 2 2v14l-5 -3l-5 3v-14a2 2 0 0 1 2 -2" />
-          </svg>
+          {IC.dots}
         </button>
-      </div>
-
-      {/* Tags row */}
-      <div className="sp-tags">
-        <span className="sp-tag sp-tag-gold">{typeLabel}</span>
-        {file.subject && <span className="sp-tag sp-tag-gold">{file.subject}</span>}
-        {file.courseCode && <span className="sp-tag sp-tag-gold">{file.courseCode}</span>}
-        {variantBadges.map(([icon, label]) => (
-          <span key={label} className="sp-tag sp-tag-variant" title={label}>{icon}</span>
-        ))}
-        <span className="sp-meta">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 12s4 -7 10 -7 10 7 10 7 -4 7 -10 7 -10 -7 -10 -7z" /><circle cx="12" cy="12" r="3" />
-          </svg>
-          {formatViewCount(file.viewCount || 0)}
-        </span>
-        {relDate && <span className="sp-meta">{relDate}</span>}
-      </div>
-
-      {/* Progress footer — clicking anywhere on the card opens the sheet */}
-      <div className="sp-progress-box">
-        <div className="sp-progress-inner">
-          <div style={{ width: 26, height: 26, position: "relative", flexShrink: 0 }}>
-            <svg width="26" height="26" viewBox="0 0 26 26" style={{ position: "absolute", top: 0, left: 0 }}>
-              <circle cx="13" cy="13" r={RING_R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-              <circle cx="13" cy="13" r={RING_R} fill="none" stroke="#F5A623" strokeWidth="3" strokeLinecap="round"
-                strokeDasharray={RING_CIRC.toFixed(1)} strokeDashoffset={dashOffset.toFixed(1)} transform="rotate(-90 13 13)" />
-            </svg>
+        {menuOpen && (
+          <div className="cs-menu sp-row-menu" role="menu">
+            {item(IC.bookmark, isBookmarked ? "Remove bookmark" : "Bookmark",
+              () => onToggleBookmark?.(file), false, bookmarkBusy)}
+            {item(IC.share, "Share", () => onShare?.(file))}
+            {item(IC.pencil, "Rename", () => onRename?.(file))}
+            {canDelete && item(IC.trash, "Delete", () => onDelete?.(file), true)}
           </div>
-          <p className="sp-progress-text">
-            {coveredPct != null ? `${coveredPct}% covered · Tap to practice` : "Tap to practice"}
-          </p>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#646E84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 15l6 -6l6 6" />
-        </svg>
+        )}
       </div>
     </div>
   );

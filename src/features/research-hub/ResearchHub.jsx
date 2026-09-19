@@ -1225,6 +1225,30 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return role === "TEACHER" || role === "LECTURER";
   }, [userProfile]);
 
+  const handleRenameResource = useCallback(async (file) => {
+    if (!file?.id) return;
+    const next = prompt("Rename file", file.title);
+    if (next === null) return;
+    const title = next.trim();
+    if (!title || title === file.title) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/${file.id}`, {
+        method: "PATCH",
+        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Rename failed");
+      }
+      showToast("Renamed");
+      if (activeFolder) fetchFolderDetail(activeFolder);
+      fetchResources();
+    } catch (err) {
+      showToast(err.message || "Rename failed");
+    }
+  }, [activeFolder]);
+
   const handleDeleteResource = useCallback(async (file) => {
     if (!file?.id) return;
     if (!confirm(`Permanently delete "${file.title}"? This cannot be undone.`)) return;
@@ -1577,6 +1601,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onSetCourseCode={handleSetFolderCourseCode}
         preparingStudy={preparingStudy}
         onDeleteResource={handleDeleteResource}
+        onRenameResource={handleRenameResource}
         canDeleteFile={canDeleteFile}
         onStartStudying={(topicCtx) => {
           const detail = {
