@@ -319,7 +319,10 @@ export function resolveMcqPractice(req, resources) {
       .map(r => ({ r, s: scoreResource(needle, r) }))
       .filter(x => x.s >= 30)
       .sort((a, b) => b.s - a.s);
-    if (matched.length) candidates = matched.map(x => x.r);
+    // No subject/topic match → don't dump the largest deck; let the
+    // caller generate questions instead of quizzing the wrong subject.
+    if (!matched.length) return null;
+    candidates = matched.map(x => x.r);
   }
 
   // Pick the best single resource (largest matching pool)

@@ -4,7 +4,7 @@ import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.j
 import { detectDiscipline } from "./AITutor/disciplines.js";
 import { extractTextFromFile } from "./AITutor/fileExtract.js";
 import { fetchTranscript, formatTime } from "./AITutor/youtubeApi.js";
-import { resolvePractice, searchQuestionBank, hasPracticeIntent, buildAppCatalog, APP_FEATURES, buildDocCatalog, findResources, searchDocuments, hasDocIntent, resolveMcqPractice, authHeaders, docTypeMeta } from "./AITutor/appKnowledge.js";
+import { resolvePractice, buildAppCatalog, APP_FEATURES, buildDocCatalog, findResources, searchDocuments, hasDocIntent, resolveMcqPractice, authHeaders, docTypeMeta } from "./AITutor/appKnowledge.js";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { API_BASE } from "../lib/constants";
@@ -2113,36 +2113,10 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         else aiError = err?.message || "The AI request failed. Please try again.";
       }
 
-      // Resolve real practice questions — MCQ resources in Research Hub first,
-      // then the subject bank as fallback. General mode stays text-only.
-      let practice = null;
-      if (askMode !== "general") {
-        if (aiRes?.practice) {
-          const req = { subject: aiRes.practice.subject || selectedSubject?.label, topic: aiRes.practice.topic };
-          practice = resolveMcqPractice(req, resources) || resolvePractice(req, subjects);
-        }
-        if (!practice && hasPracticeIntent(q)) {
-          if (selectedSubject) {
-            practice = resolveMcqPractice({ subject: selectedSubject.label, topic: q }, resources)
-              || resolvePractice({ subject: selectedSubject.label, topic: q }, subjects);
-          }
-          if (!practice) {
-            const mcqRes = resolveMcqPractice({ subject: q, topic: q }, resources);
-            if (mcqRes) {
-              practice = mcqRes;
-            } else {
-              const bankRes = searchQuestionBank(q, subjects);
-              if (bankRes.found) {
-                practice = {
-                  subject: bankRes.subject, subjectId: bankRes.subject?.id,
-                  subjectLabel: bankRes.subjectLabel, subjectIcon: bankRes.subjectIcon,
-                  topic: bankRes.topic, questions: bankRes.questions, total: bankRes.bankCount,
-                };
-              }
-            }
-          }
-        }
-      }
+      // Practice cards only come from the dedicated quiz/exam path — a
+      // flashcard/materials/general answer must never surface an MCQ set
+      // just because the model filled the practice field.
+      const practice = null;
 
       // Doc cards only when the student actually asked for materials —
       // Materials intent, doc-intent phrasing, the pinned/read doc, or titles
