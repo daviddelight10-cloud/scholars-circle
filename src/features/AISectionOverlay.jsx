@@ -146,6 +146,26 @@ async function ensureAINotesFolder() {
   return null; // save loose if the folder can't be resolved
 }
 
+// ─── Tutor modes (Windsurf-style selector) ──────────────────────────────────
+const MODES = [
+  { id: "general",    icon: "✦",  label: "General" },
+  { id: "materials",  icon: "📄", label: "Materials" },
+  { id: "video",      icon: "▶️", label: "Video" },
+  { id: "flashcards", icon: "🃏", label: "Flashcards" },
+  { id: "quiz",       icon: "📝", label: "Quiz" },
+  { id: "exam",       icon: "🎓", label: "Exam prep" },
+];
+const MODE_META = Object.fromEntries(MODES.map(m => [m.id, m]));
+
+// Per-mode instructions appended to the prompt — they bias the output shape,
+// not just the wording.
+const MODE_PROMPTS = {
+  materials: `\n- MODE: MATERIALS — the student wants help with their study materials. ALWAYS cite up to 3 exact document titles from the Research Hub list in "documents" and answer from their content when available.`,
+  video: `\n- MODE: VIDEO — the student wants a video lesson. Keep "answer" brief (2-4 sentences framing the topic) and ALWAYS include a precise "ytQuery" for the best explanatory video.`,
+  flashcards: `\n- MODE: FLASHCARDS — the student wants study flashcards. ALWAYS include a "flashcards" array of 8-12 items: {"front":"<term or question>","back":"<concise answer>"}. Keep "answer" as a 1-2 sentence intro to the deck.`,
+  general: "",
+};
+
 // Extract the in-progress "answer" string from partially-streamed JSON so the
 // UI can render markdown as it arrives. Returns "" until the answer field starts.
 function extractPartialAnswer(raw) {
@@ -184,17 +204,19 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
   // {{DOC_CATALOG}} is filled server-side with documents matching this question;
   // non-streaming fallbacks replace it with the client-side catalog.
   const docCatalog = buildDocCatalog(resources, { prefer: subject?.label });
+  const modeSchema = opts.mode === "flashcards" ? `,"flashcards":[{"front":"<term or question>","back":"<concise answer>"}]` : "";
   const prompt =
     `${system}\n\n${APP_FEATURES}\n\n{{DOC_CATALOG}}\n\n${catalog ? `${catalog}\n\n` : ""}${convo}\n\n` +
     `The student asked: "${query}"\n\n` +
     `Reply ONLY with valid JSON (no markdown code fences):\n` +
-    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"}}\n\n` +
+    `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"}${modeSchema}}\n\n` +
     `Rules:\n` +
     `- "answer" is REQUIRED and must never be empty.\n` +
     `- "documents": list up to 3 EXACT document titles from the Research Hub list when the student asks for notes/materials/PDFs, or when a listed document clearly covers their question. Copy titles EXACTLY. Omit the field otherwise.\n` +
     `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
     `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
-    `- If the student asks how to use the app, answer using the feature list above.`;
+    `- If the student asks how to use the app, answer using the feature list above.` +
+    (MODE_PROMPTS[opts.mode] || "");
 
   // Multimodal (images/scanned PDFs) — classic endpoint, client-side doc catalog
   if (images && images.length > 0) {
@@ -253,8 +275,8 @@ function TypingDots() {
   );
 }
 
-function VideoLesson({ video }) {
-  const [expanded, setExpanded] = useState(false);
+function VideoLesson({ video, defaultExpanded = false }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <div style={{ borderRadius: 10, overflow: "hidden", border: "0.5px solid #2a1515" }}>
       {/* Thumbnail / embed toggle row */}
@@ -365,14 +387,16 @@ function PracticeCard({ practice, onQuick, onExam }) {
   );
 }
 
-function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc, onQuizDoc, onSave }) {
+function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQuickAction, onOpenResource, onAskDoc, onQuizDoc, onSave, onSaveDeck }) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [showVideo, setShowVideo] = useState(false);
+  const [showVideo, setShowVideo] = useState(!!data.autoVideo);
   const [video, setVideo] = useState(data.video || null);
   const [videoBusy, setVideoBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deckSaved, setDeckSaved] = useState(false);
+  const [deckSaving, setDeckSaving] = useState(false);
   const followUps = (data.followUps || []).slice(0, 3);
   // Freeform answer (new) with legacy definition+explanation fallback (old saved convos)
   const answer = data.answer || [data.definition, data.explanation].filter(Boolean).join("\n\n");
@@ -428,6 +452,14 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
     if (ok) setSaved(true);
   }
 
+  async function handleSaveDeck() {
+    if (deckSaving || deckSaved || !onSaveDeck) return;
+    setDeckSaving(true);
+    const ok = await onSaveDeck(data);
+    setDeckSaving(false);
+    if (ok) setDeckSaved(true);
+  }
+
   const iconBtn = (active) => ({
     display: "inline-flex", alignItems: "center", gap: 4,
     padding: "4px 9px", borderRadius: 7,
@@ -453,6 +485,17 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
         }}>✦</div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Mode badge */}
+          {data.mode && data.mode !== "general" && MODE_META[data.mode] && (
+            <div style={{ marginBottom: 6 }}>
+              <span style={{
+                fontSize: 9.5, padding: "2px 9px", borderRadius: 10,
+                background: D.accent, border: `0.5px solid ${D.line}`,
+                color: D.hint, fontWeight: 600, fontFamily: "Manrope,sans-serif",
+              }}>{MODE_META[data.mode].icon} {MODE_META[data.mode].label}</span>
+            </div>
+          )}
+
           {/* Freeform markdown answer */}
           <MarkdownText theme="gold">{answer}</MarkdownText>
 
@@ -496,10 +539,20 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
             </div>
           )}
 
-          {/* Video (lazy — fetched on first click) */}
+          {/* Flashcards (Flashcards mode) */}
+          {(data.flashcards || []).length > 0 && (
+            <FlashcardList
+              cards={data.flashcards}
+              onSave={onSaveDeck ? handleSaveDeck : null}
+              saved={deckSaved}
+              saving={deckSaving}
+            />
+          )}
+
+          {/* Video (lazy — fetched on first click; auto-expanded in Video mode) */}
           {showVideo && video && (
             <div style={{ padding: "4px 0 8px" }}>
-              <VideoLesson video={video} />
+              <VideoLesson video={video} defaultExpanded={!!data.autoVideo} />
             </div>
           )}
 
@@ -1085,6 +1138,79 @@ function DocCard({ doc, onOpen, onAsk, onQuiz }) {
   );
 }
 
+// Windsurf-style mode selector — slim pills above the input
+function ModeBar({ mode, onChange }) {
+  return (
+    <div style={{ padding: "6px 14px 0", background: D.bar, flexShrink: 0 }}>
+      <div style={{ maxWidth: 780, margin: "0 auto", display: "flex", gap: 5, overflowX: "auto", scrollbarWidth: "none" }}>
+        {MODES.map(m => {
+          const active = mode === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => onChange(m.id)}
+              title={m.id === "quiz" ? "Jump straight into practice" : m.id === "exam" ? "Build a timed exam" : `${m.label} mode`}
+              style={{
+                flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "4px 10px", borderRadius: 14,
+                background: active ? D.accent : "transparent",
+                border: `0.5px solid ${active ? D.border : D.line2}`,
+                fontSize: 10.5, fontWeight: active ? 700 : 500,
+                color: active ? D.accent2 : D.hint,
+                cursor: "pointer", fontFamily: "Manrope,sans-serif",
+                transition: "all 0.15s", whiteSpace: "nowrap",
+              }}
+            >{m.icon} {m.label}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Tap-to-flip flashcard grid for Flashcards mode
+function FlashcardList({ cards, onSave, saved, saving }) {
+  const [flipped, setFlipped] = useState({});
+  return (
+    <div style={{ margin: "10px 0 2px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+        {cards.map((c, i) => (
+          <button
+            key={i}
+            onClick={() => setFlipped(p => ({ ...p, [i]: !p[i] }))}
+            style={{
+              minHeight: 90, padding: "10px 11px", borderRadius: 11, textAlign: "left",
+              background: flipped[i] ? D.accent : D.card,
+              border: `0.5px solid ${flipped[i] ? D.border : D.line}`,
+              cursor: "pointer", fontFamily: "Manrope,sans-serif",
+            }}
+          >
+            <div style={{ fontSize: 9, color: D.faint, marginBottom: 5, fontWeight: 700, letterSpacing: 0.5 }}>
+              {flipped[i] ? "BACK" : "FRONT"} · {i + 1}
+            </div>
+            <div style={{ fontSize: 11.5, color: flipped[i] ? D.accent2 : D.text, lineHeight: 1.45 }}>
+              {flipped[i] ? c.back : c.front}
+            </div>
+          </button>
+        ))}
+      </div>
+      {onSave && (
+        <button
+          onClick={onSave}
+          disabled={saving || saved}
+          style={{
+            marginTop: 9, padding: "6px 13px", borderRadius: 16,
+            background: saved ? "transparent" : D.accent,
+            border: `0.5px solid ${saved ? D.line : D.border}`,
+            color: saved ? D.hint : D.accent2, fontSize: 11, fontWeight: 600,
+            cursor: saved ? "default" : "pointer", fontFamily: "Manrope,sans-serif",
+          }}
+        >{saving ? "⏳ Saving…" : saved ? "✓ Deck saved to AI Notes" : `💾 Save ${cards.length}-card deck`}</button>
+      )}
+    </div>
+  );
+}
+
 function useVoiceInput(onTranscript) {
   const [listening, setListening]   = useState(false);
   const supported                   = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -1302,6 +1428,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     return [];
   });
   const [activeDoc, setActiveDoc]   = useState(null); // pinned document context (slim doc)
+  const [mode, setMode]             = useState("general"); // tutor mode selector
   const bottomRef                   = useRef(null);
   const docTextCache                = useRef({}); // resourceId -> { text, images }
 
@@ -1426,6 +1553,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     setCurrentId(null);
     setShowHistory(false);
     setActiveDoc(null);
+    setMode("general");
   }
 
   function loadConvo(c) {
@@ -1467,7 +1595,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       return { ...m, attachment: { type: m.attachment.type, name: m.attachment.name, dataUrl: null, images: [] } };
     }
     if (m.type === "ai" && m.data) {
-      const d = { ...m.data, questions: undefined, docContext: undefined };
+      const d = { ...m.data, questions: undefined, docContext: undefined, autoVideo: undefined };
       if (d.practice) d.practice = { ...d.practice, questions: undefined, subject: undefined, resource: undefined };
       if (Array.isArray(d.documents)) d.documents = d.documents.map(x => ({ id: x.id, shareToken: x.shareToken, title: x.title, contentType: x.contentType, subject: x.subject || null, courseCode: x.courseCode || null }));
       return { ...m, data: d };
@@ -1521,44 +1649,65 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     if (!content?.text) toast.info("Couldn't read that file — the quiz will be generated from the title only.");
   }
 
+  // POST to study-tool-save inside the AI Notes folder (loose fallback)
+  async function postToHub(body, folderId) {
+    if (folderId) body.folderId = folderId;
+    const post = () => fetch(`${API_BASE}/api/resources/study-tool-save`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let res = await post();
+    if (!res.ok && folderId) {
+      // Cached folder may have been deleted — retry as a loose resource
+      try { localStorage.removeItem(AI_NOTES_FOLDER_KEY); } catch {}
+      delete body.folderId;
+      res = await post();
+    }
+    if (!res.ok) throw new Error("Save failed");
+    const saved = await res.json();
+    const resource = saved?.resource || saved;
+    if (resource?.id) {
+      setResources(prev => [resource, ...prev.filter(r => r.id !== resource.id)]);
+      try { localStorage.removeItem("sc_resources_list"); } catch {}
+    }
+    return !!folderId;
+  }
+
   // Save a useful AI answer as a note inside the dedicated "✦ AI Notes" space
   async function saveAnswerToHub(data) {
     try {
       const folderId = await ensureAINotesFolder();
-      const body = {
+      const inFolder = await postToHub({
         title: `AI notes — ${(data.topic || "study answer").slice(0, 60)}`,
         subject: data.subjectLabel || "AI Notes",
         contentType: "note",
         description: `**Q:** ${data.topic || ""}\n\n${data.answer || ""}`,
         isPublic: false,
-      };
-      if (folderId) body.folderId = folderId;
-      let res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
-        method: "POST",
-        headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok && folderId) {
-        // Cached folder may have been deleted — retry as a loose note
-        try { localStorage.removeItem(AI_NOTES_FOLDER_KEY); } catch {}
-        delete body.folderId;
-        res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
-          method: "POST",
-          headers: { ...authHeaders(), "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      }
-      if (!res.ok) throw new Error("Save failed");
-      const saved = await res.json();
-      const resource = saved?.resource || saved;
-      if (resource?.id) {
-        setResources(prev => [resource, ...prev.filter(r => r.id !== resource.id)]);
-        try { localStorage.removeItem("sc_resources_list"); } catch {}
-      }
-      toast.success(folderId ? "Saved to your AI Notes space ✓" : "Saved to your Research Hub ✓");
+      }, folderId);
+      toast.success(inFolder ? "Saved to your AI Notes space ✓" : "Saved to your Research Hub ✓");
       return true;
     } catch {
       toast.error("Couldn't save — try again");
+      return false;
+    }
+  }
+
+  // Save a generated flashcard deck (Flashcards mode) to the AI Notes space
+  async function saveDeckToHub(data) {
+    try {
+      const folderId = await ensureAINotesFolder();
+      const inFolder = await postToHub({
+        title: `AI flashcards — ${(data.topic || "deck").slice(0, 60)}`,
+        subject: data.subjectLabel || "AI Notes",
+        contentType: "flashcard_deck",
+        flashcardData: (data.flashcards || []).map(c => ({ front: c.front, back: c.back })),
+        isPublic: false,
+      }, folderId);
+      toast.success(inFolder ? "Deck saved to your AI Notes space ✓" : "Deck saved to your Research Hub ✓");
+      return true;
+    } catch {
+      toast.error("Couldn't save the deck — try again");
       return false;
     }
   }
@@ -1579,6 +1728,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     const hasAttachment = !!attach;
     const q = rawQ?.trim() || (hasAttachment ? `Analyze this ${attach.type === "img" ? "image" : "document"}: ${attach.name}` : "");
     if (!q || loading) return;
+    const askMode = mode;
     setInput("");
     setView("chat");
     setLoading(true);
@@ -1642,8 +1792,64 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             ? { type: "streaming", partial }
             : m));
       };
+      // ── Action modes: Quiz / Exam prep skip prose and go straight to practice ──
+      if (askMode === "quiz" || askMode === "exam") {
+        let practice = null;
+        let questions = null;
+        let docContext = capturedAttachment?.content || null;
+        // Pinned/matched doc first: MCQ sets → stored questions; other docs →
+        // generate from extracted content. Only then fall back to catalog MCQs.
+        if (docMatch?.contentType === "mcq") {
+          practice = resolveMcqPractice({}, [docMatch]);
+          questions = practice?.questions || null;
+        }
+        if (!questions && !docMatch) {
+          practice = resolveMcqPractice({ subject: selectedSubject?.label || q, topic: q }, resources);
+          questions = practice?.questions || null;
+        }
+        if (!questions) {
+          if (!docContext && docMatch) {
+            const c = await fetchDocContent(docMatch);
+            docContext = c?.text || null;
+          }
+          try {
+            questions = await generateAIQuestions(
+              docMatch?.title || q, aiConfig,
+              docMatch ? { label: docMatch.subject || docMatch.title } : selectedSubject,
+              docContext
+            );
+          } catch { questions = null; }
+        }
+        const subjectLabel = practice?.subjectLabel || docMatch?.title || selectedSubject?.label || "AI-generated";
+        const practiceObj = practice || {
+          subjectLabel, subjectIcon: docMatch ? "📄" : "✦", topic: null,
+          questions: questions || [], total: questions?.length || 0,
+          resource: docMatch || null,
+        };
+        const base = [...messages, userMsg].filter(m => m.type !== "loading" && m.type !== "streaming");
+        const aiData = {
+          source: "ai", mode: askMode,
+          answer: questions?.length
+            ? `${askMode === "exam" ? "🎓 Timed exam" : "📝 Quick quiz"} on **${subjectLabel}** — ${questions.length} questions ready.`
+            : `Couldn't build questions for **${subjectLabel}** — try a different topic or document.`,
+          ytQuery: null, video: null, followUps: ["Make it harder", "Explain the topic first"], documents: citedDocs,
+          practice: practiceObj, questions: questions || [], bankCount: questions?.length || 0,
+          subjectLabel, topic: docMatch?.title || q,
+        };
+        const finalMsgs = base.concat({ type: "ai", data: aiData });
+        setMsgs(finalMsgs);
+        setData({ ...aiData, docContext });
+        persistConvo(finalMsgs, aiData, q, pinnedDoc);
+        if (askMode === "exam" && onStartExam && questions?.length) {
+          handleExamStart(practiceObj);
+        } else {
+          setView("practice");
+        }
+        return; // finally still clears loading
+      }
+
       try {
-        const result = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources, { onToken, query: q });
+        const result = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources, { onToken, query: q, mode: askMode });
         aiRes = result.parsed;
         metaDocs = result.metaDocs || [];
       } catch (err) {
@@ -1699,6 +1905,13 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
       const ytQuery = aiRes?.ytQuery || `${q} explained`;
 
+      // Video mode — fetch + auto-expand instead of waiting for a click
+      let video = null, autoVideo = false;
+      if (!aiError && askMode === "video") {
+        video = await fetchYouTubeVideo(ytQuery);
+        autoVideo = !!video;
+      }
+
       const base = [...messages, userMsg].filter(m => m.type !== "loading" && m.type !== "streaming");
       let finalMsgs;
       if (aiError) {
@@ -1706,10 +1919,12 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       } else {
         const result = {
           source: practice ? (practice.resource ? "mcq-resource" : "bank") : "ai",
+          mode: askMode,
           answer: aiRes?.answer || "",
-          ytQuery, video: null, // lazy — fetched on first Video click
+          ytQuery, video, autoVideo, // video stays lazy outside Video mode
           followUps: aiRes?.followUps || [],
           documents: citedDocs,
+          flashcards: Array.isArray(aiRes?.flashcards) ? aiRes.flashcards.filter(c => c?.front && c?.back).slice(0, 12) : [],
           practice,
           questions: practice?.questions || [],
           bankCount: practice?.total || 0,
@@ -1988,6 +2203,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                           }}
                           onQuizDoc={startDocQuiz}
                           onSave={saveAnswerToHub}
+                          onSaveDeck={saveDeckToHub}
                           onQuickAction={(action, topic) => {
                             const prompts = {
                               explain_simpler: `Explain ${topic} in simpler terms, as if for a beginner`,
@@ -2037,6 +2253,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                 </div>
               </div>
             )}
+
+            {/* Mode selector — General / Materials / Video / Flashcards / Quiz / Exam prep */}
+            <ModeBar mode={mode} onChange={setMode} />
 
             <InputBar
               value={input}
