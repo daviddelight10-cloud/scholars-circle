@@ -252,6 +252,8 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
   const { raw, documents } = await callAITutor(prompt, aiConfig, {
     query: opts.query || query,
     onToken: opts.onToken,
+    onMeta: opts.onMeta,
+    signal: opts.signal,
     fallbackCatalog: docCatalog || "",
   });
   return { parsed: parseAIResponse(raw, query), metaDocs: documents };
@@ -510,15 +512,24 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onQui
 
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Mode badge */}
-          {data.mode && data.mode !== "general" && MODE_META[data.mode] && (
-            <div style={{ marginBottom: 6 }}>
-              <span style={{
-                fontSize: 9.5, padding: "2px 9px", borderRadius: 10,
-                background: D.accent, border: `0.5px solid ${D.line}`,
-                color: D.hint, fontWeight: 600, fontFamily: "Manrope,sans-serif",
-              }}>{MODE_META[data.mode].icon} {MODE_META[data.mode].label}</span>
+          {(data.mode && data.mode !== "general" && MODE_META[data.mode]) || data.stopped ? (
+            <div style={{ marginBottom: 6, display: "flex", gap: 6, alignItems: "center" }}>
+              {data.mode && data.mode !== "general" && MODE_META[data.mode] && (
+                <span style={{
+                  fontSize: 9.5, padding: "2px 9px", borderRadius: 10,
+                  background: D.accent, border: `0.5px solid ${D.line}`,
+                  color: D.hint, fontWeight: 600, fontFamily: "Manrope,sans-serif",
+                }}>{MODE_META[data.mode].icon} {MODE_META[data.mode].label}</span>
+              )}
+              {data.stopped && (
+                <span style={{
+                  fontSize: 9.5, padding: "2px 9px", borderRadius: 10,
+                  background: "transparent", border: `0.5px solid ${D.line}`,
+                  color: D.faint, fontWeight: 600, fontFamily: "Manrope,sans-serif",
+                }}>■ stopped</span>
+              )}
             </div>
-          )}
+          ) : null}
 
           {/* Freeform markdown answer */}
           <MarkdownText theme="gold">{answer}</MarkdownText>
@@ -1291,7 +1302,7 @@ function useVoiceInput(onTranscript) {
 }
 
 // ─── InputBar (shared) ────────────────────────────────────────────────────────
-function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a question…", showUpload = true, attachment, onClearAttachment, onSelectDoc, onSelectImg }) {
+function InputBar({ value, onChange, onSend, loading, onStop, placeholder = "Ask a question…", showUpload = true, attachment, onClearAttachment, onSelectDoc, onSelectImg }) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const docRef = useRef(null);
   const imgRef = useRef(null);
@@ -1430,18 +1441,31 @@ function InputBar({ value, onChange, onSend, loading, placeholder = "Ask a quest
           </>
         )}
 
-        <button
-          onClick={onSend} disabled={!canSend}
-          style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: canSend ? D.accent : "#11151E",
-            border: `0.5px solid ${canSend ? D.border : D.line2}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: canSend ? "pointer" : "default",
-            color: canSend ? D.accent2 : D.faint,
-            fontSize: 16, flexShrink: 0, transition: "all 0.15s",
-          }}
-        >→</button>
+        {loading && onStop ? (
+          <button
+            onClick={onStop} title="Stop generating"
+            style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: D.accent, border: `0.5px solid ${D.border}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: D.accent2,
+              fontSize: 13, flexShrink: 0, transition: "all 0.15s",
+            }}
+          >■</button>
+        ) : (
+          <button
+            onClick={onSend} disabled={!canSend}
+            style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: canSend ? D.accent : "#11151E",
+              border: `0.5px solid ${canSend ? D.border : D.line2}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: canSend ? "pointer" : "default",
+              color: canSend ? D.accent2 : D.faint,
+              fontSize: 16, flexShrink: 0, transition: "all 0.15s",
+            }}
+          >→</button>
+        )}
       </div>
       </div>
     </div>
@@ -1471,6 +1495,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   });
   const [activeDoc, setActiveDoc]   = useState(null); // pinned document context (slim doc)
   const [mode, setMode]             = useState("general"); // tutor mode selector
+  const [streamCtl, setStreamCtl]   = useState(null); // AbortController for the in-flight tutor stream
+  const [streamStatus, setStreamStatus] = useState(null); // "Searching your Research Hub…" etc.
   const bottomRef                   = useRef(null);
   const docTextCache                = useRef({}); // resourceId -> { text, images }
 
@@ -1824,7 +1850,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       const slim = slimDoc(docMatch);
       citedDocs = [slim];
       if (slim.shareToken !== activeDoc?.shareToken) { setActiveDoc(slim); pinnedDoc = slim; }
+      setStreamStatus(`Reading ${docMatch.title}…`);
       const content = await fetchDocContent(docMatch);
+      setStreamStatus(null);
       if (content && (content.text || content.images?.length)) {
         if (content.images?.length) images = content.images;
         aiQuery = `The student is asking about their Research Hub document "${docMatch.title}"${docMatch.subject ? ` (${docMatch.subject})` : ""}.\n\nDocument content:\n\n${content.text || "(scanned document — provided as page images)"}\n\nBased on this document, answer: ${q}`;
@@ -1835,8 +1863,15 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       let aiRes = null;
       let aiError = null;
       let metaDocs = [];
+      let stopped = false;
+      let lastRaw = "";
+      // Abort controller for the tutor stream — powers the ■ Stop button.
+      // Created only for stream-eligible calls (multimodal/quiz paths can't abort).
+      let ctl = null;
       // Stream partial answers into a live message bubble
       const onToken = (acc) => {
+        lastRaw = acc;
+        setStreamStatus(null);
         const partial = extractPartialAnswer(acc);
         setMsgs(p => p.map((m, i) =>
           i === p.length - 1 && (m.type === "loading" || m.type === "streaming")
@@ -1863,6 +1898,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             const c = await fetchDocContent(docMatch);
             docContext = c?.text || null;
           }
+          setStreamStatus("Preparing questions…");
           try {
             questions = await generateAIQuestions(
               docMatch?.title || q, aiConfig,
@@ -1900,11 +1936,22 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       }
 
       try {
-        const result = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources, { onToken, query: q, mode: askMode });
+        if (!images?.length) { ctl = new AbortController(); setStreamCtl(ctl); }
+        setStreamStatus(images?.length
+          ? `Analyzing ${capturedAttachment?.name || "attachment"}…`
+          : "Searching your Research Hub…");
+        const result = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources, {
+          onToken, query: q, mode: askMode, signal: ctl?.signal,
+          onMeta: (evt) => {
+            const n = evt?.documents?.length || 0;
+            setStreamStatus(n ? `Found ${n} document${n === 1 ? "" : "s"} — reading…` : "Writing…");
+          },
+        });
         aiRes = result.parsed;
         metaDocs = result.metaDocs || [];
       } catch (err) {
-        aiError = err?.message || "The AI request failed. Please try again.";
+        if (ctl?.signal.aborted || err?.stoppedByUser) stopped = true;
+        else aiError = err?.message || "The AI request failed. Please try again.";
       }
 
       // Resolve real practice questions — MCQ resources in Research Hub first,
@@ -1963,6 +2010,21 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       let finalMsgs;
       if (aiError) {
         finalMsgs = base.concat({ type: "error", text: aiError, retryQ: q, retryAttach: capturedAttachment });
+      } else if (stopped) {
+        // User pressed Stop — keep whatever partial answer streamed in
+        const partial = extractPartialAnswer(lastRaw);
+        if (partial) {
+          const partialData = {
+            source: "ai", mode: askMode, answer: partial,
+            ytQuery: null, video: null, followUps: [], documents: [],
+            flashcards: [], practice: null, questions: [], bankCount: 0,
+            subjectLabel: selectedSubject?.label || null, topic: q,
+            suggestMode: null, question: q, stopped: true,
+          };
+          finalMsgs = base.concat({ type: "ai", data: partialData });
+        } else {
+          finalMsgs = base; // nothing streamed yet — just drop the placeholder
+        }
       } else {
         const result = {
           source: practice ? (practice.resource ? "mcq-resource" : "bank") : "ai",
@@ -1987,6 +2049,8 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       setView("chat");
       persistConvo(finalMsgs, finalMsgs[finalMsgs.length - 1]?.data || null, q, pinnedDoc);
     } finally {
+      setStreamCtl(null);
+      setStreamStatus(null);
       setLoading(false);
     }
   }
@@ -2180,8 +2244,23 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                         </div>
                       )}
                       {m.type === "loading" && (
-                        <div style={{ alignSelf: "flex-start", width: 80 }}>
-                          <TypingDots />
+                        <div style={{ alignSelf: "flex-start", display: "flex", gap: 9, alignItems: "center" }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 9, flexShrink: 0,
+                            background: D.accent, border: `0.5px solid ${D.border}`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 13, color: D.accent2,
+                          }}>✦</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            {streamStatus && (
+                              <span style={{
+                                fontSize: 12, color: D.muted, fontFamily: "Manrope,sans-serif",
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                                maxWidth: 320, animation: "scBlink 1.6s ease-in-out infinite",
+                              }}>{streamStatus}</span>
+                            )}
+                            <TypingDots />
+                          </div>
                         </div>
                       )}
                       {m.type === "streaming" && (
@@ -2316,6 +2395,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               onChange={e => setInput(e.target.value)}
               onSend={() => ask(input)}
               loading={loading}
+              onStop={streamCtl ? () => streamCtl.abort() : null}
               showUpload
               attachment={attachment}
               onClearAttachment={() => setAttachment(null)}

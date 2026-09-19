@@ -180,7 +180,7 @@ export async function callAI(prompt, aiConfig = {}) {
 // classic /generate endpoint on older servers, or a direct call when the
 // proxy is disabled. The prompt may contain a {{DOC_CATALOG}} placeholder
 // which the server replaces with query-matched resources.
-export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, onMeta, fallbackCatalog = "" } = {}) {
+export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, onMeta, fallbackCatalog = "", signal } = {}) {
   const status = await getProxyStatus();
   const provider = aiConfig.provider || status?.defaultProvider || "openrouter";
   const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : provider === "openrouter" ? "z-ai/glm-5.3-flash" : "gpt-4o-mini");
@@ -195,6 +195,20 @@ export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, 
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
+  // Combine the caller's abort signal (stop button) with a 120s timeout.
+  // Aborting with a TimeoutError reason keeps the timeout error path intact.
+  const ctl = new AbortController();
+  const timeout = setTimeout(() => ctl.abort(new DOMException("Timed out", "TimeoutError")), 120000);
+  if (signal) {
+    if (signal.aborted) ctl.abort(signal.reason);
+    else signal.addEventListener("abort", () => ctl.abort(signal.reason), { once: true });
+  }
+  const stoppedError = () => {
+    const e = new Error("Generation stopped.");
+    e.stoppedByUser = true;
+    return e;
+  };
+
   let res;
   try {
     res = await fetch(`${API_BASE}/ai-proxy/tutor`, {
@@ -202,9 +216,11 @@ export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, 
       headers,
       credentials: "include",
       body: JSON.stringify({ prompt, provider, model, query }),
-      signal: AbortSignal.timeout(120000),
+      signal: ctl.signal,
     });
   } catch (netErr) {
+    clearTimeout(timeout);
+    if (signal?.aborted) throw stoppedError();
     if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
       throw new Error("AI request timed out. Please try again with a shorter prompt.");
     }
@@ -263,11 +279,14 @@ export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, 
       }
     }
   } catch (streamErr) {
+    clearTimeout(timeout);
+    if (signal?.aborted) throw stoppedError();
     if (streamErr.name === "AbortError" || streamErr.name === "TimeoutError") {
       throw new Error("AI request timed out. Please try again.");
     }
     throw streamErr;
   }
+  clearTimeout(timeout);
   if (!raw) throw new Error("AI returned an empty response.");
   return { raw, documents };
 }

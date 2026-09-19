@@ -1,5 +1,3 @@
-import React from "react";
-
 const PALETTES = {
   dark: {
     text: "#e8eaf6",
@@ -70,8 +68,6 @@ const PALETTES = {
     headingBorder: "#DED2B0",
   },
 };
-
-const D = PALETTES.dark;
 
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -221,17 +217,72 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
     let listItems = [];
     let i = 0;
 
+    const flushList = () => {
+      if (listItems.length > 0) {
+        elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
+        listItems = [];
+      }
+    };
+
     while (i < lines.length) {
       const line = lines[i];
       const trimmed = line.trim();
 
       // Empty line
       if (!trimmed) {
-        if (listItems.length > 0) {
-          elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
-          listItems = [];
-        }
+        flushList();
         i++;
+        continue;
+      }
+
+      // Horizontal rule — ---, ***, ___
+      if (/^([-*_])\1{2,}$/.test(trimmed)) {
+        flushList();
+        elements.push(<div key={elements.length} style={{ height: "0.5px", background: P.headingBorder, margin: "12px 0" }} />);
+        i++;
+        continue;
+      }
+
+      // Tables — consecutive lines starting with | ; an optional |---| row
+      // separates the header from the body
+      if (trimmed.startsWith("|")) {
+        flushList();
+        const rows = [];
+        while (i < lines.length && lines[i].trim().startsWith("|")) {
+          rows.push(
+            lines[i].trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim())
+          );
+          i++;
+        }
+        const isSep = r => r.length > 0 && r.every(c => /^:?-+:?$/.test(c));
+        const header = rows.length > 1 && isSep(rows[1]) ? rows[0] : null;
+        const body = rows.slice(header ? 2 : 0).filter(r => !isSep(r));
+        const cellStyle = {
+          padding: "6px 10px", borderBottom: `0.5px solid ${P.codeBorder}`,
+          color: P.text, verticalAlign: "top", fontSize: 12.5,
+        };
+        elements.push(
+          <div key={elements.length} style={{ overflowX: "auto", margin: "10px 0" }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", fontFamily: "Manrope,sans-serif" }}>
+              {header && (
+                <thead>
+                  <tr>{header.map((c, j) => (
+                    <th key={j} style={{ ...cellStyle, textAlign: "left", color: P.heading, fontWeight: 700, borderBottom: `1px solid ${P.codeBorder}` }}
+                      dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(c, P) }} />
+                  ))}</tr>
+                </thead>
+              )}
+              <tbody>
+                {body.map((r, ri) => (
+                  <tr key={ri}>{r.map((c, ci) => (
+                    <td key={ci} style={cellStyle}
+                      dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(c, P) }} />
+                  ))}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
         continue;
       }
 
