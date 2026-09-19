@@ -46,6 +46,7 @@ export default function EmbeddedRoadmapView({
   onSetCourseCode,
   codeEditable = true,
   mcqProgress,
+  fileActions,
 }) {
   const [topics, setTopics] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -939,6 +940,10 @@ export default function EmbeddedRoadmapView({
           onPracticeDoc={(m) => {
             const full = resourceByIdMap.get(m.resourceId) || m.resource;
             if (full) onPracticeFile?.(full);
+          }}
+          fileActions={fileActions && {
+            ...fileActions,
+            resolveFile: (m) => resourceByIdMap.get(m.resourceId) || m.resource,
           }}
           onClose={() => setDetailOpen(false)}
         />

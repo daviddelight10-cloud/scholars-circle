@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { progressPct } from "./roadmapShared";
+import { FileMenu } from "../../features/research-hub/SpaceFileCard";
 
 function Ring({ pct, done }) {
   const C = 2 * Math.PI * 17;
@@ -46,6 +47,7 @@ export default function TopicSheet({
   onStartStudying,
   onPracticeDoc,
   onClose,
+  fileActions,
 }) {
   const { modalProps, focusRef } = useModalA11y({
     isOpen: !!topic,
@@ -323,11 +325,12 @@ export default function TopicSheet({
                       variants?.flashcard && "🎴",
                       variants?.summary && "📝",
                     ].filter(Boolean);
+                    const full = fileActions?.resolveFile?.(m) || r;
                     return (
                       <li key={r.id || i} className="ts-doc">
                         <button
                           className="ts-doc-main" type="button"
-                          onClick={() => r.shareToken && onOpenResource?.(r.shareToken)}
+                          onClick={() => (onPracticeDoc ? onPracticeDoc(m) : r.shareToken && onOpenResource?.(r.shareToken))}
                         >
                           <Ring pct={docPct} done={docPct === 100} />
                           <span style={{ minWidth: 0 }}>
@@ -342,7 +345,19 @@ export default function TopicSheet({
                             </span>
                           </span>
                         </button>
-                        {onPracticeDoc && (
+                        {fileActions ? (
+                          <FileMenu
+                            file={full}
+                            isBookmarked={fileActions.bookmarkedIds?.has(full.id)}
+                            bookmarkBusy={fileActions.bookmarkBusyId === full.id}
+                            onToggleBookmark={fileActions.onToggleBookmark}
+                            onShare={fileActions.onShare}
+                            onDelete={fileActions.onDeleteResource}
+                            canDelete={fileActions.canDeleteFile?.(full)}
+                            onRename={fileActions.onRenameResource}
+                            kebabClass="ts-doc-kebab"
+                          />
+                        ) : onPracticeDoc ? (
                           <button
                             className="ts-doc-kebab" type="button"
                             aria-label={`More actions for ${r.title || "document"}`}
@@ -350,7 +365,7 @@ export default function TopicSheet({
                           >
                             ⋯
                           </button>
-                        )}
+                        ) : null}
                       </li>
                     );
                   })}

@@ -292,6 +292,15 @@ export default function FolderDetailView({
                 onSetCourseCode={onSetCourseCode}
                 codeEditable={codeEditable}
                 mcqProgress={mcqProgress}
+                fileActions={{
+                  bookmarkedIds,
+                  bookmarkBusyId,
+                  onToggleBookmark,
+                  onShare,
+                  onDeleteResource,
+                  canDeleteFile,
+                  onRenameResource,
+                }}
               />
             )}
           </div>

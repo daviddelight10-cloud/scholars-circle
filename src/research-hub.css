@@ -802,13 +802,18 @@
 .sp-row-tools .sp-ic { font-size: 14px; }
 
 .sp-row-kebab-wrap { flex: none; }
+/* Row containing an open dropdown must paint above sibling rows, or the
+   menu sits under the next card and taps hit the card instead. */
+.sp-row:has(.cs-menu) { z-index: 40; }
 .sp-row-kebab {
   width: 36px; height: 36px;
   display: grid; place-items: center;
-  background: none; border: 0; border-radius: 10px;
-  color: #646E84; cursor: pointer; font-size: 20px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px;
+  color: #B8BECB; cursor: pointer; font-size: 20px;
 }
-.sp-row-kebab:hover { background: rgba(255,255,255,0.06); color: #EDEFF5; }
+.sp-row-kebab:hover { background: #0A0D14; border-color: rgba(255,255,255,0.22); color: #EDEFF5; }
 .sp-row-menu { min-width: 168px; }
 .sp-row-menu .cs-menu-item { display: flex; align-items: center; gap: 10px; }
 .sp-row-menu .sp-ic { font-size: 16px; }
@@ -1407,11 +1412,11 @@ button.ts-stat:hover .l, button.ts-stat[aria-expanded="true"] .l { color: #EDEFF
   right: 0;
   z-index: 60;
   min-width: 170px;
-  background: #1F2733;
-  border: 1px solid rgba(255,255,255,0.15);
+  background: #252D3B;
+  border: 1px solid rgba(255,255,255,0.22);
   border-radius: 10px;
   padding: 6px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.65), 0 2px 8px rgba(0,0,0,0.4);
   animation: modal-in 0.15s ease;
 }
 
