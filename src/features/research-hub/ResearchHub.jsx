@@ -1307,8 +1307,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   const handleGoLive = useCallback(async (file) => {
     const mcq = file?.variants?.mcq;
-    if (!mcq || goingLive) return;
+    if (goingLive) return;
+    if (!mcq) { showToast("Generate MCQs on this material first"); return; }
     setGoingLive(true);
+    showToast("Creating live session…");
     try {
       const res = await createLiveRoom(mcq.id);
       navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
@@ -1608,6 +1610,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         bookmarkPicker={bookmarkPicker}
         onGuidedStudy={handleGuidedStudy}
         onGoLive={handleGoLive}
+        goingLive={goingLive}
         onSetCourseCode={handleSetFolderCourseCode}
         preparingStudy={preparingStudy}
         onDeleteResource={handleDeleteResource}

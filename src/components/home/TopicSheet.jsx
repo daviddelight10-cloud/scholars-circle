@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { progressPct } from "./roadmapShared";
 import { FileMenu } from "../../features/research-hub/SpaceFileCard";
@@ -155,7 +156,7 @@ export default function TopicSheet({
     retrievability: "is the estimated chance you'd recall a random item correctly right now.",
   };
 
-  return (
+  return createPortal(
     <div className="cs-sheet-backdrop cs-tsheet-backdrop" onClick={onClose}>
       <div
         {...modalProps}
@@ -414,6 +415,7 @@ export default function TopicSheet({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

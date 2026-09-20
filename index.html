@@ -98,7 +98,11 @@
       html, body {
         margin: 0;
         padding: 0;
-        position: fixed;
+        /* iOS: do NOT position:fixed here — fixed descendants (the
+           bottom nav portals to <body>) anchor to this box instead of
+           the viewport, floating ~safe-area-height above the screen
+           bottom and blocking Safari's bar collapse. overflow:hidden
+           + viewport height locks the document without it. */
         overflow: hidden;
         width: 100%;
         height: 100%;

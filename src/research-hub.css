@@ -982,6 +982,10 @@
   overflow-y: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  /* iOS: keep the gesture inside the sheet — without this the swipe
+     chains to #root at scroll edges and rubber-bands back */
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 .sp-sheet-list::-webkit-scrollbar { display: none; }
 .sp-sheet-btn {
@@ -1195,6 +1199,8 @@
   overflow-y: auto;
   scrollbar-width: none;
   padding: 4px 16px 16px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 .cs-tsheet-scroll::-webkit-scrollbar { display: none; }
 .cs-tsheet-stack { display: flex; flex-direction: column; gap: 14px; }

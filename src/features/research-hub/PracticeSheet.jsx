@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { createPortal } from "react-dom";
 import { useModalA11y } from "../../hooks/useModalA11y";
 
 function getVariantCount(variant) {
@@ -63,6 +64,7 @@ export default function PracticeSheet({
   onGuidedStudy,
   onExamSimulation,
   onGoLive,
+  goingLive,
   generating,
   preparingStudy,
   mcqProgress,
@@ -153,7 +155,7 @@ export default function PracticeSheet({
       : (mcqCount ? `${mcqCount} questions · ready` : "Ready to practice")
     : "Not generated yet · tap to create";
 
-  return (
+  return createPortal(
     <div className="cs-sheet-backdrop" onClick={onClose}>
       <div
         {...modalProps}
@@ -253,11 +255,12 @@ export default function PracticeSheet({
             sub={mcq ? "Quiz together, in real time" : "Generate MCQs first"}
             subColor={mcq ? undefined : "#F5A623"}
             variant="golive"
-            disabled={!mcq || generating}
+            disabled={!mcq || generating || goingLive}
             onClick={act(() => onGoLive?.(file))}
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
