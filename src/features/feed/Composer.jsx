@@ -226,7 +226,10 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
     if (!mcq || busy) return;
     setBusy(true);
     try {
-      const res = await createLiveRoom(mcq.id);
+      const [res] = await Promise.all([
+        createLiveRoom(mcq.id),
+        import("../live-quiz/LiveQuizPage"),
+      ]);
       onClose();
       navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
     } catch (err) {

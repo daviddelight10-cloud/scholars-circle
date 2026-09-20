@@ -195,8 +195,10 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     }
   };
 
-  const handleJoinQuiz = (code) => {
-    if (code) navigate(`/live/${code}`);
+  const handleJoinQuiz = async (code) => {
+    if (!code) return;
+    try { await import("../live-quiz/LiveQuizPage"); } catch {}
+    navigate(`/live/${code}`);
   };
 
   const handleJoinSession = async (session) => {

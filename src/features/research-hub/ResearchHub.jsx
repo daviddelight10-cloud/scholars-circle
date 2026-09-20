@@ -1312,7 +1312,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     setGoingLive(true);
     showToast("Creating live session…");
     try {
-      const res = await createLiveRoom(mcq.id);
+      // Warm the /live route chunk in parallel: React Router v7 commits navigations
+      // inside startTransition, so a cold lazy route keeps the old UI mounted until
+      // the chunk loads. Awaiting it here makes the navigation commit immediately.
+      const [res] = await Promise.all([
+        createLiveRoom(mcq.id),
+        import("../live-quiz/LiveQuizPage"),
+      ]);
       navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
     } catch (err) {
       showToast(err.message || "Couldn't start live session");

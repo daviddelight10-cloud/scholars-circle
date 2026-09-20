@@ -24,6 +24,11 @@ export function useModalA11y({ isOpen, onClose, labelledBy, label }) {
   const panelRef = useRef(null);
   const restoreFocusRef = useRef(null);
 
+  // Keep the latest onClose without making it an effect dependency — an inline
+  // (unstable) callback must not restart the effect on every parent re-render.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const setPanelRef = useCallback((el) => { panelRef.current = el; }, []);
 
   useEffect(() => {
@@ -36,8 +41,8 @@ export function useModalA11y({ isOpen, onClose, labelledBy, label }) {
       const panel = panelRef.current;
       if (!panel) return;
       const first = panel.querySelector(FOCUSABLE);
-      if (first) first.focus();
-      else if (panel.getAttribute("tabindex") !== null) panel.focus();
+      if (first) first.focus({ preventScroll: true });
+      else if (panel.getAttribute("tabindex") !== null) panel.focus({ preventScroll: true });
     };
     // Panel may mount in the same commit; try immediately and again after paint.
     focusFirst();
@@ -46,7 +51,7 @@ export function useModalA11y({ isOpen, onClose, labelledBy, label }) {
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (e.key !== "Tab") return;
@@ -62,10 +67,10 @@ export function useModalA11y({ isOpen, onClose, labelledBy, label }) {
       const last = focusables[focusables.length - 1];
       if (e.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
         e.preventDefault();
-        last.focus();
+        last.focus({ preventScroll: true });
       } else if (!e.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
         e.preventDefault();
-        first.focus();
+        first.focus({ preventScroll: true });
       }
     };
 
@@ -75,9 +80,9 @@ export function useModalA11y({ isOpen, onClose, labelledBy, label }) {
       document.removeEventListener("keydown", onKeyDown, true);
       // Restore focus to the element that opened the modal.
       const el = restoreFocusRef.current;
-      if (el && typeof el.focus === "function") el.focus();
+      if (el && typeof el.focus === "function") el.focus({ preventScroll: true });
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const modalProps = {
     role: "dialog",

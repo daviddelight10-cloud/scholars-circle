@@ -62,6 +62,7 @@ export default function EmbeddedRoadmapView({
   const [showRegenPrompt, setShowRegenPrompt] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const closeTopicSheet = useCallback(() => setDetailOpen(false), []);
   const [addTopicOpen, setAddTopicOpen] = useState(false);
   const [addTopicTitle, setAddTopicTitle] = useState("");
   const [addingTopic, setAddingTopic] = useState(false);
@@ -945,7 +946,7 @@ export default function EmbeddedRoadmapView({
             ...fileActions,
             resolveFile: (m) => resourceByIdMap.get(m.resourceId) || m.resource,
           }}
-          onClose={() => setDetailOpen(false)}
+          onClose={closeTopicSheet}
         />
       )}
 
