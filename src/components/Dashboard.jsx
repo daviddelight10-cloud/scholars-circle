@@ -4,14 +4,16 @@ import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
 import StreakSurvival from "../features/streak-survival/StreakSurvival.jsx";
 import { listCommunityFolders, bookmarkFolder } from "../lib/foldersApi.js";
-import { loadSave, mutate, tickDay, activeQuests, claimQuest } from "../features/streak-survival/survivalStore.js";
+import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP } from "../features/streak-survival/survivalStore.js";
 import { listRecentDocs, weakestSubject } from "../lib/homeUtils.js";
 import { CASES } from "../features/clinicalCases/caseData.js";
 import { getPdfReadingProgress, tileTintStyle } from "../lib/researchUtils.js";
 import GameBar from "./home/GameBar.jsx";
 import HomeHero from "./home/HomeHero.jsx";
+import WelcomeSheet from "./home/WelcomeSheet.jsx";
 import { ShopSheet, BoardSheet, StatsSheet, GoalSheet } from "./home/HomeSheets.jsx";
 import HIcon from "./home/HIcon.jsx";
+import { useDailyWelcome } from "../hooks/useDailyWelcome.js";
 import { API_BASE } from "../lib/constants";
 import "../home.css";
 
@@ -24,13 +26,6 @@ function getAuthHeaders() {
   } catch {
     return { "Content-Type": "application/json" };
   }
-}
-
-function greetingWord() {
-  const h = new Date().getHours();
-  if (h < 12) return "morning";
-  if (h < 17) return "afternoon";
-  return "evening";
 }
 
 function relTime(ts) {
@@ -352,11 +347,42 @@ export default function Dashboard({
     return { ranked, idx };
   }, [leaderboard, userName, authUser]);
 
-  const greeting = firstRun ? "Welcome," : `Good ${greetingWord()},`;
   const displayName = userName || authUser?.username || authUser?.name || "Scholar";
   const streak = stats?.streak || fsrsStats?.streak || 0;
-  const todayLabel = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }).toUpperCase();
   const questsDone = quests.filter((q) => (save.questProgress?.[q.id] || 0) >= q.target).length;
+
+  // ── Daily welcome popup data ──
+  const level = levelFromXP(save.xp || 0);
+  // null until fsrsStats resolves — never claim "0 items due" before data loads
+  const dueCount = fsrsStats ? (fsrsStats.dueCount || 0) + sm2DueCount : null;
+  const lastActiveDaysAgo = useMemo(() => {
+    let last = null;
+    try {
+      const uid = authUser?.id || authUser?.username || "guest";
+      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
+      const iso = raw ? JSON.parse(raw)?.lastStudied : null;
+      if (iso) {
+        const t = new Date(`${iso}T00:00:00`).getTime();
+        if (!Number.isNaN(t)) last = t;
+      }
+    } catch {}
+    for (const h of history || []) {
+      const t = h?.ts ? new Date(h.ts).getTime() : null;
+      if (t && !Number.isNaN(t) && (last == null || t > last)) last = t;
+    }
+    if (last == null) return null;
+    return Math.max(0, Math.round((Date.now() - last) / 86400000));
+  }, [authUser, history]);
+
+  const { message: welcome, dismiss: dismissWelcome } = useDailyWelcome({
+    userId: authUser?.id || authUser?.username,
+    dataReady: fsrsStats != null,
+    streak,
+    level,
+    dueCount,
+    name: displayName,
+    lastActiveDaysAgo,
+  });
 
 
   const reasonTag = (f) => {
@@ -371,17 +397,8 @@ export default function Dashboard({
   return (
     <div className="hm-root" style={{ minHeight: "100dvh" }}>
       <div className="hm-inner" style={{ paddingBottom: 28 }}>
-        {/* ── Header + gamebar ── */}
+        {/* ── Compact top bar ── */}
         <div className="hm-topbar">
-          <div className="hm-head" style={{ flex: 1, minWidth: 0 }}>
-            <div className="hm-greet">
-              <small>{todayLabel}</small>
-              <h1>{greeting} {displayName}</h1>
-            </div>
-            <div className="hm-head-right">
-              <NotificationBellImproved token={token} currentUser={authUser} onOpenTab={onOpenTab} />
-            </div>
-          </div>
           <GameBar
             streak={streak}
             save={save}
@@ -390,6 +407,7 @@ export default function Dashboard({
             onOpenBoard={() => setOpenSheet("board")}
             onOpenStats={() => setOpenSheet("stats")}
             onOpenGoal={() => setOpenSheet("goal")}
+            bell={<NotificationBellImproved token={token} currentUser={authUser} onOpenTab={onOpenTab} />}
           />
         </div>
 
@@ -592,6 +610,13 @@ export default function Dashboard({
         onOpenFull={() => { setOpenSheet(null); onOpenTab?.("progress"); }}
       />
       <GoalSheet open={openSheet === "goal"} onClose={() => setOpenSheet(null)} dailyGoal={fsrsStats?.dailyGoal || 20} onSelect={handleSetGoal} />
+
+      {/* ── Daily welcome popup (once per day per user) ── */}
+      <WelcomeSheet
+        message={welcome}
+        onClose={dismissWelcome}
+        onStartDaily={() => setShowDailyReview(true)}
+      />
 
       {toast && <div className="hm-toast">{toast}</div>}
 
