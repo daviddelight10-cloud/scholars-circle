@@ -12,7 +12,7 @@ function relIn(ts) {
 }
 
 // Returning-user hero: real FSRS stats + goal ring.
-function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions, onReviewReadings }) {
+function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily }) {
   const due = (fsrsStats?.dueCount || 0) + (sm2DueCount || 0);
   const goal = fsrsStats?.dailyGoal || 20;
   const done = fsrsStats?.reviewedToday || 0;
@@ -73,11 +73,6 @@ function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions
       <button className="hm-cta" onClick={onStartDaily}>
         <HIcon name="play" size={14} />Start Daily Review
       </button>
-      <div className="hm-or">or drill into</div>
-      <div className="hm-secondary">
-        <button className="hm-ghost" onClick={onReviewQuestions}><HIcon name="spark" size={13} />Questions only</button>
-        <button className="hm-ghost" onClick={onReviewReadings}><HIcon name="book" size={13} />Readings only</button>
-      </div>
     </div>
   );
 }
