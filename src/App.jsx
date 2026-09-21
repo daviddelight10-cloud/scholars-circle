@@ -643,7 +643,7 @@ function App() {
 
   const [homeViewerReturnTab, setHomeViewerReturnTab] = useState("research-hub");
 
-  const [progressSubTab, setProgressSubTab] = useState("stats");
+  const [progressSubTab, setProgressSubTab] = useState("leaderboard");
 
 
   const [resourcesSubTab, setResourcesSubTab] = useState("notes");
@@ -9680,7 +9680,6 @@ function App() {
           token={token}
           progressSubTab={progressSubTab}
           setProgressSubTab={setProgressSubTab}
-          aiConfig={aiConfig}
           onRePractice={(missed) => {
             setCustomQuestions(prev => [...missed, ...prev]);
             setTab("practice");

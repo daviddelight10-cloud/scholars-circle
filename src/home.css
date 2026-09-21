@@ -153,13 +153,6 @@
   box-shadow: 0 8px 22px rgba(245,166,35,.28); transition: .15s;
 }
 .hm-cta:active { transform: scale(.98); }
-.hm-or { margin-top: 9px; font-size: 9px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--hm-faint); text-align: center; }
-.hm-secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
-.hm-ghost {
-  display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px;
-  border-radius: 12px; background: var(--hm-card); border: 1px solid var(--hm-stroke);
-  color: #C7C7D1; font-size: 11.5px; font-weight: 600; cursor: pointer; font-family: inherit;
-}
 
 /* first-run hero */
 .hm-fr-title { font-family: var(--hm-font-display); font-size: 20px; font-weight: 800; letter-spacing: -.4px; margin: 10px 0 0; line-height: 1.2; }
@@ -439,6 +432,33 @@
   gap: 6px; padding: 12px; border-radius: 13px; background: var(--hm-card);
   border: 1px solid var(--hm-stroke); color: #C7C7D1; font: 600 12px var(--hm-font-body); cursor: pointer;
 }
+.hm-an-top { display: flex; align-items: center; gap: 18px; margin-top: 10px; }
+.hm-goal-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+.hm-goal-ring svg { transform: rotate(-90deg); }
+.hm-goal-ring-bg { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 6; }
+.hm-goal-ring-fg { fill: none; stroke: var(--hm-amber); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .5s ease; }
+.hm-goal-ring-lbl { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+.hm-goal-ring-lbl b { font-family: var(--hm-font-display); font-size: 12.5px; }
+.hm-goal-ring-lbl span { font-size: 6.5px; letter-spacing: 1px; color: var(--hm-faint); font-weight: 600; text-transform: uppercase; }
+.hm-range { display: flex; gap: 4px; }
+.hm-range-chip {
+  font-family: var(--hm-font-mono); font-size: 9.5px; font-weight: 600; color: var(--hm-faint);
+  background: var(--hm-card); border: 1px solid var(--hm-stroke-soft);
+  padding: 4px 9px; border-radius: 99px; cursor: pointer;
+}
+.hm-range-chip.on { color: #211302; background: linear-gradient(180deg,#FFC55C,#F5A623); border-color: transparent; }
+.hm-xp-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.hm-an-chart.many { gap: 2px; }
+.hm-an-chart.many .hm-an-col i { border-radius: 3px 3px 2px 2px; }
+.hm-subj { margin-top: 12px; border: 1px solid var(--hm-stroke-soft); background: var(--hm-card); border-radius: 13px; overflow: hidden; }
+.hm-subj-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.hm-subj-row + .hm-subj-row { border-top: 1px solid var(--hm-stroke-soft); }
+.hm-subj-name { flex: 1; min-width: 0; }
+.hm-subj-name h4 { font-size: 12px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-subj-name span { font-family: var(--hm-font-mono); font-size: 9px; color: var(--hm-faint); }
+.hm-subj-stat { font-family: var(--hm-font-mono); font-size: 9.5px; font-weight: 700; color: #6EE7A0; white-space: nowrap; }
+.hm-subj-lapse { font-family: var(--hm-font-mono); font-size: 9.5px; font-weight: 700; color: #F9A8D4; white-space: nowrap; }
+.hm-lb-invite.secondary { margin-top: 8px; opacity: .75; }
 
 /* goal sheet */
 .hm-goal-opt {

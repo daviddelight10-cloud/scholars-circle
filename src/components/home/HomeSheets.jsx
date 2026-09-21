@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import HIcon from "./HIcon.jsx";
 import { lapsedSubjects } from "../../lib/homeUtils.js";
+import { levelFromXP, xpIntoLevel, XP_PER_LEVEL } from "../../features/streak-survival/survivalStore.js";
 
 const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -108,7 +109,7 @@ export function ShopSheet({ open, onClose, save, onBuyFreeze }) {
 }
 
 /* ── Leaderboard ── */
-export function BoardSheet({ open, onClose, entries, userName, myIdx = -1, onInvite }) {
+export function BoardSheet({ open, onClose, entries, userName, myIdx = -1, onInvite, onViewAll }) {
   const ranked = [...(entries || [])].sort((a, b) => (b.totalXP || b.xp || 0) - (a.totalXP || a.xp || 0)).slice(0, 5);
   const meEntry = myIdx >= 5 ? entries?.find((e) => e.username === userName) : null;
   return (
@@ -147,68 +148,162 @@ export function BoardSheet({ open, onClose, entries, userName, myIdx = -1, onInv
           </div>
         )}
       </div>
-      <button className="hm-lb-invite" onClick={onInvite}>
+      {onViewAll && (
+        <button className="hm-lb-invite" onClick={onViewAll}>
+          <HIcon name="trophy" size={14} />View full leaderboard
+        </button>
+      )}
+      <button className="hm-lb-invite secondary" onClick={onInvite}>
         <HIcon name="userPlus" size={14} />Invite friends to your circle
       </button>
     </Sheet>
   );
 }
 
-/* ── Quick analytics ── */
-export function StatsSheet({ open, onClose, fsrsStats, fsrsAnalytics, onOpenFull }) {
-  const retention = fsrsStats?.avgRetrievability != null ? Math.round(fsrsStats.avgRetrievability * 100) : null;
-  const daily = fsrsAnalytics?.dailyReviews || {};
+/* ── Stats — the main analytics surface ── */
+export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics }) {
+  const [days, setDays] = useState(7);
+  const [analytics, setAnalytics] = useState(null);
+  const [expanded, setExpanded] = useState(false);
 
-  // last 7 days ending today
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
+  useEffect(() => {
+    if (!open || !fetchAnalytics) return;
+    let live = true;
+    fetchAnalytics(days).then((d) => { if (live && d) setAnalytics(d); });
+    return () => { live = false; };
+  }, [open, days, fetchAnalytics]);
+
+  const retention = fsrsStats?.avgRetrievability != null ? Math.round(fsrsStats.avgRetrievability * 100) : null;
+  const daily = analytics?.dailyReviews || {};
+  const goal = fsrsStats?.dailyGoal || 0;
+  const doneToday = fsrsStats?.reviewedToday || 0;
+  const goalPct = goal > 0 ? Math.min(1, doneToday / goal) : 0;
+  const level = levelFromXP(save?.xp || 0);
+  const xpIn = xpIntoLevel(save?.xp || 0);
+
+  const dayList = [];
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
     const key = d.toISOString().slice(0, 10);
-    days.push({ label: DAY_LABELS[d.getDay()], count: daily[key] || 0, today: i === 0 });
+    dayList.push({ label: DAY_LABELS[d.getDay()], count: daily[key] || 0, today: i === 0 });
   }
-  const max = Math.max(1, ...days.map((d) => d.count));
-  const weekReviews = days.reduce((s, d) => s + d.count, 0);
-  const masteredWeek = fsrsAnalytics?.masteredThisPeriod ?? null;
+  const max = Math.max(1, ...dayList.map((d) => d.count));
+  const periodReviews = dayList.reduce((s, d) => s + d.count, 0);
+  const masteredPeriod = analytics?.masteredThisPeriod ?? null;
+
+  // Per-subject breakdown: fsrsStats.bySubject + analytics lapse/difficulty maps
+  const bySubject = fsrsStats?.bySubject || {};
+  const lapseMap = analytics?.lapseBySubject || {};
+  const diffMap = analytics?.difficultyBySubject || {};
+  const subjRows = Object.entries(bySubject)
+    .map(([name, s]) => {
+      const l = lapseMap[name];
+      return {
+        name,
+        total: s.total || 0,
+        due: s.due || 0,
+        masteredPct: s.total ? Math.round(((s.mastered || 0) / s.total) * 100) : 0,
+        lapsePct: l?.total ? Math.round((l.lapsed / l.total) * 100) : 0,
+        diff: diffMap[name]?.avg,
+      };
+    })
+    .sort((a, b) => b.lapsePct - a.lapsePct || b.due - a.due);
+
+  const RING_R = 26;
+  const RING_C = 2 * Math.PI * RING_R;
 
   return (
     <Sheet open={open} onClose={onClose}>
-      <SheetHead title="Your week" onClose={onClose} right={<span className="hm-lb-reset">LAST 7 DAYS</span>} />
-      {retention != null && (
-        <div className="hm-an-big">
-          <b>{retention}%</b>
-          <span className="hm-an-trend"><HIcon name="trendUp" size={10} />retention</span>
-        </div>
-      )}
+      <SheetHead
+        title="Your stats"
+        onClose={onClose}
+        right={
+          <span className="hm-range">
+            {[7, 30].map((d) => (
+              <button key={d} className={`hm-range-chip${days === d ? " on" : ""}`} onClick={() => setDays(d)}>
+                {d}D
+              </button>
+            ))}
+          </span>
+        }
+      />
+
+      <div className="hm-an-top">
+        {goal > 0 && (
+          <div className="hm-goal-ring" title={`${doneToday} of ${goal} daily reviews done`}>
+            <svg viewBox="0 0 64 64">
+              <circle className="hm-goal-ring-bg" cx="32" cy="32" r={RING_R} />
+              <circle
+                className="hm-goal-ring-fg" cx="32" cy="32" r={RING_R}
+                strokeDasharray={RING_C}
+                strokeDashoffset={RING_C * (1 - goalPct)}
+              />
+            </svg>
+            <div className="hm-goal-ring-lbl"><b>{doneToday}/{goal}</b><span>goal</span></div>
+          </div>
+        )}
+        {retention != null && (
+          <div className="hm-an-big">
+            <b>{retention}%</b>
+            <span className="hm-an-trend"><HIcon name="trendUp" size={10} />retention</span>
+          </div>
+        )}
+      </div>
       <p className="hm-an-lbl">Average memory retrievability across your cards.</p>
 
-      <div className="hm-an-chart">
-        {days.map((d, i) => (
+      {save && (
+        <div className="hm-xp-row">
+          <span className="hm-lvl">LVL {level}</span>
+          <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / XP_PER_LEVEL) * 100)}%` }} /></div>
+          <span className="hm-xptext">{xpIn}/{XP_PER_LEVEL}</span>
+        </div>
+      )}
+
+      <div className={`hm-an-chart${days > 7 ? " many" : ""}`}>
+        {dayList.map((d, i) => (
           <div key={i} className={`hm-an-col${d.today ? " today" : ""}`}>
             <i style={{ height: `${Math.max(6, (d.count / max) * 100)}%` }} title={`${d.count} reviews`} />
-            <span>{d.label}</span>
+            {days <= 7 && <span>{d.label}</span>}
           </div>
         ))}
       </div>
+      {days > 7 && <p className="hm-an-lbl" style={{ textAlign: "center" }}>Reviews per day — last {days} days</p>}
 
       <div className="hm-an-duo">
-        <div className="hm-an-mini"><b>{weekReviews}</b><span>reviews this week</span></div>
-        <div className="hm-an-mini"><b>{masteredWeek ?? "—"}</b><span>mastered this week</span></div>
+        <div className="hm-an-mini"><b>{periodReviews}</b><span>reviews in {days}d</span></div>
+        <div className="hm-an-mini"><b>{masteredPeriod ?? "—"}</b><span>mastered</span></div>
       </div>
 
-      {lapsedSubjects(fsrsAnalytics).length > 0 && (
+      {lapsedSubjects(analytics).length > 0 && (
         <div className="hm-an-weak">
           <h5>NEEDS WORK</h5>
           <div className="hm-an-weak-row">
-            {lapsedSubjects(fsrsAnalytics).map((s) => (
+            {lapsedSubjects(analytics).map((s) => (
               <span key={s.name} className="hm-weak-chip">{s.name} · {s.rate}% lapse</span>
             ))}
           </div>
         </div>
       )}
 
-      <button className="hm-an-link" onClick={onOpenFull}>
-        Open full analytics<HIcon name="arrowR" size={13} />
+      <button className="hm-an-link" onClick={() => setExpanded((v) => !v)}>
+        {expanded ? "Hide breakdown" : "Subject breakdown"}<HIcon name="arrowR" size={13} />
       </button>
+
+      {expanded && (
+        <div className="hm-subj">
+          {subjRows.length === 0 && <p className="hm-an-lbl">No subject data yet.</p>}
+          {subjRows.map((s) => (
+            <div key={s.name} className="hm-subj-row">
+              <div className="hm-subj-name">
+                <h4>{s.name}</h4>
+                <span>{s.total} items{s.due > 0 ? ` · ${s.due} due` : ""}{s.diff ? ` · diff ${s.diff}` : ""}</span>
+              </div>
+              <span className="hm-subj-stat">{s.masteredPct}% mastered</span>
+              {s.lapsePct > 0 && <span className="hm-subj-lapse">{s.lapsePct}% lapse</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </Sheet>
   );
 }

@@ -13,7 +13,7 @@ const initialState = {
   showOnboarding: false,
   demoMode: false,
   demoUsage: { aiCalls: 0, practiceQuestions: 0 },
-  progressSubTab: "stats",
+  progressSubTab: "leaderboard",
   resourcesSubTab: "notes",
   aiTutorSubTab: "chat",
   isOffline: false,

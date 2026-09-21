@@ -27,25 +27,3 @@ export async function submitMasterySession(subjectId, results, topicId = null) {
     return null;
   }
 }
-
-// Anonymised peer comparison for a subject
-export async function getPeerComparison(subjectId) {
-  try {
-    const res = await authFetch(`${BASE}/api/mastery/peer/${subjectId}`);
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-// Per-question mastery grid
-export async function getMasteryGrid(subjectId) {
-  try {
-    const res = await authFetch(`${BASE}/api/mastery/grid/${subjectId}`);
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}

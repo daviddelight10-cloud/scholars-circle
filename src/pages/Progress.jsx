@@ -9,7 +9,6 @@ import { useUI } from "../contexts/UIContext";
 import { useUserData } from "../contexts/UserDataContext";
 
 const GamificationHub = lazyWithRetry(() => import("../features/Gamification"));
-const StatsPanel = lazyWithRetry(() => import("../features/StatsPanel"));
 
 function Progress({
   authUser: authUserProp,
@@ -19,20 +18,18 @@ function Progress({
   token: tokenProp,
   progressSubTab: progressSubTabProp,
   setProgressSubTab: setProgressSubTabProp,
-  aiConfig: aiConfigProp,
   loading,
 }) {
   const { user: ctxUser, token: ctxToken } = useAuth();
   const { stats: ctxStats, history: ctxHistory, subjects: ctxSubjects } = useUserData();
-  const { aiConfig: ctxAiConfig, progressSubTab: ctxProgressSubTab, setProgressSubTab: ctxSetProgressSubTab } = useUI();
+  const { progressSubTab: ctxProgressSubTab, setProgressSubTab: ctxSetProgressSubTab } = useUI();
 
   const authUser = authUserProp ?? ctxUser;
   const stats = statsProp ?? ctxStats ?? {};
   const history = historyProp ?? ctxHistory ?? [];
   const subjects = subjectsProp ?? ctxSubjects ?? [];
   const token = tokenProp ?? ctxToken;
-  const aiConfig = aiConfigProp ?? ctxAiConfig;
-  const progressSubTab = progressSubTabProp ?? ctxProgressSubTab ?? "stats";
+  const progressSubTab = progressSubTabProp ?? ctxProgressSubTab ?? "leaderboard";
   const setProgressSubTab = setProgressSubTabProp ?? ctxSetProgressSubTab;
   if (loading) {
     return (
@@ -48,7 +45,6 @@ function Progress({
       {/* Progress Hub sub-tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {[
-          { id: "stats", label: "📊 Stats" },
           { id: "leaderboard", label: "🏆 Leaderboard" },
           { id: "badges", label: "🏅 Badges" },
           { id: "arena", label: "⚔️ Arena" },
@@ -95,20 +91,6 @@ function Progress({
             leaderboard={[]}
           />
         </Suspense>
-      )}
-
-      {progressSubTab === "stats" && (
-        <div>
-          <h2>📊 Analytics</h2>
-          <Suspense fallback={<StatsGridSkeleton />}>
-          <StatsPanel
-            history={history}
-            stats={stats}
-            subjects={subjects}
-            aiConfig={aiConfig}
-          />
-          </Suspense>
-        </div>
       )}
     </>
   );

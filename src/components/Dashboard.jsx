@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { getMyProfile } from "../lib/profileApi.js";
 import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
-import StreakSurvival from "../features/streak-survival/StreakSurvival.jsx";
 import { listCommunityFolders, bookmarkFolder } from "../lib/foldersApi.js";
 import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP } from "../features/streak-survival/survivalStore.js";
 import { listRecentDocs, weakestSubject } from "../lib/homeUtils.js";
@@ -50,15 +49,13 @@ function initials(name) {
 
 export default function Dashboard({
   userName, stats, subjects, mastery, dueCards, history,
-  onStartSpaced, onStartSubject, onOpenTab, onOpenLeaderboard,
+  onStartSubject, onOpenTab, onOpenLeaderboard,
   onOpenAI, onOpenLearn, onOpenStudy, onOpenResource, token, authUser,
 }) {
   const [fsrsStats, setFsrsStats] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sc_fsrs_stats") || "null")?.data ?? null; } catch { return null; }
   });
-  const [fsrsAnalytics, setFsrsAnalytics] = useState(null);
   const [showDailyReview, setShowDailyReview] = useState(false);
-  const [mcqPracticeItems, setMcqPracticeItems] = useState(null);
   const [save, setSave] = useState(() => ({ ...loadSave() }));
   const [openSheet, setOpenSheet] = useState(null); // 'shop' | 'board' | 'stats' | 'goal'
   const [toast, setToast] = useState(null);
@@ -103,16 +100,15 @@ export default function Dashboard({
     };
   }, [fetchFsrsStats]);
 
-  // Quick analytics (only fetched when the stats sheet opens)
-  useEffect(() => {
-    if (openSheet !== "stats" || fsrsAnalytics) return;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/resources/fsrs/analytics?days=7`, { headers: getAuthHeaders() });
-        if (res.ok) setFsrsAnalytics(await res.json());
-      } catch {}
-    })();
-  }, [openSheet, fsrsAnalytics]);
+  // Retention analytics for the stats sheet (7/30-day ranges, fetched on demand)
+  const fetchAnalytics = useCallback(async (days = 7) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/analytics?days=${days}`, { headers: getAuthHeaders() });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const [resourceCounts, setResourceCounts] = useState({ dept: 0, saved: 0, uploads: 0 });
   const [communityFolders, setCommunityFolders] = useState([]);
@@ -129,7 +125,8 @@ export default function Dashboard({
       const lbRes = await fetch(`${API_BASE}/users/leaderboard`, { headers: getAuthHeaders() });
       if (lbRes.ok) {
         const data = await lbRes.json();
-        setLeaderboard(Array.isArray(data) ? data : []);
+        const entries = data.entries || data;
+        setLeaderboard(Array.isArray(entries) ? entries : []);
       }
     } catch {}
   }, []);
@@ -210,34 +207,6 @@ export default function Dashboard({
   const sm2DueCount = dueCards?.length || 0;
   const firstRun = fsrsStats != null && (fsrsStats.totalItems || 0) === 0;
   const weakest = useMemo(() => weakestSubject(fsrsStats), [fsrsStats]);
-
-  const handleReviewQuestions = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/due-mcqs?limit=20`, { headers: getAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        const items = (data.items || []).filter((i) => i.mcq);
-        if (items.length > 0) { setMcqPracticeItems(items); return; }
-      }
-    } catch {}
-    onStartSpaced();
-  }, [onStartSpaced]);
-
-  const handleReviewReadings = useCallback(async () => {
-    if (onOpenResource) {
-      try {
-        const res = await fetch(`${API_BASE}/api/resources/fsrs/due?limit=50`, { headers: getAuthHeaders() });
-        if (res.ok) {
-          const data = await res.json();
-          const reviewItem = (data.items || []).find(
-            (item) => ["mcq", "legacy_mcq", "flashcard"].includes(item.itemType) && item.resource?.shareToken
-          );
-          if (reviewItem) { onOpenResource(reviewItem.resource.shareToken, reviewItem.pageIndex); return; }
-        }
-      } catch {}
-    }
-    onOpenTab?.("research-hub");
-  }, [onOpenTab, onOpenResource]);
 
   const openResearchHub = useCallback((tab, subTab) => {
     window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { tab, subTab } }));
@@ -419,8 +388,6 @@ export default function Dashboard({
               fsrsStats={fsrsStats}
               sm2DueCount={sm2DueCount}
               onStartDaily={() => setShowDailyReview(true)}
-              onReviewQuestions={handleReviewQuestions}
-              onReviewReadings={handleReviewReadings}
               onAddFirst={() => window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { openUpload: true } }))}
               onTrySample={() => openResearchHub("community")}
             />
@@ -604,11 +571,10 @@ export default function Dashboard({
 
       {/* ── Sheets ── */}
       <ShopSheet open={openSheet === "shop"} onClose={() => setOpenSheet(null)} save={save} onBuyFreeze={handleBuyFreeze} />
-      <BoardSheet open={openSheet === "board"} onClose={() => setOpenSheet(null)} entries={leaderboard} userName={userName || authUser?.username} myIdx={myRank.idx} onInvite={handleInvite} />
+      <BoardSheet open={openSheet === "board"} onClose={() => setOpenSheet(null)} entries={leaderboard} userName={userName || authUser?.username} myIdx={myRank.idx} onInvite={handleInvite} onViewAll={() => onOpenLeaderboard?.()} />
       <StatsSheet
         open={openSheet === "stats"} onClose={() => setOpenSheet(null)}
-        fsrsStats={fsrsStats} fsrsAnalytics={fsrsAnalytics}
-        onOpenFull={() => { setOpenSheet(null); onOpenTab?.("progress"); }}
+        fsrsStats={fsrsStats} save={save} fetchAnalytics={fetchAnalytics}
       />
       <GoalSheet open={openSheet === "goal"} onClose={() => setOpenSheet(null)} dailyGoal={fsrsStats?.dailyGoal || 20} onSelect={handleSetGoal} />
 
@@ -629,15 +595,6 @@ export default function Dashboard({
             onComplete={() => { fetchFsrsStats(); refreshSave(); }}
           />
         </div>
-      )}
-
-      {/* ── Questions-only practice runner ── */}
-      {mcqPracticeItems && (
-        <StreakSurvival
-          items={mcqPracticeItems}
-          mode="practice"
-          onBack={() => { setMcqPracticeItems(null); fetchFsrsStats(); refreshSave(); }}
-        />
       )}
     </div>
   );
