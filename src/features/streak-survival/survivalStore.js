@@ -19,7 +19,7 @@ function defaults() {
   return {
     // { [resourceId|'global']: number }
     bestByScope: {},
-    xp: 0,                    // game XP — drives level + career titles
+    xp: 0,                    // unified total XP — mirrors server UserProgress.xp; drives level + career titles
     gems: 20,
     lifetimeGems: 20,
     freezes: 0,
@@ -97,6 +97,15 @@ export function levelProgress(xp) {
 
 export const levelFromXP = (xp) => levelProgress(xp).level;
 export const xpIntoLevel = (xp) => levelProgress(xp).into;
+
+// Keep the local XP mirror aligned with the unified app/server total
+// (stats.xp, which syncs with UserProgress.xp via /user-data/sync max-merge).
+export function syncTotalXp(total) {
+  return mutate((s) => {
+    const t = Math.max(0, Math.round(total || 0));
+    if (t > s.xp) s.xp = t;
+  });
+}
 
 export const CAREER_TITLES = [
   [1, 'Novice'],

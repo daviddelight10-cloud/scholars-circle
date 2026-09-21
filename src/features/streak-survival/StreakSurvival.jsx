@@ -243,6 +243,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const grantXp = useCallback((n, label) => {
     const before = lvl;
     editSave((s) => { s.xp += n; });
+    // Feed the unified XP pool (stats.xp -> server via /user-data/sync)
+    if (onXpUpdate) onXpUpdate(n);
+    else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: n } }));
     const after = levelFromXP(loadSave().xp);
     setSessionXp((v) => v + n);
     xpFloat(`+${n} XP${label ? ` ${label}` : ''}`, '#00E5FF');
@@ -253,7 +256,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       haptics.success();
       setTimeout(() => setLevelUp(null), 1600);
     }
-  }, [editSave, lvl, xpFloat, qe]);
+  }, [editSave, lvl, xpFloat, qe, onXpUpdate]);
 
   const grantGems = useCallback((n, why) => {
     editSave((s) => { s.gems += n; s.lifetimeGems += n; });
@@ -361,6 +364,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       }));
       if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
       if (data.xpAwarded > 0) {
+        editSave((s) => { s.xp += data.xpAwarded; }); // keep local mirror = unified total
         if (onXpUpdate) onXpUpdate(data.xpAwarded);
         else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: data.xpAwarded } }));
       }
@@ -724,6 +728,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         }
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0) {
+          editSave((s) => { s.xp += data.xpAwarded; }); // keep local mirror = unified total
           if (onXpUpdate) onXpUpdate(data.xpAwarded);
           else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: data.xpAwarded } }));
         }

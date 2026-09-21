@@ -4468,7 +4468,9 @@ function App() {
 
         setStats({
 
-          xp: data.progress.xp ?? 0,
+          // max-merge: server is authoritative but never drops locally-earned XP
+          // (e.g. survival game XP not yet flushed by the 5-min sync)
+          xp: Math.max(data.progress.xp ?? 0, stats.xp),
 
           sessions: data.progress.sessions ?? 0,
 

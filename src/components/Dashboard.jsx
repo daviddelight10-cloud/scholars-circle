@@ -3,7 +3,7 @@ import { getMyProfile } from "../lib/profileApi.js";
 import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
 import { listCommunityFolders, bookmarkFolder } from "../lib/foldersApi.js";
-import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP } from "../features/streak-survival/survivalStore.js";
+import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP, syncTotalXp } from "../features/streak-survival/survivalStore.js";
 import { listRecentDocs, weakestSubject } from "../lib/homeUtils.js";
 import { CASES } from "../features/clinicalCases/caseData.js";
 import { getPdfReadingProgress, tileTintStyle } from "../lib/researchUtils.js";
@@ -88,6 +88,9 @@ export default function Dashboard({
 
   // Day-rollover for quests (resets progress at local midnight)
   useEffect(() => { tickDay(); setSave({ ...loadSave() }); }, []);
+
+  // Keep the local survival XP mirror aligned with the unified app/server total
+  useEffect(() => { syncTotalXp(stats?.xp); setSave({ ...loadSave() }); }, [stats?.xp]);
 
   useEffect(() => {
     const onRated = () => { try { localStorage.removeItem("sc_fsrs_stats"); } catch {} fetchFsrsStats(); };
