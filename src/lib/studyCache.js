@@ -114,6 +114,7 @@ export function recordGuidedProgress(resourceId, record) {
     idx[resourceId] = record;
     localStorage.setItem(PROGRESS_INDEX_KEY, JSON.stringify(idx));
   } catch {}
+  try { window.dispatchEvent(new CustomEvent("sc-guided-progress")); } catch {}
 }
 
 /**

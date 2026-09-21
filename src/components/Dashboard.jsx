@@ -5,6 +5,8 @@ import DailyReview from "../features/research-hub/DailyReview.jsx";
 import { listCommunityFolders, bookmarkFolder } from "../lib/foldersApi.js";
 import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP, syncTotalXp } from "../features/streak-survival/survivalStore.js";
 import { listRecentDocs, weakestSubject } from "../lib/homeUtils.js";
+import { getGuidedProgressIndex } from "../lib/studyCache.js";
+import { extractResourceText } from "../features/research-hub/useMaterialGenerate.js";
 import { CASES } from "../features/clinicalCases/caseData.js";
 import { getPdfReadingProgress, tileTintStyle } from "../lib/researchUtils.js";
 import GameBar from "./home/GameBar.jsx";
@@ -60,6 +62,8 @@ export default function Dashboard({
   const [openSheet, setOpenSheet] = useState(null); // 'shop' | 'board' | 'stats' | 'goal'
   const [toast, setToast] = useState(null);
   const [recents, setRecents] = useState(() => listRecentDocs());
+  const [guidedProg, setGuidedProg] = useState({});
+  const [preparingGuided, setPreparingGuided] = useState(null);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -93,13 +97,19 @@ export default function Dashboard({
   useEffect(() => { syncTotalXp(stats?.xp); setSave({ ...loadSave() }); }, [stats?.xp]);
 
   useEffect(() => {
+    let live = true;
+    const loadGuided = () => getGuidedProgressIndex().then((idx) => { if (live) setGuidedProg(idx || {}); }).catch(() => {});
+    loadGuided();
     const onRated = () => { try { localStorage.removeItem("sc_fsrs_stats"); } catch {} fetchFsrsStats(); };
-    const onRecent = () => setRecents(listRecentDocs());
+    const onRecent = () => { setRecents(listRecentDocs()); loadGuided(); };
     window.addEventListener("sc-fsrs-rated", onRated);
     window.addEventListener("sc-recent-doc", onRecent);
+    window.addEventListener("sc-guided-progress", loadGuided);
     return () => {
+      live = false;
       window.removeEventListener("sc-fsrs-rated", onRated);
       window.removeEventListener("sc-recent-doc", onRecent);
+      window.removeEventListener("sc-guided-progress", loadGuided);
     };
   }, [fetchFsrsStats]);
 
@@ -112,6 +122,33 @@ export default function Dashboard({
       return null;
     }
   }, []);
+
+  // Resume a Guided Study session on a recent doc at the stopped section —
+  // re-extracting the text reproduces the same docCacheKey, so the cached
+  // roadmap (with studied progress) is picked up automatically.
+  const resumeGuided = useCallback(async (d) => {
+    if (!d?.resourceId || preparingGuided) return;
+    setPreparingGuided(d.shareToken);
+    try {
+      const { text } = await extractResourceText({
+        contentType: d.contentType, fileUrl: d.fileUrl, fileName: d.title, title: d.title,
+      });
+      const content = (text || "").trim();
+      if (!content) { showToast("Couldn't extract text from this file"); return; }
+      window.dispatchEvent(new CustomEvent("sc-open-study", {
+        detail: {
+          topic: d.title,
+          mode: "auto-roadmap",
+          attachment: { name: d.title, content },
+          context: { resourceId: d.resourceId, matches: [{ title: d.title, contentType: d.contentType }] },
+        },
+      }));
+    } catch {
+      showToast("Couldn't resume guided study");
+    } finally {
+      setPreparingGuided(null);
+    }
+  }, [preparingGuided, showToast]);
 
   const [resourceCounts, setResourceCounts] = useState({ dept: 0, saved: 0, uploads: 0 });
   const [communityFolders, setCommunityFolders] = useState([]);
@@ -400,24 +437,17 @@ export default function Dashboard({
           {recents.length > 0 && (
             <div className="hm-section hm-sec-jump">
               <div className="hm-sec-head">
-                <h2><HIcon name="clock" size={15} color="#9DB8E8" />Jump back in <span className="hm-count">{Math.min(recents.length, 6) + 1}</span></h2>
+                <h2><HIcon name="clock" size={15} color="#9DB8E8" />Jump back in <span className="hm-count">{Math.min(recents.length, 6)}</span></h2>
                 <button onClick={() => openResearchHub("library")}>History →</button>
               </div>
               <div className="hm-rail">
-                <button className="hm-doc hm-doc-practice" onClick={() => setShowDailyReview(true)}>
-                  <span className="hm-badge">Practice</span>
-                  <h3>Guided study session</h3>
-                  <div className="hm-sub">Questions + cards, picked for you</div>
-                  <div className="hm-meta">
-                    <span>{dueCount != null && dueCount > 0 ? `${dueCount} due today` : "Resume review"}</span>
-                    <span className="hm-doc-go">Start →</span>
-                  </div>
-                </button>
                 {recents.slice(0, 6).map((d) => {
                   const isMcq = d.contentType === "mcq";
                   const mp = isMcq && d.resourceId ? mcqProgress[d.resourceId] : null;
                   const prog = !isMcq ? getPdfReadingProgress(d.fileUrl) : null;
                   const pct = isMcq ? (mp?.learnedPct ?? null) : (prog?.pct ?? null);
+                  const gp = d.resourceId ? guidedProg[d.resourceId] : null;
+                  const guideActive = !isMcq && gp && gp.total > 0 && gp.done < gp.total;
                   const left = isMcq
                     ? (mp ? `${mp.mastered || 0}/${mp.total || "?"} mastered · best ${mp.bestScore}/${mp.bestTotal}` : relTime(d.ts))
                     : (prog ? `Page ${prog.lastPage} of ${prog.numPages}` : `Opened ${relTime(d.ts)}`);
@@ -431,6 +461,15 @@ export default function Dashboard({
                         <span>{left}</span>
                         <span>{pct != null ? `${pct}%` : ""}</span>
                       </div>
+                      {guideActive && (
+                        <button
+                          className="hm-doc-guide"
+                          disabled={preparingGuided === d.shareToken}
+                          onClick={(e) => { e.stopPropagation(); resumeGuided(d); }}
+                        >
+                          {preparingGuided === d.shareToken ? "Preparing…" : `▶ Continue guided study · ${gp.done}/${gp.total}`}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
