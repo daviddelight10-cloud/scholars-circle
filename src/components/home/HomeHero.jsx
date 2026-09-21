@@ -27,7 +27,7 @@ function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions
   return (
     <div className="hm-hero">
       <div className="hm-hero-top">
-        <div className="hm-tag"><span className="hm-dot" />SPACED REPETITION · FSRS</div>
+        <div className="hm-tag"><span className="hm-dot" />TODAY'S REVIEW</div>
         <div className="hm-ring">
           <svg width="54" height="54" viewBox="0 0 54 54">
             <circle cx="27" cy="27" r="22" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="5" />
@@ -47,14 +47,14 @@ function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions
             <div className="hm-num">{due}</div>
             <div className="hm-cap">
               item{due === 1 ? "" : "s"} due for review
-              <span className="hm-backlog">{fsrsStats?.totalItems || 0} cards total</span>
+              <span className="hm-backlog">{fsrsStats?.totalItems || 0} items in deck</span>
             </div>
           </>
         ) : (
           <div className="hm-cap">
             <b className="hm-caught">All caught up</b>
             <span className="hm-backlog">
-              {fsrsStats?.nextDueAt ? `next card in ${relIn(fsrsStats.nextDueAt)}` : `${fsrsStats?.totalItems || 0} cards total`}
+              {fsrsStats?.nextDueAt ? `next item in ${relIn(fsrsStats.nextDueAt)}` : `${fsrsStats?.totalItems || 0} items in deck`}
             </span>
           </div>
         )}
@@ -68,11 +68,12 @@ function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily, onReviewQuestions
         <div className="hm-stat"><b>{retention}</b><span>Retention</span></div>
         <div className="hm-stat"><b>{fsrsStats?.masteredCount ?? "—"}</b><span>Mastered</span></div>
         <div className="hm-stat"><b>{fsrsStats?.learningCount ?? "—"}</b><span>Learning</span></div>
-        <div className="hm-stat"><b>{fsrsStats?.streak ?? 0}</b><span>Day streak</span></div>
+        <div className="hm-stat"><b>{fsrsStats?.reviewedToday ?? 0}</b><span>Done today</span></div>
       </div>
       <button className="hm-cta" onClick={onStartDaily}>
         <HIcon name="play" size={14} />Start Daily Review
       </button>
+      <div className="hm-or">or drill into</div>
       <div className="hm-secondary">
         <button className="hm-ghost" onClick={onReviewQuestions}><HIcon name="spark" size={13} />Questions only</button>
         <button className="hm-ghost" onClick={onReviewReadings}><HIcon name="book" size={13} />Readings only</button>

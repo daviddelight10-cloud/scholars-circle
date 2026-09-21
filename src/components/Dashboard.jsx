@@ -527,10 +527,11 @@ export default function Dashboard({
                           <h3>{f.name}</h3>
                           <span>{f.courseCode || (f.folderDepts?.[0]?.department?.name) || "Shared folder"}</span>
                         </div>
-                        <span className="hm-f-count">{f._count?.resources || 0}</span>
+                        <span className="hm-f-count">{f._count?.resources || 0} files</span>
                       </div>
                       <div className="hm-f-line">
-                        {f.owner?.username ? `@${f.owner.username}` : "Community"}
+                        <span className="hm-f-comm"><HIcon name="users" size={9} />Community</span>
+                        {f.owner?.username ? `@${f.owner.username}` : "Shared folder"}
                         {f.university?.name ? ` · ${f.university.name}` : ""}
                       </div>
                       <div className="hm-f-reason" style={{ color: r.color }}>
