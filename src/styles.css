@@ -3493,11 +3493,14 @@ textarea {
 }
 
 .tab-back-btn {
-  background: rgba(255, 215, 0, 0.15);
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  color: #FFD700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #f1f5f9);
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -3505,8 +3508,7 @@ textarea {
 }
 
 .tab-back-btn:hover {
-  background: rgba(255, 215, 0, 0.3);
-  transform: translateX(-2px);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .tab-back-title {
@@ -3516,13 +3518,11 @@ textarea {
 }
 
 .light .tab-back-btn {
-  background: rgba(255, 215, 0, 0.1);
-  border-color: rgba(255, 215, 0, 0.3);
-  color: #B8860B;
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
 .light .tab-back-btn:hover {
-  background: rgba(255, 215, 0, 0.2);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* ── Search bar (legacy - kept for desktop) ── */
@@ -4078,7 +4078,9 @@ textarea {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 4px;
+    min-height: 48px;
     padding: 8px 4px;
     background: transparent;
     border: none;
@@ -4120,14 +4122,14 @@ textarea {
   }
 
   .mobile-nav .nav-fab {
-    width: 46px;
-    height: 46px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     background: linear-gradient(135deg, #FFC24D, #F5A623);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: -26px;
+    margin: -26px 6px 0;
     box-shadow: 0 10px 24px -6px rgba(245,166,35,0.5), 0 0 0 5px #07090D;
     color: #201400;
     cursor: pointer;

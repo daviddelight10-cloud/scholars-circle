@@ -123,7 +123,9 @@ function resourceBlock(r) {
       viewCount: r.viewCount,
       saved: r._count?.bookmarks || 0,
       comments: r._count?.comments || 0,
+      likes: r._count?.resourceLikes || 0,
     },
+    liked: (r.resourceLikes || []).length > 0,
     uni: r.university?.name || null,
   };
 }
@@ -236,7 +238,8 @@ router.get("/", requireAuth, async (req, res) => {
         include: {
           uploader: { select: AUTHOR_SELECT },
           university: { select: { name: true } },
-          _count: { select: { bookmarks: true, comments: true } },
+          resourceLikes: { where: { userId: uid }, select: { id: true } },
+          _count: { select: { bookmarks: true, comments: true, resourceLikes: true } },
         },
         orderBy: { createdAt: "desc" },
         take: 20,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { feedApi } from "./feedApi";
-import { Avatar, relTime } from "./feedUi";
+import { Avatar, SectionHeader, displayTitle, relTime } from "./feedUi";
 
 export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowChanged }) {
   const [data, setData] = useState(null);
@@ -103,13 +103,13 @@ export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowC
 
             {data.posts?.length > 0 && (
               <div className="fd-profile-posts">
-                <div className="fd-strip-head"><span>Recent posts</span></div>
+                <SectionHeader title="Recent posts" />
                 {data.posts.map((p) => (
                   <div key={p.id} className="fd-profile-post">
                     {p.kind === "question" && <span className="fd-card-kind question sm">Q</span>}
                     {p.kind === "activity" && <span className="fd-card-kind sm">🔥</span>}
                     <div className="fd-profile-post-body">
-                      <div className="fd-profile-post-text">{p.text || (p.resource ? `Shared ${p.resource.title}` : "")}</div>
+                      <div className="fd-profile-post-text">{p.text || (p.resource ? `Shared ${displayTitle(p.resource.title)}` : "")}</div>
                       <div className="fd-card-meta">
                         {relTime(p.ts)} · ♥ {p.likes} · 💬 {p.comments}
                         {p.acceptedCommentId ? " · ✓ answered" : ""}

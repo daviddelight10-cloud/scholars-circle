@@ -443,7 +443,7 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
           {/* Unread badge */}
           {unreadCount > 0 && (
             <div style={{ position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:999, background:"#EF4444", border:"2px solid #0A0D13", display:"flex", alignItems:"center", justifyContent:"center", animation:"scPulse 2s ease-in-out infinite" }}>
-              <span style={{ fontFamily:T.mono, fontSize:9, fontWeight:700, color:"#fff", lineHeight:1 }}>{unreadCount>9?"9+":unreadCount}</span>
+              <span style={{ fontFamily:T.body, fontSize:11, fontWeight:700, color:"#fff", lineHeight:1 }}>{unreadCount>9?"9+":unreadCount}</span>
             </div>
           )}
         </button>

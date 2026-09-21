@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
-import { Avatar } from "./feedUi";
+import { Avatar, displayTitle } from "./feedUi";
 
 // The MCQ-playable variant of a material: itself if it's an MCQ set,
 // else its AI-generated MCQ derived resource.
@@ -67,15 +67,8 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder={asQuestion ? "Ask your circle…" : "Share a resource, ask your circle…"}
+          placeholder={asQuestion ? "Ask a question…" : "Share a resource or ask a question…"}
         />
-        <button
-          className={`fd-share ${!text.trim() && !attached ? "disabled" : ""}`}
-          disabled={(!text.trim() && !attached) || busy}
-          onClick={submit}
-        >
-          {busy ? "…" : "Share"}
-        </button>
       </div>
 
       {asQuestion && <div className="fd-composer-tag">❓ Posting as a question</div>}
@@ -83,7 +76,7 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
       {attached && (
         <div className="fd-attached">
           <span className="fd-attached-icon">📄</span>
-          <span className="fd-attached-title">{attached.title}</span>
+          <span className="fd-attached-title">{displayTitle(attached.title)}</span>
           <button className="fd-attached-x" onClick={() => setAttached(null)}>✕</button>
         </div>
       )}
@@ -100,6 +93,13 @@ export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, l
         </button>
         <button className="fd-pill golive" onClick={() => setLiveOpen(true)}>
           🟢 Go live
+        </button>
+        <button
+          className={`fd-share ${!text.trim() && !attached ? "disabled" : ""}`}
+          disabled={(!text.trim() && !attached) || busy}
+          onClick={submit}
+        >
+          {busy ? "…" : "Share"}
         </button>
       </div>
 
@@ -192,7 +192,7 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
             <button key={r.id} className="fd-sheet-item" onClick={() => onPick(r)}>
               <span className="fd-attached-icon">{mcqOnly ? "⚡" : "📄"}</span>
               <span className="fd-sheet-item-info">
-                <span className="fd-sheet-item-title">{r.title}</span>
+                <span className="fd-sheet-item-title">{displayTitle(r.title)}</span>
                 <span className="fd-sheet-item-meta">
                   {[
                     r.subject,
@@ -290,7 +290,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
               <div className="fd-attached" style={{ margin: "0 0 10px" }}>
                 <span className="fd-attached-icon">⚡</span>
                 <span className="fd-attached-title">
-                  {material.title} · {qCount} question{qCount === 1 ? "" : "s"}
+                  {displayTitle(material.title)} · {qCount} question{qCount === 1 ? "" : "s"}
                 </span>
                 <button className="fd-attached-x" onClick={() => setMaterial(null)}>✕</button>
               </div>
@@ -324,7 +324,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
             {material ? (
               <div className="fd-attached" style={{ margin: "0 0 10px" }}>
                 <span className="fd-attached-icon">📄</span>
-                <span className="fd-attached-title">{material.title}</span>
+                <span className="fd-attached-title">{displayTitle(material.title)}</span>
                 <button className="fd-attached-x" onClick={() => setMaterial(null)}>✕</button>
               </div>
             ) : (

@@ -8963,7 +8963,7 @@ function App() {
 
           <button className="tab-back-btn" onClick={goBack}>
 
-            ← Back
+            <ChevronLeft size={15} /> Back
 
           </button>
 

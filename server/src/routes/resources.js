@@ -257,6 +257,52 @@ router.delete("/:id/bookmark", requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/resources/:id/like - Toggle a cheer on a resource
+router.post("/:id/like", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const uid = req.user.sub;
+    const existing = await prisma.resourceLike.findUnique({
+      where: { resourceId_userId: { resourceId: id, userId: uid } },
+    });
+    if (existing) {
+      await prisma.resourceLike.delete({ where: { id: existing.id } });
+    } else {
+      await prisma.resourceLike.create({ data: { resourceId: id, userId: uid } });
+    }
+    const count = await prisma.resourceLike.count({ where: { resourceId: id } });
+    if (!existing) {
+      const resource = await prisma.resource.findUnique({
+        where: { id },
+        select: { uploadedBy: true, title: true },
+      });
+      if (resource && resource.uploadedBy !== uid) {
+        (async () => {
+          try {
+            const liker = await prisma.user.findUnique({
+              where: { id: uid },
+              select: { fullName: true, username: true },
+            });
+            const who = liker?.fullName || liker?.username || "Someone";
+            const { sendPushToUser } = await import("../lib/pushSender.js");
+            await sendPushToUser(
+              resource.uploadedBy,
+              { title: `${who} cheered your resource`, body: (resource.title || "").slice(0, 80), tag: "social", data: { tab: "discuss" } },
+              { category: "social" }
+            );
+          } catch (e) {
+            console.warn("[resources] like push failed:", e?.message);
+          }
+        })();
+      }
+    }
+    res.json({ liked: !existing, count });
+  } catch (error) {
+    console.error("Error liking resource:", error);
+    res.status(500).json({ error: "Failed to toggle like" });
+  }
+});
+
 // GET /api/resources/all - Get ALL resources (teacher/lecturer only)
 router.get("/all", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
   try {

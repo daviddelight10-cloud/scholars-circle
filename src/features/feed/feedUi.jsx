@@ -1,20 +1,48 @@
-function initials(name) {
-  return (name || "?")
-    .split(" ")
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+import { useState } from "react";
+
+const AVATAR_COLORS = ["#3D5A80", "#5A3D80", "#3D8069", "#803D52", "#80693D", "#4A5568"];
+
+function nameHash(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
-export function Avatar({ user, size = 38 }) {
-  const name = user?.name || user?.fullName || user?.username || "?";
-  const src = user?.avatar;
+export function Avatar({ user, uri, name, size = 38 }) {
+  const displayName = name || user?.name || user?.fullName || user?.username || "?";
+  const src = uri || user?.avatar;
+  const [failedSrc, setFailedSrc] = useState(null);
+  const showImg = src && src !== failedSrc;
   return (
-    <div className="fd-avatar" style={{ width: size, height: size, fontSize: size * 0.36 }}>
-      {src ? <img src={src} alt="" /> : initials(name)}
+    <div
+      className="fd-avatar"
+      style={{ width: size, height: size, fontSize: size * 0.36, background: AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }}
+    >
+      {showImg ? <img src={src} alt="" onError={() => setFailedSrc(src)} /> : (displayName[0] || "?").toUpperCase()}
     </div>
   );
+}
+
+export function SectionHeader({ title, hint, children }) {
+  return (
+    <div className="fd-section-head">
+      <span className="fd-section-title">{title}</span>
+      {children || (hint ? <span className="fd-section-hint">{hint}</span> : null)}
+    </div>
+  );
+}
+
+// Humanize raw filenames at render time: "Lipids_251020_194003.pdf" -> "Lipids"
+export function displayTitle(title) {
+  if (!title) return "";
+  const clean = String(title)
+    .replace(/\.[a-z0-9]{1,5}$/i, "")
+    .replace(/[_-]+/g, " ")
+    .split(/\s+/)
+    .filter((p) => !/^\d{5,}$/.test(p))
+    .join(" ")
+    .trim();
+  return clean || title;
 }
 
 export function relTime(ts) {

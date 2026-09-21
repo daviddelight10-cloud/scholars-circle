@@ -219,6 +219,7 @@ model User {
   feedLikes         FeedLike[]
   feedComments      FeedComment[]
   feedCommentLikes  FeedCommentLike[]
+  resourceLikes     ResourceLike[]
 
 }
 
@@ -1493,6 +1494,7 @@ model Resource {
   bookmarks   ResourceBookmark[]
   ratings     ResourceRating[]
   comments    ResourceComment[]
+  resourceLikes ResourceLike[]
   reviewQueueItems ReviewQueueItem[]
   pdfReviewItems   PdfReviewItem[]
   pdfFlashcards    PdfFlashcard[]
@@ -1566,6 +1568,18 @@ model ResourceRating {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   stars       Int      // 1-5
   createdAt   DateTime @default(now())
+
+  @@unique([resourceId, userId])
+  @@index([resourceId])
+}
+
+model ResourceLike {
+  id         String   @id @default(cuid())
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 
   @@unique([resourceId, userId])
   @@index([resourceId])

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { feedApi } from "./feedApi";
 import { CommentsSection } from "./CommentsSection";
-import { Avatar, relTime } from "./feedUi";
+import { Avatar, displayTitle, relTime } from "./feedUi";
 
 const TYPE_ICONS = {
   note: "📝", pdf: "📄", mcq: "❓", tutorial_question: "📘",
@@ -59,7 +59,7 @@ export function RoomCard({ room, me, onJoin, onLeave, onEnd, onOpenResource, com
           onClick={(e) => { e.stopPropagation(); room.resource.shareToken && onOpenResource?.(room.resource.shareToken); }}
           title="Open the material they're studying"
         >
-          📄 {room.resource.title}
+          📄 {displayTitle(room.resource.title)}
         </button>
       )}
       {!compact && room.participants?.length > 0 && (
@@ -107,15 +107,19 @@ function ResourceInner({ resource, uni, token, onOpenResource }) {
       setSaveCount((c) => c + (next ? -1 : 1));
     }
   };
+  const stats = [
+    resource.viewCount > 0 ? `${resource.viewCount} views` : null,
+    saveCount > 0 ? `${saveCount} saves` : null,
+    resource.comments > 0 ? `${resource.comments} comments` : null,
+  ].filter(Boolean);
   return (
     <div className="fd-resource" onClick={() => resource.shareToken && onOpenResource?.(resource.shareToken)}>
       <div className="fd-resource-icon">{TYPE_ICONS[resource.contentType] || "📄"}</div>
       <div className="fd-resource-info">
         <div className="fd-resource-tag">{resource.subject}{uni ? ` · ${uni}` : ""}</div>
-        <div className="fd-resource-title">{resource.title}</div>
+        <div className="fd-resource-title">{displayTitle(resource.title)}</div>
         <div className="fd-resource-meta">
-          {resource.viewCount || 0} views · {saveCount} saves
-          {resource.comments != null ? ` · ${resource.comments} comments` : ""}
+          {stats.length > 0 ? stats.join(" · ") : <span className="fd-new-chip">New</span>}
         </div>
       </div>
       <button
@@ -129,10 +133,12 @@ function ResourceInner({ resource, uni, token, onOpenResource }) {
   );
 }
 
-function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount }) {
-  const isActivityPost = block.kind === "activity";
-  const [liked, setLiked] = useState(block.liked);
-  const [likes, setLikes] = useState(block.likes || 0);
+export function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount, onOpenResource, onOpenTab }) {
+  const isPost = block.type === "post";
+  const isResource = block.type === "resource";
+  const isFolder = block.type === "folder";
+  const [liked, setLiked] = useState(!!block.liked);
+  const [likes, setLikes] = useState(isResource ? block.resource?.likes || 0 : block.likes || 0);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const toggleLike = async () => {
@@ -140,7 +146,9 @@ function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount })
     setLiked(next);
     setLikes((c) => c + (next ? 1 : -1));
     try {
-      const res = await feedApi.toggleLike({ token, id: block.id });
+      const res = isResource
+        ? await feedApi.toggleResourceLike({ token, resourceId: block.resource.id })
+        : await feedApi.toggleLike({ token, id: block.id });
       setLiked(res.liked);
       setLikes(res.count);
     } catch {
@@ -150,9 +158,11 @@ function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount })
   };
 
   const share = async () => {
-    const url = block.resource?.shareToken
-      ? `${window.location.origin}/r/${block.resource.shareToken}`
-      : window.location.href;
+    const url = isFolder && block.folder?.shareToken
+      ? `${window.location.origin}/folders/${block.folder.shareToken}`
+      : block.resource?.shareToken
+        ? `${window.location.origin}/r/${block.resource.shareToken}`
+        : window.location.href;
     try {
       if (navigator.share) {
         await navigator.share({ title: block.resource?.title || "Scholars Circle", text: block.text?.slice(0, 120), url });
@@ -163,26 +173,44 @@ function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount })
     setMenuOpen(false);
   };
 
+  const openTarget = () => {
+    setMenuOpen(false);
+    if (isResource && block.resource?.shareToken) onOpenResource?.(block.resource.shareToken);
+    if (isFolder) onOpenTab?.("research-hub");
+  };
+
   return (
     <div className="fd-actions">
-      <button
-        className={`fd-action ${liked ? "liked" : ""} ${isActivityPost ? "cheer" : ""}`}
-        onClick={toggleLike}
-        title={isActivityPost ? "Cheer them on" : "Like"}
-      >
-        {isActivityPost ? "🔥" : liked ? "♥" : "♡"} {likes > 0 ? likes : ""}
-        {isActivityPost ? (liked ? " Cheered" : " Cheer") : ""}
+      {(isPost || isResource) && (
+        <button
+          className={`fd-action ${liked ? "liked" : ""}`}
+          onClick={toggleLike}
+          title="Cheer them on"
+        >
+          <span className="fd-action-icon">👏</span>
+          {likes > 0 ? `${likes} ` : ""}{liked ? "Cheered" : "Cheer"}
+        </button>
+      )}
+      {(isPost || isResource) && (
+        <button className="fd-action" onClick={() => setCommentsOpen?.((v) => !v)} title="Comments">
+          <span className="fd-action-icon">💬</span>
+          {commentCount > 0 ? commentCount : ""}
+        </button>
+      )}
+      <button className="fd-action" onClick={share} title="Share">
+        <span className="fd-action-icon">↗</span>
       </button>
-      <button className="fd-action" onClick={() => setCommentsOpen((v) => !v)}>
-        💬 {commentCount > 0 ? commentCount : ""}
-      </button>
-      <button className="fd-action" onClick={share}>↗</button>
       <div className="fd-action-menu-wrap">
-        <button className="fd-action" onClick={() => setMenuOpen((v) => !v)}>⋯</button>
+        <button className="fd-action" onClick={() => setMenuOpen((v) => !v)} title="More">
+          <span className="fd-action-icon">⋯</span>
+        </button>
         {menuOpen && (
           <div className="fd-menu">
             <button onClick={share}>Share</button>
-            {block.isMine && (
+            {(isResource || isFolder) && (
+              <button onClick={openTarget}>{isResource ? "Open resource" : "Open space"}</button>
+            )}
+            {isPost && block.isMine && (
               <button className="danger" onClick={() => { setMenuOpen(false); onDeleted?.(block.id); }}>
                 Delete post
               </button>
@@ -196,7 +224,7 @@ function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount })
 
 export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile, onJoinQuiz }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [commentCount, setCommentCount] = useState(block.comments || 0);
+  const [commentCount, setCommentCount] = useState(block.comments ?? block.resource?.comments ?? 0);
   const [acceptedId, setAcceptedId] = useState(block.acceptedCommentId || null);
 
   if (block.type === "divider") return <DividerBlock label={block.label} />;
@@ -226,6 +254,10 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
   }
 
   if (block.type === "folder") {
+    const folderStats = [
+      block.folder.resourceCount > 0 ? `${block.folder.resourceCount} materials` : null,
+      block.folder.saves > 0 ? `${block.folder.saves} saves` : null,
+    ].filter(Boolean);
     return (
       <div className="fd-card">
         <div className="fd-card-head">
@@ -238,9 +270,8 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
                 {block.author?.name}
               </button>
             </div>
-            <div className="fd-card-meta">{block.author?.uni || block.author?.handle || ""} · {relTime(block.ts)}</div>
+            <div className="fd-card-meta">shared a space · {relTime(block.ts)}</div>
           </div>
-          <span className="fd-card-kind">shared a space</span>
         </div>
         <div className="fd-folder" onClick={() => onOpenTab?.("research-hub")}>
           <div className="fd-resource-icon">📁</div>
@@ -250,11 +281,18 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
             </div>
             <div className="fd-resource-title">{block.folder.name}</div>
             <div className="fd-resource-meta">
-              {block.folder.resourceCount} materials · {block.folder.saves} saves
+              {folderStats.length > 0 ? folderStats.join(" · ") : <span className="fd-new-chip">New</span>}
             </div>
           </div>
           <span className="fd-link">Open</span>
         </div>
+        <PostActions
+          block={block}
+          token={token}
+          onDeleted={onDelete}
+          onOpenResource={onOpenResource}
+          onOpenTab={onOpenTab}
+        />
       </div>
     );
   }
@@ -272,19 +310,19 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
                 {block.author?.name}
               </button>
             </div>
-            <div className="fd-card-meta">{block.author?.uni || block.author?.handle || ""} · {relTime(block.ts)}</div>
+            <div className="fd-card-meta">uploaded a resource · {relTime(block.ts)}</div>
           </div>
-          <span className="fd-card-kind">uploaded a resource</span>
         </div>
         <ResourceInner resource={block.resource} uni={block.uni} token={token} onOpenResource={onOpenResource} />
-        <div className="fd-actions">
-          <button className="fd-action" onClick={() => setCommentsOpen((v) => !v)}>
-            💬 {commentCount > 0 ? commentCount : ""}
-          </button>
-          <button className="fd-action" onClick={() => block.resource.shareToken && onOpenResource?.(block.resource.shareToken)}>
-            Open ↗
-          </button>
-        </div>
+        <PostActions
+          block={block}
+          token={token}
+          onDeleted={onDelete}
+          setCommentsOpen={setCommentsOpen}
+          commentCount={commentCount}
+          onOpenResource={onOpenResource}
+          onOpenTab={onOpenTab}
+        />
         {commentsOpen && (
           <CommentsSection
             token={token}
@@ -328,7 +366,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
 
       {isActivity ? (
         <div className="fd-activity">
-          <span className="fd-activity-icon">{block.liveCode ? "⚡" : "🔥"}</span>
+          <span className="fd-activity-icon">{block.liveCode ? "⚡" : /streak/i.test(block.text || "") ? "🔥" : "✨"}</span>
           <div className="fd-activity-body">
             <span className="fd-activity-text"><b>{block.author?.name}</b> {block.text}</span>
             {block.liveCode && (
@@ -352,6 +390,8 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
         onDeleted={onDelete}
         setCommentsOpen={setCommentsOpen}
         commentCount={commentCount}
+        onOpenResource={onOpenResource}
+        onOpenTab={onOpenTab}
       />
 
       {commentsOpen && (

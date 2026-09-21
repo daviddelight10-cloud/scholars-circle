@@ -4,7 +4,7 @@ import { feedApi } from "./feedApi";
 import { FeedCard, ActivityRow, RoomCard, DividerBlock } from "./FeedCard";
 import { Composer } from "./Composer";
 import { ProfileSheet } from "./ProfileSheet";
-import { Avatar } from "./feedUi";
+import { Avatar, SectionHeader, displayTitle } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import NotificationBell from "../NotificationBellImproved.jsx";
 import "../../feed.css";
@@ -228,10 +228,10 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       if (i === 2 && tab === "forYou" && trending?.resources?.length > 0) {
         out.push(
           <div key="trending-card" className="fd-trending">
-            <div className="fd-strip-head">
-              <span>📈 Trending {trending.uni ? `at ${trending.uni}` : "this week"}</span>
-              <span className="fd-strip-hint">Most saved in 7 days</span>
-            </div>
+            <SectionHeader
+              title={trending.uni ? `Trending at ${trending.uni}` : "Trending this week"}
+              hint="Most saved in 7 days"
+            />
             {trending.resources.map((r, idx) => (
               <button
                 key={r.id}
@@ -240,7 +240,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
               >
                 <span className="fd-trending-rank">{idx + 1}</span>
                 <span className="fd-trending-info">
-                  <span className="fd-trending-title">{r.title}</span>
+                  <span className="fd-trending-title">{displayTitle(r.title)}</span>
                   <span className="fd-trending-meta">
                     {[r.subject, r.uploader?.name && `by ${r.uploader.name}`].filter(Boolean).join(" · ")}
                   </span>
@@ -255,10 +255,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       if (i === 4 && suggested.length > 0 && tab !== "circle") {
         out.push(
           <div key="suggested-strip" className="fd-strip">
-            <div className="fd-strip-head">
-              <span>People to follow</span>
-              <span className="fd-strip-hint">Same campus energy</span>
-            </div>
+            <SectionHeader title="People to follow" hint="Same campus energy" />
             <div className="fd-strip-scroll">
               {suggested.map((u) => (
                 <div key={u.id} className="fd-person">
@@ -284,10 +281,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       if (i === 8 && rooms.length > 0 && tab === "forYou") {
         out.push(
           <div key="rooms-strip" className="fd-strip">
-            <div className="fd-strip-head">
-              <span>Studying now</span>
+            <SectionHeader title="Studying now">
               <button className="fd-link" onClick={() => setTab("live")}>See all</button>
-            </div>
+            </SectionHeader>
             <div className="fd-strip-scroll">
               {rooms.slice(0, 6).map((r) => (
                 <div key={r.id} className="fd-room-mini">
@@ -400,10 +396,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           {tab === "circle" && (
             <div className="fd-circle">
               <div className="fd-strip">
-                <div className="fd-strip-head">
-                  <span>Your circle</span>
-                  <span className="fd-strip-hint">{circle.following.length} following</span>
-                </div>
+                <SectionHeader title="Your circle" hint={`${circle.following.length} following`} />
                 <div className="fd-strip-scroll">
                   {circle.following.length === 0 && (
                     <div className="fd-empty-inline">Follow people to build your circle</div>
@@ -522,7 +515,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
 
         <aside className="fd-rail">
           <div className="fd-rail-card">
-            <div className="fd-rail-title">🔥 {fsrsStats?.streak ?? 0}-day streak</div>
+            <SectionHeader title={`🔥 ${fsrsStats?.streak ?? 0}-day streak`} />
             <div className="fd-streak-grid">
               {streakDays.map((d) => (
                 <span key={d.key} className={`fd-streak-dot ${d.active ? "on" : ""}`} />
@@ -531,7 +524,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           </div>
           {rooms.length > 0 && (
             <div className="fd-rail-card">
-              <div className="fd-rail-title">Studying now</div>
+              <SectionHeader title="Studying now" />
               {rooms.slice(0, 4).map((r) => (
                 <RoomCard
                   key={r.id}
@@ -548,7 +541,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           )}
           {suggested.length > 0 && (
             <div className="fd-rail-card">
-              <div className="fd-rail-title">People to follow</div>
+              <SectionHeader title="People to follow" />
               {suggested.slice(0, 5).map((u) => (
                 <div key={u.id} className="fd-rail-person">
                   <button className="fd-who-btn" onClick={() => setProfileUserId(u.id)}>

@@ -55,6 +55,8 @@ export const feedApi = {
   getMcqResources: ({ token } = {}) => req("/api/resources?type=mcq", { token }),
   toggleBookmark: ({ token, resourceId, bookmarked }) =>
     req(`/api/resources/${resourceId}/bookmark`, { token, method: bookmarked ? "DELETE" : "POST" }),
+  toggleResourceLike: ({ token, resourceId }) =>
+    req(`/api/resources/${resourceId}/like`, { token, method: "POST" }),
   getResourceComments: ({ token, resourceId }) => req(`/api/resources/${resourceId}/comments`, { token }),
   addResourceComment: ({ token, resourceId, text }) =>
     req(`/api/resources/${resourceId}/comments`, { token, method: "POST", body: { text } }),
