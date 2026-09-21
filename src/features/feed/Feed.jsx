@@ -15,7 +15,7 @@ const TABS = [
   { key: "live", label: "Live" },
 ];
 
-export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenSearch, onOpenResource }) {
+export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState("forYou");
   const [subject, setSubject] = useState(null);
@@ -345,7 +345,6 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           <button className="fd-chip-btn" onClick={() => setStreakOpen((v) => !v)} title="Streak">
             🔥 {fsrsStats?.streak ?? 0}
           </button>
-          <button className="fd-icon-btn" onClick={() => onOpenSearch?.()} title="Search">⌕</button>
           <NotificationBell token={token} currentUser={authUser} onOpenTab={onOpenTab} />
         </div>
       </header>

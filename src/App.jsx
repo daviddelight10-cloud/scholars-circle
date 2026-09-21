@@ -10191,7 +10191,6 @@ function App() {
           token={token}
           subjects={subjects}
           onOpenTab={setTab}
-          onOpenSearch={() => setShowPalette(true)}
           onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerReturnTab("research-hub"); setHomeViewerToken(shareToken); }}
         />
         </Suspense>
