@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { getMyProfile } from "../lib/profileApi.js";
 import NotificationBellImproved from "../features/NotificationBellImproved";
 import DailyReview from "../features/research-hub/DailyReview.jsx";
@@ -451,26 +451,36 @@ export default function Dashboard({
                   const left = isMcq
                     ? (mp ? `${mp.mastered || 0}/${mp.total || "?"} mastered · best ${mp.bestScore}/${mp.bestTotal}` : relTime(d.ts))
                     : (prog ? `Page ${prog.lastPage} of ${prog.numPages}` : `Opened ${relTime(d.ts)}`);
+                  const gpPct = guideActive ? Math.round((gp.done / gp.total) * 100) : 0;
                   return (
-                    <div key={d.shareToken} className="hm-doc" onClick={() => onOpenResource?.(d.shareToken, prog?.lastPage)}>
-                      <span className="hm-badge">{isMcq ? "MCQ" : d.subject || "Document"}</span>
-                      <h3>{d.title}</h3>
-                      <div className="hm-sub">{isMcq ? relTime(d.ts) : d.subject || relTime(d.ts)}</div>
-                      {pct != null && <div className="hm-bar"><i style={{ width: `${pct}%` }} /></div>}
-                      <div className="hm-meta">
-                        <span>{left}</span>
-                        <span>{pct != null ? `${pct}%` : ""}</span>
+                    <Fragment key={d.shareToken}>
+                      <div className="hm-doc" onClick={() => onOpenResource?.(d.shareToken, prog?.lastPage)}>
+                        <span className="hm-badge">{isMcq ? "MCQ" : d.subject || "Document"}</span>
+                        <h3>{d.title}</h3>
+                        <div className="hm-sub">{isMcq ? relTime(d.ts) : d.subject || relTime(d.ts)}</div>
+                        {pct != null && <div className="hm-bar"><i style={{ width: `${pct}%` }} /></div>}
+                        <div className="hm-meta">
+                          <span>{left}</span>
+                          <span>{pct != null ? `${pct}%` : ""}</span>
+                        </div>
                       </div>
                       {guideActive && (
                         <button
-                          className="hm-doc-guide"
+                          className="hm-doc hm-doc-guided"
+                          onClick={() => resumeGuided(d)}
                           disabled={preparingGuided === d.shareToken}
-                          onClick={(e) => { e.stopPropagation(); resumeGuided(d); }}
                         >
-                          {preparingGuided === d.shareToken ? "Preparing…" : `▶ Continue guided study · ${gp.done}/${gp.total}`}
+                          <span className="hm-badge">Guided study</span>
+                          <h3>{gp.title || d.title}</h3>
+                          <div className="hm-sub">Section {gp.done + 1} of {gp.total}</div>
+                          <div className="hm-bar"><i style={{ width: `${gpPct}%` }} /></div>
+                          <div className="hm-meta">
+                            <span>{preparingGuided === d.shareToken ? "Preparing…" : "Continue"}</span>
+                            <span className="hm-doc-go">{gpPct}% →</span>
+                          </div>
                         </button>
                       )}
-                    </div>
+                    </Fragment>
                   );
                 })}
               </div>
