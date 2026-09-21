@@ -400,10 +400,19 @@ export default function Dashboard({
           {recents.length > 0 && (
             <div className="hm-section hm-sec-jump">
               <div className="hm-sec-head">
-                <h2><HIcon name="clock" size={15} color="#9DB8E8" />Jump back in <span className="hm-count">{Math.min(recents.length, 6)}</span></h2>
+                <h2><HIcon name="clock" size={15} color="#9DB8E8" />Jump back in <span className="hm-count">{Math.min(recents.length, 6) + 1}</span></h2>
                 <button onClick={() => openResearchHub("library")}>History →</button>
               </div>
               <div className="hm-rail">
+                <button className="hm-doc hm-doc-practice" onClick={() => setShowDailyReview(true)}>
+                  <span className="hm-badge">Practice</span>
+                  <h3>Guided study session</h3>
+                  <div className="hm-sub">Questions + cards, picked for you</div>
+                  <div className="hm-meta">
+                    <span>{dueCount != null && dueCount > 0 ? `${dueCount} due today` : "Resume review"}</span>
+                    <span className="hm-doc-go">Start →</span>
+                  </div>
+                </button>
                 {recents.slice(0, 6).map((d) => {
                   const isMcq = d.contentType === "mcq";
                   const mp = isMcq && d.resourceId ? mcqProgress[d.resourceId] : null;

@@ -237,6 +237,17 @@
 .hm-doc .hm-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg,#6C9EFF,#9DB8E8); }
 .hm-doc .hm-meta { display: flex; justify-content: space-between; margin-top: 6px; font-size: 9.5px; color: var(--hm-faint); }
 
+/* guided practice card — leads the jump-back-in rail */
+.hm-doc-practice {
+  font: inherit; color: inherit; text-align: left;
+  background: linear-gradient(150deg, rgba(245,166,35,.14), var(--hm-card) 62%);
+  border-color: rgba(245,166,35,.35);
+}
+.hm-doc-practice .hm-badge {
+  color: #F5C542; background: rgba(245,166,35,.12); border-color: rgba(245,166,35,.3);
+}
+.hm-doc-practice .hm-doc-go { color: #F5C542; font-weight: 700; }
+
 /* for you */
 .hm-insight {
   display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 9px 12px;
