@@ -63,13 +63,7 @@ function Progress({
       </div>
 
       {progressSubTab === "leaderboard" && (
-        <Leaderboard
-          username={authUser?.username}
-          xp={stats.xp}
-          sessions={stats.sessions}
-          streak={stats.streak}
-          token={token}
-        />
+        <Leaderboard token={token} />
       )}
 
       {progressSubTab === "badges" && (

@@ -5,7 +5,7 @@ import { API_BASE } from '../../lib/constants';
 import { getMyLeague, getLeagueStandings, checkBadges } from '../../lib/gamificationApi.js';
 import {
   loadSave, mutate, tickDay,
-  levelFromXP, xpIntoLevel, titleForLevel, XP_PER_LEVEL,
+  levelFromXP, levelProgress, titleForLevel,
   TIER_XP, TIER_GEMS,
   activeQuests, questEvent, claimQuest,
   ACHIEVEMENTS, checkAchievements,
@@ -172,7 +172,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const best = save.bestByScope?.[scope] || 0;
   const tier = streak >= 6 ? 'hard' : streak >= 3 ? 'medium' : 'easy';
   const tierColor = tier === 'hard' ? '#FF5E7E' : tier === 'medium' ? '#FFB627' : '#00E5FF';
-  const lvl = levelFromXP(save.xp);
+  const lvlProg = levelProgress(save.xp);
+  const lvl = lvlProg.level;
 
   // ── Init ──
   useEffect(() => {
@@ -895,8 +896,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
           </div>
           <div className="xpbar-row">
             <span className="xp-level">Lv {lvl} · {titleForLevel(lvl)}</span>
-            <div className="xpbar"><div className="xpbar-fill" style={{ width: `${(xpIntoLevel(save.xp) / XP_PER_LEVEL) * 100}%` }} /></div>
-            <span className="xpbar-label">{xpIntoLevel(save.xp)}/{XP_PER_LEVEL}</span>
+            <div className="xpbar"><div className="xpbar-fill" style={{ width: `${lvlProg.pct}%` }} /></div>
+            <span className="xpbar-label">{lvlProg.into}/{lvlProg.needed}</span>
             <svg className="goal-ring" viewBox="0 0 64 64" onClick={() => setModal('profile')} title="Daily goal">
               <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
               <circle className="goal-ring-fill" cx="32" cy="32" r={R} fill="none" stroke="#4ADE80" strokeWidth="7"

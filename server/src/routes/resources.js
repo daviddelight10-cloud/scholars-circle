@@ -10,6 +10,7 @@ import { fsrsRate, fsrsNewCard, intervalLabel, stateLabel, isMastered } from "..
 import { pptxToPdf } from "../lib/pptxToPdf.js";
 import { matchDocumentToSkeleton } from "../lib/topicExtractionService.js";
 import { logError } from "../lib/logger.js";
+import { addLeagueXP } from "../lib/badges.js";
 
 const router = express.Router();
 
@@ -399,6 +400,11 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
     const attempt = await prisma.quizAttempt.create({
       data: { resourceId, userId: req.user.sub, score, total, xpAwarded, mode: attemptMode, details: details || null },
     });
+
+    // Feed the weekly league so XP earned here counts toward standings/promotion
+    if (xpAwarded > 0) {
+      addLeagueXP(req.user.sub, xpAwarded).catch((e) => console.error("League XP error:", e.message));
+    }
 
     // Increment takenCount on first attempt only
     if (isFirstAttempt) {

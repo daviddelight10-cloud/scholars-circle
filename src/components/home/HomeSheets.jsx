@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import HIcon from "./HIcon.jsx";
 import { lapsedSubjects } from "../../lib/homeUtils.js";
-import { levelFromXP, xpIntoLevel, XP_PER_LEVEL } from "../../features/streak-survival/survivalStore.js";
+import { levelProgress } from "../../features/streak-survival/survivalStore.js";
 
 const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -178,8 +178,7 @@ export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics }) {
   const goal = fsrsStats?.dailyGoal || 0;
   const doneToday = fsrsStats?.reviewedToday || 0;
   const goalPct = goal > 0 ? Math.min(1, doneToday / goal) : 0;
-  const level = levelFromXP(save?.xp || 0);
-  const xpIn = xpIntoLevel(save?.xp || 0);
+  const { level, into: xpIn, needed: xpNeeded } = levelProgress(save?.xp || 0);
 
   const dayList = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -254,8 +253,8 @@ export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics }) {
       {save && (
         <div className="hm-xp-row">
           <span className="hm-lvl">LVL {level}</span>
-          <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / XP_PER_LEVEL) * 100)}%` }} /></div>
-          <span className="hm-xptext">{xpIn}/{XP_PER_LEVEL}</span>
+          <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / xpNeeded) * 100)}%` }} /></div>
+          <span className="hm-xptext">{xpIn}/{xpNeeded}</span>
         </div>
       )}
 

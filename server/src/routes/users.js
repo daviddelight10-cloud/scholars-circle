@@ -86,6 +86,9 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(200, Math.max(1, parseInt(limit) || 50));
 
+  // quizAttempts are the live XP source; legacy Session rows are dead (Learn tab removed).
+  // Bound the include to the period — or just today for "all" (dailyXP pill).
+  const activitySince = startDate || todayStart;
   const users = await prisma.user.findMany({
     where: userWhere,
     select: {
@@ -99,28 +102,16 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
       progress: {
         select: {
           xp: true,
-          sessions: true,
           streak: true,
-          totalCorrect: true,
           mastery: true,
         },
       },
-      sessions: {
-        where: startDate ? { createdAt: { gte: startDate } } : undefined,
-        select: {
-          score: true,
-          total: true,
-          percentage: true,
-          durationSec: true,
-          mode: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
+      userProfile: {
+        select: { avatar: true },
       },
       quizAttempts: {
-        where: startDate ? { createdAt: { gte: startDate } } : undefined,
+        where: { createdAt: { gte: activitySince } },
         select: {
-          score: true,
           xpAwarded: true,
           createdAt: true,
         },
@@ -129,28 +120,22 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
     },
   });
 
-  // Fetch previous period data for trend calculation
+  // Fetch previous period quiz XP for trend calculation
   let prevPeriodXPMap = {};
   if (startDate && prevStartDate) {
     const prevUsers = await prisma.user.findMany({
       where: userWhere,
       select: {
         id: true,
-        sessions: {
-          where: { createdAt: { gte: prevStartDate, lt: startDate } },
-          select: { score: true, createdAt: true },
-        },
         quizAttempts: {
           where: { createdAt: { gte: prevStartDate, lt: startDate } },
-          select: { score: true, xpAwarded: true, createdAt: true },
+          select: { xpAwarded: true },
         },
       },
     });
     prevPeriodXPMap = {};
     for (const u of prevUsers) {
-      const sessionXP = u.sessions.reduce((sum, s) => sum + (s.score * 10), 0);
-      const quizXP = u.quizAttempts.reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
-      prevPeriodXPMap[u.id] = sessionXP + quizXP;
+      prevPeriodXPMap[u.id] = u.quizAttempts.reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
     }
   }
 
@@ -161,52 +146,29 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
       ? masteryValues.reduce((a, b) => a + b, 0) / masteryValues.length
       : 0;
 
-    const sessions = user.sessions || [];
     const quizAttempts = user.quizAttempts || [];
-    const totalCorrect = user.progress?.totalCorrect || 0;
-    const totalQuestions = sessions.reduce((sum, s) => sum + s.total, 0);
-    const correctRate = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
-
-    const studyHours = sessions.reduce((sum, s) => sum + (s.durationSec || 0), 0) / 3600;
-
-    const examScores = sessions.filter(s => s.mode === "exam").map(s => s.percentage);
-    const personalBest = examScores.length > 0
-      ? Math.max(...examScores)
-      : 0;
-
-    // Calculate XP gained in period (from both sessions AND quiz attempts)
-    const sessionXP = sessions.reduce((sum, s) => sum + (s.score * 10), 0);
     const quizXP = quizAttempts.reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
     const periodXP = period !== "all"
-      ? sessionXP + quizXP
+      ? quizXP
       : user.progress?.xp || 0;
 
-    // Calculate daily XP (XP earned today)
-    const todaySessions = sessions.filter(s => new Date(s.createdAt) >= todayStart);
-    const todayQuizzes = quizAttempts.filter(q => new Date(q.createdAt) >= todayStart);
-    const dailyXP = todaySessions.reduce((sum, s) => sum + (s.score * 10), 0)
-      + todayQuizzes.reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
-
-    // Calculate trend (rank change vs previous period)
-    const prevXP = prevPeriodXPMap[user.id] || 0;
-    const currentRank = 0; // will be set after sorting
+    // XP earned today (for the "+N today" pill)
+    const dailyXP = quizAttempts
+      .filter((q) => new Date(q.createdAt) >= todayStart)
+      .reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
 
     return {
       username: user.username || user.fullName?.split(/\s+/)[0] || user.email?.split("@")[0] || "scholar",
+      fullName: user.fullName || null,
       userId: user.id,
       isMe: user.id === req.user.sub,
+      avatar: user.userProfile?.avatar || null,
       xp: periodXP,
       totalXP: user.progress?.xp || 0,
-      dailyXP: dailyXP,
-      sessions: user.progress?.sessions || 0,
+      dailyXP,
       streak: user.progress?.streak || 0,
       avgMastery: Math.round(avgMastery),
-      correctRate: Math.round(correctRate),
-      studyHours: Math.round(studyHours * 10) / 10,
-      personalBest: Math.round(personalBest),
-      lastActive: sessions.length > 0 ? sessions[0].createdAt : user.createdAt,
-      earnedBadges: [],
-      _prevXP: prevXP,
+      _prevXP: prevPeriodXPMap[user.id] || 0,
       trend: 0, // will be calculated after sorting
     };
   }).sort((a, b) => b.xp - a.xp);
@@ -234,7 +196,7 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
 
   // Add daily rank, remove internal fields, apply pagination
   const totalCount = leaderboard.length;
- const paginated = leaderboard.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+  const paginated = leaderboard.slice((pageNum - 1) * limitNum, pageNum * limitNum);
   const leaderboardWithDailyRank = paginated.map(entry => {
     const { _prevXP, ...rest } = entry;
     return {
@@ -340,6 +302,7 @@ router.get("/:userId/follow-info", requireAuth, async (req, res) => {
 router.get("/:userId/profile", requireAuth, async (req, res) => {
   const { userId } = req.params;
 
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -351,23 +314,16 @@ router.get("/:userId/profile", requireAuth, async (req, res) => {
       progress: {
         select: {
           xp: true,
-          sessions: true,
           streak: true,
-          totalCorrect: true,
           mastery: true,
         },
       },
-      sessions: {
-        take: 10,
-        orderBy: { createdAt: "desc" },
-        select: {
-          score: true,
-          total: true,
-          percentage: true,
-          durationSec: true,
-          mode: true,
-          createdAt: true,
-        },
+      userProfile: {
+        select: { avatar: true, level: true, university: { select: { name: true } } },
+      },
+      quizAttempts: {
+        where: { createdAt: { gte: weekAgo } },
+        select: { xpAwarded: true },
       },
     },
   });
@@ -391,34 +347,21 @@ router.get("/:userId/profile", requireAuth, async (req, res) => {
     ? masteryValues.reduce((a, b) => a + b, 0) / masteryValues.length
     : 0;
 
-  const sessions = user.sessions || [];
-  const totalQuestions = sessions.reduce((sum, s) => sum + s.total, 0);
-  const correctRate = totalQuestions > 0 ? ((user.progress?.totalCorrect || 0) / totalQuestions) * 100 : 0;
-  const studyHours = sessions.reduce((sum, s) => sum + (s.durationSec || 0), 0) / 3600;
-  const profileExamScores = sessions.filter(s => s.mode === "exam").map(s => s.percentage);
-  const personalBest = profileExamScores.length > 0
-    ? Math.max(...profileExamScores)
-    : 0;
+  const weeklyXP = (user.quizAttempts || []).reduce((sum, q) => sum + (q.xpAwarded || 0), 0);
 
   res.json({
     username: user.username || user.fullName?.split(/\s+/)[0] || user.email?.split("@")[0] || "scholar",
+    fullName: user.fullName || null,
+    avatar: user.userProfile?.avatar || null,
+    level: user.userProfile?.level || null,
+    uni: user.userProfile?.university?.name || null,
     xp: user.progress?.xp || 0,
-    sessions: user.progress?.sessions || 0,
     streak: user.progress?.streak || 0,
     avgMastery: Math.round(avgMastery),
-    correctRate: Math.round(correctRate),
-    studyHours: Math.round(studyHours * 10) / 10,
-    personalBest: Math.round(personalBest),
+    weeklyXP,
     isFollowing: !!followInfo,
     followerCount,
     followingCount,
-    recentSessions: sessions.map(s => ({
-      score: s.score,
-      total: s.total,
-      percentage: s.percentage,
-      mode: s.mode,
-      date: s.createdAt,
-    })),
   });
 });
 

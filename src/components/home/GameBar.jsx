@@ -1,10 +1,9 @@
 import { memo } from "react";
 import HIcon from "./HIcon.jsx";
-import { levelFromXP, xpIntoLevel, XP_PER_LEVEL } from "../../features/streak-survival/survivalStore.js";
+import { levelProgress } from "../../features/streak-survival/survivalStore.js";
 
 function GameBar({ streak, save, firstRun, onOpenShop, onOpenBoard, onOpenStats, onOpenGoal, bell }) {
-  const level = levelFromXP(save.xp || 0);
-  const xpIn = xpIntoLevel(save.xp || 0);
+  const { level, into: xpIn, needed: xpNeeded } = levelProgress(save.xp || 0);
   return (
     <div className="hm-gamebar">
       <div className="hm-gb-row">
@@ -25,8 +24,8 @@ function GameBar({ streak, save, firstRun, onOpenShop, onOpenBoard, onOpenStats,
       </div>
       <div className="hm-gb-xp">
         <span className="hm-lvl">LVL {level}</span>
-        <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / XP_PER_LEVEL) * 100)}%` }} /></div>
-        <span className="hm-xptext">{xpIn}/{XP_PER_LEVEL} XP</span>
+        <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / xpNeeded) * 100)}%` }} /></div>
+        <span className="hm-xptext">{xpIn}/{xpNeeded} XP</span>
         <button className="hm-goal" title="Quick analytics" onClick={onOpenStats}>
           <HIcon name="chart" size={13} />
         </button>

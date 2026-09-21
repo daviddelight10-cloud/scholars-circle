@@ -77,11 +77,26 @@ export function tickDay() {
   });
 }
 
-// ---------- XP / levels (prototype math, exact) ----------
+// ---------- XP / levels (progressive curve) ----------
+// Cost of level n → n+1 grows by 60 each level: 120, 180, 240, ...
+// totalXpForLevel(L) = 120(L-1) + 30(L-1)(L-2)  →  L5 = 840, L10 = 3240
 
-export const XP_PER_LEVEL = 120;
-export const levelFromXP = (xp) => Math.floor(xp / XP_PER_LEVEL) + 1;
-export const xpIntoLevel = (xp) => xp % XP_PER_LEVEL;
+export const XP_PER_LEVEL = 120; // base cost of level 1→2
+export const xpForNextLevel = (level) => XP_PER_LEVEL + 60 * (Math.max(1, level) - 1);
+
+export function levelProgress(xp) {
+  let level = 1;
+  let into = Math.max(0, xp || 0);
+  while (into >= xpForNextLevel(level)) {
+    into -= xpForNextLevel(level);
+    level++;
+  }
+  const needed = xpForNextLevel(level);
+  return { level, into, needed, pct: Math.min(100, (into / needed) * 100) };
+}
+
+export const levelFromXP = (xp) => levelProgress(xp).level;
+export const xpIntoLevel = (xp) => levelProgress(xp).into;
 
 export const CAREER_TITLES = [
   [1, 'Novice'],
