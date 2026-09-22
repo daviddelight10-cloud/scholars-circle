@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { callAIChat, extractJSON } from "../../lib/aiClient";
 import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS } from "./caseData";
+import ExitPill from "../../components/ExitPill.jsx";
 import "./virtualPatient.css";
 
 const ACTIVE_CONSULT_KEY = "scc_active_consult";
@@ -91,7 +92,7 @@ function getDueItems(profile) {
   return (profile.reviewDeck || []).filter(it => new Date(it.due).getTime() <= now);
 }
 
-export default function VirtualPatient({ aiConfig, stats, updateStats }) {
+export default function VirtualPatient({ aiConfig, stats, updateStats, onBack }) {
   const [screen, setScreen] = useState("select");
   const [gameMode, setGameMode] = useState(() => loadLocal(getStorageKey(GAME_MODE_KEY), "osce"));
   const [paceSec, setPaceSec] = useState(() => {
@@ -813,6 +814,7 @@ Answer the student's follow-up questions about their performance and the underly
       {/* SCREEN 1: CASE SELECT */}
       {screen === "select" && (
         <div>
+          <ExitPill title="🩺 Clinical Cases" onBack={onBack} />
           <div className="vp-hero">
             <div className="vp-eyebrow">AI Clinical Challenge</div>
             <h1>Meet your patient.</h1>

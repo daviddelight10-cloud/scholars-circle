@@ -7,6 +7,7 @@ import { ProfileSheet } from "./ProfileSheet";
 import { Avatar, SectionHeader, displayTitle } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import NotificationBell from "../NotificationBellImproved.jsx";
+import ExitPill from "../../components/ExitPill.jsx";
 import "../../feed.css";
 
 const TABS = [
@@ -15,7 +16,7 @@ const TABS = [
   { key: "live", label: "Live" },
 ];
 
-export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource }) {
+export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource, onBack }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState("forYou");
   const [subject, setSubject] = useState(null);
@@ -323,6 +324,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       <div style={ptr.indicatorStyle} className="fd-ptr">
         {ptr.showSpinner ? "Refreshing…" : "↓ Pull to refresh"}
       </div>
+
+      <ExitPill title="💬 Discussion" onBack={onBack} />
 
       <header className="fd-topbar" ref={topRef}>
         <div className="fd-topbar-left">

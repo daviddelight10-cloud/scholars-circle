@@ -3,6 +3,7 @@ import PaystackPop from "@paystack/inline-js";
 import "./settings/settings.css";
 import { toast } from "../components/Toast";
 import { PLANS, getPlan, planLabel, naira } from "../lib/plans";
+import ExitPill from "../components/ExitPill.jsx";
 
 const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_2c321f6a4471b672ee716506912ede6f6f99d8cd";
 const OPAY_ACCOUNT = "9069372522";
@@ -115,9 +116,7 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onN
 
   return (
     <div className="st-root">
-      <div className="st-fabrow">
-        <button className="st-exitfab st-press" onClick={onBack || (() => {})} aria-label="Back">← Back</button>
-      </div>
+      <ExitPill title="💎 Premium" onBack={onBack} />
 
       {/* Hero */}
       <section className="st-phero">

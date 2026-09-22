@@ -9804,6 +9804,7 @@ function App() {
               aiConfig={aiConfig}
               stats={stats}
               updateStats={(partial) => setStats((s) => ({ ...s, ...partial }))}
+              onBack={goBack}
             />
           </Suspense>
         </ErrorBoundary>
@@ -9820,7 +9821,7 @@ function App() {
       {tab === "drug-ref" && (
         <ErrorBoundary>
           <Suspense fallback={<TabSkeleton />}>
-            <DrugReference />
+            <DrugReference onBack={goBack} />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -9828,7 +9829,7 @@ function App() {
       {tab === "lab-values" && (
         <ErrorBoundary>
           <Suspense fallback={<TabSkeleton />}>
-            <LabValues />
+            <LabValues onBack={goBack} />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -9836,7 +9837,7 @@ function App() {
       {tab === "medical-calculators" && (
         <ErrorBoundary>
           <Suspense fallback={<TabSkeleton />}>
-            <MedicalCalculators />
+            <MedicalCalculators onBack={goBack} />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -9989,7 +9990,7 @@ function App() {
 
       {tab === "timetable" && (
         <Suspense fallback={<TabSkeleton />}>
-        <TimetableBuilder timetable={timetable} setTimetable={setTimetable} subjects={subjects} />
+        <TimetableBuilder timetable={timetable} setTimetable={setTimetable} subjects={subjects} onBack={goBack} />
         </Suspense>
       )}
 
@@ -10011,6 +10012,7 @@ function App() {
           token={token}
           subjects={subjects}
           onOpenTab={setTab}
+          onBack={goBack}
           onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerReturnTab("research-hub"); setHomeViewerToken(shareToken); }}
         />
         </Suspense>

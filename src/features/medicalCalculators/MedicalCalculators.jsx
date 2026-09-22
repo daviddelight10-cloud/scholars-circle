@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ExitPill from "../../components/ExitPill.jsx";
 
 const CALCULATORS = [
   { id: "bmi", name: "BMI (Body Mass Index)", icon: "⚖️", category: "General" },
@@ -210,7 +211,7 @@ const CALC_COMPONENTS = {
   fluid_deficit: FluidDeficitCalculator,
 };
 
-export default function MedicalCalculators() {
+export default function MedicalCalculators({ onBack }) {
   const [selected, setSelected] = useState(null);
   const [filterCat, setFilterCat] = useState("");
 
@@ -221,6 +222,7 @@ export default function MedicalCalculators() {
   if (selected) {
     return (
       <div style={{ maxWidth: 600, margin: "0 auto", padding: 16 }}>
+        <ExitPill title={`${selected.icon} ${selected.name}`} onBack={onBack} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h2>{selected.icon} {selected.name}</h2>
           <button className="ghost" onClick={() => setSelected(null)}>← Back</button>
@@ -237,6 +239,7 @@ export default function MedicalCalculators() {
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: 16 }}>
+      <ExitPill title="🧮 Med Calculators" onBack={onBack} />
       <h2>🧮 Medical Calculators</h2>
       <p className="muted" style={{ marginBottom: 16 }}>
         Clinical calculators and risk scores for medical practice and exam preparation.

@@ -38,33 +38,7 @@
 @keyframes st-pulse { 0%, 100% { opacity: .7; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.12); } }
 @keyframes st-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 
-/* ── Floating exit pill row (replaces topbar on bare screens) ── */
-.st-fabrow {
-  position: sticky;
-  top: calc(8px + env(safe-area-inset-top));
-  z-index: 40;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  height: 44px;
-  padding: 0 12px;
-  margin-bottom: 4px;
-  pointer-events: none;
-}
-.st-fabrow > * { pointer-events: auto; }
-.st-exitfab {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 999px;
-  border: 1px solid var(--st-line);
-  background: rgba(21, 21, 15, .85);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  color: var(--st-accent); font-size: 13px; font-weight: 700;
-  cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
-}
-.st-exitfab.st-editing {
-  background: linear-gradient(135deg, var(--st-accent), var(--st-accent2));
-  color: #191400; border-color: transparent;
-}
-
-/* ── Topbar ── */
+/* ── Text buttons ── */
 .st-tbtn {
   padding: 8px 12px; border-radius: 11px;
   border: 1px solid var(--st-line); background: var(--st-card);

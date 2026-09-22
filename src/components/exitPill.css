@@ -1,0 +1,39 @@
+/* ── Floating exit pill row for bare (chromeless) screens ── */
+.x-fabrow {
+  position: sticky;
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 40;
+  display: flex; align-items: center; gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  margin-bottom: 8px;
+  pointer-events: none;
+}
+.x-fabrow > * { pointer-events: auto; }
+
+.x-exitfab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(18, 18, 16, .82);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: #ffd60a; font-size: 13px; font-weight: 700; font-family: inherit;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
+  flex-shrink: 0;
+}
+.x-exitfab:active { transform: scale(.96); }
+.x-exitfab.x-accent {
+  background: linear-gradient(135deg, #ffd60a, #f2a900);
+  color: #191400; border-color: transparent;
+}
+
+.x-fabtitle {
+  flex: 1; min-width: 0;
+  text-align: center;
+  font-size: 15px; font-weight: 800;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+.x-fabtitle.in { opacity: 1; transform: none; }

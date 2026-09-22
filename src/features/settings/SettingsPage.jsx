@@ -7,6 +7,7 @@ import ConfirmModal from "./ConfirmModal.jsx";
 import { API_BASE, DEMO_ACHIEVEMENTS } from "../../lib/constants";
 import { planLabel } from "../../lib/plans";
 import { version } from "../../../package.json";
+import ExitPill from "../../components/ExitPill.jsx";
 
 const NotificationSettings = lazy(() =>
   import("../NotificationCenter.jsx").then((m) => ({ default: m.NotificationSettings }))
@@ -80,9 +81,7 @@ export default function SettingsPage({
 
   return (
     <div className="st-root">
-      <div className="st-fabrow">
-        <button className="st-exitfab st-press" onClick={onBack || (() => {})} aria-label="Back">← Back</button>
-      </div>
+      <ExitPill title="⚙️ Settings" onBack={onBack} />
 
       {/* Profile summary card */}
       <button className="st-pcard st-press" onClick={() => onNavigate("profile")}>

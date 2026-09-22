@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import ExitPill from "../../components/ExitPill.jsx";
 
 const DRUG_DATABASE = [
   { name: "Paracetamol", class: "Analgesic / Antipyretic", generic: "Acetaminophen", indications: "Pain, fever", dosage: "500-1000mg PO QID (max 4g/day)", contraindications: "Severe hepatic impairment", sideEffects: "Hepatotoxicity (overdose), nausea", interactions: "Warfarin (increased INR)", pregnancy: "Safe in all trimesters" },
@@ -25,7 +26,7 @@ const DRUG_DATABASE = [
 
 const DRUG_CLASSES = [...new Set(DRUG_DATABASE.map((d) => d.class))];
 
-export default function DrugReference() {
+export default function DrugReference({ onBack }) {
   const [search, setSearch] = useState("");
   const [filterClass, setFilterClass] = useState("");
   const [selectedDrug, setSelectedDrug] = useState(null);
@@ -44,6 +45,7 @@ export default function DrugReference() {
   if (selectedDrug) {
     return (
       <div style={{ maxWidth: 700, margin: "0 auto", padding: 16 }}>
+        <ExitPill title={selectedDrug.name} onBack={onBack} />
         <button className="ghost" onClick={() => setSelectedDrug(null)} style={{ marginBottom: 16 }}>← Back to Drug List</button>
         <div className="card">
           <h2 style={{ color: "#ef4444" }}>{selectedDrug.name}</h2>
@@ -66,6 +68,7 @@ export default function DrugReference() {
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: 16 }}>
+      <ExitPill title="💊 Drug Reference" onBack={onBack} />
       <h2>💊 Drug Reference</h2>
       <p className="muted" style={{ marginBottom: 16 }}>
         Searchable drug database with indications, dosages, contraindications, and interactions.

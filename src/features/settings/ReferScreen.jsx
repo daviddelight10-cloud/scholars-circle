@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./settings.css";
 import { getMyReferral } from "../../lib/referralApi";
 import { toast } from "../../components/Toast";
+import ExitPill from "../../components/ExitPill.jsx";
 
 export default function ReferScreen({ token, onBack }) {
   const [referral, setReferral] = useState(null);
@@ -41,9 +42,7 @@ export default function ReferScreen({ token, onBack }) {
 
   return (
     <div className="st-root">
-      <div className="st-fabrow">
-        <button className="st-exitfab st-press" onClick={onBack || (() => {})} aria-label="Back">← Back</button>
-      </div>
+      <ExitPill title="🎁 Refer & Earn" onBack={onBack} />
 
       <section className="st-refhero">
         <div className="st-gift">🎁</div>

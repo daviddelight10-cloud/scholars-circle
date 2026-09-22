@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "./Toast";
+import ExitPill from "./ExitPill.jsx";
 
 export function NotesEditor({ subjects, notes, setNotes }) {
   const [activeSubject, setActiveSubject] = useState(subjects[0]?.id || "");
@@ -39,7 +40,7 @@ export function NotesEditor({ subjects, notes, setNotes }) {
   );
 }
 
-export function TimetableBuilder({ timetable, setTimetable, subjects }) {
+export function TimetableBuilder({ timetable, setTimetable, subjects, onBack }) {
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const HOURS = ["8am","9am","10am","11am","12pm","1pm","2pm","3pm","4pm","5pm","6pm","7pm","8pm","9pm"];
   const COLORS = ["#FFD700","#FFD700","#fb923c","#facc15","#f472b6","#FFD700","#a78bfa"];
@@ -58,6 +59,8 @@ export function TimetableBuilder({ timetable, setTimetable, subjects }) {
   function clear(key) { setTimetable(prev => { const n = {...prev}; delete n[key]; return n; }); }
 
   return (
+    <>
+    <ExitPill title="🗓️ Schedule" onBack={onBack} />
     <div className="card">
       <h2>Weekly Study Timetable</h2>
       <p className="muted">Click any cell to assign a subject or custom label.</p>
@@ -117,6 +120,7 @@ export function TimetableBuilder({ timetable, setTimetable, subjects }) {
         </div>
       )}
     </div>
+    </>
   );
 }
 

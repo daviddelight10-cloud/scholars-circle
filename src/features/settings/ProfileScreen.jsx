@@ -9,6 +9,7 @@ import PickerSheet from "./PickerSheet.jsx";
 import { API_BASE } from "../../lib/constants";
 import { planLabel } from "../../lib/plans";
 import { toast } from "../../components/Toast";
+import ExitPill from "../../components/ExitPill.jsx";
 import { toPng } from "html-to-image";
 
 function fmtXp(xp) {
@@ -236,15 +237,18 @@ export default function ProfileScreen({
 
   return (
     <div className="st-root">
-      <div className="st-fabrow">
-        <button className="st-exitfab st-press" onClick={onBack || (() => {})} aria-label="Back">← Back</button>
-        <button
-          className={`st-exitfab st-press${editing ? " st-editing" : ""}`}
-          onClick={() => (editing ? (dirty ? handleSave() : exitEdit()) : openEdit())}
-        >
-          {editing ? (dirty ? "💾 Save" : "✓ Done") : "✏️ Edit"}
-        </button>
-      </div>
+      <ExitPill
+        title="👤 Profile"
+        onBack={onBack}
+        right={
+          <button
+            className={`x-exitfab${editing ? " x-accent" : ""}`}
+            onClick={() => (editing ? (dirty ? handleSave() : exitEdit()) : openEdit())}
+          >
+            {editing ? (dirty ? "💾 Save" : "✓ Done") : "✏️ Edit"}
+          </button>
+        }
+      />
 
       {/* ═══ VIEW MODE ═══ */}
       {!editing && (

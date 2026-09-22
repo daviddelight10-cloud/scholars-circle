@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import ExitPill from "../../components/ExitPill.jsx";
 
 const LAB_CATEGORIES = [
   { id: "cbc", label: "Complete Blood Count", icon: "🩸" },
@@ -68,7 +69,7 @@ const LAB_VALUES = [
   { parameter: "PTH (Parathyroid Hormone)", category: "endocrine", unit: "pg/mL", male: "15-65", female: "15-65", critical_low: "—", critical_high: "—", interpretation: "High with high Ca: primary hyperparathyroidism. High with low Ca: secondary hyperparathyroidism." },
 ];
 
-export default function LabValues() {
+export default function LabValues({ onBack }) {
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
 
@@ -82,6 +83,7 @@ export default function LabValues() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 16 }}>
+      <ExitPill title="🧪 Lab Values" onBack={onBack} />
       <h2>🧪 Lab Values Reference</h2>
       <p className="muted" style={{ marginBottom: 16 }}>
         Normal ranges for common laboratory tests with clinical interpretation.
