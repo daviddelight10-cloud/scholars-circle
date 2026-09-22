@@ -29,6 +29,7 @@ export const VOICE_MODES = {
 
 export const AUDIO_CONFIG = {
   sampleRate: 16000,
+  playbackSampleRate: 24000,
   channels: 1,
   sampleSize: 16,
   mimeType: "audio/pcm;rate=16000",
@@ -76,13 +77,14 @@ export const BUFFER_CONFIG = {
   maxChunks: 6,
   rebufferChunks: 2,
   jitterEvalInterval: 10,
+  maxBufferedBytes: 96 * 1024,
 };
 
 export const RECONNECT_CONFIG = {
   maxAttempts: 3,
   baseDelayMs: 1000,
   maxDelayMs: 4000,
-  pingIntervalMs: 15000,
+  pingIntervalMs: 10000,
   pongTimeoutMs: 5000,
   gracePeriodMs: 30000,
 };

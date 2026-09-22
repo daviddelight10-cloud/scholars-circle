@@ -230,6 +230,9 @@ async function handleVoiceWsUpgrade(request, socket, head) {
       // Binary frames = raw PCM audio from client mic
       if (isBinary) {
         if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+          // Drop frames when the upstream socket is congested — real-time audio
+          // must prefer loss over compounding latency (~64KB ≈ 2s of mic audio).
+          if (session.geminiWs.bufferedAmount > 64 * 1024) return;
           const audioMsg = {
             realtimeInput: {
               audio: {

@@ -7,7 +7,13 @@ import ConceptsDrawer from "./ConceptsDrawer.jsx";
 import TranscriptOverlay from "./TranscriptOverlay.jsx";
 import { COLORS, FONTS, VOICE_STATES, VOICE_MODES, SESSION_TIMEOUT_SEC, hexToRgba } from "./voiceConfig.js";
 
-const VOICE_OPTIONS = ["Achird", "Sulafat", "Puck", "Leda", "Aoede"];
+const VOICE_OPTIONS = [
+  { name: "Achird", desc: "Friendly" },
+  { name: "Sulafat", desc: "Warm" },
+  { name: "Aoede", desc: "Breezy" },
+  { name: "Leda", desc: "Youthful" },
+  { name: "Puck", desc: "Upbeat" },
+];
 
 const ICONS = {
   mic: '<rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0014 0M12 18v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
@@ -406,16 +412,19 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                 }}>
                   {VOICE_OPTIONS.map((v) => (
                     <button
-                      key={v}
-                      onClick={(e) => { e.stopPropagation(); setVoiceName(v); setShowVoicePicker(false); }}
+                      key={v.name}
+                      onClick={(e) => { e.stopPropagation(); setVoiceName(v.name); setShowVoicePicker(false); }}
                       style={{
-                        display: "block",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: 12,
                         width: "100%",
                         padding: "10px 16px",
-                        background: v === voiceName ? "rgba(79,142,247,0.15)" : "transparent",
+                        background: v.name === voiceName ? "rgba(79,142,247,0.15)" : "transparent",
                         border: "none",
                         borderRadius: 10,
-                        color: v === voiceName ? COLORS.electricLight : COLORS.textDim,
+                        color: v.name === voiceName ? COLORS.electricLight : COLORS.textDim,
                         fontSize: 12.5,
                         fontFamily: FONTS.body,
                         fontWeight: 600,
@@ -424,7 +433,8 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                         transition: "color 0.15s ease, background 0.15s ease",
                       }}
                     >
-                      {v}
+                      {v.name}
+                      <span style={{ fontSize: 11, fontWeight: 500, color: COLORS.textFaint }}>{v.desc}</span>
                     </button>
                   ))}
                 </div>

@@ -80,6 +80,10 @@ export function useVoiceSession() {
   // Thinking timeout ref
   const thinkingTimeoutRef = useRef(null);
 
+  // Turn tracking + mic-state-across-reconnect refs
+  const modelTurnActiveRef = useRef(false);
+  const wasListeningRef = useRef(false);
+
   // Ref to break circular dependency between playAudioChunk and drainAudioQueue
   const drainAudioQueueRef = useRef(null);
 
@@ -229,7 +233,13 @@ export function useVoiceSession() {
         }
 
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(pcm16.buffer);
+          // Drop frames when the socket is congested — real-time audio prefers
+          // loss over compounding latency (~96KB ≈ 3s of mic audio).
+          if (wsRef.current.bufferedAmount < BUFFER_CONFIG.maxBufferedBytes) {
+            wsRef.current.send(pcm16.buffer);
+          } else {
+            setConnectionQuality("poor");
+          }
         }
       };
 
@@ -266,7 +276,7 @@ export function useVoiceSession() {
 
       if (!playbackContextRef.current) {
         playbackContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
-          sampleRate: AUDIO_CONFIG.sampleRate,
+          sampleRate: AUDIO_CONFIG.playbackSampleRate,
         });
         nextPlayTimeRef.current = 0;
       }
@@ -279,7 +289,7 @@ export function useVoiceSession() {
         tutorAnalyserRef.current.connect(ctx.destination);
       }
 
-      const audioBuffer = ctx.createBuffer(1, float32.length, AUDIO_CONFIG.sampleRate);
+      const audioBuffer = ctx.createBuffer(1, float32.length, AUDIO_CONFIG.playbackSampleRate);
       audioBuffer.copyToChannel(float32, 0);
 
       const sourceNode = ctx.createBufferSource();
@@ -300,7 +310,7 @@ export function useVoiceSession() {
           // All scheduled chunks finished — check if more are queued
           if (audioQueueRef.current.length > 0) {
             drainAudioQueueRef.current?.();
-          } else if (stateRef.current === VOICE_STATES.SPEAKING) {
+          } else if (stateRef.current === VOICE_STATES.SPEAKING && !modelTurnActiveRef.current) {
             isPlayingRef.current = false;
             setState(VOICE_STATES.READY);
           }
@@ -513,6 +523,8 @@ export function useVoiceSession() {
     // Reset reconnection state
     reconnectAttemptsRef.current = 0;
     isReconnectingRef.current = false;
+    wasListeningRef.current = false;
+    modelTurnActiveRef.current = false;
 
     const token = getAuthToken();
     if (!token) {
@@ -583,29 +595,54 @@ export function useVoiceSession() {
               setState(VOICE_STATES.READY);
               if (handsFreeRef.current) {
                 startMic();
+              } else if (wasListeningRef.current && isListeningRef.current) {
+                // Mic stream survived the WS drop — restore the listening UI.
+                setState(VOICE_STATES.LISTENING);
               }
+              wasListeningRef.current = false;
               break;
 
             case WS_MESSAGE_TYPES.SERVER_CONTENT: {
               const sc = msg.data;
               if (sc.interrupted) {
+                modelTurnActiveRef.current = false;
                 stopPlayback();
                 if (stateRef.current === VOICE_STATES.SPEAKING) {
                   setState(VOICE_STATES.READY);
                 }
                 break;
               }
+              if (sc.audioDropped) {
+                setConnectionQuality("poor");
+              }
               if (sc.inputTranscription) {
                 addToTranscript("user", sc.inputTranscription.text);
               }
               if (sc.outputTranscription) {
+                modelTurnActiveRef.current = true;
                 addToTranscript("tutor", sc.outputTranscription.text);
               }
               if (sc.modelTurn?.parts) {
                 for (const part of sc.modelTurn.parts) {
                   if (part.inlineData) {
+                    modelTurnActiveRef.current = true;
                     enqueueAudioChunk(part.inlineData.data);
                   }
+                }
+              }
+              if (sc.turnComplete) {
+                modelTurnActiveRef.current = false;
+                // Flush any queued tail audio — the turn is done, no more chunks coming.
+                if (audioQueueRef.current.length > 0) {
+                  drainAudioQueueRef.current?.();
+                }
+                if (
+                  stateRef.current === VOICE_STATES.SPEAKING &&
+                  pendingAudioChunksRef.current === 0 &&
+                  audioQueueRef.current.length === 0
+                ) {
+                  isPlayingRef.current = false;
+                  setState(VOICE_STATES.READY);
                 }
               }
               break;
@@ -636,6 +673,11 @@ export function useVoiceSession() {
             case "mode_switching":
               stopPlayback();
               stopMic();
+              setState(VOICE_STATES.CONNECTING);
+              break;
+
+            case "reconnecting":
+              stopPlayback();
               setState(VOICE_STATES.CONNECTING);
               break;
 
@@ -676,6 +718,8 @@ export function useVoiceSession() {
             stopMic();
             return;
           }
+
+          wasListeningRef.current = isListeningRef.current;
 
           // Attempt reconnection
           if (reconnectAttemptsRef.current < RECONNECT_CONFIG.maxAttempts) {
@@ -797,6 +841,20 @@ export function useVoiceSession() {
       }
     };
   }, [stopMic, stopPlayback, stopTimer]);
+
+  // iOS PWA / tab backgrounding suspends AudioContexts — resume them on return.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      for (const ctx of [audioContextRef.current, playbackContextRef.current]) {
+        if (ctx && ctx.state === "suspended") {
+          try { ctx.resume(); } catch {}
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   const toggleHandsFree = useCallback(() => {
     const next = !handsFreeRef.current;
