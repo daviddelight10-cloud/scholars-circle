@@ -81,7 +81,7 @@ export default function SettingsPage({
 
   return (
     <div className="st-root">
-      <ExitPill title="⚙️ Settings" onBack={onBack} />
+      <ExitPill title="⚙️ Settings" onBack={onBack} large />
 
       {/* Profile summary card */}
       <button className="st-pcard st-press" onClick={() => onNavigate("profile")}>

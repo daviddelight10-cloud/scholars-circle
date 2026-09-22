@@ -116,7 +116,7 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onN
 
   return (
     <div className="st-root">
-      <ExitPill title="💎 Premium" onBack={onBack} />
+      <ExitPill title="💎 Premium" onBack={onBack} large />
 
       {/* Hero */}
       <section className="st-phero">

@@ -37,3 +37,14 @@
   pointer-events: none;
 }
 .x-fabtitle.in { opacity: 1; transform: none; }
+
+/* ── Large silver heading — dissolves on scroll (scrollY-linked inline opacity) ── */
+.x-bigtitle {
+  margin: 2px 14px 12px;
+  font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+  background: linear-gradient(120deg,
+    #ffffff 0%, #c9cfd8 30%, #8a919c 50%, #e4e8ee 70%, #ffffff 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (min-width: 640px) { .x-bigtitle { font-size: 30px; } }

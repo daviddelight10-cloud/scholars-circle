@@ -42,7 +42,7 @@ export default function ReferScreen({ token, onBack }) {
 
   return (
     <div className="st-root">
-      <ExitPill title="🎁 Refer & Earn" onBack={onBack} />
+      <ExitPill title="🎁 Refer & Earn" onBack={onBack} large />
 
       <section className="st-refhero">
         <div className="st-gift">🎁</div>

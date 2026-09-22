@@ -240,6 +240,7 @@ export default function ProfileScreen({
       <ExitPill
         title="👤 Profile"
         onBack={onBack}
+        large
         right={
           <button
             className={`x-exitfab${editing ? " x-accent" : ""}`}
