@@ -150,6 +150,14 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
           </div>
         )}
 
+        {/* Stored explanation — free, instant; AI explain stays optional */}
+        {locked && question.explanation && !explain.show && (
+          <div className="explain-box show">
+            <span className="explain-label">📖 Why</span>
+            {question.explanation}
+          </div>
+        )}
+
         {!locked && (
           <div className="card-actions">
             <button type="button" onClick={handleHint}>💡 Hint</button>

@@ -32,6 +32,10 @@ function defaults() {
     stats: { answered: 0, correct: 0, reviewCleared: 0, perfectRuns: 0, runs: 0 },
     achievements: [],         // unlocked achievement ids
     soundOn: true,
+    shields: 0,               // held shields — absorb one heart loss each
+    heartRefills: 0,          // held refills — free revive on game over
+    themesOwned: ['cyan'],
+    theme: 'cyan',
   };
 }
 
@@ -124,6 +128,51 @@ export function titleForLevel(lv) {
 
 export const TIER_XP = { easy: 5, medium: 10, hard: 20 };
 export const TIER_GEMS = { easy: 1, medium: 2, hard: 3 };
+
+// ---------- Shop / consumables / themes ----------
+
+export const SHOP = {
+  shield:      { cost: 12, max: 1, key: 'shields' },
+  heartRefill: { cost: 10, max: 1, key: 'heartRefills' },
+};
+
+export const THEMES = [
+  { id: 'cyan',   name: 'Cyan',   color: '#00E5FF', deep: '#0aa8c4', cost: 0 },
+  { id: 'gold',   name: 'Gold',   color: '#FFB627', deep: '#c78c12', cost: 25 },
+  { id: 'violet', name: 'Violet', color: '#B388FF', deep: '#7c5cd6', cost: 25 },
+];
+
+// kind: 'shield' | 'heartRefill' → true if purchased
+export function buyItem(kind) {
+  const def = SHOP[kind];
+  if (!def) return false;
+  let ok = false;
+  mutate((s) => {
+    if ((s[def.key] || 0) >= def.max || s.gems < def.cost) return;
+    s.gems -= def.cost;
+    s[def.key] = (s[def.key] || 0) + 1;
+    ok = true;
+  });
+  return ok;
+}
+
+// Buy (if needed) and equip a theme. Returns true if equipped.
+export function equipTheme(id) {
+  const t = THEMES.find((x) => x.id === id);
+  if (!t) return false;
+  let ok = false;
+  mutate((s) => {
+    if (!Array.isArray(s.themesOwned)) s.themesOwned = ['cyan'];
+    if (!s.themesOwned.includes(id)) {
+      if (s.gems < t.cost) return;
+      s.gems -= t.cost;
+      s.themesOwned.push(id);
+    }
+    s.theme = id;
+    ok = true;
+  });
+  return ok;
+}
 
 // ---------- Quests (prototype rotation, exact) ----------
 

@@ -9,6 +9,7 @@ import {
   TIER_XP, TIER_GEMS,
   activeQuests, questEvent, claimQuest,
   ACHIEVEMENTS, checkAchievements,
+  SHOP, THEMES, buyItem, equipTheme,
 } from './survivalStore.js';
 import {
   getAuthHeaders, isAuthed,
@@ -23,7 +24,8 @@ import './streakSurvival.css';
 
 const MAX_LIVES = 3;
 const SPEED_WINDOW = 7000;
-const REVIVE_COST = 15;
+const REVIVE_COSTS = [15, 30]; // escalating gem cost per revive
+const MAX_REVIVES = 2;
 
 const QUOTES = [
   { t: 'Repetition is the mother of learning.', a: 'Latin proverb' },
@@ -105,8 +107,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [lives, setLives] = useState(MAX_LIVES);
   const [streak, setStreak] = useState(0);
   const [runBest, setRunBest] = useState(0);
-  const [combo, setCombo] = useState(0);
-  const [bestCombo, setBestCombo] = useState(0);
   const [qNum, setQNum] = useState(0);
   const [answered, setAnswered] = useState(0);
   const [correctN, setCorrectN] = useState(0);
@@ -148,6 +148,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const streakCelebrateRef = useRef(null); // pending streak increment, shown on end screen
   const deckClearedRef = useRef(false); // survival: served the whole section
   const timesRef = useRef([]); // per-question ms, game phase only
+  const sinceMissRef = useRef(0); // correct answers since last miss (earn-back heart)
+  const heartEarnedRef = useRef(false); // earn-back heart already granted this run
   const [quitTarget, setQuitTarget] = useState(null); // 'home'|'exit' — confirm-quit modal
 
   // ── Chrome ──
@@ -365,6 +367,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
       if (data.xpAwarded > 0) {
         editSave((s) => { s.xp += data.xpAwarded; }); // keep local mirror = unified total
+        setSessionXp((v) => v + data.xpAwarded);
         if (onXpUpdate) onXpUpdate(data.xpAwarded);
         else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: data.xpAwarded } }));
       }
@@ -377,6 +380,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }
 
   function loseLife() {
+    // A held shield absorbs the heart loss (streak still resets).
+    if (save.shields > 0) {
+      editSave((s) => { s.shields -= 1; });
+      toast('🛡 Shield absorbed the hit', '#00E5FF');
+      sound.milestone();
+      haptics.medium();
+      return;
+    }
     const nl = lives - 1;
     setLives(nl);
     sound.heart();
@@ -396,15 +407,30 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     endRun(runMode);
   }
 
+  const reviveCostNow = () => REVIVE_COSTS[Math.min(revivesUsed, REVIVE_COSTS.length - 1)];
+
   function reviveWithGems() {
-    if (save.gems < REVIVE_COST) return;
-    editSave((s) => { s.gems -= REVIVE_COST; });
+    const cost = reviveCostNow();
+    if (revivesUsed >= MAX_REVIVES || save.gems < cost) return;
+    editSave((s) => { s.gems -= cost; });
     setRevivesUsed((n) => n + 1);
     setLives(1);
     setGameOver(false);
     sound.levelup();
     haptics.success();
-    toast('❤️ Revived — streak alive!', '#FF7A9E');
+    toast('❤️ Revived — keep going!', '#FF7A9E');
+    setTimeout(() => serveNext(runMode), 250);
+  }
+
+  function redeemHeartRefill() {
+    if (revivesUsed >= MAX_REVIVES || save.heartRefills <= 0) return;
+    editSave((s) => { s.heartRefills -= 1; });
+    setRevivesUsed((n) => n + 1);
+    setLives(1);
+    setGameOver(false);
+    sound.levelup();
+    haptics.success();
+    toast('❤️ Heart refill used — keep going!', '#FF7A9E');
     setTimeout(() => serveNext(runMode), 250);
   }
 
@@ -426,22 +452,36 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
     if (isCorrect) {
       const newStreak = streak + 1;
-      const newCombo = combo + 1;
       setStreak(newStreak);
-      setCombo(newCombo);
       if (newStreak > runBest) setRunBest(newStreak);
-      if (newCombo > bestCombo) { setBestCombo(newCombo); qe('maxCombo', newCombo, { setMax: true }); }
+      qe('maxCombo', newStreak, { setMax: true });
       setCorrectN((n) => n + 1);
       qe('correct', 1);
       editSave((s) => { s.stats.correct += 1; });
       if (elapsed < 5000) qe('speedy', 1);
       if (elapsed < 3000) checkSpeedy3();
 
-      // Tier XP + gems
-      const xp = TIER_XP[tier];
-      grantXp(xp);
-      if (newCombo > 0 && newCombo % 5 === 0) grantGems(TIER_GEMS[tier], 'combo');
-      if (newCombo === 10) grantXp(10, 'combo bonus');
+      // PB crossing — celebrate the moment the old record falls
+      if (best > 0 && newStreak === best + 1) {
+        toast('🏆 New personal best!', '#FFB627', 2200);
+        sound.milestone();
+      }
+
+      // Earn-back heart: 5 straight after a miss restores one life (once per run)
+      sinceMissRef.current += 1;
+      if (runMode === 'survival' && !heartEarnedRef.current && sinceMissRef.current >= 5 && lives < MAX_LIVES) {
+        heartEarnedRef.current = true;
+        setLives((l) => Math.min(MAX_LIVES, l + 1));
+        toast('❤️ Heart earned back — 5 straight!', '#FF7A9E');
+        sound.milestone();
+        haptics.success();
+      }
+
+      // Tier XP scaled by combo multiplier, plus gem drops every 5
+      const mult = newStreak >= 10 ? 2 : newStreak >= 5 ? 1.5 : 1;
+      grantXp(Math.round(TIER_XP[tier] * mult), mult > 1 ? `×${mult} combo` : null);
+      if (newStreak % 5 === 0) grantGems(TIER_GEMS[tier], 'combo');
+      if (newStreak === 10) grantXp(10, 'combo bonus');
 
       // Speed bonus — only on timed cards (learning/review) beaten inside the window
       const wasTimed = runMode === 'survival' && [1, 2].includes(cardStates[q._key]?.state);
@@ -458,13 +498,15 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
       // Milestones
       if (newStreak === 3) { toast('⚡ Warming up — medium XP', '#FFB627'); sound.milestone(); haptics.medium(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
+      else if (newStreak === 5) { toast('⚡ Combo boost — ×1.5 XP', '#FFB627'); sound.milestone(); haptics.medium(); fire(24); }
       else if (newStreak === 6) { toast('🔥 On fire — hard XP', '#FF5E7E'); sound.milestone(); haptics.medium(); setFlash('milestone-flash'); setTimeout(() => setFlash(''), 900); }
+      else if (newStreak === 10) { toast('🌪️ Combo ×2 — double XP!', '#FF5E7E'); sound.milestone(); haptics.medium(); fire(40); }
       else if (newStreak > 0 && newStreak % 10 === 0) { toast(`🌟 ${newStreak} streak!`, '#FFB627'); sound.milestone(); haptics.medium(); fire(40); }
       else if (newStreak > 0 && newStreak % 5 === 0) fire(24);
     } else {
       reviewMissedRef.current.push({ ...q, pickedIdx: i });
       setStreak(0);
-      setCombo(0);
+      sinceMissRef.current = 0;
       sound.wrong();
       haptics.error();
       setFlash('wrong-flash');
@@ -494,7 +536,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     qe('answered', 1);
     editSave((s) => { s.stats.answered += 1; });
     setStreak(0);
-    setCombo(0);
+    sinceMissRef.current = 0;
     sound.wrong();
     haptics.error();
     setShake(true);
@@ -606,7 +648,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     }
     setRunMode(mode);
     setLives(MAX_LIVES);
-    setStreak(0); setRunBest(0); setCombo(0); setBestCombo(0);
+    setStreak(0); setRunBest(0);
     setQNum(0); setAnswered(0); setCorrectN(0);
     setSessionXp(0); setSessionGems(0);
     setGameOver(false); setRevivesUsed(0);
@@ -620,6 +662,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     answersRef.current = {};
     reviewMissedRef.current = [];
     speedy3Ref.current = false;
+    sinceMissRef.current = 0;
+    heartEarnedRef.current = false;
     runEndedRef.current = false;
     setScreen('game');
     setTimeout(() => serveNext(mode), 0);
@@ -663,7 +707,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (perfect) { qe('perfectRun', 1); editSave((s) => { s.stats.perfectRuns += 1; }); }
     if (runMode === 'survival' || mode === 'survival') { if (!gameOver) sound.over(); }
     if (perfect && answered > 0) { sound.perfect(); fire(80); }
-    checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: bestCombo, perfectRun: perfect });
+    checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: runBest, perfectRun: perfect });
     fireServerCompletion();
     // Streak-extended celebration fires over the end screen (Duolingo-style:
     // the streak increment is delivered inside the flow that earned it).
@@ -693,7 +737,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const s = loadSave();
     const unlocked = checkAchievements({
       bestStreak: extra.bestStreak ?? runBest,
-      combo: extra.combo ?? bestCombo,
+      combo: extra.combo ?? runBest,
       perfectRun: extra.perfectRun ?? false,
       speedy3: extra.speedy3 ?? false,
       reviewClearedTotal: s.stats.reviewCleared,
@@ -729,6 +773,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         if (data.streak != null && onStreakUpdate) onStreakUpdate(data.streak, data.longestStreak);
         if (data.xpAwarded > 0) {
           editSave((s) => { s.xp += data.xpAwarded; }); // keep local mirror = unified total
+          setSessionXp((v) => v + data.xpAwarded);
           if (onXpUpdate) onXpUpdate(data.xpAwarded);
           else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: data.xpAwarded } }));
         }
@@ -761,7 +806,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setGameOver(false);
     if (target === 'exit') {
       if (runBest > best) editSave((s) => { s.bestByScope = { ...(s.bestByScope || {}), [scope]: runBest }; });
-      checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: bestCombo });
+      checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: runBest });
       fireServerCompletion();
       onBack?.();
       return;
@@ -806,6 +851,23 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (next) sound.click();
   }
 
+  function buyShield() {
+    if (save.shields >= SHOP.shield.max) { toast('Shield already held', '#8b93a7'); return; }
+    if (buyItem('shield')) { toast('🛡 Shield equipped — blocks one heart loss', '#00E5FF'); bump(); }
+    else toast(`Not enough gems (${SHOP.shield.cost} 💎)`, '#FF5E7E');
+  }
+
+  function buyRefill() {
+    if (save.heartRefills >= SHOP.heartRefill.max) { toast('Refill already held', '#8b93a7'); return; }
+    if (buyItem('heartRefill')) { toast('❤️ Heart refill stored — free revive on game over', '#FF7A9E'); bump(); }
+    else toast(`Not enough gems (${SHOP.heartRefill.cost} 💎)`, '#FF5E7E');
+  }
+
+  function pickTheme(id) {
+    if (equipTheme(id)) { bump(); sound.click(); }
+    else { const t = THEMES.find((x) => x.id === id); toast(`Not enough gems (${t?.cost} 💎)`, '#FF5E7E'); }
+  }
+
   function buyFreeze() {
     if (save.gems < 15) { toast('Not enough gems (15 💎)', '#FF5E7E'); return; }
     editSave((s) => { s.gems -= 15; s.freezes += 1; });
@@ -820,13 +882,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }
 
   function resetSave() {
-    if (!window.confirm('Reset all Streak Survival progress? (gems, XP, achievements)')) return;
+    setModal(null);
     editSave((s) => Object.assign(s, {
       bestByScope: {}, xp: 0, gems: 20, lifetimeGems: 20, freezes: 0,
       warmupDate: '', streakRewardDate: '', questDate: '', questProgress: {},
       questClaimed: [], questBonus: false,
       stats: { answered: 0, correct: 0, reviewCleared: 0, perfectRuns: 0, runs: 0 },
       achievements: [], soundOn: true,
+      shields: 0, heartRefills: 0, themesOwned: ['cyan'], theme: 'cyan',
     }));
     toast('Progress reset', '#8b93a7');
   }
@@ -849,7 +912,15 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); confirmQuit(); }
         return;
       }
-      if (gameOver) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (save.gems >= REVIVE_COST) reviveWithGems(); else dismissGameOver(); } return; }
+      if (gameOver) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (save.heartRefills > 0 && revivesUsed < MAX_REVIVES) redeemHeartRefill();
+          else if (revivesUsed < MAX_REVIVES && save.gems >= reviveCostNow()) reviveWithGems();
+          else dismissGameOver();
+        }
+        return;
+      }
       if (e.key === 'Escape') { requestQuit('home'); return; }
       if (screen !== 'game' && screen !== 'review') return;
       if (!current) return;
@@ -879,9 +950,40 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const goalPct = stats?.dailyGoal ? Math.min(100, ((stats.reviewedToday || 0) / stats.dailyGoal) * 100) : 0;
   const R = 26; const CIRC = 2 * Math.PI * R;
 
+  // Shared daily-quests card — shown on the home screen and again on the
+  // end screen so finishing a run visibly moves quest progress.
+  const questsCard = (style) => (
+    <div className="quests-card" style={style}>
+      {quests.map((q) => {
+        const prog = Math.min(save.questProgress?.[q.id] || 0, q.target);
+        const done = prog >= q.target;
+        const claimed = save.questClaimed?.includes(q.id);
+        return (
+          <div key={q.id} className={`quest-row${claimed ? ' done' : ''}`}>
+            <span className="quest-ico">{q.ico}</span>
+            <div className="quest-mid">
+              <div className="quest-name">{q.name}</div>
+              <div className="quest-bar"><div className="quest-fill" style={{ width: `${(prog / q.target) * 100}%` }} /></div>
+            </div>
+            <div className="quest-right">
+              {claimed ? <span className="quest-check">✓</span> : done ? (
+                <button className="setting-btn on" onClick={() => { const r = claimQuest(q.id); if (r) { toast(`+${r} 💎`, '#FFB627'); bump(); if (loadSave().questBonus) openChest('quest'); } }}>Claim</button>
+              ) : (
+                <>
+                  <span className="quest-count">{prog}/{q.target}</span>
+                  <span className="quest-rwd">+{q.reward}💎</span>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   // ═══════════ RENDER ═══════════
   return (
-    <div className="ss-root" style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: 'radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)' }}>
+    <div className="ss-root" data-theme={save.theme || 'cyan'} style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: 'radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)' }}>
       <canvas ref={canvasRef} className="confetti-canvas" />
       <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
 
@@ -980,32 +1082,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               </button>
             )}
 
-            <div className="quests-card" style={{ marginTop: 10 }}>
-              {quests.map((q) => {
-                const prog = Math.min(save.questProgress?.[q.id] || 0, q.target);
-                const done = prog >= q.target;
-                const claimed = save.questClaimed?.includes(q.id);
-                return (
-                  <div key={q.id} className={`quest-row${claimed ? ' done' : ''}`}>
-                    <span className="quest-ico">{q.ico}</span>
-                    <div className="quest-mid">
-                      <div className="quest-name">{q.name}</div>
-                      <div className="quest-bar"><div className="quest-fill" style={{ width: `${(prog / q.target) * 100}%` }} /></div>
-                    </div>
-                    <div className="quest-right">
-                      {claimed ? <span className="quest-check">✓</span> : done ? (
-                        <button className="setting-btn on" onClick={() => { const r = claimQuest(q.id); if (r) { toast(`+${r} 💎`, '#FFB627'); bump(); if (loadSave().questBonus) openChest('quest'); } }}>Claim</button>
-                      ) : (
-                        <>
-                          <span className="quest-count">{prog}/{q.target}</span>
-                          <span className="quest-rwd">+{q.reward}💎</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {questsCard({ marginTop: 10 })}
           </div>
         )}
 
@@ -1021,9 +1098,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                 <span className="practice-lbl show">{screen === 'review' ? '🔁 REVIEW' : '📚 PRACTICE'}</span>
               )}
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {combo >= 2 && (
-                  <span className={`combo-pill show${combo >= 10 ? ' hot' : ''}${comboPulse ? ' pulse' : ''}`}>
-                    <span className="fire-emoji">🔥</span>{combo}
+                {runMode === 'survival' && screen === 'game' && save.shields > 0 && (
+                  <span className="shield-pill" title="Shield — blocks one heart loss">🛡</span>
+                )}
+                {streak >= 2 && (
+                  <span className={`combo-pill show${streak >= 10 ? ' hot' : ''}${comboPulse ? ' pulse' : ''}`}>
+                    <span className="fire-emoji">🔥</span>{streak}
                   </span>
                 )}
                 {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
@@ -1114,6 +1194,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                 </div>
               )}
 
+              {/* Stored explanation — free, instant; AI thread below stays optional */}
+              {locked && current.q.explanation && !explain.show && (
+                <div className="explain-box show stored-explain">
+                  <span className="explain-label">📖 Why</span>
+                  {current.q.explanation}
+                </div>
+              )}
+
               {!locked && (
                 <div className="card-actions">
                   <button type="button" onClick={handleHint}>💡 Hint</button>
@@ -1186,6 +1274,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               <span className="best-pill">best: {Math.max(best, endInfo.best)}</span>
               {endInfo.newBest && <span className="new-best-pill show">NEW BEST!</span>}
             </div>
+            {questsCard({ marginTop: 14, textAlign: 'left' })}
             <button className="primary" onClick={() => startRun(runMode)}>{runMode === 'survival' ? 'Run it back' : 'Practice again'}</button>
             <div className="secondary-row">
               {!isDaily && <button onClick={() => setScreen('home')}>Home</button>}
@@ -1232,12 +1321,21 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             streak <span className="go-streak">{runBest}</span> · {answered} answered · {reviewMissedRef.current.length} to review
           </div>
           <div className="go-actions">
+            {save.heartRefills > 0 && revivesUsed < MAX_REVIVES && (
+              <button className="go-revive" onClick={redeemHeartRefill}>
+                ❤️ Use heart refill — free revive
+              </button>
+            )}
             <button
               className="go-revive"
-              disabled={save.gems < REVIVE_COST}
+              disabled={revivesUsed >= MAX_REVIVES || save.gems < reviveCostNow()}
               onClick={reviveWithGems}
             >
-              {save.gems >= REVIVE_COST ? `💎 ${REVIVE_COST} — Revive & keep going` : `💎 Revive — need ${REVIVE_COST} gems`}
+              {revivesUsed >= MAX_REVIVES
+                ? 'No revives left this run'
+                : save.gems >= reviveCostNow()
+                  ? `💎 ${reviveCostNow()} — Revive & keep going`
+                  : `💎 Revive — need ${reviveCostNow()} gems`}
             </button>
             <button className="go-continue" onClick={dismissGameOver}>
               {reviewMissedRef.current.length > 0 ? 'Review your misses →' : 'See results →'}
@@ -1309,9 +1407,47 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               <span>Sound</span>
               <button className={`setting-btn${save.soundOn ? ' on' : ''}`} onClick={toggleSound}>{save.soundOn ? 'ON' : 'OFF'}</button>
             </div>
+
+            <div className="section-lbl">Shop · {save.gems}💎</div>
+            <div className="setting-row">
+              <span>🛡 Shield<span className="freeze-count">×{save.shields || 0}</span>
+                <div className="shop-desc">Absorbs one heart loss</div>
+              </span>
+              <button className="setting-btn" onClick={buyShield} disabled={save.gems < SHOP.shield.cost || (save.shields || 0) >= SHOP.shield.max}>
+                {(save.shields || 0) >= SHOP.shield.max ? 'Held' : `Buy · ${SHOP.shield.cost}💎`}
+              </button>
+            </div>
+            <div className="setting-row">
+              <span>❤️ Heart refill<span className="freeze-count">×{save.heartRefills || 0}</span>
+                <div className="shop-desc">Free revive on game over</div>
+              </span>
+              <button className="setting-btn" onClick={buyRefill} disabled={save.gems < SHOP.heartRefill.cost || (save.heartRefills || 0) >= SHOP.heartRefill.max}>
+                {(save.heartRefills || 0) >= SHOP.heartRefill.max ? 'Held' : `Buy · ${SHOP.heartRefill.cost}💎`}
+              </button>
+            </div>
             <div className="setting-row">
               <span>Streak freeze<span className="freeze-count">×{save.freezes}</span></span>
               <button className="setting-btn" onClick={buyFreeze} disabled={save.gems < 15}>Buy · 15💎</button>
+            </div>
+
+            <div className="section-lbl">Theme</div>
+            <div className="theme-row">
+              {THEMES.map((t) => {
+                const owned = (save.themesOwned || ['cyan']).includes(t.id);
+                const active = (save.theme || 'cyan') === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    className={`theme-btn${active ? ' active' : ''}`}
+                    onClick={() => pickTheme(t.id)}
+                    title={owned ? `Equip ${t.name}` : `Unlock ${t.name} — ${t.cost}💎`}
+                  >
+                    <span className="theme-dot" style={{ background: t.color }} />
+                    <span className="theme-name">{t.name}</span>
+                    <span className="theme-cost">{active ? 'ON' : owned ? 'Equip' : `${t.cost}💎`}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="section-lbl">Achievements · {save.achievements.length}/{ACHIEVEMENTS.length}</div>
@@ -1326,7 +1462,26 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                 );
               })}
             </div>
-            <button className="danger-btn" onClick={resetSave}>reset survival progress</button>
+            <button className="danger-btn" onClick={() => setModal('reset')}>reset survival progress</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ RESET CONFIRM ═══ */}
+      {modal === 'reset' && (
+        <div className="modal-overlay show" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal">
+            <div className="modal-head">
+              <span className="modal-title">Reset progress?</span>
+              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+            </div>
+            <div className="modal-sub">
+              This clears survival gems, XP, items, themes and achievements on this device. Your day streak and FSRS schedule are untouched.
+            </div>
+            <div className="quit-actions">
+              <button className="setting-btn on" onClick={() => setModal(null)}>Keep progress</button>
+              <button className="setting-btn danger" onClick={resetSave}>Reset</button>
+            </div>
           </div>
         </div>
       )}
