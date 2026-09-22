@@ -153,6 +153,9 @@ export const DEMO_ACHIEVEMENTS = [
 
 export const PRIMARY_TABS = ["today", "clinical-cases", "osce", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub"];
 
+// Full-bleed screens that render their own floating exit pill — no global back header or bottom nav
+export const BARE_TABS = ["settings", "refer", "profile", "premium"];
+
 export const TAB_LABELS = {
   today: "🏠 Home", dashboard: "🏠 Home", aitutor: "🤖 AI Tutor",
   analytics: "📊 Progress", classroom: "🏫 Classroom",

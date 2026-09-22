@@ -236,16 +236,15 @@ export default function ProfileScreen({
 
   return (
     <div className="st-root">
-      <header className="st-topbar">
-        <button className="st-iconbtn st-press" onClick={onBack || (() => {})} aria-label="Back">←</button>
-        <h1>Profile</h1>
+      <div className="st-fabrow">
+        <button className="st-exitfab st-press" onClick={onBack || (() => {})} aria-label="Back">← Back</button>
         <button
-          className={`st-tbtn st-press${editing ? " st-editing" : ""}`}
+          className={`st-exitfab st-press${editing ? " st-editing" : ""}`}
           onClick={() => (editing ? (dirty ? handleSave() : exitEdit()) : openEdit())}
         >
           {editing ? (dirty ? "💾 Save" : "✓ Done") : "✏️ Edit"}
         </button>
-      </header>
+      </div>
 
       {/* ═══ VIEW MODE ═══ */}
       {!editing && (

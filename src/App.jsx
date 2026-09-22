@@ -68,7 +68,7 @@ import TabSkeleton from "./components/TabSkeleton";
 import {
   NOTES_KEY, CUSTOM_QUESTIONS_KEY, AI_DOCS_KEY, LECTURE_NOTES_KEY,
   EMPTY_STATS, EMPTY_QUESTS, BADGES, LEAGUES, DEMO_USERS, DEMO_LIMITS,
-  DEMO_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS,
+  DEMO_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS, BARE_TABS,
 } from "./lib/constants";
 import { PLANS, getPlan, naira } from "./lib/plans.js";
 import {
@@ -8346,7 +8346,7 @@ function App() {
 
       {/* Mobile Bottom Navigation */}
 
-      {!ctxUI.hideMobileNav && !homeViewerToken && !(tab === "voice-tutor" && voiceSessionActive) && createPortal(
+      {!ctxUI.hideMobileNav && !homeViewerToken && !BARE_TABS.includes(tab) && !(tab === "voice-tutor" && voiceSessionActive) && createPortal(
       <nav className="mobile-nav">
 
         <button
@@ -8425,7 +8425,7 @@ function App() {
 
       {/* FAB Quick Actions — floating bottom-right like ResearchHub */}
 
-      {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !(tab === "voice-tutor" && voiceSessionActive) && (
+      {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !BARE_TABS.includes(tab) && !(tab === "voice-tutor" && voiceSessionActive) && (
 
         <div onClick={() => setFabOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 998, background: "rgba(0,0,0,0.5)", animation: "sc-fabfade 0.15s ease" }} />
 
@@ -8433,7 +8433,7 @@ function App() {
 
       <div style={{ position: "fixed", bottom: "calc(80px + env(safe-area-inset-bottom))", right: 16, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
 
-        {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !(tab === "voice-tutor" && voiceSessionActive) && (
+        {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !BARE_TABS.includes(tab) && !(tab === "voice-tutor" && voiceSessionActive) && (
 
           <>
 
@@ -8489,7 +8489,7 @@ function App() {
 
       {/* Mobile Menu Overlay */}
 
-      {showMobileMenu && (
+      {showMobileMenu && !BARE_TABS.includes(tab) && (
 
         <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
 
@@ -8989,7 +8989,7 @@ function App() {
 
       {/* Back Navigation Header for secondary tabs */}
 
-      {!PRIMARY_TABS.includes(tab) && (
+      {!PRIMARY_TABS.includes(tab) && !BARE_TABS.includes(tab) && (
 
         <div className="tab-back-header">
 
@@ -9867,6 +9867,7 @@ function App() {
           onLogout={logout}
           onReset={handleResetAll}
           onNavigate={setTab}
+          onBack={goBack}
           onShowPaymentModal={() => setShowPaymentModal(true)}
         />
         </Suspense>

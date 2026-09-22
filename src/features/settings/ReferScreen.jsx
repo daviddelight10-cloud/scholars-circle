@@ -41,10 +41,9 @@ export default function ReferScreen({ token, onBack }) {
 
   return (
     <div className="st-root">
-      <header className="st-topbar">
-        <button className="st-iconbtn st-press" onClick={onBack || (() => {})} aria-label="Back">←</button>
-        <h1>🎁 Refer & Earn</h1>
-      </header>
+      <div className="st-fabrow">
+        <button className="st-exitfab st-press" onClick={onBack || (() => {})} aria-label="Back">← Back</button>
+      </div>
 
       <section className="st-refhero">
         <div className="st-gift">🎁</div>

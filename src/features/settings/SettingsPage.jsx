@@ -26,6 +26,7 @@ export default function SettingsPage({
   onLogout,
   onReset,
   onNavigate,
+  onBack,
   onShowPaymentModal,
 }) {
   const [confirm, setConfirm] = useState(null); // "logout" | "reset" | null
@@ -79,9 +80,9 @@ export default function SettingsPage({
 
   return (
     <div className="st-root">
-      <header className="st-topbar">
-        <h1>Settings</h1>
-      </header>
+      <div className="st-fabrow">
+        <button className="st-exitfab st-press" onClick={onBack || (() => {})} aria-label="Back">← Back</button>
+      </div>
 
       {/* Profile summary card */}
       <button className="st-pcard st-press" onClick={() => onNavigate("profile")}>
