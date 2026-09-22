@@ -1,5 +1,5 @@
-import React, { memo } from "react";
-import { StudentProfile } from "../features/StudentProfile.jsx";
+import { memo } from "react";
+import ProfileScreen from "../features/settings/ProfileScreen.jsx";
 import { CardSkeleton } from "../components/LoadingSkeleton";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -9,6 +9,11 @@ function Profile({
   onSave,
   onUsernameChange,
   loading,
+  stats,
+  token,
+  isActivated,
+  onOpenPremium,
+  onBack,
 }) {
   const { user: ctxUser } = useAuth();
   const authUser = authUserProp ?? ctxUser;
@@ -16,11 +21,16 @@ function Profile({
     return <CardSkeleton />;
   }
   return (
-    <StudentProfile
+    <ProfileScreen
       profile={studentProfile}
       authUser={authUser}
       onSave={onSave}
       onUsernameChange={onUsernameChange}
+      stats={stats}
+      token={token}
+      isActivated={isActivated}
+      onOpenPremium={onOpenPremium}
+      onBack={onBack}
     />
   );
 }

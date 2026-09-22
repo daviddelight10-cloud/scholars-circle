@@ -9,10 +9,29 @@ const PLAN_DURATIONS = {
   week1: 7 * 24 * 60 * 60 * 1000,
   week2: 14 * 24 * 60 * 60 * 1000,
   month1: 30 * 24 * 60 * 60 * 1000,
+  semester: 120 * 24 * 60 * 60 * 1000,
 };
 
-const PLAN_PRICES = { week1: 700, week2: 1300, month1: 2400 };
-const VALID_PLANS = ["week1", "week2", "month1"];
+const PLAN_PRICES = { week1: 700, week2: 1300, month1: 2400, semester: 7000 };
+const VALID_PLANS = ["week1", "week2", "month1", "semester"];
+
+// Apply a user's banked referral days on top of a freshly purchased plan,
+// then zero the bank. Returns the adjusted expiry date.
+async function applyBankedReferralDays(userId, expiryDate) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { referralBankedDays: true },
+  });
+  const banked = user?.referralBankedDays || 0;
+  if (banked <= 0) return expiryDate;
+  const adjusted = new Date(expiryDate.getTime() + banked * 24 * 60 * 60 * 1000);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { referralBankedDays: 0 },
+  });
+  console.log(`[payment] Applied ${banked} banked referral day(s) for user ${userId}`);
+  return adjusted;
+}
 
 function calcExpiry(plan, fromDate = new Date()) {
   return new Date(fromDate.getTime() + (PLAN_DURATIONS[plan] || PLAN_DURATIONS.month1));
@@ -27,7 +46,7 @@ router.post("/verify", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Missing payment reference or plan" });
     }
 
-    const validPlans = ["week1", "week2", "month1"];
+    const validPlans = ["week1", "week2", "month1", "semester"];
     if (!validPlans.includes(plan)) {
       return res.status(400).json({ error: "Invalid plan" });
     }
@@ -95,7 +114,8 @@ router.post("/verify", requireAuth, async (req, res) => {
     const baseDate = (currentUser?.isActivated && currentUser?.activationExpiry && new Date(currentUser.activationExpiry) > now)
       ? new Date(currentUser.activationExpiry)
       : now;
-    const expiryDate = calcExpiry(plan, baseDate);
+    let expiryDate = calcExpiry(plan, baseDate);
+    expiryDate = await applyBankedReferralDays(req.user.sub, expiryDate);
 
     // Activate user
     const updated = await prisma.user.update({
@@ -197,7 +217,8 @@ router.post("/webhook", async (req, res) => {
       const baseDate = (freshUser?.isActivated && freshUser?.activationExpiry && new Date(freshUser.activationExpiry) > now)
         ? new Date(freshUser.activationExpiry)
         : now;
-      const expiryDate = calcExpiry(plan, baseDate);
+      let expiryDate = calcExpiry(plan, baseDate);
+      expiryDate = await applyBankedReferralDays(user.id, expiryDate);
 
       // Activate user
       await prisma.user.update({

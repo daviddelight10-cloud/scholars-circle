@@ -17,7 +17,7 @@ import {
   CalendarDays, User, Settings, Gem, FileText, Laptop,
   Megaphone, KeyRound, Mail, Cog, GraduationCap, Building2,
   Download, Moon, Sun, Sparkles, ClipboardList, UserCircle, Mic,
-  ChevronLeft,
+  ChevronLeft, Gift,
 } from "lucide-react";
 
 
@@ -70,6 +70,7 @@ import {
   EMPTY_STATS, EMPTY_QUESTS, BADGES, LEAGUES, DEMO_USERS, DEMO_LIMITS,
   DEMO_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS,
 } from "./lib/constants";
+import { PLANS, getPlan, naira } from "./lib/plans.js";
 import {
   loadFromStorage, todayKey, percent, pickAdaptiveQuestion,
   getLeague, getNextLeague, api, syncUserDataToBackend, loadUserDataFromBackend,
@@ -155,6 +156,8 @@ const NotificationSettings = lazyWithRetry(() => import("./features/Notification
 
 
 const PremiumPage = lazyWithRetry(() => import("./features/PremiumPage.jsx"));
+const SettingsPage = lazyWithRetry(() => import("./features/settings/SettingsPage.jsx"));
+const ReferScreen = lazyWithRetry(() => import("./features/settings/ReferScreen.jsx"));
 
 const ClinicalCases = lazyWithRetry(() => import("./features/clinicalCases/VirtualPatient.jsx"));
 const OSCEPrep = lazyWithRetry(() => import("./features/osce/OSCEPrep.jsx"));
@@ -577,6 +580,8 @@ function App() {
   const signupRoleRef = useRef("STUDENT");
 
   const signupInviteCodeRef = useRef("");
+
+  const signupReferralCodeRef = useRef("");
 
 
 
@@ -1455,11 +1460,14 @@ function App() {
                 const fullName = user?.user_metadata?.fullName || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
                 const role = user?.user_metadata?.role || "STUDENT";
                 const userEmail = user?.email || "";
+                let pendingReferral = "";
+                try { pendingReferral = localStorage.getItem("sc_pending_referral") || ""; } catch {}
                 const profile = await api("/auth/profile", {
                   token: session.access_token,
                   method: "POST",
-                  body: { email: userEmail, username: fullName, role },
+                  body: { email: userEmail, username: fullName, role, referralCode: pendingReferral || undefined },
                 });
+                try { localStorage.removeItem("sc_pending_referral"); } catch {}
                 if (profile) {
                   setAuth((a) => ({ ...a, user: profile, error: "", info: "" }));
                   const uid = profile.id || profile.email;
@@ -2953,11 +2961,14 @@ function App() {
             const fullName = user?.user_metadata?.fullName || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
             const role = user?.user_metadata?.role || "STUDENT";
             const userEmail = user?.email || trimmedEmail;
+            let pendingReferral = "";
+            try { pendingReferral = localStorage.getItem("sc_pending_referral") || ""; } catch {}
             const profile = await api("/auth/profile", {
               token: sessionToken,
               method: "POST",
-              body: { email: userEmail, username: fullName, role },
+              body: { email: userEmail, username: fullName, role, referralCode: pendingReferral || undefined },
             });
+            try { localStorage.removeItem("sc_pending_referral"); } catch {}
             appUser = profile;
           } catch (createErr) {
             console.error("[login] Failed to create missing profile:", createErr);
@@ -3166,6 +3177,8 @@ function App() {
 
       const inviteCode = (signupInviteCodeRef.current?.value || "").trim();
 
+      const referralCode = (signupReferralCodeRef.current?.value || "").trim();
+
       
 
       if (password !== confirmPassword) {
@@ -3235,6 +3248,10 @@ function App() {
       const sessionToken = signUpData.session?.access_token || "";
       let appUser = null;
 
+      if (referralCode) {
+        try { localStorage.setItem("sc_pending_referral", referralCode); } catch {}
+      }
+
       if (sessionToken) {
         try {
           const profile = await api("/auth/profile", {
@@ -3245,8 +3262,10 @@ function App() {
               username,
               role,
               inviteCode: (role === "TEACHER" || role === "LECTURER") ? inviteCode : undefined,
+              referralCode: role === "STUDENT" ? referralCode || undefined : undefined,
             },
           });
+          try { localStorage.removeItem("sc_pending_referral"); } catch {}
           appUser = profile;
         } catch (profileErr) {
           console.error("Profile creation failed:", profileErr);
@@ -3857,14 +3876,6 @@ function App() {
 
 
   function handleResetAll() {
-
-
-
-    const ok = window.confirm("Reset will clear your progress, outlines, and notes. Continue?");
-
-
-
-    if (!ok) return;
 
 
 
@@ -6638,6 +6649,18 @@ function App() {
                       </div>
                     )}
 
+                    {auth.signupRole !== 'TEACHER' && (
+                      <div>
+                        <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Referral code <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional — you both get 3 free days 🎁)</span></label>
+                        <input
+                          className="auth-input"
+                          ref={signupReferralCodeRef}
+                          onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, '').toUpperCase(); }}
+                          placeholder="e.g. SC-AB12CD"
+                        />
+                      </div>
+                    )}
+
                     <label style={{ fontSize: '0.88rem', color: '#9AA3B5', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
                       <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} />
                       <span>I agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Privacy Policy</a>.</span>
@@ -7725,17 +7748,13 @@ function App() {
             </div>
             <div style={{ padding: "16px 20px" }}>
               {/* Plan picker — horizontal row */}
-              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                {[
-                  { id: "week1", label: "1 Week", price: "₦700" },
-                  { id: "week2", label: "2 Weeks", price: "₦1,300" },
-                  { id: "month1", label: "1 Month", price: "₦2,400", badge: "BEST VALUE" },
-                ].map((p) => (
+              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                {PLANS.map((p) => (
                   <div
                     key={p.id}
                     onClick={() => { setSelectedPlan(p.id); setPaymentMethod("paystack"); }}
                     style={{
-                      flex: 1,
+                      flex: "1 1 40%",
                       position: "relative",
                       border: selectedPlan === p.id ? "2px solid #FFD700" : "1px solid rgba(255,255,255,0.15)",
                       borderRadius: 10,
@@ -7746,11 +7765,11 @@ function App() {
                       transition: "all 0.2s",
                     }}
                   >
-                    {p.badge && (
-                      <div style={{ position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)", background: "#10b981", color: "#fff", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 700, whiteSpace: "nowrap" }}>{p.badge}</div>
+                    {p.best && (
+                      <div style={{ position: "absolute", top: -8, left: "50%", transform: "translateX(-50%)", background: "#10b981", color: "#fff", fontSize: 9, padding: "2px 8px", borderRadius: 10, fontWeight: 700, whiteSpace: "nowrap" }}>BEST VALUE</div>
                     )}
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{p.label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#FFD700" }}>{p.price}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#FFD700" }}>{naira(p.price)}</div>
                     {selectedPlan === p.id && (
                       <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: "#FFD700", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff" }}>?</div>
                     )}
@@ -7780,7 +7799,8 @@ function App() {
                   {paymentMethod === "paystack" && (
                     <button
                       onClick={async () => {
-                        const plan = { week1: { label: "1 Week", price: 700 }, week2: { label: "2 Weeks", price: 1300 }, month1: { label: "1 Month", price: 2400 } }[selectedPlan];
+                        const plan = getPlan(selectedPlan);
+                        if (!plan) return;
                         const rawEmail = auth.user?.email || auth.user?.username || "";
                         const payEmail = rawEmail.includes("@") ? rawEmail : `${rawEmail || "user"}@scholars-circle.app`;
                         try {
@@ -7819,7 +7839,7 @@ function App() {
                         fontSize: 15, fontWeight: 700, cursor: "pointer",
                         background: "linear-gradient(135deg, #FFD700, #DAA520)", color: "#fff",
                       }}
-                    >💳 Pay {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"} → Instant Activation</button>
+                    >💳 Pay {naira(getPlan(selectedPlan)?.price)} → Instant Activation</button>
                   )}
                   {/* Bank Transfer */}
                   {paymentMethod === "transfer" && (
@@ -7828,13 +7848,13 @@ function App() {
                         <div><strong>Bank:</strong> Opay</div>
                         <div><strong>Account:</strong> 9069372522</div>
                         <div><strong>Name:</strong> Zibiri-David Delight Aluaye</div>
-                        <div><strong>Amount:</strong> {selectedPlan === "week1" ? "₦700" : selectedPlan === "week2" ? "₦1,300" : "₦2,400"}</div>
+                        <div><strong>Amount:</strong> {naira(getPlan(selectedPlan)?.price)}</div>
                       </div>
                       <div style={{ fontSize: 11, color: "#9fa8da", marginBottom: 8, textAlign: "center" }}>
                         Activation key: <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fbbf24", letterSpacing: 1 }}>{auth.user?.activationKey || "N/A"}</span>
                       </div>
                       <a
-                        href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've paid for ${selectedPlan === "week1" ? "1 week" : selectedPlan === "week2" ? "2 weeks" : "1 month"} plan. Key: ${auth.user?.activationKey || "N/A"}. Proof:`)}`}
+                        href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've paid for ${getPlan(selectedPlan)?.label || selectedPlan} plan. Key: ${auth.user?.activationKey || "N/A"}. Proof:`)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
@@ -8641,6 +8661,16 @@ function App() {
 
               )}
 
+              {!isFaculty && (
+
+                <button className={tab === "refer" ? "active" : ""} onClick={() => { setTab("refer"); setShowMobileMenu(false); }}>
+
+                  <Gift size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Refer & Earn
+
+                </button>
+
+              )}
+
             </div>
 
 
@@ -8883,7 +8913,7 @@ function App() {
 
               ["settings", "Settings", Settings],
 
-              ...(!isFaculty ? [["premium", "Premium", Gem]] : []),
+              ...(!isFaculty ? [["premium", "Premium", Gem], ["refer", "Refer & Earn", Gift]] : []),
 
             ].map(([id, label, Icon]) => (
 
@@ -9752,6 +9782,17 @@ function App() {
           token={token}
           isActivated={isActivated}
           onActivated={() => refreshAuth()}
+          onNavigate={setTab}
+          onBack={() => setTab("settings")}
+        />
+        </Suspense>
+      )}
+
+      {tab === "refer" && !isFaculty && (
+        <Suspense fallback={<TabSkeleton />}>
+        <ReferScreen
+          token={token}
+          onBack={() => setTab("settings")}
         />
         </Suspense>
       )}
@@ -9813,252 +9854,24 @@ function App() {
       )}
 
       {tab === "settings" && (
-        <>
-        {/* Page header */}
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, fontFamily: "'Syne', sans-serif", display: "flex", alignItems: "center", gap: 10, background: "linear-gradient(180deg, #FFFFFF, #C7D0E0)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-            Settings
-          </h2>
-          <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif", fontWeight: 500 }}>Manage your account, preferences & support</p>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: 16, alignItems: "start" }}>
-
-        {/* Account — Activation key */}
-        {auth.user?.activationKey && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="3" stroke="#4F8EF7" strokeWidth="1.6"/><path d="M3 10h18" stroke="#4F8EF7" strokeWidth="1.6"/><circle cx="8" cy="14" r="1.5" fill="#4F8EF7"/></svg>
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Account</span>
-            </div>
-            <p style={{ fontSize: 12, color: "#9AA3B5", margin: "0 0 6px 0", fontFamily: "'Manrope', sans-serif" }}>Your Activation Key</p>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: "#F5A623", letterSpacing: 2, marginBottom: 12 }}>
-              {auth.user.activationKey}
-            </div>
-            {!isActivated && <p style={{ fontSize: 11, color: "#9AA3B5", margin: 0, fontFamily: "'Manrope', sans-serif" }}>Share this key with your teacher to get activated</p>}
-            {isActivated && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 99, fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", background: "rgba(61,214,140,0.12)", border: "1px solid rgba(61,214,140,0.3)", color: "#3DD68C" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3DD68C" }} /> Activated
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Subscription Plan Card */}
-        {!isTeacher && auth.user && (() => {
-          const planType = auth.user.planType;
-          const expiry = auth.user.activationExpiry ? new Date(auth.user.activationExpiry) : null;
-          const daysLeft = expiry ? Math.ceil((expiry - Date.now()) / 86400000) : null;
-          const planLabel = planType === "week1" ? "1-Week Plan" : planType === "week2" ? "2-Week Plan" : planType === "month1" ? "1-Month Plan" : null;
-          const statusColor = !isActivated ? "#9AA3B5" : daysLeft !== null && daysLeft <= 3 ? "#FF5470" : daysLeft !== null && daysLeft <= 7 ? "#F5A623" : "#3DD68C";
-          const statusText = !isActivated ? "Not Activated" : daysLeft !== null && daysLeft <= 0 ? "Expired" : daysLeft !== null && daysLeft <= 1 ? "Expires Today!" : daysLeft !== null ? `${daysLeft} days left` : "Active";
-          const statusBg = !isActivated ? "rgba(154,163,181,0.12)" : daysLeft !== null && daysLeft <= 3 ? "rgba(255,84,112,0.12)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,166,35,0.12)" : "rgba(61,214,140,0.12)";
-          const statusBorder = !isActivated ? "rgba(154,163,181,0.3)" : daysLeft !== null && daysLeft <= 3 ? "rgba(255,84,112,0.3)" : daysLeft !== null && daysLeft <= 7 ? "rgba(245,166,35,0.3)" : "rgba(61,214,140,0.3)";
-          return (
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="#4F8EF7" strokeWidth="1.6"/><path d="M2 10h20" stroke="#4F8EF7" strokeWidth="1.6"/><path d="M6 15h4" stroke="#4F8EF7" strokeWidth="1.6" strokeLinecap="round"/></svg>
-                </div>
-                <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Subscription</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>Plan Status</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 99, fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", background: statusBg, border: `1px solid ${statusBorder}`, color: statusColor }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor }} /> {statusText}
-                </span>
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#EDEFF5", marginBottom: 4, fontFamily: "'Syne', sans-serif" }}>
-                {planLabel || (isActivated ? "Active Plan" : "No Active Plan")}
-              </div>
-              {expiry && (
-                <div style={{ fontSize: 12, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>
-                  {daysLeft !== null && daysLeft > 0
-                    ? `Expires ${expiry.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}`
-                    : `Expired on ${expiry.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`}
-                </div>
-              )}
-              {isActivated && daysLeft !== null && daysLeft <= 7 && daysLeft > 0 && (
-                <p style={{ fontSize: 11, color: statusColor, marginTop: 8, marginBottom: 0, fontWeight: 600, fontFamily: "'Manrope', sans-serif" }}>
-                  Contact your teacher to renew before it expires.
-                </p>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Demo Mode Progress */}
-        {demoMode && (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(245,166,35,0.1)", border: "1px solid rgba(245,166,35,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L15 9H22L17 14L19 21L12 17L5 21L7 14L2 9H9L12 2Z" stroke="#F5A623" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Demo Progress</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-              {DEMO_ACHIEVEMENTS.map(ach => {
-                const earned = demoUsage.demoProgress.achievements.includes(ach.id);
-                return (
-                  <div key={ach.id} style={{
-                    background: earned ? "rgba(61,214,140,0.08)" : "rgba(255,255,255,0.02)",
-                    border: earned ? "1px solid rgba(61,214,140,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 12, padding: 12, opacity: earned ? 1 : 0.6
-                  }}>
-                    <div style={{ fontSize: 18 }}>{ach.icon}</div>
-                    <div style={{ fontWeight: 600, fontSize: 12, marginTop: 4, fontFamily: "'Manrope', sans-serif", color: "#EDEFF5" }}>{ach.label}</div>
-                    <div style={{ fontSize: 10, marginTop: 2, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>{ach.desc}</div>
-                    {earned && <div style={{ color: "#3DD68C", fontSize: 10, marginTop: 4, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>✓ Earned</div>}
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ marginTop: 14, padding: 12, background: "rgba(245,166,35,0.06)", borderRadius: 12, border: "1px solid rgba(245,166,35,0.15)" }}>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13, fontFamily: "'Manrope', sans-serif", color: "#EDEFF5" }}>Completion: {Math.round((demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100)}%</div>
-              <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${(demoUsage.demoProgress.achievements.length / DEMO_ACHIEVEMENTS.length) * 100}%`, background: "linear-gradient(90deg, #F5A623, #FFD700)", transition: "width 0.3s" }} />
-              </div>
-              <button onClick={() => setShowPaymentModal(true)} style={{ marginTop: 10, width: "100%", background: "linear-gradient(135deg, #F5A623, #D4881A)", color: "#fff", border: "none", padding: "12px", borderRadius: 12, cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Manrope', sans-serif", boxShadow: "0 6px 20px -4px rgba(245,166,35,0.4)", transition: "transform 0.15s ease" }}
-                onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
-                onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-              >
-                Upgrade to Full Version
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Appearance */}
-        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#4F8EF7" strokeWidth="1.6"/><path d="M12 3a9 9 0 010 18z" fill="#4F8EF7"/></svg>
-            </div>
-            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Appearance</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 13, fontWeight: 500, fontFamily: "'Manrope', sans-serif", color: "#9AA3B5" }}>Theme</span>
-            <button disabled style={{ padding: "8px 16px", borderRadius: 99, border: "1px solid rgba(61,214,140,0.3)", background: "rgba(61,214,140,0.12)", color: "#3DD68C", fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", cursor: "default", display: "flex", alignItems: "center", gap: 6, opacity: 0.7 }}
-            >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3DD68C" }} />
-              Dark
-            </button>
-          </div>
-        </div>
-
-        {/* Notifications — full width */}
-        <div style={{ gridColumn: "1 / -1" }}>
+        <ErrorBoundary>
         <Suspense fallback={<TabSkeleton />}>
-        <NotificationSettings token={token} />
+        <SettingsPage
+          auth={auth}
+          token={token}
+          isActivated={isActivated}
+          isFaculty={isFaculty}
+          demoMode={demoMode}
+          demoUsage={demoUsage}
+          studentProfile={studentProfile}
+          onLogout={logout}
+          onReset={handleResetAll}
+          onNavigate={setTab}
+          onShowPaymentModal={() => setShowPaymentModal(true)}
+        />
         </Suspense>
-        </div>
-
-        {/* Support */}
-        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" stroke="#3DD68C" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
-            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Support</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <a href="https://wa.link/yj2em4" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, background: "linear-gradient(135deg, #3DD68C, #2BA672)", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 12, fontWeight: 700, fontSize: 14, fontFamily: "'Manrope', sans-serif", boxShadow: "0 6px 20px -4px rgba(61,214,140,0.4)", transition: "transform 0.15s ease" }}
-              onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-              onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              Chat on WhatsApp
-            </a>
-            <a href="tel:09028617178" style={{ display: "flex", alignItems: "center", gap: 10, background: "linear-gradient(135deg, #F5A623, #D4881A)", color: "white", textDecoration: "none", padding: "12px 16px", borderRadius: 12, fontWeight: 700, fontSize: 14, fontFamily: "'Manrope', sans-serif", boxShadow: "0 6px 20px -4px rgba(245,166,35,0.4)", transition: "transform 0.15s ease" }}
-              onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-              onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.36 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              Call: 09028617178
-            </a>
-          </div>
-          <p style={{ marginTop: 10, fontSize: 11, color: "#9AA3B5", marginBottom: 0, fontFamily: "'Manrope', sans-serif" }}>Available 9AM–6PM (Mon–Fri). For faster response, use WhatsApp.</p>
-        </div>
-
-        {/* Help / FAQ */}
-        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#4F8EF7" strokeWidth="1.6"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" stroke="#4F8EF7" strokeWidth="1.6" strokeLinecap="round"/><circle cx="12" cy="17" r="1" fill="#4F8EF7"/></svg>
-            </div>
-            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Common Issues</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <details style={{ cursor: "pointer" }}>
-              <summary style={{ fontWeight: 500, padding: "4px 0", fontSize: 13, fontFamily: "'Manrope', sans-serif", color: "#EDEFF5" }}>How do I reset my password?</summary>
-              <p style={{ marginTop: 4, fontSize: 12, marginLeft: 12, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>Contact support via WhatsApp with your username and email. We'll help you reset it.</p>
-            </details>
-            <details style={{ cursor: "pointer" }}>
-              <summary style={{ fontWeight: 500, padding: "4px 0", fontSize: 13, fontFamily: "'Manrope', sans-serif", color: "#EDEFF5" }}>App not installing on iPhone?</summary>
-              <p style={{ marginTop: 4, fontSize: 12, marginLeft: 12, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>Tap Share → Add to Home Screen. Make sure you're on Safari and HTTPS.</p>
-            </details>
-            <details style={{ cursor: "pointer" }}>
-              <summary style={{ fontWeight: 500, padding: "4px 0", fontSize: 13, fontFamily: "'Manrope', sans-serif", color: "#EDEFF5" }}>How to activate my account?</summary>
-              <p style={{ marginTop: 4, fontSize: 12, marginLeft: 12, color: "#9AA3B5", fontFamily: "'Manrope', sans-serif" }}>Share your activation key (shown above) with your teacher. They'll activate you.</p>
-            </details>
-          </div>
-        </div>
-
-        {/* Feedback */}
-        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(61,214,140,0.1)", border: "1px solid rgba(61,214,140,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M7 9h10M7 13h6M21 12a8 8 0 01-8 8H7l-4 3V6a8 8 0 018-8h6a8 8 0 018 8z" transform="translate(0 -2)" stroke="#3DD68C" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
-            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#EDEFF5" }}>Feedback</span>
-          </div>
-          <p style={{ fontSize: 12, color: "#9AA3B5", marginBottom: 10, fontFamily: "'Manrope', sans-serif" }}>We love hearing from you! Share ideas for new features or report bugs.</p>
-          <button onClick={() => { const msg = encodeURIComponent("Hi Scholar's Circle team, I have a suggestion/feedback:"); window.open(`https://wa.link/yj2em4?text=${msg}`, "_blank"); }} style={{ background: "linear-gradient(135deg, #3DD68C, #2BA672)", color: "white", border: "none", padding: "12px 16px", borderRadius: 12, cursor: "pointer", fontWeight: 700, width: "100%", fontSize: 14, fontFamily: "'Manrope', sans-serif", boxShadow: "0 6px 20px -4px rgba(61,214,140,0.4)", transition: "transform 0.15s ease" }}
-            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-          >
-            Send Feedback
-          </button>
-        </div>
-
-        {/* Danger Zone — full width */}
-        <div style={{ gridColumn: "1 / -1", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: 18, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "rgba(255,84,112,0.1)", border: "1px solid rgba(255,84,112,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01" stroke="#FF5470" strokeWidth="1.8" strokeLinecap="round"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#FF5470" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-            </div>
-            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Syne', sans-serif", color: "#FF5470" }}>Danger Zone</span>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => { setToken(""); setAuth({ username: "", password: "", user: null, error: "" }); }} style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)", color: "#EDEFF5", fontSize: 13, fontWeight: 600, fontFamily: "'Manrope', sans-serif", cursor: "pointer", transition: "transform 0.15s ease" }}
-              onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-              onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-            >
-              Logout
-            </button>
-            <button className="danger" onClick={handleResetAll} style={{ padding: "10px 16px", borderRadius: 12, border: "1px solid rgba(255,84,112,0.3)", background: "rgba(255,84,112,0.08)", color: "#FF5470", fontSize: 13, fontWeight: 700, fontFamily: "'Manrope', sans-serif", cursor: "pointer", transition: "transform 0.15s ease" }}
-              onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-              onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-            >
-              Reset Data
-            </button>
-          </div>
-        </div>
-        </div>
-        </>
+        </ErrorBoundary>
       )}
-
-
-
-
 
 
       {tab === "aitutor" && (
@@ -10114,6 +9927,11 @@ function App() {
           authUser={auth.user}
           onSave={(p) => updateStudentProfile(p)}
           onUsernameChange={(newUsername) => setAuth((a) => ({ ...a, user: { ...a.user, username: newUsername } }))}
+          stats={stats}
+          token={token}
+          isActivated={isActivated}
+          onOpenPremium={() => setTab("premium")}
+          onBack={() => setTab("settings")}
         />
                 </Suspense>
         </ErrorBoundary>

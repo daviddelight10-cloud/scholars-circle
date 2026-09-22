@@ -27,6 +27,7 @@ export default function AuthPages() {
   const signupPasswordRef = useRef('');
   const signupConfirmPasswordRef = useRef('');
   const signupInviteCodeRef = useRef('');
+  const signupReferralCodeRef = useRef('');
 
   useEffect(() => {
     if (location.pathname === '/signup') {
@@ -94,6 +95,7 @@ export default function AuthPages() {
     const confirmPasswordVal = (signupConfirmPasswordRef.current?.value || confirmPassword).trim();
     const role = signupRole;
     const inviteCode = (signupInviteCodeRef.current?.value || '').trim();
+    const referralCode = (signupReferralCodeRef.current?.value || '').trim();
 
     if (passwordVal !== confirmPasswordVal) {
       setError('Passwords do not match.');
@@ -117,7 +119,11 @@ export default function AuthPages() {
       if (signUpError) throw signUpError;
 
       const sessionToken = data.session?.access_token || '';
-      
+
+      if (referralCode) {
+        try { localStorage.setItem('sc_pending_referral', referralCode); } catch {}
+      }
+
       if (sessionToken) {
         // Create profile
         try {
@@ -129,8 +135,10 @@ export default function AuthPages() {
               username: usernameVal,
               role,
               inviteCode: (role === 'TEACHER' || role === 'LECTURER') ? inviteCode : undefined,
+              referralCode: role === 'STUDENT' ? referralCode || undefined : undefined,
             }),
           });
+          try { localStorage.removeItem('sc_pending_referral'); } catch {}
         } catch (err) {
           console.error('Profile creation failed:', err);
         }
@@ -598,6 +606,18 @@ export default function AuthPages() {
                     ref={signupInviteCodeRef}
                     onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, ''); }}
                     placeholder="Enter invite code"
+                  />
+                </div>
+              )}
+
+              {signupRole === 'STUDENT' && (
+                <div>
+                  <label style={{ display: 'block', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: '#646E84', marginBottom: 8 }}>Referral code <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional — you both get 3 free days 🎁)</span></label>
+                  <input
+                    className="auth-input"
+                    ref={signupReferralCodeRef}
+                    onChange={(e) => { e.target.value = e.target.value.replace(/\s/g, '').toUpperCase(); }}
+                    placeholder="e.g. SC-AB12CD"
                   />
                 </div>
               )}

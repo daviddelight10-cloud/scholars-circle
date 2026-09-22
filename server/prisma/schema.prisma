@@ -31,6 +31,8 @@ enum PlanType {
 
   month1
 
+  semester
+
 }
 
 enum PaymentStatus {
@@ -100,6 +102,20 @@ model User {
   paymentStatus  PaymentStatus     @default(pending)
 
   transactionId  String?
+
+  referralCode   String?           @unique
+
+  referredById   String?
+
+  referredBy     User?             @relation("UserReferredBy", fields: [referredById], references: [id])
+
+  referralsGiven User[]            @relation("UserReferredBy")
+
+  referralBankedDays Int           @default(0)
+
+  referralsMade   Referral[]       @relation("ReferralReferrer")
+
+  referralReceived Referral?       @relation("ReferralReferee")
 
   createdAt      DateTime          @default(now())
 
@@ -234,6 +250,19 @@ model UserFollow {
   @@unique([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
+}
+
+// ============ REFERRALS ============
+// One row per successful referral. RefereeId is unique — each account can only be referred once.
+model Referral {
+  id        String   @id @default(cuid())
+  referrerId String
+  referrer  User     @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId String   @unique
+  referee   User     @relation("ReferralReferee", fields: [refereeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([referrerId])
 }
 
 // ============ CAMPUS ANNOUNCEMENTS ============

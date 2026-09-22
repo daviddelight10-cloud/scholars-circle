@@ -196,6 +196,7 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
 
   // Add daily rank, remove internal fields, apply pagination
   const totalCount = leaderboard.length;
+  const myRank = (leaderboard.findIndex((entry) => entry.userId === req.user.sub) + 1) || null;
   const paginated = leaderboard.slice((pageNum - 1) * limitNum, pageNum * limitNum);
   const leaderboardWithDailyRank = paginated.map(entry => {
     const { _prevXP, ...rest } = entry;
@@ -208,6 +209,7 @@ router.get("/leaderboard", requireAuth, async (req, res) => {
   res.json({
     entries: leaderboardWithDailyRank,
     total: totalCount,
+    myRank,
     page: pageNum,
     limit: limitNum,
     hasMore: pageNum * limitNum < totalCount,

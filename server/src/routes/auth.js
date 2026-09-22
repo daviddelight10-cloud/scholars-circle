@@ -12,6 +12,8 @@ import { requireAuth, requireSupabaseAuth, invalidateUserCache } from "../middle
 
 import { logSecurityEvent } from "../lib/logger.js";
 
+import { applyReferral } from "./referrals.js";
+
 
 
 const router = express.Router();
@@ -34,6 +36,8 @@ const profileSchema = z.object({
   role: z.enum(["STUDENT", "TEACHER", "LECTURER"]).optional(),
 
   inviteCode: z.string().optional(),
+
+  referralCode: z.string().optional(),
 
 });
 
@@ -182,6 +186,26 @@ router.post("/profile", requireSupabaseAuth, async (req, res) => {
       console.error("Failed to create UserProgress for new user:", e.message);
     }
 
+    // Apply referral code (students only). Invalid codes never block signup.
+    let referralApplied = false;
+    if (desiredRole === "STUDENT" && data.referralCode && typeof data.referralCode === "string") {
+      try {
+        const referrer = await prisma.user.findUnique({
+          where: { referralCode: data.referralCode.trim().toUpperCase() },
+          select: { id: true, role: true },
+        });
+        if (referrer && referrer.id !== user.id) {
+          await applyReferral(user.id, referrer.id);
+          referralApplied = true;
+          console.log(`[auth/profile] Referral applied: ${referrer.id} → ${user.id}`);
+        } else {
+          console.log(`[auth/profile] Referral code not found, ignoring: ${data.referralCode}`);
+        }
+      } catch (e) {
+        console.error("Failed to apply referral:", e.message);
+      }
+    }
+
     // Mark invite as used
     if (usedInvite) {
       try {
@@ -208,17 +232,31 @@ router.post("/profile", requireSupabaseAuth, async (req, res) => {
     // Invalidate cache
     invalidateUserCache(supabaseId);
 
+    // Referral credits may have changed activation state — re-read it
+    let responseUser = user;
+    if (referralApplied) {
+      responseUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true, email: true, username: true, fullName: true, role: true,
+          activationKey: true, isActivated: true, planType: true,
+          activationExpiry: true, activatedAt: true,
+        },
+      });
+    }
+
     return res.status(201).json({
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      fullName: user.fullName,
-      role: user.role,
-      activationKey: user.activationKey,
-      isActivated: user.isActivated,
-      planType: user.planType || null,
-      activationExpiry: user.activationExpiry || null,
-      activatedAt: user.activatedAt || null,
+      id: responseUser.id,
+      email: responseUser.email,
+      username: responseUser.username,
+      fullName: responseUser.fullName,
+      role: responseUser.role,
+      activationKey: responseUser.activationKey,
+      isActivated: responseUser.isActivated,
+      planType: responseUser.planType || null,
+      activationExpiry: responseUser.activationExpiry || null,
+      activatedAt: responseUser.activatedAt || null,
+      referralApplied,
     });
 
   } catch (e) {
