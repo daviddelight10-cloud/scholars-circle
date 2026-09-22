@@ -7,7 +7,6 @@ import { ProfileSheet } from "./ProfileSheet";
 import { Avatar, SectionHeader, displayTitle } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import NotificationBell from "../NotificationBellImproved.jsx";
-import ExitPill from "../../components/ExitPill.jsx";
 import "../../feed.css";
 
 const TABS = [
@@ -37,6 +36,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [followBusy, setFollowBusy] = useState({});
   const [trending, setTrending] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
+  const [scrolled, setScrolled] = useState(false);
   const topRef = useRef(null);
 
   const me = useMemo(
@@ -112,6 +112,14 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     loadFeed();
     loadAux();
   }, [loadFeed, loadAux]);
+
+  // Fade the topbar title in once the user scrolls
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 28);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Light polling for "new posts" pill
   useEffect(() => {
@@ -325,10 +333,9 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         {ptr.showSpinner ? "Refreshing…" : "↓ Pull to refresh"}
       </div>
 
-      <ExitPill title="💬 Discussion" onBack={onBack} />
-
       <header className="fd-topbar" ref={topRef}>
         <div className="fd-topbar-left">
+          <button className="fd-backbtn" onClick={onBack} aria-label="Back">←</button>
           <button className="fd-me" onClick={() => onOpenTab?.("profile")} title="Profile">
             <Avatar user={me} size={34} />
           </button>
@@ -344,6 +351,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             ))}
           </div>
         </div>
+        <span className={`fd-bartitle${scrolled ? " in" : ""}`}>💬 Discussion</span>
         <div className="fd-topbar-right">
           <button className="fd-chip-btn" onClick={() => setStreakOpen((v) => !v)} title="Streak">
             🔥 {fsrsStats?.streak ?? 0}

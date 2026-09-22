@@ -45,7 +45,6 @@ export default function DrugReference({ onBack }) {
   if (selectedDrug) {
     return (
       <div style={{ maxWidth: 700, margin: "0 auto", padding: 16 }}>
-        <ExitPill title={selectedDrug.name} onBack={onBack} />
         <button className="ghost" onClick={() => setSelectedDrug(null)} style={{ marginBottom: 16 }}>← Back to Drug List</button>
         <div className="card">
           <h2 style={{ color: "#ef4444" }}>{selectedDrug.name}</h2>

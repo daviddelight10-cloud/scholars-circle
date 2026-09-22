@@ -50,7 +50,7 @@
 /* ─── Topbar ─── */
 .fd-topbar {
   position: sticky;
-  top: calc(52px + env(safe-area-inset-top));
+  top: 0;
   z-index: 30;
   display: flex;
   align-items: center;
@@ -64,6 +64,28 @@
 }
 .fd-topbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
 .fd-topbar-right { display: flex; align-items: center; gap: 8px; }
+.fd-backbtn {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: grid; place-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--fd-card-border);
+  background: var(--fd-card);
+  color: var(--fd-text);
+  font-size: 15px;
+}
+.fd-bartitle {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, calc(-50% + 5px));
+  font-size: 15px; font-weight: 800;
+  font-family: "Syne", "Manrope", sans-serif;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+.fd-bartitle.in { opacity: 1; transform: translate(-50%, -50%); }
+@media (max-width: 719px) { .fd-bartitle { display: none; } }
 .fd-me {
   background: none;
   border: none;

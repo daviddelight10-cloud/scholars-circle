@@ -222,7 +222,6 @@ export default function MedicalCalculators({ onBack }) {
   if (selected) {
     return (
       <div style={{ maxWidth: 600, margin: "0 auto", padding: 16 }}>
-        <ExitPill title={`${selected.icon} ${selected.name}`} onBack={onBack} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h2>{selected.icon} {selected.name}</h2>
           <button className="ghost" onClick={() => setSelected(null)}>← Back</button>
