@@ -518,13 +518,25 @@
 .sp-search:focus-within { border-color: rgba(245,166,35,0.35); }
 
 /* Header / hero */
+.sp-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(10,13,19,0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding-top: 14px;
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+}
 
-/* Drive-style glowing upload FAB — sits above the mobile nav, docks to the
-   viewport edge on desktop. Uses the shared `fabglow` keyframe. */
+/* Drive-style glowing upload FAB — the bottom nav unmounts while a folder is
+   open, so it hugs the corner on every breakpoint. Shared `fabglow` keyframe. */
 .sp-uploadfab {
   position: fixed;
   right: 16px;
-  bottom: calc(78px + env(safe-area-inset-bottom));
+  bottom: calc(20px + env(safe-area-inset-bottom));
   z-index: 90;
   display: flex;
   align-items: center;

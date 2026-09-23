@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import EmptyState from "./EmptyState";
-import ExitPill from "../../components/ExitPill";
 import LoadingState from "./LoadingState";
 import EmbeddedRoadmapView from "../../components/home/EmbeddedRoadmapView";
 import SpaceFileCard from "./SpaceFileCard.jsx";
@@ -71,6 +70,7 @@ export default function FolderDetailView({
   const masteryPct = folderDetail?.masteryPct || 0;
 
   const tab = activeFolderTab === "topics" ? "topics" : "materials";
+  const levelSem = [folderDetail?.level, folderDetail?.semester].filter(Boolean).join(" · ");
 
   const menuItem = (label, fn, opts = {}) => (
     <button
@@ -87,11 +87,27 @@ export default function FolderDetailView({
     <>
       <div className="mx-auto w-full max-w-[1400px]" style={{ paddingBottom: "96px" }}>
 
-        {/* Floating exit pill — folder name fades in on scroll; ⋯ menu rides the right slot */}
-        <ExitPill
-          title={folderDetail?.courseCode || folderDetail?.name || "Folder"}
-          onBack={onClose}
-          right={
+        {/* Sticky app header */}
+        <div className="sp-header px-5 md:px-8 lg:px-12">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onClose}
+              aria-label="Back to My Space"
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
+              style={{ background: "#151A24", borderColor: "rgba(255,255,255,0.07)" }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <div className="min-w-0 flex-1 text-center">
+              <div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#646E84]">Course Space</div>
+              <div className="mt-0.5 truncate text-[13px] font-semibold text-[#EDEFF5]">
+                {levelSem || folderDetail?.courseCode || folderDetail?.name || ""}
+              </div>
+            </div>
+
             <div className="cs-menu-wrap shrink-0" ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((o) => !o)}
@@ -127,8 +143,8 @@ export default function FolderDetailView({
                 </div>
               )}
             </div>
-          }
-        />
+          </div>
+        </div>
 
         {/* Course hero card */}
         <div className="px-5 md:px-8 lg:px-12">

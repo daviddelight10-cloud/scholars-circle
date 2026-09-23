@@ -229,12 +229,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [sessionMode, setSessionMode] = useState(null); // { type: 'spaced'|'adaptive'|'exam'|'folder', subject, resourceIds, folder, mcqResources }
 
   // Hide the bottom nav while an immersive view is open (resource viewer,
-  // session runners). They render inside #root, whose fixed children lose
-  // z-order to the body-level nav on iOS — so we unmount the nav instead.
+  // session runners, open folder). They render inside #root, whose fixed
+  // children lose z-order to the body-level nav on iOS — so we unmount the
+  // nav instead.
   useEffect(() => {
-    setMobileNavHidden(Boolean(viewerToken || sessionMode));
+    setMobileNavHidden(Boolean(viewerToken || sessionMode || activeFolder));
     return () => setMobileNavHidden(false);
-  }, [viewerToken, sessionMode, setMobileNavHidden]);
+  }, [viewerToken, sessionMode, activeFolder, setMobileNavHidden]);
 
   const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, generate: generateFromMaterial, retry: retryMaterialGenerate, clearError: clearMaterialGenError } = useMaterialGenerate();
 
