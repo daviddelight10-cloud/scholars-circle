@@ -36,7 +36,7 @@ function defaults() {
     heartRefills: 0,          // held refills — free revive on game over
     themesOwned: ['cyan'],
     theme: 'cyan',
-    quizPrefs: { style: 'mcq', recallFirst: false, speedRound: false }, // session-setup choices
+    quizPrefs: { style: 'smart', recallFirst: true, speedRound: false }, // session-setup choices
   };
 }
 
@@ -49,6 +49,13 @@ export function loadSave() {
     const raw = localStorage.getItem(key);
     cache = raw ? { ...defaults(), ...JSON.parse(raw) } : defaults();
     cache.quizPrefs = { ...defaults().quizPrefs, ...(cache.quizPrefs || {}) };
+    // One-time migration: pre-'smart' saves stored the old silent defaults
+    // ('mcq'/no recall-first). Only migrate untouched prefs — explicit picks stay.
+    if (cache.quizPrefs.v !== 2) {
+      const untouched = cache.quizPrefs.style === 'mcq' && !cache.quizPrefs.recallFirst && !cache.quizPrefs.speedRound;
+      cache.quizPrefs.v = 2;
+      if (untouched) { cache.quizPrefs.style = 'smart'; cache.quizPrefs.recallFirst = true; }
+    }
   } catch {
     cache = defaults();
   }

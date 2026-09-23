@@ -125,6 +125,14 @@ function typedMatch(input, answer) {
   return levDist(ni, ta) <= Math.max(1, Math.floor(ta.length / 8));
 }
 
+// Only short, single-term answers make good typing questions — long sentences
+// and compound options ("All of the above", "Both A and B") fall back to choices.
+function isTypeable(text) {
+  const t = (text || '').trim();
+  if (!t || t.length > 30 || t.split(/\s+/).length > 5) return false;
+  return !/\bof the above\b|^(both|neither|all|none)\b|^[a-d]\s*(and|or)\s*[a-d]\b/i.test(t);
+}
+
 export default function StreakSurvival({ resource, items, mode: forcedMode, onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
   // ── Save ──
   const [save, setSave] = useState(() => { tickDay(); return { ...loadSave() }; });
@@ -132,7 +140,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const editSave = useCallback((fn) => { mutate(fn); bump(); }, [bump]);
 
   // Session-setup preferences (persisted in the save blob)
-  const prefs = save.quizPrefs || { style: 'mcq', recallFirst: false, speedRound: false };
+  const prefs = save.quizPrefs || { style: 'smart', recallFirst: true, speedRound: false };
   const setPref = (k, v) => editSave((s) => { s.quizPrefs = { ...(s.quizPrefs || {}), [k]: v }; });
 
   // ── Bank ──
@@ -377,17 +385,24 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }, [editSave, xpFloat, flyToHud]);
 
   // ── Question serving ──
-  // Roll the answer style for a just-served card. Long answer texts fall back
-  // to choices — typing a paragraph feels bad and grades unfairly.
+  // Roll the answer style for a just-served card. Long/compound answers fall
+  // back to choices — typing a paragraph feels bad and grades unfairly.
   function rollQMode(q) {
-    const style = prefs.style || 'mcq';
+    const style = prefs.style || 'smart';
     if (style === 'mcq') return 'mcq';
-    const typeable = (q.opts[q.a] || '').trim().length <= 40;
+    const typeable = isTypeable(q.opts[q.a]);
     if (style === 'typing') return typeable ? 'type' : 'mcq';
     if (style === 'flashcard') return 'card';
-    // Variety mix — choices weighted heaviest since they're the fastest.
-    const pool = typeable ? ['mcq', 'mcq', 'type', 'card'] : ['mcq', 'mcq', 'card'];
-    return pool[Math.floor(Math.random() * pool.length)];
+    if (style === 'mixed') {
+      // Variety mix — choices weighted heaviest since they're the fastest.
+      const pool = typeable ? ['mcq', 'mcq', 'type', 'card'] : ['mcq', 'mcq', 'card'];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    // Smart mix (default) — unseen cards stay recognition-based; once a card
+    // is inside the FSRS pipeline (learning/review/relearning), short answers
+    // switch to free recall. Recognition first, recall once you know it.
+    const seen = (cardStates[q._key]?.state ?? 0) > 0;
+    return seen && typeable ? 'type' : 'mcq';
   }
 
   // Per-card style state reset — called by every serve site (game + review).
@@ -558,8 +573,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   // ── Shared answer resolution (game mode) ──
   // Every answer style funnels here — MCQ pick, typed check, flip-card
   // self-grade, speed-round timeout. pickedIdx/optEl are cosmetic (missed-queue
-  // detail + fly-to-HUD particle origin).
-  function resolveAnswer(q, { isCorrect, pickedIdx = null, optEl = null } = {}) {
+  // detail + fly-to-HUD particle origin); via carries the style for XP weighting.
+  function resolveAnswer(q, { isCorrect, pickedIdx = null, optEl = null, via = 'mcq' } = {}) {
     const elapsed = Date.now() - qStartRef.current;
     timesRef.current.push(elapsed);
     setAnswered((n) => n + 1);
@@ -594,9 +609,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         haptics.success();
       }
 
-      // Tier XP scaled by combo multiplier, plus gem drops every 5
+      // Tier XP scaled by combo multiplier, plus a small recall bonus for
+      // typed answers (free recall is harder than recognition), plus gem drops every 5
       const mult = newStreak >= 10 ? 2 : newStreak >= 5 ? 1.5 : 1;
-      grantXp(Math.round(TIER_XP[tier] * mult), mult > 1 ? `×${mult} combo` : null, optEl);
+      const boost = via === 'type' ? 1.25 : 1;
+      const label = [mult > 1 ? `×${mult} combo` : '', boost > 1 ? 'recall' : ''].filter(Boolean).join(' · ') || null;
+      grantXp(Math.round(TIER_XP[tier] * mult * boost), label, optEl);
       if (newStreak % 5 === 0) grantGems(TIER_GEMS[tier], 'combo', optEl);
       if (newStreak === 10) grantXp(10, 'combo bonus', optEl);
 
@@ -662,7 +680,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       resolveReviewAnswer(q, { isCorrect, optEl: typeInputRef.current });
     } else {
       applyRating(q, isCorrect, false);
-      resolveAnswer(q, { isCorrect, optEl: typeInputRef.current });
+      resolveAnswer(q, { isCorrect, optEl: typeInputRef.current, via: 'type' });
     }
   }
 
@@ -681,7 +699,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setLocked(true);
     setHistory((h) => [...h, { q, picked: null, via: 'card', selfKnew: knewIt, ok: knewIt }]);
     if (screen === 'review') resolveReviewAnswer(q, { isCorrect: knewIt });
-    else { applyRating(q, knewIt, false); resolveAnswer(q, { isCorrect: knewIt }); }
+    else { applyRating(q, knewIt, false); resolveAnswer(q, { isCorrect: knewIt, via: 'card' }); }
   }
 
   // Speed round — the drain bar is a real clock: timeout counts as a miss but
@@ -1094,7 +1112,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       stats: { answered: 0, correct: 0, reviewCleared: 0, perfectRuns: 0, runs: 0 },
       achievements: [], soundOn: true,
       shields: 0, heartRefills: 0, themesOwned: ['cyan'], theme: 'cyan',
-      quizPrefs: { style: 'mcq', recallFirst: false, speedRound: false },
+      quizPrefs: { style: 'smart', recallFirst: true, speedRound: false },
     }));
     toast('Progress reset', '#8b93a7');
   }
@@ -1395,13 +1413,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               <div className="qtext">{shownQ.q}</div>
 
               {/* Speed timer — with Speed round on it's the real clock (timeout
-                  counts as a miss) and shows on every card. Otherwise it only
-                  appears on cards the user has answered correctly before (FSRS
-                  learning=1 / review=2) as the speed-bonus cue. Pure CSS drain —
+                  counts as a miss) and shows on every card. Otherwise it's the
+                  speed-bonus cue on cards answered correctly before (FSRS
+                  learning=1 / review=2) — but never while typing, where racing
+                  a 3–7s window is unreachable anyway. Pure CSS drain —
                   key remounts per question so the animation restarts. */}
               {!pastEntry && !locked && current
                 && (prefs.speedRound
-                  || (runMode === 'survival' && screen === 'game'
+                  || (shownMode !== 'type' && runMode === 'survival' && screen === 'game'
                     && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state))) && (
                 <div className="timer-track" key={`${qNum}-${current.idx}`}>
                   <div className="timer-fill" />
@@ -1735,6 +1754,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             </div>
             <div className="section-lbl">Answer style</div>
             {[
+              ['smart', 'Smart mix', 'choices for new cards, typing once you know them'],
               ['mcq', 'Choices', 'pick from four options'],
               ['typing', 'Type it out', 'free recall — strongest for memory'],
               ['flashcard', 'Flip cards', 'reveal, then grade yourself'],
