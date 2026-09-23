@@ -36,6 +36,7 @@ function defaults() {
     heartRefills: 0,          // held refills — free revive on game over
     themesOwned: ['cyan'],
     theme: 'cyan',
+    quizPrefs: { style: 'mcq', recallFirst: false, speedRound: false }, // session-setup choices
   };
 }
 
@@ -47,6 +48,7 @@ export function loadSave() {
   try {
     const raw = localStorage.getItem(key);
     cache = raw ? { ...defaults(), ...JSON.parse(raw) } : defaults();
+    cache.quizPrefs = { ...defaults().quizPrefs, ...(cache.quizPrefs || {}) };
   } catch {
     cache = defaults();
   }

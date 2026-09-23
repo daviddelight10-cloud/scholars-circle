@@ -92,11 +92,48 @@ function shuffleQuestion(q) {
   return { ...q, opts: order.map((i) => q.opts[i]), a: order.indexOf(q.a), _order: composed };
 }
 
+// ── Typed-answer matching ──
+const normText = (s) => String(s || '')
+  .toLowerCase()
+  .replace(/^(the|a|an)\s+/, '')
+  .replace(/[^a-z0-9 ]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+// Small Levenshtein — answer strings are short, so O(m·n) is fine.
+function levDist(a, b) {
+  if (Math.abs(a.length - b.length) > 5) return 6;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+// Lenient-but-fair compare: exact after normalizing, containment of a
+// meaningful term, or ~1 typo per 8 characters.
+function typedMatch(input, answer) {
+  const ni = normText(input);
+  const ta = normText(answer);
+  if (!ni || !ta) return false;
+  if (ni === ta) return true;
+  if (ni.length >= 4 && ta.includes(ni)) return true;
+  return levDist(ni, ta) <= Math.max(1, Math.floor(ta.length / 8));
+}
+
 export default function StreakSurvival({ resource, items, mode: forcedMode, onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
   // ── Save ──
   const [save, setSave] = useState(() => { tickDay(); return { ...loadSave() }; });
   const bump = useCallback(() => setSave({ ...loadSave() }), []);
   const editSave = useCallback((fn) => { mutate(fn); bump(); }, [bump]);
+
+  // Session-setup preferences (persisted in the save blob)
+  const prefs = save.quizPrefs || { style: 'mcq', recallFirst: false, speedRound: false };
+  const setPref = (k, v) => editSave((s) => { s.quizPrefs = { ...(s.quizPrefs || {}), [k]: v }; });
 
   // ── Bank ──
   const isDaily = Array.isArray(items) && items.length > 0;
@@ -143,6 +180,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [revealed, setRevealed] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
   const [eliminated, setEliminated] = useState(new Set());
+  // Answer style for the live card — rolled from quizPrefs at serve time:
+  // 'mcq' (choices), 'type' (free recall), 'card' (flip + self-grade)
+  const [qMode, setQMode] = useState('mcq');
+  const [typed, setTyped] = useState('');
+  const [flipped, setFlipped] = useState(false);
+  const [optsShown, setOptsShown] = useState(true); // recall-first veil
+  const typeInputRef = useRef(null);
+  const boltOutRef = useRef(null); // speed-round timeout → freshest closure
   const [fsrsNote, setFsrsNote] = useState(null);
   const [explain, setExplain] = useState({ show: false, loading: false, thread: [] }); // thread: [{role:'ai'|'user', text}]
   const [followUp, setFollowUp] = useState('');
@@ -332,6 +377,28 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }, [editSave, xpFloat, flyToHud]);
 
   // ── Question serving ──
+  // Roll the answer style for a just-served card. Long answer texts fall back
+  // to choices — typing a paragraph feels bad and grades unfairly.
+  function rollQMode(q) {
+    const style = prefs.style || 'mcq';
+    if (style === 'mcq') return 'mcq';
+    const typeable = (q.opts[q.a] || '').trim().length <= 40;
+    if (style === 'typing') return typeable ? 'type' : 'mcq';
+    if (style === 'flashcard') return 'card';
+    // Variety mix — choices weighted heaviest since they're the fastest.
+    const pool = typeable ? ['mcq', 'mcq', 'type', 'card'] : ['mcq', 'mcq', 'card'];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // Per-card style state reset — called by every serve site (game + review).
+  function prepForMode(q) {
+    const m = rollQMode(q);
+    setQMode(m);
+    setTyped('');
+    setFlipped(false);
+    setOptsShown(!(prefs.recallFirst && m === 'mcq'));
+  }
+
   function serveIdx(idx, mode) {
     const q = bank[idx];
     if (!q) { endRun(mode); return; }
@@ -342,6 +409,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setLocked(false); setPicked(null); setRevealed(false);
     setHintUsed(false); setEliminated(new Set());
     setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
+    prepForMode(q);
     qStartRef.current = Date.now();
     exitingRef.current = false;
     setPastIdx(null);
@@ -487,24 +555,16 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setTimeout(() => serveNext(runMode), 250);
   }
 
-  // ── Answer (game mode) ──
-  function handlePick(i) {
-    if (locked || !current || eliminated.has(i)) return;
-    const q = current.q;
-    const isCorrect = i === q.a;
-    setPicked(i);
-    setLocked(true);
-    setHistory((h) => [...h, { q, picked: i, revealed: false }]);
-    answersRef.current[q._pageIndex] = String.fromCharCode(65 + (q._order ? q._order[i] : i));
-    applyRating(q, isCorrect, false);
-
+  // ── Shared answer resolution (game mode) ──
+  // Every answer style funnels here — MCQ pick, typed check, flip-card
+  // self-grade, speed-round timeout. pickedIdx/optEl are cosmetic (missed-queue
+  // detail + fly-to-HUD particle origin).
+  function resolveAnswer(q, { isCorrect, pickedIdx = null, optEl = null } = {}) {
     const elapsed = Date.now() - qStartRef.current;
     timesRef.current.push(elapsed);
     setAnswered((n) => n + 1);
     qe('answered', 1);
     editSave((s) => { s.stats.answered += 1; });
-
-    const optEl = appRef.current?.querySelectorAll('.opt')?.[i];
 
     if (isCorrect) {
       setVig({ k: 'good', n: ++vigNRef.current });
@@ -562,7 +622,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       else if (newStreak > 0 && newStreak % 5 === 0) fire(24);
     } else {
       setVig({ k: 'bad', n: ++vigNRef.current });
-      reviewMissedRef.current.push({ ...q, pickedIdx: i });
+      reviewMissedRef.current.push({ ...q, pickedIdx });
       setStreak(0);
       sinceMissRef.current = 0;
       sound.wrong();
@@ -575,6 +635,68 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     }
   }
 
+  function handlePick(i) {
+    if (locked || !current || eliminated.has(i)) return;
+    const q = current.q;
+    const isCorrect = i === q.a;
+    setPicked(i);
+    setLocked(true);
+    setHistory((h) => [...h, { q, picked: i, via: 'mcq', ok: isCorrect }]);
+    answersRef.current[q._pageIndex] = String.fromCharCode(65 + (q._order ? q._order[i] : i));
+    applyRating(q, isCorrect, false);
+    resolveAnswer(q, { isCorrect, pickedIdx: i, optEl: appRef.current?.querySelectorAll('.opt')?.[i] });
+  }
+
+  // Typed free-recall answer — fuzzy-matched against the correct option text.
+  function submitTyped(e) {
+    e?.preventDefault?.();
+    if (locked || !current) return;
+    const text = typed.trim();
+    if (!text) return;
+    const q = current.q;
+    const isCorrect = typedMatch(text, q.opts[q.a]);
+    setLocked(true);
+    typeInputRef.current?.blur();
+    setHistory((h) => [...h, { q, picked: null, via: 'type', typed: text, ok: isCorrect }]);
+    if (screen === 'review') {
+      resolveReviewAnswer(q, { isCorrect, optEl: typeInputRef.current });
+    } else {
+      applyRating(q, isCorrect, false);
+      resolveAnswer(q, { isCorrect, optEl: typeInputRef.current });
+    }
+  }
+
+  // Flip-card self-grade — "knew it" counts as a correct answer through the
+  // same streak/XP/heart pipeline; "missed it" routes to the review queue.
+  function flipCard() {
+    if (locked || !current || flipped) return;
+    setFlipped(true);
+    sound.click();
+    haptics.light();
+  }
+
+  function gradeCard(knewIt) {
+    if (locked || !current || !flipped) return;
+    const q = current.q;
+    setLocked(true);
+    setHistory((h) => [...h, { q, picked: null, via: 'card', selfKnew: knewIt, ok: knewIt }]);
+    if (screen === 'review') resolveReviewAnswer(q, { isCorrect: knewIt });
+    else { applyRating(q, knewIt, false); resolveAnswer(q, { isCorrect: knewIt }); }
+  }
+
+  // Speed round — the drain bar is a real clock: timeout counts as a miss but
+  // still reveals the correct answer so it teaches, not just punishes.
+  function boltOut() {
+    if (locked || !current || modal || quitTarget || gameOver) return;
+    const q = current.q;
+    setPicked(null);
+    setLocked(true);
+    setHistory((h) => [...h, { q, picked: null, via: 'timeout', ok: false }]);
+    toast('⏱ Out of time!', '#FF5E7E');
+    if (screen === 'review') resolveReviewAnswer(q, { isCorrect: false });
+    else { applyRating(q, false, false); resolveAnswer(q, { isCorrect: false }); }
+  }
+
   const speedy3Ref = useRef(false);
   function checkSpeedy3() {
     if (!speedy3Ref.current) {
@@ -585,29 +707,19 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   function handleReveal() {
     if (locked || !current) return;
-    setVig({ k: 'bad', n: ++vigNRef.current });
+    const q = current.q;
     setRevealed(true);
     setLocked(true);
-    setHistory((h) => [...h, { q: current.q, picked: null, revealed: true }]);
-    applyRating(current.q, false, true);
-    reviewMissedRef.current.push({ ...current.q, pickedIdx: null });
-    timesRef.current.push(Date.now() - qStartRef.current);
-    setAnswered((n) => n + 1);
-    qe('answered', 1);
-    editSave((s) => { s.stats.answered += 1; });
-    setStreak(0);
-    sinceMissRef.current = 0;
-    sound.wrong();
-    haptics.error();
-    setShake(true);
-    setTimeout(() => setShake(false), 400);
-    if (runMode === 'survival') loseLife();
+    setHistory((h) => [...h, { q, picked: null, via: 'reveal', ok: false }]);
+    applyRating(q, false, true);
+    resolveAnswer(q, { isCorrect: false });
   }
 
   function handleHint() {
     if (locked || !current) return;
     setHintUsed(true);
     sound.click();
+    if (qMode !== 'mcq') return; // type/card: surface the hint text, nothing to eliminate
     const wrongKeys = current.q.opts.map((_, i) => i).filter((i) => i !== current.q.a && !eliminated.has(i));
     if (wrongKeys.length <= 1) return;
     setEliminated((prev) => new Set(prev).add(wrongKeys[Math.floor(Math.random() * wrongKeys.length)]));
@@ -617,7 +729,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (!current) return;
     const q = current.q;
     const optionsStr = q.opts.map((v, i) => `${String.fromCharCode(65 + i)}. ${v}`).join('\n');
-    const pickedText = picked != null ? q.opts[picked] : '(revealed)';
+    const lastEntry = history[history.length - 1];
+    const pickedText = picked != null ? q.opts[picked]
+      : lastEntry?.via === 'type' ? `"${lastEntry.typed}" (typed)`
+      : lastEntry?.via === 'card' ? (lastEntry.selfKnew ? '(self-graded: knew it)' : "(self-graded: didn't know)")
+      : '(revealed)';
     explainCtxRef.current = { qText: q.q, optionsStr, correct: q.opts[q.a], pickedText };
     setExplain({ show: true, loading: true, thread: [] });
     try {
@@ -658,20 +774,16 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }
 
   // ── Review loop ──
-  function handleReviewPick(i) {
-    if (locked || !current) return;
-    const q = current.q;
-    const isCorrect = i === q.a;
-    setPicked(i);
-    setLocked(true);
-    setHistory((h) => [...h, { q, picked: i, revealed: false }]);
+  // Shared resolution for review answers — re-serves aren't re-rated (the
+  // original miss already posted "Again"), they just clear or re-queue.
+  function resolveReviewAnswer(q, { isCorrect, optEl = null } = {}) {
     applyRating(q, isCorrect, false, true);
     if (isCorrect) {
       setVig({ k: 'good', n: ++vigNRef.current });
       setReviewBadge('correct');
       sound.correct();
       haptics.light();
-      grantXp(5, 'review', appRef.current?.querySelectorAll('.opt')?.[i]);
+      grantXp(5, 'review', optEl);
       setClearedN((n) => n + 1);
       qe('reviewCleared', 1);
       editSave((s) => { s.stats.reviewCleared += 1; });
@@ -683,6 +795,16 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setShake(true);
       setTimeout(() => setShake(false), 400);
     }
+  }
+
+  function handleReviewPick(i) {
+    if (locked || !current || eliminated.has(i)) return;
+    const q = current.q;
+    const isCorrect = i === q.a;
+    setPicked(i);
+    setLocked(true);
+    setHistory((h) => [...h, { q, picked: i, via: 'mcq', ok: isCorrect }]);
+    resolveReviewAnswer(q, { isCorrect, optEl: appRef.current?.querySelectorAll('.opt')?.[i] });
   }
 
   function handleReviewNext() {
@@ -705,6 +827,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setLocked(false); setPicked(null); setRevealed(false);
       setHintUsed(false); setEliminated(new Set());
       setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
+      prepForMode(next);
       qStartRef.current = Date.now();
       setCardAnim('q-enter');
       setVig(null);
@@ -770,6 +893,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setLocked(false); setPicked(null); setRevealed(false);
       setHintUsed(false); setEliminated(new Set());
       setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
+      prepForMode(next);
       qStartRef.current = Date.now();
       setPastIdx(null);
       setCardAnim('q-enter');
@@ -970,6 +1094,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       stats: { answered: 0, correct: 0, reviewCleared: 0, perfectRuns: 0, runs: 0 },
       achievements: [], soundOn: true,
       shields: 0, heartRefills: 0, themesOwned: ['cyan'], theme: 'cyan',
+      quizPrefs: { style: 'mcq', recallFirst: false, speedRound: false },
     }));
     toast('Progress reset', '#8b93a7');
   }
@@ -1021,10 +1146,17 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         return;
       }
       const k = e.key.toLowerCase();
+      if (qMode === 'card') {
+        if (!flipped && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flipCard(); }
+        else if (flipped && k === '1') gradeCard(false);
+        else if (flipped && k === '2') gradeCard(true);
+        else if (k === 'h') handleHint();
+        return;
+      }
       const num = ['1', '2', '3', '4'].indexOf(k);
       const letIdx = ['a', 'b', 'c', 'd'].indexOf(k);
       const idx = num >= 0 ? num : letIdx;
-      if (idx >= 0 && idx < (current.q.opts?.length || 0)) {
+      if (idx >= 0 && qMode === 'mcq' && optsShown && idx < (current.q.opts?.length || 0)) {
         screen === 'review' ? handleReviewPick(idx) : handlePick(idx);
       } else if (k === 'h') handleHint();
       else if (k === 'r' && screen === 'game') handleReveal();
@@ -1033,6 +1165,18 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   });
+
+  // ── Speed round clock ──
+  // boltOutRef always points at the freshest closure so the timeout reads
+  // live state. The effect's cleanup clears the clock the instant the card
+  // locks (any answer path) or a new card is served.
+  useEffect(() => { boltOutRef.current = boltOut; });
+  useEffect(() => {
+    if (!prefs.speedRound || !current || locked) return;
+    if (screen !== 'game' && screen !== 'review') return;
+    const t = setTimeout(() => boltOutRef.current?.(), SPEED_WINDOW);
+    return () => clearTimeout(t);
+  }, [current, locked, screen, prefs.speedRound]);
 
   // ── Derived ──
   const forecast = buildForecast(cardStates);
@@ -1045,6 +1189,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const shownQ = pastEntry ? pastEntry.q : current?.q;
   const shownPicked = pastEntry ? pastEntry.picked : picked;
   const shownLocked = Boolean(pastEntry) || locked;
+  // Replay the answer style a card was answered in when browsing history.
+  const liveEntry = !pastEntry && locked ? history[history.length - 1] : null;
+  const modeOf = (e) => (e?.via === 'type' ? 'type' : e?.via === 'card' ? 'card' : 'mcq');
+  const shownMode = pastEntry ? modeOf(pastEntry) : qMode;
+  const shownEntry = pastEntry || liveEntry;
+  const shownTyped = shownEntry?.typed;
+  const shownOk = shownEntry?.ok;
   const shownRing = shownQ ? masteryDots(cardStates[shownQ._key]) : ring;
   const quests = activeQuests();
   const goalPct = stats?.dailyGoal ? Math.min(100, ((stats.reviewedToday || 0) / stats.dailyGoal) * 100) : 0;
@@ -1112,6 +1263,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
           <div className="hud-right">
             <span className="hud-stat" ref={gemStatRef}><span className="hud-ico">💎</span>{save.gems}</span>
             <span className="hud-stat" ref={xpStatRef}><span className="hud-ico">⚡</span>{save.xp}</span>
+            <button className="hud-btn" onClick={() => setModal('setup')} title="Session setup">⚙</button>
             <button className="hud-btn" onClick={openLeague} title="League">🏆</button>
             <button className="hud-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
             {screen === 'home' && (
@@ -1242,18 +1394,62 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
               <div className="qtext">{shownQ.q}</div>
 
-              {/* Speed timer — only on cards the user has answered correctly
-                  before (FSRS learning=1 / review=2). New (0) and relearning
-                  (3, forgotten) cards get no clock pressure; the bar appearing
-                  is also a subtle "you know this one" cue. Pure CSS drain —
+              {/* Speed timer — with Speed round on it's the real clock (timeout
+                  counts as a miss) and shows on every card. Otherwise it only
+                  appears on cards the user has answered correctly before (FSRS
+                  learning=1 / review=2) as the speed-bonus cue. Pure CSS drain —
                   key remounts per question so the animation restarts. */}
-              {!pastEntry && runMode === 'survival' && screen === 'game' && !locked && current
-                && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state) && (
+              {!pastEntry && !locked && current
+                && (prefs.speedRound
+                  || (runMode === 'survival' && screen === 'game'
+                    && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state))) && (
                 <div className="timer-track" key={`${qNum}-${current.idx}`}>
                   <div className="timer-fill" />
                 </div>
               )}
 
+              {/* Answer surface — style rolled per card from Session setup */}
+              {shownMode === 'card' ? (
+                <>
+                  <button type="button" className={`flip-zone${flipped || shownLocked ? ' on' : ''}`}
+                    disabled={flipped || shownLocked} onClick={flipCard}>
+                    {flipped || shownLocked ? shownQ.opts[shownQ.a] : 'Tap to reveal the answer'}
+                  </button>
+                  {shownEntry?.via === 'card' && (
+                    <div className="self-note">{shownEntry.selfKnew ? '✓ marked as known' : '✗ marked as missed'}</div>
+                  )}
+                </>
+              ) : shownMode === 'type' ? (
+                shownLocked ? (
+                  <div className={`type-result${shownOk ? ' ok' : ' no'}`}>
+                    {shownTyped && <span className="tr-you">you typed: {shownTyped}</span>}
+                    <span className="tr-ans">{shownQ.opts[shownQ.a]}</span>
+                  </div>
+                ) : (
+                  <form className="type-form" onSubmit={submitTyped}>
+                    <input
+                      ref={typeInputRef}
+                      className="type-input"
+                      type="text"
+                      value={typed}
+                      onChange={(e) => setTyped(e.target.value)}
+                      placeholder="Type the answer…"
+                      maxLength={140}
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="off"
+                      spellCheck="false"
+                      aria-label="Type your answer"
+                    />
+                    <button type="submit" className="type-check" disabled={!typed.trim()} aria-label="Check answer">✓</button>
+                  </form>
+                )
+              ) : !optsShown && !shownLocked ? (
+                <button type="button" className="opt-veil"
+                  onClick={() => { setOptsShown(true); sound.click(); haptics.light(); }}>
+                  👀 Recall it first — tap to show choices
+                </button>
+              ) : (
               <div className="options">
                 {shownQ.opts.map((opt, i) => {
                   let cls = 'opt';
@@ -1283,6 +1479,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                   );
                 })}
               </div>
+              )}
 
               {!pastEntry && fsrsNote && (
                 <div className="fsrs-note show" style={{ color: { 1: '#FF5E7E', 2: '#FFB627', 3: '#4ADE80', 4: '#00E5FF' }[fsrsNote.grade] }}>
@@ -1293,7 +1490,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             </div>
 
             {/* Below the card — screen-level info so the card stays compact */}
-            {!pastEntry && hintUsed && <div className="hint-box show">💡 {current.q.hint || 'One wrong option eliminated.'}</div>}
+            {!pastEntry && hintUsed && <div className="hint-box show">💡 {current.q.hint || (qMode === 'mcq' ? 'One wrong option eliminated.' : 'Try recalling the exact term.')}</div>}
 
             {/* Stored explanation — free, instant; AI thread below stays optional */}
             {(pastEntry ? pastEntry.q.explanation : (locked && !explain.show ? current.q.explanation : null)) && (
@@ -1346,8 +1543,21 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                       onClick={() => { setPastIdx(prevCount - 1); setCardAnim('q-enter'); }}
                       aria-label="See previous questions">‹</button>
                   )}
-                  <button type="button" onClick={handleHint}>💡 Hint</button>
-                  {screen === 'game' && <button type="button" onClick={handleReveal}>👁 Reveal</button>}
+                  {qMode === 'card' ? (
+                    !flipped ? (
+                      <button type="button" className="btn-continue" onClick={flipCard}>Flip card</button>
+                    ) : (
+                      <>
+                        <button type="button" className="dock-no" onClick={() => gradeCard(false)}>✗ Missed it</button>
+                        <button type="button" className="btn-continue" onClick={() => gradeCard(true)}>✓ Knew it</button>
+                      </>
+                    )
+                  ) : (
+                    <>
+                      {(qMode === 'mcq' || current.q.hint) && <button type="button" onClick={handleHint}>💡 Hint</button>}
+                      {screen === 'game' && <button type="button" onClick={handleReveal}>👁 Reveal</button>}
+                    </>
+                  )}
                 </>
               ) : (
                 <>
@@ -1515,6 +1725,48 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       )}
 
       {/* ═══ PROFILE MODAL ═══ */}
+      {/* ═══ SESSION SETUP — answer style + extras, persisted in the save ═══ */}
+      {modal === 'setup' && (
+        <div className="modal-overlay show" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal">
+            <div className="modal-head">
+              <span className="modal-title">Session setup</span>
+              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+            </div>
+            <div className="section-lbl">Answer style</div>
+            {[
+              ['mcq', 'Choices', 'pick from four options'],
+              ['typing', 'Type it out', 'free recall — strongest for memory'],
+              ['flashcard', 'Flip cards', 'reveal, then grade yourself'],
+              ['mixed', 'Variety mix', 'a bit of everything'],
+            ].map(([id, nm, ds]) => (
+              <div className="setting-row" key={id}>
+                <span>{nm}<div className="shop-desc">{ds}</div></span>
+                <button className={`setting-btn${prefs.style === id ? ' on' : ''}`}
+                  onClick={() => { setPref('style', id); sound.click(); }}>
+                  {prefs.style === id ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            ))}
+            <div className="section-lbl">Extras</div>
+            <div className="setting-row">
+              <span>Recall first<div className="shop-desc">choices stay hidden until you tap</div></span>
+              <button className={`setting-btn${prefs.recallFirst ? ' on' : ''}`}
+                onClick={() => { setPref('recallFirst', !prefs.recallFirst); sound.click(); }}>
+                {prefs.recallFirst ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            <div className="setting-row">
+              <span>Speed round<div className="shop-desc">7s per question — out of time counts as a miss</div></span>
+              <button className={`setting-btn${prefs.speedRound ? ' on' : ''}`}
+                onClick={() => { setPref('speedRound', !prefs.speedRound); sound.click(); }}>
+                {prefs.speedRound ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modal === 'profile' && (
         <div className="modal-overlay show" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
           <div className="modal">
