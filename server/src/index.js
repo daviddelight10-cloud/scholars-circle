@@ -97,19 +97,25 @@ app.get("/health", async (_req, res) => {
 });
 
 // CORS configuration - whitelist specific origins
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+// Vercel preview deployments for this project (branch previews + unique deployment URLs)
+const previewOriginPattern = /^https:\/\/scholars-circle-(git-[\w-]+|\w+)-daviddelight10-cloud\.vercel\.app$/;
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
-    // Check if origin is in whitelist
-    if (allowedOrigins.includes(origin)) {
+
+    // Check if origin is in whitelist or matches a Vercel preview deployment
+    if (allowedOrigins.includes(origin) || previewOriginPattern.test(origin)) {
       callback(null, true);
     } else {
       console.warn(`Blocked CORS request from origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
