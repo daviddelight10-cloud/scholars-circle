@@ -433,15 +433,15 @@
 .ss-root .card-actions button:hover:not(:disabled){border-color:var(--blue); color:var(--blue);}
 .ss-root .card-actions button:active:not(:disabled){transform:scale(0.98);}
 .ss-root .card-actions button:disabled{opacity:0.35; cursor:default;}
+/* Explanation rests on the screen — no card, ChatGPT-style flat text */
 .ss-root .explain-box{
-  font-size:13px; line-height:1.6; color:var(--text);
-  background:rgba(0,229,255,0.06); border:1px solid rgba(0,229,255,0.2);
-  border-radius:10px; padding:12px; margin-top:14px; display:none;
+  font-size:13.5px; line-height:1.65; color:var(--text);
+  margin-top:14px; display:none;
 }
 .ss-root .explain-box.show{display:block;}
 .ss-root .explain-label{
   font-family:var(--font-mono); font-size:10px; text-transform:uppercase;
-  letter-spacing:0.1em; color:var(--blue); margin-bottom:6px; display:block;
+  letter-spacing:0.14em; color:var(--text-dim); margin-bottom:6px; display:block;
 }
 .ss-root .dot-loading::after{content:'\00a0'; animation:ssDots 1.2s steps(4,end) infinite;}
 @keyframes ssDots{0%{content:'.'}33%{content:'..'}66%{content:'...'}100%{content:'.'}}
@@ -1016,11 +1016,7 @@
 .ss-root .opt:hover:not(:disabled){ border-color:var(--ss-accent); }
 .ss-root .card-actions button:hover:not(:disabled),
 .ss-root .action-dock button:hover:not(:disabled){ border-color:var(--ss-accent); color:var(--ss-accent); }
-.ss-root .explain-label{ color:var(--ss-accent); }
-.ss-root .explain-box{
-  background:color-mix(in srgb, var(--ss-accent) 6%, transparent);
-  border-color:color-mix(in srgb, var(--ss-accent) 20%, transparent);
-}
+.ss-root .explain-label{ color:var(--text-dim); }
 .ss-root .explain-typing{ color:var(--ss-accent); }
 .ss-root .explain-ask input:focus{ border-color:color-mix(in srgb, var(--ss-accent) 40%, transparent); }
 .ss-root .post-actions .btn-continue,
@@ -1073,9 +1069,6 @@
   background:color-mix(in srgb, var(--ss-accent) 10%, transparent);
   padding:3px 7px; border-radius:14px;
 }
-
-/* ---------- Stored explanation ---------- */
-.ss-root .stored-explain{ border-style:dashed; }
 
 /* ---------- Shop descriptions ---------- */
 .ss-root .shop-desc{
