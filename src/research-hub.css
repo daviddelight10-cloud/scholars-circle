@@ -518,17 +518,36 @@
 .sp-search:focus-within { border-color: rgba(245,166,35,0.35); }
 
 /* Header / hero */
-.sp-header {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: rgba(10,13,19,0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  padding-top: 14px;
-  padding-bottom: 10px;
-  margin-bottom: 18px;
+
+/* Drive-style glowing upload FAB — sits above the mobile nav, docks to the
+   viewport edge on desktop. Uses the shared `fabglow` keyframe. */
+.sp-uploadfab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #FFD700, #DAA520);
+  color: #0a0a0a;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255,215,0,0.4), 0 0 0 0 rgba(255,215,0,0.3);
+  animation: fabglow 2.5s ease-in-out infinite;
+  transition: transform 0.15s ease;
+}
+.sp-uploadfab:active { transform: scale(0.95); }
+@media (min-width: 768px) {
+  .sp-uploadfab { bottom: 24px; right: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-uploadfab { animation: none; }
 }
 
 .sp-hero {
