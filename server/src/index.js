@@ -103,7 +103,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,ht
   .filter(Boolean);
 
 // Vercel preview deployments for this project (branch previews + unique deployment URLs)
-const previewOriginPattern = /^https:\/\/scholars-circle-(git-[\w-]+|\w+)-daviddelight10-cloud\.vercel\.app$/;
+const previewOriginPattern = /^https:\/\/scholars-circle-(git-[\w-]+|\w+)-daviddelight10-clouds-projects\.vercel\.app$/;
 
 app.use(cors({
   origin: function (origin, callback) {
