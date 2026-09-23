@@ -178,14 +178,22 @@ self.addEventListener('notificationclick', (event) => {
             client.focus();
             // Post message to navigate to specific section if provided
             if (data?.tab) {
-              client.postMessage({ type: 'NAVIGATE', tab: data.tab });
+              // Forward the whole payload — Feed deep-links use feedTab/chatWith/joinGroup
+              client.postMessage({ type: 'NAVIGATE', ...data });
             }
             return;
           }
         }
         // Otherwise open new window
         if (clients.openWindow) {
-          const url = data?.tab ? `/?tab=${data.tab}` : '/';
+          let url = '/';
+          if (data?.tab) {
+            const p = new URLSearchParams({ tab: data.tab });
+            for (const k of ['feedTab', 'chatWith', 'joinGroup']) {
+              if (data[k]) p.set(k === 'joinGroup' ? 'join' : k, data[k]);
+            }
+            url = `/?${p}`;
+          }
           return clients.openWindow(url);
         }
       })

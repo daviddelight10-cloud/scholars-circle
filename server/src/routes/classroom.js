@@ -69,7 +69,7 @@ router.get("/my", requireAuth, async (req, res) => {
     let classrooms;
     if (isTeacher) {
       classrooms = await prisma.classroom.findMany({
-        where: { createdById: userId },
+        where: { createdById: userId, kind: "classroom" },
         include: {
           _count: { select: { members: true } },
         },
@@ -77,7 +77,7 @@ router.get("/my", requireAuth, async (req, res) => {
       });
     } else {
       const memberships = await prisma.classroomMember.findMany({
-        where: { userId },
+        where: { userId, classroom: { kind: "classroom" } },
         include: {
           classroom: {
             include: {
@@ -95,6 +95,272 @@ router.get("/my", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error fetching classrooms:", error);
     res.status(500).json({ error: "Failed to fetch classrooms" });
+  }
+});
+
+// ============ STUDY GROUPS ============
+// Groups are Classroom rows with kind="group". Any user can create one — the
+// creator also gets a ClassroomMember row so verifyMembership() and all
+// /study-group/:classroomId/* endpoints (chat, members, leaderboard, goals,
+// study rooms, duels, streak) work uniformly.
+
+function genJoinCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+const GROUP_INCLUDE = {
+  createdBy: { select: { id: true, username: true, fullName: true } },
+  _count: { select: { members: true, messages: true } },
+};
+
+function groupShape(g, uid) {
+  return {
+    id: g.id,
+    name: g.name,
+    subject: g.subject,
+    description: g.description,
+    joinCode: g.joinCode,
+    isPublic: g.isPublic,
+    kind: g.kind,
+    createdAt: g.createdAt,
+    memberCount: g._count?.members ?? 0,
+    messageCount: g._count?.messages ?? 0,
+    creator: g.createdBy
+      ? { id: g.createdBy.id, name: g.createdBy.fullName || g.createdBy.username || "Scholar" }
+      : null,
+    isCreator: g.createdById === uid,
+  };
+}
+
+// POST /classroom/groups — create a study group (any user)
+router.post("/groups", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { name, subject, description, isPublic } = req.body || {};
+    if (!name?.trim()) return res.status(400).json({ error: "Group name required" });
+
+    let group = null;
+    for (let attempt = 0; attempt < 5 && !group; attempt++) {
+      try {
+        group = await prisma.classroom.create({
+          data: {
+            kind: "group",
+            name: name.trim().slice(0, 80),
+            subject: subject?.trim() || null,
+            description: description?.trim() || null,
+            isPublic: !!isPublic,
+            joinCode: genJoinCode(),
+            createdById: userId,
+            members: { create: { userId } },
+          },
+          include: GROUP_INCLUDE,
+        });
+      } catch (e) {
+        if (e.code !== "P2002") throw e; // joinCode collision — retry
+      }
+    }
+    if (!group) return res.status(500).json({ error: "Failed to create group" });
+
+    res.status(201).json(groupShape(group, userId));
+  } catch (error) {
+    console.error("Error creating group:", error);
+    res.status(500).json({ error: "Failed to create group" });
+  }
+});
+
+// GET /classroom/groups/my — groups I created or joined
+router.get("/groups/my", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const [memberships, created] = await Promise.all([
+      prisma.classroomMember.findMany({
+        where: { userId, classroom: { kind: "group" } },
+        include: { classroom: { include: GROUP_INCLUDE } },
+      }),
+      prisma.classroom.findMany({
+        where: { createdById: userId, kind: "group" },
+        include: GROUP_INCLUDE,
+      }),
+    ]);
+
+    const byId = new Map();
+    for (const m of memberships) byId.set(m.classroomId, m.classroom);
+    for (const g of created) byId.set(g.id, g);
+
+    const groups = [...byId.values()]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map((g) => groupShape(g, userId));
+    res.json(groups);
+  } catch (error) {
+    console.error("Error fetching groups:", error);
+    res.status(500).json({ error: "Failed to fetch groups" });
+  }
+});
+
+// GET /classroom/groups/discover?q=&subject= — public groups to join
+router.get("/groups/discover", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { q, subject } = req.query;
+
+    const memberships = await prisma.classroomMember.findMany({
+      where: { userId },
+      select: { classroomId: true },
+    });
+    const joinedIds = memberships.map((m) => m.classroomId);
+
+    const groups = await prisma.classroom.findMany({
+      where: {
+        kind: "group",
+        isPublic: true,
+        id: { notIn: joinedIds },
+        ...(q ? { OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+        ] } : {}),
+        ...(subject ? { subject } : {}),
+      },
+      include: GROUP_INCLUDE,
+      orderBy: { createdAt: "desc" },
+      take: 40,
+    });
+
+    res.json(groups.map((g) => ({ ...groupShape(g, userId), joinCode: undefined })));
+  } catch (error) {
+    console.error("Error discovering groups:", error);
+    res.status(500).json({ error: "Failed to discover groups" });
+  }
+});
+
+// GET /classroom/groups/preview/:code — peek a group before joining
+router.get("/groups/preview/:code", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const group = await prisma.classroom.findUnique({
+      where: { joinCode: req.params.code.toUpperCase() },
+      include: GROUP_INCLUDE,
+    });
+    if (!group || group.kind !== "group") {
+      return res.status(404).json({ error: "No group found with that code" });
+    }
+    const membership = await prisma.classroomMember.findUnique({
+      where: { classroomId_userId: { classroomId: group.id, userId } },
+    }).catch(() => null);
+    res.json({ ...groupShape(group, userId), isMember: !!membership });
+  } catch (error) {
+    console.error("Error previewing group:", error);
+    res.status(500).json({ error: "Failed to preview group" });
+  }
+});
+
+// POST /classroom/groups/join — { code } for invite-code groups, { groupId } for public
+router.post("/groups/join", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { code, groupId } = req.body || {};
+
+    let group = null;
+    if (code) {
+      group = await prisma.classroom.findUnique({ where: { joinCode: String(code).toUpperCase() } });
+    } else if (groupId) {
+      group = await prisma.classroom.findUnique({ where: { id: groupId } });
+      if (group && !group.isPublic) return res.status(403).json({ error: "This group is private — ask for an invite code" });
+    }
+    if (!group || group.kind !== "group") {
+      return res.status(404).json({ error: "Group not found" });
+    }
+
+    const membership = await prisma.classroomMember.upsert({
+      where: { classroomId_userId: { classroomId: group.id, userId } },
+      create: { classroomId: group.id, userId },
+      update: {},
+    });
+
+    // System-style join message in group chat
+    try {
+      const me = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { fullName: true, username: true },
+      });
+      await prisma.classroomMessage.create({
+        data: {
+          classroomId: group.id,
+          userId,
+          text: `👋 ${me?.fullName || me?.username || "Someone"} joined the group`,
+        },
+      });
+    } catch (e) {
+      console.warn("Join message failed:", e.message);
+    }
+
+    const full = await prisma.classroom.findUnique({ where: { id: group.id }, include: GROUP_INCLUDE });
+    res.json({ membership, group: groupShape(full, userId) });
+  } catch (error) {
+    console.error("Error joining group:", error);
+    res.status(500).json({ error: "Failed to join group" });
+  }
+});
+
+// POST /classroom/groups/:id/leave — members leave (creator must delete instead)
+router.post("/groups/:id/leave", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const group = await prisma.classroom.findUnique({ where: { id: req.params.id } });
+    if (!group || group.kind !== "group") return res.status(404).json({ error: "Group not found" });
+    if (group.createdById === userId) {
+      return res.status(400).json({ error: "Creators can't leave — delete the group or transfer ownership" });
+    }
+    await prisma.classroomMember.deleteMany({
+      where: { classroomId: group.id, userId },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error leaving group:", error);
+    res.status(500).json({ error: "Failed to leave group" });
+  }
+});
+
+// PATCH /classroom/groups/:id — creator edits name/subject/description/isPublic/code
+router.patch("/groups/:id", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const group = await prisma.classroom.findUnique({ where: { id: req.params.id } });
+    if (!group || group.kind !== "group") return res.status(404).json({ error: "Group not found" });
+    if (group.createdById !== userId) return res.status(403).json({ error: "Only the creator can edit" });
+
+    const { name, subject, description, isPublic, regenerateCode } = req.body || {};
+    const data = {};
+    if (name?.trim()) data.name = name.trim().slice(0, 80);
+    if (subject !== undefined) data.subject = subject?.trim() || null;
+    if (description !== undefined) data.description = description?.trim() || null;
+    if (typeof isPublic === "boolean") data.isPublic = isPublic;
+    if (regenerateCode) data.joinCode = genJoinCode();
+
+    const updated = await prisma.classroom.update({
+      where: { id: group.id },
+      data,
+      include: GROUP_INCLUDE,
+    });
+    res.json(groupShape(updated, userId));
+  } catch (error) {
+    if (error.code === "P2002") return res.status(500).json({ error: "Code collision — try again" });
+    console.error("Error updating group:", error);
+    res.status(500).json({ error: "Failed to update group" });
+  }
+});
+
+// DELETE /classroom/groups/:id — creator deletes the group
+router.delete("/groups/:id", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const group = await prisma.classroom.findUnique({ where: { id: req.params.id } });
+    if (!group || group.kind !== "group") return res.status(404).json({ error: "Group not found" });
+    if (group.createdById !== userId) return res.status(403).json({ error: "Only the creator can delete" });
+    await prisma.classroom.delete({ where: { id: group.id } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting group:", error);
+    res.status(500).json({ error: "Failed to delete group" });
   }
 });
 

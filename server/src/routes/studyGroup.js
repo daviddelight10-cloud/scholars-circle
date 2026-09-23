@@ -268,11 +268,22 @@ router.get("/:classroomId/goals", requireAuth, async (req, res) => {
 });
 
 // POST /api/study-group/:classroomId/goals
-router.post("/:classroomId/goals", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+// Faculty OR the classroom/group creator can set goals (student-run groups).
+router.post("/:classroomId/goals", requireAuth, async (req, res) => {
   try {
     const { classroomId } = req.params;
     const { title, targetValue, metric, deadline } = req.body;
     if (!title?.trim() || !targetValue) return res.status(400).json({ error: "Title and target required" });
+
+    const isFaculty = req.user.role === "TEACHER" || req.user.role === "LECTURER";
+    const classroom = await prisma.classroom.findUnique({
+      where: { id: classroomId },
+      select: { createdById: true },
+    });
+    if (!classroom) return res.status(404).json({ error: "Not found" });
+    if (!isFaculty && classroom.createdById !== req.user.sub) {
+      return res.status(403).json({ error: "Only the group creator or faculty can set goals" });
+    }
 
     const goal = await prisma.classroomGoal.create({
       data: {

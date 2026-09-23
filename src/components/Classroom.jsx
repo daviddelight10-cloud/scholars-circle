@@ -3,11 +3,13 @@ import { useToast } from "./Toast";
 import { LiveSessionsPanel } from "../features/LiveSessions/LiveSessionsPanel.jsx";
 import { ClassroomAssignmentsPanel } from "../features/ClassroomAssignments/ClassroomAssignmentsPanel.jsx";
 import { AttendancePanel } from "../features/LiveSessions/AttendancePanel.jsx";
+import { GroupView } from "../features/groups/GroupView.jsx";
 import { BulkImport, AIQuestionGen } from "./SmallComponents";
 import { API_BASE } from "../lib/constants";
 
 const TABS = [
   { id: "announcements", icon: "📢", label: "Announcements" },
+  { id: "hub", icon: "💬", label: "Group Hub" },
   { id: "sessions", icon: "🎥", label: "Live Sessions" },
   { id: "assignments", icon: "📝", label: "Assignments" },
   { id: "docs", icon: "📄", label: "Docs & Links" },
@@ -426,6 +428,19 @@ export function Classroom({ subjects, assignments, teacherMode, setTeacherMode, 
                       ))}
                       {documents.length === 0 && <span style={{ fontSize: 12, color: "#6b7280" }}>No documents yet.</span>}
                     </div>
+                  </div>
+                )}
+
+                {classTab === "hub" && (
+                  <div className="cr-hub">
+                    <GroupView
+                      group={{ ...selectedClassroom, kind: "classroom", isCreator: isHost, memberCount }}
+                      token={token}
+                      currentUser={currentUser}
+                      subjects={subjects}
+                      isFaculty={teacherMode}
+                      onBack={null}
+                    />
                   </div>
                 )}
 

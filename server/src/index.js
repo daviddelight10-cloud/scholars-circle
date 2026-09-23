@@ -41,6 +41,7 @@ import curriculumRoutes from "./routes/curriculum.js";
 import studyCacheRoutes from "./routes/studyCache.js";
 import studyGroupRoutes from "./routes/studyGroup.js";
 import feedRoutes from "./routes/feed.js";
+import messageRoutes from "./routes/messages.js";
 import liveQuizRoutes, { attachLiveQuizSocket } from "./routes/liveQuiz.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
@@ -156,6 +157,7 @@ app.use("/api/curriculum", curriculumRoutes);
 app.use("/api/study-cache", studyCacheRoutes);
 app.use("/api/live-quiz", liveQuizRoutes);
 app.use("/api/feed", feedRoutes);
+app.use("/api/messages", messageRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

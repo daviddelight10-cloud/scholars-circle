@@ -1,24 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
+import { messagesApi } from "../messages/messagesApi";
 import { FeedCard, ActivityRow, RoomCard, DividerBlock } from "./FeedCard";
 import { Composer } from "./Composer";
 import { ProfileSheet } from "./ProfileSheet";
+import { MessagesTab } from "../messages/MessagesTab";
+import { GroupsTab } from "../groups/GroupsTab";
 import { Avatar, SectionHeader, displayTitle } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import NotificationBell from "../NotificationBellImproved.jsx";
 import "../../feed.css";
 
 const TABS = [
-  { key: "forYou", label: "For You" },
-  { key: "circle", label: "My Circle" },
+  { key: "feed", label: "Feed" },
+  { key: "chats", label: "Chats" },
+  { key: "groups", label: "Groups" },
   { key: "live", label: "Live" },
 ];
 
-export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource, onBack }) {
+export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource, onBack, deepLink, onDeepLinkHandled }) {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("forYou");
+  const [tab, setTab] = useState("feed");
+  const [circleOnly, setCircleOnly] = useState(false); // "My Circle" chip on the Feed tab
   const [subject, setSubject] = useState(null);
+  const [unread, setUnread] = useState(0);
+  const [chatWith, setChatWith] = useState(null); // deep-linked DM target
+  const [joinCode, setJoinCode] = useState(null); // deep-linked group invite
+  const isFaculty = authUser?.role === "TEACHER" || authUser?.role === "LECTURER";
   const [blocks, setBlocks] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,8 +73,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       if (!quiet) setLoading(true);
       setError(null);
       try {
-        const scope = tab === "circle" ? "circle" : "forYou";
-        const data = await feedApi.getFeed({ token, scope, subject, cursor });
+        const scope = circleOnly ? "circle" : "forYou";
+        const data = await feedApi.getFeed({ token, scope, subject: circleOnly ? null : subject, cursor });
         if (cursor) {
           setBlocks((prev) => [...prev, ...(data.blocks || [])]);
         } else {
@@ -79,7 +88,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         setLoadingMore(false);
       }
     },
-    [token, tab, subject]
+    [token, circleOnly, subject]
   );
 
   const loadAux = useCallback(async () => {
@@ -91,7 +100,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       .getFsrsAnalytics({ token })
       .then((a) => setDailyReviews(a?.dailyReviews || {}))
       .catch(() => {});
-    if (tab === "circle") {
+    if (circleOnly) {
       feedApi.getCircle({ token }).then(setCircle).catch(() => {});
     }
     if (tab === "live") {
@@ -103,7 +112,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         .then(([live, upcoming]) => setSessions({ live: live || [], upcoming: upcoming || [] }))
         .catch(() => {});
     }
-  }, [token, tab]);
+  }, [token, tab, circleOnly]);
 
   useEffect(() => {
     setBlocks([]);
@@ -125,15 +134,48 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   useEffect(() => {
     const iv = setInterval(async () => {
       try {
-        const scope = tab === "circle" ? "circle" : "forYou";
-        const data = await feedApi.getFeed({ token, scope, subject });
+        const scope = circleOnly ? "circle" : "forYou";
+        const data = await feedApi.getFeed({ token, scope, subject: circleOnly ? null : subject });
         const newest = data.blocks?.[0]?.ts;
         const mine = blocks[0]?.ts;
         if (newest && mine && new Date(newest) > new Date(mine)) setNewPosts(true);
       } catch {}
     }, 45000);
     return () => clearInterval(iv);
-  }, [token, tab, subject, blocks]);
+  }, [token, tab, circleOnly, subject, blocks]);
+
+  // Unread DM badge on the Chats tab
+  useEffect(() => {
+    const poll = () => messagesApi.getUnreadCount({ token }).then((d) => setUnread(d?.count || 0)).catch(() => {});
+    poll();
+    const iv = setInterval(poll, 30000);
+    return () => clearInterval(iv);
+  }, [token]);
+
+  // Deep links: notification taps / invite URLs route into a sub-tab
+  useEffect(() => {
+    if (!deepLink) return;
+    if (deepLink.feedTab) setTab(deepLink.feedTab);
+    if (deepLink.chatWith) {
+      const cw = deepLink.chatWith;
+      if (typeof cw === "string") {
+        // Push payload carries just a user id — hydrate for the thread header
+        feedApi.getFeedUser({ token, userId: cw })
+          .then((d) => setChatWith(d?.user || { id: cw }))
+          .catch(() => setChatWith({ id: cw }));
+      } else {
+        setChatWith(cw);
+      }
+    }
+    if (deepLink.joinCode) setJoinCode(deepLink.joinCode);
+    onDeepLinkHandled?.();
+  }, [deepLink]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openChat = (user) => {
+    setChatWith(user);
+    setTab("chats");
+    setProfileUserId(null);
+  };
 
   const ptr = usePullToRefresh(async () => {
     setNewPosts(false);
@@ -164,7 +206,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     try {
       await feedApi.follow({ token, userId: user.id });
       setSuggested((prev) => prev.filter((u) => u.id !== user.id));
-      if (tab === "circle") feedApi.getCircle({ token }).then(setCircle).catch(() => {});
+      if (circleOnly) feedApi.getCircle({ token }).then(setCircle).catch(() => {});
     } catch {} finally {
       setFollowBusy((p) => ({ ...p, [user.id]: false }));
     }
@@ -234,7 +276,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     const out = [];
     blocks.forEach((b, i) => {
       // Trending at your university after the 2nd card
-      if (i === 2 && tab === "forYou" && trending?.resources?.length > 0) {
+      if (i === 2 && tab === "feed" && !circleOnly && trending?.resources?.length > 0) {
         out.push(
           <div key="trending-card" className="fd-trending">
             <SectionHeader
@@ -261,7 +303,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         );
       }
       // Suggested people strip after the 4th card
-      if (i === 4 && suggested.length > 0 && tab !== "circle") {
+      if (i === 4 && suggested.length > 0 && !circleOnly) {
         out.push(
           <div key="suggested-strip" className="fd-strip">
             <SectionHeader title="People to follow" hint="Same campus energy" />
@@ -287,7 +329,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         );
       }
       // Live study rooms strip after the 8th card
-      if (i === 8 && rooms.length > 0 && tab === "forYou") {
+      if (i === 8 && rooms.length > 0 && tab === "feed" && !circleOnly) {
         out.push(
           <div key="rooms-strip" className="fd-strip">
             <SectionHeader title="Studying now">
@@ -347,6 +389,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                 onClick={() => setTab(t.key)}
               >
                 {t.label}
+                {t.key === "chats" && unread > 0 && <span className="fd-tab-badge">{unread > 9 ? "9+" : unread}</span>}
               </button>
             ))}
           </div>
@@ -378,20 +421,26 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
 
       <div className="fd-layout">
         <main className="fd-main">
-          {tab !== "live" && (
+          {tab === "feed" && (
             <>
               <div className="fd-chips">
                 <button
-                  className={`fd-chip ${!subject ? "active" : ""}`}
-                  onClick={() => setSubject(null)}
+                  className={`fd-chip ${!subject && !circleOnly ? "active" : ""}`}
+                  onClick={() => { setSubject(null); setCircleOnly(false); }}
                 >
                   All
+                </button>
+                <button
+                  className={`fd-chip ${circleOnly ? "active" : ""}`}
+                  onClick={() => { setCircleOnly(true); setSubject(null); }}
+                >
+                  My Circle
                 </button>
                 {subjectChips.map((s) => (
                   <button
                     key={s}
-                    className={`fd-chip ${subject === s ? "active" : ""}`}
-                    onClick={() => setSubject(s)}
+                    className={`fd-chip ${subject === s && !circleOnly ? "active" : ""}`}
+                    onClick={() => { setSubject(s); setCircleOnly(false); }}
                   >
                     {s}
                   </button>
@@ -403,7 +452,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             </>
           )}
 
-          {tab === "circle" && (
+          {tab === "feed" && circleOnly && (
             <div className="fd-circle">
               <div className="fd-strip">
                 <SectionHeader title="Your circle" hint={`${circle.following.length} following`} />
@@ -437,6 +486,29 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             </div>
           )}
 
+          {tab === "chats" && (
+            <MessagesTab
+              token={token}
+              me={me}
+              openChatWith={chatWith}
+              onChatOpened={() => setChatWith(null)}
+              onOpenProfile={setProfileUserId}
+              onUnreadChange={setUnread}
+            />
+          )}
+
+          {tab === "groups" && (
+            <GroupsTab
+              token={token}
+              me={me}
+              subjects={subjects}
+              isFaculty={isFaculty}
+              joinCode={joinCode}
+              onJoinHandled={() => setJoinCode(null)}
+              onOpenProfile={setProfileUserId}
+            />
+          )}
+
           {tab === "live" && (
             <LiveTab
               token={token}
@@ -455,7 +527,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             />
           )}
 
-          {newPosts && (
+          {newPosts && tab === "feed" && (
             <button
               className="fd-new-pill"
               onClick={() => {
@@ -467,7 +539,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             </button>
           )}
 
-          {tab !== "live" && (
+          {tab === "feed" && (
             <>
               {loading && (
                 <div className="fd-skeletons">
@@ -486,14 +558,14 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
               {!loading && !error && blocks.length === 0 && (
                 <div className="fd-empty">
                   <div className="fd-empty-title">
-                    {tab === "circle" ? "Your circle is quiet" : "Nothing here yet"}
+                    {circleOnly ? "Your circle is quiet" : "Nothing here yet"}
                   </div>
                   <div className="fd-empty-sub">
-                    {tab === "circle"
+                    {circleOnly
                       ? "Follow classmates and their activity shows up here."
                       : "Share a resource or go live with friends to get things moving."}
                   </div>
-                  {suggested.length > 0 && tab === "circle" && (
+                  {suggested.length > 0 && circleOnly && (
                     <div className="fd-strip-scroll" style={{ marginTop: 14 }}>
                       {suggested.map((u) => (
                         <div key={u.id} className="fd-person">
@@ -581,9 +653,10 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           userId={profileUserId}
           onClose={() => setProfileUserId(null)}
           onOpenResource={onOpenResource}
+          onMessage={openChat}
           onFollowChanged={() => {
             feedApi.getSuggested({ token }).then(setSuggested).catch(() => {});
-            if (tab === "circle") feedApi.getCircle({ token }).then(setCircle).catch(() => {});
+            if (circleOnly) feedApi.getCircle({ token }).then(setCircle).catch(() => {});
           }}
         />
       )}

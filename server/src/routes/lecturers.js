@@ -230,7 +230,7 @@ router.post("/messages", requireAuth, async (req, res) => {
             title: `💬 ${senderName}`,
             body: content.trim().slice(0, 200),
             tag: `dm-${req.user.sub}`,
-            data: { tab: "messages", fromUserId: req.user.sub }
+            data: { tab: "discuss", feedTab: "chats", chatWith: req.user.sub }
           },
           { category: "directMessages" }
         );
@@ -293,7 +293,7 @@ router.get("/messages/inbox", requireAuth, async (req, res) => {
     const partnerIds = Array.from(partnerMap.keys());
     const users = await prisma.user.findMany({
       where: { id: { in: partnerIds } },
-      select: { id: true, username: true, lecturerProfile: { select: { fullName: true, title: true, avatarUrl: true } } }
+      select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } }, lecturerProfile: { select: { fullName: true, title: true, avatarUrl: true } } }
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
     const inbox = Array.from(partnerMap.values()).map((entry) => ({

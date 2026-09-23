@@ -810,6 +810,17 @@ model Classroom {
 
   createdAt   DateTime            @default(now())
 
+  // Student-created study groups reuse this model (kind = "group")
+  kind        String              @default("classroom")
+
+  joinCode    String?             @unique
+
+  isPublic    Boolean             @default(false)
+
+  description String?
+
+  subject     String?             // free-text subject label for groups
+
   createdBy   User                 @relation("ClassroomCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
 
   links       ClassroomLink[]

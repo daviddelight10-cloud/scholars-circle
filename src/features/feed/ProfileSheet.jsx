@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { feedApi } from "./feedApi";
 import { Avatar, SectionHeader, displayTitle, relTime } from "./feedUi";
 
-export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowChanged }) {
+export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowChanged, onMessage }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [following, setFollowing] = useState(false);
@@ -77,13 +77,21 @@ export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowC
             </div>
 
             {!data.isMe && (
-              <button
-                className={`fd-follow-btn wide ${following ? "following" : ""}`}
-                disabled={busy}
-                onClick={toggleFollow}
-              >
-                {busy ? "…" : following ? "Following ✓" : "Follow"}
-              </button>
+              <div className="fd-profile-actions">
+                <button
+                  className={`fd-follow-btn wide ${following ? "following" : ""}`}
+                  disabled={busy}
+                  onClick={toggleFollow}
+                >
+                  {busy ? "…" : following ? "Following ✓" : "Follow"}
+                </button>
+                <button
+                  className="fd-follow-btn wide msg"
+                  onClick={() => onMessage?.(u)}
+                >
+                  💬 Message
+                </button>
+              </div>
             )}
 
             <div className="fd-profile-stats">

@@ -82,8 +82,8 @@ export default defineConfig({
           {
             name: "Messages",
             short_name: "Inbox",
-            description: "Direct messages with lecturers",
-            url: "/?tab=lecturers",
+            description: "Chats with classmates",
+            url: "/?tab=discuss&feedTab=chats",
             icons: [{ src: "/icon-192.png", sizes: "192x192" }]
           }
         ]

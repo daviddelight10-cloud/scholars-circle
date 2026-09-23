@@ -104,10 +104,6 @@ const LectureToNotes = lazyWithRetry(() => import("./features/LectureToNotes").t
 
 import { AchievementNotification } from "./features/AchievementNotification";
 
-const StudyGroups = lazyWithRetry(() => import("./features/StudyGroups").then(m => ({ default: m.StudyGroups })));
-
-
-
 const GamificationHub = lazyWithRetry(() => import("./features/Gamification"));
 const ResearchHub = lazyWithRetry(() => import("./features/research-hub/ResearchHub"));
 
@@ -261,6 +257,10 @@ function App() {
   const { quality: connQuality } = useConnectionQuality();
 
   const [tab, setTabRaw] = useState("today");
+
+  // Deep link into the Feed's sub-tabs (Chats / Groups) from push notifications
+  // and invite URLs — consumed once by <Feed>, then cleared.
+  const [feedDeepLink, setFeedDeepLink] = useState(null);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -2316,7 +2316,23 @@ function App() {
 
 
 
-    const challenge = new URLSearchParams(window.location.search).get("challenge");
+    // Cold-open deep links: ?tab=discuss&feedTab=chats|groups&join=CODE&chatWith=ID
+    // (SW opens this URL for notification taps; also group invite links)
+    const bootParams = new URLSearchParams(window.location.search);
+    const tabParam = bootParams.get("tab");
+    if (tabParam) {
+      const target = tabParam === "messages" ? "discuss" : tabParam;
+      setTab(target);
+      if (target === "discuss") {
+        const feedTab = bootParams.get("feedTab") || (tabParam === "messages" ? "chats" : null);
+        const joinCode = bootParams.get("join") || bootParams.get("joinGroup");
+        const chatWith = bootParams.get("chatWith");
+        if (feedTab || joinCode || chatWith) setFeedDeepLink({ feedTab, joinCode, chatWith });
+      }
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
+    const challenge = bootParams.get("challenge");
 
 
 
@@ -4737,7 +4753,18 @@ function App() {
 
       if (msg?.type === 'NAVIGATE' && msg.tab) {
 
-        try { setTab(msg.tab); } catch {}
+        try {
+          // Legacy DM pushes used tab:"messages" — they land on Feed → Chats
+          const target = msg.tab === "messages" ? "discuss" : msg.tab;
+          setTab(target);
+          if (target === "discuss" && (msg.feedTab || msg.chatWith || msg.joinGroup)) {
+            setFeedDeepLink({
+              feedTab: msg.feedTab || (msg.tab === "messages" ? "chats" : undefined),
+              chatWith: msg.chatWith,
+              joinCode: msg.joinGroup,
+            });
+          }
+        } catch {}
 
       }
 
@@ -4965,7 +4992,16 @@ function App() {
 
         if (options.data?.tab) {
 
-          setTab(options.data.tab);
+          const d = options.data;
+          const target = d.tab === "messages" ? "discuss" : d.tab;
+          setTab(target);
+          if (target === "discuss" && (d.feedTab || d.chatWith || d.joinGroup)) {
+            setFeedDeepLink({
+              feedTab: d.feedTab || (d.tab === "messages" ? "chats" : undefined),
+              chatWith: d.chatWith,
+              joinCode: d.joinGroup,
+            });
+          }
 
         }
 
@@ -8405,7 +8441,7 @@ function App() {
 
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "discuss", "cheatsheet", "outline", "profile", "premium", "aitutor", "voice-tutor", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "studygroups", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "discuss", "cheatsheet", "outline", "profile", "premium", "aitutor", "voice-tutor", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
           onClick={() => { setShowMobileMenu(!showMobileMenu); setFabOpen(false); }}
 
@@ -8599,11 +8635,6 @@ function App() {
 
               </button>
 
-              <button className={tab === "studygroups" ? "active" : ""} onClick={() => { setTab("studygroups"); setShowMobileMenu(false); }}>
-
-                <Users size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Study Groups
-
-              </button>
               </>
               )}
 
@@ -8846,8 +8877,6 @@ function App() {
               ["classroom", "Classroom", School],
 
               ["resources", "Resources", BookOpen],
-
-              ["studygroups", "Groups", Users],
 
             ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
 
@@ -9187,31 +9216,7 @@ function App() {
 
 
 
-      {tab === "studygroups" && (
 
-        demoMode && !DEMO_LIMITS.studyGroupsAccess ? (
-
-          <DemoLockedOverlay
-
-            title="Study Groups"
-
-            description="Study Groups is a premium feature. Upgrade to collaborate with other students and join study sessions!"
-
-            icon="⏱️"
-
-            features={["Join study groups", "Collaborate with peers", "Share notes & resources", "Group study sessions"]}
-
-            showPlans={true}
-
-          />
-
-        ) : (
-          <Suspense fallback={<TabSkeleton />}>
-          <StudyGroups stats={stats} username={auth.user?.username || "Student"} subjects={subjects} />
-          </Suspense>
-        )
-
-      )}
 
 
 
@@ -10013,6 +10018,8 @@ function App() {
           subjects={subjects}
           onOpenTab={setTab}
           onBack={goBack}
+          deepLink={feedDeepLink}
+          onDeepLinkHandled={() => setFeedDeepLink(null)}
           onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerReturnTab("research-hub"); setHomeViewerToken(shareToken); }}
         />
         </Suspense>

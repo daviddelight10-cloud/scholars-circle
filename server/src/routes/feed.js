@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
 
 const router = express.Router();
 
@@ -17,37 +18,6 @@ async function socialPush(uid, payload) {
   } catch (e) {
     console.warn("[feed] social push failed:", e?.message);
   }
-}
-
-const AUTHOR_SELECT = {
-  id: true,
-  username: true,
-  fullName: true,
-  role: true,
-  userProfile: {
-    select: {
-      avatar: true,
-      level: true,
-      department: true,
-      universityId: true,
-      university: { select: { name: true } },
-    },
-  },
-};
-
-function publicUser(u) {
-  if (!u) return null;
-  const p = u.userProfile || {};
-  return {
-    id: u.id,
-    name: u.fullName || u.username || "Scholar",
-    handle: u.username ? `@${u.username}` : null,
-    role: u.role,
-    avatar: p.avatar || null,
-    level: p.level || null,
-    department: p.department || null,
-    uni: p.university?.name || null,
-  };
 }
 
 // Audience = people I follow + people at my university + me.
