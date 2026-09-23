@@ -261,6 +261,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const thumbRenderedRef = useRef(new Set());
   const debounceScaleRef = useRef(null);
   const textLayerRefs = useRef({}); // { pageNum: textLayerContainer }
+  const zoomBadgeRef = useRef(null); // live % text — written imperatively during pinch
+  const liveHandlersRef = useRef({}); // always-fresh handlers for non-passive listeners
+  const fitScaleRef = useRef(0); // last computed fit-to-width scale
+  const gestureDrivenRef = useRef(false); // true when gesture* events drive the zoom (desktop Safari)
 
   // Page sorter filter
   const [pageFilter, setPageFilter] = useState("all");
@@ -583,6 +587,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const isMob = window.innerWidth < 640;
     const available = container.clientWidth - (isMob ? 8 : 40);
     const fit = Math.max(0.5, Math.min(2.2, available / base.width));
+    fitScaleRef.current = fit;
     setScale(fit);
     return fit;
   }, []);
@@ -592,6 +597,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const page = await pdfDocRef.current.getPage(n);
     const useScale = scaleOverride ?? scale;
     const viewport = page.getViewport({ scale: useScale });
+    if (!pageDimsRef.current[n]) {
+      const baseVp = page.getViewport({ scale: 1 });
+      pageDimsRef.current[n] = { width: baseVp.width, height: baseVp.height };
+    }
     const canvas = canvasRef.current;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.width = Math.floor(viewport.width * dpr);
@@ -774,13 +783,18 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // ---- Pan-zoom helpers (must be defined before goToPage which calls resetPanZoom) ----
   const resetPanZoom = () => {
-    setPanZoom({ scale: 1, x: 0, y: 0 });
+    const el = panZoomContentRef.current;
+    if (el) el.style.transform = "none"; // imperative reset — React skips identical prop writes
     panZoomRef.current = { scale: 1, x: 0, y: 0 };
+    setPanZoom({ scale: 1, x: 0, y: 0 });
   };
 
+  // Writes the transform straight to the DOM — no React re-render during gestures.
   const applyPanZoom = (pz) => {
     panZoomRef.current = pz;
-    setPanZoom(pz);
+    const el = panZoomContentRef.current;
+    if (el) el.style.transform = `translate(${pz.x}px, ${pz.y}px) scale(${pz.scale})`;
+    if (zoomBadgeRef.current) zoomBadgeRef.current.textContent = Math.round(scale * pz.scale * 100) + "%";
   };
 
   // Shared zoom-commit: anchors zoom at a screen point (touch/cursor), compensates scroll
@@ -798,20 +812,25 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const contentX = container.scrollLeft + (screenX - rect.left);
     const contentY = container.scrollTop + (screenY - rect.top);
     // Immediately resize all mounted canvases so layout is correct before paint
-    pageCanvasRefs.current.forEach((c) => {
-      if (c && pageDimsRef.current[1]) {
-        const base = pageDimsRef.current[parseInt(c.parentElement?.dataset?.page, 10)] || pageDimsRef.current[1];
-        c.style.width = (base.width * newScale) + "px";
-        c.style.height = (base.height * newScale) + "px";
+    const canvases = scrollMode === "single" ? [canvasRef.current] : pageCanvasRefs.current;
+    canvases.forEach((c) => {
+      if (c) {
+        const pg = scrollMode === "single" ? currentPage : parseInt(c.parentElement?.dataset?.page, 10);
+        const base = pageDimsRef.current[pg] || pageDimsRef.current[1];
+        if (base) {
+          c.style.width = (base.width * newScale) + "px";
+          c.style.height = (base.height * newScale) + "px";
+        }
       }
     });
     setUserZoomed(true);
     setScale(newScale);
     // After React commits the new scale, adjust scroll so the same content point stays under the anchor
     requestAnimationFrame(() => {
-      if (scrollMode === "vertical") {
+      if (scrollMode !== "horizontal") {
         container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
-      } else if (scrollMode === "horizontal") {
+      }
+      if (scrollMode !== "vertical") {
         container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
       }
     });
@@ -842,10 +861,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setTransitioning(false);
   }, [currentPage, renderPage, scrollMode]);
 
-  const handleZoomIn = () => {
-    const newScale = Math.min(2.6, scale * 1.2);
-    if (scrollMode !== "single" && viewerRef.current) {
-      const rect = viewerRef.current.getBoundingClientRect();
+  const zoomToCenter = (newScale) => {
+    const container = viewerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
       commitZoomAtPoint(newScale, rect.left + rect.width / 2, rect.top + rect.height / 2);
     } else {
       setUserZoomed(true);
@@ -853,15 +872,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
   };
 
+  const handleZoomIn = () => {
+    zoomToCenter(Math.min(2.6, scale * 1.2));
+    showZoomBadge();
+  };
+
   const handleZoomOut = () => {
-    const newScale = Math.max(0.5, scale / 1.2);
-    if (scrollMode !== "single" && viewerRef.current) {
-      const rect = viewerRef.current.getBoundingClientRect();
-      commitZoomAtPoint(newScale, rect.left + rect.width / 2, rect.top + rect.height / 2);
-    } else {
-      setUserZoomed(true);
-      setScale(newScale);
-    }
+    zoomToCenter(Math.max(0.5, scale / 1.2));
+    showZoomBadge();
   };
 
   const getPageText = useCallback(async (n) => {
@@ -2487,17 +2505,22 @@ ${extractedText}
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const ratio = dist / pinchStartDistRef.current;
+      // Track the live midpoint so the commit anchors where the fingers actually are
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      pinchMidRef.current = { x: midX, y: midY };
+      const startScale = pinchStartScaleRef.current || 1;
+      const startPz = pinchStartPanZoomRef.current;
+      const container = viewerRef.current;
       if (scrollMode !== "single") {
-        // Continuous mode: visual feedback via CSS transform, commit on pinch end
-        const visualScale = Math.max(0.5, Math.min(3, ratio));
-        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        const container = viewerRef.current;
+        // Continuous mode: visual feedback via CSS transform, commit on pinch end.
+        // Clamp in real-scale space so the preview can never exceed the commit range.
+        const targetScale = Math.max(0.5, Math.min(2.6, startScale * ratio));
+        const visualScale = targetScale / startScale;
         if (container) {
           const rect = container.getBoundingClientRect();
           const focalX = midX - rect.left - rect.width / 2;
           const focalY = midY - rect.top - rect.height / 2;
-          const startPz = pinchStartPanZoomRef.current;
           const scaleDelta = visualScale / (startPz.scale || 1);
           const newX = (startPz.x || 0) * scaleDelta + focalX * (1 - scaleDelta);
           const newY = (startPz.y || 0) * scaleDelta + focalY * (1 - scaleDelta);
@@ -2506,12 +2529,8 @@ ${extractedText}
           applyPanZoom({ scale: visualScale, x: 0, y: 0 });
         }
       } else {
-        const startPz = pinchStartPanZoomRef.current;
-        const newScale = Math.max(1, Math.min(5, startPz.scale * ratio));
-        // Adjust pan so the focal point stays under the pinch midpoint
-        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        const container = viewerRef.current;
+        // Single mode: CSS preview during gesture — clamped so commit never snaps back
+        const newScale = Math.max(0.5 / startScale, Math.min(2.6 / startScale, startPz.scale * ratio));
         if (container) {
           const rect = container.getBoundingClientRect();
           const focalX = midX - rect.left - rect.width / 2;
@@ -2541,19 +2560,22 @@ ${extractedText}
       pinchActiveRef.current = false;
       setPinchActive(false);
       pinchStartDistRef.current = 0;
-      if (scrollMode !== "single") {
-        // Continuous mode: commit pinch zoom anchored at pinch midpoint
-        const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
-        resetPanZoom();
-        if (pinchMidRef.current) {
-          commitZoomAtPoint(commitScale, pinchMidRef.current.x, pinchMidRef.current.y);
+      // Commit the CSS preview into a real re-render so text re-sharpens
+      const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
+      const mid = pinchMidRef.current;
+      const fit = fitScaleRef.current;
+      resetPanZoom();
+      if (fit && commitScale <= fit + 0.02) {
+        // Pinched back out to fit width — restore the fitted layout
+        setUserZoomed(false);
+        fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+      } else if (Math.abs(commitScale - scale) > 0.01) {
+        if (mid) {
+          commitZoomAtPoint(commitScale, mid.x, mid.y);
         } else {
           setUserZoomed(true);
           setScale(commitScale);
         }
-      } else if (panZoomRef.current.scale <= 1.01) {
-        // If zoomed back to 1, reset pan too
-        resetPanZoom();
       }
       showZoomBadge();
       return;
@@ -2571,52 +2593,106 @@ ${extractedText}
       const now = Date.now();
       if (dist < 10 && now - lastTapRef.current < 300 && tool === "none") {
         lastTapRef.current = 0;
-        if (scrollMode !== "single") {
-          // Continuous mode: toggle scale between fit and 2x, anchored at tap point
-          if (userZoomed) {
-            setUserZoomed(false);
-            fitToWidth();
-          } else {
-            const targetScale = Math.min(2.6, scale * 2);
-            commitZoomAtPoint(targetScale, t.clientX, t.clientY);
-          }
-        } else if (panZoomRef.current.scale > 1.01) {
+        if (userZoomed) {
+          // Zoomed in — double-tap returns to fit
+          setUserZoomed(false);
           resetPanZoom();
+          fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
         } else {
-          // Zoom in to 2x centered
-          applyPanZoom({ scale: 2, x: 0, y: 0 });
+          commitZoomAtPoint(Math.min(2.6, scale * 2), t.clientX, t.clientY);
         }
         showZoomBadge();
         return;
       }
       lastTapRef.current = now;
-      // Swipe navigation (only in single page mode)
-      if (scrollMode === "single" && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
-        if (panZoomRef.current.scale > 1.01) {
-          // When zoomed in, first swipe resets zoom instead of navigating
-          resetPanZoom();
-        } else {
-          if (dx > 0) goToPage(currentPage - 1);
-          else goToPage(currentPage + 1);
-        }
+      // Swipe navigation (only in single page mode, and only when not zoomed —
+      // when zoomed the drag pans natively via the scroll container)
+      if (scrollMode === "single" && !userZoomed && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) goToPage(currentPage - 1);
+        else goToPage(currentPage + 1);
       }
     }
   };
 
   // ---- Ctrl+wheel / trackpad pinch zoom (desktop) ----
+  // Attached natively with { passive: false } — React's onWheel is passive, so
+  // preventDefault() there would be a no-op and the browser would zoom the page.
   const onWheelViewer = (e) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.92 : 1.08;
     const newScale = Math.max(0.5, Math.min(2.6, scale * delta));
-    if (scrollMode !== "single") {
-      commitZoomAtPoint(newScale, e.clientX, e.clientY);
-    } else {
-      setUserZoomed(true);
-      setScale(newScale);
-    }
+    commitZoomAtPoint(newScale, e.clientX, e.clientY);
     showZoomBadge();
   };
+
+  // Safari gesture events (iOS pinch + desktop trackpad pinch). preventDefault
+  // always blocks native zoom; on iOS the touch pipeline owns the gesture so the
+  // gesture handlers only drive zoom when no touch pinch is active (desktop).
+  const onGestureStartViewer = () => {
+    if (pinchActiveRef.current) return;
+    gestureDrivenRef.current = true;
+    pinchStartScaleRef.current = scale;
+    pinchStartPanZoomRef.current = { ...panZoomRef.current };
+    setPinchActive(true);
+  };
+
+  const onGestureChangeViewer = (e) => {
+    if (!gestureDrivenRef.current) return;
+    const startScale = pinchStartScaleRef.current || 1;
+    const target = Math.max(0.5, Math.min(2.6, startScale * e.scale));
+    applyPanZoom({ scale: target / startScale, x: 0, y: 0 });
+    showZoomBadge();
+  };
+
+  const onGestureEndViewer = () => {
+    if (!gestureDrivenRef.current) return;
+    gestureDrivenRef.current = false;
+    setPinchActive(false);
+    const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
+    resetPanZoom();
+    if (Math.abs(commitScale - scale) > 0.01) {
+      const container = viewerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        commitZoomAtPoint(commitScale, rect.left + rect.width / 2, rect.top + rect.height / 2);
+      } else {
+        setUserZoomed(true);
+        setScale(commitScale);
+      }
+    }
+  };
+
+  // React registers onTouchMove/onWheel as passive root listeners, making
+  // preventDefault() a silent no-op. Bind non-passive listeners on the viewer
+  // instead so pinch/pan don't fight native scrolling, and block iOS Safari's
+  // native pinch-zoom (gesturestart) so it can't double-zoom over our transform.
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const onMove = (e) => liveHandlersRef.current.onTouchMoveViewer?.(e);
+    const onWheel = (e) => liveHandlersRef.current.onWheelViewer?.(e);
+    const onGestureStart = (e) => { e.preventDefault(); liveHandlersRef.current.onGestureStartViewer?.(); };
+    const onGestureChange = (e) => { e.preventDefault(); liveHandlersRef.current.onGestureChangeViewer?.(e); };
+    const onGestureEnd = (e) => { e.preventDefault(); liveHandlersRef.current.onGestureEndViewer?.(); };
+    viewer.addEventListener("touchmove", onMove, { passive: false });
+    viewer.addEventListener("wheel", onWheel, { passive: false });
+    viewer.addEventListener("gesturestart", onGestureStart);
+    viewer.addEventListener("gesturechange", onGestureChange);
+    viewer.addEventListener("gestureend", onGestureEnd);
+    return () => {
+      viewer.removeEventListener("touchmove", onMove);
+      viewer.removeEventListener("wheel", onWheel);
+      viewer.removeEventListener("gesturestart", onGestureStart);
+      viewer.removeEventListener("gesturechange", onGestureChange);
+      viewer.removeEventListener("gestureend", onGestureEnd);
+    };
+  }, []);
+
+  // Keep the native listeners pointed at fresh handler closures
+  useEffect(() => {
+    liveHandlersRef.current = { onTouchMoveViewer, onWheelViewer, onGestureStartViewer, onGestureChangeViewer, onGestureEndViewer };
+  });
 
   // ---- Tool toggle helper ----
   const toggleTool = (t) => {
@@ -2933,11 +3009,13 @@ ${extractedText}
       flex: 1,
       overflow: "auto",
       display: "flex",
-      justifyContent: "center",
+      justifyContent: "flex-start",
       alignItems: "flex-start",
       padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
       position: "relative",
-      touchAction: "none",
+      // "auto" when zoomed so one finger pans natively; "none" at fit so swipe
+      // gestures are ours. Pinch is always handled by the non-passive listener.
+      touchAction: userZoomed ? "auto" : "none",
     } : scrollMode === "vertical" ? {
       flex: 1,
       overflowY: "auto",
@@ -2949,7 +3027,7 @@ ${extractedText}
       overflowX: "auto",
       overflowY: userZoomed ? "auto" : "hidden",
       position: "relative",
-      scrollSnapType: "x mandatory",
+      scrollSnapType: pinchActive ? "none" : "x mandatory",
       touchAction: userZoomed ? "auto" : "pan-x",
     },
     pageShadow: {
@@ -2958,6 +3036,9 @@ ${extractedText}
       boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
       flexShrink: 0,
+      // Centers the page when it fits; aligns start when it overflows so the
+      // left edge stays reachable via scroll (justify-content:center would clip it)
+      margin: "0 auto",
     },
     continuousPageItem: {
       position: "relative",
@@ -4005,7 +4086,7 @@ ${extractedText}
   };
 
   const reader = (
-    <div className="zoom-allowed" style={s.container}>
+    <div style={s.container}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translate3d(0, 100%, 0); } to { transform: translate3d(0, 0, 0); } }
@@ -4796,13 +4877,11 @@ ${extractedText}
           ref={viewerRef}
           style={s.viewer}
           onTouchStart={onTouchStartViewer}
-          onTouchMove={onTouchMoveViewer}
           onTouchEnd={onTouchEndViewer}
-          onWheel={onWheelViewer}
         >
           {/* Zoom indicator badge */}
           {showZoomIndicator && (
-            <div style={{
+            <div ref={zoomBadgeRef} style={{
               position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
               background: "rgba(0,0,0,0.7)", color: "white", borderRadius: 20,
               padding: "4px 16px", fontSize: 13, fontWeight: 600, zIndex: 50,
@@ -4819,11 +4898,11 @@ ${extractedText}
               transform: (scrollMode === "single" || pinchActive) ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
               transformOrigin: "center center",
               transition: pinchActive || isPanning ? "none" : "transform 0.2s ease-out",
-              willChange: "transform",
+              willChange: pinchActive || isPanning ? "transform" : "auto",
               ...(scrollMode === "single" ? {
                 flex: 1,
                 display: "flex",
-                justifyContent: "center",
+                justifyContent: "flex-start",
                 alignItems: "flex-start",
                 width: "100%",
                 height: "100%",
