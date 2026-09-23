@@ -387,6 +387,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   // ── Question serving ──
   // Roll the answer style for a just-served card. Long/compound answers fall
   // back to choices — typing a paragraph feels bad and grades unfairly.
+  function cardMastered(q) {
+    const st = cardStates[q._key];
+    return Boolean(st?.isMastered) || (st?.stability || 0) >= 21;
+  }
+
   function rollQMode(q) {
     const style = prefs.style || 'smart';
     if (style === 'mcq') return 'mcq';
@@ -394,13 +399,16 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     if (style === 'typing') return typeable ? 'type' : 'mcq';
     if (style === 'flashcard') return 'card';
     if (style === 'mixed') {
-      // Variety mix — choices weighted heaviest since they're the fastest.
-      const pool = typeable ? ['mcq', 'mcq', 'type', 'card'] : ['mcq', 'mcq', 'card'];
+      // Variety mix — choices weighted heaviest; typing only for short answers,
+      // flip cards only on mastered content (self-check is meaningless blind).
+      const pool = ['mcq', 'mcq'];
+      if (typeable) pool.push('type');
+      if (cardMastered(q)) pool.push('card');
       return pool[Math.floor(Math.random() * pool.length)];
     }
-    // Smart mix (default) — unseen cards stay recognition-based; once a card
-    // is inside the FSRS pipeline (learning/review/relearning), short answers
-    // switch to free recall. Recognition first, recall once you know it.
+    // Smart mix (default) — new cards get choices; once a card is inside the
+    // FSRS pipeline (learning/review/relearning), short answers switch to
+    // free recall. Recognition first, recall once you know it.
     const seen = (cardStates[q._key]?.state ?? 0) > 0;
     return seen && typeable ? 'type' : 'mcq';
   }
@@ -411,7 +419,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setQMode(m);
     setTyped('');
     setFlipped(false);
-    setOptsShown(!(prefs.recallFirst && m === 'mcq'));
+    // Recall-first veil only on mastered cards — you can't recall an answer
+    // you've never learned, so new/learning cards show their options plainly.
+    setOptsShown(!(prefs.recallFirst && m === 'mcq' && cardMastered(q)));
   }
 
   function serveIdx(idx, mode) {
