@@ -99,7 +99,7 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
 
   return (
     <div className="ss-root">
-      <div className="qcard" style={{ padding: 20 }}>
+      <div className="qcard q-enter" style={{ padding: 20 }}>
         {badge && <span className="review-tag">{badge}</span>}
         <div className="qcard-head">
           <span className="difficulty-tag">Review</span>
@@ -125,19 +125,31 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
           {question.opts.map((opt, i) => {
             let cls = 'opt';
             if (eliminated.has(i)) cls += ' eliminated';
+            const isAns = i === question.a;
+            const isPicked = i === selected;
             if (locked) {
-              if (i === question.a) cls += ' correct';
-              else if (i === selected) cls += ' wrong picked-wrong';
+              if (isAns && isPicked) cls += ' correct sweep';
+              else if (isAns) cls += ' correct reveal';
+              else if (isPicked) cls += ' wrong picked-wrong';
             }
             return (
               <button
                 key={i}
                 className={cls}
+                style={{ '--i': i }}
                 disabled={locked || eliminated.has(i)}
                 onClick={() => handlePick(i)}
               >
-                <span className="ltr">{String.fromCharCode(65 + i)}</span>
-                {opt}
+                <span className="ltr">{i + 1}</span>
+                <span className="opt-text">{opt}</span>
+                <span className="mark">
+                  {locked && isAns && (
+                    <svg viewBox="0 0 24 24" className="ok"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  )}
+                  {locked && isPicked && !isAns && (
+                    <svg viewBox="0 0 24 24" className="no"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
+                  )}
+                </span>
               </button>
             );
           })}

@@ -57,6 +57,23 @@ function verdictFor(best, mode) {
   return 'Every legend starts at zero';
 }
 
+// Count-up stat for the end screen — rAF cubic ease-out, optional delay.
+function CountUp({ value, delay = 0, dur = 900, dec = 0, suf = '' }) {
+  const [txt, setTxt] = useState((0).toFixed(dec) + suf);
+  useEffect(() => {
+    let raf;
+    const t0 = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, Math.max(0, (t - t0 - delay) / dur));
+      setTxt((value * (1 - Math.pow(1 - p, 3))).toFixed(dec) + suf);
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value, delay, dur, dec, suf]);
+  return txt;
+}
+
 let floatId = 0;
 let toastId = 0;
 
@@ -153,8 +170,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [quitTarget, setQuitTarget] = useState(null); // 'home'|'exit' — confirm-quit modal
 
   // ── Chrome ──
-  const [timerPct, setTimerPct] = useState(100);
-  const timerRef = useRef(null);
+  const [cardAnim, setCardAnim] = useState(''); // 'q-enter' | 'q-exit' — prototype slide transitions
+  const [vig, setVig] = useState(null); // {k:'good'|'bad', n} — edge vignette flash
+  const [flies, setFlies] = useState([]); // fly-to-HUD particles
+  const vigNRef = useRef(0);
+  const exitingRef = useRef(false); // card exit animation in flight (blocks double-advance)
+  const gemStatRef = useRef(null);
+  const xpStatRef = useRef(null);
   const [shake, setShake] = useState(false);
   const [flash, setFlash] = useState(''); // 'correct-flash'|'wrong-flash'|'milestone-flash'
   const [comboPulse, setComboPulse] = useState(false);
@@ -217,10 +239,23 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }, [isDaily, bank]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Toasts & floats ──
+  // Toasts are capped at 2 visible — extras queue and pump in as slots free up.
+  const toastQueueRef = useRef([]);
+  const visibleToastsRef = useRef(0);
   const toast = useCallback((msg, color = '#FFB627', ms = 1600) => {
-    const id = ++toastId;
-    setToasts((t) => [...t, { id, msg, color }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ms);
+    const item = { id: ++toastId, msg, color };
+    const show = (it) => {
+      visibleToastsRef.current += 1;
+      setToasts((t) => [...t, it]);
+      setTimeout(() => {
+        visibleToastsRef.current -= 1;
+        setToasts((t) => t.filter((x) => x.id !== it.id));
+        const nxt = toastQueueRef.current.shift();
+        if (nxt) show(nxt);
+      }, ms);
+    };
+    if (visibleToastsRef.current >= 2) toastQueueRef.current.push(item);
+    else show(item);
   }, []);
 
   const xpFloat = useCallback((text, color = '#00E5FF') => {
@@ -229,6 +264,33 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const y = 22 + Math.random() * 6;
     setFloats((f) => [...f, { id, text, color, x, y }]);
     setTimeout(() => setFloats((f) => f.filter((x2) => x2.id !== id)), 1000);
+  }, []);
+
+  // Fly-to-HUD particle: a "+N XP"/"+N 💎" chip that arcs from the tapped
+  // option to the HUD stat counter, which then pops. Layout-agnostic — reads
+  // live bounding rects like the prototype.
+  const flyToHud = useCallback((fromEl, text, color, targetEl) => {
+    if (!fromEl || !targetEl) return;
+    const r = fromEl.getBoundingClientRect();
+    const t = targetEl.getBoundingClientRect();
+    const id = ++floatId;
+    setFlies((f) => [...f, {
+      id, text, color,
+      x: r.left + r.width / 2, y: r.top,
+      tx: t.left + t.width / 2 - (r.left + r.width / 2),
+      ty: t.top + t.height / 2 - r.top,
+      go: false,
+    }]);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      setFlies((f) => f.map((x) => (x.id === id ? { ...x, go: true } : x)));
+    }));
+    setTimeout(() => {
+      setFlies((f) => f.filter((x) => x.id !== id));
+      targetEl.classList.remove('pop');
+      void targetEl.offsetWidth;
+      targetEl.classList.add('pop');
+      setTimeout(() => targetEl.classList.remove('pop'), 340);
+    }, 560);
   }, []);
 
   // questEvent + completion toast
@@ -242,7 +304,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }, [toast, bump]);
 
   // ── Economy ──
-  const grantXp = useCallback((n, label) => {
+  const grantXp = useCallback((n, label, srcEl) => {
     const before = lvl;
     editSave((s) => { s.xp += n; });
     // Feed the unified XP pool (stats.xp -> server via /user-data/sync)
@@ -250,7 +312,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     else window.dispatchEvent(new CustomEvent('sc-xp-gained', { detail: { xp: n } }));
     const after = levelFromXP(loadSave().xp);
     setSessionXp((v) => v + n);
-    xpFloat(`+${n} XP${label ? ` ${label}` : ''}`, '#00E5FF');
+    if (srcEl && xpStatRef.current) flyToHud(srcEl, `+${n} XP`, '#00E5FF', xpStatRef.current);
+    else xpFloat(`+${n} XP${label ? ` ${label}` : ''}`, '#00E5FF');
     qe('xpToday', n);
     if (after > before) {
       setLevelUp(after);
@@ -258,13 +321,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       haptics.success();
       setTimeout(() => setLevelUp(null), 1600);
     }
-  }, [editSave, lvl, xpFloat, qe, onXpUpdate]);
+  }, [editSave, lvl, xpFloat, flyToHud, qe, onXpUpdate]);
 
-  const grantGems = useCallback((n, why) => {
+  const grantGems = useCallback((n, why, srcEl) => {
     editSave((s) => { s.gems += n; s.lifetimeGems += n; });
     setSessionGems((v) => v + n);
-    xpFloat(`+${n} 💎${why ? ` ${why}` : ''}`, '#FFB627');
-  }, [editSave, xpFloat]);
+    if (srcEl && gemStatRef.current) flyToHud(srcEl, `+${n} 💎`, '#FFB627', gemStatRef.current);
+    else xpFloat(`+${n} 💎${why ? ` ${why}` : ''}`, '#FFB627');
+  }, [editSave, xpFloat, flyToHud]);
 
   // ── Question serving ──
   function serveIdx(idx, mode) {
@@ -278,7 +342,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setHintUsed(false); setEliminated(new Set());
     setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
     qStartRef.current = Date.now();
-    setTimerPct(100);
+    exitingRef.current = false;
+    setCardAnim('q-enter');
+    setVig(null);
   }
 
   function serveNext(mode) {
@@ -322,21 +388,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     bank.forEach((q, i) => { if (cardStates[q._key]) map[i] = cardStates[q._key]; });
     return map;
   }
-
-  // ── Survival speed timer (visual only) ──
-  useEffect(() => {
-    if (screen !== 'game' || runMode !== 'survival' || locked || !current || gameOver) {
-      clearInterval(timerRef.current);
-      return undefined;
-    }
-    timerRef.current = setInterval(() => {
-      const elapsed = Date.now() - qStartRef.current;
-      const pct = Math.max(0, 100 - (elapsed / SPEED_WINDOW) * 100);
-      setTimerPct(pct);
-      if (pct <= 0) clearInterval(timerRef.current);
-    }, 50);
-    return () => clearInterval(timerRef.current);
-  }, [screen, runMode, locked, current, gameOver]);
 
   // ── Rating ──
   // skipRate: review-queue re-serves aren't re-rated — the original miss
@@ -450,7 +501,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     qe('answered', 1);
     editSave((s) => { s.stats.answered += 1; });
 
+    const optEl = appRef.current?.querySelectorAll('.opt')?.[i];
+
     if (isCorrect) {
+      setVig({ k: 'good', n: ++vigNRef.current });
       const newStreak = streak + 1;
       setStreak(newStreak);
       if (newStreak > runBest) setRunBest(newStreak);
@@ -479,14 +533,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
       // Tier XP scaled by combo multiplier, plus gem drops every 5
       const mult = newStreak >= 10 ? 2 : newStreak >= 5 ? 1.5 : 1;
-      grantXp(Math.round(TIER_XP[tier] * mult), mult > 1 ? `×${mult} combo` : null);
-      if (newStreak % 5 === 0) grantGems(TIER_GEMS[tier], 'combo');
-      if (newStreak === 10) grantXp(10, 'combo bonus');
+      grantXp(Math.round(TIER_XP[tier] * mult), mult > 1 ? `×${mult} combo` : null, optEl);
+      if (newStreak % 5 === 0) grantGems(TIER_GEMS[tier], 'combo', optEl);
+      if (newStreak === 10) grantXp(10, 'combo bonus', optEl);
 
       // Speed bonus — only on timed cards (learning/review) beaten inside the window
       const wasTimed = runMode === 'survival' && [1, 2].includes(cardStates[q._key]?.state);
       if (wasTimed && elapsed <= SPEED_WINDOW) {
-        grantXp(elapsed <= 3000 ? 5 : 2, elapsed <= 3000 ? '⚡⚡ lightning' : '⚡ fast');
+        grantXp(elapsed <= 3000 ? 5 : 2, elapsed <= 3000 ? '⚡⚡ lightning' : '⚡ fast', optEl);
       }
 
       sound.correct();
@@ -504,6 +558,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       else if (newStreak > 0 && newStreak % 10 === 0) { toast(`🌟 ${newStreak} streak!`, '#FFB627'); sound.milestone(); haptics.medium(); fire(40); }
       else if (newStreak > 0 && newStreak % 5 === 0) fire(24);
     } else {
+      setVig({ k: 'bad', n: ++vigNRef.current });
       reviewMissedRef.current.push({ ...q, pickedIdx: i });
       setStreak(0);
       sinceMissRef.current = 0;
@@ -527,6 +582,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   function handleReveal() {
     if (locked || !current) return;
+    setVig({ k: 'bad', n: ++vigNRef.current });
     setRevealed(true);
     setLocked(true);
     applyRating(current.q, false, true);
@@ -591,7 +647,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   function handleContinue() {
     if (runMode === 'survival' && lives <= 0) { endRun('survival'); return; }
-    serveNext(runMode);
+    if (exitingRef.current) return;
+    exitingRef.current = true;
+    setCardAnim('q-exit');
+    setTimeout(() => serveNext(runMode), 200);
   }
 
   // ── Review loop ──
@@ -603,14 +662,16 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setLocked(true);
     applyRating(q, isCorrect, false, true);
     if (isCorrect) {
+      setVig({ k: 'good', n: ++vigNRef.current });
       setReviewBadge('correct');
       sound.correct();
       haptics.light();
-      grantXp(5, 'review');
+      grantXp(5, 'review', appRef.current?.querySelectorAll('.opt')?.[i]);
       setClearedN((n) => n + 1);
       qe('reviewCleared', 1);
       editSave((s) => { s.stats.reviewCleared += 1; });
     } else {
+      setVig({ k: 'bad', n: ++vigNRef.current });
       setReviewBadge('wrong');
       sound.wrong();
       haptics.error();
@@ -620,21 +681,29 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }
 
   function handleReviewNext() {
-    const q = current.q;
-    const wasCorrect = reviewBadge === 'correct';
-    const rest = reviewQueue.filter((x) => x._key !== q._key);
-    const nextQueue = wasCorrect ? rest : [...rest, q];
-    setReviewQueue(nextQueue);
-    setReviewBadge(null);
-    if (nextQueue.length === 0) { finishToEnd(); return; }
-    const next = nextQueue[0];
-    const idx = bank.findIndex((b) => b._key === next._key);
-    setCurrent({ q: shuffleQuestion(next), idx });
-    setQNum((n) => n + 1);
-    setLocked(false); setPicked(null); setRevealed(false);
-    setHintUsed(false); setEliminated(new Set());
-    setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
-    qStartRef.current = Date.now();
+    if (exitingRef.current) return;
+    exitingRef.current = true;
+    setCardAnim('q-exit');
+    setTimeout(() => {
+      exitingRef.current = false;
+      const q = current.q;
+      const wasCorrect = reviewBadge === 'correct';
+      const rest = reviewQueue.filter((x) => x._key !== q._key);
+      const nextQueue = wasCorrect ? rest : [...rest, q];
+      setReviewQueue(nextQueue);
+      setReviewBadge(null);
+      if (nextQueue.length === 0) { finishToEnd(); return; }
+      const next = nextQueue[0];
+      const idx = bank.findIndex((b) => b._key === next._key);
+      setCurrent({ q: shuffleQuestion(next), idx });
+      setQNum((n) => n + 1);
+      setLocked(false); setPicked(null); setRevealed(false);
+      setHintUsed(false); setEliminated(new Set());
+      setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
+      qStartRef.current = Date.now();
+      setCardAnim('q-enter');
+      setVig(null);
+    }, 200);
   }
 
   // ── Run lifecycle ──
@@ -665,6 +734,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     sinceMissRef.current = 0;
     heartEarnedRef.current = false;
     runEndedRef.current = false;
+    exitingRef.current = false;
     setScreen('game');
     setTimeout(() => serveNext(mode), 0);
   }
@@ -694,6 +764,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setHintUsed(false); setEliminated(new Set());
       setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
       qStartRef.current = Date.now();
+      setCardAnim('q-enter');
+      setVig(null);
       return;
     }
     finishToEnd(mode);
@@ -987,34 +1059,51 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       <canvas ref={canvasRef} className="confetti-canvas" />
       <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
 
-        {/* HUD */}
-        <div className="hud-card">
-          <div className="hud-top">
-            <div className="hud-stats" onClick={() => setModal('profile')} title="Profile">
-              <span className="hud-stat"><span className="hud-ico">🔥</span>{stats?.streak ?? 0}<span className="hud-dim">day</span></span>
-              <span className="hud-stat"><span className="hud-ico">💎</span>{save.gems}</span>
-              {save.freezes > 0 && <span className="hud-stat"><span className="hud-ico">🧊</span>{save.freezes}</span>}
-            </div>
-            <div className="hud-actions">
-              <button className="hud-btn" onClick={openLeague} title="League">🏆</button>
-              <button className="hud-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
-              <button className="hud-btn" onClick={() => requestQuit('exit')} title="Exit">✕</button>
-            </div>
+        {/* HUD — slim prototype-style bar: hearts+combo while running, streak otherwise */}
+        <header className="hud">
+          <div className="hud-left">
+            {runMode === 'survival' && (screen === 'game' || screen === 'review') ? (
+              <>
+                <div className="lives">
+                  {[0, 1, 2].map((i) => <span key={i} className={`heart${i >= lives ? ' lost' : ''}`} />)}
+                </div>
+                {(save.shields || 0) > 0 && (
+                  <span className="shield-pill" title="Shield — blocks one heart loss">🛡</span>
+                )}
+              </>
+            ) : (
+              <span className="hud-stat hud-stat-btn" onClick={() => setModal('profile')} title="Profile">
+                <span className="hud-ico">🔥</span>{stats?.streak ?? 0}<span className="hud-dim">day</span>
+              </span>
+            )}
+            {streak >= 2 && (screen === 'game' || screen === 'review') && (
+              <span className={`combo-pill show${streak >= 10 ? ' hot' : ''}${comboPulse ? ' pulse' : ''}`}>
+                <span className="fire-emoji">🔥</span>{streak}
+              </span>
+            )}
           </div>
-          <div className="xpbar-row">
-            <span className="xp-level">Lv {lvl} · {titleForLevel(lvl)}</span>
-            <div className="xpbar"><div className="xpbar-fill" style={{ width: `${lvlProg.pct}%` }} /></div>
-            <span className="xpbar-label">{lvlProg.into}/{lvlProg.needed}</span>
-            <svg className="goal-ring" viewBox="0 0 64 64" onClick={() => setModal('profile')} title="Daily goal">
-              <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
-              <circle className="goal-ring-fill" cx="32" cy="32" r={R} fill="none" stroke="#4ADE80" strokeWidth="7"
-                strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - goalPct / 100)}
-                transform="rotate(-90 32 32)" />
-              <text x="32" y="37" textAnchor="middle" fontSize="16" fill="#EAEEF7" fontFamily="JetBrains Mono, monospace">
-                {stats?.reviewedToday ?? 0}
-              </text>
-            </svg>
+          <div className="hud-right">
+            <span className="hud-stat" ref={gemStatRef}><span className="hud-ico">💎</span>{save.gems}</span>
+            <span className="hud-stat" ref={xpStatRef}><span className="hud-ico">⚡</span>{save.xp}</span>
+            {save.freezes > 0 && <span className="hud-stat"><span className="hud-ico">🧊</span>{save.freezes}</span>}
+            <button className="hud-btn" onClick={openLeague} title="League">🏆</button>
+            <button className="hud-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
+            <button className="hud-btn" onClick={() => requestQuit('exit')} title="Exit">✕</button>
           </div>
+        </header>
+        <div className="level-row">
+          <span className="xp-level">Lv {lvl} · {titleForLevel(lvl)}</span>
+          <div className="xpbar"><div className="xpbar-fill" style={{ width: `${lvlProg.pct}%` }} /></div>
+          <span className="xpbar-label">{lvlProg.into}/{lvlProg.needed}</span>
+          <svg className="goal-ring" viewBox="0 0 64 64" onClick={() => setModal('profile')} title="Daily goal">
+            <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
+            <circle className="goal-ring-fill" cx="32" cy="32" r={R} fill="none" stroke="#4ADE80" strokeWidth="7"
+              strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - goalPct / 100)}
+              transform="rotate(-90 32 32)" />
+            <text x="32" y="37" textAnchor="middle" fontSize="16" fill="#EAEEF7" fontFamily="JetBrains Mono, monospace">
+              {stats?.reviewedToday ?? 0}
+            </text>
+          </svg>
         </div>
 
         {/* ═══ HOME ═══ */}
@@ -1090,28 +1179,28 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         {(screen === 'game' || screen === 'review') && current && (
           <div className={screen === 'review' ? 'review-screen' : 'game-screen'}>
             <div className="run-stats">
-              {runMode === 'survival' && screen === 'game' ? (
-                <div className="lives">
-                  {[0, 1, 2].map((i) => <span key={i} className={`heart${i >= lives ? ' lost' : ''}`} />)}
-                </div>
-              ) : (
-                <span className="practice-lbl show">{screen === 'review' ? '🔁 REVIEW' : '📚 PRACTICE'}</span>
-              )}
+              <span className="practice-lbl show">
+                {screen === 'review' ? '🔁 REVIEW' : runMode === 'practice' ? '📚 PRACTICE' : '🔥 SURVIVAL'}
+              </span>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {runMode === 'survival' && screen === 'game' && save.shields > 0 && (
-                  <span className="shield-pill" title="Shield — blocks one heart loss">🛡</span>
-                )}
-                {streak >= 2 && (
-                  <span className={`combo-pill show${streak >= 10 ? ' hot' : ''}${comboPulse ? ' pulse' : ''}`}>
-                    <span className="fire-emoji">🔥</span>{streak}
-                  </span>
-                )}
                 {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
                   <span className="deck-progress">{Math.min(qNum, sectionTarget)}/{sectionTarget}</span>
                 )}
                 <button className="quit-btn" onClick={() => requestQuit('home')}>quit</button>
               </div>
             </div>
+
+            {/* Per-question segmented progress (survival sections) */}
+            {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
+              <div className="progress">
+                {Array.from({ length: sectionTarget }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`seg${i < answered ? ' done' : ''}${i === answered - 1 ? ' pop' : ''}`}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Tier progress (survival) */}
             {runMode === 'survival' && screen === 'game' && (
@@ -1140,7 +1229,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               </div>
             )}
 
-            <div className={`qcard ${flash}`}>
+            <div className={`qcard ${flash} ${cardAnim}`}>
               {screen === 'review' && <span className="review-tag">missed — try again</span>}
               {reviewBadge && (
                 <span className={`retry-badge show ${reviewBadge}`}>
@@ -1160,11 +1249,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               {/* Speed timer — only on cards the user has answered correctly
                   before (FSRS learning=1 / review=2). New (0) and relearning
                   (3, forgotten) cards get no clock pressure; the bar appearing
-                  is also a subtle "you know this one" cue. */}
+                  is also a subtle "you know this one" cue. Pure CSS drain —
+                  key remounts per question so the animation restarts. */}
               {runMode === 'survival' && screen === 'game' && !locked && current
                 && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state) && (
-                <div className="timer-bar">
-                  <div className={`timer-fill${timerPct < 35 ? ' low' : timerPct < 70 ? ' mid' : ''}`} style={{ width: `${timerPct}%` }} />
+                <div className="timer-track" key={`${qNum}-${current.idx}`}>
+                  <div className="timer-fill" />
                 </div>
               )}
 
@@ -1174,14 +1264,27 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                 {current.q.opts.map((opt, i) => {
                   let cls = 'opt';
                   if (eliminated.has(i)) cls += ' eliminated';
+                  const isAns = i === current.q.a;
+                  const isPicked = i === picked;
                   if (locked) {
-                    if (i === current.q.a) cls += ' correct';
-                    else if (i === picked) cls += ' wrong picked-wrong';
+                    if (isAns && isPicked) cls += ' correct sweep';
+                    else if (isAns) cls += ' correct reveal';
+                    else if (isPicked) cls += ' wrong picked-wrong';
                   }
                   return (
-                    <button key={i} className={cls} disabled={locked || eliminated.has(i)}
+                    <button key={`${current.idx}-${i}`} className={cls} style={{ '--i': i }}
+                      disabled={locked || eliminated.has(i)}
                       onClick={() => (screen === 'review' ? handleReviewPick(i) : handlePick(i))}>
-                      <span className="ltr">{String.fromCharCode(65 + i)}</span>{opt}
+                      <span className="ltr">{i + 1}</span>
+                      <span className="opt-text">{opt}</span>
+                      <span className="mark">
+                        {locked && isAns && (
+                          <svg viewBox="0 0 24 24" className="ok"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        )}
+                        {locked && isPicked && !isAns && (
+                          <svg viewBox="0 0 24 24" className="no"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
+                        )}
+                      </span>
                     </button>
                   );
                 })}
@@ -1249,16 +1352,18 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
           <div className="end-screen show">
             <div className="trophy rise">{endInfo.deckCleared ? '🏆' : endInfo.perfect ? '🏆' : endInfo.best >= 12 ? '🌟' : '💪'}</div>
             <div className="end-verdict">{endInfo.deckCleared ? 'Section complete!' : verdictFor(endInfo.best, runMode)}</div>
-            <div className="end-score">{runMode === 'survival' ? endInfo.best : endInfo.answered}</div>
+            <div className="end-score">
+              <CountUp value={runMode === 'survival' ? endInfo.best : endInfo.answered} dur={1000} />
+            </div>
             <div className="end-label">{runMode === 'survival' ? 'best streak this run' : 'questions this session'}</div>
             {endInfo.deckCleared && (
               <div className="end-cleared-note">All {sectionTarget} questions survived · +{endInfo.clearBonus} XP bonus — come back when cards are due, spacing makes it stick.</div>
             )}
             <div className="run-chips">
-              <span className="run-chip blue">+{endInfo.xp} XP</span>
-              <span className="run-chip gold">+{endInfo.gems} 💎</span>
-              <span className="run-chip">{endInfo.acc}% acc</span>
-              {endInfo.avgSec > 0 && <span className="run-chip">⏱ {endInfo.avgSec}s avg</span>}
+              <span className="run-chip blue">+<CountUp value={endInfo.xp} /> XP</span>
+              <span className="run-chip gold">+<CountUp value={endInfo.gems} delay={100} /> 💎</span>
+              <span className="run-chip"><CountUp value={endInfo.acc} delay={200} suf="%" /> acc</span>
+              {endInfo.avgSec > 0 && <span className="run-chip">⏱ <CountUp value={endInfo.avgSec} dec={1} suf="s" delay={300} /> avg</span>}
               {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
               {endInfo.revives > 0 && <span className="run-chip revive-chip">❤️‍🩹 {endInfo.revives} revive{endInfo.revives > 1 ? 's' : ''}</span>}
             </div>
@@ -1284,10 +1389,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         )}
       </div>
 
-      {/* Toasts */}
-      {toasts.map((t) => (
-        <div key={t.id} className="tier-toast show" style={{ color: t.color, border: `1px solid ${t.color}55`, background: '#111826f0' }}>{t.msg}</div>
-      ))}
+      {/* Toasts — capped at 2 visible, stacked in a container */}
+      <div className="toasts">
+        {toasts.map((t) => (
+          <div key={t.id} className="tier-toast show" style={{ color: t.color, border: `1px solid ${t.color}55`, background: '#111826f0' }}>{t.msg}</div>
+        ))}
+      </div>
       {floats.map((f) => (
         <div key={f.id} className="xp-float" style={{ left: `${f.x}vw`, top: `${f.y}vh`, color: f.color }}>{f.text}</div>
       ))}
@@ -1302,6 +1409,20 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
           </div>
         </div>
       )}
+
+      {/* Answer-feedback edge vignette (keyed remount re-triggers the flash) */}
+      {vig && <div key={vig.n} className={`vignette ${vig.k}`} />}
+
+      {/* Fly-to-HUD particles */}
+      {flies.map((f) => (
+        <span
+          key={f.id}
+          className={`fly${f.go ? ' go' : ''}`}
+          style={{ left: f.x, top: f.y, color: f.color, '--tx': `${f.tx}px`, '--ty': `${f.ty}px` }}
+        >
+          {f.text}
+        </span>
+      ))}
 
       {/* Last-life tension vignette */}
       {runMode === 'survival' && screen === 'game' && lives === 1 && !gameOver && !locked && (

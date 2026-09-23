@@ -19,7 +19,8 @@
 .ss-root, .ss-root * { box-sizing: border-box; }
 .ss-root :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 8px; }
 @media (prefers-reduced-motion: reduce) {
-  .ss-root * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .ss-root * { animation-duration: 0.01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .ss-root .fly { display: none; }
 }
 
 .ss-app {
@@ -41,17 +42,17 @@
 @media (min-width:1200px){
   .ss-app{ max-width:720px; }
 }
-.ss-root .hud-card{
+.ss-root .hud{
+  display:flex; justify-content:space-between; align-items:center; gap:8px;
   border:1px solid var(--card-border); border-radius:16px;
-  background:linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-  padding:10px 12px; margin-bottom:14px;
-  display:flex; flex-direction:column; gap:9px;
+  background:rgba(255,255,255,0.04);
+  padding:10px 14px; backdrop-filter:blur(6px);
+  user-select:none; -webkit-user-select:none;
 }
-.ss-root .hud-top{
-  display:flex; justify-content:space-between; align-items:center;
-  gap:8px; min-width:0;
-}
-.ss-root .hud-stats{display:flex; gap:12px; align-items:center; cursor:pointer; min-width:0;}
+.ss-root .hud-left,.ss-root .hud-right{display:flex; align-items:center; gap:10px; min-width:0;}
+.ss-root .hud-right{gap:8px; flex-shrink:0;}
+.ss-root .hud-stat-btn{cursor:pointer;}
+.ss-root .hud-stat-btn:hover .hud-ico{filter:drop-shadow(0 0 5px rgba(255,182,39,0.6));}
 .ss-root .hud-stat{
   font-family:var(--font-mono); font-size:13px; font-weight:700;
   display:flex; gap:4px; align-items:center; white-space:nowrap;
@@ -59,7 +60,6 @@
 }
 .ss-root .hud-stat .hud-ico{font-size:14px;}
 .ss-root .hud-stat .hud-dim{color:var(--text-dim); font-size:10px; font-weight:600;}
-.ss-root .hud-actions{display:flex; gap:2px; flex-shrink:0;}
 .ss-root .hud-btn{
   font-size:15px; color:var(--text-dim); border:none; background:transparent;
   width:32px; height:32px; border-radius:9px; cursor:pointer;
@@ -68,7 +68,10 @@
   touch-action: manipulation;
 }
 .ss-root .hud-btn:hover{color:var(--blue); background:rgba(255,255,255,0.06);}
-.ss-root .xpbar-row{display:flex; align-items:center; gap:8px;}
+.ss-root .level-row{
+  display:flex; align-items:center; gap:8px;
+  margin:10px 2px 16px;
+}
 .ss-root .xp-level{
   font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--gold);
   white-space:nowrap;
@@ -220,7 +223,16 @@
   clip-path:path('M8 14.5C8 14.5 1 9.8 1 5.4C1 2.9 3 1 5.3 1C6.6 1 7.6 1.6 8 2.5C8.4 1.6 9.4 1 10.7 1C13 1 15 2.9 15 5.4C15 9.8 8 14.5 8 14.5Z');
   transition:opacity 0.3s, transform 0.3s;
 }
-.ss-root .heart.lost{opacity:0.15; transform:scale(0.8);}
+.ss-root .heart.lost{
+  opacity:0.15; transform:scale(0.8);
+  animation:ssHeartHit 0.55s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes ssHeartHit{
+  0%{opacity:1; transform:scale(1) rotate(0);}
+  35%{opacity:1; transform:scale(1.35) rotate(10deg);}
+  70%{opacity:0.4; transform:scale(0.85) rotate(-6deg);}
+  100%{opacity:0.15; transform:scale(0.8) rotate(0);}
+}
 .ss-root .practice-lbl{
   font-family:var(--font-mono); font-size:11px; color:var(--green);
   letter-spacing:0.08em; display:none;
@@ -254,6 +266,21 @@
   display:none;
 }
 .ss-root .boost-chip.show{display:inline-block;}
+/* Per-question segmented progress (survival) */
+.ss-root .progress{display:flex; gap:4px; margin-bottom:10px;}
+.ss-root .seg{
+  flex:1; height:6px; border-radius:99px;
+  background:rgba(255,255,255,0.08); position:relative; overflow:hidden;
+}
+.ss-root .seg.done::before{
+  content:''; position:absolute; inset:0; border-radius:99px;
+  background:linear-gradient(90deg, var(--ss-accent, var(--blue)), var(--green));
+  transform-origin:left; animation:ssSegFill 0.3s ease-out both;
+}
+.ss-root .seg.pop{animation:ssSegPop 0.35s ease 0.15s;}
+@keyframes ssSegFill{from{transform:scaleX(0);}}
+@keyframes ssSegPop{40%{transform:scaleY(2);}}
+
 .ss-root .tier-bar{
   display:flex; gap:4px;
   margin-bottom:18px;
@@ -290,7 +317,13 @@
   display:flex;
   flex-direction:column;
   justify-content:center;
+  position:relative;
 }
+/* Card transitions — slide in from the right, out to the left */
+.ss-root .qcard.q-enter{ animation:ssQIn 0.32s cubic-bezier(0.2,0.8,0.3,1) both; }
+.ss-root .qcard.q-exit { animation:ssQOut 0.2s ease-in forwards; }
+@keyframes ssQIn { from{ transform:translateX(56px); opacity:0; } }
+@keyframes ssQOut{ to  { transform:translateX(-56px); opacity:0; } }
 .ss-root .qcard-head{
   display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
 }
@@ -321,17 +354,35 @@
   font-weight:600;
   margin-bottom:14px;
 }
-.ss-root .timer-bar{
-  height:5px; background:rgba(255,255,255,0.07);
-  border-radius:3px; overflow:hidden; margin-bottom:18px;
-  animation:ssTimerIn .3s ease;
+/* Pure-CSS speed timer — drains over SPEED_WINDOW (7s) with color shift,
+   urgency pulse kicks in near the end. Zero JS re-renders. */
+.ss-root .timer-track{
+  position:relative; height:6px; border-radius:99px; overflow:visible;
+  background:rgba(255,255,255,0.08); margin-bottom:16px;
+  animation:ssTimerIn .3s ease, ssTimerUrgent 0.4s ease-in-out 5.2s infinite;
 }
 @keyframes ssTimerIn{ from{ opacity:0; transform:translateY(-3px);} to{ opacity:1; transform:translateY(0);} }
-.ss-root .timer-fill{height:100%; width:100%; background:var(--gold); border-radius:3px;}
-.ss-root .timer-fill.mid{background:#D99B22;}
-.ss-root .timer-fill.low{background:var(--coral);}
-.ss-root .options{display:flex; flex-direction:column; gap:8px;}
+@keyframes ssTimerUrgent{
+  50%{ transform:scaleY(1.6); filter:drop-shadow(0 0 4px rgba(255,94,126,0.6)); }
+}
+.ss-root .timer-fill{
+  position:absolute; inset:0; border-radius:99px;
+  animation:ssDrain 7s linear forwards;
+}
+@keyframes ssDrain{
+  0%  { width:100%; background:var(--ss-accent, var(--blue)); box-shadow:0 0 8px rgba(0,229,255,0.5); }
+  55% { width:45%;  background:var(--gold);  box-shadow:0 0 8px rgba(255,182,39,0.5); }
+  75% { width:25%;  background:var(--coral); box-shadow:0 0 10px rgba(255,94,126,0.65); }
+  100%{ width:0%;   background:var(--coral); }
+}
+.ss-root .options{display:grid; gap:8px;}
+@media (min-width:768px){
+  .ss-root .options{ grid-template-columns:1fr 1fr; gap:12px; }
+  .ss-root .opt{ min-height:52px; }
+}
 .ss-root .opt{
+  position:relative; overflow:hidden;
+  display:flex; align-items:center; gap:12px;
   padding:15px 14px;
   background:var(--card);
   border:1px solid var(--card-border);
@@ -339,28 +390,68 @@
   font-size:14px;
   text-align:left;
   font-weight:500;
-  border-radius:10px;
+  border-radius:14px;
   cursor:pointer;
   font-family:var(--font-body);
+  min-height:48px;
   transition:opacity 0.25s, border-color 0.25s, background 0.25s, transform 0.08s;
   touch-action: manipulation;
 }
-.ss-root .opt:hover:not(:disabled){border-color:var(--blue);}
-.ss-root .opt:active:not(:disabled){ transform:scale(0.97); background:#1a2234; }
-.ss-root .opt .ltr{
-  display:inline-block; min-width:18px; margin-right:6px;
-  color:var(--text-dim); font-family:var(--font-mono); font-size:11.5px;
+/* Options stagger in when a fresh card slides in */
+.ss-root .qcard.q-enter .opt{
+  animation:ssOptIn 0.35s cubic-bezier(0.2,0.8,0.3,1) backwards;
+  animation-delay:calc(60ms * var(--i) + 100ms);
 }
+@keyframes ssOptIn{ from{ transform:translateX(24px); opacity:0; } }
+.ss-root .opt:hover:not(:disabled){border-color:var(--blue); transform:translateY(-1px);}
+.ss-root .opt:active:not(:disabled){ transform:scale(0.97); background:#1a2234; }
+/* Keycap index — mirrors the 1–4 keyboard shortcut */
+.ss-root .opt .ltr{
+  flex:none; width:22px; height:22px; display:grid; place-items:center;
+  color:var(--text-dim); font-family:var(--font-mono); font-size:11px; font-weight:700;
+  border:1px solid rgba(255,255,255,0.15); border-bottom-width:2px; border-radius:6px;
+  background:rgba(255,255,255,0.04);
+}
+.ss-root .opt .opt-text{flex:1; min-width:0;}
+.ss-root .opt .mark{flex:none; width:22px; height:22px;}
+.ss-root .opt .mark svg{width:100%; height:100%; display:block; animation:ssMarkPop 0.35s cubic-bezier(0.34,1.56,0.64,1) both;}
+.ss-root .opt .mark svg.ok{color:var(--green);}
+.ss-root .opt .mark svg.no{color:var(--coral);}
+@keyframes ssMarkPop{ from{ transform:scale(0) rotate(-30deg); } }
 .ss-root .opt.correct{background:rgba(74,222,128,0.15); border-color:var(--green); color:var(--green);}
-.ss-root .opt.wrong{background:rgba(255,94,126,0.15); border-color:var(--coral); color:var(--coral);}
+/* Green sweep across the picked-correct option */
+.ss-root .opt.sweep{border-color:rgba(74,222,128,0.6);}
+.ss-root .opt.sweep::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(90deg, rgba(74,222,128,0.28), rgba(74,222,128,0.06));
+  transform:scaleX(0); transform-origin:left;
+  animation:ssSweep 0.45s ease-out 0.05s forwards;
+}
+@keyframes ssSweep{ to{ transform:scaleX(1); } }
+.ss-root .opt.wrong{
+  background:rgba(255,94,126,0.15); border-color:var(--coral); color:var(--coral);
+  animation:ssWrongShake 0.4s;
+}
+@keyframes ssWrongShake{
+  20%{transform:translateX(-6px);} 40%{transform:translateX(5px);} 60%{transform:translateX(-3px);}
+}
+/* Delayed glow on the correct answer after a miss / reveal */
+.ss-root .opt.reveal{animation:ssRevealGlow 1.1s ease 0.3s both;}
+.ss-root .opt.reveal .mark svg{animation-delay:0.4s;}
+@keyframes ssRevealGlow{
+  0%  { box-shadow:0 0 0 0 rgba(74,222,128,0); }
+  25% { box-shadow:0 0 0 5px rgba(74,222,128,0.28); }
+  100%{ box-shadow:0 0 0 0 rgba(74,222,128,0); }
+}
 .ss-root .opt:disabled{cursor:default;}
-.ss-root .opt.picked-wrong::after{ content:" — your answer"; font-size:11px; opacity:0.75; }
+.ss-root .opt.picked-wrong .opt-text::after{ content:" — your answer"; font-size:11px; opacity:0.75; }
 .ss-root .opt.eliminated{
-  opacity:0.3;
   text-decoration:line-through;
   background:transparent;
   pointer-events:none;
+  animation:ssOptOut 0.3s ease forwards;
 }
+@keyframes ssOptOut{ to{ opacity:0.22; filter:grayscale(0.8); transform:scale(0.98); } }
 .ss-root .hint-box{
   font-size:13px; line-height:1.5; color:var(--gold);
   background:rgba(255,182,39,0.08); border:1px solid rgba(255,182,39,0.25);
@@ -566,14 +657,19 @@
   100%{transform:scale(1);}
 }
 .ss-root .confetti-canvas{ position:fixed; inset:0; pointer-events:none; z-index:50; }
+.ss-root .toasts{
+  position:fixed; top:14px; left:50%; transform:translateX(-50%);
+  z-index:95; display:grid; gap:8px; justify-items:center;
+  pointer-events:none; width:max-content; max-width:92vw;
+}
 .ss-root .tier-toast{
-  position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-20px);
   font-family:var(--font-mono); font-size:13px; font-weight:700;
   padding:9px 18px; border-radius:20px;
-  opacity:0; transition:all 0.35s ease; pointer-events:none; z-index:95;
   white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  animation:ssToastIn 0.35s cubic-bezier(0.2,0.8,0.3,1) both;
 }
-.ss-root .tier-toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+@keyframes ssToastIn{ from{ transform:translateY(-14px) scale(0.9); opacity:0; } }
 .ss-root .xp-float{
   position:fixed; font-family:var(--font-mono); font-weight:700; font-size:15px;
   z-index:85; pointer-events:none;
@@ -585,6 +681,35 @@
   15%{opacity:1; transform:translateY(-8px) scale(1.1);}
   100%{opacity:0; transform:translateY(-48px) scale(1);}
 }
+
+/* Answer-feedback edge vignette — full-screen inset glow, fades fast */
+.ss-root .vignette{
+  position:fixed; inset:0; pointer-events:none; z-index:60;
+  animation:ssVig 0.55s ease-out both;
+}
+.ss-root .vignette.good{ box-shadow:inset 0 0 140px rgba(74,222,128,0.4); }
+.ss-root .vignette.bad { box-shadow:inset 0 0 140px rgba(255,94,126,0.5); }
+@keyframes ssVig{ 0%{opacity:0;} 20%{opacity:1;} 100%{opacity:0;} }
+
+/* Fly-to-HUD particle — arcs from the picked option to the stat counter */
+.ss-root .fly{
+  position:fixed; z-index:75; pointer-events:none;
+  font-family:var(--font-mono); font-weight:800; font-size:14px;
+  transform:translate(-50%,-50%);
+  text-shadow:0 2px 8px rgba(0,0,0,0.6);
+  transition:transform 0.55s cubic-bezier(0.3,0.6,0.4,1), opacity 0.55s ease-in;
+}
+.ss-root .fly.go{
+  transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.45);
+  opacity:0;
+}
+/* Stat counter pop when a fly lands */
+.ss-root .hud-stat.pop{ animation:ssStatPop 0.3s; }
+@keyframes ssStatPop{ 40%{ transform:scale(1.3); color:#fff; } }
+
+/* Post-answer actions rise in */
+.ss-root .post-actions.show button{ animation:ssRise 0.3s 0.18s backwards; }
+@keyframes ssRise{ from{ transform:translateY(14px); opacity:0; } }
 
 /* ---------- Modals ---------- */
 .ss-root .modal-overlay{
