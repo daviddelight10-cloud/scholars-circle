@@ -5,7 +5,7 @@ import { API_BASE } from '../../lib/constants';
 import { getMyLeague, getLeagueStandings, checkBadges } from '../../lib/gamificationApi.js';
 import {
   loadSave, mutate, tickDay,
-  levelFromXP, levelProgress, titleForLevel,
+  levelFromXP, titleForLevel,
   TIER_XP, TIER_GEMS,
   activeQuests, questEvent, claimQuest,
   ACHIEVEMENTS, checkAchievements,
@@ -196,8 +196,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const best = save.bestByScope?.[scope] || 0;
   const tier = streak >= 6 ? 'hard' : streak >= 3 ? 'medium' : 'easy';
   const tierColor = tier === 'hard' ? '#FF5E7E' : tier === 'medium' ? '#FFB627' : '#00E5FF';
-  const lvlProg = levelProgress(save.xp);
-  const lvl = lvlProg.level;
+  const lvl = levelFromXP(save.xp);
 
   // ── Init ──
   useEffect(() => {
@@ -1020,7 +1019,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const ring = current ? masteryDots(cardStates[current.q._key]) : { dots: 0, mastered: false, due: false };
   const quests = activeQuests();
   const goalPct = stats?.dailyGoal ? Math.min(100, ((stats.reviewedToday || 0) / stats.dailyGoal) * 100) : 0;
-  const R = 26; const CIRC = 2 * Math.PI * R;
 
   // Shared daily-quests card — shown on the home screen and again on the
   // end screen so finishing a run visibly moves quest progress.
@@ -1085,26 +1083,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
           <div className="hud-right">
             <span className="hud-stat" ref={gemStatRef}><span className="hud-ico">💎</span>{save.gems}</span>
             <span className="hud-stat" ref={xpStatRef}><span className="hud-ico">⚡</span>{save.xp}</span>
-            {save.freezes > 0 && <span className="hud-stat"><span className="hud-ico">🧊</span>{save.freezes}</span>}
             <button className="hud-btn" onClick={openLeague} title="League">🏆</button>
             <button className="hud-btn" onClick={toggleSound} title="Sound">{save.soundOn ? '🔊' : '🔇'}</button>
-            <button className="hud-btn" onClick={() => requestQuit('exit')} title="Exit">✕</button>
+            {screen === 'home' && (
+              <button className="hud-btn" onClick={() => requestQuit('exit')} title="Exit">✕</button>
+            )}
           </div>
         </header>
-        <div className="level-row">
-          <span className="xp-level">Lv {lvl} · {titleForLevel(lvl)}</span>
-          <div className="xpbar"><div className="xpbar-fill" style={{ width: `${lvlProg.pct}%` }} /></div>
-          <span className="xpbar-label">{lvlProg.into}/{lvlProg.needed}</span>
-          <svg className="goal-ring" viewBox="0 0 64 64" onClick={() => setModal('profile')} title="Daily goal">
-            <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
-            <circle className="goal-ring-fill" cx="32" cy="32" r={R} fill="none" stroke="#4ADE80" strokeWidth="7"
-              strokeLinecap="round" strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - goalPct / 100)}
-              transform="rotate(-90 32 32)" />
-            <text x="32" y="37" textAnchor="middle" fontSize="16" fill="#EAEEF7" fontFamily="JetBrains Mono, monospace">
-              {stats?.reviewedToday ?? 0}
-            </text>
-          </svg>
-        </div>
 
         {/* ═══ HOME ═══ */}
         {screen === 'home' && (
@@ -1179,18 +1164,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         {(screen === 'game' || screen === 'review') && current && (
           <div className={screen === 'review' ? 'review-screen' : 'game-screen'}>
             <div className="run-stats">
-              <span className="practice-lbl show">
-                {screen === 'review' ? '🔁 REVIEW' : runMode === 'practice' ? '📚 PRACTICE' : '🔥 SURVIVAL'}
-              </span>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
-                  <span className="deck-progress">{Math.min(qNum, sectionTarget)}/{sectionTarget}</span>
-                )}
-                <button className="quit-btn" onClick={() => requestQuit('home')}>quit</button>
-              </div>
+              {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
+                <span className="deck-progress">{Math.min(qNum, sectionTarget)}/{sectionTarget}</span>
+              )}
+              <button className="quit-btn" onClick={() => requestQuit('home')}>quit</button>
             </div>
 
-            {/* Per-question segmented progress (survival sections) */}
+            {/* Per-question segmented progress (survival sections) — the gold
+                tick marks the personal best for this scope. */}
             {runMode === 'survival' && screen === 'game' && sectionTarget > 0 && (
               <div className="progress">
                 {Array.from({ length: sectionTarget }, (_, i) => (
@@ -1199,25 +1180,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                     className={`seg${i < answered ? ' done' : ''}${i === answered - 1 ? ' pop' : ''}`}
                   />
                 ))}
-              </div>
-            )}
-
-            {/* Tier progress (survival) */}
-            {runMode === 'survival' && screen === 'game' && (
-              <div className="tier-bar">
-                {[3, 6, 9, 12].map((mark, i) => {
-                  const prev = i === 0 ? 0 : [3, 6, 9][i - 1];
-                  const p = Math.max(0, Math.min(1, (streak - prev) / (mark - prev)));
-                  return (
-                    <div key={mark} className={`tier-seg${streak >= mark ? ' full' : ''}`} style={{ '--p': `${p * 100}%` }}>
-                      <span className="seg-dot">{mark}</span>
-                    </div>
-                  );
-                })}
                 {best > 0 && (
-                  <div className="tier-best" style={{ left: `${(Math.min(best, 12) / 12) * 100}%` }}>
-                    <span className="tier-best-lbl">PB {best}</span>
-                  </div>
+                  <span className="pb-tick" style={{ left: `${(Math.min(best, sectionTarget) / sectionTarget) * 100}%` }}>
+                    <span className="pb-tick-lbl">PB {best}</span>
+                  </span>
                 )}
               </div>
             )}
@@ -1245,18 +1211,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               </div>
 
               <div className="qtext">{current.q.q}</div>
-
-              {/* Speed timer — only on cards the user has answered correctly
-                  before (FSRS learning=1 / review=2). New (0) and relearning
-                  (3, forgotten) cards get no clock pressure; the bar appearing
-                  is also a subtle "you know this one" cue. Pure CSS drain —
-                  key remounts per question so the animation restarts. */}
-              {runMode === 'survival' && screen === 'game' && !locked && current
-                && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state) && (
-                <div className="timer-track" key={`${qNum}-${current.idx}`}>
-                  <div className="timer-fill" />
-                </div>
-              )}
 
               {hintUsed && <div className="hint-box show">💡 {current.q.hint || 'One wrong option eliminated.'}</div>}
 
@@ -1350,7 +1304,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         {/* ═══ END ═══ */}
         {screen === 'end' && endInfo && (
           <div className="end-screen show">
-            <div className="trophy rise">{endInfo.deckCleared ? '🏆' : endInfo.perfect ? '🏆' : endInfo.best >= 12 ? '🌟' : '💪'}</div>
             <div className="end-verdict">{endInfo.deckCleared ? 'Section complete!' : verdictFor(endInfo.best, runMode)}</div>
             <div className="end-score">
               <CountUp value={runMode === 'survival' ? endInfo.best : endInfo.answered} dur={1000} />

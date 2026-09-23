@@ -42,15 +42,20 @@
 @media (min-width:1200px){
   .ss-app{ max-width:720px; }
 }
+/* Floating pill HUD — sticky, compact, app-wide ExitPill style */
 .ss-root .hud{
+  position:sticky; top:calc(6px + env(safe-area-inset-top)); z-index:45;
   display:flex; justify-content:space-between; align-items:center; gap:8px;
-  border:1px solid var(--card-border); border-radius:16px;
-  background:rgba(255,255,255,0.04);
-  padding:10px 14px; backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,0.12); border-radius:999px;
+  background:rgba(13,17,26,0.82);
+  padding:6px 12px; min-height:44px;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  box-shadow:0 4px 16px rgba(0,0,0,0.35);
   user-select:none; -webkit-user-select:none;
+  margin-bottom:10px;
 }
-.ss-root .hud-left,.ss-root .hud-right{display:flex; align-items:center; gap:10px; min-width:0;}
-.ss-root .hud-right{gap:8px; flex-shrink:0;}
+.ss-root .hud-left,.ss-root .hud-right{display:flex; align-items:center; gap:8px; min-width:0;}
+.ss-root .hud-right{gap:6px; flex-shrink:0;}
 .ss-root .hud-stat-btn{cursor:pointer;}
 .ss-root .hud-stat-btn:hover .hud-ico{filter:drop-shadow(0 0 5px rgba(255,182,39,0.6));}
 .ss-root .hud-stat{
@@ -61,40 +66,13 @@
 .ss-root .hud-stat .hud-ico{font-size:14px;}
 .ss-root .hud-stat .hud-dim{color:var(--text-dim); font-size:10px; font-weight:600;}
 .ss-root .hud-btn{
-  font-size:15px; color:var(--text-dim); border:none; background:transparent;
-  width:32px; height:32px; border-radius:9px; cursor:pointer;
+  font-size:14px; color:var(--text-dim); border:none; background:transparent;
+  width:30px; height:30px; border-radius:9px; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
   transition:color 0.15s, background 0.15s;
   touch-action: manipulation;
 }
 .ss-root .hud-btn:hover{color:var(--blue); background:rgba(255,255,255,0.06);}
-.ss-root .level-row{
-  display:flex; align-items:center; gap:8px;
-  margin:10px 2px 16px;
-}
-.ss-root .xp-level{
-  font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--gold);
-  white-space:nowrap;
-}
-.ss-root .xpbar{
-  flex:1; height:6px; background:rgba(255,255,255,0.06);
-  border-radius:3px; overflow:hidden;
-}
-.ss-root .xpbar-fill{
-  height:100%; width:0%;
-  background:linear-gradient(90deg, var(--blue), var(--gold));
-  transition:width 0.5s ease;
-}
-.ss-root .xpbar-label{
-  font-family:var(--font-mono); font-size:10px; color:var(--text-dim);
-  white-space:nowrap;
-}
-.ss-root .goal-ring{
-  width:30px; height:30px; flex-shrink:0; cursor:pointer;
-  transition:filter 0.2s;
-}
-.ss-root .goal-ring:hover{ filter:drop-shadow(0 0 6px rgba(74,222,128,0.5)); }
-.ss-root #goalRingFill, .ss-root .goal-ring-fill{ transition:stroke-dashoffset 0.4s; }
 
 /* ---------- Home screen ---------- */
 .ss-root .home-screen{
@@ -213,8 +191,8 @@
 
 /* ---------- Run stats row ---------- */
 .ss-root .run-stats{
-  display:flex; justify-content:space-between; align-items:center;
-  margin-bottom:10px; min-height:28px;
+  display:flex; justify-content:flex-end; align-items:center; gap:6px;
+  margin-bottom:8px; min-height:26px;
 }
 .ss-root .lives{display:flex; gap:6px;}
 .ss-root .heart{
@@ -233,15 +211,11 @@
   70%{opacity:0.4; transform:scale(0.85) rotate(-6deg);}
   100%{opacity:0.15; transform:scale(0.8) rotate(0);}
 }
-.ss-root .practice-lbl{
-  font-family:var(--font-mono); font-size:11px; color:var(--green);
-  letter-spacing:0.08em; display:none;
-}
-.ss-root .practice-lbl.show{display:inline;}
 .ss-root .quit-btn{
   font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
-  border:1px solid var(--card-border); background:transparent;
-  padding:6px 10px; border-radius:8px; cursor:pointer;
+  border:1px solid var(--card-border); background:rgba(13,17,26,0.6);
+  backdrop-filter:blur(8px);
+  padding:6px 12px; border-radius:999px; cursor:pointer;
   transition:border-color 0.15s, color 0.15s;
   touch-action: manipulation;
 }
@@ -267,7 +241,7 @@
 }
 .ss-root .boost-chip.show{display:inline-block;}
 /* Per-question segmented progress (survival) */
-.ss-root .progress{display:flex; gap:4px; margin-bottom:10px;}
+.ss-root .progress{display:flex; gap:4px; margin-bottom:14px; position:relative;}
 .ss-root .seg{
   flex:1; height:6px; border-radius:99px;
   background:rgba(255,255,255,0.08); position:relative; overflow:hidden;
@@ -280,38 +254,24 @@
 .ss-root .seg.pop{animation:ssSegPop 0.35s ease 0.15s;}
 @keyframes ssSegFill{from{transform:scaleX(0);}}
 @keyframes ssSegPop{40%{transform:scaleY(2);}}
-
-.ss-root .tier-bar{
-  display:flex; gap:4px;
-  margin-bottom:18px;
+/* Personal-best tick on the segment bar */
+.ss-root .pb-tick{
+  position:absolute; top:-3px; bottom:-3px; width:2px;
+  background:var(--gold); border-radius:1px; opacity:0.9;
+  transform:translateX(-1px); pointer-events:none;
 }
-.ss-root .tier-seg{
-  flex:1; height:4px; position:relative;
-  background:rgba(255,255,255,0.06);
-  border-radius:2px;
+.ss-root .pb-tick-lbl{
+  position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+  font-family:var(--font-mono); font-size:9px; font-weight:700;
+  color:var(--gold); white-space:nowrap;
 }
-.ss-root .tier-seg::before{
-  content:'';
-  position:absolute; inset:0;
-  width:var(--p,0%);
-  background:linear-gradient(90deg, var(--blue), var(--gold));
-  border-radius:2px;
-  transition:width 0.35s ease;
-}
-.ss-root .tier-seg .seg-dot{
-  position:absolute; top:-11px; right:-2px;
-  font-family:var(--font-mono); font-size:8px; font-weight:700;
-  color:var(--text-dim); opacity:0.55;
-  transition:color 0.3s, opacity 0.3s;
-}
-.ss-root .tier-seg.full .seg-dot{ color:var(--gold); opacity:1; }
 
 .ss-root .game-screen{ flex:1; display:flex; flex-direction:column; }
 .ss-root .qcard, .ss-root .review-card{
   background:linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
   border:1px solid var(--card-border);
   border-radius:20px;
-  padding:24px;
+  padding:20px;
   backdrop-filter:blur(20px);
   flex:1;
   display:flex;
@@ -352,29 +312,9 @@
   font-size:18px;
   line-height:1.5;
   font-weight:600;
-  margin-bottom:14px;
+  margin-bottom:12px;
 }
-/* Pure-CSS speed timer — drains over SPEED_WINDOW (7s) with color shift,
-   urgency pulse kicks in near the end. Zero JS re-renders. */
-.ss-root .timer-track{
-  position:relative; height:6px; border-radius:99px; overflow:visible;
-  background:rgba(255,255,255,0.08); margin-bottom:16px;
-  animation:ssTimerIn .3s ease, ssTimerUrgent 0.4s ease-in-out 5.2s infinite;
-}
-@keyframes ssTimerIn{ from{ opacity:0; transform:translateY(-3px);} to{ opacity:1; transform:translateY(0);} }
-@keyframes ssTimerUrgent{
-  50%{ transform:scaleY(1.6); filter:drop-shadow(0 0 4px rgba(255,94,126,0.6)); }
-}
-.ss-root .timer-fill{
-  position:absolute; inset:0; border-radius:99px;
-  animation:ssDrain 7s linear forwards;
-}
-@keyframes ssDrain{
-  0%  { width:100%; background:var(--ss-accent, var(--blue)); box-shadow:0 0 8px rgba(0,229,255,0.5); }
-  55% { width:45%;  background:var(--gold);  box-shadow:0 0 8px rgba(255,182,39,0.5); }
-  75% { width:25%;  background:var(--coral); box-shadow:0 0 10px rgba(255,94,126,0.65); }
-  100%{ width:0%;   background:var(--coral); }
-}
+
 .ss-root .options{display:grid; gap:8px;}
 @media (min-width:768px){
   .ss-root .options{ grid-template-columns:1fr 1fr; gap:12px; }
@@ -382,8 +322,8 @@
 }
 .ss-root .opt{
   position:relative; overflow:hidden;
-  display:flex; align-items:center; gap:12px;
-  padding:15px 14px;
+  display:flex; align-items:center; gap:10px;
+  padding:12px 13px;
   background:var(--card);
   border:1px solid var(--card-border);
   color:var(--text);
@@ -463,7 +403,7 @@
   margin-top:10px; letter-spacing:0.02em;
 }
 .ss-root .fsrs-note.show{display:block;}
-.ss-root .card-actions{display:flex; gap:8px; margin-top:16px;}
+.ss-root .card-actions{display:flex; gap:8px; margin-top:12px;}
 .ss-root .card-actions button{
   flex:1; padding:13px 10px; border-radius:10px; font-family:var(--font-mono); font-size:11.5px;
   cursor:pointer; border:1px solid var(--card-border); background:transparent; color:var(--text-dim);
@@ -525,15 +465,6 @@
   justify-content:center;
 }
 .ss-root .end-screen.show{display:flex;}
-.ss-root .trophy{
-  font-size:64px; line-height:1;
-  display:inline-block; margin-bottom:8px;
-}
-.ss-root .trophy.rise{animation:ssTrophyRise 0.6s cubic-bezier(0.2,1.4,0.4,1) both;}
-@keyframes ssTrophyRise{
-  0%{opacity:0; transform:translateY(24px) scale(0.5);}
-  100%{opacity:1; transform:translateY(0) scale(1);}
-}
 .ss-root .end-verdict{
   font-family:var(--font-display); font-weight:700; font-size:15px;
   margin-bottom:4px;
@@ -957,19 +888,6 @@
 /* ---------- Revive chip (end screen) ---------- */
 .ss-root .revive-chip{ color:var(--rose); border-color:rgba(255,122,158,0.4); background:rgba(255,122,158,0.08); }
 
-/* ---------- Personal-best ghost marker (tier bar) ---------- */
-.ss-root .tier-bar{ position:relative; }
-.ss-root .tier-best{
-  position:absolute; top:-3px; bottom:-3px; width:2px;
-  background:var(--gold); border-radius:1px; opacity:0.8;
-  transform:translateX(-1px); pointer-events:none;
-}
-.ss-root .tier-best-lbl{
-  position:absolute; top:-15px; left:50%; transform:translateX(-50%);
-  font-family:var(--font-mono); font-size:9px; font-weight:700;
-  color:var(--gold); white-space:nowrap;
-}
-
 /* ---------- Streak-extended celebration ---------- */
 .ss-root .streak-celebrate{
   position:fixed; inset:0; z-index:90; cursor:pointer;
@@ -1039,8 +957,6 @@
 
 .ss-root :focus-visible{ outline-color: var(--ss-accent); }
 .ss-root .hud-btn:hover{ color:var(--ss-accent); }
-.ss-root .xpbar-fill{ background:linear-gradient(90deg, var(--ss-accent), var(--gold)); }
-.ss-root .tier-seg::before{ background:linear-gradient(90deg, var(--ss-accent), var(--gold)); }
 .ss-root .difficulty-tag{
   color:var(--ss-accent);
   background:color-mix(in srgb, var(--ss-accent) 10%, transparent);
