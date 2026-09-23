@@ -130,6 +130,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [sessionXp, setSessionXp] = useState(0);
   const [sessionGems, setSessionGems] = useState(0);
   const [current, setCurrent] = useState(null); // {q, idx}
+  const [history, setHistory] = useState([]); // answered cards this run — powers "view previous"
+  const [pastIdx, setPastIdx] = useState(null); // null = live question; n = viewing history[n]
   const [sectionTarget, setSectionTarget] = useState(Math.min(SECTION_SIZE, bank.length)); // questions this survival section
   const usedRef = useRef(new Set()); // bank indices already served this run
   const lastIdxRef = useRef(-1);
@@ -342,6 +344,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
     qStartRef.current = Date.now();
     exitingRef.current = false;
+    setPastIdx(null);
     setCardAnim('q-enter');
     setVig(null);
   }
@@ -491,6 +494,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const isCorrect = i === q.a;
     setPicked(i);
     setLocked(true);
+    setHistory((h) => [...h, { q, picked: i, revealed: false }]);
     answersRef.current[q._pageIndex] = String.fromCharCode(65 + (q._order ? q._order[i] : i));
     applyRating(q, isCorrect, false);
 
@@ -584,6 +588,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setVig({ k: 'bad', n: ++vigNRef.current });
     setRevealed(true);
     setLocked(true);
+    setHistory((h) => [...h, { q: current.q, picked: null, revealed: true }]);
     applyRating(current.q, false, true);
     reviewMissedRef.current.push({ ...current.q, pickedIdx: null });
     timesRef.current.push(Date.now() - qStartRef.current);
@@ -659,6 +664,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const isCorrect = i === q.a;
     setPicked(i);
     setLocked(true);
+    setHistory((h) => [...h, { q, picked: i, revealed: false }]);
     applyRating(q, isCorrect, false, true);
     if (isCorrect) {
       setVig({ k: 'good', n: ++vigNRef.current });
@@ -721,6 +727,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     setSessionXp(0); setSessionGems(0);
     setGameOver(false); setRevivesUsed(0);
     setStreakCelebration(null); streakCelebrateRef.current = null;
+    setHistory([]); setPastIdx(null);
     deckClearedRef.current = false;
     setSectionTarget(Math.min(SECTION_SIZE, bank.length));
     timesRef.current = [];
@@ -742,6 +749,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   function endRun(mode) {
     if (runEndedRef.current) return;
     runEndedRef.current = true;
+    exitingRef.current = false; // the q-exit that triggered endRun never reaches serveIdx
     const missed = reviewMissedRef.current;
     editSave((s) => { s.stats.runs += 1; });
     if (missed.length > 0) {
@@ -763,6 +771,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       setHintUsed(false); setEliminated(new Set());
       setFsrsNote(null); setExplain({ show: false, loading: false, thread: [] }); setFollowUp('');
       qStartRef.current = Date.now();
+      setPastIdx(null);
       setCardAnim('q-enter');
       setVig(null);
       return;
@@ -995,6 +1004,18 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       if (e.key === 'Escape') { requestQuit('home'); return; }
       if (screen !== 'game' && screen !== 'review') return;
       if (!current) return;
+      if (pastIdx != null) {
+        // Browsing earlier questions — ‹ › navigate, Enter/Esc returns to live
+        const lastBrowsable = history.length - (locked ? 1 : 0) - 1;
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault(); setPastIdx(null); setCardAnim('q-enter');
+        } else if (e.key === 'ArrowLeft') {
+          setPastIdx((p) => Math.max(0, (p ?? 0) - 1));
+        } else if (e.key === 'ArrowRight') {
+          setPastIdx((p) => Math.min(lastBrowsable, (p ?? 0) + 1));
+        }
+        return;
+      }
       if (locked) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); screen === 'review' ? handleReviewNext() : handleContinue(); }
         return;
@@ -1017,6 +1038,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const forecast = buildForecast(cardStates);
   const dueHere = Object.values(cardStates).filter((c) => c.isDue).length;
   const ring = current ? masteryDots(cardStates[current.q._key]) : { dots: 0, mastered: false, due: false };
+  // "View previous" — history holds answered cards; the live (locked) card is
+  // the last entry, so browsable history ends one earlier.
+  const pastEntry = pastIdx != null ? history[pastIdx] : null;
+  const prevCount = history.length - (locked ? 1 : 0);
+  const shownQ = pastEntry ? pastEntry.q : current?.q;
+  const shownPicked = pastEntry ? pastEntry.picked : picked;
+  const shownLocked = Boolean(pastEntry) || locked;
+  const shownRing = shownQ ? masteryDots(cardStates[shownQ._key]) : ring;
   const quests = activeQuests();
   const goalPct = stats?.dailyGoal ? Math.min(100, ((stats.reviewedToday || 0) / stats.dailyGoal) * 100) : 0;
 
@@ -1196,46 +1225,57 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             )}
 
             <div className={`qcard ${flash} ${cardAnim}`}>
-              {screen === 'review' && <span className="review-tag">missed — try again</span>}
-              {reviewBadge && (
+              {pastEntry && <span className="review-tag">↩ question {pastIdx + 1} of {history.length}</span>}
+              {!pastEntry && screen === 'review' && <span className="review-tag">missed — try again</span>}
+              {!pastEntry && reviewBadge && (
                 <span className={`retry-badge show ${reviewBadge}`}>
                   {reviewBadge === 'correct' ? '✓ cleared' : reviewBadge === 'wrong' ? '✗ back of queue' : 'revealed'}
                 </span>
               )}
               <div className="qcard-head">
-                <span className="difficulty-tag" style={{ color: tierColor }}>{runMode === 'survival' ? tier : 'practice'}</span>
+                <span className="difficulty-tag" style={{ color: tierColor }}>{pastEntry ? 'earlier' : runMode === 'survival' ? tier : 'practice'}</span>
                 <span className="mastery-ring">
-                  {ring.due && <span className="due-flag">⏰</span>}
-                  {ring.mastered ? '🌟' : [0, 1, 2].map((d) => <span key={d} className={`mrdot${ring.dots > d ? ' on' : ''}`} />)}
+                  {shownRing.due && <span className="due-flag">⏰</span>}
+                  {shownRing.mastered ? '🌟' : [0, 1, 2].map((d) => <span key={d} className={`mrdot${shownRing.dots > d ? ' on' : ''}`} />)}
                 </span>
               </div>
 
-              <div className="qtext">{current.q.q}</div>
+              <div className="qtext">{shownQ.q}</div>
 
-              {hintUsed && <div className="hint-box show">💡 {current.q.hint || 'One wrong option eliminated.'}</div>}
+              {/* Speed timer — only on cards the user has answered correctly
+                  before (FSRS learning=1 / review=2). New (0) and relearning
+                  (3, forgotten) cards get no clock pressure; the bar appearing
+                  is also a subtle "you know this one" cue. Pure CSS drain —
+                  key remounts per question so the animation restarts. */}
+              {!pastEntry && runMode === 'survival' && screen === 'game' && !locked && current
+                && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state) && (
+                <div className="timer-track" key={`${qNum}-${current.idx}`}>
+                  <div className="timer-fill" />
+                </div>
+              )}
 
               <div className="options">
-                {current.q.opts.map((opt, i) => {
+                {shownQ.opts.map((opt, i) => {
                   let cls = 'opt';
-                  if (eliminated.has(i)) cls += ' eliminated';
-                  const isAns = i === current.q.a;
-                  const isPicked = i === picked;
-                  if (locked) {
+                  if (!pastEntry && eliminated.has(i)) cls += ' eliminated';
+                  const isAns = i === shownQ.a;
+                  const isPicked = i === shownPicked;
+                  if (shownLocked) {
                     if (isAns && isPicked) cls += ' correct sweep';
                     else if (isAns) cls += ' correct reveal';
                     else if (isPicked) cls += ' wrong picked-wrong';
                   }
                   return (
-                    <button key={`${current.idx}-${i}`} className={cls} style={{ '--i': i }}
-                      disabled={locked || eliminated.has(i)}
+                    <button key={`${pastEntry ? `p${pastIdx}` : current.idx}-${i}`} className={cls} style={{ '--i': i }}
+                      disabled={shownLocked || (!pastEntry && eliminated.has(i))}
                       onClick={() => (screen === 'review' ? handleReviewPick(i) : handlePick(i))}>
                       <span className="ltr">{i + 1}</span>
                       <span className="opt-text">{opt}</span>
                       <span className="mark">
-                        {locked && isAns && (
+                        {shownLocked && isAns && (
                           <svg viewBox="0 0 24 24" className="ok"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         )}
-                        {locked && isPicked && !isAns && (
+                        {shownLocked && isPicked && !isAns && (
                           <svg viewBox="0 0 24 24" className="no"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
                         )}
                       </span>
@@ -1244,58 +1284,83 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                 })}
               </div>
 
-              {fsrsNote && (
+              {!pastEntry && fsrsNote && (
                 <div className="fsrs-note show" style={{ color: { 1: '#FF5E7E', 2: '#FFB627', 3: '#4ADE80', 4: '#00E5FF' }[fsrsNote.grade] }}>
                   🧠 {{ 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' }[fsrsNote.grade]}
                   {fsrsNote.intervalLabel ? ` · next review in ${fsrsNote.intervalLabel}` : ''}
                 </div>
               )}
+            </div>
 
-              {/* Stored explanation — free, instant; AI thread below stays optional */}
-              {locked && current.q.explanation && !explain.show && (
-                <div className="explain-box show stored-explain">
-                  <span className="explain-label">📖 Why</span>
-                  {current.q.explanation}
+            {/* Below the card — screen-level info so the card stays compact */}
+            {!pastEntry && hintUsed && <div className="hint-box show">💡 {current.q.hint || 'One wrong option eliminated.'}</div>}
+
+            {/* Stored explanation — free, instant; AI thread below stays optional */}
+            {(pastEntry ? pastEntry.q.explanation : (locked && !explain.show ? current.q.explanation : null)) && (
+              <div className="explain-box show stored-explain">
+                <span className="explain-label">📖 Why</span>
+                {pastEntry ? pastEntry.q.explanation : current.q.explanation}
+              </div>
+            )}
+
+            {!pastEntry && explain.show && (
+              <div className="explain-box show">
+                <span className="explain-label">✨ AI Tutor</span>
+                <div className="explain-thread" ref={explainThreadRef}>
+                  {explain.thread.map((m, i) => (
+                    <div key={i} className={`explain-msg ${m.role}`}>{m.text}</div>
+                  ))}
+                  {explain.loading && <span className="dot-loading explain-typing">Thinking</span>}
                 </div>
-              )}
+                <form className="explain-ask" onSubmit={handleFollowUp}>
+                  <input
+                    type="text"
+                    value={followUp}
+                    onChange={(e) => setFollowUp(e.target.value)}
+                    placeholder="Ask a follow-up…"
+                    maxLength={300}
+                    aria-label="Ask a follow-up question"
+                  />
+                  <button type="submit" disabled={explain.loading || !followUp.trim()}>→</button>
+                </form>
+              </div>
+            )}
 
-              {!locked && (
-                <div className="card-actions">
+            {/* Sticky bottom action dock — Gizmo-style, off the card */}
+            <div className={`action-dock${!pastEntry && locked ? ' post' : ''}`}>
+              {pastEntry ? (
+                <>
+                  <button type="button" className="dock-nav" disabled={pastIdx <= 0}
+                    onClick={() => { setPastIdx((p) => Math.max(0, p - 1)); setCardAnim('q-enter'); }}
+                    aria-label="Previous question">‹</button>
+                  <button type="button" className="btn-continue"
+                    onClick={() => { setPastIdx(null); setCardAnim('q-enter'); }}>Back to current</button>
+                  <button type="button" className="dock-nav" disabled={pastIdx >= prevCount - 1}
+                    onClick={() => { setPastIdx((p) => Math.min(prevCount - 1, p + 1)); setCardAnim('q-enter'); }}
+                    aria-label="Next question">›</button>
+                </>
+              ) : !locked ? (
+                <>
+                  {prevCount > 0 && (
+                    <button type="button" className="dock-nav"
+                      onClick={() => { setPastIdx(prevCount - 1); setCardAnim('q-enter'); }}
+                      aria-label="See previous questions">‹</button>
+                  )}
                   <button type="button" onClick={handleHint}>💡 Hint</button>
                   {screen === 'game' && <button type="button" onClick={handleReveal}>👁 Reveal</button>}
-                </div>
-              )}
-
-              {explain.show && (
-                <div className="explain-box show">
-                  <span className="explain-label">✨ AI Tutor</span>
-                  <div className="explain-thread" ref={explainThreadRef}>
-                    {explain.thread.map((m, i) => (
-                      <div key={i} className={`explain-msg ${m.role}`}>{m.text}</div>
-                    ))}
-                    {explain.loading && <span className="dot-loading explain-typing">Thinking</span>}
-                  </div>
-                  <form className="explain-ask" onSubmit={handleFollowUp}>
-                    <input
-                      type="text"
-                      value={followUp}
-                      onChange={(e) => setFollowUp(e.target.value)}
-                      placeholder="Ask a follow-up…"
-                      maxLength={300}
-                      aria-label="Ask a follow-up question"
-                    />
-                    <button type="submit" disabled={explain.loading || !followUp.trim()}>→</button>
-                  </form>
-                </div>
-              )}
-
-              {locked && (
-                <div className="post-actions show">
+                </>
+              ) : (
+                <>
+                  {prevCount > 0 && (
+                    <button type="button" className="dock-nav"
+                      onClick={() => { setPastIdx(prevCount - 1); setCardAnim('q-enter'); }}
+                      aria-label="See previous questions">‹</button>
+                  )}
                   <button type="button" className="btn-explain" onClick={handleExplain} disabled={explain.loading}>✨ Ask AI</button>
                   <button type="button" className="btn-continue" onClick={screen === 'review' ? handleReviewNext : handleContinue}>
                     {screen === 'review' ? 'Next →' : 'Continue →'}
                   </button>
-                </div>
+                </>
               )}
             </div>
           </div>

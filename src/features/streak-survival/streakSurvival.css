@@ -265,6 +265,26 @@
   font-family:var(--font-mono); font-size:9px; font-weight:700;
   color:var(--gold); white-space:nowrap;
 }
+/* Speed-bonus drain — only rendered on FSRS learning/review cards */
+.ss-root .timer-track{
+  position:relative; height:5px; border-radius:99px; overflow:visible;
+  background:rgba(255,255,255,0.08); margin-bottom:14px;
+  animation:ssTimerIn .3s ease, ssTimerUrgent 0.4s ease-in-out 5.2s infinite;
+}
+@keyframes ssTimerIn{ from{ opacity:0; transform:translateY(-3px);} to{ opacity:1; transform:translateY(0);} }
+@keyframes ssTimerUrgent{
+  50%{ transform:scaleY(1.6); filter:drop-shadow(0 0 4px rgba(255,94,126,0.6)); }
+}
+.ss-root .timer-fill{
+  position:absolute; inset:0; border-radius:99px;
+  animation:ssDrain 7s linear forwards;
+}
+@keyframes ssDrain{
+  0%  { width:100%; background:var(--ss-accent, var(--blue)); box-shadow:0 0 8px rgba(0,229,255,0.5); }
+  55% { width:45%;  background:var(--gold);  box-shadow:0 0 8px rgba(255,182,39,0.5); }
+  75% { width:25%;  background:var(--coral); box-shadow:0 0 10px rgba(255,94,126,0.65); }
+  100%{ width:0%;   background:var(--coral); }
+}
 
 .ss-root .game-screen{ flex:1; display:flex; flex-direction:column; }
 .ss-root .qcard, .ss-root .review-card{
@@ -439,6 +459,38 @@
   touch-action: manipulation;
 }
 .ss-root .post-actions button:active{transform:scale(0.98);}
+/* Sticky bottom action dock — actions live off the card, Gizmo-style */
+.ss-root .action-dock{
+  position:sticky; bottom:calc(10px + env(safe-area-inset-bottom)); z-index:30;
+  display:flex; align-items:center; gap:8px;
+  margin-top:12px; padding:8px;
+  border-radius:16px; border:1px solid var(--card-border);
+  background:rgba(13,17,26,0.88);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);
+}
+.ss-root .action-dock button{
+  flex:1; padding:12px 10px; border-radius:12px;
+  font-family:var(--font-mono); font-size:11.5px; font-weight:600;
+  cursor:pointer; border:1px solid var(--card-border); background:transparent; color:var(--text-dim);
+  transition:border-color 0.15s, color 0.15s, transform 0.08s;
+  touch-action:manipulation;
+}
+.ss-root .action-dock button:hover:not(:disabled){border-color:var(--blue); color:var(--blue);}
+.ss-root .action-dock button:active:not(:disabled){transform:scale(0.97);}
+.ss-root .action-dock button:disabled{opacity:0.35; cursor:default;}
+.ss-root .action-dock .dock-nav{ flex:none; width:42px; font-size:17px; line-height:1; }
+.ss-root .action-dock .btn-explain{
+  border-color:rgba(255,182,39,0.35); background:rgba(255,182,39,0.08); color:var(--gold);
+  font-family:var(--font-body); font-size:13px; font-weight:600;
+}
+.ss-root .action-dock .btn-continue{
+  border:none; background:linear-gradient(135deg, var(--blue), #0aa8c4); color:#04121a;
+  font-family:var(--font-body); font-size:13px; font-weight:700;
+}
+.ss-root .action-dock.post button{ animation:ssRise 0.3s 0.15s backwards; }
+/* Screen-level info blocks sit below the card now */
+.ss-root .game-screen > .hint-box, .ss-root .review-screen > .hint-box{ margin:12px 0 0; }
 .ss-root .refill-row{display:none; margin-top:10px;}
 .ss-root .refill-row.show{display:block;}
 .ss-root .refill-row button{
@@ -962,7 +1014,8 @@
   background:color-mix(in srgb, var(--ss-accent) 10%, transparent);
 }
 .ss-root .opt:hover:not(:disabled){ border-color:var(--ss-accent); }
-.ss-root .card-actions button:hover:not(:disabled){ border-color:var(--ss-accent); color:var(--ss-accent); }
+.ss-root .card-actions button:hover:not(:disabled),
+.ss-root .action-dock button:hover:not(:disabled){ border-color:var(--ss-accent); color:var(--ss-accent); }
 .ss-root .explain-label{ color:var(--ss-accent); }
 .ss-root .explain-box{
   background:color-mix(in srgb, var(--ss-accent) 6%, transparent);
@@ -971,6 +1024,7 @@
 .ss-root .explain-typing{ color:var(--ss-accent); }
 .ss-root .explain-ask input:focus{ border-color:color-mix(in srgb, var(--ss-accent) 40%, transparent); }
 .ss-root .post-actions .btn-continue,
+.ss-root .action-dock .btn-continue,
 .ss-root button.primary{
   background:linear-gradient(135deg, var(--ss-accent), var(--ss-accent-deep));
 }
