@@ -221,6 +221,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [isDrawing, setIsDrawing] = useState(false);
   const lassoPoints = useRef([]);
   const [lassoPath, setLassoPath] = useState("");
+  // Page the current draw gesture started on — lets circle/pen/erase work on
+  // any visible page in continuous scroll, not just currentPage
+  const [drawPage, setDrawPage] = useState(null);
+  const drawPageRef = useRef(null);
 
   // Chat popup state
   const [chatOpen, setChatOpen] = useState(false);
@@ -634,6 +638,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (debounceScaleRef.current) clearTimeout(debounceScaleRef.current);
     debounceScaleRef.current = setTimeout(() => {
       pageCanvasRefs.current.forEach((c) => { if (c) delete c.dataset.rendered; });
+      // Bound the re-render window to the current page — visiblePages only
+      // accumulates, so without this every visited page re-renders on zoom.
+      // The IntersectionObserver repopulates the window immediately after.
+      setVisiblePages(new Set([currentPage]));
     }, 150);
     return () => {
       if (debounceScaleRef.current) clearTimeout(debounceScaleRef.current);
@@ -797,8 +805,23 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (zoomBadgeRef.current) zoomBadgeRef.current.textContent = Math.round(scale * pz.scale * 100) + "%";
   };
 
+  // Finds the page element under a screen point + the fractional offset inside
+  // it. Fractions are transform-invariant, so capture BEFORE clearing the pinch
+  // preview transform and the anchor survives the preview→commit switch.
+  const capturePageAnchor = (screenX, screenY) => {
+    const el = document.elementFromPoint(screenX, screenY)?.closest?.("[data-page]");
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {
+      el,
+      pg: parseInt(el.dataset.page, 10),
+      fx: (screenX - r.left) / r.width,
+      fy: (screenY - r.top) / r.height,
+    };
+  };
+
   // Shared zoom-commit: anchors zoom at a screen point (touch/cursor), compensates scroll
-  const commitZoomAtPoint = (newScale, screenX, screenY) => {
+  const commitZoomAtPoint = (newScale, screenX, screenY, anchor = null) => {
     const container = viewerRef.current;
     if (!container) {
       setUserZoomed(true);
@@ -808,9 +831,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const rect = container.getBoundingClientRect();
     const oldScale = scale;
     const scaleRatio = newScale / oldScale;
-    // Content-space point under the anchor before zoom
+    // Content-space point under the anchor before zoom (fallback if no page anchor)
     const contentX = container.scrollLeft + (screenX - rect.left);
     const contentY = container.scrollTop + (screenY - rect.top);
+    // In continuous mode, anchor on the actual page under the point
+    if (scrollMode !== "single" && !anchor) anchor = capturePageAnchor(screenX, screenY);
     // Immediately resize all mounted canvases so layout is correct before paint
     const canvases = scrollMode === "single" ? [canvasRef.current] : pageCanvasRefs.current;
     canvases.forEach((c) => {
@@ -825,15 +850,22 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     });
     setUserZoomed(true);
     setScale(newScale);
-    // After React commits the new scale, adjust scroll so the same content point stays under the anchor
-    requestAnimationFrame(() => {
-      if (scrollMode !== "horizontal") {
-        container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
+    // After React commits the new scale, adjust scroll so the same content point
+    // stays under the anchor. Double rAF: placeholders need a React commit first.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (anchor && scrollMode !== "single") {
+        const r2 = anchor.el.getBoundingClientRect();
+        container.scrollTop += (r2.top + anchor.fy * r2.height) - screenY;
+        container.scrollLeft += (r2.left + anchor.fx * r2.width) - screenX;
+      } else {
+        if (scrollMode !== "horizontal") {
+          container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
+        }
+        if (scrollMode !== "vertical") {
+          container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
+        }
       }
-      if (scrollMode !== "vertical") {
-        container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
-      }
-    });
+    }));
   };
 
   const goToPage = useCallback(async (n) => {
@@ -913,6 +945,18 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       if (e.key === "ArrowLeft") goToPage(currentPage - 1);
       if (e.key === "?" || (e.shiftKey && e.key === "/")) { e.preventDefault(); setShowShortcuts((v) => !v); }
       if (e.key === "Escape") setShowShortcuts(false);
+      // Ctrl/Cmd +/-/0 — intercept browser page zoom; only the material zooms
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "+" || e.key === "=") { e.preventDefault(); handleZoomIn(); return; }
+        if (e.key === "-" || e.key === "_") { e.preventDefault(); handleZoomOut(); return; }
+        if (e.key === "0") {
+          e.preventDefault();
+          setUserZoomed(false);
+          resetPanZoom();
+          fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+          return;
+        }
+      }
       if (e.key === "+" || e.key === "=") { handleZoomIn(); }
       if (e.key === "-" || e.key === "_") { handleZoomOut(); }
       if (e.key === "b") toggleBookmark();
@@ -951,7 +995,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // ---- Circle to Ask (lasso helpers) ----
   const getRelPoint = (e) => {
-    const canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[currentPage - 1];
+    const pg = drawPageRef.current || currentPage;
+    const canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[pg - 1];
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
@@ -960,8 +1005,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     };
   };
 
-  const analyzeLasso = async (poly) => {
-    const canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[currentPage - 1];
+  const analyzeLasso = async (poly, pg = currentPage) => {
+    const canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[pg - 1];
     if (!canvas) return;
 
     // Scale lasso points from CSS pixels to canvas internal pixels
@@ -1001,18 +1046,23 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     cctx.restore();
     const thumb = crop.toDataURL("image/png");
 
-    // Position popup near the lasso (use original CSS coordinates, not internal)
+    // Position popup near the lasso — convert canvas-relative coords to
+    // viewer-relative so this works for any page in continuous scroll
     const cssMinX = Math.min(...poly.map((p) => p.x));
     const cssMaxX = Math.max(...poly.map((p) => p.x));
     const cssMaxY = Math.max(...poly.map((p) => p.y));
+    const vRect = viewerRef.current?.getBoundingClientRect() || { left: 0, top: 0, width: rect.width, height: rect.height };
     const popupW = 280;
-    const left = Math.max(8, Math.min((cssMinX + cssMaxX) / 2 - popupW / 2, rect.width - popupW - 8));
-    const top = Math.min(cssMaxY + 14, rect.height - 40);
+    const centerX = rect.left + (cssMinX + cssMaxX) / 2 - vRect.left;
+    const bottomY = rect.top + cssMaxY - vRect.top;
+    const left = Math.max(8, Math.min(centerX - popupW / 2, vRect.width - popupW - 8));
+    const top = Math.max(60, Math.min(bottomY + 14, vRect.height - 60));
     setChatPosition({ left, top });
+    if (pg !== currentPage) setCurrentPage(pg);
 
     // Get page text for context
     let pageText = "";
-    try { pageText = await getPageText(currentPage); } catch (e) {}
+    try { pageText = await getPageText(pg); } catch (e) {}
     pageTextRef.current = pageText;
 
     // Start conversation: first user message with image
@@ -2240,10 +2290,12 @@ ${extractedText}
   const screenToPdf = (p) => ({ x: p.x / scale, y: p.y / scale });
   const pdfToScreen = (p) => ({ x: p.x * scale, y: p.y * scale });
 
-  const onOverlayDown = (e) => {
+  const onOverlayDown = (e, pg = currentPage) => {
     if (tool === "none") return;
     e.preventDefault();
     e.target.setPointerCapture(e.pointerId);
+    drawPageRef.current = pg;
+    setDrawPage(pg);
     const p = getRelPoint(e);
 
     if (tool === "circle") {
@@ -2256,7 +2308,7 @@ ${extractedText}
 
     if (tool === "erase") {
       // Hit-test: find nearest stroke within threshold
-      const pageAnnots = annotations[currentPage] || [];
+      const pageAnnots = annotations[pg] || [];
       const threshold = 12 / scale;
       for (let si = pageAnnots.length - 1; si >= 0; si--) {
         const stroke = pageAnnots[si];
@@ -2264,9 +2316,9 @@ ${extractedText}
         const hit = stroke.points.some((sp) => Math.hypot(sp.x - pdfP.x, sp.y - pdfP.y) < threshold);
         if (hit) {
           setAnnotations((prev) => {
-            const arr = [...(prev[currentPage] || [])];
+            const arr = [...(prev[pg] || [])];
             arr.splice(si, 1);
-            return { ...prev, [currentPage]: arr };
+            return { ...prev, [pg]: arr };
           });
           break;
         }
@@ -2305,6 +2357,9 @@ ${extractedText}
   };
 
   const onOverlayUp = async () => {
+    const pg = drawPageRef.current || currentPage;
+    drawPageRef.current = null;
+    setDrawPage(null);
     if (!isDrawing) return;
     setIsDrawing(false);
 
@@ -2315,7 +2370,7 @@ ${extractedText}
       setTool("none");
       setAnnotateTab("none");
       if (poly.length < 4) return;
-      await analyzeLasso(poly);
+      await analyzeLasso(poly, pg);
       return;
     }
 
@@ -2330,7 +2385,7 @@ ${extractedText}
       const strokeWidth = tool === "pen" ? penWidth / scale : highlightWidth / scale;
       setAnnotations((prev) => ({
         ...prev,
-        [currentPage]: [...(prev[currentPage] || []), { color: strokeColor, width: strokeWidth, points: pdfPts, type: tool }],
+        [pg]: [...(prev[pg] || []), { color: strokeColor, width: strokeWidth, points: pdfPts, type: tool }],
       }));
     }
   };
@@ -2564,6 +2619,9 @@ ${extractedText}
       const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
       const mid = pinchMidRef.current;
       const fit = fitScaleRef.current;
+      // Anchor on the page under the pinch midpoint BEFORE clearing the preview
+      // transform — the fraction is transform-invariant so it lands correctly.
+      const anchor = scrollMode !== "single" && mid ? capturePageAnchor(mid.x, mid.y) : null;
       resetPanZoom();
       if (fit && commitScale <= fit + 0.02) {
         // Pinched back out to fit width — restore the fitted layout
@@ -2571,7 +2629,7 @@ ${extractedText}
         fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
       } else if (Math.abs(commitScale - scale) > 0.01) {
         if (mid) {
-          commitZoomAtPoint(commitScale, mid.x, mid.y);
+          commitZoomAtPoint(commitScale, mid.x, mid.y, anchor);
         } else {
           setUserZoomed(true);
           setScale(commitScale);
@@ -2650,12 +2708,16 @@ ${extractedText}
     gestureDrivenRef.current = false;
     setPinchActive(false);
     const commitScale = Math.max(0.5, Math.min(2.6, pinchStartScaleRef.current * panZoomRef.current.scale));
+    const container = viewerRef.current;
+    const rect = container?.getBoundingClientRect();
+    const cx = rect ? rect.left + rect.width / 2 : 0;
+    const cy = rect ? rect.top + rect.height / 2 : 0;
+    // Capture anchor before clearing the preview transform
+    const anchor = scrollMode !== "single" ? capturePageAnchor(cx, cy) : null;
     resetPanZoom();
     if (Math.abs(commitScale - scale) > 0.01) {
-      const container = viewerRef.current;
       if (container) {
-        const rect = container.getBoundingClientRect();
-        commitZoomAtPoint(commitScale, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        commitZoomAtPoint(commitScale, cx, cy, anchor);
       } else {
         setUserZoomed(true);
         setScale(commitScale);
@@ -5041,11 +5103,11 @@ ${extractedText}
                           style={{
                             ...s.lassoOverlay,
                             filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
-                            pointerEvents: pg === currentPage && tool !== "none" ? "auto" : "none",
+                            pointerEvents: tool !== "none" ? "auto" : "none",
                           }}
-                          onPointerDown={pg === currentPage ? onOverlayDown : undefined}
-                          onPointerMove={pg === currentPage ? onOverlayMove : undefined}
-                          onPointerUp={pg === currentPage ? onOverlayUp : undefined}
+                          onPointerDown={(e) => onOverlayDown(e, pg)}
+                          onPointerMove={onOverlayMove}
+                          onPointerUp={onOverlayUp}
                         >
                           {/* Saved annotations */}
                           {(annotations[pg] || []).map((stroke, si) => {
@@ -5063,12 +5125,12 @@ ${extractedText}
                               />
                             );
                           })}
-                          {/* Active stroke (current page only) */}
-                          {pg === currentPage && renderStrokes && (tool === "highlight" || tool === "pen") && (
+                          {/* Active stroke (page the gesture started on) */}
+                          {pg === drawPage && renderStrokes && (tool === "highlight" || tool === "pen") && (
                             <path d={renderStrokes} stroke={tool === "pen" ? penColor : highlightColor} strokeWidth={tool === "pen" ? penWidth : highlightWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" style={tool === "highlight" ? { mixBlendMode: "multiply" } : undefined} />
                           )}
-                          {/* Lasso path for circle-to-ask (current page only) */}
-                          {pg === currentPage && lassoPath && tool === "circle" && (
+                          {/* Lasso path for circle-to-ask (page the gesture started on) */}
+                          {pg === drawPage && lassoPath && tool === "circle" && (
                             <path d={lassoPath} style={s.lassoPath} />
                           )}
                         </svg>
