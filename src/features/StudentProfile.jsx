@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
+import { isLocalInstitutionId } from "../lib/universities.js";
 
 const PROFILE_KEY = "sc_student_profile_v1";
 
@@ -129,7 +130,7 @@ export function useStudentProfile(authUserId) {
       discipline: next.discipline,
       level: next.level,
       institution: next.institution,
-      universityId: next.universityId,
+      universityId: isLocalInstitutionId(next.universityId) ? null : next.universityId,
       isUniversityStudent: next.isUniversityStudent,
       schoolName: next.schoolName,
       department: next.department,
@@ -141,7 +142,7 @@ export function useStudentProfile(authUserId) {
       targetGrade: next.targetGrade,
       studyHoursPerDay: next.studyHoursPerDay,
       ...(Array.isArray(next.courses) && next.courses.length > 0 ? { courses: next.courses } : {}),
-    }).catch(() => {});
+    }).catch((e) => console.warn("Profile backend save failed:", e?.message || e));
   };
 
   const reset = () => {

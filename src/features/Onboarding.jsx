@@ -5,7 +5,7 @@ import {
   Microscope, FlaskConical, GraduationCap,
 } from "lucide-react";
 import { saveMyProfile } from "../lib/profileApi.js";
-import { getUniversities, FALLBACK_INSTITUTIONS } from "../lib/universities.js";
+import { getUniversities, FALLBACK_INSTITUTIONS, isLocalInstitutionId } from "../lib/universities.js";
 import UniversitySelect from "../components/UniversitySelect.jsx";
 import DisciplineSelect from "../components/DisciplineSelect.jsx";
 import { MEDICAL_PROGRAMS } from "../lib/medicalPrograms.js";
@@ -321,7 +321,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
     saveMyProfile({
       isUniversityStudent: true,
       institution: uniName || null,
-      universityId: uniId || null,
+      universityId: isLocalInstitutionId(uniId) ? null : uniId || null,
       programme: program ? program.label : null,
       department: program ? program.label : null,
       level: yearLevel || null,
@@ -330,7 +330,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
       targetGrade: "A",
       studyHoursPerDay: Math.round((dailyMinutes / 60) * 10) / 10,
       courses: selectedSubjects,
-    }).catch(() => {});
+    }).catch((e) => console.warn("Profile backend save failed:", e?.message || e));
     onComplete({
       selectedSubjects,
       dailyMinutes,

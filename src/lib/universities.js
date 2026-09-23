@@ -86,6 +86,12 @@ export const FALLBACK_INSTITUTIONS = NIGERIAN_INSTITUTIONS.map((inst, i) => ({
   city: inst.city || null,
 }));
 
+// Fallback/local institution ids ("ng-*", legacy "fb-*") are not real DB rows —
+// they must never be sent as universityId (FK violation kills the whole save).
+export function isLocalInstitutionId(id) {
+  return typeof id === "string" && /^(ng|fb)-/.test(id);
+}
+
 // Predefined list of Nigerian universities with medical/health-science programs
 export const FALLBACK_UNIVERSITIES = [
   // Federal Universities with Medical Schools

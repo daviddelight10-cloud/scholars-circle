@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { NIGERIAN_INSTITUTIONS } from "../lib/institutions.js";
 
 const router = express.Router();
 
@@ -56,13 +57,50 @@ router.put("/", requireAuth, async (req, res) => {
       courses,
     } = req.body;
 
+    // Resolve universityId — clients may send fallback ids (e.g. "ng-12")
+    // that are not real DB rows; a bad FK would fail the entire upsert.
+    let resolvedUniversityId = universityId || null;
+    if (resolvedUniversityId) {
+      const exists = await prisma.university.findUnique({
+        where: { id: resolvedUniversityId },
+        select: { id: true },
+      });
+      if (!exists) resolvedUniversityId = null;
+    }
+
+    // Fallback picks / plain names: find-or-create a University row by name so
+    // the profile gets a real FK. Only names in the institution catalog get
+    // auto-created rows (keeps the table clean of typos).
+    if (!resolvedUniversityId && institution && String(institution).trim()) {
+      const instName = String(institution).trim();
+      const catalog = NIGERIAN_INSTITUTIONS.find(
+        (i) => i.name.toLowerCase() === instName.toLowerCase()
+      );
+      if (catalog) {
+        try {
+          const uni = await prisma.university.upsert({
+            where: { name: catalog.name },
+            update: {},
+            create: {
+              name: catalog.name,
+              type: catalog.type || "university",
+              country: "Nigeria",
+              city: catalog.city || null,
+            },
+            select: { id: true },
+          });
+          resolvedUniversityId = uni.id;
+        } catch {}
+      }
+    }
+
     const data = {
       fullName,
       avatar,
       discipline,
       level,
       institution,
-      universityId: universityId || null,
+      universityId: resolvedUniversityId,
       schoolName,
       department,
       programme,
@@ -97,7 +135,7 @@ router.put("/", requireAuth, async (req, res) => {
         where: { userId: req.user.sub },
         update: {
           departmentId,
-          universityId: universityId || null,
+          universityId: resolvedUniversityId,
           yearLevel: Number(yearLevel),
           semester: semester || null,
           setAt: new Date(),
@@ -105,7 +143,7 @@ router.put("/", requireAuth, async (req, res) => {
         create: {
           userId: req.user.sub,
           departmentId,
-          universityId: universityId || null,
+          universityId: resolvedUniversityId,
           yearLevel: Number(yearLevel),
           semester: semester || null,
         },
