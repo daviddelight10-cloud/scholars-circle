@@ -91,12 +91,14 @@ export default function UniversitySelect({
   }, [highlight]);
 
   const icon = (type) =>
-    type === "school" ? "🏫" : type === "polytechnic" ? "🏛️" : "🎓";
+    type === "school" ? "🏫" : type === "polytechnic" ? "🏛️" : type === "college" ? "�" : "�🎓";
   const label = (type) =>
     type === "school"
       ? "Secondary School"
       : type === "polytechnic"
       ? "Polytechnic"
+      : type === "college"
+      ? "College"
       : "University";
 
   return (

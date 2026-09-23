@@ -1,4 +1,5 @@
 import { API_BASE as BASE } from "./constants.js";
+import { NIGERIAN_INSTITUTIONS } from "./nigerianInstitutions.js";
 
 async function authFetch(url, opts = {}) {
   let token = null;
@@ -74,6 +75,16 @@ export async function seedUniversities() {
   if (!res.ok) throw new Error("Failed to seed universities");
   return res.json();
 }
+
+// Typed fallback catalog: all Nigerian universities, polytechnics and
+// colleges (health sciences, nursing/midwifery, education). Normalized to
+// the shape institution pickers consume.
+export const FALLBACK_INSTITUTIONS = NIGERIAN_INSTITUTIONS.map((inst, i) => ({
+  id: "ng-" + i,
+  name: inst.name,
+  type: inst.type || "university",
+  city: inst.city || null,
+}));
 
 // Predefined list of Nigerian universities with medical/health-science programs
 export const FALLBACK_UNIVERSITIES = [

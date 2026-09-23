@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import "./settings.css";
 import { DISCIPLINES } from "../AITutor/disciplines.js";
 import { ACADEMIC_LEVELS, LEARNING_STYLES, AVATAR_OPTIONS, EMPTY_PROFILE, computeCompletion } from "../StudentProfile.jsx";
-import { getUniversities, getUniversityDepartments, FALLBACK_UNIVERSITIES } from "../../lib/universities.js";
+import { getUniversities, getUniversityDepartments, FALLBACK_INSTITUTIONS } from "../../lib/universities.js";
 import { saveMyProfile } from "../../lib/profileApi.js";
 import UniversitySelect from "../../components/UniversitySelect.jsx";
 import PickerSheet from "./PickerSheet.jsx";
@@ -39,9 +39,7 @@ export default function ProfileScreen({
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameSaved, setUsernameSaved] = useState(false);
   const [usernameError, setUsernameError] = useState("");
-  const [universities, setUniversities] = useState(() =>
-    FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }))
-  );
+  const [universities, setUniversities] = useState(() => FALLBACK_INSTITUTIONS);
   const [uniDepts, setUniDepts] = useState([]);
   const shareCardRef = useRef(null);
 
@@ -51,7 +49,7 @@ export default function ProfileScreen({
 
   // Load universities from API (merge with fallback so list is never sparse)
   useEffect(() => {
-    const fallback = FALLBACK_UNIVERSITIES.map((name, i) => ({ id: "fb-" + i, name, type: "university", city: null }));
+    const fallback = FALLBACK_INSTITUTIONS;
     getUniversities()
       .then((rows) => {
         if (rows && rows.length > 0) {

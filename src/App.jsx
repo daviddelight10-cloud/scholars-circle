@@ -121,6 +121,8 @@ import { ExamSimulator, selectAdaptiveQuestions, calculateSessionAnalytics, Post
 
 import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboarding";
 
+import { getMyProfile } from "./lib/profileApi.js";
+
 
 
 
@@ -750,6 +752,29 @@ function App() {
 
 
   const { profile: studentProfile, update: updateStudentProfile } = useStudentProfile(auth.user?.id);
+
+
+
+  // Per-account onboarding: re-check once the signed-in user resolves, and
+  // auto-skip for returning users whose backend profile is already complete
+  // (e.g. existing account signing in on a new device).
+  const onboardingUid = auth.user?.id || auth.user?.username || null;
+
+  useEffect(() => {
+    if (!onboardingUid) return;
+    if (isOnboarded(onboardingUid)) { setShowOnboarding(false); return; }
+    setShowOnboarding(true);
+    let cancelled = false;
+    getMyProfile().then((data) => {
+      if (cancelled) return;
+      const p = data?.profile;
+      if (p && (p.programme || p.discipline) && p.level) {
+        markOnboarded(onboardingUid);
+        setShowOnboarding(false);
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [onboardingUid]);
 
 
 
@@ -7364,7 +7389,15 @@ function App() {
 
 
 
-          onSkip={() => { markOnboarded(); setShowOnboarding(false); }}
+          uid={onboardingUid}
+
+
+
+          onSetupReward={() => { handleXpUpdate(50); updateStreak(); }}
+
+
+
+          onSkip={() => { markOnboarded(onboardingUid); setShowOnboarding(false); }}
 
 
 
@@ -7376,27 +7409,79 @@ function App() {
 
 
 
-            setTab("today");
+            // Route to the feature the new user tapped, else Home
 
 
 
-            // Sync onboarding data to student profile
+            const dest = data.destination;
 
-            if (data.isUniStudent !== undefined || data.institution) {
 
-              updateStudentProfile({
 
-                isUniversityStudent: data.isUniStudent,
+            if (dest?.kind === "feed") {
 
-                institution: data.institution || "",
 
-                universityId: data.universityId || null,
 
-                courses: data.courses || data.selectedSubjects || [],
+              setFeedDeepLink({ feedTab: dest.feedTab || "groups" });
 
-              });
+
+
+              setTab("discuss");
+
+
+
+            } else if (dest?.kind === "practice" && dest.subjectId) {
+
+
+
+              startSubjectPractice(dest.subjectId);
+
+
+
+            } else if (dest?.kind === "tab") {
+
+
+
+              setTab(dest.tab);
+
+
+
+            } else {
+
+
+
+              setTab("today");
+
+
 
             }
+
+
+
+            // Sync onboarding data to student profile (local + backend)
+
+            updateStudentProfile({
+
+              isUniversityStudent: true,
+
+              institution: data.institution || "",
+
+              universityId: data.universityId || null,
+
+              programme: data.programme || "",
+
+              department: data.programme || "",
+
+              discipline: data.programme || "",
+
+              level: data.yearLevel || "",
+
+              goals: data.goals || "",
+
+              studyHoursPerDay: Math.round(((data.dailyMinutes || 45) / 60) * 10) / 10,
+
+              courses: data.courses || data.selectedSubjects || [],
+
+            });
 
 
 

@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { NIGERIAN_INSTITUTIONS } from "../lib/institutions.js";
 
 const router = express.Router();
 
@@ -142,73 +143,15 @@ router.post("/:id/departments", requireAuth, requireRole("TEACHER", "LECTURER", 
   }
 });
 
-// POST /api/universities/seed — seed initial Nigerian universities (admin only)
+// POST /api/universities/seed — seed Nigerian institutions (admin only)
 router.post("/seed", requireAuth, requireRole("ADMIN"), async (_req, res) => {
   try {
-    const seeds = [
-      // ── Federal Universities with Medical/Health Sciences ──
-      { name: "Ahmadu Bello University", type: "university", country: "Nigeria", city: "Zaria" },
-      { name: "Bayero University, Kano", type: "university", country: "Nigeria", city: "Kano" },
-      { name: "Federal University of Health Sciences, Azare", type: "university", country: "Nigeria", city: "Azare" },
-      { name: "Federal University of Health Sciences, Ila-Orangun", type: "university", country: "Nigeria", city: "Ila-Orangun" },
-      { name: "Federal University of Health Sciences, Otukpo", type: "university", country: "Nigeria", city: "Otukpo" },
-      { name: "Nnamdi Azikiwe University", type: "university", country: "Nigeria", city: "Awka" },
-      { name: "Obafemi Awolowo University", type: "university", country: "Nigeria", city: "Ile-Ife" },
-      { name: "University of Abuja", type: "university", country: "Nigeria", city: "Gwagwalada" },
-      { name: "University of Benin", type: "university", country: "Nigeria", city: "Benin City" },
-      { name: "University of Calabar", type: "university", country: "Nigeria", city: "Calabar" },
-      { name: "University of Ibadan", type: "university", country: "Nigeria", city: "Ibadan" },
-      { name: "University of Ilorin", type: "university", country: "Nigeria", city: "Ilorin" },
-      { name: "University of Jos", type: "university", country: "Nigeria", city: "Jos" },
-      { name: "University of Lagos", type: "university", country: "Nigeria", city: "Lagos" },
-      { name: "University of Maiduguri", type: "university", country: "Nigeria", city: "Maiduguri" },
-      { name: "University of Nigeria, Nsukka", type: "university", country: "Nigeria", city: "Nsukka" },
-      { name: "University of Port Harcourt", type: "university", country: "Nigeria", city: "Port Harcourt" },
-      { name: "University of Uyo", type: "university", country: "Nigeria", city: "Uyo" },
-      { name: "Usmanu Danfodiyo University", type: "university", country: "Nigeria", city: "Sokoto" },
-
-      // ── State Universities with Medical/Health Sciences ──
-      { name: "Abia State University", type: "university", country: "Nigeria", city: "Uturu" },
-      { name: "Ambrose Alli University", type: "university", country: "Nigeria", city: "Ekpoma" },
-      { name: "Bayelsa Medical University", type: "university", country: "Nigeria", city: "Yenagoa" },
-      { name: "Benue State University", type: "university", country: "Nigeria", city: "Makurdi" },
-      { name: "Chukwuemeka Odumegwu Ojukwu University", type: "university", country: "Nigeria", city: "Uli" },
-      { name: "Delta State University, Abraka", type: "university", country: "Nigeria", city: "Abraka" },
-      { name: "Ebonyi State University", type: "university", country: "Nigeria", city: "Abakaliki" },
-      { name: "Edo State University, Uzairue", type: "university", country: "Nigeria", city: "Iyamho" },
-      { name: "Ekiti State University", type: "university", country: "Nigeria", city: "Ado-Ekiti" },
-      { name: "Gombe State University", type: "university", country: "Nigeria", city: "Gombe" },
-      { name: "Imo State University", type: "university", country: "Nigeria", city: "Owerri" },
-      { name: "Kaduna State University", type: "university", country: "Nigeria", city: "Kaduna" },
-      { name: "Kwara State University", type: "university", country: "Nigeria", city: "Malete" },
-      { name: "Ladoke Akintola University of Technology", type: "university", country: "Nigeria", city: "Ogbomoso" },
-      { name: "Lagos State University", type: "university", country: "Nigeria", city: "Ojo" },
-      { name: "Nasarawa State University, Keffi", type: "university", country: "Nigeria", city: "Keffi" },
-      { name: "Niger Delta University", type: "university", country: "Nigeria", city: "Amassoma" },
-      { name: "Olabisi Onabanjo University", type: "university", country: "Nigeria", city: "Ago-Iwoye" },
-      { name: "Osun State University", type: "university", country: "Nigeria", city: "Osogbo" },
-      { name: "Rivers State University", type: "university", country: "Nigeria", city: "Port Harcourt" },
-      { name: "Sokoto State University", type: "university", country: "Nigeria", city: "Sokoto" },
-
-      // ── Private Universities with Medical/Health Sciences ──
-      { name: "Afe Babalola University", type: "university", country: "Nigeria", city: "Ado-Ekiti" },
-      { name: "Babcock University", type: "university", country: "Nigeria", city: "Ilishan-Remo" },
-      { name: "Bingham University", type: "university", country: "Nigeria", city: "Karu" },
-      { name: "Benson Idahosa University", type: "university", country: "Nigeria", city: "Benin City" },
-      { name: "Igbinedion University", type: "university", country: "Nigeria", city: "Okada" },
-      { name: "Madonna University", type: "university", country: "Nigeria", city: "Elele" },
-      { name: "PAMO University of Medical Sciences", type: "university", country: "Nigeria", city: "Port Harcourt" },
-      { name: "Redeemer's University", type: "university", country: "Nigeria", city: "Ede" },
-      { name: "Nile University of Nigeria", type: "university", country: "Nigeria", city: "Abuja" },
-      { name: "Novena University", type: "university", country: "Nigeria", city: "Ogume" },
-      { name: "Gregory University", type: "university", country: "Nigeria", city: "Uturu" },
-      { name: "Achievers University", type: "university", country: "Nigeria", city: "Owo" },
-      { name: "Elizade University", type: "university", country: "Nigeria", city: "Ilara-Mokin" },
-      { name: "Wesley University", type: "university", country: "Nigeria", city: "Ondo" },
-      { name: "Anchor University", type: "university", country: "Nigeria", city: "Lagos" },
-      { name: "Covenant University", type: "university", country: "Nigeria", city: "Ota" },
-      { name: "Bowen University", type: "university", country: "Nigeria", city: "Iwo" },
-    ];
+    const seeds = NIGERIAN_INSTITUTIONS.map((i) => ({
+      name: i.name,
+      type: i.type || "university",
+      country: "Nigeria",
+      city: i.city || null,
+    }));
     let created = 0;
     for (const seed of seeds) {
       try {
