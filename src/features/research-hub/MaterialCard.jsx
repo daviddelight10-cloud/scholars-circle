@@ -3,8 +3,7 @@ import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
 import { formatRelativeDate } from "./constants";
 
 const VARIANT_TYPES = [
-  { key: "mcq", label: "MCQs", chipLabel: "MCQ", color: "#F5A623", genKind: "mcqs" },
-  { key: "flashcard", label: "Flashcards", chipLabel: "Flashcards", color: "#F5A623", genKind: "mcqs" },
+  { key: "mcq", label: "Rapid Recall", chipLabel: "Rapid Recall", color: "#F5A623", genKind: "mcqs" },
   { key: "summary", label: "Summary", chipLabel: "Summary", color: "#F5A623", genKind: "summary" },
 ];
 
@@ -13,10 +12,6 @@ function getVariantCount(variant) {
   try {
     if (variant.contentType === "mcq" && variant.mcqData) {
       const data = typeof variant.mcqData === "string" ? JSON.parse(variant.mcqData) : variant.mcqData;
-      return Array.isArray(data) ? data.length : 0;
-    }
-    if (variant.contentType === "flashcard_deck" && variant.flashcardData) {
-      const data = typeof variant.flashcardData === "string" ? JSON.parse(variant.flashcardData) : variant.flashcardData;
       return Array.isArray(data) ? data.length : 0;
     }
   } catch {

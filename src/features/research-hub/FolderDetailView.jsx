@@ -39,7 +39,7 @@ export default function FolderDetailView({
   const allFiles = useMemo(() => {
     const docs = [...(folderCategorized.materials || [])];
     const seen = new Set(docs.map((d) => d.id));
-    for (const list of ["mcqs", "flashcards", "summaries"]) {
+    for (const list of ["mcqs", "summaries"]) {
       for (const f of folderCategorized[list] || []) {
         // Standalone items the PDF viewer's study tool auto-saves are titled
         // "[AI] …" — keep them out of the Files grid (they live in library).

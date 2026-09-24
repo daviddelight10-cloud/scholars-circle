@@ -800,7 +800,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
                               <span style={{ fontSize: 20, flexShrink: 0 }}>{entry.type === "mcq" ? "📝" : "📄"}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} MCQs` : "Summary"} · {entry.rangeLabel}
+                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} questions` : "Summary"} · {entry.rangeLabel}
                                 </div>
                                 <div style={{ fontSize: 10, color: t.muted, marginTop: 2 }}>
                                   {new Date(entry.ts).toLocaleDateString(undefined, { month: "short", day: "numeric" })} at {new Date(entry.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}

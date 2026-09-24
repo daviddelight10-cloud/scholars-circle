@@ -60,7 +60,7 @@ const FEATURES = [
 const TIMELINE = [
   { time: '7:42 AM', title: 'Upload today\'s anatomy lecture slide', desc: 'Straight from your phone, right after the dissection hall — no scanning, no typing it out.', exam: false },
   { time: '7:43 AM', title: 'Circle to Ask the diagram you didn\'t catch', desc: 'Lasso the brachial plexus diagram, ask your question, get an answer grounded in that exact page.', exam: false },
-  { time: '8:15 AM', title: 'Five practice questions, generated on the spot', desc: 'From that exact slide — clinical vignettes and MCQs, not generic trivia pulled off the internet.', exam: false },
+  { time: '8:15 AM', title: 'Five practice questions, generated on the spot', desc: 'From that exact slide — clinical vignettes and practice questions, not generic trivia pulled off the internet.', exam: false },
   { time: '11:50 PM', title: 'Spaced repetition resurfaces the three things you\'ll forget', desc: 'The embryology facts you\'re actually likely to miss in tomorrow\'s CBT — not a random reshuffle.', exam: true },
 ];
 
@@ -69,7 +69,7 @@ const FAQS = [
   { q: 'Can I use it during clinical rotations?', a: 'Absolutely. Scholar\'s Circle is a PWA (Progressive Web App) — install it on your phone and use it offline during ward rounds, clinic postings, or commute to the teaching hospital. Your spaced repetition queue syncs the moment you\'re back online.' },
   { q: 'Is this only for MBBS students?', a: 'No. While we built it as MBBS students, Scholar\'s Circle works for Nursing, Pharmacy, Physiology, Medical Laboratory Science, Anatomy, Public Health, Radiography, and other health-science programs. If your course has PDFs and past questions, it works for you.' },
   { q: 'Will it replace my textbook?', a: 'No — it complements it. Textbooks give you the foundation; Scholar\'s Circle turns that foundation into active recall. Think of it as the bridge between reading Gray\'s Anatomy and actually remembering what you read when the examiner asks.' },
-  { q: 'How is this different from Anki?', a: 'Anki is powerful but requires you to manually create every flashcard — hours of work most medical students don\'t have. Scholar\'s Circle uses AI to generate clinical vignettes, MCQs, and flashcards directly from your lecture PDFs. No card creation. No copying diagrams by hand. Just upload and practice.' },
+  { q: 'How is this different from Anki?', a: 'Anki is powerful but requires you to manually create every flashcard — hours of work most medical students don\'t have. Scholar\'s Circle uses AI to generate clinical vignettes and practice questions directly from your lecture PDFs. No card creation. No copying diagrams by hand. Just upload and practice.' },
   { q: 'What if I get a question wrong?', a: 'The spaced repetition engine immediately logs the topic as a weak area and schedules it to resurface sooner — before your next CBT or professional exam. You\'ll also see exactly which subjects and organ systems need more attention on your mastery ring.' },
 ];
 

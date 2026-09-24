@@ -151,7 +151,7 @@ export default function TopicSheet({
 
   const EXPLAIN = {
     stability: "is how many days your memory of these items lasts before recall drops to 90%.",
-    items: "is the total number of MCQ questions available across the matched documents for this topic.",
+    items: "is the total number of practice questions available across the matched documents for this topic.",
     mastered: "is how many of those questions you've answered correctly enough times to be considered learned.",
     retrievability: "is the estimated chance you'd recall a random item correctly right now.",
   };

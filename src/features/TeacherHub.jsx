@@ -409,7 +409,7 @@ export default function TeacherHub({ token, auth }) {
             <div>
               <div className="syne" style={{ fontWeight:800, fontSize:16 }}>Teacher Hub</div>
               <div style={{ fontSize:11, color:"#444", marginTop:1 }}>
-                Scholar's Circle · {questions.length} MCQs · {notes.length} Notes
+                Scholar's Circle · {questions.length} questions · {notes.length} Notes
               </div>
             </div>
             <div style={{ marginLeft:"auto", display:"flex", gap:8, alignItems:"center" }}>
@@ -459,7 +459,7 @@ export default function TeacherHub({ token, auth }) {
             {/* Sub tabs + filter */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18, flexWrap:"wrap", gap:12 }}>
               <div style={{ display:"flex", background:"rgba(255,255,255,0.03)", borderRadius:10, padding:3, gap:2 }}>
-                {[{id:"mcq",label:"⚡ MCQ Questions"},{id:"notes",label:"📄 Study Notes"}].map(t => (
+                {[{id:"mcq",label:"⚡ Rapid Recall"},{id:"notes",label:"📄 Study Notes"}].map(t => (
                   <button key={t.id} onClick={() => setResTab(t.id)} style={{
                     background:resTab===t.id?"linear-gradient(135deg,#FFD700,#6C63FF)":"transparent",
                     color:resTab===t.id?"#fff":"#555",
@@ -771,8 +771,8 @@ export default function TeacherHub({ token, auth }) {
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:14 }}>
                 {[
                   {icon:"1️⃣", title:"Sign Up Free", desc:"Create an account in under 2 minutes. No credit card needed."},
-                  {icon:"2️⃣", title:"Pick Your Subjects", desc:"Choose your courses and access community MCQs and notes instantly."},
-                  {icon:"3️⃣", title:"Study with AI", desc:"Generate flashcards, use the AI tutor, and quiz yourself daily."},
+                  {icon:"2️⃣", title:"Pick Your Subjects", desc:"Choose your courses and access community practice questions and notes instantly."},
+                  {icon:"3️⃣", title:"Study with AI", desc:"Generate practice questions, use the AI tutor, and quiz yourself daily."},
                   {icon:"4️⃣", title:"Track Progress", desc:"See your improvement, streaks, and XP grow over time."},
                 ].map(s => (
                   <div key={s.title} className="card" style={{ padding:"18px 16px", textAlign:"center" }}>

@@ -87,7 +87,7 @@ export default function ExamSimulationRunner({ subject, resourceIds, questionCou
           _resourceTitle: i.resource?.title,
         }));
       if (enriched.length === 0) {
-        setExamError("No MCQ questions found. Add MCQ resources first, or try Spaced Review to initialize questions.");
+        setExamError("No questions found. Add a Rapid Recall set first, or try Spaced Review to initialize questions.");
         setLoading(false);
         return;
       }

@@ -19,7 +19,7 @@ export const contentTypeConfig = {
   pptx: { label: "PPT", icon: "📊", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
   txt: { label: "Text", icon: "📃", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
   note: { label: "Note", icon: "📝", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
-  mcq: { label: "MCQ", icon: "✎", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  mcq: { label: "Rapid Recall", icon: "✎", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
   flashcard_deck: { label: "Flashcards", icon: "🎴", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
   tutorial_question: { label: "Tutorial Q", icon: "❓", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
 };

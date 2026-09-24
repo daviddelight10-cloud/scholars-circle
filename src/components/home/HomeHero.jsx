@@ -87,7 +87,7 @@ function FirstRunHero({ onAddFirst, onTrySample }) {
       </div>
       <h2 className="hm-fr-title">Turn your notes into memory.</h2>
       <p className="hm-fr-sub">
-        Scholars Circle turns every PDF you upload into flashcards, MCQs and daily
+        Scholars Circle turns every PDF you upload into practice questions and daily
         reviews — so the reading you do today actually sticks on exam day.
       </p>
       <div className="hm-steps">

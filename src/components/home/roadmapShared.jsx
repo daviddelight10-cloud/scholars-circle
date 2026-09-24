@@ -93,7 +93,7 @@ export function DocRow({ match, variants, onTap }) {
   const [hover, setHover] = useState(false);
   const r = match.resource || {};
   const conf = match.confidence != null ? Math.round(match.confidence * 100) : null;
-  const chips = [variants?.mcq && "✎", variants?.flashcard && "🎴", variants?.summary && "📝"].filter(Boolean);
+  const chips = [variants?.mcq && "✎", variants?.summary && "📝"].filter(Boolean);
   const meta = [r.contentType, conf != null ? `${conf}% match` : null, chips.length ? chips.join(" ") : null]
     .filter(Boolean).join(" · ");
   return (
@@ -173,8 +173,7 @@ function DocPracticeSheet({ match, variants, topic, onOpenResource, onStartStudy
         <div style={{ fontSize: 15, fontWeight: 700, color: D.textHi, fontFamily: FONTS.display, marginBottom: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {r.title || "Untitled"}
         </div>
-        {variants?.mcq && btn("✎", "MCQs", "Practice questions", () => onOpenResource?.(variants.mcq.shareToken))}
-        {variants?.flashcard && btn("🎴", "Flashcards", "Review the deck", () => onOpenResource?.(variants.flashcard.shareToken))}
+        {variants?.mcq && btn("✎", "Rapid Recall", "Practice questions", () => onOpenResource?.(variants.mcq.shareToken))}
         {variants?.summary && btn("📝", "Summary", "Read the AI summary", () => onOpenResource?.(variants.summary.shareToken))}
         {r.shareToken && btn("📄", "View material", "Open the original document", () => onOpenResource?.(r.shareToken))}
         {onStartStudying && btn("⚡", "Practice this topic", "AI Tutor with topic context", () => onStartStudying(topic), true)}
@@ -196,7 +195,7 @@ export function TopicDetailPanel({ topic, topics, progress, matches, onOpenResou
 
   const hasAnyMaterial = matches.some((m) => {
     const v = resourceVariantsMap?.get(m.resourceId);
-    return v?.mcq || v?.flashcard || v?.summary;
+    return v?.mcq || v?.summary;
   });
 
   const openDocPractice = (m) => {

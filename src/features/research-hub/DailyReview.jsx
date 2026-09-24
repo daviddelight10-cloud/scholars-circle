@@ -53,8 +53,13 @@ export default function DailyReview({ onBack, onComplete }) {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/due?limit=50`, { headers: getAuthHeaders() });
       if (res.ok) {
         const data = await res.json();
-        setAllItems(data.items || []);
-        setByFolder(data.byFolder || {});
+        setAllItems((data.items || []).filter(i => i.itemType !== "flashcard"));
+        const folders = {};
+        for (const [k, f] of Object.entries(data.byFolder || {})) {
+          const items = (f.items || []).filter(i => i.itemType !== "flashcard");
+          if (items.length) folders[k] = { ...f, items, dueCount: items.length };
+        }
+        setByFolder(folders);
         setDailyGoal(data.dailyGoal || 20);
       } else {
         setError("Failed to load review items");
@@ -169,7 +174,6 @@ export default function DailyReview({ onBack, onComplete }) {
           resourceId: currentItem.resource?.id,
           itemType: currentItem.itemType,
           pageIndex: currentItem.pageIndex,
-          flashcardId: currentItem.flashcard?.id || currentItem.flashcardId || undefined,
           grade,
           topic: currentItem.topic,
           subject: currentItem.subject,
@@ -260,7 +264,6 @@ export default function DailyReview({ onBack, onComplete }) {
           <div className="space-y-2">
             {folderEntries.map(([key, f], idx) => {
               const mcqCount = f.items.filter(i => i.itemType === "mcq" || i.itemType === "legacy_mcq").length;
-              const fcCount = f.items.filter(i => i.itemType === "flashcard").length;
               return (
                 <button
                   key={key}
@@ -277,7 +280,6 @@ export default function DailyReview({ onBack, onComplete }) {
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-hub-text-dim">
                       {mcqCount > 0 && <span className="rounded bg-hub-bg px-1.5 py-0.5">❓ {mcqCount}</span>}
-                      {fcCount > 0 && <span className="rounded bg-hub-bg px-1.5 py-0.5">🃏 {fcCount}</span>}
                     </div>
                   </div>
                   <div className="flex h-7 min-w-[28px] items-center justify-center rounded-full border border-hub-border bg-hub-bg px-2 text-[11px] font-bold text-hub-text-muted transition-colors group-hover:border-gold-border group-hover:text-gold">{f.dueCount}</div>
@@ -422,7 +424,7 @@ export default function DailyReview({ onBack, onComplete }) {
                 )}
                 <div className="flex items-center justify-between rounded-lg bg-hub-bg px-3 py-2">
                   <span className="text-[10px] text-hub-text-dim">Item Types</span>
-                  <span className="text-[10px] text-hub-text-muted">📄 {fsrsStats.pdfCount} · ❓ {fsrsStats.mcqCount} · 🃏 {fsrsStats.flashcardCount}</span>
+                  <span className="text-[10px] text-hub-text-muted">📄 {fsrsStats.pdfCount} · ❓ {fsrsStats.mcqCount}</span>
                 </div>
               </div>
             )}
@@ -440,8 +442,8 @@ export default function DailyReview({ onBack, onComplete }) {
     );
   }
 
-  const typeIcon = { flashcard: "🃏", mcq: "❓", legacy_mcq: "❓" }[currentItem?.itemType] || "📚";
-  const typeLabel = { flashcard: "Flashcard", mcq: "MCQ", legacy_mcq: "MCQ" }[currentItem?.itemType] || "Review";
+  const typeIcon = { mcq: "❓", legacy_mcq: "❓" }[currentItem?.itemType] || "📚";
+  const typeLabel = { mcq: "Rapid Recall", legacy_mcq: "Rapid Recall" }[currentItem?.itemType] || "Review";
 
   const progressPct = sessionStats.total > 0 ? Math.round((sessionStats.reviewed / sessionStats.total) * 100) : 0;
 
@@ -509,23 +511,19 @@ export default function DailyReview({ onBack, onComplete }) {
         ) : (
         /* Card content */
         <div className="w-full rounded-2xl border border-hub-border bg-hub-surface p-5 shadow-lg shadow-black/20">
-          {currentItem.itemType === "flashcard" ? (
-            <>
-              {(currentItem.subject || currentItem.resource?.title) && (
-                <div className="mb-3 text-[10px] uppercase tracking-wider text-hub-text-dim">
-                  {currentItem.resource?.title}{currentItem.subject && currentItem.resource?.title ? " · " : ""}{currentItem.subject}
-                </div>
-              )}
-              <div className="mb-4 text-[15px] font-bold leading-relaxed text-hub-text">
-                {currentItem.flashcard?.front || "No front text"}
-              </div>
-              {showAnswer && (
-                <div className="rounded-xl border border-success-border bg-success-bg p-3 text-[13px] leading-relaxed text-success-text">
-                  {currentItem.flashcard?.back || "No back text"}
-                </div>
-              )}
-            </>
-          ) : null}
+          {(currentItem.subject || currentItem.resource?.title) && (
+            <div className="mb-3 text-[10px] uppercase tracking-wider text-hub-text-dim">
+              {currentItem.resource?.title}{currentItem.subject && currentItem.resource?.title ? " · " : ""}{currentItem.subject}
+            </div>
+          )}
+          <div className="mb-4 text-[15px] font-bold leading-relaxed text-hub-text">
+            {currentItem.flashcard?.front || currentItem.topic || "Review item"}
+          </div>
+          {showAnswer && currentItem.flashcard?.back && (
+            <div className="rounded-xl border border-success-border bg-success-bg p-3 text-[13px] leading-relaxed text-success-text">
+              {currentItem.flashcard.back}
+            </div>
+          )}
 
           {/* Action buttons inside card */}
           {!showAnswer && (

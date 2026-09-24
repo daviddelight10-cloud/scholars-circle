@@ -70,21 +70,20 @@ export default function SharedFolderView() {
   const resources = folder?.resources || [];
 
   const categorized = useMemo(() => {
-    const materials = [], summaries = [], flashcards = [], mcqs = [];
+    const materials = [], summaries = [], mcqs = [];
     for (const r of resources) {
+      if (r.contentType === "flashcard_deck") continue; // dedicated flashcard feature removed
       if (r.contentType === "mcq") mcqs.push(r);
-      else if (r.contentType === "flashcard_deck") flashcards.push(r);
       else if (r.title?.startsWith("[AI] Summary")) summaries.push(r);
       else materials.push(r);
     }
-    return { materials, summaries, flashcards, mcqs };
+    return { materials, summaries, mcqs };
   }, [resources]);
 
   const subTabs = [
     ["materials", "📄 Materials", categorized.materials.length],
     ["summaries", "📝 Summary", categorized.summaries.length],
-    ["flashcards", "🎴 Flash Cards", categorized.flashcards.length],
-    ["mcqs", "✎ MCQs", categorized.mcqs.length],
+    ["mcqs", "✎ Rapid Recall", categorized.mcqs.length],
   ];
   const currentList = categorized[activeTab] || [];
 
@@ -229,19 +228,17 @@ export default function SharedFolderView() {
       ) : (
         <div style={{ textAlign: "center", padding: "60px 20px" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>
-            {activeTab === "materials" ? "📄" : activeTab === "summaries" ? "📝" : activeTab === "flashcards" ? "🎴" : "✎"}
+            {activeTab === "materials" ? "📄" : activeTab === "summaries" ? "📝" : "✎"}
           </div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#7b82b8", marginBottom: 6 }}>
             {activeTab === "materials" && "No materials in this folder"}
             {activeTab === "summaries" && "No AI summaries available"}
-            {activeTab === "flashcards" && "No flashcard decks available"}
-            {activeTab === "mcqs" && "No MCQ sets available"}
+            {activeTab === "mcqs" && "No Rapid Recall sets available"}
           </div>
           <div style={{ fontSize: 13, color: "#4a5080" }}>
             {activeTab === "materials" && "No approved materials in this shared folder yet."}
             {activeTab === "summaries" && "AI-generated summaries will appear here."}
-            {activeTab === "flashcards" && "Flashcard decks will appear here."}
-            {activeTab === "mcqs" && "MCQ sets will appear here."}
+            {activeTab === "mcqs" && "Rapid Recall sets will appear here."}
           </div>
         </div>
       )}

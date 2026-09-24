@@ -116,7 +116,7 @@ export function AIQuestionGen({ onImportQuestions }) {
   return (
     <div className="lesson-block">
       <h3>AI Question Generator</h3>
-      <p className="muted">Paste a topic, get instant MCQs added to the Custom Bank.</p>
+      <p className="muted">Paste a topic, get instant Rapid Recall questions added to the Custom Bank.</p>
       <div className="row" style={{ flexWrap: "wrap" }}>
         <input value={topic} onChange={e => setTopic(e.target.value)} placeholder="Topic (e.g. Cell Division, Integration)" style={{ flex: 2, minWidth: 200 }} />
         <select value={count} onChange={e => setCount(Number(e.target.value))}>

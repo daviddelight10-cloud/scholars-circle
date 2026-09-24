@@ -455,7 +455,7 @@ export default function Dashboard({
                   return (
                     <Fragment key={d.shareToken}>
                       <div className="hm-doc" onClick={() => onOpenResource?.(d.shareToken, prog?.lastPage)}>
-                        <span className="hm-badge">{isMcq ? "MCQ" : d.subject || "Document"}</span>
+                        <span className="hm-badge">{isMcq ? "Rapid Recall" : d.subject || "Document"}</span>
                         <h3>{d.title}</h3>
                         <div className="hm-sub">{isMcq ? relTime(d.ts) : d.subject || relTime(d.ts)}</div>
                         {pct != null && <div className="hm-bar"><i style={{ width: `${pct}%` }} /></div>}

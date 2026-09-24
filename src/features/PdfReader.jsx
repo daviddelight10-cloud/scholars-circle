@@ -1846,18 +1846,6 @@ ${extractedText}
     setFsrsFlashcardView("review");
   };
 
-  const serverFlashcardsPurgedRef = useRef(false);
-  const purgeServerFlashcards = () => {
-    if (serverFlashcardsPurgedRef.current || !propResourceId) return;
-    serverFlashcardsPurgedRef.current = true;
-    // Legacy cleanup: delete old FSRS-scheduled flashcards for this resource so
-    // they leave the daily review — reader flashcards are device-local now.
-    fetch(`${API_BASE}/api/resources/fsrs/flashcards/${propResourceId}`, {
-      method: "DELETE",
-      headers: getFsrsAuthHeaders(),
-    }).catch(() => {});
-  };
-
   const generateFlashcards = async () => {
     if (fsrsFlashcardLoading) return;
     setFsrsFlashcardLoading(true);
@@ -5162,16 +5150,6 @@ ${combinedText.slice(0, 24000)}
                         <button
                           style={{
                             ...s.studySegBtn,
-                            background: studyMode === "flashcard" ? T.accent : "none",
-                            color: studyMode === "flashcard" ? "white" : T.text,
-                          }}
-                          onClick={() => { setStudyMode("flashcard"); fetchFlashcards(); purgeServerFlashcards(); setFsrsFlashcardView("menu"); }}
-                        >
-                          🎴 Flashcards
-                        </button>
-                        <button
-                          style={{
-                            ...s.studySegBtn,
                             background: studyMode === "voice" ? T.accent : "none",
                             color: studyMode === "voice" ? "white" : T.text,
                           }}
@@ -5576,7 +5554,7 @@ ${combinedText.slice(0, 24000)}
                               </span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} MCQs` : entry.type === "flashcard" ? `${entry.cards?.length || 0} flashcards` : "Summary"} · {entry.rangeLabel}
+                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} questions` : entry.type === "flashcard" ? `${entry.cards?.length || 0} cards` : "Summary"} · {entry.rangeLabel}
                                 </div>
                                 <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>
                                   {new Date(entry.ts).toLocaleDateString(undefined, { month: "short", day: "numeric" })} at {new Date(entry.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
@@ -5703,7 +5681,7 @@ ${combinedText.slice(0, 24000)}
                 {studyStep === "history" && historyView?.type === "mcq" && !historyQuizShowResults && (
                   <div style={s.studyBody}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📝 Practice MCQs</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📝 Practice Rapid Recall</span>
                       <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setHistoryView(null)}>← Back</button>
                     </div>
                     <div style={{ fontSize: 10, color: T.muted, marginBottom: 12 }}>

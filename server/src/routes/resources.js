@@ -990,25 +990,8 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
       include: { uploader: { select: { id: true, username: true, role: true } } },
     });
 
-    // Seed FSRS PdfReviewItems for each flashcard in a flashcard_deck
-    if (contentType === "flashcard_deck" && parsedFlashcardData) {
-      const now = new Date();
-      await prisma.pdfReviewItem.createMany({
-        data: parsedFlashcardData.map((_, idx) => ({
-          userId: req.user.sub,
-          resourceId: resource.id,
-          itemType: "flashcard",
-          pageIndex: -1,
-          flashcardId: `deck_${idx}`,
-          state: 0,
-          stability: 0,
-          difficulty: 0,
-          reps: 0,
-          lapses: 0,
-          dueAt: now,
-        })),
-      }).catch(() => {});
-    }
+    // Flashcard decks no longer seed FSRS items — the dedicated flashcard
+    // feature was removed; card-style practice runs inside the MCQ runner.
 
     // Auto-bookmark for the creator so it appears in "My Space"
     await prisma.resourceBookmark.upsert({
@@ -1213,7 +1196,7 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 50));
     const subjectFilter = req.query.subject || null;
 
-    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf"] } };
+    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf", "flashcard"] } };
     if (subjectFilter) where.subject = subjectFilter;
 
     // Fetch ALL due items (not just `limit`) so we can prioritize properly before capping
@@ -1242,11 +1225,6 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const dailyCap = Math.min(dailyGoal || limit, limit);
     const cappedItems = items.slice(0, dailyCap);
 
-    // Fetch flashcard data
-    const flashcardIds = cappedItems.filter((i) => i.itemType === "flashcard").map((f) => f.flashcardId).filter(Boolean);
-    const fcData = await prisma.pdfFlashcard.findMany({ where: { id: { in: flashcardIds } } });
-    const fcMap = new Map(fcData.map((f) => [f.id, f]));
-
     // Enrich items
     const enriched = cappedItems.map((i) => {
       const base = {
@@ -1263,9 +1241,6 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
         subject: i.subject,
         resource: i.resource,
       };
-      if (i.itemType === "flashcard") {
-        base.flashcard = fcMap.get(i.flashcardId) || null;
-      }
       if ((i.itemType === "mcq" || i.itemType === "legacy_mcq") && i.resource?.mcqData) {
         const mcqData = typeof i.resource.mcqData === "string" ? JSON.parse(i.resource.mcqData) : i.resource.mcqData;
         if (Array.isArray(mcqData) && mcqData[i.pageIndex]) {
@@ -1316,7 +1291,7 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
   try {
     const now = new Date();
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf"] } },
+      where: { userId: req.user.sub, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf", "flashcard"] } },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
     });
 
@@ -1397,7 +1372,7 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
     since.setDate(since.getDate() - days);
 
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, itemType: { notIn: ["page", "whole_pdf"] } },
+      where: { userId: req.user.sub, itemType: { notIn: ["page", "whole_pdf", "flashcard"] } },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true },
     });
 
@@ -1462,7 +1437,7 @@ router.get("/fsrs/status/:resourceId", requireAuth, async (req, res) => {
   try {
     const { resourceId } = req.params;
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, resourceId, itemType: { notIn: ["page", "whole_pdf"] } },
+      where: { userId: req.user.sub, resourceId, itemType: { notIn: ["page", "whole_pdf", "flashcard"] } },
       orderBy: { itemType: "asc" },
     });
 

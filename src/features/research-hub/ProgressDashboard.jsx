@@ -41,7 +41,7 @@ export default function ProgressDashboard({ progressData, reviewCount, reviewSta
         <div className="px-5 py-14 text-center text-sm text-hub-text-dim">
           <div className="mb-2 text-4xl">📊</div>
           <div className="text-sm font-bold text-hub-text-muted">No quiz attempts yet</div>
-          <div className="mt-1 text-[13px]">Take an MCQ to see your progress here.</div>
+          <div className="mt-1 text-[13px]">Take a Rapid Recall session to see your progress here.</div>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { extractFileText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
-import { generateMcqs, generateFlashcards, generateSummary, mcqsToFlashcards } from "../../lib/generationCore";
+import { generateMcqs, generateSummary } from "../../lib/generationCore";
 import { API_BASE } from "../../lib/constants";
 
 const FETCH_TIMEOUT_MS = 30_000;
@@ -83,7 +83,7 @@ function summaryToPdfBuffer(title, subject, summaryText) {
  *  - genProgress: progress message string
  *  - genError: error message string
  *  - generate: async (resource, kind, onSave, existingMcqData) => void
- *      kind: "mcqs" | "flashcards" | "summary"
+ *      kind: "mcqs" | "summary"
  *      onSave: (payload) => void  — called with the study-tool-save payload
  *      existingMcqData: array of existing MCQ rows (for reuse), optional
  */
@@ -112,45 +112,30 @@ export function useMaterialGenerate() {
       const baseTitle = resource.title || "Material";
       const baseSubject = resource.subject || "";
 
-      if (kind === "mcqs" || kind === "flashcards") {
-        // Combined generation: MCQs first, then flashcards derived from MCQs
+      if (kind === "mcqs") {
         let mcqRows = null;
 
         if (existingMcqData && Array.isArray(existingMcqData) && existingMcqData.length > 0) {
           mcqRows = existingMcqData;
-          setGenProgress(`Using ${mcqRows.length} existing MCQs — generating flashcards…`);
+          setGenProgress(`Using ${mcqRows.length} existing questions…`);
         } else {
           setGenProgress("Extracting text from material…");
           const { text, images } = await extractResourceText(resource);
-          setGenProgress("Generating MCQs + Flashcards…");
+          setGenProgress("Generating Rapid Recall…");
           const { rows } = await generateMcqs(text, images, setGenProgress);
           mcqRows = rows;
         }
 
-        const flashcards = mcqsToFlashcards(mcqRows);
-        setGenProgress(`Generated ${mcqRows.length} MCQs + ${flashcards.length} flashcards ✓ — saving…`);
+        setGenProgress(`Generated ${mcqRows.length} questions ✓ — saving…`);
 
-        // Save MCQs first
         onSave({
-          title: `${baseTitle} — MCQs`,
+          title: `${baseTitle} — Rapid Recall`,
           subject: baseSubject,
           contentType: "mcq",
           mcqData: JSON.stringify(mcqRows),
           folderId: resource.folderId || null,
           sourceResourceId: resource.id,
           isPublic: false,
-        });
-
-        // Save flashcards second (derived from MCQs)
-        onSave({
-          title: `${baseTitle} — Flashcards`,
-          subject: baseSubject,
-          contentType: "flashcard_deck",
-          flashcardData: JSON.stringify(flashcards),
-          folderId: resource.folderId || null,
-          sourceResourceId: resource.id,
-          isPublic: false,
-          isSecondary: true,
         });
       } else if (kind === "summary") {
         setGenProgress("Extracting text from material…");

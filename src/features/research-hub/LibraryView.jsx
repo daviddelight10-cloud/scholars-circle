@@ -204,7 +204,7 @@ export default function LibraryView({
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold-dim text-sm font-bold text-gold">1</div>
                 <div>
                   <div className="text-[13px] font-bold text-hub-text">Upload your first material</div>
-                  <div className="text-[11px] text-hub-text-dim">Tap the + button below to upload a PDF, note, or create MCQs.</div>
+                  <div className="text-[11px] text-hub-text-dim">Tap the + button below to upload a PDF, note, or create a Rapid Recall set.</div>
                 </div>
               </div>
               <div className="flex items-start gap-3 rounded-xl border border-hub-border bg-hub-surface p-4">

@@ -184,7 +184,7 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
           {!loading && filtered.length === 0 && (
             <div className="fd-empty-sub" style={{ padding: 16 }}>
               {mcqOnly
-                ? "No MCQ sets found — generate MCQs on a material in My Space first."
+                ? "No Rapid Recall sets found — generate one on a material in My Space first."
                 : "No materials yet — upload or save resources in My Space first."}
             </div>
           )}
@@ -283,7 +283,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
         {mode === "quiz" ? (
           <>
             <div className="fd-sheet-sub">
-              Pick a material with MCQs — your circle joins and everyone answers the same questions live.
+              Pick a material with a Rapid Recall set — your circle joins and everyone answers the same questions live.
             </div>
             <label className="fd-label">Quiz material</label>
             {material ? (

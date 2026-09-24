@@ -543,7 +543,7 @@ All text must be plain English. No special characters or symbols.`;
               onClick={startQuiz}
               style={{ borderColor: "#059669", color: "#059669", fontSize: 13 }}
             >
-              🎯 Practice MCQs ({materials.questions?.length || 0})
+              🎯 Practice Rapid Recall ({materials.questions?.length || 0})
             </button>
             <button 
               onClick={() => { setFlashcardMode(true); setCurrentCard(0); setShowBack(false); }}
@@ -691,7 +691,7 @@ All text must be plain English. No special characters or symbols.`;
               </ul>
               
               <h4 style={{ marginTop: 12, color: "var(--text-primary, #111)" }}>❓ Practice Questions</h4>
-              <p style={{ fontSize: 11, color: "var(--text-secondary, #374151)" }}>Click "Practice MCQs" above to take the quiz interactively</p>
+              <p style={{ fontSize: 11, color: "var(--text-secondary, #374151)" }}>Click "Practice Rapid Recall" above to take the quiz interactively</p>
               
               <h4 style={{ marginTop: 12, color: "var(--text-primary, #111)" }}>🃏 Flashcards</h4>
               <p style={{ fontSize: 11, color: "var(--text-secondary, #374151)" }}>Click "Review Flashcards" above to practice interactively</p>

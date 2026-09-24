@@ -125,10 +125,8 @@ export default function PracticeSheet({
   if (!file) return null;
 
   const mcq = file.variants?.mcq || null;
-  const flashcard = file.variants?.flashcard || null;
   const summary = file.variants?.summary || null;
   const mcqCount = getVariantCount(mcq);
-  const cardCount = getVariantCount(flashcard);
   const prog = mcq && mcqProgress ? mcqProgress[mcq.id] : null;
   const mcqPct = prog
     ? (prog.learnedPct ?? (prog.total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100)) : null))
@@ -192,7 +190,7 @@ export default function PracticeSheet({
         <div className="sp-sheet-list">
           <SheetBtn
             icon="✎" iconBg="rgba(245,166,35,0.1)"
-            label="MCQ"
+            label="Rapid Recall"
             sub={mcqSub}
             badge={mcqPct != null ? `${mcqPct}%` : undefined}
             subColor={mcq ? undefined : "#F5A623"}
@@ -214,17 +212,6 @@ export default function PracticeSheet({
             onClick={act(() => onGuidedStudy?.(file))}
           />
           <SheetBtn
-            icon="🎴" iconBg="rgba(245,166,35,0.1)"
-            label="Flashcards"
-            sub={flashcard
-              ? (cardCount ? `${cardCount} cards · ready` : "Ready to review")
-              : "Not generated yet · tap to create"}
-            subColor={flashcard ? undefined : "#F5A623"}
-            variant={flashcard ? undefined : "generate"}
-            disabled={generating}
-            onClick={act(() => flashcard ? onOpen(flashcard.shareToken) : onGenerate?.(file, "mcqs"))}
-          />
-          <SheetBtn
             icon="📝" iconBg="rgba(245,166,35,0.1)"
             label="Summary"
             sub={summary ? "Read the AI summary" : "Not generated yet · tap to create"}
@@ -236,7 +223,7 @@ export default function PracticeSheet({
           <SheetBtn
             icon="🎓" iconBg="rgba(255,84,112,0.1)"
             label="Exam simulator"
-            sub={mcq ? "Timed, mixed-format mock test" : "Generate MCQs first"}
+            sub={mcq ? "Timed, mixed-format mock test" : "Generate Rapid Recall first"}
             disabled={!mcq || generating}
             onClick={act(() => onExamSimulation?.([mcq.id]))}
           />
@@ -252,7 +239,7 @@ export default function PracticeSheet({
           <SheetBtn
             icon="👥" iconBg="rgba(245,166,35,0.1)"
             label="Go live with friends"
-            sub={mcq ? "Quiz together, in real time" : "Generate MCQs first"}
+            sub={mcq ? "Quiz together, in real time" : "Generate Rapid Recall first"}
             subColor={mcq ? undefined : "#F5A623"}
             variant="golive"
             disabled={!mcq || generating || goingLive}

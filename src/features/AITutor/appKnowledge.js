@@ -242,7 +242,7 @@ const CONTENT_TYPE_META = {
   txt: { tag: "Text", icon: "📃" },
   image: { tag: "Image", icon: "🖼" },
   note: { tag: "Note", icon: "📝" },
-  mcq: { tag: "MCQ set", icon: "✎" },
+  mcq: { tag: "Rapid Recall set", icon: "✎" },
   flashcard_deck: { tag: "Flashcards", icon: "🎴" },
   tutorial_question: { tag: "Tutorial Qs", icon: "❓" },
 };

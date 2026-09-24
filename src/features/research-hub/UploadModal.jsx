@@ -164,7 +164,7 @@ export default function UploadModal({
         </div>
 
         <div className="mb-4 flex flex-wrap gap-1.5">
-          {[["pdf", "PDF"], ["image", "Image"], ["docx", "DOCX"], ["pptx", "PPTX"], ["txt", "TXT"], ["note", "Note"], ["mcq", "MCQ set"]].map(([key, label]) => (
+          {[["pdf", "PDF"], ["image", "Image"], ["docx", "DOCX"], ["pptx", "PPTX"], ["txt", "TXT"], ["note", "Note"], ["mcq", "Rapid Recall set"]].map(([key, label]) => (
             <button key={key} onClick={() => setUploadType(key)} className={`cursor-pointer rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all ${
               uploadType === key ? "bg-gold-dim border border-gold-border text-gold" : "border border-hub-border text-hub-text-dim"
             }`}>{label}</button>
@@ -243,7 +243,7 @@ export default function UploadModal({
             {/* AI Generation Section */}
             <div className="mb-3 rounded-lg border border-gold-border bg-hub-bg p-3">
               <div className="mb-2 text-[11px] font-bold text-gold">
-                ✨ Generate MCQs from a file with AI
+                ✨ Generate Rapid Recall from a file with AI
               </div>
               <p className="mb-2 text-[10px] leading-relaxed text-hub-text-muted">
                 Upload a PDF, DOCX, TXT, PPTX, or image — AI will extract and generate up to {MAX_QUESTIONS} questions automatically, or a specific number you choose below. If your document already contains questions, AI will extract them as-is instead of generating new ones. Large documents are split into sections and processed in parallel for speed.
@@ -318,7 +318,7 @@ export default function UploadModal({
                     aiGenerating || !aiFile ? "cursor-not-allowed bg-gold-dim text-gold opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
                   }`}
                 >
-                  {aiGenerating ? "Generating…" : "🤖 Generate MCQs"}
+                  {aiGenerating ? "Generating…" : "🤖 Generate Rapid Recall"}
                 </button>
                 {mcqRows.some((r) => r.question.trim()) && (
                   <button
@@ -377,7 +377,7 @@ export default function UploadModal({
             <button onClick={onSubmitMcq} disabled={uploading} className={`w-full rounded-lg py-3 text-sm font-bold transition-all active:scale-95 ${
               uploading ? "cursor-not-allowed border border-hub-border bg-hub-surface text-hub-text-dim opacity-50" : "bg-gradient-to-br from-[#b8860b] to-gold text-[#0a0a0a]"
             }`}>
-              {uploading ? "Submitting..." : `Submit MCQs (${mcqRows.filter((r) => r.question.trim()).length})`}
+              {uploading ? "Submitting..." : `Submit Rapid Recall (${mcqRows.filter((r) => r.question.trim()).length})`}
             </button>
           </>
         )}

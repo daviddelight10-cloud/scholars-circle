@@ -10,7 +10,7 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
         <div className="mb-3 text-5xl">📚</div>
         <div className="mb-1 text-base font-bold text-hub-text-muted">No review items yet</div>
         <div className="mx-auto max-w-[400px] text-[13px] leading-relaxed text-hub-text-dim">
-          Practice MCQs or study flashcards in the Research Hub. The FSRS algorithm will schedule when to revisit each item for optimal retention.
+          Practice Rapid Recall in the Research Hub. The FSRS algorithm will schedule when to revisit each item for optimal retention.
         </div>
       </div>
     );
@@ -18,7 +18,6 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
 
   const items = fsrsDue?.items || [];
 
-  const flashcards = items.filter((i) => i.itemType === "flashcard");
   const mcqs = items.filter((i) => i.itemType === "mcq" || i.itemType === "legacy_mcq");
 
   return (
@@ -58,36 +57,13 @@ export default function FsrsReviewDashboard({ fsrsDue, fsrsStats, onOpenPdf }) {
         </div>
       </div>
 
-      {flashcards.length > 0 && (
-        <div className="mb-8">
-          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">Flashcards Due</div>
-          <div className="rounded-xl border border-hub-border bg-hub-surface p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-bold text-hub-text">{flashcards.length} flashcard{flashcards.length > 1 ? "s" : ""} due</div>
-                <div className="mt-0.5 text-[11px] text-hub-text-dim">
-                  Across {new Set(flashcards.map((f) => f.resource?.id)).size} resource{new Set(flashcards.map((f) => f.resource?.id)).size > 1 ? "s" : ""}
-                </div>
-              </div>
-              <button onClick={() => {
-                const first = flashcards[0];
-                if (first?.resource?.shareToken) onOpenPdf(first.resource.shareToken);
-              }}
-                className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-4 py-2 text-[11px] font-bold text-gold transition-all active:scale-95">
-                Start Review →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {mcqs.length > 0 && (
         <div className="mb-8">
-          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">MCQs Due</div>
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-hub-text-dim">Rapid Recall Due</div>
           <div className="rounded-xl border border-hub-border bg-hub-surface p-3">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-bold text-hub-text">{mcqs.length} MCQ{mcqs.length > 1 ? "s" : ""} due</div>
+                <div className="text-sm font-bold text-hub-text">{mcqs.length} question{mcqs.length > 1 ? "s" : ""} due</div>
                 <div className="mt-0.5 text-[11px] text-hub-text-dim">
                   Across {new Set(mcqs.map((m) => m.resource?.id)).size} resource{new Set(mcqs.map((m) => m.resource?.id)).size > 1 ? "s" : ""}
                 </div>

@@ -17,12 +17,12 @@ const MORNING_MOTIVATIONS = [
   { title: "📚 Your edge is consistency", body: "Top students aren't smarter — they just show up daily. You're already here. Now go do 1 quiz." },
   { title: "✨ Tiny effort, huge impact", body: "Just 20 minutes of focused practice today = 2.3 hours saved during exams. Start now." },
   { title: "🎯 Focus mode on", body: "Pick the subject that scares you most. Spend 15 minutes there. The fear shrinks every time." },
-  { title: "🔥 You're closer than yesterday", body: "Every question answered, every flashcard reviewed — they all stack. Open the app, take one step." },
+  { title: "🔥 You're closer than yesterday", body: "Every question answered, every review cleared — they all stack. Open the app, take one step." },
   { title: "☕ Coffee + courses = magic", body: "Brew a drink, open one chapter, and let curiosity do the rest. You don't need motivation, just movement." }
 ];
 
 const EVENING_REMINDERS = [
-  { title: "🌙 Don't break your streak!", body: "A quick 10-minute review tonight keeps the knowledge fresh. Open the app and do 3 flashcards." },
+  { title: "🌙 Don't break your streak!", body: "A quick 10-minute review tonight keeps the knowledge fresh. Open the app and do 3 questions." },
   { title: "📖 5 minutes can save your week", body: "Spend just 5 minutes reviewing today's class — research shows it triples retention." },
   { title: "🎓 End your day strong", body: "Pick one topic that confused you today and ask the AI Tutor. Sleep on it, wake up smarter." },
   { title: "⏰ Quick check-in", body: "Have you studied today? Even 10 questions counts. Don't let momentum slip." },
@@ -42,7 +42,7 @@ const STREAK_RISK_BODIES = [
 const STUDY_TIPS = [
   "💡 Tip: Active recall (testing yourself) is 4x more effective than re-reading.",
   "💡 Tip: Teach a concept to your phone in your own words — if you can't, you don't know it yet.",
-  "💡 Tip: Spaced repetition beats marathon sessions. Use the Flashcards tab daily.",
+  "💡 Tip: Spaced repetition beats marathon sessions. Use Daily Review every day.",
   "💡 Tip: Hard problems first — your brain is freshest in the first 25 minutes.",
   "💡 Tip: Sleep is study time. 8 hours = better recall than another hour cramming.",
   "💡 Tip: Use the Pomodoro timer: 25 min focus, 5 min break. Repeat 4×, then rest 20."

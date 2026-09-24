@@ -441,16 +441,16 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   }, [allResources]);
 
   const folderCategorized = useMemo(() => {
-    if (!folderDetail) return { materials: [], summaries: [], flashcards: [], mcqs: [] };
+    if (!folderDetail) return { materials: [], summaries: [], mcqs: [] };
     const all = [...(folderDetail.sharedResources || []), ...(folderDetail.myResources || [])];
-    const materials = [], summaries = [], flashcards = [], mcqs = [];
+    const materials = [], summaries = [], mcqs = [];
     for (const r of all) {
+      if (r.contentType === "flashcard_deck") continue; // dedicated flashcard feature removed
       if (r.contentType === "mcq") mcqs.push(r);
-      else if (r.contentType === "flashcard_deck") flashcards.push(r);
       else if (r.title?.startsWith("[AI] Summary")) summaries.push(r);
       else materials.push(r);
     }
-    return { materials, summaries, flashcards, mcqs };
+    return { materials, summaries, mcqs };
   }, [folderDetail]);
 
   const renderResourceRow = (resource, showApproveReject = false) => {
@@ -542,8 +542,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     const folderSubTabs = [
       ["materials", "📄 Materials", folderCategorized.materials.length],
       ["summary", "📝 Summary", folderCategorized.summaries.length],
-      ["flashcards", "🎴 Flash Cards", folderCategorized.flashcards.length],
-      ["mcqs", "✎ MCQs", folderCategorized.mcqs.length],
+      ["mcqs", "✎ Rapid Recall", folderCategorized.mcqs.length],
     ];
     const currentList = folderCategorized[activeFolderTab] || [];
     const tabBtnStyle = (active) => ({
@@ -608,13 +607,12 @@ export default function TeacherResourcesHub({ onBack } = {}) {
         ) : (
           <div style={{ background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px", padding: "40px", textAlign: "center" }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>
-              {activeFolderTab === "materials" ? "📄" : activeFolderTab === "summary" ? "📝" : activeFolderTab === "flashcards" ? "🎴" : "✎"}
+              {activeFolderTab === "materials" ? "📄" : activeFolderTab === "summary" ? "📝" : "✎"}
             </div>
             <div style={{ fontSize: 14, color: "#7b82b8" }}>
               {activeFolderTab === "materials" && "No materials in this folder yet."}
               {activeFolderTab === "summary" && "No AI-generated summaries yet."}
-              {activeFolderTab === "flashcards" && "No flashcard decks in this folder yet."}
-              {activeFolderTab === "mcqs" && "No MCQ sets in this folder yet."}
+              {activeFolderTab === "mcqs" && "No Rapid Recall sets in this folder yet."}
             </div>
           </div>
         )}

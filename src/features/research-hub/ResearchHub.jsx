@@ -863,12 +863,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     for (const r of folderResources) {
       if (r.sourceResourceId) continue;
 
+      if (r.contentType === "flashcard_deck") continue; // dedicated flashcard feature removed
+
       if (FILE_TYPES.includes(r.contentType)) {
         const derived = derivedBySource[r.id] || [];
         const variants = { summary: null, mcq: null, flashcard: null };
         for (const d of derived) {
           if (d.contentType === "mcq") variants.mcq = d;
-          else if (d.contentType === "flashcard_deck") variants.flashcard = d;
           else if (d.contentType === "pdf" && d.fileName?.startsWith("[AI] Summary")) variants.summary = d;
           else if (d.contentType === "note" && d.title?.startsWith("[AI] Summary")) variants.summary = d;
           else if (d.contentType === "pdf" && d.description && d.title === r.title) variants.summary = d;
@@ -876,8 +877,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         sourceFiles.push({ ...r, variants, standalone: false });
       } else if (r.contentType === "mcq") {
         standaloneItems.push({ ...r, variants: { summary: null, mcq: r, flashcard: null }, standalone: true });
-      } else if (r.contentType === "flashcard_deck") {
-        standaloneItems.push({ ...r, variants: { summary: null, mcq: null, flashcard: r }, standalone: true });
       } else if ((r.contentType === "pdf" || r.contentType === "note") && r.title?.startsWith("[AI] Summary")) {
         standaloneItems.push({ ...r, variants: { summary: r, mcq: null, flashcard: null }, standalone: true });
       } else {
@@ -1193,20 +1192,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         setResources((prev) => [resource, ...prev]);
         if (data.folderId) { fetchFolderDetail(data.folderId); }
         else { fetchResources(); fetchFolders(); }
-        if (data.isSecondary) {
-          setUploading(false);
-          setShowUploadWizard(false);
-          showToast("Saved MCQs + Flashcards to space ✓");
-        } else if (data.contentType === "mcq" && !data.isSecondary) {
-          // First save of combined MCQs+Flashcards — don't reset uploading, second save will follow
-        } else {
-          setUploading(false);
-          const toastMsg = data.contentType === "mcq" ? "MCQs saved to space ✓"
-            : data.contentType === "flashcard_deck" ? "Flashcards saved to space ✓"
-            : data.contentType === "pdf" ? "Summary saved to space ✓"
-            : "Saved to space ✓";
-          showToast(toastMsg);
-        }
+        setUploading(false);
+        setShowUploadWizard(false);
+        const toastMsg = data.contentType === "mcq" ? "Rapid Recall saved to space ✓"
+          : data.contentType === "flashcard_deck" ? "Flashcards saved to space ✓"
+          : data.contentType === "pdf" ? "Summary saved to space ✓"
+          : "Saved to space ✓";
+        showToast(toastMsg);
       })
       .catch((err) => {
         clearTimeout(timeoutId);
@@ -1310,7 +1302,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const handleGoLive = useCallback(async (file) => {
     const mcq = file?.variants?.mcq;
     if (goingLive) return;
-    if (!mcq) { showToast("Generate MCQs on this material first"); return; }
+    if (!mcq) { showToast("Generate Rapid Recall on this material first"); return; }
     setGoingLive(true);
     showToast("Creating live session…");
     try {

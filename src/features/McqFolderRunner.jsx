@@ -189,7 +189,7 @@ export default function McqFolderRunner({ folder, mcqResources, onBack, onStreak
     return (
       <div style={{ ...fullscreenStyle, alignItems: "center", justifyContent: "center" }}>
         <div style={{ fontSize: "32px", marginBottom: "12px" }}>📭</div>
-        <div style={{ fontSize: "15px", marginBottom: "16px", color: "#7b82b8" }}>No MCQs found in this folder.</div>
+        <div style={{ fontSize: "15px", marginBottom: "16px", color: "#7b82b8" }}>No questions found in this folder.</div>
         <button onClick={onBack} style={{ padding: "8px 14px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "8px", fontSize: "13px", color: "#7b82b8", cursor: "pointer" }}>
           ← Back to folder
         </button>

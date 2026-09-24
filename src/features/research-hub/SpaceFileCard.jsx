@@ -166,7 +166,6 @@ export default function SpaceFileCard({
   // Which study tools exist for this file — shown as mini icons in the meta row
   const tools = [
     file.variants?.mcq ? IC.pencil : null,
-    file.variants?.flashcard ? IC.cards : null,
     file.variants?.summary ? IC.notes : null,
   ].filter(Boolean);
 
