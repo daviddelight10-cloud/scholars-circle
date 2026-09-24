@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { callAIChat, extractJSON } from "../../lib/aiClient";
 import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS } from "./caseData";
 import ExitPill from "../../components/ExitPill.jsx";
@@ -871,8 +872,9 @@ Answer the student's follow-up questions about their performance and the underly
         </div>
       )}
 
-      {/* SCREEN 2: CONSULT */}
-      {screen === "consult" && activeCase && (
+      {/* SCREEN 2: CONSULT — portaled to body so it renders as a true
+          full-viewport overlay, above the app topbar and mobile nav */}
+      {screen === "consult" && activeCase && createPortal(
         <div className="vp-consult-screen">
           <div className="vp-consult-col">
             <header className={`vp-glass vp-case-top ${monitorDeteriorating ? "deteriorating" : ""}`}>
@@ -1067,7 +1069,8 @@ Answer the student's follow-up questions about their performance and the underly
               {invOrdered.length === 0 && <div className="vp-empty-hint">No investigations ordered yet.</div>}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* SCREEN 3: ASSESSMENT SHEET */}

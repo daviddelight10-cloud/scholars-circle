@@ -1,5 +1,8 @@
-/* Virtual Patient Clinical Challenge — scoped styles */
-.vp-root {
+/* Virtual Patient Clinical Challenge — scoped styles.
+   Tokens are declared on BOTH roots: the consult screen portals
+   itself to <body>, outside .vp-root's inheritance. */
+.vp-root,
+.vp-consult-screen {
   --vp-ink: #0A0D13;
   --vp-panel: rgba(255,255,255,0.035);
   --vp-panel-border: rgba(255,255,255,0.09);
@@ -12,12 +15,15 @@
   --vp-text: #E7EAF0;
   --vp-text-dim: #8A93A6;
   --vp-text-faint: #565F72;
+  font-family: 'Manrope', sans-serif;
+  color: var(--vp-text);
+}
+
+.vp-root {
   max-width: 1180px;
   margin: 0 auto;
   padding: 22px 16px 60px;
   overflow-x: clip;
-  font-family: 'Manrope', sans-serif;
-  color: var(--vp-text);
 }
 
 .vp-glass {
@@ -29,19 +35,26 @@
 }
 
 /* ============================================================
-   CONSULT — case-top card · chat stream · pinned input
+   CONSULT — full-viewport overlay (portaled to <body>) ·
+   case-top card · chat stream · pinned input
    ============================================================ */
 .vp-consult-screen {
-  height: calc(100dvh - 160px);
-  min-height: 440px;
+  position: fixed;
+  inset: 0;
+  z-index: 150;
   display: flex;
   flex-direction: column;
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(76,141,255,0.10), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(232,184,75,0.06), transparent 55%),
+    var(--vp-ink);
 }
 
 .vp-consult-col {
   width: 100%;
   height: 100%; display: flex; flex-direction: column;
   gap: 12px; min-height: 0;
+  padding: 14px 16px calc(12px + env(safe-area-inset-bottom));
 }
 
 .vp-case-top { padding: 14px 16px 12px; flex-shrink: 0; position: relative; transition: border-color .4s; }
@@ -112,7 +125,7 @@
 }
 .vp-cnt:empty { display: none; }
 
-.vp-chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 2px 10px; }
+.vp-chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 2px 10px; overscroll-behavior: contain; }
 .vp-chat-log { display: flex; flex-direction: column; gap: 12px; }
 .vp-bubble { max-width: min(86%, 760px); padding: 11px 15px; border-radius: 16px; font-size: 14.5px; line-height: 1.55; }
 .vp-bubble.doc { align-self: flex-end; background: var(--vp-blue-dim); border: 1px solid rgba(76,141,255,0.3); border-bottom-right-radius: 4px; }
@@ -492,7 +505,7 @@
   .vp-assess-recap { position: static; }
 }
 @media (max-width: 768px) {
-  .vp-consult-screen { height: calc(100dvh - 230px - env(safe-area-inset-bottom)); }
+  .vp-consult-col { padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); gap: 9px; }
 }
 @media (max-width: 600px) {
   .vp-glass { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
