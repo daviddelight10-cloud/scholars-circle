@@ -7471,9 +7471,9 @@ function App() {
 
               department: data.programme || "",
 
-              discipline: data.programme || "",
+              discipline: data.discipline || "",
 
-              level: data.yearLevel || "",
+              level: data.level || "",
 
               goals: data.goals || "",
 

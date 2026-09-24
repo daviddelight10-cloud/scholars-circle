@@ -117,6 +117,13 @@ function norm(s) {
   return String(s || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+// Map a program level label ("100 Level", "400 (Clinical)", "Resident Year 1")
+// to the ACADEMIC_LEVELS id the profile model uses.
+function normalizeLevelId(yearLevel) {
+  const m = String(yearLevel || "").match(/^(\d+)/);
+  return m ? m[1] : "postgrad";
+}
+
 const SUBJECT_ALIASES = {
   "obstetrics and gynaecology": "obgyn",
   "internal medicine": "medicine",
@@ -324,7 +331,8 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
       universityId: isLocalInstitutionId(uniId) ? null : uniId || null,
       programme: program ? program.label : null,
       department: program ? program.label : null,
-      level: yearLevel || null,
+      discipline: program ? program.id : null,
+      level: yearLevel ? normalizeLevelId(yearLevel) : null,
       learningStyle: "visual",
       goals: goalText(),
       targetGrade: "A",
@@ -337,6 +345,8 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
       confidence,
       programId,
       programme: program ? program.label : null,
+      discipline: program ? program.id : null,
+      level: yearLevel ? normalizeLevelId(yearLevel) : null,
       yearLevel,
       institution: uniName,
       universityId: uniId,

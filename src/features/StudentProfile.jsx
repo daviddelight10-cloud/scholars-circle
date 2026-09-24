@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getMyProfile, saveMyProfile } from "../lib/profileApi.js";
 import { isLocalInstitutionId } from "../lib/universities.js";
+import { MEDICAL_PROGRAMS } from "../lib/medicalPrograms.js";
 
 const PROFILE_KEY = "sc_student_profile_v1";
 
@@ -10,6 +11,7 @@ export const ACADEMIC_LEVELS = [
   { id: "300", label: "300 Level (3rd Year)", icon: "🌳" },
   { id: "400", label: "400 Level (4th Year)", icon: "🎓" },
   { id: "500", label: "500 Level (5th Year)", icon: "🏆" },
+  { id: "600", label: "600 Level (6th Year)", icon: "🏅" },
   { id: "postgrad", label: "Postgraduate", icon: "🔬" },
   { id: "secondary", label: "Secondary School", icon: "📚" }
 ];
@@ -46,10 +48,28 @@ export const EMPTY_PROFILE = {
   updatedAt: null
 };
 
+// Self-heal profiles written before discipline/level stored ids:
+// map display labels ("Law (LL.B)", "100 Level") back to canonical ids.
+function normalizeProfile(p) {
+  if (!p) return p;
+  const next = { ...p };
+  if (next.discipline && !MEDICAL_PROGRAMS.some((x) => x.id === next.discipline)) {
+    const hit = MEDICAL_PROGRAMS.find(
+      (x) => x.label === next.discipline || x.label.replace(/\s*\(.*$/, "").trim() === next.discipline
+    );
+    if (hit) next.discipline = hit.id;
+  }
+  if (next.level && !ACADEMIC_LEVELS.some((l) => l.id === next.level)) {
+    const m = String(next.level).match(/^(\d+)/);
+    next.level = m ? m[1] : (/resident|fellow|postgrad/i.test(next.level) ? "postgrad" : "");
+  }
+  return next;
+}
+
 export function loadProfile() {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? normalizeProfile(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
@@ -103,8 +123,9 @@ export function useStudentProfile(authUserId) {
           studyHoursPerDay: p.studyHoursPerDay ?? 2,
           courses: Array.isArray(p.courses) ? p.courses : [],
         };
-        setProfile(merged);
-        saveProfile(merged);
+        const normalized = normalizeProfile(merged);
+        setProfile(normalized);
+        saveProfile(normalized);
       } catch {
         // offline fallback — keep localStorage
       } finally {

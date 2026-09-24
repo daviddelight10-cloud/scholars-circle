@@ -225,7 +225,7 @@ export default function ProfileScreen({
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
-  const discPickerItems = DISCIPLINES.filter((d) => d.id !== "general").map((d) => ({
+  const discPickerItems = DISCIPLINES.filter((d) => d.id !== "general" && d.id !== "sciences").map((d) => ({
     icon: d.icon,
     label: d.label,
     sub: d.examples.slice(0, 2).join(", "),
