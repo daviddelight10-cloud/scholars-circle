@@ -21,14 +21,25 @@
   --fd-display: "Syne", "Manrope", sans-serif;
   --fd-mono: "JetBrains Mono", monospace;
   background-color: var(--fd-bg);
-  background-image:
-    radial-gradient(440px 280px at 82% -60px, rgba(255, 181, 71, 0.09), transparent 70%),
-    radial-gradient(400px 280px at -12% 18%, rgba(108, 158, 255, 0.07), transparent 70%);
-  background-attachment: fixed;
+  /* Contain the ::before glow's negative z-index inside this root */
+  isolation: isolate;
   color: var(--fd-text);
   min-height: 100dvh;
   font-family: "Manrope", -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient glow pinned to the viewport — background-attachment:fixed is
+   unreliable inside the nested #root scroller, so use a fixed layer */
+.fd-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(440px 280px at 82% -60px, rgba(255, 181, 71, 0.09), transparent 70%),
+    radial-gradient(400px 280px at -12% 18%, rgba(108, 158, 255, 0.07), transparent 70%);
 }
 
 .fd-root button {

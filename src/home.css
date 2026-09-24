@@ -18,6 +18,17 @@
   min-height: 100%;
   padding-top: env(safe-area-inset-top);
   background-color: var(--hm-screen);
+  /* Contain the ::before glow's negative z-index inside this root */
+  isolation: isolate;
+}
+/* Ambient glow pinned to the viewport — background-attachment:fixed is
+   unreliable inside the nested #root scroller, so use a fixed layer */
+.hm-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image:
     radial-gradient(440px 280px at 80% -60px, rgba(255,165,40,.10), transparent 70%),
     radial-gradient(380px 260px at -10% 20%, rgba(90,140,255,.07), transparent 70%);

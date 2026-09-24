@@ -2143,7 +2143,7 @@ body {
     left: 0;
     bottom: 0;
     width: 240px;
-    background: linear-gradient(180deg, #0a0a0a, #0d0d0d);
+    background: linear-gradient(180deg, #0A0D13, #0C0F16);
     border-right: 1px solid rgba(255, 215, 0, 0.12);
     z-index: 90;
     overflow: hidden;
