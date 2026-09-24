@@ -1614,6 +1614,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onSetCourseCode={handleSetFolderCourseCode}
         preparingStudy={preparingStudy}
         fsrsStats={fsrsStats}
+        onJoinLive={(code) => navigate(`/live/${code}`)}
         onDeleteResource={handleDeleteResource}
         onRenameResource={handleRenameResource}
         canDeleteFile={canDeleteFile}

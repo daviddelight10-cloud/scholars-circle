@@ -159,6 +159,8 @@ router.get("/active", requireAuth, async (req, res) => {
         players: total,
         connected,
         maxPlayers: 8,
+        mcqResourceId: room.mcqResourceId || null,
+        resourceId: room.resourceId || null,
         questions: Math.min(room.settings?.numQuestions || room.allQuestions?.length || 0, room.allQuestions?.length || 0),
         createdAt: room.createdAt,
       });

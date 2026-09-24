@@ -123,6 +123,8 @@ export default function PracticeSheet({
   mcqProgress,
   guidedProgress,
   streak,
+  dueCount,
+  onJoinLive,
 }) {
   const { modalProps, focusRef } = useModalA11y({
     isOpen: !!file,
@@ -132,9 +134,10 @@ export default function PracticeSheet({
 
   const dragRef = useRef(null);
   const [livePeople, setLivePeople] = useState([]);
+  const [activeQuizzes, setActiveQuizzes] = useState([]);
 
-  // Real faces for the live tile — suggested people + active quiz hosts,
-  // best-effort; renders nothing until data arrives.
+  // Real faces for the live tile (suggested people + quiz hosts) and any
+  // joinable lobby for this material — best-effort, renders fine without it.
   useEffect(() => {
     if (!file) return;
     let dead = false;
@@ -154,6 +157,7 @@ export default function PracticeSheet({
       for (const u of sug || []) add(u.id || u.username || u.name, u.name || u.username, u.avatar);
       for (const q of quizzes || []) add(q.hostId || q.host, q.hostName || q.host, q.hostAvatar);
       setLivePeople(people.slice(0, 5));
+      setActiveQuizzes(quizzes || []);
     })();
     return () => { dead = true; };
   }, [file]);
@@ -228,15 +232,26 @@ export default function PracticeSheet({
 
   const heroSub = mcq
     ? prog
-      ? `${mcqCount} questions · ${mcqPct ?? 0}% learned${bestPct != null ? ` · best ${bestPct}%` : ""}`
+      ? mcqPct != null
+        ? `${mcqCount} questions · ${mcqPct}% learned`
+        : `best ${prog.bestScore}/${prog.bestTotal ?? prog.total ?? "?"}${prog.attempts > 1 ? ` · ${prog.attempts} attempts` : ""}`
       : (mcqCount ? `${mcqCount} questions queued and ready to go` : "Ready to practice")
     : "Generate questions from this material";
 
+  const gsDone = gsProg && gsProg.done >= gsProg.total;
   const gsSub = preparingStudy
     ? "Extracting document…"
     : gsProg
-      ? (gsProg.done >= gsProg.total ? "All sections complete" : `Continue — ${gsProg.done} of ${gsProg.total} sections`)
+      ? (gsDone ? "All sections complete — review anytime" : `Continue — ${gsProg.done} of ${gsProg.total} sections`)
       : canExtract ? "AI walkthrough" : "No extractable text";
+  const gsBadge = preparingStudy
+    ? null
+    : gsProg ? (gsDone ? "DONE" : `${gsProg.done}/${gsProg.total}`) : "AI";
+
+  // A joinable lobby already running on this material — join instead of hosting
+  const liveMatch = activeQuizzes.find(
+    (q) => (mcq && q.mcqResourceId === mcq.id) || q.resourceId === file.id
+  ) || null;
 
   const shownPeople = livePeople.slice(0, 3);
   const extraPeople = livePeople.length - shownPeople.length;
@@ -294,10 +309,18 @@ export default function PracticeSheet({
                   <span className={`pm-badge-ready${mcq ? "" : " pm-badge-setup"}`}>{mcq ? "Ready" : "Setup"}</span>
                 </div>
                 <div className="pm-hero-sub">{heroSub}</div>
+                {mcq && mcqPct != null && (
+                  <div className="pm-progress" role="progressbar" aria-valuenow={mcqPct} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="pm-progress-bar" style={{ width: `${mcqPct}%` }} />
+                  </div>
+                )}
                 {mcq && (
                   <div className="pm-hero-meta">
-                    <span className="pm-chip"><IcoClock size={12} />~{estMin} min</span>
+                    {mcqCount > 0 && <span className="pm-chip"><IcoClock size={12} />~{estMin} min</span>}
                     <span className="pm-chip"><IcoShuffle size={12} />Mixed types</span>
+                    {bestPct != null && <span className="pm-chip">Best {bestPct}%</span>}
+                    {prog?.attempts > 0 && <span className="pm-chip">{prog.attempts} attempt{prog.attempts > 1 ? "s" : ""}</span>}
+                    {dueCount > 0 && <span className="pm-chip pm-chip-due"><IcoFlame size={11} />{dueCount} due</span>}
                   </div>
                 )}
               </div>
@@ -307,7 +330,7 @@ export default function PracticeSheet({
               disabled={generating}
               onClick={act(() => (mcq ? onOpen(mcq.shareToken) : onGenerate?.(file, "mcqs")))}
             >
-              {mcq ? "Start recall" : generating ? "Generating…" : "Generate questions"} <IcoArrowRight size={15} />
+              {mcq ? (prog ? "Continue recall" : "Start recall") : generating ? "Generating…" : "Generate questions"} <IcoArrowRight size={15} />
             </button>
           </section>
 
@@ -315,7 +338,7 @@ export default function PracticeSheet({
 
           <div className="pm-grid">
             <PmTile
-              tint="tint-gold" featured badge="AI"
+              tint="tint-gold" featured badge={gsBadge}
               icon={<IcoBrain size={17} />}
               name="Guided study"
               sub={gsSub}
@@ -349,14 +372,14 @@ export default function PracticeSheet({
           {/* Live */}
           <button
             className="pm-live"
-            disabled={!mcq || generating || goingLive}
-            onClick={act(() => onGoLive?.(file))}
-            aria-label="Go live with friends — quiz together in real time"
+            disabled={liveMatch ? false : (!mcq || generating || goingLive)}
+            onClick={act(() => (liveMatch ? onJoinLive?.(liveMatch.code) : onGoLive?.(file)))}
+            aria-label={liveMatch ? `Join live quiz — ${liveMatch.players} in lobby` : "Go live with friends — quiz together in real time"}
           >
             <span className="pm-tile-icon"><IcoUsers size={17} /></span>
             <span className="pm-live-body">
-              <span className="pm-live-name"><span className="pm-live-dot" />{goingLive ? "Opening lobby…" : "Go live with friends"}</span>
-              <span className="pm-live-sub">{mcq ? "Quiz together in real time" : "Generate Rapid Recall first"}</span>
+              <span className="pm-live-name"><span className="pm-live-dot" />{liveMatch ? "Join live quiz" : goingLive ? "Opening lobby…" : "Go live with friends"}</span>
+              <span className="pm-live-sub">{liveMatch ? `${liveMatch.players} in lobby · ${liveMatch.questions} questions` : mcq ? "Quiz together in real time" : "Generate Rapid Recall first"}</span>
             </span>
             {shownPeople.length > 0 && (
               <span className="pm-avatars" aria-hidden="true">

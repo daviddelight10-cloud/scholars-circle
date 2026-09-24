@@ -15,7 +15,7 @@ export default function FolderDetailView({
   uploadModal, createFolderModal, bookmarkPicker,
   onStartStudying,
   onGuidedStudy, onDeleteResource, canDeleteFile, preparingStudy, onRenameResource,
-  onGoLive, goingLive, onSetCourseCode, fsrsStats,
+  onGoLive, goingLive, onSetCourseCode, fsrsStats, onJoinLive,
 }) {
   const [sheetFile, setSheetFile] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -326,6 +326,8 @@ export default function FolderDetailView({
         mcqProgress={mcqProgress}
         guidedProgress={guidedProgress}
         streak={fsrsStats?.streak}
+        dueCount={fsrsStats?.dueCount}
+        onJoinLive={onJoinLive}
       />
 
       {/* Guided-study extraction indicator — persists until study opens */}
