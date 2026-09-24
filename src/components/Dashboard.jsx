@@ -411,6 +411,7 @@ export default function Dashboard({
         {/* ── Compact top bar ── */}
         <div className="hm-topbar">
           <GameBar
+            streak={streak}
             save={save}
             onOpenShop={() => { refreshSave(); setOpenSheet("shop"); }}
             onOpenBoard={() => setOpenSheet("board")}
@@ -418,20 +419,12 @@ export default function Dashboard({
           />
         </div>
 
-        {/* Info line — streak, freezes, level. Regular in-flow content;
-            only the tappable buttons above stay pinned. */}
-        <div className="hm-gb-info">
-          <span className="hm-chip" title="Day streak">
-            <HIcon name="flame" size={12} color="#FF8A3D" /><b>{streak || 0}</b>
-          </span>
-          <span className="hm-chip hm-freeze" title="Streak freezes">
-            <HIcon name="freeze" size={11} /><b>{save.freezes || 0}</b>
-          </span>
-          <div className="hm-gb-xp">
-            <span className="hm-lvl">LVL {xpLevel}</span>
-            <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / xpNeeded) * 100)}%` }} /></div>
-            <span className="hm-xptext">{xpIn}/{xpNeeded} XP</span>
-          </div>
+        {/* Level bar — regular in-flow element; scrolls away, only the
+            tappable buttons above stay pinned. */}
+        <div className="hm-gb-xp">
+          <span className="hm-lvl">LVL {xpLevel}</span>
+          <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / xpNeeded) * 100)}%` }} /></div>
+          <span className="hm-xptext">{xpIn}/{xpNeeded} XP</span>
         </div>
         {firstRun && (
           <div className="hm-xp-hint">Review cards and finish cases to earn XP and gems.</div>
