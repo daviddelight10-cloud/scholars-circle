@@ -252,6 +252,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pinchStartScaleRef = useRef(1);
   const pinchMidRef = useRef({ x: 0, y: 0 });
   const pinchActiveRef = useRef(false);
+  const pinchLayoutOriginRef = useRef({ x: 0, y: 0 }); // wrapper's untransformed origin on screen
+  const pinchContentRef = useRef({ x: 0, y: 0 }); // content point pinned under the fingers
   const cssScaleRef = useRef(1); // live CSS scale during pinch (no re-render)
   const lastTapRef = useRef(0);
   // Gallery-style pan-zoom state
@@ -2540,6 +2542,18 @@ ${extractedText}
         x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
         y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
       };
+      // transform-origin is 0 0, so screen = layoutOrigin + t + s·point.
+      // Capture the wrapper's untransformed origin + the content point under
+      // the midpoint — the move handler keeps that point pinned to the fingers.
+      const t0 = panZoomRef.current;
+      const wr = panZoomContentRef.current?.getBoundingClientRect();
+      const ox = wr ? wr.left - t0.x : 0;
+      const oy = wr ? wr.top - t0.y : 0;
+      pinchLayoutOriginRef.current = { x: ox, y: oy };
+      pinchContentRef.current = {
+        x: (pinchMidRef.current.x - ox) / (t0.scale || 1),
+        y: (pinchMidRef.current.y - oy) / (t0.scale || 1),
+      };
       pinchActiveRef.current = true;
       setPinchActive(true);
     } else if (e.touches.length === 1) {
@@ -2565,38 +2579,19 @@ ${extractedText}
       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       pinchMidRef.current = { x: midX, y: midY };
       const startScale = pinchStartScaleRef.current || 1;
-      const startPz = pinchStartPanZoomRef.current;
-      const container = viewerRef.current;
-      if (scrollMode !== "single") {
-        // Continuous mode: visual feedback via CSS transform, commit on pinch end.
-        // Clamp in real-scale space so the preview can never exceed the commit range.
-        const targetScale = Math.max(0.5, Math.min(2.6, startScale * ratio));
-        const visualScale = targetScale / startScale;
-        if (container) {
-          const rect = container.getBoundingClientRect();
-          const focalX = midX - rect.left - rect.width / 2;
-          const focalY = midY - rect.top - rect.height / 2;
-          const scaleDelta = visualScale / (startPz.scale || 1);
-          const newX = (startPz.x || 0) * scaleDelta + focalX * (1 - scaleDelta);
-          const newY = (startPz.y || 0) * scaleDelta + focalY * (1 - scaleDelta);
-          applyPanZoom({ scale: visualScale, x: newX, y: newY });
-        } else {
-          applyPanZoom({ scale: visualScale, x: 0, y: 0 });
-        }
-      } else {
-        // Single mode: CSS preview during gesture — clamped so commit never snaps back
-        const newScale = Math.max(0.5 / startScale, Math.min(2.6 / startScale, startPz.scale * ratio));
-        if (container) {
-          const rect = container.getBoundingClientRect();
-          const focalX = midX - rect.left - rect.width / 2;
-          const focalY = midY - rect.top - rect.height / 2;
-          // Scale the pan offset relative to the focal point
-          const scaleDelta = newScale / startPz.scale;
-          const newX = startPz.x * scaleDelta + focalX * (1 - scaleDelta);
-          const newY = startPz.y * scaleDelta + focalY * (1 - scaleDelta);
-          applyPanZoom({ scale: newScale, x: newX, y: newY });
-        }
-      }
+      const s0 = pinchStartPanZoomRef.current.scale || 1;
+      // Clamp the preview so the committed scale can never exceed the real zoom
+      // range (0.5–2.6) — no snap-back on release, identical for all scroll modes
+      const s = Math.max(0.5 / startScale, Math.min(2.6 / startScale, s0 * ratio));
+      // Keep the content point captured at pinch start pinned under the live
+      // midpoint: screen = layoutOrigin + t + s·point  →  t = M − O − s·C0
+      const O = pinchLayoutOriginRef.current;
+      const C0 = pinchContentRef.current;
+      applyPanZoom({
+        scale: s,
+        x: midX - O.x - s * C0.x,
+        y: midY - O.y - s * C0.y,
+      });
       showZoomBadge();
     } else if (e.touches.length === 1 && isPanning && panZoomRef.current.scale > 1) {
       e.preventDefault();
@@ -2692,14 +2687,32 @@ ${extractedText}
     gestureDrivenRef.current = true;
     pinchStartScaleRef.current = scale;
     pinchStartPanZoomRef.current = { ...panZoomRef.current };
+    // Anchor the zoom at the viewer center using the same origin-0 math as pinch
+    const t0 = panZoomRef.current;
+    const wr = panZoomContentRef.current?.getBoundingClientRect();
+    const ox = wr ? wr.left - t0.x : 0;
+    const oy = wr ? wr.top - t0.y : 0;
+    pinchLayoutOriginRef.current = { x: ox, y: oy };
+    const vr = viewerRef.current?.getBoundingClientRect();
+    const cx = vr ? vr.left + vr.width / 2 : 0;
+    const cy = vr ? vr.top + vr.height / 2 : 0;
+    pinchMidRef.current = { x: cx, y: cy };
+    pinchContentRef.current = {
+      x: (cx - ox) / (t0.scale || 1),
+      y: (cy - oy) / (t0.scale || 1),
+    };
     setPinchActive(true);
   };
 
   const onGestureChangeViewer = (e) => {
     if (!gestureDrivenRef.current) return;
     const startScale = pinchStartScaleRef.current || 1;
-    const target = Math.max(0.5, Math.min(2.6, startScale * e.scale));
-    applyPanZoom({ scale: target / startScale, x: 0, y: 0 });
+    const s0 = pinchStartPanZoomRef.current.scale || 1;
+    const s = Math.max(0.5 / startScale, Math.min(2.6 / startScale, s0 * e.scale));
+    const O = pinchLayoutOriginRef.current;
+    const C0 = pinchContentRef.current;
+    const M = pinchMidRef.current;
+    applyPanZoom({ scale: s, x: M.x - O.x - s * C0.x, y: M.y - O.y - s * C0.y });
     showZoomBadge();
   };
 
@@ -4958,7 +4971,7 @@ ${extractedText}
             ref={panZoomContentRef}
             style={{
               transform: (scrollMode === "single" || pinchActive) ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
-              transformOrigin: "center center",
+              transformOrigin: "0 0",
               transition: pinchActive || isPanning ? "none" : "transform 0.2s ease-out",
               willChange: pinchActive || isPanning ? "transform" : "auto",
               ...(scrollMode === "single" ? {
