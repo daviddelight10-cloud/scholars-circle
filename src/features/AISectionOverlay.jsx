@@ -1613,7 +1613,6 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConvos]  = useState(() => loadConvos());
   const [currentId, setCurrentId]   = useState(null);
-  const [selectedSubject, setSelectedSubject] = useState(null);
   const [resources, setResources] = useState(() => {
     // Seed from the same cache Research Hub writes — instant catalog, refreshed below
     try {
@@ -2049,7 +2048,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           questions = practice?.questions || null;
         }
         if (!questions && !docMatch) {
-          practice = resolveMcqPractice({ subject: selectedSubject?.label || q, topic: q }, resources);
+          practice = resolveMcqPractice({ subject: q, topic: q }, resources);
           questions = practice?.questions || null;
         }
         if (!questions) {
@@ -2061,12 +2060,12 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           try {
             questions = await generateAIQuestions(
               docMatch?.title || q, aiConfig,
-              docMatch ? { label: docMatch.subject || docMatch.title } : selectedSubject,
+              docMatch ? { label: docMatch.subject || docMatch.title } : null,
               docContext
             );
           } catch { questions = null; }
         }
-        const subjectLabel = practice?.subjectLabel || docMatch?.title || selectedSubject?.label || "AI-generated";
+        const subjectLabel = practice?.subjectLabel || docMatch?.title || "AI-generated";
         const practiceObj = practice || {
           subjectLabel, subjectIcon: docMatch ? "📄" : "✦", topic: null,
           questions: questions || [], total: questions?.length || 0,
@@ -2099,7 +2098,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         setStreamStatus(images?.length
           ? `Analyzing ${capturedAttachment?.name || "attachment"}…`
           : "Searching your Research Hub…");
-        const result = await generateAIResponse(aiQuery, aiConfig, messages, selectedSubject, images, subjects, resources, {
+        const result = await generateAIResponse(aiQuery, aiConfig, messages, null, images, subjects, resources, {
           onToken, query: q, mode: askMode, signal: ctl?.signal,
           onMeta: (evt) => {
             const n = evt?.documents?.length || 0;
@@ -2168,7 +2167,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             source: "ai", mode: askMode, answer: partial,
             ytQuery: null, video: null, followUps: [], documents: [],
             flashcards: [], practice: null, questions: [], bankCount: 0,
-            subjectLabel: selectedSubject?.label || null, topic: q,
+            subjectLabel: null, topic: q,
             suggestMode: null, question: q, stopped: true,
           };
           finalMsgs = base.concat({ type: "ai", data: partialData });
@@ -2187,7 +2186,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
           practice,
           questions: practice?.questions || [],
           bankCount: practice?.total || 0,
-          subjectLabel: practice?.subjectLabel || selectedSubject?.label || null,
+          subjectLabel: practice?.subjectLabel || null,
           topic: practice?.topic || q,
           suggestMode: (typeof aiRes?.suggestMode === "string" && MODE_META[aiRes.suggestMode] && aiRes.suggestMode !== askMode) ? aiRes.suggestMode : null,
           question: q,
@@ -2207,7 +2206,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
   const topTitle = { chat: "AI Tutor", practice: "Practice Mode", study: "Guided Study" }[view] || "AI Tutor";
   const topSub   = {
-    chat:     selectedSubject ? `${selectedSubject.label || selectedSubject.id} · Ask anything` : "Scholar's Circle · Ask anything",
+    chat:     "Scholar's Circle · Ask anything",
     practice: data ? `${data.subjectLabel || "AI"} · ${data.bankCount || 0} questions` : "",
     study:    "Roadmap → Explain → Questions → Flashcards",
   }[view] || "";
@@ -2250,29 +2249,6 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               {topSub}
             </div>
           </div>
-
-          {/* Subject selector — only in chat view */}
-          {view === "chat" && subjects?.length > 0 && (
-            <select
-              value={selectedSubject?.id || ""}
-              onChange={e => {
-                const subj = subjects.find(s => s.id === e.target.value);
-                setSelectedSubject(subj || null);
-              }}
-              style={{
-                background: D.accent, border: `0.5px solid ${D.line}`,
-                borderRadius: 8, padding: "5px 8px", fontSize: 11,
-                color: selectedSubject ? D.accent2 : D.muted,
-                fontFamily: "Manrope,sans-serif", outline: "none",
-                cursor: "pointer", flexShrink: 0, maxWidth: 120,
-              }}
-            >
-              <option value="">All subjects</option>
-              {subjects.map(s => (
-                <option key={s.id} value={s.id}>{s.label || s.id}</option>
-              ))}
-            </select>
-          )}
 
           {/* 📚 Guided Study button */}
           <button
