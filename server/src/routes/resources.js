@@ -1035,10 +1035,16 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
 
 async function getUserFsrsWeights(userId) {
   const profile = await prisma.userFsrsProfile.findUnique({ where: { userId } }).catch(() => null);
+  const out = {
+    weights: null,
+    targetRetention: profile?.targetRetention || 0.9,
+    dailyGoal: profile?.dailyGoal || 20,
+    totalReviews: profile?.totalReviews || 0,
+  };
   if (profile?.weights && Array.isArray(profile.weights) && profile.weights.length === 21) {
-    return { weights: profile.weights, targetRetention: profile.targetRetention || 0.9, dailyGoal: profile.dailyGoal || 20 };
+    out.weights = profile.weights;
   }
-  return { weights: null, targetRetention: 0.9, dailyGoal: 20 };
+  return out;
 }
 
 // ── POST /api/resources/fsrs/init — Initialize FSRS tracking for any resource ──
@@ -1336,10 +1342,11 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
       select: { streak: true, longestStreak: true, lastStudied: true, freezes: true },
     }).catch(() => null);
 
-    const { dailyGoal } = await getUserFsrsWeights(req.user.sub);
+    const { dailyGoal, totalReviews } = await getUserFsrsWeights(req.user.sub);
 
     res.json({
       totalItems: items.length,
+      totalReviews,
       dueCount,
       reviewedToday,
       learningCount,

@@ -67,7 +67,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import TabSkeleton from "./components/TabSkeleton";
 import {
   NOTES_KEY, CUSTOM_QUESTIONS_KEY, AI_DOCS_KEY, LECTURE_NOTES_KEY,
-  EMPTY_STATS, EMPTY_QUESTS, BADGES, LEAGUES, DEMO_USERS, DEMO_LIMITS,
+  EMPTY_STATS, EMPTY_QUESTS, LEAGUES, DEMO_USERS, DEMO_LIMITS,
   DEMO_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS, BARE_TABS,
 } from "./lib/constants";
 import { PLANS, getPlan, naira } from "./lib/plans.js";

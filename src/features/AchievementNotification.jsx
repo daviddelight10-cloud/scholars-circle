@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
+import { BADGES, resolveBadges } from "../lib/badges.js";
 
 const RECENT_BADGES_KEY = "sc_recent_badges_v1";
+
+// Subset of the badge catalog computable from this component's props
+// (no fsrsStats/save access here — streak/xp are adapted from legacy stats).
+const NOTIFY_IDS = ["streak_3", "streak_7", "streak_14", "level_5", "night_owl", "early_bird", "comeback"];
+const NOTIFY_BADGES = BADGES.filter((b) => NOTIFY_IDS.includes(b.id));
 
 function loadRecentBadges() {
   try {
@@ -21,25 +27,12 @@ export function AchievementNotification({ stats, history, subjects, mastery }) {
 
   // Check for newly earned badges
   useEffect(() => {
-    const BADGES = [
-      { id: "first_session", icon: "🌱", label: "First Steps", desc: "Complete your first session", check: (s) => s.sessions >= 1 },
-      { id: "sessions_10", icon: "📚", label: "Dedicated", desc: "Complete 10 study sessions", check: (s) => s.sessions >= 10 },
-      { id: "sessions_25", icon: "🏅", label: "Veteran", desc: "Complete 25 study sessions", check: (s) => s.sessions >= 25 },
-      { id: "streak_3", icon: "⚡", label: "On Fire", desc: "Keep a 3-day streak", check: (s) => s.streak >= 3 },
-      { id: "streak_7", icon: "🔥", label: "7-Day Streak", desc: "Keep a 7-day streak", check: (s) => s.streak >= 7 },
-      { id: "xp_100", icon: "⭐", label: "Scholar", desc: "Earn 100 XP", check: (s) => s.xp >= 100 },
-      { id: "xp_500", icon: "💫", label: "Expert", desc: "Earn 500 XP", check: (s) => s.xp >= 500 },
-      { id: "correct_50", icon: "🎯", label: "Sharpshooter", desc: "Get 50 correct answers total", check: (s) => s.totalCorrect >= 50 },
-      { id: "perfect_score", icon: "🏆", label: "Perfectionist", desc: "Score 100% on any exam", check: (s, h) => h.some(x => x.score === x.total && x.total > 0 && x.mode === "exam") },
-      { id: "speed_demon", icon: "💨", label: "Speed Demon", desc: "Finish an exam in under 2 minutes", check: (s, h) => h.some(x => x.mode === "exam" && x.seconds > 0 && x.seconds < 120) },
-      { id: "night_owl", icon: "🦉", label: "Night Owl", desc: "Study after 10 pm", check: (s, h) => h.some(x => new Date(x.ts).getHours() >= 22) },
-      { id: "all_subjects", icon: "🌈", label: "Well Rounded", desc: "Study every subject at least once", check: (s, h, sub) => new Set(h.map(x => x.subjectId)).size >= sub.length },
-      { id: "mastery_80", icon: "🎓", label: "Master", desc: "Reach 80% mastery in any subject", check: (s, h, sub, m) => Object.values(m).some(v => v >= 80) },
-      { id: "mastery_100", icon: "👑", label: "Grandmaster", desc: "Reach 100% mastery in any subject", check: (s, h, sub, m) => Object.values(m).some(v => v >= 100) },
-      { id: "coins_50", icon: "💰", label: "Coin Collector", desc: "Accumulate 50 coins", check: (s) => s.coins >= 50 },
-    ];
-
-    const earnedBadges = BADGES.filter(b => b.check(stats, history, subjects, mastery));
+    const ctx = {
+      stats, history, subjects,
+      save: { xp: stats?.xp || 0 },
+      fsrsStats: { streak: stats?.streak || 0, longestStreak: Math.max(stats?.streak || 0, stats?.longestStreak || 0) },
+    };
+    const earnedBadges = resolveBadges(ctx, NOTIFY_BADGES).filter((b) => b.earned);
     const recentBadges = loadRecentBadges();
     
     // Find newly earned badges

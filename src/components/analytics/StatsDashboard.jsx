@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { API_BASE, BADGES } from "../../lib/constants";
-import { AchievementsBadges } from "../SearchAndBadges";
+import { API_BASE } from "../../lib/constants";
+import BadgesSection from "./BadgesSection";
 import { loadSave, levelProgress } from "../../features/streak-survival/survivalStore.js";
 import "./stats.css";
 
@@ -35,7 +35,37 @@ export default function StatsDashboard({ stats, history, subjects }) {
   const [fsrsStats, setFsrsStats] = useState(() => loadCached("sc_fsrs_stats"));
   const [analytics, setAnalytics] = useState(() => (days === 30 ? loadCached("sc_fsrs_analytics") : null));
   const [save] = useState(() => ({ ...loadSave() }));
+  const [community, setCommunity] = useState({ saved: 0, uploads: 0 });
   const [goalSaving, setGoalSaving] = useState(false);
+
+  // Saved-resource + upload counts for community badges (cheap counts, same
+  // endpoints the Home dashboard uses)
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      let saved = 0, uploads = 0;
+      try {
+        const bm = await fetch(`${API_BASE}/api/resources/bookmarks`, { headers: getAuthHeaders() });
+        if (bm.ok) saved = (await bm.json()).length;
+      } catch {}
+      try {
+        const up = await fetch(`${API_BASE}/api/resources/teacher/my`, { headers: getAuthHeaders() });
+        if (up.ok) uploads = (await up.json()).length;
+      } catch {}
+      if (live) setCommunity({ saved, uploads });
+    })();
+    return () => { live = false; };
+  }, []);
+
+  // Virtual Patient profile → casesCompleted for clinical badges
+  const vpCases = useMemo(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("scholars-circle-auth"))?.authUser;
+      const uid = u?.id || u?.username || "guest";
+      const raw = localStorage.getItem(`scc_clinical_profile::${uid}`);
+      return raw ? (JSON.parse(raw)?.casesCompleted || 0) : 0;
+    } catch { return 0; }
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -134,6 +164,12 @@ export default function StatsDashboard({ stats, history, subjects }) {
 
   const { level, into: xpIn, needed: xpNeeded } = levelProgress(save.xp || 0);
   const xpPct = xpNeeded > 0 ? Math.min(100, (xpIn / xpNeeded) * 100) : 0;
+
+  // Everything badge checks read from
+  const badgeCtx = useMemo(() => ({
+    stats, history, subjects, save,
+    fsrsStats: s, analytics: a, community, vpCases,
+  }), [stats, history, subjects, save, s, a, community, vpCases]);
 
   if (!s && !a) {
     return <div className="sd-root"><p className="sd-loading">Loading your stats…</p></div>;
@@ -283,7 +319,7 @@ export default function StatsDashboard({ stats, history, subjects }) {
       )}
 
       {/* ── Badges ── */}
-      <AchievementsBadges badges={BADGES} stats={stats} history={history} subjects={subjects} />
+      <BadgesSection ctx={badgeCtx} />
     </div>
   );
 }

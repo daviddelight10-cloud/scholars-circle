@@ -57,41 +57,6 @@ export function SearchResults({ query, subjects, onStart }) {
   );
 }
 
-export function AchievementsBadges({ badges, stats, history, subjects }) {
-  const earned = badges.filter(b => { try { return b.check(stats, history, subjects, {}); } catch { return false; } });
-  const locked = badges.filter(b => { try { return !b.check(stats, history, subjects, {}); } catch { return true; } });
-
-  return (
-    <div className="card">
-      <h2>Achievements & Badges</h2>
-      <p className="muted">{earned.length} / {badges.length} earned</p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
-        {earned.map(b => (
-          <div key={b.id} className="badge-card earned">
-            <span className="badge-icon">{b.icon}</span>
-            <strong>{b.label}</strong>
-            <span className="muted" style={{ fontSize: 12 }}>{b.desc}</span>
-          </div>
-        ))}
-      </div>
-      {locked.length > 0 && (
-        <>
-          <h3 style={{ opacity: 0.6 }}>Locked</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-            {locked.map(b => (
-              <div key={b.id} className="badge-card locked">
-                <span className="badge-icon" style={{ filter: "grayscale(1)", opacity: 0.4 }}>{b.icon}</span>
-                <strong style={{ opacity: 0.5 }}>{b.label}</strong>
-                <span className="muted" style={{ fontSize: 12 }}>{b.desc}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 export function ConfidenceHeatmap({ history }) {
   if (!history.length) return <p className="muted">No session history yet.</p>;
   const recent = history.slice(-100);
