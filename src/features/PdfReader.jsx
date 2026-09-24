@@ -271,6 +271,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const zoomBadgeRef = useRef(null); // live % text — written imperatively during pinch
   const liveHandlersRef = useRef({}); // always-fresh handlers for non-passive listeners
   const fitScaleRef = useRef(0); // last computed fit-to-width scale
+  const [, setDimsVersion] = useState(0); // bumped when background page-dims measurement completes
   const gestureDrivenRef = useRef(false); // true when gesture* events drive the zoom (desktop Safari)
 
   // Page sorter filter
@@ -461,6 +462,20 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
           const vp1 = p1.getViewport({ scale: 1 });
           pageDimsRef.current[1] = { width: vp1.width, height: vp1.height };
         } catch (e) {}
+        // Measure every page's base dimensions in the background — without this,
+        // placeholders and zoom commits fall back to page 1's aspect, which
+        // visibly stretches mixed-size documents in continuous scroll modes.
+        (async () => {
+          for (let n = 1; n <= pdf.numPages; n++) {
+            if (cancelled || pageDimsRef.current[n]) continue;
+            try {
+              const p = await pdf.getPage(n);
+              const vp = p.getViewport({ scale: 1 });
+              pageDimsRef.current[n] = { width: vp.width, height: vp.height };
+            } catch {}
+          }
+          if (!cancelled) setDimsVersion((v) => v + 1); // one repaint to correct placeholder sizes
+        })();
         // Initialize FSRS tracking for this PDF
         if (propResourceId) initFsrs(pdf.numPages);
         // Defer fitToWidth so fullscreen layout is painted before measuring container width
@@ -504,11 +519,21 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (!container) return null;
     const isMob = window.innerWidth < 640;
     const available = container.clientWidth - (isMob ? 8 : 40);
-    const fit = Math.max(0.5, Math.min(2.2, available / base.width));
+    // Continuous modes show many pages at once — fit to the median measured
+    // page width so mixed-size documents don't leave most pages oversized.
+    let fitBasis = base.width;
+    if (scrollMode !== "single") {
+      const widths = Object.values(pageDimsRef.current)
+        .map((d) => d.width)
+        .filter(Boolean)
+        .sort((a, b) => a - b);
+      if (widths.length > 1) fitBasis = widths[Math.floor(widths.length / 2)];
+    }
+    const fit = Math.max(0.5, Math.min(2.2, available / fitBasis));
     fitScaleRef.current = fit;
     setScale(fit);
     return fit;
-  }, []);
+  }, [scrollMode]);
 
   const renderPage = useCallback(async (n, scaleOverride) => {
     if (!pdfDocRef.current || !canvasRef.current) return;
