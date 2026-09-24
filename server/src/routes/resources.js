@@ -1575,6 +1575,25 @@ router.get("/fsrs/flashcards/:resourceId", requireAuth, async (req, res) => {
   }
 });
 
+// ── DELETE /api/resources/fsrs/flashcards/:resourceId ──
+// Removes all FSRS flashcards for a resource — the reader's flashcard feature is
+// local-only now, so this clears legacy cards out of the daily review queue.
+router.delete("/fsrs/flashcards/:resourceId", requireAuth, async (req, res) => {
+  try {
+    const { resourceId } = req.params;
+    await prisma.pdfReviewItem.deleteMany({
+      where: { userId: req.user.sub, resourceId, itemType: "flashcard" },
+    });
+    const deleted = await prisma.pdfFlashcard.deleteMany({
+      where: { userId: req.user.sub, resourceId },
+    });
+    res.json({ deleted: deleted.count });
+  } catch (error) {
+    console.error("Error deleting flashcards:", error);
+    res.status(500).json({ error: "Failed to delete flashcards" });
+  }
+});
+
 // ── GET/PUT /api/resources/fsrs/daily-goal ──
 router.get("/fsrs/daily-goal", requireAuth, async (req, res) => {
   try {
@@ -1672,6 +1691,7 @@ router.get("/pdf-review/stats", requireAuth, (req, res) => { req.url = "/fsrs/st
 router.get("/pdf-review/status/:resourceId", requireAuth, (req, res) => { req.url = req.url.replace("/pdf-review/", "/fsrs/"); router.handle(req, res, () => {}); });
 router.post("/pdf-review/flashcards/generate", requireAuth, aiRateLimit, (req, res) => { req.url = "/fsrs/flashcards/generate"; router.handle(req, res, () => {}); });
 router.get("/pdf-review/flashcards/:resourceId", requireAuth, (req, res) => { req.url = req.url.replace("/pdf-review/", "/fsrs/"); router.handle(req, res, () => {}); });
+router.delete("/pdf-review/flashcards/:resourceId", requireAuth, (req, res) => { req.url = req.url.replace("/pdf-review/", "/fsrs/"); router.handle(req, res, () => {}); });
 
 // POST /api/resources/convert-pptx — Convert PPTX to PDF (server-side)
 router.post("/convert-pptx", requireAuth, upload.single("file"), async (req, res) => {

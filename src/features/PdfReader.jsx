@@ -292,9 +292,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [studyError, setStudyError] = useState("");
   const [studyLoadingMsg, setStudyLoadingMsg] = useState("");
   const [parsedMcqs, setParsedMcqs] = useState([]);
-  const [studySaveStatus, setStudySaveStatus] = useState("idle"); // "idle" | "saving" | "saved" | "error"
-  const [studySaveError, setStudySaveError] = useState("");
-  const [studyIsPublic, setStudyIsPublic] = useState(false);
 
   // ── AI Study History (localStorage via shared utility) ─────────────────────
   const studyResourceId = propResourceId || docKey;
@@ -315,8 +312,12 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [practiceWeakFirst, setPracticeWeakFirst] = useState(false);
   const [showRawText, setShowRawText] = useState(false);
 
-  // Auto-save toast state
-  const [autoSaveToast, setAutoSaveToast] = useState(null); // null | { status, resourceId, label }
+  // Summary save-to-library state (summaries only — MCQs/flashcards stay local)
+  const [studySaveStatus, setStudySaveStatus] = useState("idle"); // "idle" | "saving" | "saved" | "error"
+  const [studySaveError, setStudySaveError] = useState("");
+
+  // Toast state (share feedback, etc.) — generated content stays local
+  const [autoSaveToast, setAutoSaveToast] = useState(null); // null | { status, label }
   const autoSaveTimerRef = useRef(null);
 
   // Mastery state
@@ -338,96 +339,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   function clearStudyHistory() {
     setStudyHistory([]);
-  }
-
-  // ── Auto-save to folder ────────────────────────────────────────────────────
-  async function autoSaveToFolder(mcqs, rangeLabel) {
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-    if (!token || !propFolderId) return; // need auth + folder
-
-    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: `[AI] MCQs from ${shortTitle} (${rangeLabel})`,
-          subject: "General",
-          contentType: "mcq",
-          mcqData: mcqs,
-          description: `AI-generated MCQs from ${shortTitle}, ${rangeLabel}`,
-          isPublic: false,
-          folderId: propFolderId,
-        }),
-      });
-      if (!res.ok) throw new Error("Save failed");
-      const data = await res.json();
-
-      // Show toast with undo
-      setAutoSaveToast({ status: "saved", resourceId: data.resource?.id || data.id, label: "Saved to your folder" });
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
-    } catch (err) {
-      setAutoSaveToast({ status: "error", label: "Auto-save failed" });
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
-    }
-  }
-
-  async function autoSaveFlashcardsToFolder(flashcards, rangeLabel) {
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-    if (!token || !propFolderId) return; // need auth + folder
-
-    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
-    const deckData = flashcards.map((fc) => ({ front: fc.front, back: fc.back }));
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: `[AI] Flashcards from ${shortTitle} (${rangeLabel})`,
-          subject: "General",
-          contentType: "flashcard_deck",
-          flashcardData: JSON.stringify(deckData),
-          description: `AI-generated flashcards from ${shortTitle}, ${rangeLabel}`,
-          isPublic: false,
-          folderId: propFolderId,
-        }),
-      });
-      if (!res.ok) throw new Error("Save failed");
-      const data = await res.json();
-
-      setAutoSaveToast({ status: "saved", resourceId: data.resource?.id || data.id, label: "Flashcards saved to your folder" });
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
-    } catch (err) {
-      setAutoSaveToast({ status: "error", label: "Auto-save failed" });
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
-    }
-  }
-
-  async function undoAutoSave() {
-    if (!autoSaveToast?.resourceId) return;
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-    if (!token) return;
-    try {
-      await fetch(`${API_BASE}/api/resources/${autoSaveToast.resourceId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch {}
-    setAutoSaveToast(null);
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
   }
 
   // ── Practice helpers (for newly generated MCQs) ────────────────────────────
@@ -1525,7 +1436,6 @@ Rules:
           setStudyStep("result");
           if (mcqs.length > 0) {
             saveStudyHistoryEntry({ type: "mcq", mode: "auto", rangeLabel: `page ${currentPage}`, mcqs, rawText: raw });
-            autoSaveToFolder(mcqs, `page ${currentPage}`);
             setPracticeMode(true);
           }
         } catch (err) {
@@ -1628,7 +1538,6 @@ ${extractedText}
         setStudyStep("result");
         if (mcqs.length > 0) {
           saveStudyHistoryEntry({ type: "mcq", mode: "text", rangeLabel: label, mcqs, rawText: raw });
-          autoSaveToFolder(mcqs, label);
           setPracticeMode(true);
         }
       } catch (err) {
@@ -1745,204 +1654,10 @@ ${extractedText}
     ? historyView.mcqs.reduce((acc, q, i) => acc + (historyQuizAnswers[i] === q.correct ? 1 : 0), 0)
     : 0;
 
-  const generateSummaryPdf = async (markdownText, docTitle, rangeLabel) => {
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 48;
-    const maxWidth = pageWidth - margin * 2;
-    let y = margin;
-
-    const GOLD = [184, 134, 11]; // #B8860B
-    const DARK = [30, 30, 40];
-    const MUTED = [120, 120, 140];
-    const LIGHT_BG = [245, 243, 238];
-
-    const ensureSpace = (lineHeight) => {
-      if (y + lineHeight > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
-      }
-    };
-
-    // Render a single line with inline **bold** and *italic* markdown
-    // Handles mixed bold/italic within a line by splitting into segments
-    const addRichText = (text, fontSize, baseStyle, indent = 0) => {
-      doc.setFontSize(fontSize);
-      const availWidth = maxWidth - indent;
-
-      // Parse inline markdown into segments: { text, bold, italic }
-      const segments = [];
-      let remaining = text;
-      while (remaining.length > 0) {
-        // Match **bold** first
-        const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
-        // Match *italic*
-        const italicMatch = remaining.match(/\*(.+?)\*/);
-
-        if (boldMatch && (!italicMatch || boldMatch.index <= italicMatch.index)) {
-          if (boldMatch.index > 0) {
-            segments.push({ text: remaining.slice(0, boldMatch.index), bold: false, italic: false });
-          }
-          segments.push({ text: boldMatch[1], bold: true, italic: false });
-          remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
-        } else if (italicMatch) {
-          if (italicMatch.index > 0) {
-            segments.push({ text: remaining.slice(0, italicMatch.index), bold: false, italic: false });
-          }
-          segments.push({ text: italicMatch[1], bold: false, italic: true });
-          remaining = remaining.slice(italicMatch.index + italicMatch[0].length);
-        } else {
-          segments.push({ text: remaining, bold: false, italic: false });
-          remaining = "";
-        }
-      }
-
-      // Word-wrap the rich text manually
-      const words = [];
-      for (const seg of segments) {
-        const segWords = seg.text.split(/(\s+)/);
-        for (const w of segWords) {
-          if (w.length > 0) words.push({ text: w, bold: seg.bold, italic: seg.italic });
-        }
-      }
-
-      let currentLine = [];
-      let currentLineWidth = 0;
-      const flushLine = () => {
-        if (currentLine.length === 0) return;
-        ensureSpace(fontSize * 1.5);
-        let x = margin + indent;
-        for (const word of currentLine) {
-          const style = word.bold ? "bold" : word.italic ? "italic" : baseStyle;
-          doc.setFont("helvetica", style);
-          doc.text(word.text, x, y);
-          x += doc.getTextWidth(word.text);
-        }
-        y += fontSize * 1.5;
-        currentLine = [];
-        currentLineWidth = 0;
-      };
-
-      for (const word of words) {
-        const style = word.bold ? "bold" : word.italic ? "italic" : baseStyle;
-        doc.setFont("helvetica", style);
-        const ww = doc.getTextWidth(word.text);
-        if (currentLineWidth + ww > availWidth && currentLine.length > 0) {
-          flushLine();
-        }
-        currentLine.push(word);
-        currentLineWidth += ww;
-      }
-      flushLine();
-    };
-
-    const addWrappedText = (text, fontSize, fontStyle, indent = 0) => {
-      doc.setFontSize(fontSize);
-      doc.setFont("helvetica", fontStyle);
-      const lines = doc.splitTextToSize(text, maxWidth - indent);
-      for (const line of lines) {
-        ensureSpace(fontSize * 1.4);
-        doc.text(line, margin + indent, y);
-        y += fontSize * 1.4;
-      }
-    };
-
-    // ── Header bar ──
-    doc.setFillColor(...DARK);
-    doc.rect(0, 0, pageWidth, 70, "F");
-    doc.setFillColor(...GOLD);
-    doc.rect(0, 70, pageWidth, 3, "F");
-
-    // Title in header
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 215, 0);
-    const titleLines = doc.splitTextToSize(docTitle, maxWidth);
-    doc.text(titleLines[0], margin, 35);
-
-    // Subtitle
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(180, 180, 200);
-    doc.text(`AI Summary — ${rangeLabel}`, margin, 52);
-
-    doc.setTextColor(0, 0, 0);
-    y = 95;
-
-    // ── Decorative divider ──
-    const addDivider = () => {
-      ensureSpace(20);
-      doc.setDrawColor(...GOLD);
-      doc.setLineWidth(0.5);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 14;
-    };
-
-    const lines = markdownText.split("\n");
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) { y += 6; continue; }
-
-      if (trimmed.startsWith("### ")) {
-        y += 6;
-        addRichText(trimmed.replace(/^###\s+/, ""), 12, "bold");
-        y += 4;
-      } else if (trimmed.startsWith("## ")) {
-        y += 10;
-        addDivider();
-        addRichText(trimmed.replace(/^##\s+/, ""), 14, "bold");
-        y += 6;
-      } else if (trimmed.startsWith("# ")) {
-        y += 10;
-        addDivider();
-        addRichText(trimmed.replace(/^#\s+/, ""), 15, "bold");
-        y += 6;
-      } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-        // Bullet point with rich text
-        const bulletContent = trimmed.replace(/^[-*]\s+/, "");
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...GOLD);
-        ensureSpace(12 * 1.5);
-        doc.text("•", margin + 4, y);
-        doc.setTextColor(0, 0, 0);
-        addRichText(bulletContent, 12, "normal", 18);
-      } else if (/^\d+\.\s/.test(trimmed)) {
-        const numContent = trimmed.replace(/^(\d+\.)\s+/, "");
-        const numPrefix = trimmed.match(/^(\d+\.)\s*/)[1];
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(...GOLD);
-        ensureSpace(12 * 1.5);
-        doc.text(numPrefix, margin + 4, y);
-        doc.setTextColor(0, 0, 0);
-        addRichText(numContent, 12, "normal", 18);
-      } else {
-        addRichText(trimmed, 12, "normal");
-      }
-    }
-
-    // ── Footer on each page ──
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let p = 1; p <= pageCount; p++) {
-      doc.setPage(p);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...MUTED);
-      doc.text(
-        `Scholar's Circle · AI-generated summary · Page ${p} of ${pageCount}`,
-        margin,
-        pageHeight - 20
-      );
-    }
-
-    return doc.output("datauristring").split(",")[1];
-  };
-
+  // Save a summary to the library as an on-screen note — summaries only;
+  // MCQs/flashcards stay local. Rendered as markdown in the resource viewer.
   const handleStudySave = async () => {
-    if (studySaveStatus === "saving") return;
+    if (studySaveStatus === "saving" || studyMode !== "summary" || !studyResult) return;
     setStudySaveStatus("saving");
     setStudySaveError("");
 
@@ -1954,39 +1669,21 @@ ${extractedText}
       const token = authData.authToken;
       if (!token) throw new Error("Not authenticated");
 
-      let body;
-      if (studyMode === "mcq") {
-        if (parsedMcqs.length === 0) throw new Error("No parsed questions to save");
-        body = {
-          title: `[AI] MCQs from ${shortTitle} (${label})`,
-          subject: "General",
-          contentType: "mcq",
-          mcqData: parsedMcqs,
-          description: `AI-generated MCQs from ${shortTitle}, ${label}`,
-          isPublic: studyIsPublic,
-          folderId: propFolderId || undefined,
-        };
-      } else {
-        const base64 = await generateSummaryPdf(studyResult, shortTitle, label);
-        body = {
-          title: `[AI] Summary: ${shortTitle} (${label})`,
-          subject: "General",
-          contentType: "pdf",
-          fileBuffer: base64,
-          fileName: `summary-${Date.now()}.pdf`,
-          description: `AI-generated summary from ${shortTitle}, ${label}`,
-          isPublic: studyIsPublic,
-          folderId: propFolderId || undefined,
-        };
-      }
-
       const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          title: `[AI] Summary: ${shortTitle} (${label})`,
+          subject: "General",
+          contentType: "note",
+          description: studyResult,
+          isPublic: false,
+          folderId: propFolderId || undefined,
+          sourceResourceId: propResourceId || undefined,
+        }),
       });
 
       if (!res.ok) {
@@ -2104,56 +1801,85 @@ ${extractedText}
     fetchPageQuiz();
   };
 
+  // Flashcards are local-only — stored in study history (localStorage), never
+  // sent to the folder, FSRS, or daily review.
   const fetchFlashcards = async () => {
-    if (!propResourceId) return [];
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/flashcards/${propResourceId}`, {
-        headers: getFsrsAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const cards = data.flashcards || [];
-        setFsrsFlashcards(cards);
-        return cards;
-      }
-    } catch {}
-    return [];
+    const cards = (loadHistory(studyResourceId) || [])
+      .filter((e) => e.type === "flashcard" && Array.isArray(e.cards))
+      .flatMap((e) => e.cards.map((c, i) => ({ ...c, id: `${e.id}-${i}` })));
+    setFsrsFlashcards(cards);
+    return cards;
+  };
+
+  // Practice a flashcard set straight from a study-history entry
+  const startFlashcardHistoryPractice = (entry) => {
+    if (!entry?.cards?.length) return;
+    setFsrsFlashcards(entry.cards.map((c, i) => ({ ...c, id: `${entry.id}-${i}` })));
+    setStudyMode("flashcard");
+    setStudyStep("setup");
+    setHistoryView(null);
+    setFsrsFlashcardView("review");
+  };
+
+  const serverFlashcardsPurgedRef = useRef(false);
+  const purgeServerFlashcards = () => {
+    if (serverFlashcardsPurgedRef.current || !propResourceId) return;
+    serverFlashcardsPurgedRef.current = true;
+    // Legacy cleanup: delete old FSRS-scheduled flashcards for this resource so
+    // they leave the daily review — reader flashcards are device-local now.
+    fetch(`${API_BASE}/api/resources/fsrs/flashcards/${propResourceId}`, {
+      method: "DELETE",
+      headers: getFsrsAuthHeaders(),
+    }).catch(() => {});
   };
 
   const generateFlashcards = async () => {
-    if (!propResourceId || fsrsFlashcardLoading) return;
+    if (fsrsFlashcardLoading) return;
     setFsrsFlashcardLoading(true);
     setFsrsFlashcardError("");
     try {
-      const { from, to } = resolveRange();
-      const pages = [];
+      const { from, to, label } = resolveRange();
+      const texts = [];
       for (let n = from; n <= to; n++) {
         const text = await getPageText(n);
-        if (text.trim()) pages.push({ page: n, text });
+        if (text.trim()) texts.push(text);
       }
-      if (pages.length === 0) {
+      const combinedText = texts.join("\n\n");
+      if (!combinedText.trim()) {
         setFsrsFlashcardError("No text found in selected pages.");
         setFsrsFlashcardLoading(false);
         return;
       }
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/flashcards/generate`, {
-        method: "POST",
-        headers: getFsrsAuthHeaders(),
-        body: JSON.stringify({ resourceId: propResourceId, pages, count: fsrsFlashcardCount }),
-      });
-      if (res.ok) {
-        const cards = await fetchFlashcards();
-        setFsrsFlashcardView("browse");
-        if (cards.length > 0) {
-          const { label } = resolveRange();
-          autoSaveFlashcardsToFolder(cards, label);
-        }
+      const prompt = `You are an expert flashcard creator for university students. Generate exactly ${fsrsFlashcardCount} flashcards from the text below.
+
+FORMAT — return as a JSON array:
+[{"front": "question or prompt", "back": "concise answer"}]
+
+Rules:
+- Front should be a clear question, definition prompt, or concept name
+- Back should be a concise but complete answer (1-3 sentences)
+- Cover the most important concepts from the text
+- Return ONLY the JSON array, no markdown or explanation
+
+TEXT:
+"""
+${combinedText.slice(0, 24000)}
+"""`;
+      const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
+      let parsed = [];
+      try {
+        const jsonMatch = String(raw || "").match(/\[[\s\S]*\]/);
+        parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+      } catch {}
+      const cards = (Array.isArray(parsed) ? parsed : [])
+        .filter((c) => c && typeof c.front === "string" && typeof c.back === "string")
+        .map((c, i) => ({ front: c.front, back: c.back, id: `${Date.now()}-${i}` }));
+      if (cards.length === 0) {
+        setFsrsFlashcardError("AI returned no valid flashcards. Try a different page range.");
       } else {
-        const err = await res.json().catch(() => ({}));
-        if (res.status === 429) {
-          window.dispatchEvent(new CustomEvent("sc-open-premium"));
-        }
-        setFsrsFlashcardError(err.error || "Failed to generate flashcards");
+        saveStudyHistoryEntry({ type: "flashcard", mode: "text", rangeLabel: label, cards, rawText: raw });
+        await fetchFlashcards();
+        setFsrsFlashcardView("browse");
       }
     } catch (err) {
       setFsrsFlashcardError(err.message || "Failed to generate flashcards");
@@ -4144,35 +3870,6 @@ ${extractedText}
       cursor: "pointer",
       padding: 0,
     },
-    studyVisibilityRow: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      padding: "8px 12px",
-      background: T.inputBg,
-      borderRadius: 8,
-      border: `1px solid ${T.border}`,
-    },
-    studyToggle: {
-      width: 36,
-      height: 20,
-      borderRadius: 10,
-      background: studyIsPublic ? T.accent : T.border,
-      position: "relative",
-      cursor: "pointer",
-      transition: "background 0.2s ease",
-      flexShrink: 0,
-    },
-    studyToggleKnob: {
-      width: 16,
-      height: 16,
-      borderRadius: "50%",
-      background: "white",
-      position: "absolute",
-      top: 2,
-      left: studyIsPublic ? 18 : 2,
-      transition: "left 0.2s ease",
-    },
     studyMcqNote: {
       fontSize: 11.5,
       color: T.muted,
@@ -5443,7 +5140,7 @@ ${extractedText}
                             background: studyMode === "flashcard" ? T.accent : "none",
                             color: studyMode === "flashcard" ? "white" : T.text,
                           }}
-                          onClick={() => { setStudyMode("flashcard"); fetchFlashcards(); setFsrsFlashcardView("menu"); }}
+                          onClick={() => { setStudyMode("flashcard"); fetchFlashcards(); purgeServerFlashcards(); setFsrsFlashcardView("menu"); }}
                         >
                           🎴 Flashcards
                         </button>
@@ -5596,13 +5293,13 @@ ${extractedText}
                     {/* Flashcard mode — menu */}
                     {studyMode === "flashcard" && fsrsFlashcardView === "menu" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={s.studyLabel}>Flashcards (FSRS)</div>
+                        <div style={s.studyLabel}>Flashcards</div>
                         <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
-                          Generate AI flashcards from this PDF and review them with spaced repetition. Each flashcard is scheduled using the FSRS algorithm.
+                          Generate AI flashcards from this PDF and practice them right here. Cards are saved on this device only.
                         </div>
                         {fsrsFlashcards.length > 0 && (
                           <div style={{ fontSize: 12, color: T.text, background: T.hover, borderRadius: 8, padding: "8px 12px" }}>
-                            You have {fsrsFlashcards.length} flashcard{fsrsFlashcards.length > 1 ? "s" : ""} ({fsrsFlashcards.filter((f) => f.fsrs?.isDue).length} due)
+                            You have {fsrsFlashcards.length} flashcard{fsrsFlashcards.length > 1 ? "s" : ""} saved on this device
                           </div>
                         )}
                         <button style={s.studyGenerateBtn} onClick={() => setFsrsFlashcardView("generate")}>
@@ -5611,7 +5308,7 @@ ${extractedText}
                         {fsrsFlashcards.length > 0 && (
                           <>
                             <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.accent}`, color: T.accent }} onClick={() => setFsrsFlashcardView("review")}>
-                              🔄 Review Due ({fsrsFlashcards.filter((f) => f.fsrs?.isDue).length})
+                              🔄 Practice All ({fsrsFlashcards.length})
                             </button>
                             <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("browse")}>
                               📋 Browse All ({fsrsFlashcards.length})
@@ -5659,19 +5356,19 @@ ${extractedText}
                       </div>
                     )}
 
-                    {/* Flashcard mode — review */}
+                    {/* Flashcard mode — practice (local, no FSRS) */}
                     {studyMode === "flashcard" && fsrsFlashcardView === "review" && (
                       <div>
-                        {fsrsFlashcards.filter((f) => f.fsrs?.isDue).length > 0 ? (
+                        {fsrsFlashcards.length > 0 ? (
                           <FlashcardRunner
-                            flashcards={fsrsFlashcards.filter((f) => f.fsrs?.isDue)}
-                            resourceId={propResourceId}
+                            flashcards={fsrsFlashcards}
+                            resourceId={null}
                             theme={theme}
                             onComplete={() => { fetchFlashcards(); setFsrsFlashcardView("menu"); }}
                           />
                         ) : (
                           <div style={{ textAlign: "center", padding: "30px 16px", color: T.muted, fontSize: 13 }}>
-                            No flashcards due for review right now. 🎉
+                            No flashcards yet. Generate some first!
                             <button style={{ ...s.studyGenerateBtn, marginTop: 12, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("menu")}>
                               ← Back
                             </button>
@@ -5699,25 +5396,6 @@ ${extractedText}
                             }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4, lineHeight: 1.4 }}>{fc.front}</div>
                               <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.4 }}>{fc.back}</div>
-                              {fc.fsrs && (
-                                <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                  <span style={{
-                                    fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                                    background: fc.fsrs.isDue ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.12)",
-                                    color: fc.fsrs.isDue ? "#ef4444" : "#22c55e",
-                                  }}>{fc.fsrs.isDue ? "🔴 Due now" : `📅 ${new Date(fc.fsrs.dueAt).toLocaleDateString()}`}</span>
-                                  {fc.fsrs.isMastered && (
-                                    <span style={{
-                                      fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                                      background: "rgba(34,197,94,0.12)", color: "#22c55e",
-                                    }}>✓ Mastered</span>
-                                  )}
-                                  <span style={{
-                                    fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 999,
-                                    background: T.inputBg, color: T.muted,
-                                  }}>Reps: {fc.fsrs.reps}</span>
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
@@ -5816,21 +5494,6 @@ ${extractedText}
                       </div>
                     )}
 
-                    {/* Visibility toggle — only for MCQ/summary */}
-                    {studyMode !== "flashcard" && studyMode !== "voice" && (
-                    <div>
-                      <div style={s.studyLabel}>Visibility</div>
-                      <div style={s.studyVisibilityRow}>
-                        <div style={s.studyToggle} onClick={() => setStudyIsPublic((v) => !v)}>
-                          <div style={s.studyToggleKnob} />
-                        </div>
-                        <span style={{ fontSize: 12.5, color: T.text }}>
-                          {studyIsPublic ? "Public — visible to everyone in Research Hub" : "Private — only visible to you in My Space"}
-                        </span>
-                      </div>
-                    </div>
-                    )}
-
                     {studyError && studyMode !== "flashcard" && studyMode !== "voice" && (
                       <div style={s.studyErrorBox}>
                         {studyError}
@@ -5884,11 +5547,11 @@ ${extractedText}
                               gap: 10,
                             }}>
                               <span style={{ fontSize: 20, flexShrink: 0 }}>
-                                {entry.type === "mcq" ? "📝" : "📄"}
+                                {entry.type === "mcq" ? "📝" : entry.type === "flashcard" ? "🎴" : "📄"}
                               </span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} MCQs` : "Summary"} · {entry.rangeLabel}
+                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} MCQs` : entry.type === "flashcard" ? `${entry.cards?.length || 0} flashcards` : "Summary"} · {entry.rangeLabel}
                                 </div>
                                 <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>
                                   {new Date(entry.ts).toLocaleDateString(undefined, { month: "short", day: "numeric" })} at {new Date(entry.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
@@ -5906,9 +5569,9 @@ ${extractedText}
                                   cursor: "pointer",
                                   flexShrink: 0,
                                 }}
-                                onClick={() => entry.type === "mcq" ? startHistoryQuiz(entry) : setHistoryView(entry)}
+                                onClick={() => entry.type === "mcq" ? startHistoryQuiz(entry) : entry.type === "flashcard" ? startFlashcardHistoryPractice(entry) : setHistoryView(entry)}
                               >
-                                {entry.type === "mcq" ? "Practice" : "View"}
+                                {entry.type === "mcq" ? "Practice" : entry.type === "flashcard" ? "Practice" : "View"}
                               </button>
                               {entry.type === "mcq" && getWeakSpots(studyResourceId).length > 0 && (
                                 <button
@@ -6412,22 +6075,26 @@ ${extractedText}
                       <button style={s.studyActionBtn} onClick={handleStudyNew}>
                         ✨ New
                       </button>
-                      <div style={{ flex: 1 }} />
-                      {studySaveStatus === "error" && (
-                        <span style={{ fontSize: 11, color: T.accent }}>{studySaveError}</span>
+                      {studyMode === "summary" && (
+                        <>
+                          <div style={{ flex: 1 }} />
+                          {studySaveStatus === "error" && (
+                            <span style={{ fontSize: 11, color: T.accent }}>{studySaveError}</span>
+                          )}
+                          <button
+                            style={{
+                              ...s.studySaveBtn,
+                              background: studySaveStatus === "saved" ? "#2a8a4a" : T.accent,
+                              color: "white",
+                              opacity: studySaveStatus === "saving" ? 0.5 : 1,
+                            }}
+                            disabled={studySaveStatus === "saving"}
+                            onClick={handleStudySave}
+                          >
+                            {studySaveStatus === "saving" ? "Saving…" : studySaveStatus === "saved" ? "✓ Saved" : studySaveStatus === "error" ? "Retry Save" : "💾 Save to Library"}
+                          </button>
+                        </>
                       )}
-                      <button
-                        style={{
-                          ...s.studySaveBtn,
-                          background: studySaveStatus === "saved" ? "#2a8a4a" : studySaveStatus === "error" ? T.accent : T.accent,
-                          color: "white",
-                          opacity: (studyMode === "mcq" && parsedMcqs.length === 0) || studySaveStatus === "saving" ? 0.5 : 1,
-                        }}
-                        disabled={(studyMode === "mcq" && parsedMcqs.length === 0) || studySaveStatus === "saving"}
-                        onClick={handleStudySave}
-                      >
-                        {studySaveStatus === "saving" ? "Saving…" : studySaveStatus === "saved" ? "✓ Saved" : studySaveStatus === "error" ? "Retry Save" : `Save to Research Hub${studyIsPublic ? " (Public)" : " (Private)"}`}
-                      </button>
                     </div>
                   </>
                 )}
@@ -6445,12 +6112,6 @@ ${extractedText}
               boxShadow: "0 4px 20px rgba(0,0,0,0.3)", animation: "slideUp 0.3s ease",
             }}>
               <span>{autoSaveToast.status === "saved" ? "✅" : "⚠️"} {autoSaveToast.label}</span>
-              {autoSaveToast.status === "saved" && autoSaveToast.resourceId && (
-                <button onClick={undoAutoSave} style={{
-                  background: "rgba(255,255,255,0.2)", border: "none", color: "white",
-                  padding: "4px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 600,
-                }}>Undo</button>
-              )}
             </div>
           )}
 

@@ -167,53 +167,6 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
     setStudyHistory([]);
   }
 
-  // ── Auto-save to folder ────────────────────────────────────────────────────
-  async function autoSaveToFolder(mcqs, rangeLabel) {
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-    if (!token || !folderId) return;
-
-    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          title: `[AI] MCQs from ${shortTitle} (${rangeLabel})`,
-          subject: "General",
-          contentType: "mcq",
-          mcqData: mcqs,
-          description: `AI-generated MCQs from ${shortTitle}, ${rangeLabel}`,
-          isPublic: false,
-          folderId,
-        }),
-      });
-      if (!res.ok) throw new Error("Save failed");
-      const data = await res.json();
-      setAutoSaveToast({ status: "saved", resourceId: data.resource?.id || data.id, label: "Saved to your folder" });
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
-    } catch (err) {
-      setAutoSaveToast({ status: "error", label: "Auto-save failed" });
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 5000);
-    }
-  }
-
-  async function undoAutoSave() {
-    if (!autoSaveToast?.resourceId) return;
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-    if (!token) return;
-    try {
-      await fetch(`${API_BASE}/api/resources/${autoSaveToast.resourceId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch {}
-    setAutoSaveToast(null);
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-  }
 
   // ── Practice helpers ───────────────────────────────────────────────────────
   function startPractice(weakFirst = false) {
@@ -499,7 +452,6 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
         if (mcqs.length > 0) {
           const rangeLabel = contentType === "image" ? "image" : "document";
           saveStudyHistoryEntry({ type: "mcq", mode: "auto", rangeLabel, mcqs, rawText: raw });
-          autoSaveToFolder(mcqs, rangeLabel);
           setPracticeMode(true);
         }
       } else {
@@ -1226,7 +1178,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
         )}
       </div>
 
-      {/* Auto-save toast */}
+      {/* Toast (share feedback, etc.) */}
       {autoSaveToast && (
         <div style={{
           position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
@@ -1236,12 +1188,6 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
           boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
         }}>
           <span>{autoSaveToast.status === "saved" ? "✅" : "⚠️"} {autoSaveToast.label}</span>
-          {autoSaveToast.status === "saved" && autoSaveToast.resourceId && (
-            <button onClick={undoAutoSave} style={{
-              background: "rgba(255,255,255,0.2)", border: "none", color: "white",
-              padding: "4px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 600,
-            }}>Undo</button>
-          )}
         </div>
       )}
     </div>,

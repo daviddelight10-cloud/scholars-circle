@@ -46,24 +46,27 @@ export default function FlashcardRunner({ flashcards: initialFlashcards, resourc
     if (!current || rating) return;
     setRating(true);
 
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-
+    // Local-only practice (resourceId null) skips the FSRS rate call entirely —
+    // "Again" still recycles the card in-session via the local queue.
     try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/rate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          resourceId,
-          itemType: "flashcard",
-          flashcardId: current.id,
-          grade,
-        }),
-      });
+      if (resourceId && current.id) {
+        const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+        const token = authData.authToken;
+        const res = await fetch(`${API_BASE}/api/resources/fsrs/rate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            resourceId,
+            itemType: "flashcard",
+            flashcardId: current.id,
+            grade,
+          }),
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-        setLastInterval(data.intervalLabel);
+        if (res.ok) {
+          const data = await res.json();
+          setLastInterval(data.intervalLabel);
+        }
       }
     } catch {}
 

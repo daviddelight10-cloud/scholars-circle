@@ -29,6 +29,7 @@ export function categorizeResources(resources) {
         if (d.contentType === "mcq") variants.mcq = d;
         else if (d.contentType === "flashcard_deck") variants.flashcard = d;
         else if (d.contentType === "pdf" && d.fileName?.startsWith("[AI] Summary")) variants.summary = d;
+        else if (d.contentType === "note" && d.title?.startsWith("[AI] Summary")) variants.summary = d;
         else if (d.contentType === "pdf" && d.description && d.title === r.title) variants.summary = d;
       }
       sourceFiles.push({ ...r, variants, standalone: false });
@@ -36,7 +37,7 @@ export function categorizeResources(resources) {
       standaloneItems.push({ ...r, variants: { summary: null, mcq: r, flashcard: null }, standalone: true });
     } else if (r.contentType === "flashcard_deck") {
       standaloneItems.push({ ...r, variants: { summary: null, mcq: null, flashcard: r }, standalone: true });
-    } else if (r.contentType === "pdf" && r.title?.startsWith("[AI] Summary")) {
+    } else if ((r.contentType === "pdf" || r.contentType === "note") && r.title?.startsWith("[AI] Summary")) {
       standaloneItems.push({ ...r, variants: { summary: r, mcq: null, flashcard: null }, standalone: true });
     } else {
       sourceFiles.push({ ...r, variants: { summary: null, mcq: null, flashcard: null }, standalone: false });

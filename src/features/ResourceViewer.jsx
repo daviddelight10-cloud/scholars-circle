@@ -9,6 +9,8 @@ import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import FlashcardModeSelect from "./FlashcardModeSelect.jsx";
 import MatchingPairsGame from "./MatchingPairsGame.jsx";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
+import MarkdownText from "../components/MarkdownText.jsx";
+import { useUI } from "../contexts/UIContext.jsx";
 
 import { API_BASE } from "../lib/constants";
 import { supabase } from "../lib/supabaseClient.js";
@@ -39,6 +41,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
   const [flashcardMode, setFlashcardMode] = useState(null); // null | "study" | "matching"
   const [matchGameMode, setMatchGameMode] = useState("visible"); // "flip" | "visible"
+  const { darkMode } = useUI();
 
   // Auth form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -302,29 +305,32 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         return (
           <div
             style={{
-              background: "#0d0f20",
-              border: "0.5px solid #1e2245",
-              borderRadius: "10px",
-              padding: "16px",
+              background: "var(--card-bg, #0d0f20)",
+              border: "0.5px solid var(--border-color, #1e2245)",
+              borderRadius: "12px",
+              padding: "18px 20px",
               fontSize: "14px",
-              color: "#7b82b8",
+              color: "var(--text-secondary, #7b82b8)",
               lineHeight: 1.7,
             }}
           >
-            <strong style={{ color: "#c5c9e8", fontSize: "16px" }}>{resource.title}</strong>
-            {resource.description && <p style={{ marginTop: 8, marginBottom: 8 }}>{resource.description}</p>}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 16 }}>✨</span>
+              <strong style={{ color: "var(--text-primary, #c5c9e8)", fontSize: "15px" }}>{resource.title}</strong>
+            </div>
             {resource.fileUrl ? (
-              <iframe
-                src={`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}&token=${encodeURIComponent(JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || "")}`}
-                title={resource.title}
-                style={{ width: "100%", height: "400px", border: "none", borderRadius: "8px", marginTop: 12, background: "#0a0c1e" }}
-              />
+              <>
+                {resource.description && <p style={{ marginTop: 8, marginBottom: 8, color: "var(--text-muted, #7b82b8)" }}>{resource.description}</p>}
+                <iframe
+                  src={`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}&token=${encodeURIComponent(JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || "")}`}
+                  title={resource.title}
+                  style={{ width: "100%", height: "400px", border: "none", borderRadius: "8px", marginTop: 12, background: "var(--item-bg, #0a0c1e)" }}
+                />
+              </>
             ) : resource.description ? (
-              <pre style={{ marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", color: "#c5c9e8", fontSize: 13, lineHeight: 1.7 }}>
-                {resource.description}
-              </pre>
+              <MarkdownText theme={darkMode ? "dark" : "light"}>{resource.description}</MarkdownText>
             ) : (
-              <p style={{ marginTop: 12, color: "#3a3d60" }}>Content not available.</p>
+              <p style={{ marginTop: 12, color: "var(--text-muted, #3a3d60)" }}>Content not available.</p>
             )}
           </div>
         );
