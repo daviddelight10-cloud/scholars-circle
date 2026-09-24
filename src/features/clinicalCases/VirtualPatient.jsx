@@ -142,8 +142,6 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   // Confirm modal
   const [modal, setModal] = useState(null);
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
   // Refs
   const startTimeRef = useRef(Date.now());
   const timerIntervalRef = useRef(null);
@@ -152,7 +150,6 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   const examLogRef = useRef(null);
   const snapshotTimerRef = useRef(null);
   const saveIndicatorTimerRef = useRef(null);
-  const consultScreenRef = useRef(null);
 
   // Mirror of latest state for interval callbacks (avoids stale closures)
   const latest = useRef({});
@@ -218,14 +215,9 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
-  // Keyboard: F toggles fullscreen on consult, Escape closes modal/wizard/drawers
+  // Keyboard: Escape closes modal/wizard/drawers
   useEffect(() => {
     function onKeyDown(e) {
-      if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const t = e.target;
-        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
-        if (latest.current.screen === "consult") toggleConsultFullscreen();
-      }
       if (e.key === "Escape") {
         if (latest.current.modal) setModal(null);
         else if (latest.current.ob.open) setOb(o => ({ ...o, open: false }));
@@ -235,12 +227,6 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
   function updateVitals(secs) {
@@ -438,7 +424,6 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     setMonitorDeteriorating(false);
     setDeterPct(0);
     setPatientStatus("stable");
-    if (document.fullscreenElement) document.exitFullscreen();
     clearActiveSnapshot();
   }
 
@@ -452,13 +437,6 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   function closeAllDrawers() {
     setToolsDrawerOpen(false);
     setVitalsDrawerOpen(false);
-  }
-
-  function toggleConsultFullscreen() {
-    const el = consultScreenRef.current;
-    if (!el) return;
-    if (document.fullscreenElement) { document.exitFullscreen(); return; }
-    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
   }
 
   /* ============ MODAL ============ */
@@ -639,7 +617,6 @@ Rules:
 - diagnosis_rank_matched is the 1-based position in the student's differential list where the correct diagnosis (or an unambiguous synonym) appears, or null if it doesn't appear anywhere in the list.
 - Feedback should be specific and short (2-3 sentences each), addressed to the student as "you".`;
 
-    if (document.fullscreenElement) document.exitFullscreen();
     setScreen("grade");
 
     let raw;
@@ -896,7 +873,7 @@ Answer the student's follow-up questions about their performance and the underly
 
       {/* SCREEN 2: CONSULT */}
       {screen === "consult" && activeCase && (
-        <div className="vp-consult-screen" ref={consultScreenRef}>
+        <div className="vp-consult-screen">
           <div className="vp-consult-col">
             <header className={`vp-glass vp-case-top ${monitorDeteriorating ? "deteriorating" : ""}`}>
               <div className="vp-ct-row1">
@@ -913,7 +890,6 @@ Answer the student's follow-up questions about their performance and the underly
                 <div className="vp-ct-right">
                   <span className={`vp-mode-badge ${isF ? "vp-mode-badge-f" : "vp-mode-badge-o"}`}>{isF ? "FOUNDATIONS" : "FULL OSCE"}</span>
                   <span className={`vp-save-indicator ${saveIndicator ? "show" : ""}`}>✓ saved</span>
-                  <button className="vp-ct-mini" onClick={toggleConsultFullscreen} title="Fullscreen (F)">{isFullscreen ? "⤡" : "⛶"}</button>
                 </div>
               </div>
 
