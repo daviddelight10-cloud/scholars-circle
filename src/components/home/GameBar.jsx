@@ -2,7 +2,7 @@ import { memo } from "react";
 import HIcon from "./HIcon.jsx";
 import { levelProgress } from "../../features/streak-survival/survivalStore.js";
 
-function GameBar({ streak, save, firstRun, onOpenShop, onOpenBoard, onOpenStats, onOpenGoal, bell }) {
+function GameBar({ streak, save, firstRun, onOpenShop, onOpenBoard, onOpenStats }) {
   const { level, into: xpIn, needed: xpNeeded } = levelProgress(save.xp || 0);
   return (
     <div className="hm-gamebar">
@@ -20,18 +20,14 @@ function GameBar({ streak, save, firstRun, onOpenShop, onOpenBoard, onOpenStats,
         <button className="hm-gicon" title="Circle leaderboard" onClick={onOpenBoard}>
           <HIcon name="trophy" size={15} color="#FFC55C" />
         </button>
-        {bell}
+        <button className="hm-gicon" title="Quick analytics" onClick={onOpenStats}>
+          <HIcon name="chart" size={15} />
+        </button>
       </div>
       <div className="hm-gb-xp">
         <span className="hm-lvl">LVL {level}</span>
         <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / xpNeeded) * 100)}%` }} /></div>
         <span className="hm-xptext">{xpIn}/{xpNeeded} XP</span>
-        <button className="hm-goal" title="Quick analytics" onClick={onOpenStats}>
-          <HIcon name="chart" size={13} />
-        </button>
-        <button className="hm-goal" title="Edit daily goal" onClick={onOpenGoal}>
-          <HIcon name="target" size={13} />
-        </button>
       </div>
       {firstRun && (
         <div className="hm-xp-hint">Review cards and finish cases to earn XP and gems.</div>

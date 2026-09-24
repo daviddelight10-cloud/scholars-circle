@@ -26,7 +26,10 @@
 .hm-inner { padding: 0 16px; }
 
 /* header */
-.hm-topbar { display: flex; flex-direction: column; }
+.hm-topbar {
+  display: flex; flex-direction: column;
+  position: sticky; top: calc(6px + env(safe-area-inset-top)); z-index: 45;
+}
 .hm-head { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
 .hm-greet small {
   display: block; font-family: var(--hm-font-mono); font-size: 10px;
@@ -40,8 +43,16 @@
   justify-content: center; color: #c9c9d2; cursor: pointer;
 }
 
-/* gamification strip */
-.hm-gamebar { margin-top: 13px; }
+/* gamification strip — floating pill HUD */
+.hm-gamebar {
+  margin-top: 13px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 20px;
+  background: rgba(13,17,26,.82);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  padding: 8px 12px;
+}
 .hm-gb-row { display: flex; align-items: center; gap: 7px; }
 .hm-gb-sp { flex: 1; }
 .hm-pill {
@@ -67,13 +78,6 @@
 .hm-xpbar { flex: 1; height: 5px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
 .hm-xpbar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg,#FFD37A,#F5A623); box-shadow: 0 0 8px rgba(255,181,71,.5); transition: width .4s; }
 .hm-xptext { font-family: var(--hm-font-mono); font-size: 9.5px; color: var(--hm-faint); white-space: nowrap; }
-.hm-goal {
-  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; color: #FFC55C; cursor: pointer;
-  background: radial-gradient(circle at 30% 25%, rgba(255,181,71,.18), rgba(255,181,71,.04));
-  border: 1px solid rgba(255,181,71,.3); transition: .15s; padding: 0; font-family: inherit;
-}
-.hm-goal:active { transform: scale(.9); }
 .hm-xp-hint { margin-top: 7px; font-size: 10px; color: var(--hm-faint); line-height: 1.4; }
 
 /* hero */

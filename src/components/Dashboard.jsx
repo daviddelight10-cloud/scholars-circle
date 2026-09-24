@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { getMyProfile } from "../lib/profileApi.js";
-import NotificationBellImproved from "../features/NotificationBellImproved";
+
 import DailyReview from "../features/research-hub/DailyReview.jsx";
 import { listCommunityFolders, bookmarkFolder } from "../lib/foldersApi.js";
 import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP, syncTotalXp } from "../features/streak-survival/survivalStore.js";
@@ -415,8 +415,6 @@ export default function Dashboard({
             onOpenShop={() => { refreshSave(); setOpenSheet("shop"); }}
             onOpenBoard={() => setOpenSheet("board")}
             onOpenStats={() => setOpenSheet("stats")}
-            onOpenGoal={() => setOpenSheet("goal")}
-            bell={<NotificationBellImproved token={token} currentUser={authUser} onOpenTab={onOpenTab} />}
           />
         </div>
 
