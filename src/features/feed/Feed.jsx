@@ -45,7 +45,6 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [followBusy, setFollowBusy] = useState({});
   const [trending, setTrending] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
-  const [scrolled, setScrolled] = useState(false);
   const topRef = useRef(null);
 
   const me = useMemo(
@@ -122,13 +121,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     loadAux();
   }, [loadFeed, loadAux]);
 
-  // Fade the topbar title in once the user scrolls
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 28);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  // (title is static now — no scroll listener needed)
 
   // Light polling for "new posts" pill
   useEffect(() => {
@@ -381,7 +374,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           <button className="fd-me" onClick={() => onOpenTab?.("profile")} title="Profile">
             <Avatar user={me} size={34} />
           </button>
-          <div className="fd-tabs">
+          <span className="fd-bartitle">Discussion</span>
+          <div className="fd-seg">
             {TABS.map((t) => (
               <button
                 key={t.key}
@@ -394,7 +388,6 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             ))}
           </div>
         </div>
-        <span className={`fd-bartitle${scrolled ? " in" : ""}`}>💬 Discussion</span>
         <div className="fd-topbar-right">
           <button className="fd-chip-btn" onClick={() => setStreakOpen((v) => !v)} title="Streak">
             🔥 {fsrsStats?.streak ?? 0}
@@ -446,6 +439,23 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                   </button>
                 ))}
               </div>
+
+              {!circleOnly && (
+                <div className="fd-stories">
+                  <button className="fd-story" onClick={() => setTab("live")} title="Start a live room or quiz battle">
+                    <span className="fd-story-ring-static">＋</span>
+                    <span className="fd-story-name">Go live</span>
+                    <span className="fd-story-sub">START</span>
+                  </button>
+                  {rooms.slice(0, 10).map((r) => (
+                    <button key={r.id} className="fd-story" onClick={() => handleJoinRoom(r)} title={r.name}>
+                      <Avatar user={r.host} name={r.host?.name || r.name} size={42} live />
+                      <span className="fd-story-name">{r.host?.name?.split(" ")[0] || r.name}</span>
+                      <span className="fd-story-sub">{r.seatsUsed || 0}/{r.seats || r.maxSeats || 8} IN</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <Composer token={token} me={me} subjects={subjects} onPosted={handlePosted}
                 onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})} />
@@ -682,7 +692,7 @@ function LiveTab({ token, me, rooms, quizzes = [], sessions, subjects, onJoinRoo
           {quizzes.map((q) => (
             <div key={q.code} className="fd-card fd-quiz">
               <div className="fd-room-top">
-                <div className="fd-live-badge">● LIVE</div>
+                <div className="fd-live-badge">LIVE</div>
                 <div className="fd-room-seats">{q.players}/{q.maxPlayers} players</div>
               </div>
               <div className="fd-room-name">{q.title}</div>
@@ -719,7 +729,7 @@ function LiveTab({ token, me, rooms, quizzes = [], sessions, subjects, onJoinRoo
           <DividerBlock label="Live class sessions" />
           {sessions.live.map((s) => (
             <div key={s.id} className="fd-card fd-session">
-              <div className="fd-live-badge">● LIVE</div>
+              <div className="fd-live-badge">LIVE</div>
               <div className="fd-session-title">{s.title}</div>
               <div className="fd-session-meta">{s.classroom?.name || "Class session"}</div>
               <button className="fd-join-btn" onClick={() => onJoinSession(s)}>Join session</button>

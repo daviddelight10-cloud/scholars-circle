@@ -8,19 +8,24 @@ function nameHash(name) {
   return Math.abs(h);
 }
 
-export function Avatar({ user, uri, name, size = 38 }) {
+export function Avatar({ user, uri, name, size = 38, live = false }) {
   const displayName = name || user?.name || user?.fullName || user?.username || "?";
   const src = uri || user?.avatar;
   const [failedSrc, setFailedSrc] = useState(null);
   const showImg = src && src !== failedSrc;
-  return (
+  const inner = (
     <div
       className="fd-avatar"
-      style={{ width: size, height: size, fontSize: size * 0.36, background: AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }}
+      style={live
+        ? { fontSize: size * 0.36, background: AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }
+        : { width: size, height: size, fontSize: size * 0.36, background: AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }}
     >
       {showImg ? <img src={src} alt="" onError={() => setFailedSrc(src)} /> : (displayName[0] || "?").toUpperCase()}
     </div>
   );
+  if (!live) return inner;
+  // Stories-style live presence ring (conic green→blue, slowly rotating)
+  return <div className="fd-story-ring" style={{ width: size + 8, height: size + 8 }}>{inner}</div>;
 }
 
 export function SectionHeader({ title, hint, children }) {

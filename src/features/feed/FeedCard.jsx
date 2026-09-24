@@ -45,7 +45,7 @@ export function RoomCard({ room, me, onJoin, onLeave, onEnd, onOpenResource, com
   return (
     <div className={`fd-card fd-room ${compact ? "compact" : ""}`}>
       <div className="fd-room-top">
-        <div className="fd-live-badge green">● STUDYING</div>
+        <div className="fd-live-badge green">STUDYING</div>
         <div className="fd-room-seats">{room.seatsUsed || 0}/{room.seats || room.maxSeats || 8}</div>
       </div>
       <div className="fd-room-name">{room.name}</div>
@@ -140,11 +140,13 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
   const [liked, setLiked] = useState(!!block.liked);
   const [likes, setLikes] = useState(isResource ? block.resource?.likes || 0 : block.likes || 0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [popTick, setPopTick] = useState(0);
 
   const toggleLike = async () => {
     const next = !liked;
     setLiked(next);
     setLikes((c) => c + (next ? 1 : -1));
+    if (next) setPopTick((t) => t + 1);
     try {
       const res = isResource
         ? await feedApi.toggleResourceLike({ token, resourceId: block.resource.id })
@@ -187,7 +189,7 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
           onClick={toggleLike}
           title="Cheer them on"
         >
-          <span className="fd-action-icon">👏</span>
+          <span key={popTick} className={`fd-action-icon ${popTick ? "pop" : ""}`}>👏</span>
           {likes > 0 ? `${likes} ` : ""}{liked ? "Cheered" : "Cheer"}
         </button>
       )}
@@ -339,7 +341,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
   // post
   const isActivity = block.kind === "activity";
   return (
-    <div className={`fd-card ${isActivity ? "fd-activity-card" : ""}`}>
+    <div className={`fd-card ${isActivity ? "fd-activity-card" : ""} ${block.kind === "question" ? "is-question" : ""}`}>
       <div className="fd-card-head">
         <button className="fd-who-btn" onClick={() => block.author?.id && onOpenProfile?.(block.author.id)}>
           <Avatar user={block.author} />

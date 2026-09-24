@@ -113,15 +113,19 @@ export function ChatThread({ token, me, partner, onBack, onOpenProfile, onRead }
             <div className="fd-empty-sub">Plan a study session, share a resource, or just vibe.</div>
           </div>
         )}
-        {(messages || []).map((m) => {
+        {(messages || []).map((m, i) => {
           const day = dayLabel(m.ts);
           const showDay = day !== lastDay;
           lastDay = day;
+          const prev = messages[i - 1];
+          const cont = !showDay && prev && prev.isMine === m.isMine;
           return (
             <div key={m.id}>
               {showDay && <div className="fd-thread-day">{day}</div>}
-              <div className={`fd-msg-row ${m.isMine ? "me" : "them"}`}>
-                {!m.isMine && <Avatar user={partner} size={26} />}
+              <div className={`fd-msg-row ${m.isMine ? "me" : "them"} ${cont ? "cont" : "first"}`}>
+                {!m.isMine && (cont
+                  ? <span style={{ width: 26, flexShrink: 0 }} />
+                  : <Avatar user={partner} size={26} />)}
                 <div className={`fd-bubble ${m.isMine ? "me" : "them"} ${m.pending ? "pending" : ""}`}>
                   <span className="fd-bubble-text">{m.text}</span>
                   <span className="fd-bubble-meta">
@@ -143,8 +147,8 @@ export function ChatThread({ token, me, partner, onBack, onOpenProfile, onRead }
           placeholder={`Message ${partner.name?.split(" ")[0] || ""}…`}
           maxLength={2000}
         />
-        <button className="fd-send" disabled={!text.trim() || sending} onClick={send}>
-          {sending ? "…" : "Send"}
+        <button className="fd-send" disabled={!text.trim() || sending} onClick={send} aria-label="Send">
+          {sending ? "…" : "↑"}
         </button>
       </div>
     </div>
