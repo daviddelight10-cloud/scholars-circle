@@ -3,7 +3,7 @@ import { getMyProfile } from "../lib/profileApi.js";
 
 import DailyReview from "../features/research-hub/DailyReview.jsx";
 import { listCommunityFolders, bookmarkFolder } from "../lib/foldersApi.js";
-import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP, syncTotalXp } from "../features/streak-survival/survivalStore.js";
+import { loadSave, mutate, tickDay, activeQuests, claimQuest, levelFromXP, levelProgress, syncTotalXp } from "../features/streak-survival/survivalStore.js";
 import { listRecentDocs, weakestSubject } from "../lib/homeUtils.js";
 import { getGuidedProgressIndex } from "../lib/studyCache.js";
 import { extractResourceText } from "../features/research-hub/useMaterialGenerate.js";
@@ -403,20 +403,39 @@ export default function Dashboard({
     }
   };
 
+  const { level: xpLevel, into: xpIn, needed: xpNeeded } = levelProgress(save?.xp || 0);
+
   return (
     <div className="hm-root" style={{ minHeight: "100dvh" }}>
       <div className="hm-inner" style={{ paddingBottom: 28 }}>
         {/* ── Compact top bar ── */}
         <div className="hm-topbar">
           <GameBar
-            streak={streak}
             save={save}
-            firstRun={firstRun}
             onOpenShop={() => { refreshSave(); setOpenSheet("shop"); }}
             onOpenBoard={() => setOpenSheet("board")}
             onOpenStats={() => setOpenSheet("stats")}
           />
         </div>
+
+        {/* Info line — streak, freezes, level. Regular in-flow content;
+            only the tappable buttons above stay pinned. */}
+        <div className="hm-gb-info">
+          <span className="hm-chip" title="Day streak">
+            <HIcon name="flame" size={12} color="#FF8A3D" /><b>{streak || 0}</b>
+          </span>
+          <span className="hm-chip hm-freeze" title="Streak freezes">
+            <HIcon name="freeze" size={11} /><b>{save.freezes || 0}</b>
+          </span>
+          <div className="hm-gb-xp">
+            <span className="hm-lvl">LVL {xpLevel}</span>
+            <div className="hm-xpbar"><i style={{ width: `${Math.min(100, (xpIn / xpNeeded) * 100)}%` }} /></div>
+            <span className="hm-xptext">{xpIn}/{xpNeeded} XP</span>
+          </div>
+        </div>
+        {firstRun && (
+          <div className="hm-xp-hint">Review cards and finish cases to earn XP and gems.</div>
+        )}
 
         <div className="hm-content">
           {/* ── Hero ── */}
