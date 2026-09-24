@@ -104,7 +104,6 @@ const LectureToNotes = lazyWithRetry(() => import("./features/LectureToNotes").t
 
 import { AchievementNotification } from "./features/AchievementNotification";
 
-const GamificationHub = lazyWithRetry(() => import("./features/Gamification"));
 const ResearchHub = lazyWithRetry(() => import("./features/research-hub/ResearchHub"));
 
 const ResourceViewer = lazyWithRetry(() => import("./features/ResourceViewer"));
@@ -1843,8 +1842,8 @@ function App() {
   // Redirect merged tabs to their consolidated home
   useEffect(() => {
     if (tab === "leaderboard") { setProgressSubTab("leaderboard"); setTab("analytics"); }
-    else if (tab === "achievements") { setProgressSubTab("badges"); setTab("analytics"); }
-    else if (tab === "gamification") { setProgressSubTab("arena"); setTab("analytics"); }
+    else if (tab === "achievements") { setProgressSubTab("stats"); setTab("analytics"); }
+    else if (tab === "gamification") { setProgressSubTab("stats"); setTab("analytics"); }
     else if (["learn", "bank", "practice", "pastpapers", "studypaths", "practicehints"].includes(tab)) { setTab("research-hub"); }
     else if (tab === "notes") { setResourcesSubTab("notes"); setTab("resources"); }
     else if (tab === "flashcards") { setResourcesSubTab("flashcards"); setTab("resources"); }
@@ -9153,6 +9152,8 @@ function App() {
           onOpenTab={setTab}
 
           onOpenLeaderboard={() => { setProgressSubTab("leaderboard"); setTab("analytics"); }}
+
+          onOpenStats={() => { setProgressSubTab("stats"); setTab("analytics"); }}
 
           onOpenAI={(topic) => { setAiDefaultView("chat"); setAiStudyTopic(topic || ""); setAiKey(k => k + 1); setTab("aitutor"); }}
 

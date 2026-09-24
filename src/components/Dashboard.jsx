@@ -51,7 +51,7 @@ function initials(name) {
 
 export default function Dashboard({
   userName, stats, subjects, mastery, dueCards, history,
-  onStartSubject, onOpenTab, onOpenLeaderboard,
+  onStartSubject, onOpenTab, onOpenLeaderboard, onOpenStats,
   onOpenAI, onOpenLearn, onOpenStudy, onOpenResource, token, authUser,
 }) {
   const [fsrsStats, setFsrsStats] = useState(() => {
@@ -636,6 +636,7 @@ export default function Dashboard({
       <StatsSheet
         open={openSheet === "stats"} onClose={() => setOpenSheet(null)}
         fsrsStats={fsrsStats} save={save} fetchAnalytics={fetchAnalytics}
+        onViewFull={() => { setOpenSheet(null); onOpenStats?.(); }}
       />
       <GoalSheet open={openSheet === "goal"} onClose={() => setOpenSheet(null)} dailyGoal={fsrsStats?.dailyGoal || 20} onSelect={handleSetGoal} />
 

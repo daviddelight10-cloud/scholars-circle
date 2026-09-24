@@ -1347,8 +1347,6 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
       newCount,
       reviewCount,
       mcqCount: items.filter((i) => i.itemType === "mcq" || i.itemType === "legacy_mcq").length,
-      flashcardCount: items.filter((i) => i.itemType === "flashcard").length,
-      pdfCount: items.filter((i) => i.itemType === "whole_pdf" || i.itemType === "page").length,
       bySubject,
       avgRetrievability,
       dailyGoal,
@@ -1418,8 +1416,21 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
       if (i.lapses > 0) lapseBySubject[s].lapsed++;
     }
 
+    // Due forecast: items scheduled per day over the next 7 days
+    const dueForecast = {};
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() + d);
+      dueForecast[date.toISOString().slice(0, 10)] = 0;
+    }
+    for (const i of items) {
+      const key = new Date(i.dueAt).toISOString().slice(0, 10);
+      if (dueForecast[key] !== undefined) dueForecast[key]++;
+    }
+
     res.json({
       dailyReviews,
+      dueForecast,
       totalItems: items.length,
       masteredThisPeriod,
       difficultyBySubject,

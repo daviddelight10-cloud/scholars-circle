@@ -21,8 +21,6 @@ function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily }) {
     ? `${Math.round(fsrsStats.avgRetrievability * 100)}%` : "—";
   const breakdown = [
     fsrsStats?.mcqCount ? `${fsrsStats.mcqCount} questions` : null,
-    fsrsStats?.flashcardCount ? `${fsrsStats.flashcardCount} cards` : null,
-    fsrsStats?.pdfCount ? `${fsrsStats.pdfCount} pages` : null,
   ].filter(Boolean);
   return (
     <div className="hm-hero">

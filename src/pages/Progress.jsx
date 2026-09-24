@@ -1,17 +1,19 @@
 import React, { memo, Suspense } from "react";
 import { lazyWithRetry } from "../lib/lazyWithRetry.js";
 import { Leaderboard } from "../components/Leaderboard";
-import { AchievementsBadges } from "../components/SearchAndBadges";
-import { BADGES } from "../lib/constants";
 import { StatsGridSkeleton, CardSkeleton } from "../components/LoadingSkeleton";
 import { useAuth } from "../contexts/AuthContext";
 import { useUI } from "../contexts/UIContext";
 import { useUserData } from "../contexts/UserDataContext";
 
-const GamificationHub = lazyWithRetry(() => import("../features/Gamification"));
+const StatsDashboard = lazyWithRetry(() => import("../components/analytics/StatsDashboard"));
+
+const SUB_TABS = [
+  { id: "leaderboard", label: "🏆 Leaderboard" },
+  { id: "stats", label: "📊 Stats" },
+];
 
 function Progress({
-  authUser: authUserProp,
   stats: statsProp,
   history: historyProp,
   subjects: subjectsProp,
@@ -20,17 +22,19 @@ function Progress({
   setProgressSubTab: setProgressSubTabProp,
   loading,
 }) {
-  const { user: ctxUser, token: ctxToken } = useAuth();
+  const { token: ctxToken } = useAuth();
   const { stats: ctxStats, history: ctxHistory, subjects: ctxSubjects } = useUserData();
   const { progressSubTab: ctxProgressSubTab, setProgressSubTab: ctxSetProgressSubTab } = useUI();
 
-  const authUser = authUserProp ?? ctxUser;
   const stats = statsProp ?? ctxStats ?? {};
   const history = historyProp ?? ctxHistory ?? [];
   const subjects = subjectsProp ?? ctxSubjects ?? [];
   const token = tokenProp ?? ctxToken;
-  const progressSubTab = progressSubTabProp ?? ctxProgressSubTab ?? "leaderboard";
+  const progressSubTabProp_ = progressSubTabProp ?? ctxProgressSubTab ?? "leaderboard";
   const setProgressSubTab = setProgressSubTabProp ?? ctxSetProgressSubTab;
+  // Guard against stale sub-tab values (e.g. removed "badges"/"arena") persisted in UI context
+  const progressSubTab = SUB_TABS.some((t) => t.id === progressSubTabProp_) ? progressSubTabProp_ : "leaderboard";
+
   if (loading) {
     return (
       <>
@@ -44,11 +48,7 @@ function Progress({
     <>
       {/* Progress Hub sub-tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[
-          { id: "leaderboard", label: "🏆 Leaderboard" },
-          { id: "badges", label: "🏅 Badges" },
-          { id: "arena", label: "⚔️ Arena" },
-        ].map(({ id, label }) => (
+        {SUB_TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setProgressSubTab(id)}
@@ -66,23 +66,12 @@ function Progress({
         <Leaderboard token={token} />
       )}
 
-      {progressSubTab === "badges" && (
-        <AchievementsBadges
-          badges={BADGES}
-          stats={stats}
-          history={history}
-          subjects={subjects}
-        />
-      )}
-
-      {progressSubTab === "arena" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading arena...</p></div>}>
-          <GamificationHub
-            token={token}
-            userId={authUser?.id}
-            username={authUser?.username}
-            classroomId={null}
-            leaderboard={[]}
+      {progressSubTab === "stats" && (
+        <Suspense fallback={<div className="card"><p className="muted">Loading stats...</p></div>}>
+          <StatsDashboard
+            stats={stats}
+            history={history}
+            subjects={subjects}
           />
         </Suspense>
       )}

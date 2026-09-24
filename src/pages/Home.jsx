@@ -17,6 +17,7 @@ function Home({
   onStartSubject,
   onOpenTab,
   onOpenLeaderboard,
+  onOpenStats,
   onOpenAI,
   onOpenLearn,
   onOpenStudy,
@@ -59,6 +60,7 @@ function Home({
       onStartSubject={onStartSubject}
       onOpenTab={onOpenTab}
       onOpenLeaderboard={onOpenLeaderboard}
+      onOpenStats={onOpenStats}
       onOpenResource={onOpenResource}
       token={token}
       authUser={authUser}

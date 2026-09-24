@@ -1,0 +1,123 @@
+/* ── Stats dashboard (Progress → Stats tab) — self-contained, same palette as home ── */
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
+
+.sd-root {
+  --sd-screen: #0A0D13;
+  --sd-card: rgba(255,255,255,.035);
+  --sd-stroke: rgba(255,255,255,.09);
+  --sd-stroke-soft: rgba(255,255,255,.06);
+  --sd-text: #F5F5F7;
+  --sd-muted: #8B8B98;
+  --sd-faint: #5B5B66;
+  --sd-amber: #FFB547;
+  --sd-blue: #6C9EFF;
+  --sd-green: #4ADE80;
+  --sd-violet: #8B6CFF;
+  --sd-rose: #F472B6;
+
+  font-family: 'Manrope', sans-serif;
+  color: var(--sd-text);
+  max-width: 640px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+
+.sd-loading { color: var(--sd-muted); font-size: 13px; text-align: center; padding: 48px 0; }
+
+/* Header */
+.sd-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.sd-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; margin: 0; }
+.sd-sub { font-size: 12px; color: var(--sd-muted); margin: 4px 0 0; }
+
+.sd-range { display: flex; gap: 4px; }
+.sd-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+  padding: 5px 11px; border-radius: 8px; cursor: pointer;
+  background: var(--sd-card); color: var(--sd-muted); border: 1px solid var(--sd-stroke-soft);
+  transition: all .15s;
+}
+.sd-chip.on { color: #211302; background: linear-gradient(180deg,#FFC55C,#F5A623); border-color: transparent; }
+
+/* Top stat cards */
+.sd-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+.sd-card {
+  background: var(--sd-card); border: 1px solid var(--sd-stroke-soft); border-radius: 14px;
+  padding: 14px 10px 11px; text-align: center;
+}
+.sd-card b { display: block; font-family: 'Syne', sans-serif; font-size: 19px; font-weight: 800; }
+.sd-card span { display: block; font-size: 9.5px; color: var(--sd-faint); margin-top: 4px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+
+/* Panels */
+.sd-panel {
+  background: var(--sd-card); border: 1px solid var(--sd-stroke-soft); border-radius: 16px;
+  padding: 14px 16px; margin-bottom: 12px;
+}
+.sd-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.sd-panel-head h3 { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin: 0; }
+.sd-panel-meta { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--sd-faint); }
+.sd-note { font-size: 11px; color: var(--sd-faint); text-align: center; margin: 8px 0 0; }
+
+/* Activity / forecast charts */
+.sd-chart { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 110px; padding-top: 16px; }
+.sd-chart.sm { height: 72px; }
+.sd-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; }
+.sd-col i {
+  display: block; width: 100%; max-width: 26px; border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(180deg, rgba(255,181,71,.85), rgba(245,166,35,.45));
+  min-height: 3px;
+}
+.sd-col.today i { background: linear-gradient(180deg, #FFC55C, #F5A623); box-shadow: 0 0 12px rgba(255,181,71,.35); }
+.sd-col.fc i { background: linear-gradient(180deg, rgba(108,158,255,.8), rgba(108,158,255,.35)); }
+.sd-col.fc.today i { background: linear-gradient(180deg, #6C9EFF, #4a7de0); box-shadow: 0 0 12px rgba(108,158,255,.3); }
+.sd-col span { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--sd-faint); }
+
+.sd-goalline {
+  position: absolute; left: 0; right: 0; border-top: 1.5px dashed rgba(74,222,128,.5);
+  pointer-events: none;
+}
+.sd-goalline span {
+  position: absolute; right: 0; top: -14px;
+  font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: var(--sd-green);
+}
+
+/* Memory state bar */
+.sd-statebar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; gap: 2px; }
+.sd-seg { min-width: 4px; border-radius: 3px; transition: width .3s; }
+.sd-seg-new { background: #6C9EFF; }
+.sd-seg-learning { background: #FFB547; }
+.sd-seg-review { background: #8B6CFF; }
+.sd-seg-mastered { background: #4ADE80; }
+.sd-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; }
+.sd-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--sd-muted); }
+.sd-legend b { color: var(--sd-text); font-family: 'JetBrains Mono', monospace; font-size: 10.5px; }
+.sd-dot { width: 8px; height: 8px; border-radius: 3px; display: inline-block; }
+
+/* XP bar */
+.sd-xpbar { height: 9px; border-radius: 5px; background: rgba(255,255,255,.06); overflow: hidden; }
+.sd-xpbar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg,#FFC55C,#F5A623); transition: width .4s; }
+
+/* Daily goal */
+.sd-goals { display: flex; gap: 8px; }
+.sd-goal {
+  flex: 1; padding: 10px; border-radius: 11px; cursor: pointer;
+  font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+  background: rgba(255,255,255,.03); color: var(--sd-muted); border: 1px solid var(--sd-stroke-soft);
+  transition: all .15s;
+}
+.sd-goal.on { color: #211302; background: linear-gradient(180deg,#FFC55C,#F5A623); border-color: transparent; }
+
+/* Subject rows */
+.sd-subj { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+.sd-subj + .sd-subj { border-top: 1px solid var(--sd-stroke-soft); }
+.sd-subj-info { flex: 1; min-width: 0; }
+.sd-subj-info h4 { font-size: 12.5px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-subj-info span { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--sd-faint); }
+.sd-subj-bar { width: 90px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.06); overflow: hidden; flex-shrink: 0; }
+.sd-subj-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg,#4ADE80,#22c55e); }
+.sd-subj-pct { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: var(--sd-green); width: 34px; text-align: right; flex-shrink: 0; }
+
+@media (max-width: 480px) {
+  .sd-cards { grid-template-columns: repeat(2, 1fr); }
+  .sd-subj-bar { width: 60px; }
+}

@@ -161,7 +161,7 @@ export function BoardSheet({ open, onClose, entries, userName, myIdx = -1, onInv
 }
 
 /* ── Stats — the main analytics surface ── */
-export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics }) {
+export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics, onViewFull }) {
   const [days, setDays] = useState(7);
   const [analytics, setAnalytics] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -278,7 +278,7 @@ export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics }) {
           <h5>NEEDS WORK</h5>
           <div className="hm-an-weak-row">
             {lapsedSubjects(analytics).map((s) => (
-              <span key={s.name} className="hm-weak-chip">{s.name} · {s.rate}% lapse</span>
+              <span key={s.name} className="hm-weak-chip">{s.name} · {s.rate}% ever missed</span>
             ))}
           </div>
         </div>
@@ -298,10 +298,16 @@ export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics }) {
                 <span>{s.total} items{s.due > 0 ? ` · ${s.due} due` : ""}{s.diff ? ` · diff ${s.diff}` : ""}</span>
               </div>
               <span className="hm-subj-stat">{s.masteredPct}% mastered</span>
-              {s.lapsePct > 0 && <span className="hm-subj-lapse">{s.lapsePct}% lapse</span>}
+              {s.lapsePct > 0 && <span className="hm-subj-lapse">{s.lapsePct}% ever missed</span>}
             </div>
           ))}
         </div>
+      )}
+
+      {onViewFull && (
+        <button className="hm-an-link" onClick={onViewFull}>
+          View full stats<HIcon name="arrowR" size={13} />
+        </button>
       )}
     </Sheet>
   );
