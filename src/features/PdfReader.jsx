@@ -254,6 +254,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pinchActiveRef = useRef(false);
   const pinchLayoutOriginRef = useRef({ x: 0, y: 0 }); // wrapper's untransformed origin on screen
   const pinchContentRef = useRef({ x: 0, y: 0 }); // content point pinned under the fingers
+  const zoomAnchorPageRef = useRef(0); // page under the zoom focal point — re-rendered first
   const cssScaleRef = useRef(1); // live CSS scale during pinch (no re-render)
   const lastTapRef = useRef(0);
   // Gallery-style pan-zoom state
@@ -609,28 +610,44 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
     const canvas = canvasRef.current;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvas.width = Math.floor(viewport.width * dpr);
-    canvas.height = Math.floor(viewport.height * dpr);
-    canvas.style.width = viewport.width + "px";
-    canvas.style.height = viewport.height + "px";
-    const ctx = canvas.getContext("2d");
+    const w = Math.floor(viewport.width * dpr);
+    const h = Math.floor(viewport.height * dpr);
+    // Render to a detached canvas so the old bitmap stays visible until the new
+    // pixels are ready — prevents the blank flash during zoom re-renders.
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
 
     if (renderTaskRef.current) {
       try { renderTaskRef.current.cancel(); } catch (e) {}
     }
-    const task = page.render({ canvasContext: ctx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
+    const task = page.render({ canvasContext: off.getContext("2d"), viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
     renderTaskRef.current = task;
     try {
       await task.promise;
     } catch (err) {
       if (!err || err.name !== "RenderingCancelledException") console.error(err);
+      return; // cancelled/failed — keep the old bitmap on screen
+    } finally {
+      if (renderTaskRef.current === task) delete renderTaskRef.current;
     }
+    // Atomic swap: resize + blit in one synchronous step
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(off, 0, 0);
+    canvas.style.width = viewport.width + "px";
+    canvas.style.height = viewport.height + "px";
+    canvas.dataset.renderedScale = useScale;
   }, [scale]);
 
   // Re-render on scale change (single mode only)
   useEffect(() => {
     if (scrollMode === "single") {
-      if (pdfDocRef.current && !loading) {
+      const c = canvasRef.current;
+      const rs = c ? parseFloat(c.dataset.renderedScale || "0") : 0;
+      // Zoom hysteresis: skip the re-render while the existing bitmap still has
+      // resolution headroom (small zooms stay sharp via the DPR margin)
+      if (pdfDocRef.current && !loading && (!rs || Math.abs(rs - scale) / scale > 0.35)) {
         renderPage(currentPage);
       }
       return;
@@ -639,11 +656,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (!pdfDocRef.current || loading) return;
     if (debounceScaleRef.current) clearTimeout(debounceScaleRef.current);
     debounceScaleRef.current = setTimeout(() => {
-      pageCanvasRefs.current.forEach((c) => { if (c) delete c.dataset.rendered; });
-      // Bound the re-render window to the current page — visiblePages only
+      pageCanvasRefs.current.forEach((c) => {
+        if (!c) return;
+        const rs = parseFloat(c.dataset.renderedScale || "0");
+        // Zoom hysteresis: only re-render pages whose bitmap diverges enough to
+        // look soft — small zooms keep the existing bitmap (DPR headroom)
+        if (!rs || Math.abs(rs - scale) / scale > 0.35) delete c.dataset.rendered;
+      });
+      // Bound the re-render window to the zoom anchor page — visiblePages only
       // accumulates, so without this every visited page re-renders on zoom.
       // The IntersectionObserver repopulates the window immediately after.
-      setVisiblePages(new Set([currentPage]));
+      setVisiblePages(new Set([zoomAnchorPageRef.current || currentPage]));
     }, 150);
     return () => {
       if (debounceScaleRef.current) clearTimeout(debounceScaleRef.current);
@@ -711,34 +734,46 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     return () => window.removeEventListener("resize", handler);
   }, [userZoomed, fitToWidth]);
 
-  const renderPageToCanvas = useCallback(async (n, canvasEl) => {
+  const renderPageToCanvas = useCallback(async (n, canvasEl, scaleOverride) => {
     if (!pdfDocRef.current || !canvasEl) return;
     const page = await pdfDocRef.current.getPage(n);
-    const viewport = page.getViewport({ scale });
+    const useScale = scaleOverride ?? scale;
+    const viewport = page.getViewport({ scale: useScale });
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    canvasEl.width = Math.floor(viewport.width * dpr);
-    canvasEl.height = Math.floor(viewport.height * dpr);
-    canvasEl.style.width = viewport.width + "px";
-    canvasEl.style.height = viewport.height + "px";
+    const w = Math.floor(viewport.width * dpr);
+    const h = Math.floor(viewport.height * dpr);
     // Store base dimensions (at scale 1) for virtualization placeholders
     if (!pageDimsRef.current[n]) {
       const baseVp = page.getViewport({ scale: 1 });
       pageDimsRef.current[n] = { width: baseVp.width, height: baseVp.height };
     }
-    const ctx = canvasEl.getContext("2d");
+    // Render to a detached canvas so the old bitmap stays on screen until the
+    // new pixels are ready — no blank flash during zoom re-renders.
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
     // Cancel any previous render task for this page
     if (renderTasksRef.current[n]) {
       try { renderTasksRef.current[n].cancel(); } catch (e) {}
     }
-    const task = page.render({ canvasContext: ctx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
+    const task = page.render({ canvasContext: off.getContext("2d"), viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
     renderTasksRef.current[n] = task;
     try {
       await task.promise;
     } catch (err) {
       if (!err || err.name !== "RenderingCancelledException") console.error(err);
+      delete canvasEl.dataset.rendered; // let the machinery retry later
+      return;
     } finally {
       if (renderTasksRef.current[n] === task) delete renderTasksRef.current[n];
     }
+    // Atomic swap: resize + blit in one synchronous step
+    canvasEl.width = w;
+    canvasEl.height = h;
+    canvasEl.getContext("2d").drawImage(off, 0, 0);
+    canvasEl.style.width = viewport.width + "px";
+    canvasEl.style.height = viewport.height + "px";
+    canvasEl.dataset.renderedScale = useScale;
     // Render text layer for selection/copy
     renderTextLayer(n, page, viewport, canvasEl);
   }, [scale]);
@@ -851,7 +886,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       }
     });
     setUserZoomed(true);
+    zoomAnchorPageRef.current = anchor?.pg || 0;
     setScale(newScale);
+    // Render the anchored page at the new scale right away so the spot the user
+    // is zooming into sharpens first — the debounced pass handles the rest.
+    if (anchor && scrollMode !== "single") {
+      const ac = pageCanvasRefs.current[anchor.pg - 1];
+      if (ac) {
+        ac.dataset.rendered = "true";
+        renderPageToCanvas(anchor.pg, ac, newScale);
+      }
+    }
     // After React commits the new scale, adjust scroll so the same content point
     // stays under the anchor. Double rAF: placeholders need a React commit first.
     requestAnimationFrame(() => requestAnimationFrame(() => {
