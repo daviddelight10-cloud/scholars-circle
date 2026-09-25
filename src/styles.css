@@ -3965,10 +3965,6 @@ textarea {
   display: none;
 }
 
-@keyframes sc-fabPulse {
-  0%, 100% { transform: scale(1); opacity: 0.35; }
-  50% { transform: scale(1.15); opacity: 0; }
-}
 
 @media (max-width: 768px) {
 
@@ -4048,50 +4044,8 @@ textarea {
     font-weight: 600;
   }
 
-  .mobile-nav .nav-fab {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #FFC24D, #F5A623);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: -26px 6px 0;
-    box-shadow: 0 10px 24px -6px rgba(245,166,35,0.5), 0 0 0 5px #0A0D13;
-    color: #201400;
-    cursor: pointer;
-    position: relative;
-    transition: transform 0.2s ease;
-    flex-shrink: 0;
-  }
-
-  .mobile-nav .nav-fab:hover {
-    transform: scale(1.1) rotate(10deg);
-  }
-
-  .mobile-nav .nav-fab::after {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    background: #F5A623;
-    opacity: 0.35;
-    animation: sc-fabPulse 2.5s ease-in-out infinite;
-    z-index: -1;
-  }
-
   .desktop-tabs {
     display: none !important;
-  }
-
-  @keyframes sc-fabslide {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes sc-fabfade {
-    from { opacity: 0; }
-    to { opacity: 1; }
   }
 
   /* Mobile Menu Overlay */

@@ -641,8 +641,6 @@ function App() {
 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  const [fabOpen, setFabOpen] = useState(false);
-
   const [homeViewerToken, setHomeViewerToken] = useState(null);
 
   const [homeViewerPage, setHomeViewerPage] = useState(null);
@@ -8491,43 +8489,53 @@ function App() {
 
           onClick={() => setTab("research-hub")}
 
-          title="My Circle"
+          title="My Space"
 
         >
 
           <Folder size={20} className="nav-icon" />
 
-          <span className="nav-label">Circle</span>
+          <span className="nav-label">Space</span>
 
         </button>
 
-        <div className="nav-fab" onClick={() => setFabOpen(o => !o)} title="Quick Actions">
-
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#201400" strokeWidth="2.5" strokeLinecap="round"/></svg>
-
-        </div>
-
         <button
 
-          className={["analytics", "leaderboard", "achievements", "gamification"].includes(tab) ? "active" : ""}
+          className={tab === "aitutor" ? "active" : ""}
 
-          onClick={() => setTab("analytics")}
+          onClick={() => setTab("aitutor")}
 
-          title="Progress"
+          title="AI Tutor"
 
         >
 
-          <BarChart3 size={20} className="nav-icon" />
+          <Bot size={20} className="nav-icon" />
 
-          <span className="nav-label">Progress</span>
+          <span className="nav-label">AI Tutor</span>
 
         </button>
 
         <button
 
-          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "discuss", "cheatsheet", "outline", "profile", "premium", "aitutor", "voice-tutor", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+          className={tab === "discuss" ? "active" : ""}
 
-          onClick={() => { setShowMobileMenu(!showMobileMenu); setFabOpen(false); }}
+          onClick={() => setTab("discuss")}
+
+          title="Feed"
+
+        >
+
+          <MessageCircle size={20} className="nav-icon" />
+
+          <span className="nav-label">Feed</span>
+
+        </button>
+
+        <button
+
+          className={`more-btn ${["settings", "flashcards", "notes", "timetable", "cheatsheet", "outline", "profile", "premium", "voice-tutor", "analytics", "leaderboard", "achievements", "gamification", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
+
+          onClick={() => { setShowMobileMenu(!showMobileMenu); }}
 
           title="More"
 
@@ -8542,70 +8550,6 @@ function App() {
       </nav>,
       document.body
       )}
-
-      {/* FAB Quick Actions — floating bottom-right like ResearchHub */}
-
-      {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !BARE_TABS.includes(tab) && !(tab === "voice-tutor" && voiceSessionActive) && (
-
-        <div onClick={() => setFabOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 998, background: "rgba(0,0,0,0.5)", animation: "sc-fabfade 0.15s ease" }} />
-
-      )}
-
-      <div style={{ position: "fixed", bottom: "calc(80px + env(safe-area-inset-bottom))", right: 16, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
-
-        {fabOpen && !ctxUI.hideMobileNav && !homeViewerToken && !BARE_TABS.includes(tab) && !(tab === "voice-tutor" && voiceSessionActive) && (
-
-          <>
-
-            <div onClick={() => { window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { openUpload: true } })); setTab("research-hub"); setFabOpen(false); }} style={{ display: "flex", cursor: "pointer", alignItems: "center", gap: 12, animation: "sc-fabslide 0.2s ease" }}>
-
-              <div style={{ borderRadius: 12, border: "1px solid rgba(255,215,0,0.35)", background: "#141414", padding: "8px 14px", textAlign: "right", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
-
-                <div style={{ whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, color: "#FFD700" }}>Upload to Space</div>
-
-                <div style={{ whiteSpace: "nowrap", fontSize: 10, color: "#555" }}>PDF, Image, DOCX, Note, AI tools…</div>
-
-              </div>
-
-              <div style={{ width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "1px solid rgba(255,215,0,0.35)", background: "rgba(255,215,0,0.15)", fontSize: 20 }}>📎</div>
-
-            </div>
-
-            <div onClick={() => { window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { tab: "space", openCreateFolder: true } })); setTab("research-hub"); setFabOpen(false); }} style={{ display: "flex", cursor: "pointer", alignItems: "center", gap: 12, animation: "sc-fabslide 0.2s ease" }}>
-
-              <div style={{ borderRadius: 12, border: "1px solid rgba(255,215,0,0.35)", background: "#141414", padding: "8px 14px", textAlign: "right", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
-
-                <div style={{ whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, color: "#FFD700" }}>Create New Space</div>
-
-                <div style={{ whiteSpace: "nowrap", fontSize: 10, color: "#555" }}>Organize your study materials</div>
-
-              </div>
-
-              <div style={{ width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "1px solid rgba(255,215,0,0.35)", background: "rgba(255,215,0,0.15)", fontSize: 20 }}>📁</div>
-
-            </div>
-
-            <div onClick={() => { setTab("voice-tutor"); setFabOpen(false); }} style={{ display: "flex", cursor: "pointer", alignItems: "center", gap: 12, animation: "sc-fabslide 0.2s ease" }}>
-
-              <div style={{ borderRadius: 12, border: "1px solid rgba(255,215,0,0.35)", background: "#141414", padding: "8px 14px", textAlign: "right", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
-
-                <div style={{ whiteSpace: "nowrap", fontSize: 13, fontWeight: 700, color: "#FFD700" }}>Voice Tutor</div>
-
-                <div style={{ whiteSpace: "nowrap", fontSize: 10, color: "#555" }}>Study with voice commands</div>
-
-              </div>
-
-              <div style={{ width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", border: "1px solid rgba(255,215,0,0.35)", background: "rgba(255,215,0,0.15)", fontSize: 20 }}>🎙️</div>
-
-            </div>
-
-          </>
-
-        )}
-
-      </div>
-
-
 
       {/* Mobile Menu Overlay */}
 
@@ -8642,12 +8586,6 @@ function App() {
             <div className="mobile-menu-section-label"><Bot size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> AI Tools</div>
 
             <div className="mobile-menu-grid">
-
-              <button className={tab === "aitutor" ? "active" : ""} onClick={() => { setTab("aitutor"); setShowMobileMenu(false); }}>
-
-                <Bot size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> AI Tutor
-
-              </button>
 
               <button className={tab === "voice-tutor" ? "active" : ""} onClick={() => { setTab("voice-tutor"); setShowMobileMenu(false); }}>
 
@@ -8699,14 +8637,14 @@ function App() {
 
 
 
-            {/* Section: Classroom & Community */}
+            {/* Section: Classroom & Community — faculty only (Feed is a bottom-nav tab now) */}
 
+            {isFaculty && (
+            <>
             <div className="mobile-menu-section-label"><School size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Classroom & Community</div>
 
             <div className="mobile-menu-grid">
 
-              {isFaculty && (
-              <>
               <button className={tab === "classroom" ? "active" : ""} onClick={() => { setTab("classroom"); setShowMobileMenu(false); }}>
 
                 <School size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Classroom
@@ -8719,16 +8657,9 @@ function App() {
 
               </button>
 
-              </>
-              )}
-
-              <button className={tab === "discuss" ? "active" : ""} onClick={() => { setTab("discuss"); setShowMobileMenu(false); }}>
-
-                <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Feed
-
-              </button>
-
             </div>
+            </>
+            )}
 
 
 
@@ -8737,6 +8668,12 @@ function App() {
             <div className="mobile-menu-section-label"><Cog size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Tools</div>
 
             <div className="mobile-menu-grid">
+
+              <button className={["analytics", "leaderboard", "achievements", "gamification"].includes(tab) ? "active" : ""} onClick={() => { setTab("analytics"); setShowMobileMenu(false); }}>
+
+                <BarChart3 size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Progress
+
+              </button>
 
               <button className={tab === "timetable" ? "active" : ""} onClick={() => { setTab("timetable"); setShowMobileMenu(false); }}>
 

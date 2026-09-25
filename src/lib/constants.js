@@ -83,12 +83,12 @@ export const DEMO_ACHIEVEMENTS = [
   { id: "demo_complete", icon: "🎯", label: "Demo Complete", desc: "Earn all demo achievements", check: (p, u, a) => a.length >= 7 },
 ];
 
-export const PRIMARY_TABS = ["today", "clinical-cases", "osce", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub"];
+export const PRIMARY_TABS = ["today", "clinical-cases", "osce", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub", "discuss"];
 
 // Full-bleed screens that render their own floating exit pill — no global back header or bottom nav
 export const BARE_TABS = [
   "settings", "refer", "profile", "premium",
-  "timetable", "discuss", "clinical-cases", "drug-ref", "lab-values", "medical-calculators",
+  "timetable", "clinical-cases", "drug-ref", "lab-values", "medical-calculators",
 ];
 
 export const TAB_LABELS = {
