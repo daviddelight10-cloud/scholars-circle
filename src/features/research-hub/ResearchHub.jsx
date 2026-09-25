@@ -1613,7 +1613,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         goingLive={goingLive}
         onSetCourseCode={handleSetFolderCourseCode}
         preparingStudy={preparingStudy}
-        fsrsStats={fsrsStats}
         onJoinLive={(code) => navigate(`/live/${code}`)}
         onDeleteResource={handleDeleteResource}
         onRenameResource={handleRenameResource}

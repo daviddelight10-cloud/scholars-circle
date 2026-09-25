@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { feedApi } from "../feed/feedApi";
+import { loadSave, mutate } from "../streak-survival/survivalStore.js";
+
+// Answer-style options — same ids as StreakSurvival's Session setup
+const STYLE_OPTIONS = [
+  ["smart", "Smart mix"],
+  ["mcq", "Choices"],
+  ["typing", "Typing"],
+  ["flashcard", "Cards"],
+  ["mixed", "Variety"],
+];
 
 function getVariantCount(variant) {
   if (!variant) return 0;
@@ -67,19 +77,8 @@ const IcoUsers = (p) => (
     <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8" /><path d="M17.5 15c2 .8 3.4 2.5 4 5" />
   </I>
 );
-const IcoFlame = (p) => (
-  <I {...p} filled>
-    <path d="M12 22c4.4 0 7-2.8 7-6.5 0-3-1.8-5.4-3.4-7.4C14 6 13 4 13 2c-3 2-5 4.5-5.5 7-.3-.5-.5-1-.5-1.5C5.5 9 5 11.3 5 14.5 5 19.2 7.6 22 12 22z" />
-  </I>
-);
 const IcoClock = (p) => (
   <I {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></I>
-);
-const IcoShuffle = (p) => (
-  <I {...p}>
-    <path d="M16 3h5v5" /><path d="M4 20 21 3" /><path d="M21 16v5h-5" />
-    <path d="M15 15l6 6" /><path d="M4 4l5 5" />
-  </I>
 );
 const IcoChevron = (p) => <I {...p}><path d="M9 6l6 6-6 6" /></I>;
 const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></I>;
@@ -122,8 +121,6 @@ export default function PracticeSheet({
   preparingStudy,
   mcqProgress,
   guidedProgress,
-  streak,
-  dueCount,
   onJoinLive,
 }) {
   const { modalProps, focusRef } = useModalA11y({
@@ -135,6 +132,16 @@ export default function PracticeSheet({
   const dragRef = useRef(null);
   const [livePeople, setLivePeople] = useState([]);
   const [activeQuizzes, setActiveQuizzes] = useState([]);
+  // Answer style for the recall run — persisted to the survival save so
+  // StreakSurvival picks it up the moment the runner mounts.
+  const [quizStyle, setQuizStyle] = useState(() => loadSave()?.quizPrefs?.style || "smart");
+
+  const pickStyle = (id) => {
+    try {
+      mutate((s) => { s.quizPrefs = { ...(s.quizPrefs || {}), style: id }; });
+    } catch {}
+    setQuizStyle(id);
+  };
 
   // Real faces for the live tile (suggested people + quiz hosts) and any
   // joinable lobby for this material — best-effort, renders fine without it.
@@ -283,19 +290,11 @@ export default function PracticeSheet({
             <p className="cs-sheet-label">PRACTICE</p>
             <p className="cs-sheet-title" id="sp-sheet-title">{file.title}</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            {streak > 0 && (
-              <span className="pm-streak" aria-label={`${streak} day streak`}>
-                <IcoFlame size={15} />
-                <span>{streak}</span>
-              </span>
-            )}
-            <button className="cs-sheet-close" onClick={onClose} aria-label="Close menu">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18" /><path d="M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          <button className="cs-sheet-close" onClick={onClose} aria-label="Close menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18" /><path d="M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <div className="pm-scroll">
@@ -317,14 +316,32 @@ export default function PracticeSheet({
                 {mcq && (
                   <div className="pm-hero-meta">
                     {mcqCount > 0 && <span className="pm-chip"><IcoClock size={12} />~{estMin} min</span>}
-                    <span className="pm-chip"><IcoShuffle size={12} />Mixed types</span>
-                    {bestPct != null && <span className="pm-chip">Best {bestPct}%</span>}
+                    {prog?.mastered != null && prog.total > 0 && (
+                      <span className="pm-chip pm-chip-good">🌟 {prog.mastered}/{prog.total} mastered</span>
+                    )}
+                    {bestPct != null && <span className="pm-chip pm-chip-best">Best {bestPct}%</span>}
                     {prog?.attempts > 0 && <span className="pm-chip">{prog.attempts} attempt{prog.attempts > 1 ? "s" : ""}</span>}
-                    {dueCount > 0 && <span className="pm-chip pm-chip-due"><IcoFlame size={11} />{dueCount} due</span>}
                   </div>
                 )}
               </div>
             </div>
+            {mcq && (
+              <div className="pm-style-row" role="radiogroup" aria-label="Answer style">
+                <span className="pm-style-lbl">Style</span>
+                {STYLE_OPTIONS.map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={quizStyle === id}
+                    className={`pm-style-opt${quizStyle === id ? " on" : ""}`}
+                    onClick={() => pickStyle(id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               className="pm-hero-btn"
               disabled={generating}
@@ -338,7 +355,7 @@ export default function PracticeSheet({
 
           <div className="pm-grid">
             <PmTile
-              tint="tint-gold" featured badge={gsBadge}
+              tint="tint-violet" badge={gsBadge}
               icon={<IcoBrain size={17} />}
               name="Guided study"
               sub={gsSub}
@@ -346,7 +363,7 @@ export default function PracticeSheet({
               onClick={act(() => onGuidedStudy?.(file))}
             />
             <PmTile
-              tint="tint-green"
+              tint="tint-blue"
               icon={<IcoFileText size={17} />}
               name="Summary"
               sub={summary ? "AI recap" : "Tap to create"}
@@ -354,7 +371,7 @@ export default function PracticeSheet({
               onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
             />
             <PmTile
-              tint="tint-coral"
+              tint="tint-green"
               icon={<IcoClipboard size={17} />}
               name="Exam sim"
               sub={mcq ? "Timed test" : "Needs Rapid Recall"}
@@ -362,6 +379,7 @@ export default function PracticeSheet({
               onClick={act(() => onExamSimulation?.([mcq.id]))}
             />
             <PmTile
+              tint="tint-rose"
               icon={<IcoFile size={17} />}
               name="Material"
               sub={file.fileName || "Source document"}
