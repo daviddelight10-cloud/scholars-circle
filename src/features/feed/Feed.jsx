@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
 import { messagesApi } from "../messages/messagesApi";
@@ -9,17 +9,14 @@ import { MessagesTab } from "../messages/MessagesTab";
 import { GroupsTab } from "../groups/GroupsTab";
 import { Avatar, SectionHeader, displayTitle } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
-import NotificationBell from "../NotificationBellImproved.jsx";
 import "../../feed.css";
 
 const TABS = [
   { key: "feed", label: "Feed" },
   { key: "chats", label: "Chats" },
-  { key: "groups", label: "Groups" },
-  { key: "live", label: "Live" },
 ];
 
-export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource, onBack, deepLink, onDeepLinkHandled }) {
+export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpenResource, deepLink, onDeepLinkHandled }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState("feed");
   const [circleOnly, setCircleOnly] = useState(false); // "My Circle" chip on the Feed tab
@@ -39,13 +36,12 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [rooms, setRooms] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [sessions, setSessions] = useState({ live: [], upcoming: [] });
-  const [streakOpen, setStreakOpen] = useState(false);
+  const [liveOpen, setLiveOpen] = useState(false); // full-screen live rooms/quizzes overlay
   const [fsrsStats, setFsrsStats] = useState(null);
   const [dailyReviews, setDailyReviews] = useState({});
   const [followBusy, setFollowBusy] = useState({});
   const [trending, setTrending] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
-  const topRef = useRef(null);
 
   const me = useMemo(
     () => ({
@@ -102,16 +98,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     if (circleOnly) {
       feedApi.getCircle({ token }).then(setCircle).catch(() => {});
     }
-    if (tab === "live") {
-      feedApi.getActiveQuizzes({ token }).then(setQuizzes).catch(() => setQuizzes([]));
-      Promise.all([
-        feedApi.getLiveSessions({ token }).catch(() => []),
-        feedApi.getUpcomingSessions({ token }).catch(() => []),
-      ])
-        .then(([live, upcoming]) => setSessions({ live: live || [], upcoming: upcoming || [] }))
-        .catch(() => {});
-    }
-  }, [token, tab, circleOnly]);
+  }, [token, circleOnly]);
 
   useEffect(() => {
     setBlocks([]);
@@ -120,6 +107,19 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     loadFeed();
     loadAux();
   }, [loadFeed, loadAux]);
+
+  // Live overlay data loads on demand — quizzes and class sessions aren't
+  // needed until the user opens the "See all" / "Go live" view.
+  useEffect(() => {
+    if (!liveOpen) return;
+    feedApi.getActiveQuizzes({ token }).then(setQuizzes).catch(() => setQuizzes([]));
+    Promise.all([
+      feedApi.getLiveSessions({ token }).catch(() => []),
+      feedApi.getUpcomingSessions({ token }).catch(() => []),
+    ])
+      .then(([live, upcoming]) => setSessions({ live: live || [], upcoming: upcoming || [] }))
+      .catch(() => {});
+  }, [liveOpen, token]);
 
   // (title is static now — no scroll listener needed)
 
@@ -145,10 +145,15 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     return () => clearInterval(iv);
   }, [token]);
 
-  // Deep links: notification taps / invite URLs route into a sub-tab
+  // Deep links: notification taps / invite URLs route into a section.
+  // Groups merged into Chats; Live opens as an overlay.
   useEffect(() => {
     if (!deepLink) return;
-    if (deepLink.feedTab) setTab(deepLink.feedTab);
+    if (deepLink.feedTab) {
+      if (deepLink.feedTab === "live") setLiveOpen(true);
+      else setTab(deepLink.feedTab === "groups" ? "chats" : deepLink.feedTab);
+    }
+    if (deepLink.joinCode) setTab("chats");
     if (deepLink.chatWith) {
       const cw = deepLink.chatWith;
       if (typeof cw === "string") {
@@ -326,7 +331,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         out.push(
           <div key="rooms-strip" className="fd-strip">
             <SectionHeader title="Studying now">
-              <button className="fd-link" onClick={() => setTab("live")}>See all</button>
+              <button className="fd-link" onClick={() => setLiveOpen(true)}>See all</button>
             </SectionHeader>
             <div className="fd-strip-scroll">
               {rooms.slice(0, 6).map((r) => (
@@ -368,49 +373,20 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         {ptr.showSpinner ? "Refreshing…" : "↓ Pull to refresh"}
       </div>
 
-      <header className="fd-topbar" ref={topRef}>
-        <div className="fd-topbar-left">
-          <button className="fd-backbtn" onClick={onBack} aria-label="Back">←</button>
-          <button className="fd-me" onClick={() => onOpenTab?.("profile")} title="Profile">
-            <Avatar user={me} size={34} />
-          </button>
-          <span className="fd-bartitle">Discussion</span>
-          <div className="fd-seg">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                className={`fd-tab ${tab === t.key ? "active" : ""}`}
-                onClick={() => setTab(t.key)}
-              >
-                {t.label}
-                {t.key === "chats" && unread > 0 && <span className="fd-tab-badge">{unread > 9 ? "9+" : unread}</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="fd-topbar-right">
-          <button className="fd-chip-btn" onClick={() => setStreakOpen((v) => !v)} title="Streak">
-            🔥 {fsrsStats?.streak ?? 0}
-          </button>
-          <NotificationBell token={token} currentUser={authUser} onOpenTab={onOpenTab} />
+      <header className="fd-segbar">
+        <div className="fd-seg">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              className={`fd-tab ${tab === t.key ? "active" : ""}`}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+              {t.key === "chats" && unread > 0 && <span className="fd-tab-badge">{unread > 9 ? "9+" : unread}</span>}
+            </button>
+          ))}
         </div>
       </header>
-
-      {streakOpen && (
-        <div className="fd-streak-pop">
-          <div className="fd-streak-num">🔥 {fsrsStats?.streak ?? 0}-day streak</div>
-          <div className="fd-streak-grid">
-            {streakDays.map((d) => (
-              <span
-                key={d.key}
-                className={`fd-streak-dot ${d.active ? "on" : ""} ${d.today ? "today" : ""}`}
-                title={d.key}
-              />
-            ))}
-          </div>
-          <div className="fd-streak-hint">Review cards daily to keep it alive</div>
-        </div>
-      )}
 
       <div className="fd-layout">
         <main className="fd-main">
@@ -442,7 +418,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
 
               {!circleOnly && (
                 <div className="fd-stories">
-                  <button className="fd-story" onClick={() => setTab("live")} title="Start a live room or quiz battle">
+                  <button className="fd-story" onClick={() => setLiveOpen(true)} title="Start a live room or quiz battle">
                     <span className="fd-story-ring-static">＋</span>
                     <span className="fd-story-name">Go live</span>
                     <span className="fd-story-sub">START</span>
@@ -497,44 +473,26 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           )}
 
           {tab === "chats" && (
-            <MessagesTab
-              token={token}
-              me={me}
-              openChatWith={chatWith}
-              onChatOpened={() => setChatWith(null)}
-              onOpenProfile={setProfileUserId}
-              onUnreadChange={setUnread}
-            />
-          )}
-
-          {tab === "groups" && (
-            <GroupsTab
-              token={token}
-              me={me}
-              subjects={subjects}
-              isFaculty={isFaculty}
-              joinCode={joinCode}
-              onJoinHandled={() => setJoinCode(null)}
-              onOpenProfile={setProfileUserId}
-            />
-          )}
-
-          {tab === "live" && (
-            <LiveTab
-              token={token}
-              me={me}
-              rooms={rooms}
-              quizzes={quizzes}
-              sessions={sessions}
-              subjects={subjects}
-              onJoinRoom={handleJoinRoom}
-              onLeaveRoom={handleLeaveRoom}
-              onEndRoom={handleEndRoom}
-              onJoinSession={handleJoinSession}
-              onJoinQuiz={handleJoinQuiz}
-              onOpenResource={onOpenResource}
-              onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})}
-            />
+            <>
+              <MessagesTab
+                token={token}
+                me={me}
+                openChatWith={chatWith}
+                onChatOpened={() => setChatWith(null)}
+                onOpenProfile={setProfileUserId}
+                onUnreadChange={setUnread}
+              />
+              <DividerBlock label="Study groups" />
+              <GroupsTab
+                token={token}
+                me={me}
+                subjects={subjects}
+                isFaculty={isFaculty}
+                joinCode={joinCode}
+                onJoinHandled={() => setJoinCode(null)}
+                onOpenProfile={setProfileUserId}
+              />
+            </>
           )}
 
           {newPosts && tab === "feed" && (
@@ -656,6 +614,30 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           )}
         </aside>
       </div>
+
+      {liveOpen && (
+        <div className="fd-live-overlay" role="dialog" aria-label="Live">
+          <div className="fd-live-overlay-bar">
+            <button className="fd-backbtn" onClick={() => setLiveOpen(false)} aria-label="Back">←</button>
+            <span className="fd-live-overlay-title">Live</span>
+          </div>
+          <LiveTab
+            token={token}
+            me={me}
+            rooms={rooms}
+            quizzes={quizzes}
+            sessions={sessions}
+            subjects={subjects}
+            onJoinRoom={handleJoinRoom}
+            onLeaveRoom={handleLeaveRoom}
+            onEndRoom={handleEndRoom}
+            onJoinSession={handleJoinSession}
+            onJoinQuiz={handleJoinQuiz}
+            onOpenResource={onOpenResource}
+            onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})}
+          />
+        </div>
+      )}
 
       {profileUserId && (
         <ProfileSheet
