@@ -28,12 +28,17 @@ export function isAuthed() {
 
 // Exact prototype rating derivation:
 // wrong / revealed → Again(1); hint used → Hard(2);
-// ≤7s → Easy(4); ≥20s → Hard(2); else → Good(3).
-export function deriveRating({ correct, revealed, hintUsed, elapsedMs }) {
+// flip-card self-grade ("knew it") → Good(3) — unverifiable, never Easy;
+// typing gets relaxed windows since typing latency isn't slow recall:
+//   mcq ≤7s / type ≤15s → Easy(4); mcq ≥20s / type ≥40s → Hard(2); else Good(3).
+export function deriveRating({ correct, revealed, hintUsed, elapsedMs, via }) {
   if (!correct || revealed) return 1;
   if (hintUsed) return 2;
-  if (elapsedMs <= 7000) return 4;
-  if (elapsedMs >= 20000) return 2;
+  if (via === 'card') return 3;
+  const easyMs = via === 'type' ? 15000 : 7000;
+  const hardMs = via === 'type' ? 40000 : 20000;
+  if (elapsedMs <= easyMs) return 4;
+  if (elapsedMs >= hardMs) return 2;
   return 3;
 }
 

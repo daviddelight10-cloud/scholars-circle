@@ -489,7 +489,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   // already posted "Again"; a same-session correct would distort the schedule.
   function applyRating(q, correct, rev, skipRate = false) {
     const grade = deriveRating({
-      correct, revealed: rev, hintUsed, elapsedMs: Date.now() - qStartRef.current,
+      correct, revealed: rev, hintUsed, via: qMode, elapsedMs: Date.now() - qStartRef.current,
     });
     if (skipRate) return grade;
     setFsrsNote({ grade, intervalLabel: null });
@@ -953,6 +953,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const deckCleared = deckClearedRef.current && (runMode === 'survival' || mode === 'survival');
     const clearBonus = deckCleared ? 25 : 0;
     if (deckCleared) { grantXp(clearBonus, 'deck clear'); fire(80); sound.chest(); haptics.success(); }
+    // Deck mastery — every card past the mastery threshold. Bigger deal than a
+    // single cleared run: celebration + the CTA flips to practice-first.
+    const masteredTotal = bank.length;
+    const masteredCount = bank.filter((b) => cardMastered(b)).length;
+    const allMastered = masteredTotal > 0 && masteredCount === masteredTotal;
+    if (allMastered) { fire(120); sound.chest(); haptics.success(); }
     const times = timesRef.current;
     const avgSec = times.length ? Math.round((times.reduce((a, b) => a + b, 0) / times.length) / 100) / 10 : 0;
     setEndInfo({
@@ -960,6 +966,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       xp: sessionXp + clearBonus, gems: sessionGems, cleared: clearedN,
       missed: missedTotal || reviewMissedRef.current.length,
       newBest, perfect, revives: revivesUsed, deckCleared, clearBonus,
+      allMastered, masteredCount, masteredTotal,
       quote: QUOTES[Math.floor(Math.random() * QUOTES.length)],
     });
     setScreen('end');
@@ -1202,9 +1209,12 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   useEffect(() => {
     if (!prefs.speedRound || !current || locked) return;
     if (screen !== 'game' && screen !== 'review') return;
+    // No clock before the answer surface exists (recall-first veil) and never
+    // on typing/self-grade — timing what can't be answered yet is unfair.
+    if (!optsShown || qMode === 'type' || qMode === 'card') return;
     const t = setTimeout(() => boltOutRef.current?.(), SPEED_WINDOW);
     return () => clearTimeout(t);
-  }, [current, locked, screen, prefs.speedRound]);
+  }, [current, locked, screen, prefs.speedRound, optsShown, qMode]);
 
   // ── Derived ──
   const forecast = buildForecast(cardStates);
@@ -1422,15 +1432,17 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
               <div className="qtext">{shownQ.q}</div>
 
-              {/* Speed timer — with Speed round on it's the real clock (timeout
-                  counts as a miss) and shows on every card. Otherwise it's the
+              {/* Speed timer — only once the answer surface is visible: never
+                  behind the recall-first veil, and never on typing/flip cards
+                  (racing a clock you can't answer yet is unfair). With Speed
+                  round on it's the real clock (timeout = miss); otherwise the
                   speed-bonus cue on cards answered correctly before (FSRS
-                  learning=1 / review=2) — but never while typing, where racing
-                  a 3–7s window is unreachable anyway. Pure CSS drain —
-                  key remounts per question so the animation restarts. */}
-              {!pastEntry && !locked && current
+                  learning=1 / review=2). Pure CSS drain — key remounts per
+                  question and on reveal, so the animation restarts fresh. */}
+              {!pastEntry && !locked && current && optsShown
+                && shownMode !== 'type' && shownMode !== 'card'
                 && (prefs.speedRound
-                  || (shownMode !== 'type' && runMode === 'survival' && screen === 'game'
+                  || (runMode === 'survival' && screen === 'game'
                     && [1, 2].includes(cardStates[bank[current.idx]?._key]?.state))) && (
                 <div className="timer-track" key={`${qNum}-${current.idx}`}>
                   <div className="timer-fill" />
@@ -1475,7 +1487,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                 )
               ) : !optsShown && !shownLocked ? (
                 <button type="button" className="opt-veil"
-                  onClick={() => { setOptsShown(true); sound.click(); haptics.light(); }}>
+                  onClick={() => { setOptsShown(true); qStartRef.current = Date.now(); sound.click(); haptics.light(); }}>
                   👀 Recall it first — tap to show choices
                 </button>
               ) : (
@@ -1608,12 +1620,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         {/* ═══ END ═══ */}
         {screen === 'end' && endInfo && (
           <div className="end-screen show">
-            <div className="end-verdict">{endInfo.deckCleared ? 'Section complete!' : verdictFor(endInfo.best, runMode)}</div>
+            <div className="end-verdict">{endInfo.allMastered ? 'Deck mastered! 🏆' : endInfo.deckCleared ? 'Section complete!' : verdictFor(endInfo.best, runMode)}</div>
             <div className="end-score">
               <CountUp value={runMode === 'survival' ? endInfo.best : endInfo.answered} dur={1000} />
             </div>
             <div className="end-label">{runMode === 'survival' ? 'best streak this run' : 'questions this session'}</div>
-            {endInfo.deckCleared && (
+            {endInfo.allMastered ? (
+              <div className="end-cleared-note end-mastered-note">Every card in this deck is mastered — nice work. Spaced review will bring anything back before it fades.</div>
+            ) : endInfo.deckCleared && (
               <div className="end-cleared-note">All {sectionTarget} questions survived · +{endInfo.clearBonus} XP bonus — come back when cards are due, spacing makes it stick.</div>
             )}
             <div className="run-chips">
@@ -1621,6 +1635,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               <span className="run-chip gold">+<CountUp value={endInfo.gems} delay={100} /> 💎</span>
               <span className="run-chip"><CountUp value={endInfo.acc} delay={200} suf="%" /> acc</span>
               {endInfo.avgSec > 0 && <span className="run-chip">⏱ <CountUp value={endInfo.avgSec} dec={1} suf="s" delay={300} /> avg</span>}
+              {!endInfo.allMastered && endInfo.masteredTotal > 0 && (
+                <span className="run-chip green">🎓 {endInfo.masteredCount}/{endInfo.masteredTotal} mastered</span>
+              )}
               {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
               {endInfo.revives > 0 && <span className="run-chip revive-chip">❤️‍🩹 {endInfo.revives} revive{endInfo.revives > 1 ? 's' : ''}</span>}
             </div>
@@ -1637,9 +1654,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               {endInfo.newBest && <span className="new-best-pill show">NEW BEST!</span>}
             </div>
             {questsCard({ marginTop: 14, textAlign: 'left' })}
-            <button className="primary" onClick={() => startRun(runMode)}>{runMode === 'survival' ? 'Run it back' : 'Practice again'}</button>
+            <button className="primary" onClick={() => startRun(runMode)}>
+              {endInfo.allMastered ? (runMode === 'survival' ? 'Run it back' : 'Practice again') : 'Continue practice'}
+            </button>
             <div className="secondary-row">
-              {!isDaily && <button onClick={() => setScreen('home')}>Home</button>}
               <button onClick={onBack}>{isDaily ? 'Done' : 'Exit'}</button>
             </div>
           </div>

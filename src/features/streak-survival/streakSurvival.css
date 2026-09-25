@@ -594,6 +594,12 @@
   font-family:var(--font-mono); font-size:11px; color:var(--gold);
   margin-top:10px; line-height:1.5; max-width:340px;
 }
+.ss-root .end-mastered-note{
+  font-size:12px; font-weight:700;
+  padding:8px 14px; border-radius:12px;
+  border:1px solid rgba(255,182,39,0.4);
+  background:rgba(255,182,39,0.08);
+}
 .ss-root .run-chips{
   display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:16px;
 }
