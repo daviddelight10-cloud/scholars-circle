@@ -16,7 +16,7 @@ import {
   School, Users, MessageCircle, Calendar, Bell, Timer,
   CalendarDays, User, Settings, Gem, FileText, Laptop,
   Megaphone, KeyRound, Mail, Cog, GraduationCap, Building2,
-  Download, Moon, Sun, Sparkles, ClipboardList, UserCircle, Mic,
+  Download, Moon, Sun, Sparkles, ClipboardList, UserCircle,
   ChevronLeft, Gift,
 } from "lucide-react";
 
@@ -8581,22 +8581,6 @@ function App() {
 
 
 
-            {/* Section: AI Tools */}
-
-            <div className="mobile-menu-section-label"><Bot size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> AI Tools</div>
-
-            <div className="mobile-menu-grid">
-
-              <button className={tab === "voice-tutor" ? "active" : ""} onClick={() => { setTab("voice-tutor"); setShowMobileMenu(false); }}>
-
-                <Mic size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Voice Tutor
-
-              </button>
-
-            </div>
-
-
-
             {/* Section: Medical Tools */}
 
             <div className="mobile-menu-section-label"><span style={{ fontSize: 14 }}>🩺</span> Medical Tools</div>
@@ -8862,8 +8846,6 @@ function App() {
             {[
 
               ["aitutor", "AI Tutor", Bot],
-
-              ["voice-tutor", "Voice Tutor", Mic],
 
             ].map(([id, label, Icon]) => (
 
