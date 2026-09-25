@@ -28,9 +28,10 @@ export function categorizeResources(resources) {
 
     if (FILE_TYPES.includes(r.contentType)) {
       const derived = r.derivedResources || derivedBySource[r.id] || [];
-      const variants = { summary: null, mcq: null, flashcard: null };
+      const variants = { summary: null, mcq: null, flashcard: null, exam: null };
       for (const d of derived) {
         if (d.contentType === "mcq") variants.mcq = d;
+        else if (d.contentType === "exam") variants.exam = d;
         else if (d.contentType === "pdf" && d.fileName?.startsWith("[AI] Summary")) variants.summary = d;
         else if (d.contentType === "note" && d.title?.startsWith("[AI] Summary")) variants.summary = d;
         else if (d.contentType === "pdf" && d.description && d.title === r.title) variants.summary = d;
@@ -38,10 +39,12 @@ export function categorizeResources(resources) {
       sourceFiles.push({ ...r, variants, standalone: false });
     } else if (r.contentType === "mcq") {
       standaloneItems.push({ ...r, variants: { summary: null, mcq: r, flashcard: null }, standalone: true });
+    } else if (r.contentType === "exam") {
+      standaloneItems.push({ ...r, variants: { summary: null, mcq: null, flashcard: null, exam: r }, standalone: true });
     } else if ((r.contentType === "pdf" || r.contentType === "note") && r.title?.startsWith("[AI] Summary")) {
-      standaloneItems.push({ ...r, variants: { summary: r, mcq: null, flashcard: null }, standalone: true });
+      standaloneItems.push({ ...r, variants: { summary: r, mcq: null, flashcard: null, exam: null }, standalone: true });
     } else {
-      sourceFiles.push({ ...r, variants: { summary: null, mcq: null, flashcard: null }, standalone: false });
+      sourceFiles.push({ ...r, variants: { summary: null, mcq: null, flashcard: null, exam: null }, standalone: false });
     }
   }
 

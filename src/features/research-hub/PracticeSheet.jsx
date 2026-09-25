@@ -34,6 +34,10 @@ function getVariantCount(variant) {
       const data = typeof variant.mcqData === "string" ? JSON.parse(variant.mcqData) : variant.mcqData;
       return Array.isArray(data) ? data.length : 0;
     }
+    if (variant.contentType === "exam" && variant.mcqData) {
+      const data = typeof variant.mcqData === "string" ? JSON.parse(variant.mcqData) : variant.mcqData;
+      return Array.isArray(data?.questions) ? data.questions.length : 0;
+    }
     if (variant.contentType === "flashcard_deck" && variant.flashcardData) {
       const data = typeof variant.flashcardData === "string" ? JSON.parse(variant.flashcardData) : variant.flashcardData;
       return Array.isArray(data) ? data.length : 0;
@@ -248,6 +252,8 @@ export default function PracticeSheet({
 
   const mcq = file.variants?.mcq || null;
   const summary = file.variants?.summary || null;
+  const exam = file.variants?.exam || null;
+  const examCount = getVariantCount(exam);
   const mcqCount = getVariantCount(mcq);
   const prog = mcq && mcqProgress ? mcqProgress[mcq.id] : null;
   const mcqPct = prog
@@ -257,6 +263,68 @@ export default function PracticeSheet({
   const canExtract = !!(file.fileUrl || file.description);
   const act = (fn) => () => { onClose(); fn?.(); };
   const estMin = Math.max(1, Math.ceil((mcqCount || 20) * 5 / 60));
+
+  // Saved exam resources get a slim take-exam sheet instead of the practice grid
+  if (file.contentType === "exam") {
+    const qCount = getVariantCount(file);
+    return createPortal(
+      <div className="cs-sheet-backdrop" onClick={onClose}>
+        <div
+          {...modalProps}
+          ref={focusRef}
+          className="cs-sheet"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="cs-sheet-grab"
+            onPointerDown={onDragStart}
+            role="separator"
+            aria-label="Drag down to close"
+          >
+            <div className="cs-sheet-handle" />
+          </div>
+          <div className="pm-top" onPointerDown={onDragStart}>
+            <div style={{ minWidth: 0 }}>
+              <p className="cs-sheet-label">EXAM</p>
+              <p className="cs-sheet-title" id="sp-sheet-title">{file.title}</p>
+              <p className="pm-header-meta">
+                <IcoClipboard size={11} />
+                <span>Saved exam{qCount ? ` · ${qCount} questions` : ""}</span>
+              </p>
+            </div>
+            <button className="cs-sheet-close" onClick={onClose} aria-label="Close menu">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" /><path d="M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="pm-scroll">
+            <section className="pm-hero pm-anim" aria-label="Exam session">
+              <div className="pm-hero-row">
+                <div className="pm-hero-icon"><IcoClipboard size={21} /></div>
+                <div className="pm-hero-info">
+                  <div className="pm-hero-name-row">
+                    <span className="pm-hero-name">Exam</span>
+                    <span className="pm-badge-ready">Ready</span>
+                  </div>
+                  <div className="pm-hero-sub">
+                    {qCount ? `${qCount} questions` : "Saved exam"} — retake anytime
+                  </div>
+                </div>
+              </div>
+              <button
+                className="pm-hero-btn"
+                onClick={act(() => onExamSimulation?.(file))}
+              >
+                Start exam <IcoArrowRight size={15} />
+              </button>
+            </section>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
 
   // Guided Study progress for this material — server-synced index prop first,
   // then the per-key localStorage record written by GuidedStudy itself.
@@ -425,9 +493,15 @@ export default function PracticeSheet({
               tint="tint-green"
               icon={<IcoClipboard size={17} />}
               name="Exam sim"
-              sub={mcq ? "Timed test" : "Needs Rapid Recall"}
-              disabled={!mcq || generating}
-              onClick={act(() => onExamSimulation?.([mcq.id]))}
+              sub={
+                exam
+                  ? `${examCount || "Saved"} questions — take exam`
+                  : canExtract
+                    ? "AI builds a custom exam"
+                    : "No extractable text"
+              }
+              disabled={!canExtract || generating}
+              onClick={act(() => onExamSimulation?.(exam || file))}
             />
             <PmTile
               delay={210}

@@ -23,7 +23,7 @@ import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
 import SpacedReviewSession from "../SpacedReviewSession.jsx";
 import AdaptiveDrillSession from "../AdaptiveDrillSession.jsx";
-import ExamSimulationRunner from "../ExamSimulationRunner.jsx";
+import ExamBuilder from "../exam/ExamBuilder.jsx";
 import McqFolderRunner from "../McqFolderRunner.jsx";
 import McIcon from "./McIcon.jsx";
 import CircleSheet from "./CircleSheet.jsx";
@@ -428,6 +428,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         }
         setBookmarkFolderMap(folderMap);
         saveCached(cacheKey, data);
+        // Private saved exams aren't returned by GET /resources — merge the
+        // bookmarked ones so they surface as loose materials in My Space.
+        setResources((prev) => {
+          const have = new Set(prev.map((r) => r.id));
+          const missing = data.filter((r) => r.contentType === "exam" && !have.has(r.id));
+          return missing.length ? [...missing, ...prev] : prev;
+        });
       }
     } catch {}
   };
@@ -867,9 +874,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
       if (FILE_TYPES.includes(r.contentType)) {
         const derived = derivedBySource[r.id] || [];
-        const variants = { summary: null, mcq: null, flashcard: null };
+        const variants = { summary: null, mcq: null, flashcard: null, exam: null };
         for (const d of derived) {
           if (d.contentType === "mcq") variants.mcq = d;
+          else if (d.contentType === "exam") variants.exam = d;
           else if (d.contentType === "pdf" && d.fileName?.startsWith("[AI] Summary")) variants.summary = d;
           else if (d.contentType === "note" && d.title?.startsWith("[AI] Summary")) variants.summary = d;
           else if (d.contentType === "pdf" && d.description && d.title === r.title) variants.summary = d;
@@ -877,10 +885,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         sourceFiles.push({ ...r, variants, standalone: false });
       } else if (r.contentType === "mcq") {
         standaloneItems.push({ ...r, variants: { summary: null, mcq: r, flashcard: null }, standalone: true });
+      } else if (r.contentType === "exam") {
+        standaloneItems.push({ ...r, variants: { summary: null, mcq: null, flashcard: null, exam: r }, standalone: true });
       } else if ((r.contentType === "pdf" || r.contentType === "note") && r.title?.startsWith("[AI] Summary")) {
-        standaloneItems.push({ ...r, variants: { summary: r, mcq: null, flashcard: null }, standalone: true });
+        standaloneItems.push({ ...r, variants: { summary: r, mcq: null, flashcard: null, exam: null }, standalone: true });
       } else {
-        sourceFiles.push({ ...r, variants: { summary: null, mcq: null, flashcard: null }, standalone: false });
+        sourceFiles.push({ ...r, variants: { summary: null, mcq: null, flashcard: null, exam: null }, standalone: false });
       }
     }
 
@@ -942,8 +952,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     setSessionMode({ type: "adaptive", subject, resourceIds });
   }, []);
 
-  const startExamSimulation = useCallback((subject, resourceIds) => {
-    setSessionMode({ type: "exam", subject, resourceIds });
+  const startExamBuild = useCallback((file, sources = []) => {
+    setSessionMode({ type: "examBuild", file: file || null, sources });
+  }, []);
+
+  const startExamRun = useCallback((examResource) => {
+    setSessionMode({ type: "examRun", examResource });
   }, []);
 
   const startFolderPractice = useCallback((folder, mcqResources) => {
@@ -957,9 +971,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   const handleOpen = useCallback((token) => {
     const res = resources.find((r) => r.shareToken === token);
-    if (res) setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
+    if (res) {
+      setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
+      if (res.contentType === "exam") {
+        startExamRun(res);
+        return;
+      }
+    }
     setViewerToken(token);
-  }, [resources, setLastActivity]);
+  }, [resources, setLastActivity, startExamRun]);
 
   const toggleBookmark = useCallback((resource) => {
     const isBookmarked = bookmarkedIds.has(resource.id);
@@ -1557,8 +1577,27 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     if (sessionMode.type === "adaptive") {
       return <AdaptiveDrillSession subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
     }
-    if (sessionMode.type === "exam") {
-      return <ExamSimulationRunner subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    if (sessionMode.type === "examBuild") {
+      return (
+        <ExamBuilder
+          file={sessionMode.file}
+          sources={sessionMode.sources}
+          onExit={handleSessionComplete}
+          onSaved={() => { try { localStorage.removeItem("sc_resources_list"); } catch {} fetchResources(); }}
+          onStreakUpdate={handleStreakUpdate}
+          onXpUpdate={handleXpUpdate}
+        />
+      );
+    }
+    if (sessionMode.type === "examRun") {
+      return (
+        <ExamBuilder
+          existingExam={sessionMode.examResource}
+          onExit={handleSessionComplete}
+          onStreakUpdate={handleStreakUpdate}
+          onXpUpdate={handleXpUpdate}
+        />
+      );
     }
     if (sessionMode.type === "folder") {
       return <McqFolderRunner folder={sessionMode.folder} mcqResources={sessionMode.mcqResources} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
@@ -1595,7 +1634,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         guidedProgress={guidedProgress}
         onSpacedReview={(resourceIds) => startSpacedReview(null, resourceIds)}
         onAdaptiveDrill={(resourceIds) => startAdaptiveDrill(null, resourceIds)}
-        onExamSimulation={(resourceIds) => startExamSimulation(null, resourceIds)}
+        onExamSimulation={(fileOrSources) => {
+          if (Array.isArray(fileOrSources)) startExamBuild(null, fileOrSources);
+          else if (fileOrSources?.contentType === "exam") startExamRun(fileOrSources);
+          else startExamBuild(fileOrSources);
+        }}
         onPracticeAll={() => startFolderPractice(folderDetail, folderCategorized.allMcqResources)}
         onGenerate={handleGenerateFromMaterial}
         onStudyWithVoice={handleStudyWithVoice}
@@ -1709,6 +1752,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           onRequestDeleteSpace={requestSpaceDelete}
           search={librarySearch}
           fsrsStats={fsrsStats}
+          onStudySubject={(subject) => startSpacedReview(subject)}
+          onAdaptiveDrill={(subject) => startAdaptiveDrill(subject)}
+          onExamSimulation={(sources) => startExamBuild(null, sources || [])}
         />
       ) : (
         <div className="mc-root">

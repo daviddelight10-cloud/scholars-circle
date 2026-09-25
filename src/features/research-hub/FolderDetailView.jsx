@@ -136,8 +136,8 @@ export default function FolderDetailView({
                       menuItem("🔁 Spaced review", () => onSpacedReview?.(allMcqIds))}
                     {allMcqIds.length > 0 &&
                       menuItem("� Adaptive drill", () => onAdaptiveDrill?.(allMcqIds))}
-                    {allMcqIds.length > 0 &&
-                      menuItem("�🎓 Exam simulation", () => onExamSimulation?.(allMcqIds))}
+                    {allFiles.length > 0 &&
+                      menuItem("🎓 Exam simulation", () => onExamSimulation?.(allFiles))}
                     {folderIsOwner &&
                       menuItem("🗑 Delete folder", () => onDeleteFolder(folderDetail.id), { danger: true })}
                 </div>

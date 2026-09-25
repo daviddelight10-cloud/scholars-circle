@@ -8,6 +8,8 @@ import StreakSurvival from "./streak-survival/StreakSurvival.jsx";
 import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import FlashcardModeSelect from "./FlashcardModeSelect.jsx";
 import MatchingPairsGame from "./MatchingPairsGame.jsx";
+import ExamRunner from "./exam/ExamRunner.jsx";
+import { examFromResource } from "./exam/examApi.js";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { useUI } from "../contexts/UIContext.jsx";
@@ -347,6 +349,18 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
           return <MatchingPairsGame resource={resource} flashcardData={resource.flashcardData} gameMode={matchGameMode} onBack={() => setFlashcardMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
         }
         return <FlashcardModeSelect resource={resource} onBack={handleBack} onSelect={(mode, subMode) => { setFlashcardMode(mode); if (subMode) setMatchGameMode(subMode); }} />;
+
+      case "exam":
+        return (
+          <ExamRunner
+            exam={examFromResource(resource)}
+            examResourceId={resource.id}
+            sourceTitle={resource.title}
+            onBack={handleBack}
+            onStreakUpdate={onStreakUpdate}
+            onXpUpdate={handleXpUpdate}
+          />
+        );
 
       case "tutorial_question":
         return (

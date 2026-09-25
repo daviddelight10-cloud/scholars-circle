@@ -245,6 +245,7 @@ const CONTENT_TYPE_META = {
   mcq: { tag: "Rapid Recall set", icon: "✎" },
   flashcard_deck: { tag: "Flashcards", icon: "🎴" },
   tutorial_question: { tag: "Tutorial Qs", icon: "❓" },
+  exam: { tag: "Exam", icon: "🎓" },
 };
 
 export function docTypeMeta(contentType) {

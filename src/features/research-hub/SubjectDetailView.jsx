@@ -102,7 +102,7 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
             🎯 Adaptive Drill
           </button>
           <button
-            onClick={() => onExamSimulation?.()}
+            onClick={() => onExamSimulation?.(resources)}
             className="flex items-center gap-1.5 rounded-full border border-hub-border bg-hub-bg px-3.5 py-1.5 text-[11px] font-semibold text-hub-text-muted transition-all active:scale-95"
           >
             🎓 Exam Simulation

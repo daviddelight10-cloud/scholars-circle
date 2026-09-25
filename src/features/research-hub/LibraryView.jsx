@@ -62,6 +62,9 @@ export default function LibraryView({
   onRequestDeleteSpace,
   search = "",
   fsrsStats,
+  onStudySubject,
+  onAdaptiveDrill,
+  onExamSimulation,
 }) {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [sortOpen, setSortOpen] = useState(false);
@@ -143,6 +146,9 @@ export default function LibraryView({
         bookmarkBusyId={bookmarkBusyId}
         mcqProgress={mcqProgress}
         backLabel="My Space"
+        onStudySubject={onStudySubject}
+        onAdaptiveDrill={onAdaptiveDrill}
+        onExamSimulation={onExamSimulation}
       />
     );
   }

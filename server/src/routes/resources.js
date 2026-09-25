@@ -379,7 +379,7 @@ router.patch("/:id/reject", requireAuth, requireRole("TEACHER", "LECTURER"), asy
 // POST /api/quiz-attempts - Submit quiz attempt, award XP, return stats
 router.post("/quiz-attempts", requireAuth, async (req, res) => {
   try {
-    const { resourceId, score, total, details, mode } = req.body;
+    const { resourceId, score, total, details, mode, skipFsrs } = req.body;
     if (!resourceId || score === undefined || total === undefined) {
       return res.status(400).json({ error: "resourceId, score, and total are required" });
     }
@@ -414,8 +414,9 @@ router.post("/quiz-attempts", requireAuth, async (req, res) => {
       });
     }
 
-    // Update FSRS spaced repetition for each MCQ question
-    if (details && Array.isArray(details)) {
+    // Update FSRS spaced repetition for each MCQ question — skipped for
+    // generated-exam attempts (their questions aren't part of the review pool)
+    if (details && Array.isArray(details) && !skipFsrs) {
       const now = new Date();
       for (const d of details) {
         // Map quiz result to FSRS grade (1=Again, 2=Hard, 3=Good, 4=Easy)
@@ -950,6 +951,18 @@ router.post("/study-tool-save", requireAuth, async (req, res) => {
       parsedMcqData = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData;
       if (!Array.isArray(parsedMcqData) || parsedMcqData.length === 0) {
         return res.status(400).json({ error: "MCQ data must be a non-empty array" });
+      }
+    }
+
+    // For exam type: mcqData carries the exam payload object { kind:"exam", questions[] }
+    if (contentType === "exam") {
+      if (!mcqData) {
+        return res.status(400).json({ error: "Exam data is required for exam type" });
+      }
+      parsedMcqData = typeof mcqData === "string" ? JSON.parse(mcqData) : mcqData;
+      if (!parsedMcqData || typeof parsedMcqData !== "object" || Array.isArray(parsedMcqData)
+          || !Array.isArray(parsedMcqData.questions) || parsedMcqData.questions.length === 0) {
+        return res.status(400).json({ error: "Exam data must be an object with a non-empty questions array" });
       }
     }
 

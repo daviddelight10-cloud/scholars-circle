@@ -22,6 +22,7 @@ export const contentTypeConfig = {
   mcq: { label: "Rapid Recall", icon: "✎", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
   flashcard_deck: { label: "Flashcards", icon: "🎴", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
   tutorial_question: { label: "Tutorial Q", icon: "❓", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
+  exam: { label: "Exam", icon: "🎓", bg: "#1a1a1a", border: "rgba(255,215,0,0.25)", color: "#FFD700" },
 };
 
 export function formatRelativeDate(dateStr) {

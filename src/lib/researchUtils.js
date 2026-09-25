@@ -44,6 +44,7 @@ export function getContentTypeIconClass(type) {
     pptx: "icon-pptx",
     txt: "icon-txt",
     flashcard_deck: "icon-flashcard",
+    exam: "icon-exam",
   };
   return classes[type] || "icon-pdf";
 }

@@ -85,7 +85,7 @@ export function Badge({ text, bg, color }) {
 const DOC_ICONS = {
   pdf: "📄", docx: "📝", doc: "📝", pptx: "📊", image: "🖼️",
   txt: "📃", note: "📃", tutorial_question: "❓",
-  mcq: "✎", flashcard_deck: "🎴", summary: "📝",
+  mcq: "✎", flashcard_deck: "🎴", summary: "📝", exam: "🎓",
 };
 
 // Tappable document row — opens the practice menu for that material.

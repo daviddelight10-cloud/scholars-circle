@@ -5,7 +5,7 @@ import { Avatar, displayTitle, relTime } from "./feedUi";
 
 const TYPE_ICONS = {
   note: "📝", pdf: "📄", mcq: "❓", tutorial_question: "📘",
-  flashcard_deck: "🃏", tutorial: "🎓",
+  flashcard_deck: "🃏", tutorial: "🎓", exam: "🎓",
 };
 
 export function DividerBlock({ label }) {
