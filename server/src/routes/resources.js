@@ -734,19 +734,24 @@ router.get("/my-mcq-progress", requireAuth, async (req, res) => {
       }
     }
 
+    // FSRS review items are seeded for the whole user — survival-runner and
+    // Daily Review practice rates questions without a QuizAttempt row, so
+    // union their resourceIds in or those decks would show an empty ring.
+    const reviewItems = await prisma.pdfReviewItem.findMany({
+      where: { userId: req.user.sub, itemType: { in: ["mcq", "legacy_mcq"] } },
+      select: { resourceId: true, state: true, stability: true },
+    });
+    for (const it of reviewItems) {
+      if (!progress[it.resourceId]) {
+        progress[it.resourceId] = { bestScore: 0, bestTotal: 0, attempts: 0, lastAttemptedAt: null };
+      }
+    }
+
     // Mastery-based progress: staged score per question (0 → 1 as memory
     // strengthens) plus the raw mastered count (isMastered: state=review &
     // stability >= 21d), over the resource's total question count.
     const ids = Object.keys(progress);
     if (ids.length) {
-      const reviewItems = await prisma.pdfReviewItem.findMany({
-        where: {
-          userId: req.user.sub,
-          resourceId: { in: ids },
-          itemType: { in: ["mcq", "legacy_mcq"] },
-        },
-        select: { resourceId: true, state: true, stability: true },
-      });
       const masteredByRes = {};
       const scoreByRes = {};
       for (const it of reviewItems) {

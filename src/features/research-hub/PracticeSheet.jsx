@@ -4,6 +4,7 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 import { feedApi } from "../feed/feedApi";
 import { loadSave, mutate } from "../streak-survival/survivalStore.js";
 import { loadHistory } from "../../lib/studyHistory.js";
+import { mcqRingPct } from "../../lib/researchUtils";
 
 // Answer-style options — same ids as StreakSurvival's Session setup
 const STYLE_OPTIONS = [
@@ -256,9 +257,7 @@ export default function PracticeSheet({
   const examCount = getVariantCount(exam);
   const mcqCount = getVariantCount(mcq);
   const prog = mcq && mcqProgress ? mcqProgress[mcq.id] : null;
-  const mcqPct = prog
-    ? (prog.learnedPct ?? (prog.total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100)) : null))
-    : null;
+  const mcqPct = prog ? mcqRingPct(prog) : null;
   const bestPct = prog && (prog.bestTotal || prog.total) > 0 ? Math.round((prog.bestScore / (prog.bestTotal || prog.total)) * 100) : null;
   const canExtract = !!(file.fileUrl || file.description);
   const act = (fn) => () => { onClose(); fn?.(); };

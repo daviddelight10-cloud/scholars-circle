@@ -49,6 +49,19 @@ export function getContentTypeIconClass(type) {
   return classes[type] || "icon-pdf";
 }
 
+// Document ring percentage from my-mcq-progress data.
+// Learning progress (FSRS-staged learnedPct) fills up to 90% of the ring;
+// the last 10% comes from true mastery (mastered/total) so a good quiz
+// score alone can never show a full ring.
+export function mcqRingPct(prog) {
+  if (!prog) return 0;
+  const total = prog.total || prog.bestTotal || 0;
+  const learned = prog.learnedPct
+    ?? (total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / total) * 100)) : 0);
+  const masteredPct = total > 0 ? ((prog.mastered || 0) / total) * 100 : 0;
+  return Math.min(100, Math.round(learned * 0.9 + masteredPct * 0.1));
+}
+
 // Format view count
 export function formatViewCount(count) {
   if (count == null) return "0";

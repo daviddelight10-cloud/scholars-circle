@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { progressPct } from "./roadmapShared";
+import { mcqRingPct } from "../../lib/researchUtils";
 import { FileMenu } from "../../features/research-hub/SpaceFileCard";
 
 function Ring({ pct, done }) {
@@ -318,9 +319,7 @@ export default function TopicSheet({
                     const conf = m.confidence != null ? Math.round(m.confidence * 100) : null;
                     const variants = resourceVariantsMap?.get(m.resourceId) || null;
                     const prog = variants?.mcq && mcqProgress ? mcqProgress[variants.mcq.id] : null;
-                    const docPct = prog
-                      ? (prog.learnedPct ?? (prog.total > 0 ? Math.min(100, Math.round(((prog.mastered || 0) / prog.total) * 100)) : null))
-                      : null;
+                    const docPct = prog ? mcqRingPct(prog) : null;
                     const caps = [
                       variants?.mcq && "✎",
                       variants?.flashcard && "🎴",

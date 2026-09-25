@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { getSubjectColor } from "./subjectColors";
-import { getContentTypeIcon, formatViewCount } from "../../lib/researchUtils";
+import { getContentTypeIcon, formatViewCount, mcqRingPct } from "../../lib/researchUtils";
 import { contentTypeConfig, formatRelativeDate } from "./constants";
 
 function McqProgressRing({ practiced, pct, progress }) {
@@ -54,9 +54,7 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
   const rating = resource.avgRating ? resource.avgRating.toFixed(1) : null;
   const isMcq = resource.contentType === "mcq";
   const progress = isMcq && mcqProgress ? mcqProgress[resource.id] : null;
-  const pct = progress
-    ? (progress.learnedPct ?? (progress.total > 0 ? Math.min(100, Math.round(((progress.mastered || 0) / progress.total) * 100)) : 0))
-    : 0;
+  const pct = mcqRingPct(progress);
   const practiced = progress != null;
   const relDate = formatRelativeDate(resource.createdAt);
   const typeConfig = contentTypeConfig[resource.contentType] || contentTypeConfig.note;

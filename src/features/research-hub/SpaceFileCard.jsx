@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { formatViewCount } from "../../lib/researchUtils";
+import { formatViewCount, mcqRingPct } from "../../lib/researchUtils";
 import { formatRelativeDate } from "./constants";
 
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
@@ -161,7 +161,7 @@ export default function SpaceFileCard({
 }) {
   const mcqVariant = file.variants?.mcq;
   const prog = mcqVariant && mcqProgress ? mcqProgress[mcqVariant.id] : null;
-  const pct = prog && prog.total > 0 ? Math.min(100, Math.round((prog.bestScore / prog.total) * 100)) : 0;
+  const pct = mcqRingPct(prog);
 
   // Which study tools exist for this file — shown as mini icons in the meta row
   const tools = [
@@ -169,7 +169,7 @@ export default function SpaceFileCard({
     file.variants?.summary ? IC.notes : null,
   ].filter(Boolean);
 
-  const label = pct >= 100 ? "fully covered" : pct > 0 ? `${pct}% covered` : "not started";
+  const label = pct >= 100 ? "fully mastered" : pct > 0 ? `${pct}% learned` : "not started";
 
   return (
     <div
