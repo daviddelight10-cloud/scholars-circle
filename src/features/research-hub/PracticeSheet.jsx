@@ -3,15 +3,29 @@ import { createPortal } from "react-dom";
 import { useModalA11y } from "../../hooks/useModalA11y";
 import { feedApi } from "../feed/feedApi";
 import { loadSave, mutate } from "../streak-survival/survivalStore.js";
+import { loadHistory } from "../../lib/studyHistory.js";
 
 // Answer-style options — same ids as StreakSurvival's Session setup
 const STYLE_OPTIONS = [
-  ["smart", "Smart mix"],
-  ["mcq", "Choices"],
-  ["typing", "Typing"],
-  ["flashcard", "Cards"],
-  ["mixed", "Variety"],
+  ["smart", "Smart mix", "choices for new cards, typing once you know them"],
+  ["mcq", "Choices", "pick from four options"],
+  ["typing", "Type it out", "free recall — strongest for memory"],
+  ["flashcard", "Flip cards", "reveal, then grade yourself"],
+  ["mixed", "Variety mix", "a bit of everything"],
 ];
+const EXTRA_OPTIONS = [
+  ["recallFirst", "Recall first", "choices stay hidden until you tap"],
+  ["speedRound", "Speed round", "7s per question — out of time counts as a miss"],
+];
+
+const relTime = (ts) => {
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+};
 
 function getVariantCount(variant) {
   if (!variant) return 0;
@@ -80,16 +94,23 @@ const IcoUsers = (p) => (
 const IcoClock = (p) => (
   <I {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></I>
 );
+const IcoSliders = (p) => (
+  <I {...p}>
+    <path d="M4 8h4" /><path d="M14 8h6" /><circle cx="11" cy="8" r="2" />
+    <path d="M4 16h10" /><path d="M18 16h2" /><circle cx="16" cy="16" r="2" />
+  </I>
+);
 const IcoChevron = (p) => <I {...p}><path d="M9 6l6 6-6 6" /></I>;
 const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></I>;
 
 const initials = (name) =>
   (name || "?").split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
 
-function PmTile({ icon, name, sub, tint, featured, badge, disabled, onClick }) {
+function PmTile({ icon, name, sub, tint, featured, badge, disabled, onClick, delay = 0 }) {
   return (
     <button
-      className={`pm-tile${tint ? ` ${tint}` : ""}${featured ? " featured" : ""}`}
+      className={`pm-tile pm-anim${tint ? ` ${tint}` : ""}${featured ? " featured" : ""}`}
+      style={{ animationDelay: `${delay}ms` }}
       disabled={disabled}
       onClick={onClick}
     >
@@ -132,15 +153,25 @@ export default function PracticeSheet({
   const dragRef = useRef(null);
   const [livePeople, setLivePeople] = useState([]);
   const [activeQuizzes, setActiveQuizzes] = useState([]);
-  // Answer style for the recall run — persisted to the survival save so
-  // StreakSurvival picks it up the moment the runner mounts.
-  const [quizStyle, setQuizStyle] = useState(() => loadSave()?.quizPrefs?.style || "smart");
+  // Session prefs (answer style + extras) — persisted to the survival save so
+  // StreakSurvival picks them up the moment the runner mounts.
+  const [prefs, setPrefs] = useState(() => loadSave()?.quizPrefs || { style: "smart", recallFirst: true, speedRound: false });
+  const [settingsPos, setSettingsPos] = useState(null);
+  const gearRef = useRef(null);
 
-  const pickStyle = (id) => {
+  const setPref = (k, v) => {
+    setPrefs((p) => ({ ...p, [k]: v }));
     try {
-      mutate((s) => { s.quizPrefs = { ...(s.quizPrefs || {}), style: id }; });
+      mutate((s) => { s.quizPrefs = { ...(s.quizPrefs || {}), [k]: v }; });
     } catch {}
-    setQuizStyle(id);
+  };
+
+  const toggleSettings = () => {
+    if (settingsPos) { setSettingsPos(null); return; }
+    const r = gearRef.current?.getBoundingClientRect();
+    setSettingsPos(r
+      ? { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) }
+      : { top: 90, right: 16 });
   };
 
   // Real faces for the live tile (suggested people + quiz hosts) and any
@@ -260,6 +291,28 @@ export default function PracticeSheet({
     (q) => (mcq && q.mcqResourceId === mcq.id) || q.resourceId === file.id
   ) || null;
 
+  const styleLabel = STYLE_OPTIONS.find(([id]) => id === prefs.style)?.[1] || "Smart mix";
+
+  // Most recent study timestamp across the material and its MCQ variant
+  let lastStudiedTs = 0;
+  for (const e of loadHistory(file.id)) lastStudiedTs = Math.max(lastStudiedTs, e.ts || 0);
+  if (mcq) for (const e of loadHistory(mcq.id)) lastStudiedTs = Math.max(lastStudiedTs, e.ts || 0);
+
+  const fileTypeLabel =
+    file.subject ||
+    (file.contentType === "pdf" ? "PDF"
+      : file.contentType === "note" ? "Note"
+      : file.contentType === "mcq" ? "Question set"
+      : file.contentType === "flashcard_deck" ? "Flashcards"
+      : file.contentType === "link" ? "Link"
+      : file.contentType === "video" ? "Video"
+      : "Material");
+  const fileIcon =
+    file.contentType === "mcq" ? <IcoBolt size={11} />
+    : file.contentType === "note" || file.contentType === "pdf" ? <IcoFileText size={11} />
+    : file.contentType === "flashcard_deck" ? <IcoClipboard size={11} />
+    : <IcoFile size={11} />;
+
   const shownPeople = livePeople.slice(0, 3);
   const extraPeople = livePeople.length - shownPeople.length;
 
@@ -289,6 +342,7 @@ export default function PracticeSheet({
           <div style={{ minWidth: 0 }}>
             <p className="cs-sheet-label">PRACTICE</p>
             <p className="cs-sheet-title" id="sp-sheet-title">{file.title}</p>
+            <p className="pm-header-meta">{fileIcon}<span>{fileTypeLabel}</span></p>
           </div>
           <button className="cs-sheet-close" onClick={onClose} aria-label="Close menu">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -299,7 +353,7 @@ export default function PracticeSheet({
 
         <div className="pm-scroll">
           {/* Hero — Rapid Recall */}
-          <section className="pm-hero" aria-label="Rapid recall session">
+          <section className="pm-hero pm-anim" aria-label="Rapid recall session">
             <div className="pm-hero-row">
               <div className="pm-hero-icon"><IcoBolt size={21} /></div>
               <div className="pm-hero-info">
@@ -316,32 +370,26 @@ export default function PracticeSheet({
                 {mcq && (
                   <div className="pm-hero-meta">
                     {mcqCount > 0 && <span className="pm-chip"><IcoClock size={12} />~{estMin} min</span>}
+                    <button
+                      ref={gearRef}
+                      type="button"
+                      className="pm-chip pm-chip-style"
+                      onClick={toggleSettings}
+                      aria-expanded={!!settingsPos}
+                      aria-haspopup="menu"
+                    >
+                      <IcoSliders size={12} />{styleLabel}
+                    </button>
                     {prog?.mastered != null && prog.total > 0 && (
                       <span className="pm-chip pm-chip-good">🌟 {prog.mastered}/{prog.total} mastered</span>
                     )}
                     {bestPct != null && <span className="pm-chip pm-chip-best">Best {bestPct}%</span>}
                     {prog?.attempts > 0 && <span className="pm-chip">{prog.attempts} attempt{prog.attempts > 1 ? "s" : ""}</span>}
+                    {lastStudiedTs > 0 && <span className="pm-chip pm-chip-ice"><IcoClock size={11} />{relTime(lastStudiedTs)}</span>}
                   </div>
                 )}
               </div>
             </div>
-            {mcq && (
-              <div className="pm-style-row" role="radiogroup" aria-label="Answer style">
-                <span className="pm-style-lbl">Style</span>
-                {STYLE_OPTIONS.map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    role="radio"
-                    aria-checked={quizStyle === id}
-                    className={`pm-style-opt${quizStyle === id ? " on" : ""}`}
-                    onClick={() => pickStyle(id)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
             <button
               className="pm-hero-btn"
               disabled={generating}
@@ -351,10 +399,11 @@ export default function PracticeSheet({
             </button>
           </section>
 
-          <div className="pm-section">More ways to practice</div>
+          <div className="pm-section pm-anim" style={{ animationDelay: "60ms" }}>More ways to practice</div>
 
           <div className="pm-grid">
             <PmTile
+              delay={90}
               tint="tint-violet" badge={gsBadge}
               icon={<IcoBrain size={17} />}
               name="Guided study"
@@ -363,6 +412,7 @@ export default function PracticeSheet({
               onClick={act(() => onGuidedStudy?.(file))}
             />
             <PmTile
+              delay={130}
               tint="tint-blue"
               icon={<IcoFileText size={17} />}
               name="Summary"
@@ -371,6 +421,7 @@ export default function PracticeSheet({
               onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
             />
             <PmTile
+              delay={170}
               tint="tint-green"
               icon={<IcoClipboard size={17} />}
               name="Exam sim"
@@ -379,6 +430,7 @@ export default function PracticeSheet({
               onClick={act(() => onExamSimulation?.([mcq.id]))}
             />
             <PmTile
+              delay={210}
               tint="tint-rose"
               icon={<IcoFile size={17} />}
               name="Material"
@@ -389,7 +441,8 @@ export default function PracticeSheet({
 
           {/* Live */}
           <button
-            className="pm-live"
+            className="pm-live pm-anim"
+            style={{ animationDelay: "250ms" }}
             disabled={liveMatch ? false : (!mcq || generating || goingLive)}
             onClick={act(() => (liveMatch ? onJoinLive?.(liveMatch.code) : onGoLive?.(file)))}
             aria-label={liveMatch ? `Join live quiz — ${liveMatch.players} in lobby` : "Go live with friends — quiz together in real time"}
@@ -397,7 +450,7 @@ export default function PracticeSheet({
             <span className="pm-tile-icon"><IcoUsers size={17} /></span>
             <span className="pm-live-body">
               <span className="pm-live-name"><span className="pm-live-dot" />{liveMatch ? "Join live quiz" : goingLive ? "Opening lobby…" : "Go live with friends"}</span>
-              <span className="pm-live-sub">{liveMatch ? `${liveMatch.players} in lobby · ${liveMatch.questions} questions` : mcq ? "Quiz together in real time" : "Generate Rapid Recall first"}</span>
+              <span className="pm-live-sub">{liveMatch ? `${liveMatch.host} · ${liveMatch.players}/8 in lobby` : mcq ? "Quiz together in real time" : "Generate Rapid Recall first"}</span>
             </span>
             {shownPeople.length > 0 && (
               <span className="pm-avatars" aria-hidden="true">
@@ -412,6 +465,52 @@ export default function PracticeSheet({
             <span className="pm-chev"><IcoChevron size={16} /></span>
           </button>
         </div>
+
+        {/* Session settings — anchored popover, survives the hero's overflow:clip */}
+        {settingsPos && (
+          <>
+            <div className="pm-menu-backdrop" onClick={() => setSettingsPos(null)} />
+            <div
+              className="pm-menu"
+              role="menu"
+              aria-label="Recall session settings"
+              style={{ top: settingsPos.top, right: settingsPos.right }}
+            >
+              <div className="pm-menu-label">Answer style</div>
+              {STYLE_OPTIONS.map(([id, name, desc]) => (
+                <button
+                  key={id}
+                  className={`pm-menu-item${prefs.style === id ? " on" : ""}`}
+                  role="menuitemradio"
+                  aria-checked={prefs.style === id}
+                  onClick={() => setPref("style", id)}
+                >
+                  <span className="pm-menu-item-body">
+                    <span className="pm-menu-item-name">{name}</span>
+                    <span className="pm-menu-item-desc">{desc}</span>
+                  </span>
+                  {prefs.style === id && <span className="pm-menu-check">✓</span>}
+                </button>
+              ))}
+              <div className="pm-menu-label">Extras</div>
+              {EXTRA_OPTIONS.map(([k, name, desc]) => (
+                <button
+                  key={k}
+                  className="pm-menu-item"
+                  role="menuitemcheckbox"
+                  aria-checked={!!prefs[k]}
+                  onClick={() => setPref(k, !prefs[k])}
+                >
+                  <span className="pm-menu-item-body">
+                    <span className="pm-menu-item-name">{name}</span>
+                    <span className="pm-menu-item-desc">{desc}</span>
+                  </span>
+                  <span className={`pm-menu-toggle${prefs[k] ? " on" : ""}`} />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body
