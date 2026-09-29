@@ -616,7 +616,7 @@ const LAUNCH_MSGS = {
 
 const STATUS_LABEL = { fuzzy: "Still fuzzy 🌫️", solid: "Got it 👍", mastered: "Nailed it 🔥" };
 
-export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null }) {
+export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");   // input | roadmap | section | review | summary
   const [topic, setTopic]               = useState(initialTopic);
@@ -660,6 +660,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     sessionStartRef.current = Date.now();
     return () => { mountedRef.current = false; window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
   }, []);
+
+  // ── Report phase changes (parent shows contextual chrome, e.g. exit button) ──
+  useEffect(() => { onPhaseChange?.(phase); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Record progress for the material card that launched this session ──
   useEffect(() => {
