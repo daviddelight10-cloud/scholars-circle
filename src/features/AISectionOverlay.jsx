@@ -2224,7 +2224,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         fontFamily: "Manrope,sans-serif",
       }}>
 
-        {/* ── Top bar ── */}
+        {/* ── Top bar — hidden in study view; Guided Study gets the full
+             canvas and a floating back button handles the exit ── */}
+        {view !== "study" && (
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
           padding: "14px 16px 11px",
@@ -2281,6 +2283,23 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 7px #22c55e99", flexShrink: 0 }} />
         </div>
+        )}
+
+        {/* Floating back-to-chat in study view — replaces the hidden top bar */}
+        {view === "study" && (
+          <button
+            onClick={handleBack}
+            title="Back to AI Tutor"
+            aria-label="Back to AI Tutor"
+            style={{
+              position: "absolute", top: 12, left: 12, zIndex: 20,
+              width: 32, height: 32, borderRadius: "50%",
+              background: D.accent, border: `0.5px solid ${D.line}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: D.muted, fontSize: 17,
+            }}
+          >←</button>
+        )}
 
         {/* ── History panel ── */}
         <HistoryPanel

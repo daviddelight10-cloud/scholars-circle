@@ -963,10 +963,12 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     }
   }
 
-  // ── Common wrapper ──
+  // ── Common wrapper — content centers in a ~780px column on wide screens
   const wrap = (children) => (
     <div style={{ flex:1, overflowY:"auto", padding:"16px 14px 20px", scrollbarWidth:"none" }}>
-      {children}
+      <div style={{ maxWidth:780, width:"100%", margin:"0 auto" }}>
+        {children}
+      </div>
     </div>
   );
 
