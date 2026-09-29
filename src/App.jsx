@@ -70,6 +70,7 @@ import {
   NOTES_KEY, CUSTOM_QUESTIONS_KEY, AI_DOCS_KEY, LECTURE_NOTES_KEY,
   EMPTY_STATS, EMPTY_QUESTS, LEAGUES, DEMO_USERS, DEMO_LIMITS,
   DEMO_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS, BARE_TABS,
+  LECTURER_ALLOWED_TABS, LECTURER_HOME_TAB,
 } from "./lib/constants";
 import { PLANS, getPlan, naira } from "./lib/plans.js";
 import {
@@ -111,6 +112,7 @@ const ResourceViewer = lazyWithRetry(() => import("./features/ResourceViewer"));
 const TeacherResourcesHub = lazyWithRetry(() => import("./features/TeacherResourcesHub"));
 const AdminDashboard = lazyWithRetry(() => import("./features/AdminDashboard"));
 const Lecturers = lazyWithRetry(() => import("./features/Lecturers/index.jsx"));
+const LecturerProfileEditor = lazyWithRetry(() => import("./features/Lecturers/LecturerProfileEditor.jsx").then(m => ({ default: m.LecturerProfileEditor })));
 const CampusComm = lazyWithRetry(() => import("./features/CampusComm.jsx"));
 
 
@@ -258,7 +260,17 @@ function App() {
 
   const { quality: connQuality } = useConnectionQuality();
 
-  const [tab, setTabRaw] = useState("today");
+  const [tab, setTabRaw] = useState(() => {
+
+    try {
+
+      const u = JSON.parse(localStorage.getItem("scholars-circle-auth"))?.authUser;
+
+      return String(u?.role || "").toLowerCase() === "lecturer" ? LECTURER_HOME_TAB : "today";
+
+    } catch { return "today"; }
+
+  });
 
   // Deep link into the Feed's sub-tabs (Chats / Groups) from push notifications
   // and invite URLs — consumed once by <Feed>, then cleared.
@@ -267,6 +279,8 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const prevTabRef = useRef("today");
+
+  const isLecturerRoleRef = useRef(false);
 
   const mainContentRef = useRef(null);
 
@@ -300,7 +314,7 @@ function App() {
 
     const prev = prevTabRef.current;
 
-    setTabRaw(PRIMARY_TABS.includes(prev) ? prev : "today");
+    setTabRaw(PRIMARY_TABS.includes(prev) ? prev : (isLecturerRoleRef.current ? LECTURER_HOME_TAB : "today"));
 
   }, []);
 
@@ -324,7 +338,19 @@ function App() {
 
 
 
-  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded());
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+
+    try {
+
+      const u = JSON.parse(localStorage.getItem("scholars-circle-auth"))?.authUser;
+
+      if (String(u?.role || "").toLowerCase() === "lecturer") return false;
+
+    } catch { /* ignore */ }
+
+    return !isOnboarded();
+
+  });
 
 
 
@@ -509,6 +535,22 @@ function App() {
 
 
   });
+
+
+
+  const userRole = String(auth.user?.role || "").toLowerCase();
+
+
+
+  const isTeacher = userRole === "teacher"; // admin (full access)
+
+
+
+  const isLecturerRole = userRole === "lecturer"; // faculty without admin powers
+
+
+
+  const isFaculty = isTeacher || isLecturerRole; // any faculty (TEACHER or LECTURER)
 
 
 
@@ -760,6 +802,7 @@ function App() {
 
   useEffect(() => {
     if (!onboardingUid) return;
+    if (isLecturerRole) { markOnboarded(onboardingUid); setShowOnboarding(false); return; }
     if (isOnboarded(onboardingUid)) { setShowOnboarding(false); return; }
     setShowOnboarding(true);
     let cancelled = false;
@@ -772,7 +815,7 @@ function App() {
       }
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [onboardingUid]);
+  }, [onboardingUid, isLecturerRole]);
 
 
 
@@ -1119,23 +1162,25 @@ function App() {
 
 
 
-  const userRole = String(auth.user?.role || "").toLowerCase();
-
-
-
-  const isTeacher = userRole === "teacher"; // admin (full access)
-
-
-
-  const isLecturerRole = userRole === "lecturer"; // faculty without admin powers
-
-
-
-  const isFaculty = isTeacher || isLecturerRole; // any faculty (TEACHER or LECTURER)
-
-
-
   const isActivated = isFaculty || auth.user?.isActivated === true;
+
+
+
+  // Lecturers get a simplified app: Space, AI Tutor, Feed, Profile, Settings
+
+  isLecturerRoleRef.current = isLecturerRole;
+
+  const homeTab = isLecturerRole ? LECTURER_HOME_TAB : "today";
+
+
+
+  // Redirect guard: any tab outside the lecturer allowlist lands on Space
+
+  useEffect(() => {
+
+    if (isLecturerRole && !LECTURER_ALLOWED_TABS.includes(tab)) setTab(LECTURER_HOME_TAB);
+
+  }, [isLecturerRole, tab, setTab]);
 
   
 
@@ -7443,7 +7488,7 @@ function App() {
 
 
 
-              setTab("today");
+              setTab(homeTab);
 
 
 
@@ -8461,9 +8506,10 @@ function App() {
 
       {/* Mobile Bottom Navigation */}
 
-      {!ctxUI.hideMobileNav && !homeViewerToken && !BARE_TABS.includes(tab) && !(tab === "voice-tutor" && voiceSessionActive) && createPortal(
+      {!ctxUI.hideMobileNav && !homeViewerToken && (!BARE_TABS.includes(tab) || isLecturerRole) && !(tab === "voice-tutor" && voiceSessionActive) && createPortal(
       <nav className="mobile-nav">
 
+        {!isLecturerRole && (
         <button
 
           className={["today", "dashboard"].includes(tab) ? "active" : ""}
@@ -8479,6 +8525,7 @@ function App() {
           <span className="nav-label">Home</span>
 
         </button>
+        )}
 
         <button
 
@@ -8528,6 +8575,45 @@ function App() {
 
         </button>
 
+        {isLecturerRole && (
+        <>
+
+        <button
+
+          className={tab === "profile" ? "active" : ""}
+
+          onClick={() => setTab("profile")}
+
+          title="Profile"
+
+        >
+
+          <User size={20} className="nav-icon" />
+
+          <span className="nav-label">Profile</span>
+
+        </button>
+
+        <button
+
+          className={tab === "settings" ? "active" : ""}
+
+          onClick={() => setTab("settings")}
+
+          title="Settings"
+
+        >
+
+          <Settings size={20} className="nav-icon" />
+
+          <span className="nav-label">Settings</span>
+
+        </button>
+
+        </>
+        )}
+
+        {!isLecturerRole && (
         <button
 
           className={`more-btn ${["settings", "flashcards", "notes", "timetable", "cheatsheet", "outline", "profile", "premium", "voice-tutor", "analytics", "leaderboard", "achievements", "gamification", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
@@ -8543,6 +8629,7 @@ function App() {
           <span className="nav-label">More</span>
 
         </button>
+        )}
 
       </nav>,
       document.body
@@ -8550,7 +8637,7 @@ function App() {
 
       {/* Mobile Menu Overlay */}
 
-      {showMobileMenu && !BARE_TABS.includes(tab) && (
+      {showMobileMenu && !isLecturerRole && !BARE_TABS.includes(tab) && (
 
         <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
 
@@ -8802,6 +8889,50 @@ function App() {
 
         <div className="app-sidebar-scroll">
 
+          {isLecturerRole && (
+
+          <div className="app-sidebar-section">
+
+            <span className="app-sidebar-label">Menu</span>
+
+            {[
+
+              ["research-hub", "My Circle", Folder],
+
+              ["aitutor", "AI Tutor", Bot],
+
+              ["discuss", "Feed", MessageCircle],
+
+              ["profile", "Profile", User],
+
+              ["settings", "Settings", Settings],
+
+            ].map(([id, label, Icon]) => (
+
+              <button
+
+                key={id}
+
+                className={`app-sidebar-item ${tab === id ? "active" : ""}`}
+
+                onClick={() => setTab(id)}
+
+              >
+
+                <Icon size={18} className="app-sidebar-icon" />
+
+                <span className="app-sidebar-text">{label}</span>
+
+              </button>
+
+            ))}
+
+          </div>
+
+          )}
+
+          {!isLecturerRole && (<>
+
           <div className="app-sidebar-section">
 
             <span className="app-sidebar-label">Main</span>
@@ -9009,6 +9140,8 @@ function App() {
             </div>
 
           )}
+
+          </>)}
 
         </div>
 
@@ -9851,13 +9984,13 @@ function App() {
 
       {tab === "research-hub" && (
         <Suspense fallback={<TabSkeleton variant="cards" />}>
-        <ResearchHub onBack={() => setTab("today")} streak={stats.streak} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} activeSemester={activeSemester} />
+        <ResearchHub onBack={() => setTab(homeTab)} streak={stats.streak} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} activeSemester={activeSemester} />
         </Suspense>
       )}
 
       {tab === "teacher-resources" && (
         <Suspense fallback={<TabSkeleton />}>
-        <TeacherResourcesHub onBack={() => setTab("today")} />
+        <TeacherResourcesHub onBack={() => setTab(homeTab)} />
         </Suspense>
       )}
 
@@ -9896,7 +10029,7 @@ function App() {
           aiStudyContext={aiStudyContext}
           aiConfig={aiConfig}
           subjects={subjects}
-          onExit={() => setTab("today")}
+          onExit={() => setTab(homeTab)}
           onStartExam={(session) => {
             if (!session?.questions?.length) return;
             setActiveSession(session);
@@ -9917,7 +10050,7 @@ function App() {
                 <Suspense fallback={<TabSkeleton />}>
         <VoiceTutorPage
           preselectedResourceId={voiceTutorResourceId}
-          onExit={() => { setVoiceTutorResourceId(null); setTab("today"); }}
+          onExit={() => { setVoiceTutorResourceId(null); setTab(homeTab); }}
           onSessionActiveChange={setVoiceSessionActive}
         />
                 </Suspense>
@@ -9930,6 +10063,9 @@ function App() {
       {tab === "profile" && (
         <ErrorBoundary>
                 <Suspense fallback={<TabSkeleton />}>
+        {isLecturerRole ? (
+          <LecturerProfileEditor token={token} />
+        ) : (
         <Profile
           loading={loadingOverlay}
           studentProfile={studentProfile}
@@ -9942,6 +10078,7 @@ function App() {
           onOpenPremium={() => setTab("premium")}
           onBack={() => setTab("settings")}
         />
+        )}
                 </Suspense>
         </ErrorBoundary>
       )}

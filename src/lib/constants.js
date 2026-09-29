@@ -91,6 +91,12 @@ export const BARE_TABS = [
   "timetable", "clinical-cases", "drug-ref", "lab-values", "medical-calculators",
 ];
 
+// Simplified experience for LECTURER role: only these destinations exist
+export const LECTURER_NAV_TABS = ["research-hub", "aitutor", "discuss", "profile", "settings"];
+// Reachable but not in nav: voice-tutor is launched from materials inside Space
+export const LECTURER_ALLOWED_TABS = [...LECTURER_NAV_TABS, "voice-tutor"];
+export const LECTURER_HOME_TAB = "research-hub";
+
 export const TAB_LABELS = {
   today: "🏠 Home", dashboard: "🏠 Home", aitutor: "🤖 AI Tutor",
   analytics: "📊 Progress", classroom: "🏫 Classroom",

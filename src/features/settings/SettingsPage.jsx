@@ -40,7 +40,9 @@ export default function SettingsPage({
   const level = ACADEMIC_LEVELS.find((l) => l.id === studentProfile?.level);
 
   const displayName = studentProfile?.fullName || user?.username || "Your Profile";
-  const subText = disc
+  const subText = isFaculty
+    ? "👨‍🏫 Lecturer"
+    : disc
     ? `${disc.icon} ${disc.label}${level ? ` · ${level.label}` : ""}`
     : level
     ? level.label
@@ -52,7 +54,9 @@ export default function SettingsPage({
     !studentProfile?.matricNumber && "your Student ID",
     !studentProfile?.targetGrade && "a target grade",
   ].filter(Boolean);
-  const todoText = missing.length
+  const todoText = isFaculty
+    ? "💡 Tap to edit your lecturer profile"
+    : missing.length
     ? `💡 Add ${missing[0]} to complete your profile`
     : "✅ Profile complete";
 
@@ -126,6 +130,7 @@ export default function SettingsPage({
       {/* Account */}
       <div className="st-glabel">Account</div>
       <div className="st-group">
+        {!isFaculty && (
         <button className="st-row st-press" onClick={() => onNavigate("refer")}>
           <span className="st-ricon">🎁</span>
           <span className="st-rlabel">
@@ -135,6 +140,7 @@ export default function SettingsPage({
           <span className="st-rvalue st-gold">{referral?.invited ? `${referral.invited} joined` : "+3 days"}</span>
           <span className="st-chev">›</span>
         </button>
+        )}
         {user?.activationKey && (
           <button className="st-row st-press" onClick={copyKey}>
             <span className="st-ricon">🔑</span>
