@@ -244,7 +244,7 @@ export default function Dashboard({
     return () => { cancelled = true; };
   }, [token]);
 
-  const sm2DueCount = dueCards?.length || 0;
+  const bankDueCount = dueCards?.length || 0;
   const firstRun = fsrsStats != null && (fsrsStats.totalItems || 0) === 0;
   const weakest = useMemo(() => weakestSubject(fsrsStats), [fsrsStats]);
 
@@ -363,7 +363,7 @@ export default function Dashboard({
   // ── Daily welcome popup data ──
   const level = levelFromXP(save.xp || 0);
   // null until fsrsStats resolves — never claim "0 items due" before data loads
-  const dueCount = fsrsStats ? (fsrsStats.dueCount || 0) + sm2DueCount : null;
+  const dueCount = fsrsStats ? (fsrsStats.dueCount || 0) + bankDueCount : null;
   const lastActiveDaysAgo = useMemo(() => {
     let last = null;
     try {
@@ -436,7 +436,7 @@ export default function Dashboard({
             <HomeHero
               firstRun={firstRun}
               fsrsStats={fsrsStats}
-              sm2DueCount={sm2DueCount}
+              bankDueCount={bankDueCount}
               onStartDaily={() => setShowDailyReview(true)}
               onAddFirst={() => window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { openUpload: true } }))}
               onTrySample={() => openResearchHub("community")}

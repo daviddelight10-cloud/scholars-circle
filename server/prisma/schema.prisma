@@ -201,7 +201,6 @@ model User {
 
   resourceComments  ResourceComment[]
 
-  reviewQueueItems  ReviewQueueItem[]
   pdfReviewItems    PdfReviewItem[]
   pdfFlashcards     PdfFlashcard[]
   fsrsProfile       UserFsrsProfile?
@@ -1535,7 +1534,6 @@ model Resource {
   ratings     ResourceRating[]
   comments    ResourceComment[]
   resourceLikes ResourceLike[]
-  reviewQueueItems ReviewQueueItem[]
   pdfReviewItems   PdfReviewItem[]
   pdfFlashcards    PdfFlashcard[]
   resourceDepts    ResourceDepartment[]
@@ -1636,27 +1634,6 @@ model ResourceComment {
   createdAt   DateTime @default(now())
 
   @@index([resourceId])
-}
-
-model ReviewQueueItem {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resourceId      String
-  resource        Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  questionIndex   Int
-  dueAt           DateTime
-  createdAt       DateTime @default(now())
-
-  // SM-2 algorithm fields
-  easinessFactor  Float    @default(2.5)
-  intervalDays    Int      @default(0)
-  repetitions     Int      @default(0)
-  lastReviewed    DateTime?
-  quality         Int?
-
-  @@unique([userId, resourceId, questionIndex])
-  @@index([userId, dueAt])
 }
 
 // ============ FSRS SPACED REPETITION (PDF) ============

@@ -67,7 +67,7 @@ export function selectAdaptiveQuestions(pool, options = {}) {
 
     // 3. Spaced repetition: due items get +2
     const srEntry = srData[key];
-    if (srEntry && srEntry.nextReview && Date.now() >= srEntry.nextReview) {
+    if (srEntry && srEntry.due != null && Date.now() >= srEntry.due) {
       priority += 2;
     }
 

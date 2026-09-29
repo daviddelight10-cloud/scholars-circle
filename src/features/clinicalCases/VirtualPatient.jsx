@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { callAIChat, extractJSON } from "../../lib/aiClient";
+import { fsrsNewCard, fsrsRate, toFsrsCard } from "../../lib/fsrs.js";
 import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS } from "./caseData";
 import ExitPill from "../../components/ExitPill.jsx";
 import "./virtualPatient.css";
@@ -78,8 +79,9 @@ function seedReviewDeck(profile, grade, caseObj) {
     const exists = profile.reviewDeck.some(it => it.text === text && it.caseDx === caseObj.diagnosis);
     if (!exists) {
       profile.reviewDeck.push({
+        ...fsrsNewCard(),
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-        text, caseDx: caseObj.diagnosis, addedAt: now, due: now, interval: 1
+        text, caseDx: caseObj.diagnosis, addedAt: now, due: now,
       });
     }
   });
@@ -764,8 +766,16 @@ Answer the student's follow-up questions about their performance and the underly
     const newProfile = JSON.parse(JSON.stringify(profile));
     const item = newProfile.reviewDeck.find(i => i.id === id);
     if (item) {
-      item.interval = gotIt ? Math.min(30, Math.round((item.interval || 1) * 2.3)) : 1;
-      item.due = new Date(Date.now() + item.interval * 24 * 60 * 60 * 1000).toISOString();
+      // FSRS-6 scheduling — binary got-it/missed maps to Good/Again
+      const rated = fsrsRate(toFsrsCard(item), gotIt ? 3 : 1, new Date());
+      delete item.interval;
+      item.state = rated.state;
+      item.stability = rated.stability;
+      item.difficulty = rated.difficulty;
+      item.reps = rated.reps;
+      item.lapses = rated.lapses;
+      item.lastReviewAt = rated.lastReviewAt.toISOString();
+      item.due = rated.nextReviewDate.toISOString();
     }
     saveProfile(newProfile);
     setReviewQueue(prev => prev.slice(1));

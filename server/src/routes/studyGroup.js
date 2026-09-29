@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
 
 const router = express.Router();
 
@@ -405,18 +406,28 @@ router.get("/public-rooms", requireAuth, async (req, res) => {
     const rooms = await prisma.classroomStudyRoom.findMany({
       where: { isPublic: true, status: "active" },
       include: {
-        host: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } },
+        host: { select: AUTHOR_SELECT },
         resource: { select: { id: true, title: true, subject: true, contentType: true, shareToken: true } },
         participants: {
           where: { leftAt: null },
-          include: { user: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } } },
+          include: { user: { select: AUTHOR_SELECT } },
         },
       },
       orderBy: { startedAt: "desc" },
       take: 50,
     });
 
-    res.json(rooms.map((r) => ({ ...r, seatsUsed: r.participants.length })));
+    // Normalize to the same shape the feed's roomBlock emits — host and
+    // participants are flat public-user objects ({id, name, avatar, ...}),
+    // not raw prisma rows, so <Avatar>/RoomCard render names and photos.
+    res.json(rooms.map((r) => ({
+      ...r,
+      host: publicUser(r.host),
+      participants: (r.participants || [])
+        .map((p) => publicUser(p.user))
+        .filter(Boolean),
+      seatsUsed: r.participants.length,
+    })));
   } catch (error) {
     console.error("Error fetching public rooms:", error);
     res.status(500).json({ error: "Failed to fetch rooms" });
@@ -455,11 +466,11 @@ router.post("/public-rooms", requireAuth, async (req, res) => {
         },
       },
       include: {
-        host: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } },
+        host: { select: AUTHOR_SELECT },
         resource: { select: { id: true, title: true, subject: true, contentType: true, shareToken: true } },
         participants: {
           where: { leftAt: null },
-          include: { user: { select: { id: true, username: true, fullName: true, userProfile: { select: { avatar: true } } } } },
+          include: { user: { select: AUTHOR_SELECT } },
         },
       },
     });
@@ -508,7 +519,14 @@ router.post("/public-rooms", requireAuth, async (req, res) => {
       console.warn("Go-live push failed:", err.message);
     }
 
-    res.status(201).json({ ...room, seatsUsed: room.participants.length });
+    res.status(201).json({
+      ...room,
+      host: publicUser(room.host),
+      participants: (room.participants || [])
+        .map((p) => publicUser(p.user))
+        .filter(Boolean),
+      seatsUsed: room.participants.length,
+    });
   } catch (error) {
     console.error("Error creating public room:", error);
     res.status(500).json({ error: "Failed to create room" });

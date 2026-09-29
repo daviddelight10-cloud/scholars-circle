@@ -68,7 +68,7 @@ Hermann Ebbinghaus discovered the spacing effect in 1885. He found that:
 | 5th | 2 weeks later |
 | 6th | 1 month later |
 
-This is roughly what the SM-2 algorithm does — but it adjusts based on your performance. For a practical guide on applying this to Nigerian exams, see [How to Use Spaced Repetition for WAEC, NECO and JAMB](/blog/how-to-use-spaced-repetition-for-waec-neco-jamb).
+This is roughly what the FSRS algorithm does — but it adjusts based on your performance. For a practical guide on applying this to Nigerian exams, see [How to Use Spaced Repetition for WAEC, NECO and JAMB](/blog/how-to-use-spaced-repetition-for-waec-neco-jamb).
 
 ### Let Technology Help
 

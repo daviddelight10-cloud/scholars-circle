@@ -175,6 +175,11 @@ router.get("/", requireAuth, async (req, res) => {
         ? { ownerId: { in: [...followingIds] } }
         : { ownerId: { in: audience } };
     const cursorFilter = cursor ? { createdAt: { lt: new Date(cursor) } } : {};
+    // Rooms and activity rows aren't cursor-paginated (no stable ordering key
+    // compatible with createdAt) — they're "right now" decorations, so they
+    // only belong on the first page. Including them on later pages would
+    // re-append the same blocks forever.
+    const isFirstPage = !cursor;
 
     const [posts, resources, folders] = await Promise.all([
       prisma.feedPost.findMany({
@@ -231,9 +236,10 @@ router.get("/", requireAuth, async (req, res) => {
       }),
     ]);
 
-    // Study rooms: public active rooms + rooms in my classrooms (skip on circle scope)
+    // Study rooms: public active rooms + rooms in my classrooms
+    // (first page only — they can't be cursor-paginated)
     let rooms = [];
-    if (!scopeFollowingOnly) {
+    if (isFirstPage && !scopeFollowingOnly) {
       const myClassrooms = await prisma.classroomMember.findMany({
         where: { userId: uid },
         select: { classroomId: true },
@@ -263,8 +269,9 @@ router.get("/", requireAuth, async (req, res) => {
     }
 
     // Activity rows: what my circle did recently (badges, saves, rooms)
+    // (first page only — same reason as rooms)
     let activities = [];
-    if (followingIds.size > 0) {
+    if (isFirstPage && followingIds.size > 0) {
       const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
       const fIds = [...followingIds];
       const [badges, saves, joins] = await Promise.all([
@@ -335,21 +342,50 @@ router.get("/", requireAuth, async (req, res) => {
         ? 6 * 60 * 60 * 1000
         : 0;
 
-    let blocks = [
+    // Skip standalone resource blocks for resources already shown inside a
+    // post — otherwise the same material appears twice back to back.
+    const attachedResourceIds = new Set(
+      posts.map((p) => p.resourceId).filter(Boolean)
+    );
+
+    // paginatedBlocks = sources the cursor actually applies to. Only these
+    // may drive nextCursor — otherwise an old room's startedAt can drag the
+    // cursor back and swallow items.
+    const paginatedBlocks = [
       ...posts.map((p) => postBlock(p, uid)),
-      ...resources.map(resourceBlock),
+      ...resources
+        .filter((r) => !attachedResourceIds.has(r.id))
+        .map(resourceBlock),
       ...folders.map(folderBlock),
-      ...rooms.map(roomBlock),
-      ...activities,
-    ]
+    ];
+
+    const seen = new Set();
+    let blocks = [...paginatedBlocks, ...rooms.map(roomBlock), ...activities]
+      .filter((b) => {
+        const key = `${b.type}:${b.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
       .map((b) => ({ ...b, score: new Date(b.ts).getTime() + boost(b) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 30)
       .map(({ score, ...b }) => b);
 
+    // Cursor = oldest ts among *shown* paginated blocks. Sliced-off items are
+    // older than everything shown, so `createdAt < cursor` refetches them on
+    // the next page — nothing is lost. Rooms/activities are excluded: they
+    // can't be paginated and could drag the cursor back.
+    const sourcesMayHaveMore =
+      posts.length === 40 || resources.length === 20 || folders.length === 10;
+    const shownPaginated = blocks.filter(
+      (b) => b.type === "post" || b.type === "resource" || b.type === "folder"
+    );
     const nextCursor =
-      blocks.length >= 30
-        ? new Date(Math.min(...blocks.map((b) => new Date(b.ts).getTime()))).toISOString()
+      sourcesMayHaveMore && shownPaginated.length > 0
+        ? new Date(
+            Math.min(...shownPaginated.map((b) => new Date(b.ts).getTime()))
+          ).toISOString()
         : null;
 
     res.json({ blocks, nextCursor, meta: { global, following: followingIds.size, uni: myUni } });

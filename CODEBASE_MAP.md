@@ -109,7 +109,7 @@ STUDY STATE:
   history: [{ subjectId, score, total, mode, ts, seconds }]
   wrongCounts: { questionKey: count }
   mastery: { subjectId: percentage }
-  srData: { questionKey: { due, interval, easeFactor, reps } }  (SM-2)
+  srData: { questionKey: { due, state, stability, difficulty, reps, lapses } }  (FSRS-6, src/lib/fsrs.js)
   subjects: merged from local SUBJECTS + backend + custom questions
   allQuestions: flattened from subjects
   dueCards: filtered where srData[key].due <= now
@@ -377,10 +377,10 @@ ResearchHub (src/features/research-hub/ResearchHub.jsx)
 │   ├── Annotation, AI page summaries, flashcard/MCQ generation
 │   └── Voice tutor integration (open on specific page)
 ├── Spaced Repetition:
-│   ├── SM-2 (ReviewQueueItem) — for MCQ resources
-│   │   easinessFactor, intervalDays, repetitions, quality
-│   └── FSRS (PdfReviewItem) — for PDF resources
+│   ├── FSRS-6 client-side (srData in UserDataContext) — built-in question bank
+│   └── FSRS (PdfReviewItem) — for PDF/MCQ resources
 │       state: new/learning/review/relearning, stability, difficulty
+│       itemType: whole_pdf | page | flashcard | mcq | legacy_mcq
 │       UserFsrsProfile — personalized weights, target retention
 ├── Folders: private/shared/link, share via /folders/:shareToken
 │   FolderQuizAttempt — quiz across folder resources
@@ -558,8 +558,7 @@ LECTURER ECOSYSTEM:
 RESEARCH HUB:
   Resource (note/pdf/mcq/flashcard_deck, shareToken, isPremium)
   ResourceView, ResourceBookmark, ResourceRating, ResourceComment
-  ReviewQueueItem (SM-2 spaced repetition for MCQs)
-  PdfReviewItem (FSRS spaced repetition for PDFs)
+  PdfReviewItem (FSRS spaced repetition for PDFs/MCQs)
   UserFsrsProfile (personalized FSRS weights, target retention)
   PdfFlashcard (AI-generated from PDFs)
   Folder → FolderBookmark, FolderDepartment, FolderQuizAttempt
@@ -649,14 +648,13 @@ View:
 ### 7.4 Spaced Repetition Flow
 
 ```
-SM-2 (for MCQ resources):
-  Answer question → quality (0-5)
-  → Update ReviewQueueItem:
-    easinessFactor = EF + (0.1 - (5-q)*(0.08 + (5-q)*0.02))
-    interval = reps==0 ? 1 : reps==1 ? 6 : round(interval * EF)
-    reps++, lastReviewed = now, dueAt = now + interval days
+FSRS (built-in question bank, client-side srData):
+  Answer question → grade 1-4 (correct + confidence: unsure/okay/sure)
+  → Update srData[key] via fsrsRate():
+    state: new→learning→review (or →relearning on lapse)
+    stability, difficulty, due = epoch ms
 
-FSRS (for PDF resources):
+FSRS (for PDF/MCQ resources):
   Review PDF page/flashcard/MCQ → rate (again/hard/good/easy)
   → Update PdfReviewItem:
     state: new→learning→review (or →relearning on lapse)

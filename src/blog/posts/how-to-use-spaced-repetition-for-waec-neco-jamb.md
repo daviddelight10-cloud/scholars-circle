@@ -41,11 +41,11 @@ But each review **resets** the forgetting curve, and the next review can be spac
 - Review missed questions more frequently (the system does this automatically)
 - Aim for daily practice sessions of 20–30 minutes
 
-## The SM-2 Algorithm
+## The FSRS Algorithm
 
-Scholar's Circle uses the **SM-2 algorithm** — the same one powering Anki. [Learn the science behind it](/blog/science-of-spaced-repetition). Here's how it works:
+Scholar's Circle uses **FSRS** — the modern spaced-repetition scheduler Anki adopted to replace its older algorithm. [Learn the science behind it](/blog/science-of-spaced-repetition). Here's how it works:
 
-- After each review, you rate how well you remembered (1–5)
+- After each review, the system tracks how well you remembered
 - The algorithm calculates when to show the item next
 - Items you struggle with appear more frequently
 - Items you know cold get spaced further apart
@@ -53,7 +53,7 @@ Scholar's Circle uses the **SM-2 algorithm** — the same one powering Anki. [Le
 ## Practical Tips
 
 1. **Be consistent** — 15 minutes daily beats 3 hours once a week
-2. **Be honest** — don't rate yourself a 5 when you barely remembered
+2. **Be honest** — don't mark yourself confident when you barely remembered
 3. **Use active recall** — try to answer before looking at the solution
 4. **Mix subjects** — interleaving different topics improves retention
 5. **Track your progress** — watch your mastery rings fill up

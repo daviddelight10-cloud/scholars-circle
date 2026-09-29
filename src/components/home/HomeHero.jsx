@@ -12,8 +12,8 @@ function relIn(ts) {
 }
 
 // Returning-user hero: real FSRS stats + goal ring.
-function ReturningHero({ fsrsStats, sm2DueCount, onStartDaily }) {
-  const due = (fsrsStats?.dueCount || 0) + (sm2DueCount || 0);
+function ReturningHero({ fsrsStats, bankDueCount, onStartDaily }) {
+  const due = (fsrsStats?.dueCount || 0) + (bankDueCount || 0);
   const goal = fsrsStats?.dailyGoal || 20;
   const done = fsrsStats?.reviewedToday || 0;
   const pct = goal > 0 ? Math.min(1, done / goal) : 0;

@@ -5,7 +5,7 @@ import { aiRateLimit } from "../middleware/aiRateLimit.js";
 import multer from "multer";
 import path from "path";
 import { uploadFile, deleteFile } from "../lib/supabaseStorage.js";
-import { updateUniversalStreak } from "../lib/sm2.js";
+import { updateUniversalStreak } from "../lib/streak.js";
 import { fsrsRate, fsrsNewCard, intervalLabel, stateLabel, isMastered } from "../lib/fsrs.js";
 import { pptxToPdf } from "../lib/pptxToPdf.js";
 import { matchDocumentToSkeleton } from "../lib/topicExtractionService.js";
@@ -603,106 +603,6 @@ router.get("/proxy-pdf", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Failed to proxy file" });
   }
 });
-
-// GET /api/resources/review-queue - Get current user's due review items (MUST be before /:token)
-router.get("/review-queue", requireAuth, async (req, res) => {
-  try {
-    const now = new Date();
-    const items = await prisma.reviewQueueItem.findMany({
-      where: { userId: req.user.sub },
-      include: {
-        resource: {
-          select: { id: true, title: true, subject: true, mcqData: true, shareToken: true },
-        },
-      },
-      orderBy: { dueAt: "asc" },
-    });
-
-    const due = items.filter((item) => new Date(item.dueAt) <= now);
-    const upcoming = items.filter((item) => new Date(item.dueAt) > now);
-
-    res.json({
-      due: due.map((item) => ({
-        id: item.id,
-        questionIndex: item.questionIndex,
-        dueAt: item.dueAt,
-        easinessFactor: item.easinessFactor,
-        intervalDays: item.intervalDays,
-        repetitions: item.repetitions,
-        resource: item.resource,
-      })),
-      upcoming: upcoming.map((item) => ({
-        id: item.id,
-        questionIndex: item.questionIndex,
-        dueAt: item.dueAt,
-        easinessFactor: item.easinessFactor,
-        intervalDays: item.intervalDays,
-        repetitions: item.repetitions,
-        resource: item.resource,
-      })),
-      total: items.length,
-    });
-  } catch (error) {
-    console.error("Error fetching review queue:", error);
-    res.status(500).json({ error: "Failed to fetch review queue" });
-  }
-});
-
-// DELETE /api/resources/review-queue/:id - Remove a review queue item
-router.delete("/review-queue/:id", requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.reviewQueueItem.deleteMany({
-      where: { id, userId: req.user.sub },
-    });
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error removing review queue item:", error);
-    res.status(500).json({ error: "Failed to remove review queue item" });
-  }
-});
-
-// GET /api/resources/review-queue/stats - SM-2 summary stats for the user
-router.get("/review-queue/stats", requireAuth, async (req, res) => {
-  try {
-    const now = new Date();
-    const items = await prisma.reviewQueueItem.findMany({
-      where: { userId: req.user.sub },
-      select: { dueAt: true, easinessFactor: true, intervalDays: true, repetitions: true },
-    });
-
-    const dueCount = items.filter((i) => new Date(i.dueAt) <= now).length;
-    const avgEF = items.length > 0
-      ? Math.round((items.reduce((sum, i) => sum + i.easinessFactor, 0) / items.length) * 100) / 100
-      : 2.5;
-    const masteredCount = items.filter((i) => i.repetitions >= 3 && i.intervalDays >= 21).length;
-    const nextDue = items.length > 0
-      ? items.sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))[0].dueAt
-      : null;
-
-    // Get streak from UserProgress
-    const up = await prisma.userProgress.findUnique({
-      where: { userId: req.user.sub },
-      select: { streak: true, longestStreak: true, lastStudied: true },
-    });
-
-    res.json({
-      totalItems: items.length,
-      dueCount,
-      upcomingCount: items.length - dueCount,
-      avgEasinessFactor: avgEF,
-      masteredCount,
-      nextDueAt: nextDue,
-      streak: up?.streak ?? 0,
-      longestStreak: up?.longestStreak ?? 0,
-      lastStudied: up?.lastStudied ?? null,
-    });
-  } catch (error) {
-    console.error("Error fetching review queue stats:", error);
-    res.status(500).json({ error: "Failed to fetch review queue stats" });
-  }
-});
-
 
 // GET /api/resources/my-mcq-progress — Per-resource MCQ attempt progress for the current user
 router.get("/my-mcq-progress", requireAuth, async (req, res) => {
@@ -1644,52 +1544,6 @@ router.post("/fsrs/freeze", requireAuth, async (req, res) => {
     res.json({ freezes: up.freezes });
   } catch (error) {
     res.status(500).json({ error: "Failed to buy streak freeze" });
-  }
-});
-
-// ── POST /api/resources/fsrs/migrate-sm2 — Migrate legacy SM-2 data to FSRS ──
-router.post("/fsrs/migrate-sm2", requireAuth, async (req, res) => {
-  try {
-    const oldItems = await prisma.reviewQueueItem.findMany({
-      where: { userId: req.user.sub },
-      include: { resource: { select: { subject: true, title: true } } },
-    });
-
-    let migrated = 0;
-    for (const old of oldItems) {
-      const exists = await prisma.pdfReviewItem.findUnique({
-        where: { userId_resourceId_itemType_pageIndex_flashcardId: { userId: req.user.sub, resourceId: old.resourceId, itemType: "legacy_mcq", pageIndex: old.questionIndex, flashcardId: "none" } },
-      }).catch(() => null);
-      if (!exists) {
-        // Convert SM-2 to approximate FSRS state
-        const isMasteredSM2 = old.repetitions >= 3 && old.intervalDays >= 21;
-        await prisma.pdfReviewItem.create({
-          data: {
-            userId: req.user.sub,
-            resourceId: old.resourceId,
-            itemType: "legacy_mcq",
-            pageIndex: old.questionIndex,
-            flashcardId: "none",
-            state: isMasteredSM2 ? 2 : (old.repetitions > 0 ? 2 : 0),
-            stability: Math.max(0.1, old.intervalDays || 1),
-            difficulty: Math.min(10, Math.max(1, (old.easinessFactor || 2.5) * 2)),
-            reps: old.repetitions || 0,
-            lapses: 0,
-            lastReviewAt: old.lastReviewed,
-            dueAt: old.dueAt,
-            nextReviewAt: old.dueAt,
-            topic: old.resource?.title || null,
-            subject: old.resource?.subject || null,
-          },
-        });
-        migrated++;
-      }
-    }
-
-    res.json({ migrated, totalOldItems: oldItems.length });
-  } catch (error) {
-    console.error("Error migrating SM-2 data:", error);
-    res.status(500).json({ error: "Failed to migrate SM-2 data" });
   }
 });
 

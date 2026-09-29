@@ -52,7 +52,7 @@ const TESTIMONIALS = [
 
 const FEATURES = [
   { tag: 'From your own notes', title: 'Circle to Ask', desc: 'Lasso any anatomy diagram, pharmacology table, or pathology slide in your lecture PDF and ask Scholar\'s Circle to explain it — like leaning over to ask the sharpest person in your study group.' },
-  { tag: 'Remembers what you forget', title: 'Spaced repetition that adapts', desc: 'An SM-2-based engine tracks every topic you\'ve practiced — from embryology to clinical pharmacology — and brings back exactly what\'s about to slip, not what you already know cold.' },
+  { tag: 'Remembers what you forget', title: 'Spaced repetition that adapts', desc: 'An FSRS-powered engine tracks every topic you\'ve practiced — from embryology to clinical pharmacology — and brings back exactly what\'s about to slip, not what you already know cold.' },
   { tag: 'You vs your last score', title: 'Practice that feels like a game', desc: 'Hearts, combos, XP and streaks turn MBBS revision into something you actually want to open at midnight, not something you dread before professional exams.' },
   { tag: 'Your department\'s shelf', title: 'Research & Teacher Hub', desc: 'Past questions, lecturer-uploaded material, and shared resources for Medicine, Nursing, Pharmacy, Physiology, and more — filtered to your exact department and year level.' },
 ];

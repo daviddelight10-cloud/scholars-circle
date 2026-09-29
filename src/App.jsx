@@ -2,6 +2,7 @@
 import { useModalA11y } from "./hooks/useModalA11y";
 import { createPortal } from "react-dom";
 import { lazyWithRetry } from "./lib/lazyWithRetry.js";
+import { fsrsRate, toFsrsCard, gradeFromResult } from "./lib/fsrs.js";
 
 import { haptics } from "./lib/haptics";
 import { useConnectionQuality } from "./lib/useConnectionQuality";
@@ -5957,19 +5958,15 @@ function App() {
 
 
 
-      const prev = nextSr[r.key] || { interval: 1, ease: 2.5 };
+      const prev = toFsrsCard(nextSr[r.key]);
 
 
 
-      const interval = r.correct ? Math.round(prev.interval * prev.ease) : 1;
+      const rated = fsrsRate(prev, gradeFromResult(r), new Date());
 
 
 
-      const ease = Math.max(1.3, Math.min(3, prev.ease + (r.correct ? 0.1 : -0.2)));
-
-
-
-      nextSr[r.key] = { interval, ease, due: Date.now() + interval * 86400000 };
+      nextSr[r.key] = { state: rated.state, stability: rated.stability, difficulty: rated.difficulty, reps: rated.reps, lapses: rated.lapses, lastReviewAt: rated.lastReviewAt, due: rated.due };
 
 
 

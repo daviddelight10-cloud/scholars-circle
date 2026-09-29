@@ -71,7 +71,14 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         const scope = circleOnly ? "circle" : "forYou";
         const data = await feedApi.getFeed({ token, scope, subject: circleOnly ? null : subject, cursor });
         if (cursor) {
-          setBlocks((prev) => [...prev, ...(data.blocks || [])]);
+          // Dedupe by type:id — overlapping windows or live blocks can repeat
+          setBlocks((prev) => {
+            const seenIds = new Set(prev.map((b) => `${b.type}:${b.id}`));
+            return [
+              ...prev,
+              ...(data.blocks || []).filter((b) => !seenIds.has(`${b.type}:${b.id}`)),
+            ];
+          });
         } else {
           setBlocks(data.blocks || []);
         }
@@ -349,7 +356,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       }
       out.push(
         <FeedCard
-          key={b.id}
+          key={`${b.type}-${b.id}`}
           block={b}
           token={token}
           me={me}
