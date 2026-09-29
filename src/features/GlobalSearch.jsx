@@ -152,7 +152,7 @@ export function GlobalSearch({ subjects }) {
             fontSize: 14,
             borderRadius: 6,
             border: "1px solid #374151",
-            background: "#1f2937",
+            background: "#26262a",
             color: "white"
           }}
           autoFocus
@@ -203,7 +203,7 @@ export function GlobalSearch({ subjects }) {
               key={item.id}
               style={{
                 padding: 12,
-                background: "#1f2937",
+                background: "#26262a",
                 borderRadius: 6,
                 marginBottom: 8,
                 borderLeft: `4px solid ${typeColors[item.type]}`

@@ -19,10 +19,10 @@ function saveSession(entry) {
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
-  bg:     "#0A0D13",
-  card:   "#151A24",
-  bar:    "#11151E",
-  accent: "#191F2C",
+  bg:     "#0a0a0a",
+  card:   "#1a1a1c",
+  bar:    "#121212",
+  accent: "#1e1e22",
   border: "#FFD700",
   line:   "rgba(255,255,255,0.09)",
   line2:  "rgba(255,255,255,0.05)",
@@ -479,7 +479,7 @@ function SectionCard({ section, index, status, isNext, onStudy }) {
           {isNext && (
             <span style={{
               marginLeft:7, fontSize:9, fontWeight:700, letterSpacing:"0.06em",
-              color:"#0A0D13", background:"linear-gradient(90deg, #F5A623, #FFD700)",
+              color:"#0a0a0a", background:"linear-gradient(90deg, #F5A623, #FFD700)",
               borderRadius:6, padding:"2px 6px", verticalAlign:"middle",
             }}>▶ UP NEXT</span>
           )}
@@ -1053,7 +1053,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         placeholder="e.g. Photosynthesis, Recursion, The French Revolution…"
         style={{
           width:"100%", boxSizing:"border-box",
-          background:"#11151E", border:`0.5px solid ${D.line}`,
+          background:"#121212", border:`0.5px solid ${D.line}`,
           borderRadius:14, padding:"12px 16px", fontSize:13,
           color:D.text, fontFamily:"Manrope,sans-serif", outline:"none",
           marginBottom:10, transition:"border-color 0.2s",
@@ -1078,7 +1078,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
           rows={5}
           style={{
             width:"100%", boxSizing:"border-box", resize:"vertical",
-            background:"#11151E", border:`0.5px solid ${D.line}`,
+            background:"#121212", border:`0.5px solid ${D.line}`,
             borderRadius:12, padding:"10px 14px", fontSize:12,
             color:D.muted, fontFamily:"Manrope,sans-serif", outline:"none",
             marginBottom:10,
@@ -1390,7 +1390,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                   rows={4}
                   style={{
                     width:"100%", boxSizing:"border-box", resize:"vertical",
-                    background:"#11151E", border:`0.5px solid ${D.line}`,
+                    background:"#121212", border:`0.5px solid ${D.line}`,
                     borderRadius:13, padding:"11px 14px", fontSize:12,
                     color:D.text, fontFamily:"Manrope,sans-serif",
                     outline:"none", marginBottom:10,

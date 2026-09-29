@@ -4,7 +4,7 @@ import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#0A0D13",
+  bg:      "#0a0a0a",
   card:    "#0D0E18",
   cardHov: "#111220",
   border:  "rgba(255,255,255,0.07)",
@@ -13,7 +13,7 @@ const T = {
   blueG:   "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
   text:    "#F1F5F9",
   muted:   "#64748B",
-  dim:     "#334155",
+  dim:     "#3a3a40",
   syne:    "Syne,sans-serif",
   mono:    "JetBrains Mono,monospace",
   body:    "Manrope,sans-serif",
@@ -236,7 +236,7 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
         }
         .sc-nb-scroll::-webkit-scrollbar { width:3px; }
         .sc-nb-scroll::-webkit-scrollbar-thumb { background:rgba(61,126,255,0.2); border-radius:99px; }
-        .sc-nb-input::placeholder { color:#1E293B; }
+        .sc-nb-input::placeholder { color:#232328; }
         .sc-nb-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9998;padding:20px; }
         .sc-nb-modal  { background:#0D0E18;border:1px solid rgba(255,255,255,0.07);border-radius:22px;width:100%;max-width:520px;animation:scSlideIn 0.3s cubic-bezier(0.34,1.2,0.64,1) both; }
         .sc-nb-row-unread { background:rgba(61,126,255,0.04) !important; border-color:rgba(61,126,255,0.1) !important; }
@@ -442,7 +442,7 @@ export default function NotificationBellImproved({ token, currentUser, onOpenTab
 
           {/* Unread badge */}
           {unreadCount > 0 && (
-            <div style={{ position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:999, background:"#EF4444", border:"2px solid #0A0D13", display:"flex", alignItems:"center", justifyContent:"center", animation:"scPulse 2s ease-in-out infinite" }}>
+            <div style={{ position:"absolute", top:-4, right:-4, minWidth:18, height:18, borderRadius:999, background:"#EF4444", border:"2px solid #0a0a0a", display:"flex", alignItems:"center", justifyContent:"center", animation:"scPulse 2s ease-in-out infinite" }}>
               <span style={{ fontFamily:T.body, fontSize:11, fontWeight:700, color:"#fff", lineHeight:1 }}>{unreadCount>9?"9+":unreadCount}</span>
             </div>
           )}

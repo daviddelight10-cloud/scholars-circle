@@ -768,7 +768,7 @@ Generate ${actualQuestionCount} MCQ questions. Keep all text concise but informa
             </span>
           </div>
           
-          <div style={{ height: 6, background: "#1f2937", borderRadius: 3, marginBottom: 16 }}>
+          <div style={{ height: 6, background: "#26262a", borderRadius: 3, marginBottom: 16 }}>
             <div style={{
               height: "100%",
               width: `${((mcqIndex + 1) / (practiceDoc.mcqQuestions || practiceDoc.mcq_questions || []).length) * 100}%`,
@@ -871,7 +871,7 @@ Generate ${actualQuestionCount} MCQ questions. Keep all text concise but informa
       )}
 
       {practiceMode === "flashcard" && practiceDoc && (
-        <div className="lesson-block" style={{ background: "#1f2937", border: "2px solid #f59e0b", marginBottom: 16, textAlign: "center" }}>
+        <div className="lesson-block" style={{ background: "#26262a", border: "2px solid #f59e0b", marginBottom: 16, textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h3>🃏 Flashcard Review</h3>
             <span className="muted">

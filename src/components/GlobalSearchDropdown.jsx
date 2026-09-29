@@ -112,7 +112,7 @@ export function GlobalSearchDropdown({ query, filter, subjects }) {
           key={item.id}
           style={{
             padding: 10,
-            background: "#1f2937",
+            background: "#26262a",
             borderRadius: 6,
             marginBottom: 6,
             borderLeft: `4px solid ${typeColors[item.type]}`

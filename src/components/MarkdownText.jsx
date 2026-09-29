@@ -20,7 +20,7 @@ const PALETTES = {
     text: "#EDEFF5",
     muted: "#9AA3B5",
     accent: "#FFD700",
-    codeBg: "#11151E",
+    codeBg: "#121212",
     codeBorder: "rgba(255,255,255,0.09)",
     heading: "#F5F5F5",
     mathColor: "#EDEFF5",

@@ -745,7 +745,7 @@ button:active {
 }
 
 .badge-card.shine {
-  background: linear-gradient(90deg, #1f2937 0%, #fbbf24 50%, #1f2937 100%);
+  background: linear-gradient(90deg, #26262a 0%, #fbbf24 50%, #26262a 100%);
   background-size: 200% auto;
   animation: badgeShine 2s linear infinite;
 }
@@ -972,7 +972,7 @@ button:active {
 .lb-scope { display: flex; align-items: center; gap: 8px; }
 .lb-seg {
   display: flex; gap: 4px; flex: 1;
-  background: #151A24; border: 1px solid rgba(255,255,255,0.09); border-radius: 999px; padding: 3px;
+  background: #1a1a1c; border: 1px solid rgba(255,255,255,0.09); border-radius: 999px; padding: 3px;
 }
 .lb-seg-btn {
   flex: 1; padding: 7px 10px; border: none; border-radius: 999px; cursor: pointer;
@@ -982,7 +982,7 @@ button:active {
 .lb-seg-btn.on { background: #F5A623; color: #1A1300; }
 .lb-friends {
   padding: 7px 14px; border-radius: 999px; cursor: pointer; min-height: 40px;
-  border: 1px solid rgba(255,255,255,0.09); background: #151A24;
+  border: 1px solid rgba(255,255,255,0.09); background: #1a1a1c;
   color: #9AA3B5; font-size: 0.76rem; font-weight: 700; font-family: inherit;
   transition: all 0.15s ease; white-space: nowrap;
 }
@@ -991,7 +991,7 @@ button:active {
 /* Promote/demote notice */
 .lb-league-note {
   padding: 9px 14px; border-radius: 10px; font-size: 0.78rem; font-weight: 600;
-  border: 1px solid rgba(255,255,255,0.09); background: #151A24;
+  border: 1px solid rgba(255,255,255,0.09); background: #1a1a1c;
 }
 .lb-league-note.up { color: #3DD68C; border-color: rgba(61,214,140,0.3); }
 .lb-league-note.down { color: #FF5470; border-color: rgba(255,84,112,0.3); }
@@ -1035,7 +1035,7 @@ button:active {
 .lb-row {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 9px 12px; border-radius: 12px; cursor: pointer;
-  background: #151A24; border: 1px solid rgba(255,255,255,0.08);
+  background: #1a1a1c; border: 1px solid rgba(255,255,255,0.08);
   font-family: inherit; color: inherit; text-align: left;
   transition: border-color 0.15s ease; min-height: 52px;
 }
@@ -1071,7 +1071,7 @@ button:active {
 /* Load more */
 .lb-more {
   display: block; margin: 4px auto 0; padding: 8px 22px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12); background: #151A24; color: #9AA3B5;
+  border: 1px solid rgba(255,255,255,0.12); background: #1a1a1c; color: #9AA3B5;
   cursor: pointer; font-size: 0.76rem; font-weight: 700; font-family: inherit;
   transition: all 0.15s ease; min-height: 38px;
 }
@@ -1081,12 +1081,12 @@ button:active {
 .lb-skel { display: flex; flex-direction: column; gap: 8px; }
 .lb-skel-pods { display: flex; justify-content: center; align-items: flex-end; gap: 14px; padding: 16px 0 8px; }
 .lb-skel-circle {
-  width: 44px; height: 44px; border-radius: 50%; background: #1A1F2C;
+  width: 44px; height: 44px; border-radius: 50%; background: #1e1e22;
   animation: lb-skel-pulse 1.5s ease-in-out infinite;
 }
 .lb-skel-circle.lg { width: 58px; height: 58px; }
 .lb-skel-row {
-  height: 52px; border-radius: 12px; background: #151A24;
+  height: 52px; border-radius: 12px; background: #1a1a1c;
   border: 1px solid rgba(255,255,255,0.06);
   animation: lb-skel-pulse 1.5s ease-in-out infinite;
 }
@@ -1107,7 +1107,7 @@ button:active {
 }
 .lb-sheet {
   width: 100%; max-width: 460px; max-height: 80vh; overflow-y: auto;
-  background: #12151F; border: 1px solid rgba(255,255,255,0.1); border-bottom: none;
+  background: #141414; border: 1px solid rgba(255,255,255,0.1); border-bottom: none;
   border-radius: 20px 20px 0 0; padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
   animation: lb-sheet-up 0.22s ease;
 }
@@ -1146,7 +1146,7 @@ button:active {
   display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 14px;
 }
 .lb-sheet-stat {
-  background: #151A24; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;
+  background: #1a1a1c; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;
   padding: 9px 6px; text-align: center;
   display: flex; flex-direction: column; gap: 2px;
 }
@@ -2020,7 +2020,7 @@ body {
   height: 100dvh;
   overscroll-behavior: none;
   scroll-behavior: smooth;
-  background: #0A0D13;
+  background: #0a0a0a;
 }
 
 
@@ -2143,7 +2143,7 @@ body {
     left: 0;
     bottom: 0;
     width: 240px;
-    background: linear-gradient(180deg, #0A0D13, #0C0F16);
+    background: linear-gradient(180deg, #0a0a0a, #0a0a0a);
     border-right: 1px solid rgba(255, 215, 0, 0.12);
     z-index: 90;
     overflow: hidden;
@@ -2410,7 +2410,7 @@ body {
 
 .theme-aurora {
 
-  background: radial-gradient(circle at 20% 20%, rgba(129,140,248,0.07), transparent 30%), #0A0D13;
+  background: radial-gradient(circle at 20% 20%, rgba(129,140,248,0.07), transparent 30%), #0a0a0a;
 
 }
 
@@ -2420,7 +2420,7 @@ body {
 
   background: linear-gradient(180deg, #fdfdfb, #f2f2f8);
 
-  color: #0e1726;
+  color: #141414;
 
 }
 
@@ -2483,7 +2483,7 @@ body {
 
 .theme-neon .card { border-color: #2f3750; background: rgba(19,24,40,0.7); box-shadow: 0 10px 35px rgba(0,0,0,0.35); }
 
-.theme-paper .card { border-color: #e0e2ea; background: #ffffff; color: #0e1726; }
+.theme-paper .card { border-color: #e0e2ea; background: #ffffff; color: #141414; }
 
 .theme-paper .muted { color: #4b5563; opacity: 1; }
 
@@ -2496,7 +2496,7 @@ body {
 .theme-paper select {
   background: #ffffff;
   border-color: #c4c8d0;
-  color: #1e293b;
+  color: #232328;
 }
 
 .light input::placeholder,
@@ -2508,14 +2508,14 @@ body {
 
 .light button,
 .theme-paper button {
-  color: #1e293b;
+  color: #232328;
 }
 
 .light .lesson-block,
 .theme-paper .lesson-block {
   background: rgba(0,0,0,0.02);
   border-color: #e0e2ea;
-  color: #1e293b;
+  color: #232328;
 }
 
 .light .history-row,
@@ -2595,7 +2595,7 @@ body {
 
 kbd {
 
-  background: #1f2937;
+  background: #26262a;
 
   border-radius: 6px;
 
@@ -2711,7 +2711,7 @@ kbd {
 
 .light {
   background: #f7f7fb !important;
-  color: #1e293b;
+  color: #232328;
 
   color: #121212;
   
@@ -2828,7 +2828,7 @@ kbd {
 
 /* AI Tutor input fix */
 .ai-chat-input {
-  background: #1e293b !important;
+  background: #232328 !important;
   color: #fff !important;
   border: 1px solid #4f5a67;
   border-radius: 8px;
@@ -2842,7 +2842,7 @@ kbd {
 .light .ai-chat-input,
 .theme-paper .ai-chat-input {
   background: #fff !important;
-  color: #1e293b !important;
+  color: #232328 !important;
 }
 
 .light .ai-chat-input::placeholder,
@@ -2853,13 +2853,13 @@ kbd {
 .light .ai-chat-msg-user,
 .theme-paper .ai-chat-msg-user {
   background: rgba(255,215,0,0.12);
-  color: #1e293b;
+  color: #232328;
 }
 
 .light .ai-chat-msg-assistant,
 .theme-paper .ai-chat-msg-assistant {
   background: rgba(255,215,0,0.08);
-  color: #1e293b;
+  color: #232328;
 }
 
 
@@ -3017,7 +3017,7 @@ kbd {
 
   position: relative;
 
-  background: #18202b;
+  background: #1e1e22;
 
 }
 
@@ -3579,21 +3579,21 @@ textarea {
 .theme-paper .flashcard-front {
   background: linear-gradient(135deg, #ffffff, #f8fafc);
   border-color: #c4c8d0;
-  color: #1e293b;
+  color: #232328;
 }
 
 .light .flashcard-back,
 .theme-paper .flashcard-back {
   background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
   border-color: #2dd4a0;
-  color: #1e293b;
+  color: #232328;
 }
 
 .light .flashcard-front .question,
 .light .flashcard-back p,
 .theme-paper .flashcard-front .question,
 .theme-paper .flashcard-back p {
-  color: #1e293b !important;
+  color: #232328 !important;
 }
 
 /* Flashcard answer styling */
@@ -3881,7 +3881,7 @@ textarea {
 
   padding: 10px 14px 10px 28px;
 
-  border-bottom: 1px solid #2a3240;
+  border-bottom: 1px solid #2a2a2c;
 
   background: rgba(255,255,255,0.02);
 
@@ -3980,7 +3980,7 @@ textarea {
     left: 0;
     right: 0;
     z-index: 100;
-    background: #0A0D13;
+    background: #0a0a0a;
     border-top: 1px solid rgba(255,255,255,0.09);
     padding: 13px 0 20px;
     padding-bottom: calc(13px + env(safe-area-inset-bottom, 0px));
@@ -4127,7 +4127,7 @@ textarea {
   .light .mobile-menu-grid button {
     background: rgba(0, 0, 0, 0.03);
     border-color: #cdd0d6;
-    color: #334155;
+    color: #3a3a40;
   }
 
   .mobile-menu-grid button:active,
@@ -4376,7 +4376,7 @@ textarea {
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: #1e293b;
+  background: #232328;
   color: white;
   padding: 6px 10px;
   border-radius: 6px;
@@ -4387,7 +4387,7 @@ textarea {
 }
 
 .light .heatmap-tooltip {
-  background: #334155;
+  background: #3a3a40;
 }
 
 .heatmap-legend {
@@ -6322,7 +6322,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
    ═══════════════════════════════════════════════════════════ */
 
 .sc-vt-root {
-  --vt-ink: #050608;
+  --vt-ink: #050505;
   --vt-panel: rgba(255,255,255,0.055);
   --vt-panel-2: rgba(255,255,255,0.028);
   --vt-border: rgba(255,255,255,0.08);
@@ -6339,7 +6339,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   inset: 0;
   height: 100dvh;
   width: 100vw;
-  background: radial-gradient(circle at 50% 0%, #0A0D14 0%, var(--vt-ink) 70%);
+  background: radial-gradient(circle at 50% 0%, #0d0d0d 0%, var(--vt-ink) 70%);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -6605,7 +6605,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  background: linear-gradient(160deg, #0A0D14, #050608);
+  background: linear-gradient(160deg, #0d0d0d, #050505);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 16px;
   box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(79,142,247,0.08);
@@ -7285,7 +7285,7 @@ button:active:not(:disabled), [role="button"]:active:not(:disabled) {
   top: 0;
   bottom: 0;
   width: min(420px, 90vw);
-  background: linear-gradient(180deg, #0A0D14, #050608);
+  background: linear-gradient(180deg, #0d0d0d, #050505);
   z-index: 9999;
   overflow: hidden;
   display: flex;

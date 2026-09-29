@@ -634,7 +634,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   }
 
   // ── Colors ──
-  const ink = "#0A0D13", cardBg = "#111826", cardBorder = "rgba(255,255,255,0.08)";
+  const ink = "#0a0a0a", cardBg = "#141414", cardBorder = "rgba(255,255,255,0.08)";
   const blue = "#00E5FF", gold = "#FFB627", coral = "#FF5E7E", green = "#4ADE80";
   const textHi = "#EAEEF7", textDim = "#8b93a7";
   const sc = getSubjectColor(resource?.subject);
@@ -662,7 +662,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Start Over confirmation ──
   if (showStartOverConfirm) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
           <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: textHi, fontFamily: "Manrope, sans-serif" }}>Start over?</div>
           <div style={{ fontSize: 14, color: textDim, marginBottom: 20, fontFamily: "Manrope, sans-serif" }}>Your saved progress will be erased and you'll begin from Level 1.</div>
@@ -680,7 +680,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
     const saved = loadProgress(resource?.id || "default");
     const savedLevel = saved?.currentLevelIdx || 0;
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
         <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📚</div>
@@ -704,7 +704,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   if (showLevelComplete && levelCompleteData) {
     const d = levelCompleteData;
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
         <canvas ref={confettiCanvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50 }} />
         <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))" }}>
           <div style={{ textAlign: "center" }}>
@@ -727,7 +727,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Completion screen ──
   if (gameState === "complete") {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
         <canvas ref={confettiCanvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50 }} />
         <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "max(18px, env(safe-area-inset-top)) clamp(14px, 4vw, 24px) max(18px, env(safe-area-inset-bottom))" }}>
           <div style={{ textAlign: "center" }}>
@@ -756,7 +756,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   // ── Exit confirm ──
   if (showExitConfirm) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
           <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, color: textHi, fontFamily: "Manrope, sans-serif" }}>Leave the cascade?</div>
           <div style={{ fontSize: 14, color: textDim, marginBottom: 20, fontFamily: "Manrope, sans-serif" }}>Your progress will be saved so you can resume later.</div>
@@ -775,7 +775,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
   const card = currentCard;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)", color: textHi, fontFamily: "Manrope, sans-serif", display: "flex", justifyContent: "center", overflowY: "auto" }}>
       <canvas ref={confettiCanvasRef} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50 }} />
 
       <div className={shake ? "cascade-shake" : ""} style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", padding: "max(14px, env(safe-area-inset-top)) clamp(12px, 4vw, 20px) max(14px, env(safe-area-inset-bottom))" }}>
@@ -1054,7 +1054,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
 
         {/* Review previous card overlay */}
         {reviewingCard && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", overflowY: "auto" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", overflowY: "auto" }}>
             <div style={{ width: "100%", maxWidth: isMobile ? 520 : 640, minHeight: "100dvh", display: "flex", flexDirection: "column", padding: "max(14px, env(safe-area-inset-top)) clamp(12px, 4vw, 20px) max(14px, env(safe-area-inset-bottom))" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: textDim }}>Card {reviewIndex + 1} / {historyStack.length} · {levelLabel(reviewingCard.levelIdx)}</span>
@@ -1091,7 +1091,7 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
 
         {/* Level transition overlay */}
         {showLevelTransition && levelTransitionData && (
-          <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(10,13,19,0.7)", backdropFilter: "blur(6px)" }}>
+          <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(10,10,10,0.7)", backdropFilter: "blur(6px)" }}>
             <div className="cascade-level-slide" style={{ textAlign: "center" }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: levelTransitionData.color, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>Now entering</div>
               <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 42, fontWeight: 800, color: levelTransitionData.color, textShadow: `0 0 30px ${levelTransitionData.color}55` }}>{levelTransitionData.label}</div>

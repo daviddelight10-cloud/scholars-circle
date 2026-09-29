@@ -18,7 +18,7 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
   };
 
   return (
-    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
+    <div className="card" style={{ textAlign: "center", padding: "32px 24px", maxWidth: 500, margin: "0 auto", background: "var(--card-bg, #232328)", border: "1px solid var(--border-color, #3a3a40)" }}>
       <div style={{ fontSize: 48, marginBottom: 12 }}>{icon}</div>
       <h2 style={{ margin: "0 0 8px 0", fontSize: 20, color: "var(--text-primary, #f1f5f9)" }}>⭐ Premium Feature</h2>
       <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "var(--text-primary, #f1f5f9)" }}>{title}</h3>
@@ -42,7 +42,7 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
                 style={{
-                  border: selectedPlan === plan.id ? "2px solid var(--accent-color, #FFD700)" : "1px solid var(--border-color, #334155)",
+                  border: selectedPlan === plan.id ? "2px solid var(--accent-color, #FFD700)" : "1px solid var(--border-color, #3a3a40)",
                   borderRadius: 10,
                   padding: 14,
                   cursor: "pointer",
@@ -134,7 +134,7 @@ export function DemoLockedOverlay({ title, description, icon = "🔒", features 
           onClick={() => toast.info("🎁 Start your 14-day free trial today! No credit card required.")}
           style={{
             background: "transparent",
-            border: "1px solid var(--border-color, #334155)",
+            border: "1px solid var(--border-color, #3a3a40)",
             color: "var(--text-primary, #f1f5f9)",
             padding: "10px 20px",
             fontSize: 13,

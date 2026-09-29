@@ -260,7 +260,7 @@ export function PersonalizedStudyPaths({ subjects, mastery, history, stats, onSt
           zIndex: 1000
         }}>
           <div style={{
-            background: "#1f2937",
+            background: "#26262a",
             padding: 24,
             borderRadius: 12,
             maxWidth: 500,

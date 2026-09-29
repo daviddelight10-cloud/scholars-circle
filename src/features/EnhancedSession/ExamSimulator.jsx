@@ -342,7 +342,7 @@ export default function ExamSimulator({ session, onExit, onComplete, aiConfig, h
           disabled={idx === 0}
           style={{
             padding: "10px 18px", borderRadius: 8, border: "1px solid rgba(255, 215, 0, 0.3)",
-            background: "transparent", color: idx === 0 ? "#334155" : "#FFD700",
+            background: "transparent", color: idx === 0 ? "#3a3a40" : "#FFD700",
             fontSize: 13, fontWeight: 600, cursor: idx === 0 ? "not-allowed" : "pointer",
           }}
         >← Prev</button>

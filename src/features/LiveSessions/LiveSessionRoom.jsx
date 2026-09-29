@@ -132,7 +132,7 @@ export function LiveSessionRoom({ session, currentUser, isHost, token, onLeave }
     }}>
       <div style={{
         padding: "10px 16px",
-        background: "linear-gradient(135deg, #1e293b, #0f172a)",
+        background: "linear-gradient(135deg, #232328, #0f172a)",
         borderBottom: "1px solid rgba(255,215,0,0.3)",
         display: "flex", justifyContent: "space-between", alignItems: "center",
         flexWrap: "wrap", gap: 8

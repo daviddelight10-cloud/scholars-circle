@@ -33,9 +33,9 @@ export class ErrorBoundary extends Component {
           minHeight: "400px",
           padding: "40px",
           textAlign: "center",
-          background: "var(--card-bg, #1e293b)",
+          background: "var(--card-bg, #232328)",
           borderRadius: "12px",
-          border: "1px solid var(--border-color, #334155)",
+          border: "1px solid var(--border-color, #3a3a40)",
         }}>
           <div style={{ fontSize: "64px", marginBottom: "16px" }}>⚠️</div>
           <h2 style={{ color: "var(--text-primary, #f1f5f9)", marginBottom: "12px" }}>

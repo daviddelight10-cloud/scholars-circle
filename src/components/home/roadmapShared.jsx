@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FONTS } from "../../lib/theme";
 
 export const D = {
-  ink: "#0A0D13",
+  ink: "#0a0a0a",
   ink2: "#10141C",
   panel: "rgba(255,255,255,0.045)",
   panel2: "rgba(255,255,255,0.03)",
@@ -163,7 +163,7 @@ function DocPracticeSheet({ match, variants, topic, onOpenResource, onStartStudy
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%", maxWidth: 480, background: "#12161F",
+          width: "100%", maxWidth: 480, background: "#141414",
           border: `1px solid ${D.border}`, borderRadius: "20px 20px 0 0",
           padding: "10px 18px 28px",
         }}

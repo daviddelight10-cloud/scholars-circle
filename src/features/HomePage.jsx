@@ -159,9 +159,9 @@ export default function HomePage() {
   const [testiRef, testiInView] = useInView(0.1);
   const [foundersRef, foundersInView] = useInView(0.08);
 
-  const ink = '#0A0D13';
-  const inkSoft = '#11151E';
-  const inkCard = '#151A24';
+  const ink = '#0a0a0a';
+  const inkSoft = '#121212';
+  const inkCard = '#1a1a1c';
   const line = 'rgba(255,255,255,0.08)';
   const lineStrong = 'rgba(255,255,255,0.14)';
   const text = '#EDEFF5';
@@ -248,7 +248,7 @@ export default function HomePage() {
       </div>
 
       {/* Nav */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: isScrolled ? 'rgba(10,13,19,0.78)' : 'transparent', backdropFilter: isScrolled ? 'blur(14px) saturate(140%)' : 'none', borderBottom: `1px solid ${isScrolled ? line : 'transparent'}`, transition: 'all 0.3s ease', paddingTop: 'env(safe-area-inset-top)' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: isScrolled ? 'rgba(10,10,10,0.78)' : 'transparent', backdropFilter: isScrolled ? 'blur(14px) saturate(140%)' : 'none', borderBottom: `1px solid ${isScrolled ? line : 'transparent'}`, transition: 'all 0.3s ease', paddingTop: 'env(safe-area-inset-top)' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
             <img src="/images/logo.png" alt="Scholar's Circle" style={{ width: 28, height: 28, borderRadius: 6 }} />

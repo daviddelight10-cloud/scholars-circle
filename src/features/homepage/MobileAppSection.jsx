@@ -4,7 +4,7 @@ export default function MobileAppSection() {
   return (
     <section id="mobile" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0A0D13 0%, #0D0E18 100%)'
+      background: 'linear-gradient(180deg, #0a0a0a 0%, #0D0E18 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
@@ -143,7 +143,7 @@ export default function MobileAppSection() {
                   width: '256px',
                   height: '500px',
                   borderRadius: '48px',
-                  border: '4px solid #334155',
+                  border: '4px solid #3a3a40',
                   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.2)',
                   objectFit: 'cover'
                 }}

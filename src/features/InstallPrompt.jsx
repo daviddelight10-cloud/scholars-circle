@@ -114,7 +114,7 @@ export function InstallPrompt() {
       zIndex: 1090,
       padding: 12,
       borderRadius: 12,
-      background: "linear-gradient(135deg, #0f172a, #1e293b)",
+      background: "linear-gradient(135deg, #0f172a, #232328)",
       border: "1px solid rgba(255,215,0,0.4)",
       boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
       color: "#fff",

@@ -4,7 +4,7 @@ import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const T = {
-  bg:      "#0A0D13",
+  bg:      "#0a0a0a",
   card:    "#0D0E18",
   cardHov: "#111220",
   border:  "rgba(255,255,255,0.07)",
@@ -13,7 +13,7 @@ const T = {
   blueG:   "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
   text:    "#F1F5F9",
   muted:   "#64748B",
-  dim:     "#334155",
+  dim:     "#3a3a40",
   syne:    "Syne,sans-serif",
   mono:    "JetBrains Mono,monospace",
   body:    "Manrope,sans-serif",

@@ -2,8 +2,8 @@
    All selectors prefixed with .ss-root to avoid collisions with global app CSS. */
 
 .ss-root {
-  --ink: #0A0D13;
-  --card: #111826;
+  --ink: #0a0a0a;
+  --card: #141414;
   --card-border: rgba(255,255,255,0.08);
   --blue: #00E5FF;
   --gold: #FFB627;
@@ -364,7 +364,7 @@
 }
 @keyframes ssOptIn{ from{ transform:translateX(24px); opacity:0; } }
 .ss-root .opt:hover:not(:disabled){border-color:var(--blue); transform:translateY(-1px);}
-.ss-root .opt:active:not(:disabled){ transform:scale(0.97); background:#1a2234; }
+.ss-root .opt:active:not(:disabled){ transform:scale(0.97); background:#242428; }
 /* Keycap index — mirrors the 1–4 keyboard shortcut */
 .ss-root .opt .ltr{
   flex:none; width:22px; height:22px; display:grid; place-items:center;

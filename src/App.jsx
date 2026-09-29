@@ -6236,7 +6236,7 @@ function App() {
 
     return (
 
-      <main style={{ minHeight: '100dvh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.5, WebkitFontSmoothing: 'antialiased', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
+      <main style={{ minHeight: '100dvh', background: '#0a0a0a', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', fontSize: 16, lineHeight: 1.5, WebkitFontSmoothing: 'antialiased', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
 
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -6267,7 +6267,7 @@ function App() {
           .auth-google-btn {
             display: flex; align-items: center; justify-content: center; gap: 10px;
             width: 100%; padding: 12px; border-radius: 10px; font-size: 0.9rem;
-            background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
             cursor: pointer; font-family: 'Manrope', sans-serif; font-weight: 600;
             transition: border-color 0.15s ease;
           }
@@ -6297,7 +6297,7 @@ function App() {
           .auth-tab.active { color: #1A1300; }
 
           .auth-input {
-            width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
             border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
             transition: border-color 0.15s ease, box-shadow 0.15s ease; appearance: none; -webkit-appearance: none;
           }
@@ -6305,7 +6305,7 @@ function App() {
           .auth-input:focus { border-color: #FFD700; box-shadow: 0 0 0 3px rgba(79,142,247,0.14); outline: none; }
 
           .auth-select {
-            width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
             border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
             cursor: pointer; appearance: none; -webkit-appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239AA3B5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -6328,7 +6328,7 @@ function App() {
         `}</style>
 
         {loadingOverlay && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,13,19,0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(8px)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
             <img src="/loading.png" alt="Loading" style={{ width: 64, height: 64, borderRadius: 14 }} />
             <span style={{ color: '#9AA3B5', fontSize: 14, fontFamily: 'JetBrains Mono, monospace' }}>Loading...</span>
           </div>
@@ -6338,7 +6338,7 @@ function App() {
         {showUpdateToast && (
           <div style={{
             position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-            background: '#151A24', color: '#EDEFF5', padding: '12px 20px', borderRadius: 12,
+            background: '#1a1a1c', color: '#EDEFF5', padding: '12px 20px', borderRadius: 12,
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)', zIndex: 9999,
             display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, maxWidth: 400,
             border: '1px solid rgba(79,142,247,0.3)'
@@ -6367,7 +6367,7 @@ function App() {
           {/* Visual Panel */}
           <div className="auth-visual-panel" style={{
             position: 'relative',
-            background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #11151E',
+            background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #121212',
             borderRight: '1px solid rgba(255,255,255,0.09)',
             overflow: 'hidden',
             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
@@ -6403,12 +6403,12 @@ function App() {
                     { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BHM 111' },
                     { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'PAT 211' },
                   ].map((c, i) => (
-                    <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                    <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                       <span>{c.label}</span>
                     </span>
                   ))}
                 </div>
-                <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#11151E', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
+                <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#121212', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
                   <svg viewBox="0 0 190 190" width="190" height="190" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
                     <defs>
                       <linearGradient id="authRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -6434,8 +6434,8 @@ function App() {
                     </span>
                   </div>
                 </div>
-                <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
-                <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
+                <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
+                <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
               </div>
             </div>
 
@@ -6817,7 +6817,7 @@ function App() {
 
             transform: "translateX(-50%)",
 
-            background: "#1e293b",
+            background: "#232328",
 
             color: "white",
 
@@ -7009,7 +7009,7 @@ function App() {
 
             transform: "translateX(-50%)",
 
-            background: "#1e293b",
+            background: "#232328",
 
             color: "white",
 
@@ -7263,7 +7263,7 @@ function App() {
 
           transform: "translateX(-50%)",
 
-          background: "#1e293b",
+          background: "#232328",
 
           color: "white",
 
@@ -7567,7 +7567,7 @@ function App() {
 
           transform: "translateX(-50%)",
 
-          background: "#1e293b",
+          background: "#232328",
 
           color: "white",
 
@@ -7999,7 +7999,7 @@ function App() {
 
         <div className="modal-overlay" style={{ zIndex: 10000 }}>
 
-          <div role="dialog" aria-modal="true" aria-label="Daily time limit reached" className="modal-box" style={{ maxWidth: 500, textAlign: "center", background: "var(--card-bg, #1e293b)", border: "1px solid var(--border-color, #334155)" }}>
+          <div role="dialog" aria-modal="true" aria-label="Daily time limit reached" className="modal-box" style={{ maxWidth: 500, textAlign: "center", background: "var(--card-bg, #232328)", border: "1px solid var(--border-color, #3a3a40)" }}>
 
             <div style={{ fontSize: 64, marginBottom: 16 }}>📱</div>
 
@@ -8063,7 +8063,7 @@ function App() {
 
                 }}
 
-                style={{ background: "transparent", border: "1px solid var(--border-color, #334155)", color: "var(--text-primary, #f1f5f9)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
+                style={{ background: "transparent", border: "1px solid var(--border-color, #3a3a40)", color: "var(--text-primary, #f1f5f9)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
 
               >
 
@@ -8387,7 +8387,7 @@ function App() {
 
           <div style={{
 
-            background: darkMode ? "#1a1d2d" : "#ffffff",
+            background: darkMode ? "#1e1e22" : "#ffffff",
 
             color: darkMode ? "white" : "black",
 
@@ -10067,7 +10067,7 @@ function App() {
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            background: "#1a1d29", borderRadius: 16, padding: 24, maxWidth: 380, width: "100%",
+            background: "#1e1e22", borderRadius: 16, padding: 24, maxWidth: 380, width: "100%",
             border: "1px solid rgba(255,215,0,0.3)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
           }}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>

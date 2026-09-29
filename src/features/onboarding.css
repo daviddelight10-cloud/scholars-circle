@@ -1,5 +1,5 @@
 /* ═══ Onboarding — full-screen setup flow ═══
-   Palette matched to the app: #0A0D13 bg, #141414/#151A24 surfaces,
+   Palette matched to the app: #0a0a0a bg, #141414/#1a1a1c surfaces,
    #FFD700 gold, #2dd4a0 success, Syne headings / Inter body. */
 
 .ob-shell {
@@ -8,7 +8,7 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(1100px 600px at 50% -10%, #141410 0%, #0A0D13 60%);
+  background: radial-gradient(1100px 600px at 50% -10%, #141410 0%, #0a0a0a 60%);
   color: #d3d1c7;
   font-family: Manrope, Inter, Segoe UI, Roboto, Arial, sans-serif;
   overflow: hidden;
@@ -77,7 +77,7 @@
     max-width: 620px;
     border-right: 1px solid #2a2a2a;
     padding: calc(40px + env(safe-area-inset-top)) 56px 40px;
-    background: linear-gradient(160deg, #0f1013 0%, #0A0D13 70%);
+    background: linear-gradient(160deg, #0d0d0d 0%, #0a0a0a 70%);
   }
   .ob-pane { max-width: none; border: none; }
   .ob-wrap { max-width: 560px; }
@@ -326,7 +326,7 @@
   .ob-tile:hover { border-color: #3e4350; }
   .ob-tile.sel:hover { border-color: #FFD700; }
   .ob-skip:hover { color: #eaf0f8; }
-  .ob-task:hover { background: #151a24; }
+  .ob-task:hover { background: #1a1a1c; }
   .ob-circle:hover { border-color: #3e4350; }
 }
 

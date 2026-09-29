@@ -94,7 +94,7 @@ export default function FolderDetailView({
               onClick={onClose}
               aria-label="Back to My Space"
               className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-              style={{ background: "#151A24", borderColor: "rgba(255,255,255,0.07)" }}
+              style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
@@ -112,7 +112,7 @@ export default function FolderDetailView({
               <button
                 onClick={() => setMenuOpen((o) => !o)}
                 className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
-                style={{ background: "#151A24", borderColor: "rgba(255,255,255,0.07)" }}
+                style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
                 aria-label="Space options"
                 aria-expanded={menuOpen}
               >
@@ -332,7 +332,7 @@ export default function FolderDetailView({
       {preparingStudy && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#12161F", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both" }}
+          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both" }}
           role="status"
         >
           <span className="animate-spin" style={{ display: "inline-block" }}>⏳</span>
@@ -345,7 +345,7 @@ export default function FolderDetailView({
       {generatingId && (
         <div
           className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
-          style={{ background: "#12161F", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
+          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
           role="status"
         >
           <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: "#F5A623", borderTopColor: "transparent" }} />

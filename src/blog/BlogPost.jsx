@@ -4,8 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { getPostBySlug, formatDate, posts } from './blogData';
 
-const ink = '#0A0D13';
-const inkSoft = '#11151E';
+const ink = '#0a0a0a';
+const inkSoft = '#121212';
 const line = 'rgba(255,255,255,0.08)';
 const lineStrong = 'rgba(255,255,255,0.14)';
 const text = '#EDEFF5';
@@ -67,7 +67,7 @@ function BlogPostView({ post, slug }) {
         @media (max-width: 760px) { .wrap { padding: 0 20px !important; } .prose { font-size: 16px !important; } }
       `}</style>
 
-      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,13,19,0.78)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${line}` }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,10,10,0.78)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${line}` }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: gold, boxShadow: `0 0 0 4px rgba(245,166,35,0.14)` }} />

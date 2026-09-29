@@ -13,10 +13,10 @@ import { toast } from "../components/Toast";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
-  bg:      "#0A0D13",
-  card:    "#151A24",
-  bar:     "#11151E",
-  accent:  "#191F2C",
+  bg:      "#0a0a0a",
+  card:    "#1a1a1c",
+  bar:     "#121212",
+  accent:  "#1e1e22",
   border:  "#FFD700",
   line:    "rgba(255,255,255,0.09)",
   line2:   "rgba(255,255,255,0.05)",
@@ -1000,7 +1000,7 @@ function HistoryPanel({ open, onClose, conversations, onLoad, onDelete, onNewCha
       <div style={{
         position: "absolute", top: 0, left: 0, bottom: 0,
         width: "82%", maxWidth: 320, zIndex: 10,
-        background: "#0A0D13", borderRight: `0.5px solid ${D.line}`,
+        background: "#0a0a0a", borderRight: `0.5px solid ${D.line}`,
         display: "flex", flexDirection: "column",
         transform: open ? "translateX(0)" : "translateX(-100%)",
         transition: "transform 0.28s cubic-bezier(.4,0,.2,1)",
@@ -1586,7 +1586,7 @@ function InputBar({ value, onChange, onSend, loading, onStop, placeholder = "Ask
             onClick={onSend} disabled={!canSend}
             style={{
               width: 36, height: 36, borderRadius: 10,
-              background: canSend ? D.accent : "#11151E",
+              background: canSend ? D.accent : "#121212",
               border: `0.5px solid ${canSend ? D.border : D.line2}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: canSend ? "pointer" : "default",

@@ -882,7 +882,7 @@ export default function EmbeddedRoadmapView({
               disabled={generating || uploading}
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.07)", background: "#151A24",
+                border: "1px solid rgba(255,255,255,0.07)", background: "#1a1a1c",
                 color: "#EDEFF5", fontSize: 12, fontWeight: 600, cursor: generating ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 fontFamily: "'Inter', sans-serif", transition: "background 0.2s",

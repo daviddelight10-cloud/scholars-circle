@@ -84,7 +84,7 @@ export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
       minHeight: "100dvh",
-      background: "radial-gradient(circle at 20% 0%, rgba(76,141,255,0.08), transparent 45%), radial-gradient(circle at 85% 15%, rgba(232,184,75,0.05), transparent 40%), #0A0D13",
+      background: "radial-gradient(circle at 20% 0%, rgba(76,141,255,0.08), transparent 45%), radial-gradient(circle at 85% 15%, rgba(232,184,75,0.05), transparent 40%), #0a0a0a",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
@@ -158,7 +158,7 @@ export default function FlashcardModeSelect({ resource, onBack, onSelect }) {
                 fontFamily: "'Manrope', sans-serif",
                 fontWeight: 700,
                 fontSize: 13.5,
-                color: mode === tab.key ? "#0A0D13" : "#9AA3B2",
+                color: mode === tab.key ? "#0a0a0a" : "#9AA3B2",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",

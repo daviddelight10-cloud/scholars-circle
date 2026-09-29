@@ -5,7 +5,7 @@ export default function Footer() {
   return (
     <footer style={{
       background: '#020617',
-      borderTop: '1px solid #1e293b',
+      borderTop: '1px solid #232328',
       padding: '48px 16px'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
@@ -75,7 +75,7 @@ export default function Footer() {
         </div>
 
         <div style={{
-          borderTop: '1px solid #1e293b',
+          borderTop: '1px solid #232328',
           paddingTop: '32px',
           display: 'flex',
           flexDirection: 'column',

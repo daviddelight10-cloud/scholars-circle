@@ -88,7 +88,7 @@ export function AchievementNotification({ stats, history, subjects, mastery }) {
         position: "fixed",
         top: 20,
         right: 20,
-        background: "linear-gradient(135deg, #1f2937 0%, #374151 100%)",
+        background: "linear-gradient(135deg, #26262a 0%, #374151 100%)",
         border: "2px solid #fbbf24",
         borderRadius: 12,
         padding: 20,

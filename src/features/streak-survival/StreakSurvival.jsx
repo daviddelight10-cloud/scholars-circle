@@ -1271,7 +1271,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   // ═══════════ RENDER ═══════════
   return (
-    <div className="ss-root" data-theme={save.theme || 'cyan'} style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: 'radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)' }}>
+    <div className="ss-root" data-theme={save.theme || 'cyan'} style={{ position: 'fixed', inset: 0, zIndex: 9999, overflowY: 'auto', background: 'radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)' }}>
       <canvas ref={canvasRef} className="confetti-canvas" />
       <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
 
@@ -1667,7 +1667,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       {/* Toasts — capped at 2 visible, stacked in a container */}
       <div className="toasts">
         {toasts.map((t) => (
-          <div key={t.id} className="tier-toast show" style={{ color: t.color, border: `1px solid ${t.color}55`, background: '#111826f0' }}>{t.msg}</div>
+          <div key={t.id} className="tier-toast show" style={{ color: t.color, border: `1px solid ${t.color}55`, background: '#141414f0' }}>{t.msg}</div>
         ))}
       </div>
       {floats.map((f) => (

@@ -56,8 +56,8 @@ const PEN_COLORS = [
 
 // ── Chrome palette (dark-glass UI from HTML prototype) ───────────────────────
 const CHROME = {
-  ink:    "#0A0D13",
-  ink2:   "#12161F",
+  ink:    "#0a0a0a",
+  ink2:   "#141414",
   ink3:   "#1B212D",
   blue:   "#4F8EF7",
   gold:   "#F5A623",

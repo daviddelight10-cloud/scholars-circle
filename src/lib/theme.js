@@ -1,8 +1,8 @@
 export const T = {
-  ink: "#0A0D13",
-  inkSoft: "#11151E",
-  inkCard: "#151A24",
-  inkCard2: "#191F2C",
+  ink: "#0a0a0a",
+  inkSoft: "#121212",
+  inkCard: "#1a1a1c",
+  inkCard2: "#1e1e22",
   line: "rgba(255,255,255,0.09)",
   lineStrong: "rgba(255,255,255,0.16)",
   text: "#EDEFF5",

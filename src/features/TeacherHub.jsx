@@ -356,7 +356,7 @@ export default function TeacherHub({ token, auth }) {
     .btn:disabled { opacity:0.4; cursor:not-allowed; transform:none !important; }
     .btn-sm { padding:7px 16px; }
     .btn-xs { padding:5px 12px; font-size:11px; }
-    .btn-gold { background:linear-gradient(135deg,#F5A623,#F7C948); color:#0A0D13; }
+    .btn-gold { background:linear-gradient(135deg,#F5A623,#F7C948); color:#0a0a0a; }
     .btn-gold:hover:not(:disabled) { box-shadow:0 5px 18px rgba(245,166,35,0.3); }
     .btn-ghost { background:transparent; border:1px solid rgba(79,142,247,0.3); color:#FFD700; }
     .btn-red { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; }
@@ -398,7 +398,7 @@ export default function TeacherHub({ token, auth }) {
   `;
 
   return (
-    <div style={{ minHeight:"100dvh", background:"#0A0D13", color:"#E8E9F0", fontFamily:"'Manrope',sans-serif" }}>
+    <div style={{ minHeight:"100dvh", background:"#0a0a0a", color:"#E8E9F0", fontFamily:"'Manrope',sans-serif" }}>
       <style>{CSS}</style>
 
       {/* ── TOP HEADER ── */}

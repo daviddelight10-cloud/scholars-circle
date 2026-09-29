@@ -4,7 +4,7 @@ import { API_BASE } from "../lib/constants";
 
 // ─── Design tokens (matches Scholar's Circle app) ──────────────────────────
 const T = {
-  bg:        "#0A0D13",
+  bg:        "#0a0a0a",
   card:      "#0D0E18",
   cardHover: "#111220",
   border:    "rgba(255,255,255,0.07)",
@@ -13,7 +13,7 @@ const T = {
   blueGrad:  "linear-gradient(135deg,#3D7EFF,#6E4AFF)",
   text:      "#F1F5F9",
   muted:     "#64748B",
-  dim:       "#334155",
+  dim:       "#3a3a40",
   syne:      "Syne,sans-serif",
   mono:      "JetBrains Mono,monospace",
   body:      "Manrope,sans-serif",
@@ -212,7 +212,7 @@ export default function CampusComm({ token, currentUser }) {
         @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
 
-        .sc-input::placeholder { color: #334155; }
+        .sc-input::placeholder { color: #3a3a40; }
         .sc-input::-webkit-calendar-picker-indicator { filter: invert(0.4); }
         .sc-select option { background: #0D0E18; color: #F1F5F9; }
 

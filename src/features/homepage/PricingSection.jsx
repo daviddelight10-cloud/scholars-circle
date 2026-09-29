@@ -63,7 +63,7 @@ export default function PricingSection() {
   return (
     <section id="pricing" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0A0D13 0%, #0D0E18 100%)'
+      background: 'linear-gradient(180deg, #0a0a0a 0%, #0D0E18 100%)'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
@@ -105,7 +105,7 @@ export default function PricingSection() {
                 height: '28px',
                 borderRadius: '14px',
                 transition: 'background 0.3s',
-                background: isAnnual ? '#3D7EFF' : '#334155',
+                background: isAnnual ? '#3D7EFF' : '#3a3a40',
                 border: 'none',
                 cursor: 'pointer'
               }}
@@ -206,7 +206,7 @@ export default function PricingSection() {
                     transition: 'all 0.3s',
                     border: 'none',
                     cursor: 'pointer',
-                    background: '#334155',
+                    background: '#3a3a40',
                     color: '#fff',
                     textDecoration: 'none',
                     textAlign: 'center'
@@ -226,7 +226,7 @@ export default function PricingSection() {
                   cursor: 'pointer',
                   background: plan.highlight
                     ? 'linear-gradient(135deg, #3D7EFF, #6E4AFF)'
-                    : '#334155',
+                    : '#3a3a40',
                   color: '#fff',
                   textDecoration: 'none',
                   textAlign: 'center'

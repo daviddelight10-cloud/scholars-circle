@@ -3,7 +3,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
 
 .sd-root {
-  --sd-screen: #0A0D13;
+  --sd-screen: #0a0a0a;
   --sd-card: rgba(255,255,255,.035);
   --sd-stroke: rgba(255,255,255,.09);
   --sd-stroke-soft: rgba(255,255,255,.06);

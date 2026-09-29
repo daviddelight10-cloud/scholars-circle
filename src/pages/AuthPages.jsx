@@ -221,13 +221,13 @@ export default function AuthPages() {
 
   if (resetPasswordMode) {
     return (
-      <main style={{ minHeight: '100dvh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <main style={{ minHeight: '100dvh', background: '#0a0a0a', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
           a { color: inherit; text-decoration: none; }
           .auth-input {
-            width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+            width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
             border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
           }
@@ -291,7 +291,7 @@ export default function AuthPages() {
   }
 
   return (
-    <main style={{ minHeight: '100dvh', background: '#0A0D13', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif' }}>
+    <main style={{ minHeight: '100dvh', background: '#0a0a0a', color: '#EDEFF5', fontFamily: 'Manrope, sans-serif' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -309,7 +309,7 @@ export default function AuthPages() {
         .auth-scan-sweep { animation: sweep 2.6s ease-out 1; }
         .auth-cursor { animation: blink 1s steps(2) infinite; color: #FFD700; }
         .auth-input {
-          width: 100%; background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+          width: 100%; background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
           border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; font-family: 'Manrope', sans-serif;
           transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
@@ -325,7 +325,7 @@ export default function AuthPages() {
         .auth-google-btn {
           display: flex; align-items: center; justify-content: center; gap: 10px;
           width: 100%; padding: 12px; border-radius: 10px; font-size: 0.9rem;
-          background: #151A24; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
+          background: #1a1a1c; border: 1px solid rgba(255,255,255,0.16); color: #EDEFF5;
           cursor: pointer; font-family: 'Manrope', sans-serif; font-weight: 600;
           transition: border-color 0.15s ease;
         }
@@ -347,7 +347,7 @@ export default function AuthPages() {
         {/* Visual Panel */}
         <div className="auth-visual-panel" style={{
           position: 'relative',
-          background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #11151E',
+          background: 'radial-gradient(circle at 30% 20%, rgba(79,142,247,0.14), transparent 55%), radial-gradient(circle at 80% 85%, rgba(245,166,35,0.10), transparent 50%), #121212',
           borderRight: '1px solid rgba(255,255,255,0.09)',
           overflow: 'hidden',
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
@@ -383,12 +383,12 @@ export default function AuthPages() {
                   { top: 'auto', bottom: '-12px', left: '50%', transform: 'translateX(-50%)', label: 'BHM 111' },
                   { top: '50%', left: '-12px', right: 'auto', transform: 'translateY(-50%)', label: 'PAT 211' },
                 ].map((c, i) => (
-                  <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                  <span key={i} className="auth-orbit-chip" style={{ position: 'absolute', top: c.top, left: c.left, right: c.right, bottom: c.bottom, transform: c.transform, fontFamily: 'JetBrains Mono, monospace', fontSize: '0.66rem', color: '#9AA3B5', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                     <span>{c.label}</span>
                   </span>
                 ))}
               </div>
-              <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#11151E', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
+              <div style={{ position: 'absolute', width: 190, height: 190, top: '50%', left: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: '#121212', boxShadow: '0 0 0 1px rgba(255,255,255,0.16), 0 0 60px rgba(79,142,247,0.18)' }}>
                 <svg viewBox="0 0 190 190" width="190" height="190" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
                   <defs>
                     <linearGradient id="authRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -414,8 +414,8 @@ export default function AuthPages() {
                   </span>
                 </div>
               </div>
-              <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
-              <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#151A24', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
+              <div className="auth-float-card" style={{ position: 'absolute', top: '6%', right: '0%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#F5A623' }}>92% mastery</div>
+              <div className="auth-float-card" style={{ position: 'absolute', bottom: '8%', left: '-4%', background: '#1a1a1c', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, padding: '8px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.74rem', boxShadow: '0 12px 28px rgba(0,0,0,0.4)', color: '#FF5470', animationDelay: '1.2s' }}>Next: Embryology</div>
             </div>
           </div>
 
@@ -684,7 +684,7 @@ export default function AuthPages() {
                 gap: 6, 
                 padding: '8px 16px', 
                 borderRadius: 8, 
-                background: '#151A24', 
+                background: '#1a1a1c', 
                 border: '1px solid rgba(255,255,255,0.16)', 
                 color: '#EDEFF5', 
                 fontSize: '0.85rem', 

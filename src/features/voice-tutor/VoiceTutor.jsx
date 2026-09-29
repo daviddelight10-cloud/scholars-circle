@@ -402,7 +402,7 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                   bottom: "calc(100% + 8px)",
                   left: "50%",
                   transform: "translateX(-50%)",
-                  background: "linear-gradient(160deg, #0A0D14, #050608)",
+                  background: "linear-gradient(160deg, #0d0d0d, #050505)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: 14,
                   padding: 6,

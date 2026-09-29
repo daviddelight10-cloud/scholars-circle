@@ -3,7 +3,7 @@
    itself to <body>, outside .vp-root's inheritance. */
 .vp-root,
 .vp-consult-screen {
-  --vp-ink: #0A0D13;
+  --vp-ink: #0a0a0a;
   --vp-panel: rgba(255,255,255,0.035);
   --vp-panel-border: rgba(255,255,255,0.09);
   --vp-blue: #4C8DFF;
@@ -91,7 +91,7 @@
 .vp-case-top.deteriorating .vp-ct-ecg svg { animation-duration: 1.3s; }
 .vp-case-top.deteriorating .vp-ct-ecg svg polyline { stroke: var(--vp-coral); }
 @keyframes vp-scroll-ecg { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-.vp-hr-mini { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--vp-text-dim); background: rgba(10,13,19,0.7); padding: 2px 8px; border-radius: 6px; }
+.vp-hr-mini { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--vp-text-dim); background: rgba(10,10,10,0.7); padding: 2px 8px; border-radius: 6px; }
 .vp-hr-mini b { color: var(--vp-coral); font-size: 13px; font-weight: 600; }
 .vp-vital-alert { position: absolute; left: 12px; top: 52px; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.07em; color: var(--vp-coral); opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 2; }
 .vp-vital-alert.show { opacity: 1; animation: vp-blink 1s infinite; }
@@ -448,7 +448,7 @@
    ============================================================ */
 .vp-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); z-index: 195; display: none; align-items: center; justify-content: center; padding: 18px; }
 .vp-modal-backdrop.show { display: flex; }
-.vp-modal-card { width: min(470px,100%); background: rgba(10,13,19,0.97); border: 1px solid var(--vp-panel-border); border-radius: 16px; padding: 22px 22px 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.vp-modal-card { width: min(470px,100%); background: rgba(10,10,10,0.97); border: 1px solid var(--vp-panel-border); border-radius: 16px; padding: 22px 22px 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .vp-modal-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16.5px; }
 .vp-modal-body { color: var(--vp-text-dim); font-size: 13.5px; line-height: 1.6; margin: 10px 0 18px; }
 .vp-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }

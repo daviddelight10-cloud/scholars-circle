@@ -3,7 +3,7 @@
    Fonts: Syne (display) · Manrope (body) · JetBrains Mono (meta).      */
 
 .hm-root {
-  --hm-screen: #0A0D13; --hm-card: rgba(255,255,255,.035); --hm-card-2: rgba(255,255,255,.05);
+  --hm-screen: #0a0a0a; --hm-card: rgba(255,255,255,.035); --hm-card-2: rgba(255,255,255,.05);
   --hm-stroke: rgba(255,255,255,.09); --hm-stroke-soft: rgba(255,255,255,.06);
   --hm-text: #F5F5F7; --hm-muted: #8B8B98; --hm-faint: #5B5B66;
   --hm-amber: #FFB547; --hm-blue: #6C9EFF; --hm-green: #4ADE80; --hm-violet: #8B6CFF;

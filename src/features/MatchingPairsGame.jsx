@@ -607,8 +607,8 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
   }, []);
 
   // ── Render ──
-  const ink = "#0A0D13";
-  const cardBg = "#111826";
+  const ink = "#0a0a0a";
+  const cardBg = "#141414";
   const cardBorder = "rgba(255,255,255,0.08)";
   const blue = "#00E5FF";
   const gold = "#FFB627";
@@ -626,7 +626,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
     return (
       <div style={{
         position: "fixed", inset: 0, zIndex: 9999,
-        background: "radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)",
+        background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)",
         color: textHi, fontFamily: "Manrope, sans-serif",
         display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 24,
       }}>
@@ -654,7 +654,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
   // Start Over confirmation
   if (showStartOverConfirm) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,13,19,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(10,10,10,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, maxWidth: 360, textAlign: "center" }}>
           <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Start over?</div>
           <div style={{ fontSize: 14, color: textDim, marginBottom: 20 }}>Your saved progress will be erased and you'll begin from Level 1.</div>
@@ -675,7 +675,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
     return (
       <div style={{
         position: "fixed", inset: 0, zIndex: 9999,
-        background: "radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)",
+        background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)",
         color: textHi, fontFamily: "Manrope, sans-serif",
         display: "flex", justifyContent: "center", overflowY: "auto",
       }}>
@@ -732,7 +732,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "radial-gradient(ellipse at top, #111826 0%, #0A0D13 55%)",
+      background: "radial-gradient(ellipse at top, #141414 0%, #0a0a0a 55%)",
       color: textHi, fontFamily: "Manrope, sans-serif",
       display: "flex", justifyContent: "center", overflowY: "auto",
     }}>
@@ -765,7 +765,7 @@ export default function MatchingPairsGame({ resource, flashcardData, gameMode = 
       {showExitConfirm && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 70,
-          background: "rgba(10,13,19,0.72)", backdropFilter: "blur(4px)",
+          background: "rgba(10,10,10,0.72)", backdropFilter: "blur(4px)",
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div style={{

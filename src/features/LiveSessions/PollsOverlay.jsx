@@ -77,7 +77,7 @@ export function PollsOverlay({ sessionId, isHost, token }) {
           maxHeight: "70vh",
           overflowY: "auto",
           zIndex: 10000,
-          background: "#1e293b",
+          background: "#232328",
           border: "1px solid rgba(255,215,0,0.4)",
           borderRadius: 12,
           padding: 14,

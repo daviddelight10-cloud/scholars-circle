@@ -132,7 +132,7 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
                 {initials(p.username)}
               </div>
               {room.phase === "question" && p.userId === myId && room.timeLeft != null && !room.question?.answered && (
-                <span className="lq-avatar-status" style={{ background: "#12161F", color: room.timeLeft <= 5 ? "#FF6B5E" : "#F5C542" }}>
+                <span className="lq-avatar-status" style={{ background: "#141414", color: room.timeLeft <= 5 ? "#FF6B5E" : "#F5C542" }}>
                   {room.timeLeft}
                 </span>
               )}

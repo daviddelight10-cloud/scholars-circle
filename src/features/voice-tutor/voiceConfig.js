@@ -38,9 +38,9 @@ export const AUDIO_CONFIG = {
 export const SESSION_TIMEOUT_SEC = 10 * 60;
 
 export const COLORS = {
-  ink: "#050608",
-  inkLight: "#0A0D14",
-  inkLighter: "#11151E",
+  ink: "#050505",
+  inkLight: "#0d0d0d",
+  inkLighter: "#121212",
   border: "rgba(255,255,255,0.08)",
   borderLight: "rgba(255,255,255,0.12)",
   electric: "#4F8EF7",
@@ -55,7 +55,7 @@ export const COLORS = {
   text: "#F5F7FB",
   textDim: "#9AA2B2",
   textFaint: "#565E6E",
-  surface: "#0A0D14",
+  surface: "#0d0d0d",
   surfaceLight: "rgba(255,255,255,0.055)",
 };
 
