@@ -420,7 +420,8 @@ export default function PracticeSheet({
 
         <div className="pm-scroll">
           {/* Hero — Rapid Recall */}
-          <section className="pm-hero pm-anim" aria-label="Rapid recall session">
+          <section className="pm-hero pm-hero-enter" aria-label="Rapid recall session">
+            <div className="pm-hero-shimmer" aria-hidden="true" />
             <div className="pm-hero-row">
               <div className="pm-hero-icon"><IcoBolt size={21} /></div>
               <div className="pm-hero-info">
