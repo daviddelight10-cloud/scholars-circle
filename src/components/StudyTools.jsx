@@ -43,33 +43,75 @@ export function NotesEditor({ subjects, notes, setNotes }) {
 export function TimetableBuilder({ timetable, setTimetable, subjects, onBack }) {
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const HOURS = ["8am","9am","10am","11am","12pm","1pm","2pm","3pm","4pm","5pm","6pm","7pm","8pm","9pm"];
-  const COLORS = ["#FFD700","#FFD700","#fb923c","#facc15","#f472b6","#FFD700","#a78bfa"];
+  const PALETTE = ["#FFC55C","#6C9EFF","#4ADE80","#8B6CFF","#F472B6","#7CC7FF","#FF6B5E"];
 
-  const [editing, setEditing] = useState(null);
-  const [draft, setDraft] = useState({ subject: "", color: COLORS[0] });
+  const [editing, setEditing] = useState(null); // { day, hour, pickHour }
+  const [draft, setDraft] = useState({ subject: "", color: PALETTE[0] });
+
+  const todayName = DAYS[(new Date().getDay() + 6) % 7]; // JS: Sun=0 → Mon-first
+  const orderedDays = [...DAYS.slice(DAYS.indexOf(todayName)), ...DAYS.slice(0, DAYS.indexOf(todayName))];
 
   function cellKey(d, h) { return `${d}-${h}`; }
 
+  function openEditor(day, hour, pickHour = false) {
+    const cell = timetable[cellKey(day, hour)];
+    setDraft(cell ? { subject: cell.subject, color: cell.color } : { subject: "", color: PALETTE[0] });
+    setEditing({ day, hour, pickHour });
+  }
+
+  function notifyAdded(subject, day, hour) {
+    if (!("Notification" in window)) return;
+    const fire = () => {
+      try {
+        new Notification("📚 Added to schedule", {
+          body: `${subject} — ${day} at ${hour}`,
+          icon: "/icon-192.png",
+          badge: "/icon-96.png",
+          tag: `tt-${day}-${hour}`,
+        });
+      } catch {}
+    };
+    if (Notification.permission === "granted") fire();
+    else if (Notification.permission === "default") {
+      Notification.requestPermission().then((p) => { if (p === "granted") fire(); });
+    }
+  }
+
   function save() {
     if (!draft.subject.trim()) { setEditing(null); return; }
-    setTimetable(prev => ({ ...prev, [editing]: { subject: draft.subject, color: draft.color } }));
+    const key = cellKey(editing.day, editing.hour);
+    const isNew = !timetable[key];
+    setTimetable(prev => ({ ...prev, [key]: { subject: draft.subject, color: draft.color } }));
+    if (isNew) {
+      notifyAdded(draft.subject, editing.day, editing.hour);
+      toast.success(`${draft.subject} added — ${editing.day} ${editing.hour}`);
+    }
     setEditing(null);
   }
 
-  function clear(key) { setTimetable(prev => { const n = {...prev}; delete n[key]; return n; }); }
+  function clear() {
+    setTimetable(prev => { const n = {...prev}; delete n[cellKey(editing.day, editing.hour)]; return n; });
+    setEditing(null);
+  }
 
   return (
     <>
     <ExitPill title="🗓️ Schedule" onBack={onBack} />
     <div className="card">
       <h2>Weekly Study Timetable</h2>
-      <p className="muted">Click any cell to assign a subject or custom label.</p>
-      <div style={{ overflowX: "auto" }}>
+      <p className="muted">Tap a slot to assign a subject or custom label.</p>
+
+      {/* ── Desktop: week grid ── */}
+      <div className="tt-grid-wrap">
         <table className="timetable">
           <thead>
             <tr>
               <th></th>
-              {DAYS.map(d => <th key={d}>{d}</th>)}
+              {DAYS.map(d => (
+                <th key={d} className={d === todayName ? "tt-today" : undefined}>
+                  {d}{d === todayName ? " · today" : ""}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -80,10 +122,12 @@ export function TimetableBuilder({ timetable, setTimetable, subjects, onBack }) 
                   const key = cellKey(d, h);
                   const cell = timetable[key];
                   return (
-                    <td key={key} className="tt-cell"
-                      style={{ background: cell ? cell.color + "33" : undefined, borderColor: cell ? cell.color : undefined, cursor: "pointer" }}
-                      onClick={() => { setDraft(cell ? { subject: cell.subject, color: cell.color } : { subject: "", color: COLORS[0] }); setEditing(key); }}>
-                      {cell ? <span style={{ fontSize: 12, color: cell.color, fontWeight: "bold" }}>{cell.subject}</span> : null}
+                    <td key={key}
+                      className={`tt-cell${cell ? " filled" : ""}${d === todayName ? " tt-today-col" : ""}`}
+                      style={cell ? { background: cell.color + "26", borderColor: cell.color + "66" } : undefined}
+                      onClick={() => openEditor(d, h)}
+                    >
+                      {cell ? <span className="tt-pill" style={{ color: cell.color }}>{cell.subject}</span> : null}
                     </td>
                   );
                 })}
@@ -92,28 +136,89 @@ export function TimetableBuilder({ timetable, setTimetable, subjects, onBack }) 
           </tbody>
         </table>
       </div>
+
+      {/* ── Mobile: day cards (today first) ── */}
+      <div className="tt-days">
+        {orderedDays.map(day => {
+          const slots = HOURS.filter(h => timetable[cellKey(day, h)])
+            .map(h => ({ h, cell: timetable[cellKey(day, h)] }));
+          const isToday = day === todayName;
+          return (
+            <div key={day} className={`tt-day${isToday ? " today" : ""}`}>
+              <div className="tt-day-head">
+                <span className="tt-day-name">
+                  {day}
+                  {isToday && <em className="tt-day-badge">Today</em>}
+                </span>
+                <button className="tt-day-add" onClick={() => openEditor(day, "6pm", true)} aria-label={`Add session on ${day}`}>+</button>
+              </div>
+              {slots.length === 0 ? (
+                <div className="tt-day-empty">No sessions</div>
+              ) : (
+                <div className="tt-day-slots">
+                  {slots.map(({ h, cell }) => (
+                    <button
+                      key={h}
+                      className="tt-slot"
+                      style={{ background: cell.color + "1f", borderColor: cell.color + "55", color: cell.color }}
+                      onClick={() => openEditor(day, h)}
+                    >
+                      <b>{h}</b> {cell.subject}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Editor sheet ── */}
       {editing && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditing(null)}>
-          <div className="modal-box">
-            <h3>Edit slot: {editing}</h3>
-            <input value={draft.subject} onChange={e => setDraft(p => ({...p, subject: e.target.value}))} placeholder="Subject or activity" style={{ width: "100%" }} />
-            <div className="row" style={{ flexWrap: "wrap", marginTop: 8 }}>
+        <div className="tt-sheet-backdrop" onClick={(e) => e.target === e.currentTarget && setEditing(null)}>
+          <div className="tt-sheet" role="dialog" aria-label="Edit schedule slot">
+            <div className="tt-sheet-handle" />
+            <div className="tt-sheet-head">
+              <h3>{timetable[cellKey(editing.day, editing.hour)] ? "Edit session" : "Add session"}</h3>
+              <span className="tt-sheet-when">{editing.day}{!editing.pickHour ? ` · ${editing.hour}` : ""}</span>
+            </div>
+            {editing.pickHour && (
+              <select
+                className="tt-hour-select"
+                value={editing.hour}
+                onChange={(e) => setEditing(p => ({ ...p, hour: e.target.value }))}
+                aria-label="Choose hour"
+              >
+                {HOURS.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            )}
+            <input
+              value={draft.subject}
+              onChange={e => setDraft(p => ({...p, subject: e.target.value}))}
+              placeholder="Subject or activity"
+              style={{ width: "100%" }}
+              autoFocus
+            />
+            <div className="tt-chip-row">
               {subjects.map((s, i) => (
-                <button key={s.id} style={{ fontSize: 12, borderColor: COLORS[i % COLORS.length] }}
-                  onClick={() => setDraft({ subject: s.label, color: COLORS[i % COLORS.length] })}>
+                <button key={s.id} className="tt-chip"
+                  style={{ borderColor: PALETTE[i % PALETTE.length] + "55", color: PALETTE[i % PALETTE.length] }}
+                  onClick={() => setDraft({ subject: s.label, color: PALETTE[i % PALETTE.length] })}>
                   {s.icon} {s.label}
                 </button>
               ))}
             </div>
-            <div className="row" style={{ flexWrap: "wrap", marginTop: 8 }}>
-              {COLORS.map(c => (
-                <div key={c} onClick={() => setDraft(p => ({...p, color: c}))}
-                  style={{ width: 24, height: 24, borderRadius: "50%", background: c, cursor: "pointer", border: draft.color === c ? "3px solid white" : "2px solid transparent" }} />
+            <div className="tt-chip-row">
+              {PALETTE.map(c => (
+                <div key={c} className="tt-swatch" onClick={() => setDraft(p => ({...p, color: c}))}
+                  style={{ background: c, borderColor: draft.color === c ? "#fff" : "transparent" }} />
               ))}
             </div>
-            <div className="row" style={{ marginTop: 12 }}>
-              <button style={{ borderColor: "#FFD700", color: "#FFD700" }} onClick={save}>Save</button>
-              <button className="danger" onClick={() => { clear(editing); setEditing(null); }}>Clear</button>
+            <div className="tt-sheet-actions">
+              <button className="tt-save" onClick={save}>Save</button>
+              {timetable[cellKey(editing.day, editing.hour)] && (
+                <button className="danger" onClick={clear}>Clear</button>
+              )}
               <button onClick={() => setEditing(null)}>Cancel</button>
             </div>
           </div>

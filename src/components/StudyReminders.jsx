@@ -45,7 +45,7 @@ export function StudyReminders({ reminders, setReminders, timetable, notificatio
       reminders.forEach((r) => {
         if (!r.sent && new Date(r.time) <= now) {
           if (notificationPermission === "granted") {
-            new Notification("📚 Study Reminder", { body: r.label, icon: "/loading.png" });
+            new Notification(`📚 Time for ${r.subject || "study"}`, { body: `${r.label} — your scheduled session starts now`, icon: "/icon-192.png" });
           }
           setReminders((prev) => prev.map((rem) => rem.id === r.id ? { ...rem, sent: true } : rem));
         }
