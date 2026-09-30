@@ -147,7 +147,11 @@ function extractObjectsLoose(text) {
 // (salvages complete chunks). Returns { tldr, chunks } or null.
 function extractStudyJSON(raw) {
   if (!raw || typeof raw !== "string") return null;
-  let cleaned = raw.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "");
+  // Strip only a fence wrapping the WHOLE payload — removing inner ``` would
+  // destroy fenced blocks (smiles/flow/code) embedded in markdown strings.
+  let cleaned = raw.trim()
+    .replace(/^```(?:json|text|js|javascript)?[^\n]*\n?/i, "")
+    .replace(/\n?```\s*$/, "");
   // Normalize the AI's common mistake: "check" written with [ ] instead of { }.
   // After the swap, a leftover "]" sits outside the object and is ignored by the
   // balanced-brace scan below.
@@ -497,7 +501,7 @@ function SectionCard({ section, index, status, isNext, onStudy }) {
 
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:13, fontWeight:600, color:D.text, fontFamily:"Manrope,sans-serif" }}>
-          {section.title}
+          <MarkdownText plain>{section.title}</MarkdownText>
           {isNext && (
             <span style={{
               marginLeft:7, fontSize:9, fontWeight:700, letterSpacing:"0.06em",
@@ -506,7 +510,7 @@ function SectionCard({ section, index, status, isNext, onStudy }) {
             }}>▶ UP NEXT</span>
           )}
         </div>
-        <div style={{ fontSize:11, color:D.muted, marginTop:2, fontFamily:"Manrope,sans-serif" }}>{section.summary}</div>
+        <div style={{ fontSize:11, color:D.muted, marginTop:2, fontFamily:"Manrope,sans-serif" }}><MarkdownText plain>{section.summary}</MarkdownText></div>
       </div>
 
       <Btn onClick={() => onStudy(section)} variant={studied ? "ghost" : "primary"} style={{ flexShrink:0 }}>
@@ -530,7 +534,7 @@ function CheckCard({ check, index, total, selected, onAnswer }) {
         ⚡ Quick check{total > 1 ? ` ${index + 1} of ${total}` : ""}
       </div>
       <div style={{ fontSize:13, fontWeight:600, color:D.text, lineHeight:1.55, fontFamily:"Manrope,sans-serif", marginBottom:10 }}>
-        {check.question}
+        <MarkdownText plain>{check.question}</MarkdownText>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
         {check.options.map((opt, oi) => {
@@ -559,7 +563,7 @@ function CheckCard({ check, index, total, selected, onAnswer }) {
               }}>
                 {answered && isCorrect ? "✓" : answered && isSel ? "✗" : String.fromCharCode(65 + oi)}
               </span>
-              <span style={{ flex:1 }}>{opt}</span>
+              <span style={{ flex:1 }}><MarkdownText plain>{opt}</MarkdownText></span>
             </button>
           );
         })}
@@ -569,7 +573,7 @@ function CheckCard({ check, index, total, selected, onAnswer }) {
           marginTop:10, fontSize:11.5, lineHeight:1.6, fontFamily:"Manrope,sans-serif",
           color: correct ? "#7EE2A8" : D.muted,
         }}>
-          {correct ? "✓ Correct. " : "✗ Not quite. "}{check.why}
+          {correct ? "✓ Correct. " : "✗ Not quite. "}<MarkdownText plain>{check.why}</MarkdownText>
         </div>
       )}
     </div>
@@ -1426,7 +1430,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                     fontSize:12, color:"#E8D9A0", lineHeight:1.6, fontFamily:"Manrope,sans-serif",
                   }}>
                     <span style={{ fontWeight:700, color:"#FFD700", fontSize:10, letterSpacing:"0.08em" }}>TL;DR — </span>
-                    {sectionData.tldr}
+                    <MarkdownText plain>{sectionData.tldr}</MarkdownText>
                   </div>
                 )}
 
@@ -1439,7 +1443,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                             fontSize:13, fontWeight:700, color:"#FFD700",
                             fontFamily:"Syne,sans-serif", marginBottom:6, marginTop: ci > 0 ? 8 : 0,
                           }}>
-                            {chunk.heading}
+                            <MarkdownText plain>{chunk.heading}</MarkdownText>
                           </div>
                         )}
                         <div style={{ fontSize:13.5, color:"#EDEFF5", lineHeight:1.75, fontFamily:"Manrope,sans-serif" }}>
@@ -1532,11 +1536,11 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                       🎯 COMPREHENSION CHECK
                     </div>
                     <div style={{ fontSize:14, fontWeight:600, color:D.text, lineHeight:1.6, fontFamily:"Manrope,sans-serif" }}>
-                      {qData.question}
+                      <MarkdownText plain>{qData.question}</MarkdownText>
                     </div>
                     {qData.hint && (
                       <div style={{ marginTop:10, fontSize:11, color:D.hint, fontFamily:"Manrope,sans-serif" }}>
-                        💡 Hint: {qData.hint}
+                        💡 Hint: <MarkdownText plain>{qData.hint}</MarkdownText>
                       </div>
                     )}
                   </>
@@ -1683,7 +1687,7 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
             </div>
             {fuzzySections.map(s => (
               <div key={s.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                <span style={{ flex:1, fontSize:12, color:D.text, fontFamily:"Manrope,sans-serif" }}>{s.title}</span>
+                <span style={{ flex:1, fontSize:12, color:D.text, fontFamily:"Manrope,sans-serif" }}><MarkdownText plain>{s.title}</MarkdownText></span>
                 <Btn variant="ghost" onClick={() => handleStudy(s)} style={{ padding:"4px 12px", fontSize:11 }}>Review</Btn>
               </div>
             ))}
