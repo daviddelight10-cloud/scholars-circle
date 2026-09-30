@@ -4,10 +4,47 @@ import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
 import { PRESET_SUBJECTS } from "./constants";
 
 const ACCEPTED_EXTS = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp";
+const FILE_INPUT_ID = "upload-wizard-file";
 
 function stripExt(filename) {
   const idx = filename.lastIndexOf(".");
   return idx > 0 ? filename.substring(0, idx) : filename;
+}
+
+// "Lipids_251020_1940" -> "Lipids"; "BIO 111 notes" stays intact
+function humanizeTitle(filename) {
+  const base = stripExt(filename).replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!base) return stripExt(filename);
+  const tokens = base.split(" ");
+  while (
+    tokens.length > 1 &&
+    /^\d+$/.test(tokens[tokens.length - 1]) &&
+    (tokens[tokens.length - 1].length >= 4 || /^\d+$/.test(tokens[tokens.length - 2]))
+  ) {
+    tokens.pop();
+  }
+  const cleaned = tokens.join(" ").trim() || base;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+const SUBJECT_HINTS = [
+  [/anat|dissect|limb|plexus|muscle/i, "Anatomy"],
+  [/physio|cardio|renal|neuro/i, "Physiology"],
+  [/biochem|lipid|metabol|enzyme|protein|carb|amino/i, "Biochemistry"],
+  [/path|histol|tumou?r|disease/i, "Pathology"],
+  [/pharm|drug|dosage/i, "Pharmacology"],
+  [/micro|bacter|virus|fung|parasit|immun/i, "Microbiology"],
+  [/surg|operat/i, "Surgery"],
+  [/paed|pediatr|neonat|child/i, "Paediatrics"],
+  [/obstet|gynaec|pregnan/i, "Obstetrics & Gynaecology"],
+  [/medicine|clinic/i, "Internal Medicine"],
+];
+
+function suggestSubject(text) {
+  if (!text) return "";
+  for (const [re, s] of SUBJECT_HINTS) if (re.test(text)) return s;
+  const lower = text.toLowerCase();
+  return PRESET_SUBJECTS.find((s) => s !== "Custom" && lower.includes(s.toLowerCase())) || "";
 }
 
 const STEP_LABELS = ["Import", "Details"];
@@ -24,6 +61,7 @@ export default function UploadWizard({
   uploadError,
   onClearUploadError,
   onCreateFolder,
+  resources,
 }) {
   const [step, setStep] = useState(1);
   const [file, setFile] = useState(null);
@@ -46,7 +84,9 @@ export default function UploadWizard({
   const [newSpaceName, setNewSpaceName] = useState("");
   const [newSpaceCourseCode, setNewSpaceCourseCode] = useState("");
   const [creatingSpace, setCreatingSpace] = useState(false);
+  const [spacePickerOpen, setSpacePickerOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const titleInputRef = useRef(null);
 
   useEffect(() => {
     if (show) {
@@ -62,8 +102,14 @@ export default function UploadWizard({
       setConvertProgress("");
       setConvertError("");
       setGenError("");
-      const firstFolderId = folders?.own?.[0]?.id || folders?.shared?.[0]?.id || "";
+      const all = [...(folders?.own || []), ...(folders?.shared || [])];
+      const firstFolderId = all[0]?.id || "";
       setDestFolderId(presetFolderId || firstFolderId);
+      // Prefill subject from the space this upload was launched from
+      const presetFolder = presetFolderId ? all.find((f) => f.id === presetFolderId) : null;
+      if (presetFolder) {
+        setSubject(suggestSubject(`${presetFolder.name || ""} ${presetFolder.courseCode || ""}`));
+      }
       setTitleError("");
       setSubjectError("");
       setSaveError("");
@@ -72,9 +118,20 @@ export default function UploadWizard({
       setNewSpaceName("");
       setNewSpaceCourseCode("");
       setCreatingSpace(false);
+      setSpacePickerOpen(false);
       if (onClearUploadError) onClearUploadError();
     }
   }, [show, presetFolderId]);
+
+  // Focus + select the title when landing on step 2 so it can be typed over
+  useEffect(() => {
+    if (step !== 2) return;
+    const t = setTimeout(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }, 50);
+    return () => clearTimeout(t);
+  }, [step]);
 
   if (!show) return null;
 
@@ -93,7 +150,7 @@ export default function UploadWizard({
 
     // Show immediate UI feedback before async detection
     setFile(f);
-    setTitle(stripExt(f.name));
+    setTitle(humanizeTitle(f.name));
     setConverting(true);
     setConvertProgress("Reading file…");
 
@@ -114,13 +171,13 @@ export default function UploadWizard({
         if (result) {
           const pdfFile = new File([result.pdfBlob], result.fileName, { type: "application/pdf" });
           setFile(pdfFile);
-          setTitle(stripExt(result.fileName));
+          setTitle(humanizeTitle(result.fileName));
           setConvertProgress("");
         }
       } catch (err) {
         setConvertError(err.message || "Conversion failed — you can still use the original file");
         setFile(f);
-        setTitle(stripExt(f.name));
+        setTitle(humanizeTitle(f.name));
       } finally {
         setConverting(false);
         setConvertProgress("");
@@ -141,6 +198,7 @@ export default function UploadWizard({
       } catch (err) {
         setConvertError("Could not read the selected file — please try picking it again");
         setFile(f);
+        setTitle(humanizeTitle(f.name));
       } finally {
         setConverting(false);
         setConvertProgress("");
@@ -168,6 +226,7 @@ export default function UploadWizard({
       if (newFolder) {
         setDestFolderId(newFolder.id);
         setShowNewSpaceInput(false);
+        setSpacePickerOpen(false);
         setNewSpaceName("");
         setNewSpaceCourseCode("");
       }
@@ -182,9 +241,11 @@ export default function UploadWizard({
 
   const handleSave = async () => {
     setSaveError("");
-    if (!title.trim()) { setSaveError("Please enter a title for your document"); return; }
-    if (!finalSubject) { setSaveError("Please choose a subject"); return; }
-    if (!destFolderId) { setSaveError("Please choose a space to save into, or create one"); return; }
+    setTitleError("");
+    setSubjectError("");
+    if (!title.trim()) { setTitleError("Please enter a title for your document"); return; }
+    if (!finalSubject) { setSubjectError("Choose a subject to continue."); return; }
+    if (!destFolderId) { setSpacePickerOpen(true); setSaveError("Please choose a space to save into, or create one"); return; }
 
     if (isNote) {
       if (!noteContent.trim()) { setSaveError("Your note is empty — please go back and add content"); return; }
@@ -221,43 +282,43 @@ export default function UploadWizard({
 
   // ── Step indicator ─────────────────────────────────────────────────────────
 
-  const renderStepIndicator = () => {
-    return (
-      <div className="mb-4 flex items-center gap-3">
-        {STEP_LABELS.map((label, i) => {
-          const stepNum = i + 1;
-          const isActive = stepNum === step;
-          const isDone = stepNum < step;
-          return (
-            <div key={i} className="flex items-center gap-1.5">
-              <div className={`h-2.5 w-2.5 rounded-full transition-all ${
-                isActive ? "bg-gold" : isDone ? "bg-[#22c55e]" : "bg-hub-border"
-              }`} />
-              {(stepNum === step || (stepNum === 1 && step > 1)) && (
-                <span className={`text-[10px] font-semibold ${isActive ? "text-gold" : "text-hub-text-dim"}`}>
-                  {label}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  const renderStepIndicator = () => (
+    <div className="mb-4 flex items-center gap-2">
+      <span className="shrink-0 text-[10px] font-semibold text-hub-text-muted">
+        Step {step} of {STEP_LABELS.length} · {STEP_LABELS[step - 1]}
+      </span>
+      {STEP_LABELS.map((_, i) => (
+        <div key={i} className={`h-[3px] flex-1 rounded-full transition-colors ${i < step ? "bg-gold" : "bg-hub-border"}`} />
+      ))}
+    </div>
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const ownFolders = folders?.own || [];
   const sharedFolders = folders?.shared || [];
   const allFolders = [...ownFolders, ...sharedFolders];
+  const selectedFolder = allFolders.find((f) => f.id === destFolderId) || null;
+  const subjectSuggestion = suggestSubject(file?.name || title);
+
+  const duplicate = (() => {
+    const t = title.trim().toLowerCase();
+    if (!t || !resources?.length) return null;
+    return resources.find(
+      (r) =>
+        (r.title || "").trim().toLowerCase() === t &&
+        String(r.folderId || "") === String(destFolderId || "")
+    ) || null;
+  })();
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
       <div className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6" onClick={(e) => e.stopPropagation()}>
+        <input id={FILE_INPUT_ID} ref={fileInputRef} type="file" accept={ACCEPTED_EXTS} onChange={handleFilePick} className="hidden" />
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-xl font-bold text-gold">
             {step === 1 && "Add to your space"}
-            {step === 2 && "Details & Save"}
+            {step === 2 && "Save document"}
           </h2>
           <button onClick={onClose} className="rounded-lg px-2 py-1 text-base text-hub-text-muted transition-colors hover:text-hub-text">✕</button>
         </div>
@@ -269,6 +330,7 @@ export default function UploadWizard({
           <>
             {!isNote ? (
               <label
+                htmlFor={FILE_INPUT_ID}
                 onDrop={handleDrop}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
                 onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
@@ -277,7 +339,6 @@ export default function UploadWizard({
                 }`
                 }
               >
-                <input type="file" accept={ACCEPTED_EXTS} onChange={handleFilePick} className="hidden" ref={fileInputRef} />
                 {file ? (
                   <>
                     <div className="text-3xl">{converting ? "⏳" : "✓"}</div>
@@ -352,27 +413,60 @@ export default function UploadWizard({
         {/* ── Step 2: Details & Save ────────────────────────────────────── */}
         {step === 2 && (
           <>
+            {/* File chip */}
+            <div className="flex items-center gap-3 rounded-xl border border-hub-border bg-hub-bg px-3 py-2.5">
+              <span className="text-xl">{isNote ? "📝" : "📄"}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-hub-text">{isNote ? "Note" : file?.name}</div>
+                <div className="text-[10px] text-hub-text-dim">
+                  {isNote ? `${noteContent.trim().length} characters` : `${((file?.size || 0) / 1024).toFixed(0)} KB · Imported`}
+                </div>
+              </div>
+              <span className="text-lg text-[#22c55e]">✓</span>
+              <button
+                type="button"
+                onClick={() => (isNote ? setStep(1) : fileInputRef.current?.click())}
+                className="shrink-0 cursor-pointer rounded-md border border-hub-border px-2.5 py-1 text-[10px] font-semibold text-hub-text-muted transition-colors hover:text-hub-text"
+              >
+                {isNote ? "Edit" : "Replace"}
+              </button>
+            </div>
+
             {/* Title */}
             <div className="mb-3">
-              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Title</label>
-              <input value={title} onChange={(e) => { setTitle(e.target.value); setTitleError(""); }} placeholder="e.g. Upper Limb — Brachial Plexus" className={`w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${titleError ? "border-[#ef4444]" : "border-hub-border"}`} />
+              <label className="mb-1 mt-3 block text-[11px] font-semibold text-hub-text-muted">Title</label>
+              <input ref={titleInputRef} value={title} onChange={(e) => { setTitle(e.target.value); setTitleError(""); }} placeholder="e.g. Upper Limb — Brachial Plexus" className={`w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${titleError ? "border-[#ef4444]" : "border-hub-border"}`} />
               {titleError && <div className="mt-1 text-[10px] text-[#ef4444]">{titleError}</div>}
             </div>
 
             {/* Subject — mandatory dropdown */}
             <div className="mb-3">
-              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">
-                Subject <span className="text-[#ef4444]">*</span>
+              <label className="mb-1 flex items-center justify-between text-[11px] font-semibold text-hub-text-muted">
+                <span>Subject</span>
+                <span className="text-[10px] font-normal">Required</span>
               </label>
               <select
                 value={subject}
                 onChange={(e) => { setSubject(e.target.value); setSubjectError(""); setCustomSubject(""); }}
-                className={`w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${!subject ? "border-[#ef4444]" : "border-hub-border"}`}
+                className={`w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${subjectError || !subject ? "border-[#ef4444]" : "border-hub-border"}`}
               >
                 <option value="" disabled>Select a subject…</option>
-                {PRESET_SUBJECTS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+                {subjectSuggestion ? (
+                  <>
+                    <optgroup label="Suggested from your file">
+                      <option value={subjectSuggestion}>{subjectSuggestion}</option>
+                    </optgroup>
+                    <optgroup label="All subjects">
+                      {PRESET_SUBJECTS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </optgroup>
+                  </>
+                ) : (
+                  PRESET_SUBJECTS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))
+                )}
               </select>
               {subjectError && <div className="mt-1 text-[10px] text-[#ef4444]">{subjectError}</div>}
               {subject === "Custom" && (
@@ -384,17 +478,47 @@ export default function UploadWizard({
                   className={`mt-2 w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${!customSubject.trim() ? "border-[#ef4444]" : "border-hub-border"}`}
                 />
               )}
+              {subjectSuggestion && subject !== subjectSuggestion && (
+                <button
+                  type="button"
+                  onClick={() => { setSubject(subjectSuggestion); setSubjectError(""); setCustomSubject(""); }}
+                  className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-gold-border bg-gold-dim px-3 py-1.5 text-[11px] font-semibold text-gold"
+                >
+                  ✨ Looks like {subjectSuggestion}. Use it
+                </button>
+              )}
             </div>
 
-            {/* Space selector */}
+            {/* Saving to */}
             <div className="mb-3">
               <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">
-                Save to space <span className="text-[#ef4444]">*</span>
+                Saving to <span className="text-[#ef4444]">*</span>
               </label>
-              <div className="mb-1 text-[10px] text-hub-text-dim">
-                Choose an existing space or create a new one to continue.
-              </div>
-              {allFolders.length > 0 && (
+              {selectedFolder && !spacePickerOpen ? (
+                <div className="flex items-center gap-3 rounded-xl border border-hub-border bg-hub-bg px-3 py-2.5">
+                  <span className="text-lg">📁</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm text-hub-text">
+                      {selectedFolder.name}{selectedFolder.courseCode ? ` — ${selectedFolder.courseCode}` : ""}
+                    </div>
+                    <div className="text-[10px] text-hub-text-dim">
+                      {presetFolderId === selectedFolder.id ? "Current space" : "Existing space"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSpacePickerOpen(true)}
+                    className="shrink-0 cursor-pointer border-none bg-transparent text-[11px] font-semibold text-gold"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-1 text-[10px] text-hub-text-dim">
+                    Choose an existing space or create a new one to continue.
+                  </div>
+                  {allFolders.length > 0 && (
                 <select value={destFolderId} onChange={(e) => setDestFolderId(e.target.value)} className={`mb-1 w-full rounded-lg border bg-hub-bg p-3 text-sm text-hub-text outline-none transition-colors focus:border-gold ${!destFolderId ? "border-[#ef4444]" : "border-hub-border"}`}>
                   <option value="" disabled>Select a space…</option>
                   {allFolders.map((f) => (
@@ -446,49 +570,39 @@ export default function UploadWizard({
                   </div>
                 </div>
               )}
+                </>
+              )}
             </div>
 
-            {/* Public / Private toggle */}
+            {/* Who can see it */}
             <div className="mb-4">
-              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Visibility</label>
-              <div
-                className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-hub-border bg-hub-bg p-2 px-3"
-                onClick={() => setIsPublic((v) => !v)}
-              >
-                <div
-                  className="relative h-6 w-11 shrink-0 rounded-full transition-colors"
-                  style={{ background: isPublic ? "#FFD700" : "#2a2a2a" }}
+              <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Who can see it</label>
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-hub-border bg-hub-bg p-1">
+                <button
+                  type="button"
+                  onClick={() => setIsPublic(false)}
+                  className={`cursor-pointer rounded-lg border-none py-2 text-[12px] font-semibold transition-all ${!isPublic ? "bg-hub-surface text-hub-text" : "bg-transparent text-hub-text-dim"}`}
                 >
-                  <div
-                    className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all"
-                    style={{ left: isPublic ? "22px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className={`text-[11px] font-semibold ${isPublic ? "text-gold" : "text-hub-text"}`}>
-                    {isPublic ? "🌍 Public — appears in community" : "🔒 Private — only you"}
-                  </div>
-                  <div className="mt-0.5 text-[10px] text-hub-text-dim">
-                    {isPublic ? "Visible to all users in the Community tab" : "Only visible to you in your library"}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Summary of what will be saved */}
-            <div className="mb-4 rounded-lg border border-hub-border bg-hub-bg p-3">
-              <div className="mb-2 text-[11px] font-bold text-gold">Ready to save</div>
-              <div className="text-[11px] leading-relaxed text-hub-text">
-                <strong>{title || "Untitled"}</strong> — {finalSubject || "⚠️ No subject"}
+                  🔒 Only me
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPublic(true)}
+                  className={`cursor-pointer rounded-lg border-none py-2 text-[12px] font-semibold transition-all ${isPublic ? "bg-hub-surface text-hub-text" : "bg-transparent text-hub-text-dim"}`}
+                >
+                  🌍 Community
+                </button>
               </div>
               <div className="mt-1 text-[10px] text-hub-text-dim">
-                {isNote ? "📝 Note" : "📄 " + (file?.name || "File")}
-                {" → "}
-                {destFolderId ? allFolders.find((f) => f.id === destFolderId)?.name : "⚠️ No space chosen"}
-                {" · "}
-                {isPublic ? "🌍 Public" : "🔒 Private"}
+                {isPublic ? "Shows in the Community tab for all students." : "Only you can open this document."}
               </div>
             </div>
+
+            {duplicate && (
+              <div className="mb-3 rounded-md border border-[#facc15]/30 bg-[#facc15]/10 px-3 py-2 text-[10px] text-[#facc15]">
+                ⚠️ A document named "{duplicate.title}" already exists in this space — saving will create a copy.
+              </div>
+            )}
 
             {uploading && (
               <div className="mb-3">

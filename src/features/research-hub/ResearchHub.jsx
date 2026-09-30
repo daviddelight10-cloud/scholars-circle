@@ -1547,6 +1547,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       uploadError={uploadError}
       onClearUploadError={() => setUploadError("")}
       onCreateFolder={handleWizardCreateFolder}
+      resources={resources}
     />
   );
 
