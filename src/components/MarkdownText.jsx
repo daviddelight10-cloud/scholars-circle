@@ -228,8 +228,15 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
 
   for (let seg of segments) {
     if (seg.startsWith("```")) {
-      const lang = (seg.match(/^```(\w*)/) || [])[1]?.toLowerCase() || "";
-      const body = seg.replace(/^```\w*\n?/, "").replace(/```$/, "").replace(/\n$/, "");
+      let lang = (seg.match(/^```[^\S\n]*(\w*)/) || [])[1]?.toLowerCase() || "";
+      let body = seg.replace(/^```[^\S\n]*\w*\n?/, "").replace(/```$/, "").replace(/\n$/, "");
+      // The model sometimes writes the tag as the first line inside a bare
+      // fence (e.g. ```\nsmiles\nOCC…\n```) — sniff it back into lang.
+      if (!lang) {
+        const nl = body.indexOf("\n");
+        const first = (nl === -1 ? body : body.slice(0, nl)).trim().toLowerCase();
+        if (first === "smiles" || first === "flow") { lang = first; body = body.slice(nl + 1); }
+      }
       if (lang === "smiles") {
         elements.push(<MoleculeView key={elements.length} body={body} />);
         continue;
