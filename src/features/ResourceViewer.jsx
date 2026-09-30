@@ -9,6 +9,7 @@ import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
 import FlashcardModeSelect from "./FlashcardModeSelect.jsx";
 import MatchingPairsGame from "./MatchingPairsGame.jsx";
 import ExamRunner from "./exam/ExamRunner.jsx";
+import SummaryView from "./SummaryView.jsx";
 import { examFromResource } from "./exam/examApi.js";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import MarkdownText from "../components/MarkdownText.jsx";
@@ -259,6 +260,17 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
   const renderContent = () => {
     if (!resource) return null;
+
+    // AI-generated summaries always open as a full-screen markdown view —
+    // every shape: "[AI] Summary" PDFs, note-type summaries, and derived
+    // resources carrying the raw markdown in `description`. The generated
+    // PDF stays reachable as a download inside the view.
+    const isAiSummary = resource.fileName?.startsWith("[AI] Summary")
+      || resource.title?.startsWith("[AI] Summary")
+      || (resource.sourceResourceId && resource.description);
+    if (isAiSummary && resource.description) {
+      return <SummaryView resource={resource} onBack={handleBack} />;
+    }
 
     switch (resource.contentType) {
       case "pdf":

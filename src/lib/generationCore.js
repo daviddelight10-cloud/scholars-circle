@@ -91,17 +91,64 @@ ${text}
 export function buildSummaryPrompt(text) {
   return `You are an expert academic assistant. Create a comprehensive but concise study summary from the content below.
 
-Format the summary with clear headings (using ##) and bullet points. Include:
-- Key concepts and definitions
-- Important relationships and processes
-- Notable examples or applications
-- Any critical formulas or dates
+Structure the summary under these ## sections (skip a section only if the content genuinely lacks it):
+## Key Concepts
+## Definitions
+## Formulas & Key Facts
+## Worked Examples / Processes
+## Likely Exam Questions
+## Mnemonics & Memory Aids
 
-Keep it well-structured and easy to scan. Use markdown formatting.
+STRICT FORMAT CONTRACT:
+- Start directly with "## Key Concepts" — do NOT add a top-level # title.
+- Use "##" for section headings and "###" for sub-headings.
+- Use "-" for bullet points and "1. " for numbered lists (always a space after the period).
+- Use ** only around important terms inline, e.g. - **Mitosis:** cell division that…
+- Markdown tables (| col | col |) are allowed for comparisons/classifications.
+- No blockquotes (>), no HTML, no horizontal rules, no code fences.
+- Keep bullets scannable — one idea each.
 
 CONTENT:
 """
 ${text}
+"""`;
+}
+
+export function buildChunkSummaryPrompt(text, index, total) {
+  return `You are an expert academic assistant. Below is part ${index} of ${total} of a longer document.
+Extract dense study notes from THIS part only — key concepts, definitions, formulas/dates, examples, and anything exam-relevant. Be thorough; nothing important may be dropped.
+
+Format: "-" bullet points with **term**: explanation. No headings, no prose paragraphs, no # titles.
+
+CONTENT (part ${index}/${total}):
+"""
+${text}
+"""`;
+}
+
+export function buildMergeSummaryPrompt(notes) {
+  return `You are an expert academic assistant. Below are study notes extracted from ALL parts of a document. Merge them into ONE comprehensive, well-organized study summary — deduplicate, group related ideas, and keep every distinct fact.
+
+Structure the summary under these ## sections (skip a section only if nothing fits):
+## Key Concepts
+## Definitions
+## Formulas & Key Facts
+## Worked Examples / Processes
+## Likely Exam Questions
+## Mnemonics & Memory Aids
+
+STRICT FORMAT CONTRACT:
+- Start directly with "## Key Concepts" — do NOT add a top-level # title.
+- Use "##" for section headings and "###" for sub-headings.
+- Use "-" for bullet points and "1. " for numbered lists (always a space after the period).
+- Use ** only around important terms inline.
+- Markdown tables (| col | col |) are allowed for comparisons/classifications.
+- No blockquotes (>), no HTML, no horizontal rules, no code fences.
+- Keep bullets scannable — one idea each.
+
+NOTES:
+"""
+${notes}
 """`;
 }
 
@@ -460,10 +507,39 @@ export async function generateSummary(text, images, onProgress) {
   const textBasedChunks = Math.min(MAX_CHUNKS, Math.max(1, Math.ceil(text.length / MIN_CHUNK_SIZE)));
   const chunkSize = Math.max(MIN_CHUNK_SIZE, Math.ceil(text.length / textBasedChunks));
   const chunks = chunkText(text, chunkSize);
-  onProgress?.(`Generating summary from ${chunks.length} section${chunks.length > 1 ? "s" : ""}…`);
-  const combinedText = chunks.join("\n\n").slice(0, 20000);
-  const prompt = buildSummaryPrompt(combinedText);
-  const raw = await callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-  if (!raw || !raw.trim()) throw new Error("AI didn't generate a summary. Try again.");
-  return raw;
+  const aiOpts = { provider: "openrouter", model: "z-ai/glm-5.3-flash" };
+
+  // Short docs — single pass.
+  if (chunks.length <= 1 || text.length <= 20000) {
+    onProgress?.("Generating summary…");
+    const raw = await callAI(buildSummaryPrompt(chunks.join("\n\n").slice(0, 20000)), aiOpts);
+    if (!raw || !raw.trim()) throw new Error("AI didn't generate a summary. Try again.");
+    return raw;
+  }
+
+  // Long docs — map-reduce so nothing is silently truncated.
+  const notes = new Array(chunks.length).fill("");
+  let done = 0;
+  for (let batchStart = 0; batchStart < chunks.length; batchStart += CONCURRENCY_LIMIT) {
+    const batchEnd = Math.min(batchStart + CONCURRENCY_LIMIT, chunks.length);
+    const batch = [];
+    for (let idx = batchStart; idx < batchEnd; idx++) {
+      batch.push(
+        callAI(buildChunkSummaryPrompt(chunks[idx], idx + 1, chunks.length), aiOpts)
+          .then((raw) => { notes[idx] = raw || ""; })
+          .catch(() => {})
+          .finally(() => { done++; onProgress?.(`Summarizing part ${done} of ${chunks.length}…`); })
+      );
+    }
+    await Promise.all(batch);
+  }
+
+  const validNotes = notes.filter(Boolean);
+  if (!validNotes.length) throw new Error("AI didn't generate a summary. Try again.");
+  if (validNotes.length === 1) return validNotes[0];
+
+  onProgress?.("Merging into final summary…");
+  const merged = await callAI(buildMergeSummaryPrompt(validNotes.join("\n\n").slice(0, 30000)), aiOpts);
+  if (!merged || !merged.trim()) return validNotes.join("\n\n");
+  return merged;
 }
