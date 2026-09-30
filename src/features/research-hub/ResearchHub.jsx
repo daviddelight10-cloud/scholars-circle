@@ -1605,7 +1605,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }
 
   if (viewerToken) {
-    return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onOpenResource={(t) => { setViewerToken(t); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
   }
 
   if (activeFolder) {

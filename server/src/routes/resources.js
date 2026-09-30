@@ -771,7 +771,15 @@ router.get("/:token", optionalAuth, async (req, res) => {
 
     const resource = await prisma.resource.findUnique({
       where: { shareToken: token },
-      include: { uploader: { select: { id: true, username: true, role: true } } },
+      include: {
+        uploader: { select: { id: true, username: true, role: true } },
+        sourceResource: {
+          select: {
+            id: true, title: true, shareToken: true,
+            derivedResources: { select: { id: true, contentType: true, shareToken: true } },
+          },
+        },
+      },
     });
 
     if (!resource) {

@@ -166,14 +166,16 @@ function renderMath(match, display) {
   return `<span style="font-family:'Cambria Math','STIX',serif;color:__MATH_COLOR__">${escapeHtml(result)}</span>`;
 }
 
-function renderInline(text) {
+function renderInline(text, recall) {
   let html = escapeHtml(text);
   // Display math $$...$$
   html = html.replace(/\$\$([^$]+)\$\$/g, (_, m) => renderMath("$$" + m + "$$", true));
   // Inline math $...$
   html = html.replace(/\$([^$\n]+)\$/g, (_, m) => renderMath("$" + m + "$", false));
-  // Bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:__BOLD_COLOR__">$1</strong>');
+  // Bold — recall mode renders it blurred until tapped
+  html = html.replace(/\*\*([^*]+)\*\*/g, recall
+    ? '<strong class="md-rbl" style="color:__BOLD_COLOR__">$1</strong>'
+    : '<strong style="color:__BOLD_COLOR__">$1</strong>');
   // Italic
   html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em style="color:__ITALIC_COLOR__">$1</em>');
   // Inline code
@@ -181,8 +183,8 @@ function renderInline(text) {
   return html;
 }
 
-function renderInlineWithTheme(text, P) {
-  return renderInline(text)
+function renderInlineWithTheme(text, P, recall) {
+  return renderInline(text, recall)
     .replace(/__MATH_COLOR__/g, P.mathColor)
     .replace(/__CODE_BG__/g, P.codeBg)
     .replace(/__CODE_BORDER__/g, P.codeBorder)
@@ -190,7 +192,7 @@ function renderInlineWithTheme(text, P) {
     .replace(/__ITALIC_COLOR__/g, P.italicColor);
 }
 
-export default function MarkdownText({ children, style, theme = "dark" }) {
+export default function MarkdownText({ children, style, theme = "dark", recallMode = false }) {
   const P = PALETTES[theme] || PALETTES.dark;
   if (!children || typeof children !== "string") {
     return <div style={style}>{children}</div>;
@@ -198,6 +200,7 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
 
   const segments = children.split(/(```[\s\S]*?```)/g);
   const elements = [];
+  let headingSeq = 0;
 
   for (let seg of segments) {
     if (seg.startsWith("```")) {
@@ -268,7 +271,7 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
                 <thead>
                   <tr>{header.map((c, j) => (
                     <th key={j} style={{ ...cellStyle, textAlign: "left", color: P.heading, fontWeight: 700, borderBottom: `1px solid ${P.codeBorder}` }}
-                      dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(c, P) }} />
+                      dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(c, P, recallMode) }} />
                   ))}</tr>
                 </thead>
               )}
@@ -276,7 +279,7 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
                 {body.map((r, ri) => (
                   <tr key={ri}>{r.map((c, ci) => (
                     <td key={ci} style={cellStyle}
-                      dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(c, P) }} />
+                      dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(c, P, recallMode) }} />
                   ))}</tr>
                 ))}
               </tbody>
@@ -286,22 +289,28 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
         continue;
       }
 
-      // Headings
+      // Headings — ids (md-sec-N) let SummaryView's section rail target them
+      if (trimmed.startsWith("#### ")) {
+        if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
+        elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 13, fontWeight: 700, color: P.heading, margin: "10px 0 4px", scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(5), P, recallMode) }} />);
+        i++;
+        continue;
+      }
       if (trimmed.startsWith("### ")) {
         if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ fontSize: 14, fontWeight: 700, color: P.heading, margin: "12px 0 5px", paddingBottom: 3, borderBottom: `0.5px solid ${P.headingBorder}`, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(4), P) }} />);
+        elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 14, fontWeight: 700, color: P.heading, margin: "12px 0 5px", paddingBottom: 3, borderBottom: `0.5px solid ${P.headingBorder}`, scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(4), P, recallMode) }} />);
         i++;
         continue;
       }
       if (trimmed.startsWith("## ")) {
         if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ fontSize: 15.5, fontWeight: 700, color: P.heading, margin: "14px 0 6px", paddingBottom: 4, borderBottom: `0.5px solid ${P.headingBorder}`, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(3), P) }} />);
+        elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 15.5, fontWeight: 700, color: P.heading, margin: "14px 0 6px", paddingBottom: 4, borderBottom: `0.5px solid ${P.headingBorder}`, scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(3), P, recallMode) }} />);
         i++;
         continue;
       }
       if (trimmed.startsWith("# ")) {
         if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ fontSize: 17, fontWeight: 800, color: P.heading, margin: "16px 0 8px", paddingBottom: 5, borderBottom: `0.5px solid ${P.headingBorder}`, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P) }} />);
+        elements.push(<div key={elements.length} id={`md-sec-${headingSeq++}`} style={{ fontSize: 17, fontWeight: 800, color: P.heading, margin: "16px 0 8px", paddingBottom: 5, borderBottom: `0.5px solid ${P.headingBorder}`, scrollMarginTop: 90, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P, recallMode) }} />);
         i++;
         continue;
       }
@@ -309,7 +318,7 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
       // List items
       if (/^[-*•]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed)) {
         const content = trimmed.replace(/^[-*•]\s+/, "").replace(/^\d+\.\s+/, "");
-        listItems.push(<span key={listItems.length} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(content, P) }} />);
+        listItems.push(<span key={listItems.length} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(content, P, recallMode) }} />);
         i++;
         continue;
       }
@@ -317,7 +326,7 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
       // Blockquote — render as callout box
       if (trimmed.startsWith("> ")) {
         if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ background: P.blockquoteBg, borderLeft: `3px solid ${P.blockquoteBorder}`, borderRadius: "0 8px 8px 0", padding: "8px 12px", margin: "8px 0", color: P.blockquoteText, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P) }} />);
+        elements.push(<div key={elements.length} style={{ background: P.blockquoteBg, borderLeft: `3px solid ${P.blockquoteBorder}`, borderRadius: "0 8px 8px 0", padding: "8px 12px", margin: "8px 0", color: P.blockquoteText, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P, recallMode) }} />);
         i++;
         continue;
       }
@@ -327,7 +336,7 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
         elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>);
         listItems = [];
       }
-      elements.push(<div key={elements.length} style={{ margin: "6px 0", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(line, P) }} />);
+      elements.push(<div key={elements.length} style={{ margin: "6px 0", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(line, P, recallMode) }} />);
       i++;
     }
 
@@ -336,5 +345,18 @@ export default function MarkdownText({ children, style, theme = "dark" }) {
     }
   }
 
-  return <div style={{ fontSize: 13.5, lineHeight: 1.75, color: P.text, fontFamily: "Manrope,sans-serif", wordBreak: "break-word", overflowWrap: "anywhere" }}>{elements}</div>;
+  return (
+    <>
+      {recallMode && (
+        <style>{`
+          .md-rbl { filter: blur(5px); cursor: pointer; background: rgba(255,215,0,0.10); border-radius: 4px; padding: 0 3px; transition: filter .15s ease, background .15s ease; }
+          .md-rbl.revealed { filter: none; background: transparent; }
+        `}</style>
+      )}
+      <div
+        onClick={recallMode ? (e) => { const t = e.target; if (t.classList?.contains("md-rbl")) t.classList.toggle("revealed"); } : undefined}
+        style={{ fontSize: 13.5, lineHeight: 1.75, color: P.text, fontFamily: "Manrope,sans-serif", wordBreak: "break-word", overflowWrap: "anywhere" }}
+      >{elements}</div>
+    </>
+  );
 }

@@ -21,7 +21,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // token prop: used when rendered in-app (overrides useParams)
 // onBack prop: called by Back button (overrides navigate) — used for in-app rendering
-export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplete, onStreakUpdate, onXpUpdate, initialPage } = {}) {
+export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplete, onStreakUpdate, onXpUpdate, onOpenResource, initialPage } = {}) {
   const params = useParams();
   const navigate = useNavigate();
   const token = tokenProp || params.token;
@@ -138,6 +138,20 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
     navigate("/app");
   };
+
+  const openResource = useCallback((t) => {
+    if (onOpenResource) { onOpenResource(t); return; }
+    navigate(`/resources/${t}`);
+  }, [onOpenResource, navigate]);
+
+  // AI-generated summaries render as a full-screen markdown view (SummaryView)
+  // — every shape: "[AI] Summary" PDFs, note-type summaries, and derived
+  // resources carrying the raw markdown in `description`.
+  const isAiSummary = Boolean(resource && (
+    resource.fileName?.startsWith("[AI] Summary")
+    || resource.title?.startsWith("[AI] Summary")
+    || (resource.sourceResourceId && resource.description)
+  ));
 
   const handleGoogleAuth = async () => {
     setAuthError("");
@@ -261,15 +275,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const renderContent = () => {
     if (!resource) return null;
 
-    // AI-generated summaries always open as a full-screen markdown view —
-    // every shape: "[AI] Summary" PDFs, note-type summaries, and derived
-    // resources carrying the raw markdown in `description`. The generated
-    // PDF stays reachable as a download inside the view.
-    const isAiSummary = resource.fileName?.startsWith("[AI] Summary")
-      || resource.title?.startsWith("[AI] Summary")
-      || (resource.sourceResourceId && resource.description);
+    // The generated PDF stays reachable as a download inside the view.
     if (isAiSummary && resource.description) {
-      return <SummaryView resource={resource} onBack={handleBack} />;
+      return <SummaryView resource={resource} onBack={handleBack} onOpenResource={openResource} />;
     }
 
     switch (resource.contentType) {
@@ -659,18 +667,18 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const isMcqContent = resource?.contentType === "mcq";
 
   return (
-    <div style={isMcqContent ? {
+    <div style={(isMcqContent || isAiSummary) ? {
       position: "fixed",
       inset: 0,
       zIndex: 9999,
-      background: "#06080f",
+      background: "#0a0a0a",
       display: "flex",
       flexDirection: "column",
       overflowY: "auto",
       overflowX: "hidden",
     } : { padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
-      {/* Back button — hidden for flashcard decks and MCQs (they have their own) */}
-      {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && (
+      {/* Back button — hidden for flashcard decks, MCQs, and AI summaries (they have their own) */}
+      {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && !isAiSummary && (
         <button
           onClick={handleBack}
           style={{
@@ -691,8 +699,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         </button>
       )}
 
-      {/* Resource Info — hidden for flashcard decks and MCQs */}
-      {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && (
+      {/* Resource Info — hidden for flashcard decks, MCQs, and AI summaries */}
+      {resource?.contentType !== "flashcard_deck" && resource?.contentType !== "mcq" && !isAiSummary && (
         <div
           style={{
             background: "#0d0f20",
