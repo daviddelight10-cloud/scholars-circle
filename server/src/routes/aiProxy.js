@@ -127,6 +127,16 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
       return res.status(500).json({ error: `${provider} API key not configured on server` });
     }
 
+    // Optional SSE streaming: flip the provider request to its streaming variant
+    const wantsStream = req.body.stream === true;
+    if (wantsStream) {
+      if (provider === "gemini") {
+        apiUrl = apiUrl.replace(":generateContent?", ":streamGenerateContent?alt=sse&");
+      } else {
+        requestBody.stream = true;
+      }
+    }
+
     // Make request to AI provider
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -142,6 +152,48 @@ router.post("/generate", requireAuth, aiRateLimit, async (req, res) => {
         error: `AI provider error: ${response.statusText}`,
         details: process.env.NODE_ENV === 'development' ? errorText : undefined
       });
+    }
+
+    // Streaming path — pipe upstream SSE chunks as normalized token events
+    if (wantsStream) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+
+      const emit = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
+      const reader = response.body.getReader();
+      req.on("close", () => { try { reader.cancel(); } catch {} });
+      const decoder = new TextDecoder();
+      let buf = "";
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let idx;
+          while ((idx = buf.indexOf("\n")) >= 0) {
+            const line = buf.slice(0, idx).trim();
+            buf = buf.slice(idx + 1);
+            if (!line.startsWith("data:")) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            let chunk;
+            try { chunk = JSON.parse(payload); } catch { continue; }
+            const text = provider === "gemini"
+              ? (chunk.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("")
+              : chunk.choices?.[0]?.delta?.content;
+            if (text) emit({ type: "token", text });
+          }
+        }
+        emit({ type: "done" });
+        logSecurityEvent(req.user.sub, 'ai_proxy_success', { provider, model, streamed: true, promptLength: prompt?.length || 0 }, req);
+      } catch (streamErr) {
+        console.error("Generate stream error:", streamErr.message);
+        emit({ type: "error", message: "The response was interrupted. Please try again." });
+      }
+      return res.end();
     }
 
     const data = await response.json();

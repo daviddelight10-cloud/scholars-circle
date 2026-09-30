@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { callAI, callAIMultimodal, callAITutor, extractJSON } from "../lib/aiClient";
+import { callAI, callAIMultimodal, callAITutor, callAIStream, extractJSON } from "../lib/aiClient";
 import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
 import { detectDiscipline } from "./AITutor/disciplines.js";
 import { extractTextFromFile } from "./AITutor/fileExtract.js";
@@ -283,7 +283,25 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
   return { parsed: parseAIResponse(raw, query), metaDocs: documents };
 }
 
-async function generateAIQuestions(topic, aiConfig, subject = null, context = null) {
+// Count fully-closed question objects in a partially streamed JSON array —
+// used to show live "Writing question N…" progress during generation.
+function countStreamedQuestions(text) {
+  const start = text.indexOf("[");
+  if (start < 0) return 0;
+  let depth = 0, inStr = false, esc = false, count = 0;
+  for (let i = start + 1; i < text.length; i++) {
+    const c = text[i];
+    if (esc) { esc = false; continue; }
+    if (c === "\\") { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "{") depth++;
+    else if (c === "}") { if (depth === 1) count++; depth--; }
+  }
+  return count;
+}
+
+async function generateAIQuestions(topic, aiConfig, subject = null, context = null, onProgress = null) {
   const disciplineId = detectDiscipline(subject?.label);
   const system = buildSystemPrompt({ mode: "generate_quiz", disciplineId, subject });
   const prompt =
@@ -296,7 +314,9 @@ async function generateAIQuestions(topic, aiConfig, subject = null, context = nu
     `- Generate 5-10 well-distributed questions.\n` +
     `- Mix recall, application, and analysis levels.\n` +
     `- Avoid trick questions.`;
-  const raw = await callAI(prompt, aiConfig);
+  const raw = await callAIStream(prompt, aiConfig, {
+    onToken: onProgress ? (text) => onProgress(countStreamedQuestions(text)) : null,
+  });
   const questions = extractJSON(raw, "array");
   if (!Array.isArray(questions) || questions.length === 0) {
     throw new Error("AI did not return valid questions.");
@@ -672,6 +692,8 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
   const [answered, setAnswered] = useState({});
   const [extraQuestions, setExtraQuestions] = useState(null);
   const [genError, setGenError] = useState(null);
+  const [genCount, setGenCount] = useState(0); // questions streamed so far
+  const [aiExpl, setAiExpl] = useState({});    // qi -> {text, streaming, error}
   const genStarted = useRef(false);
 
   const bankQuestions = (data.questions || []).slice(0, 20);
@@ -700,13 +722,44 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
     setAnswered(p => ({ ...p, [qi]: oi }));
   }
 
+  // On-demand streamed explanation for one question — routes through the
+  // tutor endpoint so markdown streams in live and Research Hub docs can
+  // ground the explanation when they match.
+  async function explainQuestion(qi, q) {
+    if (aiExpl[qi]?.streaming) return;
+    setAiExpl(p => ({ ...p, [qi]: { text: "", streaming: true } }));
+    const ci  = q.answer ?? q.correctIndex ?? 0;
+    const sel = answered[qi];
+    const prompt =
+      `Explain this multiple-choice question to a student in markdown (short, clear — bold key terms).\n\n` +
+      `Question: "${q.q || q.question}"\n` +
+      `Options:\n${(q.options || []).map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join("\n")}\n` +
+      `Correct answer: ${String.fromCharCode(65 + ci)}\n` +
+      (sel !== undefined
+        ? sel === ci
+          ? `The student picked the correct answer — briefly explain WHY it's right.\n`
+          : `The student picked ${String.fromCharCode(65 + sel)} — explain why that's wrong AND why the correct answer is right.\n`
+        : "") +
+      `\nReply ONLY with JSON: {"answer":"<markdown explanation>"}`;
+    try {
+      const { raw } = await callAITutor(prompt, aiConfig, {
+        query: q.q || q.question || "",
+        onToken: t => setAiExpl(p => ({ ...p, [qi]: { text: extractPartialAnswer(t), streaming: true } })),
+      });
+      const parsed = parseAIResponse(raw, q.q || q.question || "");
+      setAiExpl(p => ({ ...p, [qi]: { text: parsed.answer || "No explanation returned.", streaming: false } }));
+    } catch (err) {
+      setAiExpl(p => ({ ...p, [qi]: { text: "", streaming: false, error: err?.message || "Couldn't load the explanation." } }));
+    }
+  }
+
   const topic = data.topic || data.ytQuery || "";
 
   useEffect(() => {
     if (genStarted.current) return;
     if (bankQuestions.length > 0 || extraQuestions || !aiConfig || !topic) return;
     genStarted.current = true;
-    generateAIQuestions(topic, aiConfig, data.subjectLabel ? { label: data.subjectLabel } : null, data.docContext || null)
+    generateAIQuestions(topic, aiConfig, data.subjectLabel ? { label: data.subjectLabel } : null, data.docContext || null, setGenCount)
       .then(qs => {
         if (qs && qs.length > 0) {
           setExtraQuestions(qs);
@@ -727,7 +780,11 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
           <style>{`@keyframes scSpin{to{transform:rotate(360deg)}}`}</style>
           <div style={{ color: D.muted, fontSize: 13, textAlign: "center", fontFamily: "Manrope,sans-serif", lineHeight: 1.6 }}>
             Generating practice questions with AI…<br />
-            <span style={{ fontSize: 11, color: D.hint }}>This may take a few seconds</span>
+            <span style={{ fontSize: 11, color: D.hint }}>
+              {genCount > 0
+                ? `${genCount} question${genCount !== 1 ? "s" : ""} written — still going…`
+                : "This may take a few seconds"}
+            </span>
           </div>
         </div>
       );
@@ -740,7 +797,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
             {genError}<br />
             <span style={{ fontSize: 11, color: D.hint }}>No questions in the bank for this topic yet.</span>
           </div>
-          <button onClick={() => { setGenError(null); genStarted.current = false; }}
+          <button onClick={() => { setGenError(null); setGenCount(0); genStarted.current = false; }}
             style={{
               padding: "7px 16px", borderRadius: 20,
               background: D.accent, border: `0.5px solid ${D.border}`,
@@ -809,7 +866,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
                 Q{qi + 1} of {total}
               </div>
               <div style={{ fontSize: 13, color: D.text, lineHeight: 1.55, marginBottom: 12, fontFamily: "Manrope,sans-serif" }}>
-                {q.q || q.question}
+                <MarkdownText theme="gold">{q.q || q.question}</MarkdownText>
               </div>
 
               {(q.options || []).map((opt, oi) => {
@@ -837,7 +894,7 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
                       background: D.accent, display: "flex", alignItems: "center",
                       justifyContent: "center", fontSize: 10, fontWeight: 700, color: D.muted,
                     }}>{String.fromCharCode(65 + oi)}</span>
-                    {opt}
+                    {stripMd(opt)}
                   </button>
                 );
               })}
@@ -849,8 +906,38 @@ function PracticeView({ data, onBack, aiConfig, onStartExam, onReviewMistakes })
                   fontSize: 11, color: D.muted, lineHeight: 1.55, fontFamily: "Manrope,sans-serif",
                 }}>
                   <strong style={{ color: "#a5d6a7" }}>Explanation: </strong>
-                  {q.explanation || q.explain}
+                  <MarkdownText theme="gold">{q.explanation || q.explain}</MarkdownText>
                 </div>
+              )}
+
+              {/* ✦ Explain — streams a live AI explanation for this question */}
+              {aiConfig && (
+                aiExpl[qi] ? (
+                  <div style={{
+                    background: "rgba(255,215,0,0.05)", border: `0.5px solid ${D.border}`,
+                    borderRadius: 8, padding: "9px 11px", marginTop: 8,
+                    fontSize: 12, color: D.muted, lineHeight: 1.6, fontFamily: "Manrope,sans-serif",
+                  }}>
+                    <div style={{ fontSize: 10, color: D.accent2, fontWeight: 700, letterSpacing: 0.5, marginBottom: 4 }}>
+                      ✦ AI{aiExpl[qi].streaming ? " — writing…" : ""}
+                    </div>
+                    {aiExpl[qi].error
+                      ? <span style={{ color: "#ef9a9a" }}>{aiExpl[qi].error}</span>
+                      : aiExpl[qi].text
+                        ? <MarkdownText theme="gold">{aiExpl[qi].text}</MarkdownText>
+                        : <TypingDots />}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => explainQuestion(qi, q)}
+                    style={{
+                      marginTop: 8, padding: "4px 10px", borderRadius: 8,
+                      background: "transparent", border: `0.5px solid ${D.border}`,
+                      color: D.accent2, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      fontFamily: "Manrope,sans-serif",
+                    }}
+                  >✦ Explain</button>
+                )
               )}
             </div>
           );

@@ -291,6 +291,120 @@ export async function callAITutor(prompt, aiConfig = {}, { query = "", onToken, 
   return { raw, documents };
 }
 
+// Streaming variant of callAI — POST /generate with stream:true and read the
+// normalized SSE token events. onToken receives the accumulated raw text so
+// callers can show live progress. Falls back to the buffered endpoint on
+// servers without stream support, or a direct call when the proxy is off.
+export async function callAIStream(prompt, aiConfig = {}, { onToken, signal } = {}) {
+  const status = await getProxyStatus();
+  const provider = aiConfig.provider || status?.defaultProvider || "openrouter";
+  const model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : provider === "openrouter" ? "z-ai/glm-5.3-flash" : "gpt-4o-mini");
+
+  if (!status?.enabled) {
+    return callDirect(prompt, { ...aiConfig, provider, model });
+  }
+
+  const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+  const token = authData.authToken;
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const ctl = new AbortController();
+  const timeout = setTimeout(() => ctl.abort(new DOMException("Timed out", "TimeoutError")), 120000);
+  if (signal) {
+    if (signal.aborted) ctl.abort(signal.reason);
+    else signal.addEventListener("abort", () => ctl.abort(signal.reason), { once: true });
+  }
+  const stoppedError = () => {
+    const e = new Error("Generation stopped.");
+    e.stoppedByUser = true;
+    return e;
+  };
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/ai-proxy/generate`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: JSON.stringify({ prompt, provider, model, stream: true }),
+      signal: ctl.signal,
+    });
+  } catch (netErr) {
+    clearTimeout(timeout);
+    if (signal?.aborted) throw stoppedError();
+    if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
+      throw new Error("AI request timed out. Please try again with a shorter prompt.");
+    }
+    throw new Error("Network error reaching AI service. Please check your connection.");
+  }
+
+  // Old server (buffered JSON response or missing route) — fall back quietly.
+  const contentType = res.headers.get("content-type") || "";
+  if (res.ok && !contentType.includes("text/event-stream")) {
+    clearTimeout(timeout);
+    try {
+      const data = await res.json();
+      return data.text || "";
+    } catch {
+      return callViaProxy(prompt, provider, model);
+    }
+  }
+
+  if (!res.ok) {
+    clearTimeout(timeout);
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (res.status === 429) {
+      window.dispatchEvent(new CustomEvent("ai-limit", {
+        detail: { used: data?.used, limit: data?.limit, plan: data?.plan },
+      }));
+      throw new Error(`Daily AI limit reached (${data?.used || "?"}/${data?.limit || "?"}). Upgrade to Premium for unlimited access.`);
+    }
+    throw new Error(data?.error || `AI service error (${res.status})`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let raw = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const eventBlock = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of eventBlock.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          let evt;
+          try { evt = JSON.parse(payload); } catch { continue; }
+          if (evt.type === "token") {
+            raw += evt.text || "";
+            onToken?.(raw);
+          } else if (evt.type === "error") {
+            throw new Error(evt.message || "AI stream failed.");
+          }
+        }
+      }
+    }
+  } catch (streamErr) {
+    clearTimeout(timeout);
+    if (signal?.aborted) throw stoppedError();
+    if (streamErr.name === "AbortError" || streamErr.name === "TimeoutError") {
+      throw new Error("AI request timed out. Please try again.");
+    }
+    throw streamErr;
+  }
+  clearTimeout(timeout);
+  if (!raw) throw new Error("AI returned an empty response.");
+  return raw;
+}
+
 // Multimodal AI call with image(s) + text + conversation history.
 // Uses the backend multimodal proxy endpoint. Returns plain text string.
 // imageOrImages can be a single base64 data URL string or an array of strings.
