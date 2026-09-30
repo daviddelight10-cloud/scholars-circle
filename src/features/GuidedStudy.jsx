@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { callAI } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { getStudyCache, saveStudyCache, clearStudyCache, recordGuidedProgress } from "../lib/studyCache.js";
@@ -194,8 +194,10 @@ function docCacheKey(topicStr, content) {
 // title keywords actually appear. This way every section of a long document is
 // grounded in its own part of the source instead of everyone seeing only the
 // first N characters.
-function sectionContentSlice(source, section, sectionIdx, sectionCount) {
-  if (source.length <= SECTION_CONTENT_LIMIT) return source;
+// Same slice as sectionContentSlice but also returns the start offset, so
+// consumers can map a section back to its position in the source document.
+function sectionSlice(source, section, sectionIdx, sectionCount) {
+  if (source.length <= SECTION_CONTENT_LIMIT) return { text: source, start: 0 };
   const win = Math.min(SECTION_CONTENT_LIMIT, Math.ceil((source.length / Math.max(1, sectionCount)) * 1.6));
   let center = Math.floor(((sectionIdx + 0.5) / Math.max(1, sectionCount)) * source.length);
   const terms = String(section?.title || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 4);
@@ -205,7 +207,11 @@ function sectionContentSlice(source, section, sectionIdx, sectionCount) {
     if (hits.length) center = hits[Math.floor(hits.length / 2)];
   }
   const start = Math.max(0, Math.min(source.length - win, Math.floor(center - win / 2)));
-  return source.slice(start, start + win);
+  return { text: source.slice(start, start + win), start };
+}
+
+function sectionContentSlice(source, section, sectionIdx, sectionCount) {
+  return sectionSlice(source, section, sectionIdx, sectionCount).text;
 }
 
 // Extract a compact outline (heading-like lines) from a document. Lets the
@@ -619,7 +625,7 @@ const LAUNCH_MSGS = {
 
 const STATUS_LABEL = { fuzzy: "Still fuzzy 🌫️", solid: "Got it 👍", mastered: "Nailed it 🔥" };
 
-export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null, onAskTutor = null }) {
+export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null, onAskTutor = null, onViewSource = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");   // input | roadmap | section | review | summary
   const [topic, setTopic]               = useState(initialTopic);
@@ -656,6 +662,19 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   const combo                           = useComboStreak("guided");
   const studiedCount                    = Object.keys(studied).length;
   const sessionXP                       = combo.correctCount * XP_PER_CORRECT + combo.totalStreakBonus;
+
+  // Map the active section back to its source PDF page (when the session came
+  // from a file with page offsets) — powers the "View source" deep link.
+  const srcRef = useMemo(() => {
+    const ps = attachment?.pageStarts, tok = attachment?.shareToken;
+    if (phase !== "section" || !ps?.length || !tok || !sourceContent || !activeSection || !roadmap) return null;
+    const idx = roadmap.sections.findIndex(s => s.id === activeSection.id);
+    if (idx < 0) return null;
+    const { start } = sectionSlice(sourceContent, activeSection, idx, roadmap.sections.length);
+    let page = 1;
+    for (let i = 0; i < ps.length; i++) { if (ps[i] <= start) page = i + 1; else break; }
+    return { page, token: tok };
+  }, [phase, activeSection, roadmap, sourceContent, attachment]);
 
   // ── Online/offline listener ──
   useEffect(() => {
@@ -1353,8 +1372,23 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
         {/* Section header */}
         {card(
-          <div style={{ fontSize:15, fontWeight:700, color:D.text, fontFamily:"Syne,sans-serif" }}>
-            📖 {activeSection.title}
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ flex:1, fontSize:15, fontWeight:700, color:D.text, fontFamily:"Syne,sans-serif" }}>
+              📖 {activeSection.title}
+            </div>
+            {srcRef && onViewSource && (
+              <button
+                onClick={() => onViewSource(srcRef.token, srcRef.page)}
+                title="Open the source document at this section's page"
+                style={{
+                  flexShrink:0, background:"rgba(255,215,0,0.08)", border:"0.5px solid rgba(255,215,0,0.3)",
+                  borderRadius:999, padding:"4px 11px", cursor:"pointer",
+                  fontSize:10, fontWeight:600, color:"#E8D9A0", fontFamily:"Manrope,sans-serif",
+                }}
+              >
+                📄 Source p.{srcRef.page} ↗
+              </button>
+            )}
           </div>
         )}
 

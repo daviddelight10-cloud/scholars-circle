@@ -231,8 +231,7 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
       const lang = (seg.match(/^```(\w*)/) || [])[1]?.toLowerCase() || "";
       const body = seg.replace(/^```\w*\n?/, "").replace(/```$/, "").replace(/\n$/, "");
       if (lang === "smiles") {
-        const [smiles, ...rest] = body.split("\n").map(l => l.trim()).filter(Boolean);
-        elements.push(<MoleculeView key={elements.length} smiles={smiles} label={rest.join(" ")} />);
+        elements.push(<MoleculeView key={elements.length} body={body} />);
         continue;
       }
       if (lang === "flow") {

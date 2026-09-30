@@ -74,8 +74,12 @@ export async function extractFileText(file, maxImagePages = 10) {
 
     let fullText = "";
     const totalPages = pdf.numPages;
+    // Char offset where each page's text starts — lets consumers map a text
+    // position back to its PDF page (e.g. "view source" deep links).
+    const pageStarts = [];
 
     for (let i = 1; i <= totalPages; i++) {
+      pageStarts[i - 1] = fullText.length;
       try {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
@@ -95,6 +99,9 @@ export async function extractFileText(file, maxImagePages = 10) {
             }
             prevY = y;
           }
+          // Cleanup applied per page so pageStarts stay aligned with the
+          // final string (equivalent to the old whole-text cleanup).
+          pageText = pageText.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n");
           fullText += pageText + "\n\n";
         }
       } catch (e) {
@@ -102,7 +109,9 @@ export async function extractFileText(file, maxImagePages = 10) {
       }
     }
 
-    fullText = fullText.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    const lead = (fullText.match(/^\s+/) || [""])[0].length;
+    fullText = fullText.trim();
+    const starts = pageStarts.map(o => Math.max(0, o - lead));
 
     if (fullText.length < 20) {
       // Scanned PDF — render pages as images
@@ -121,10 +130,10 @@ export async function extractFileText(file, maxImagePages = 10) {
           console.warn(`Failed to render page ${i} as image:`, e);
         }
       }
-      return { text: fullText, images: pageImages };
+      return { text: fullText, images: pageImages, pageStarts: starts };
     }
 
-    return { text: fullText, images: [] };
+    return { text: fullText, images: [], pageStarts: starts };
   }
 
   if (isTXT) {

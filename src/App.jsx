@@ -10034,9 +10034,9 @@ function App() {
             if (!session?.questions?.length) return;
             setActiveSession(session);
           }}
-          onOpenResource={(shareToken) => {
+          onOpenResource={(shareToken, page) => {
             if (!shareToken) return;
-            setHomeViewerPage(null);
+            setHomeViewerPage(page || null);
             setHomeViewerReturnTab("aitutor");
             setHomeViewerToken(shareToken);
           }}

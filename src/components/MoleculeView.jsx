@@ -2,34 +2,47 @@ import { useEffect, useState } from "react";
 
 let uid = 0;
 
-// Renders a SMILES string as a 2D skeletal structure. smiles-drawer is
+// Renders a ```smiles block as a 2D skeletal structure. smiles-drawer is
 // lazy-loaded so it only hits the bundle when a molecule actually appears.
-// Invalid SMILES (models hallucinate them sometimes) falls back to text.
-export default function MoleculeView({ smiles, label }) {
+// The SMILES line is auto-detected (models sometimes put the name first);
+// if nothing parses we show the raw text instead of breaking the section.
+export default function MoleculeView({ body }) {
   const [canvasId] = useState(() => `mol-${++uid}`);
-  const [status, setStatus] = useState(smiles?.trim() ? "loading" : "fail");
+  const [status, setStatus] = useState("loading");
+  const [info, setInfo] = useState({ smiles: "", label: "" });
 
   useEffect(() => {
-    if (!smiles?.trim()) return;
+    const lines = String(body || "").split("\n").map(l => l.trim()).filter(Boolean);
+    if (!lines.length) { setStatus("fail"); return; }
     let cancelled = false;
     import("smiles-drawer").then((mod) => {
-      const SmilesDrawer = mod.default || mod;
-      if (cancelled || !SmilesDrawer?.Drawer) { setStatus("fail"); return; }
+      const S = mod.default || mod;
+      if (cancelled || !S?.Drawer || !S?.Parser) { setStatus("fail"); return; }
+
+      // Use whichever line actually parses as SMILES; the rest becomes the caption.
+      let tree = null, smiIdx = -1;
+      for (let i = 0; i < lines.length; i++) {
+        try { const t = S.Parser.parse(lines[i]); if (t) { tree = t; smiIdx = i; break; } } catch {}
+      }
+      if (!tree) {
+        if (!cancelled) { setInfo({ smiles: lines[0], label: lines.slice(1).join(" ") }); setStatus("fail"); }
+        return;
+      }
+      if (!cancelled) setInfo({ smiles: lines[smiIdx], label: lines.filter((_, i) => i !== smiIdx).join(" ") });
       try {
-        const drawer = new SmilesDrawer.Drawer({ width: 340, height: 220, bondThickness: 1.2 });
-        SmilesDrawer.parse(
-          smiles.trim(),
-          (tree) => {
-            if (cancelled) return;
-            try { drawer.draw(tree, canvasId, "dark", false); setStatus("ok"); }
-            catch { setStatus("fail"); }
-          },
-          () => { if (!cancelled) setStatus("fail"); }
-        );
-      } catch { if (!cancelled) setStatus("fail"); }
-    }).catch(() => { if (!cancelled) setStatus("fail"); });
+        const drawer = new S.Drawer({ width: 340, height: 220, bondThickness: 1.2 });
+        drawer.draw(tree, canvasId, "dark", false);
+        if (!cancelled) setStatus("ok");
+      } catch (e) {
+        console.warn("[MoleculeView] draw failed:", e);
+        if (!cancelled) setStatus("fail");
+      }
+    }).catch((e) => {
+      console.warn("[MoleculeView] smiles-drawer load failed:", e);
+      if (!cancelled) setStatus("fail");
+    });
     return () => { cancelled = true; };
-  }, [smiles, canvasId]);
+  }, [body, canvasId]);
 
   return (
     <div style={{
@@ -51,12 +64,12 @@ export default function MoleculeView({ smiles, label }) {
           fontSize: 12, color: "#C9CFDB", fontFamily: "monospace",
           background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "6px 12px",
         }}>
-          {smiles}
+          {info.smiles || body}
         </div>
       )}
-      {label && (
+      {info.label && (
         <div style={{ fontSize: 11, color: "#E8D9A0", fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>
-          {label}
+          {info.label}
         </div>
       )}
     </div>
