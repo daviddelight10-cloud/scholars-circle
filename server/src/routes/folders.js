@@ -2,6 +2,7 @@ import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { cloneSkeletonForUser } from "../lib/topicExtractionService.js";
+import { isMastered } from "../lib/fsrs.js";
 
 const router = express.Router();
 
@@ -426,12 +427,55 @@ router.get("/:id", requireAuth, async (req, res) => {
       select: { courseCode: true },
     }).catch(() => null);
 
+    // Hero-card stats — the client renders Topics + Mastered from these.
+    const allFolderResources = [
+      ...sharedResources,
+      ...myResources,
+      ...bookmarkedResources.map((b) => b.resource),
+    ];
+    const folderResourceIds = [...new Set(allFolderResources.map((r) => r.id))];
+    const effectiveCourseCode = folder.courseCode || myBookmark?.courseCode || null;
+
+    const [topicCount, reviewItems] = await Promise.all([
+      effectiveCourseCode
+        ? prisma.curriculumTopic.count({
+            where: { courseCode: effectiveCourseCode, createdBy: userId },
+          }).catch(() => 0)
+        : Promise.resolve(0),
+      folderResourceIds.length
+        ? prisma.pdfReviewItem.findMany({
+            where: {
+              userId,
+              resourceId: { in: folderResourceIds },
+              itemType: { in: ["mcq", "legacy_mcq"] },
+            },
+            select: { state: true, stability: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // Total questions across the folder's question sets — resource rows
+    // already carry mcqData from the fetches above.
+    let totalQuestions = 0;
+    for (const r of allFolderResources) {
+      if (r.contentType !== "mcq") continue;
+      try {
+        const arr = typeof r.mcqData === "string" ? JSON.parse(r.mcqData) : r.mcqData;
+        if (Array.isArray(arr)) totalQuestions += arr.length;
+      } catch { /* unparseable mcqData — skip */ }
+    }
+
+    const masteredCount = reviewItems.filter(isMastered).length;
+    const masteryPct = totalQuestions > 0 ? Math.round((masteredCount / totalQuestions) * 100) : 0;
+
     res.json({
       ...folder,
       sharedResources,
       myResources,
       bookmarkedResources: bookmarkedResources.map((b) => b.resource),
       myCourseCode: myBookmark?.courseCode || null,
+      topicCount,
+      masteryPct,
     });
   } catch (error) {
     console.error("Error fetching folder:", error);
