@@ -165,12 +165,16 @@ function extractStudyJSON(raw) {
     if (obj && Array.isArray(obj.chunks) && obj.chunks.length) return obj;
   }
 
-  // Salvage path: recover each chunk-shaped object individually
+  // Salvage path: the model sometimes emits the whole payload twice, or
+  // truncates mid-chunk. First prefer complete objects that contain chunks…
   const tldrMatch = text.match(/"tldr"\s*:\s*"((?:[^"\\]|\\.)*)"/);
   let tldr = "";
   if (tldrMatch) { try { tldr = JSON.parse(`"${tldrMatch[1]}"`); } catch { tldr = tldrMatch[1]; } }
-  const chunks = extractObjectsLoose(text)
-    .filter(o => !o.chunks && (o.markdown || o.text || o.content || o.body || o.heading));
+  const objects = extractObjectsLoose(text);
+  const withChunks = objects.filter(o => o && Array.isArray(o.chunks) && o.chunks.length);
+  if (withChunks.length) return withChunks.sort((a, b) => b.chunks.length - a.chunks.length)[0];
+  // …otherwise recover each chunk-shaped object individually.
+  const chunks = objects.filter(o => !o.chunks && (o.markdown || o.text || o.content || o.body || o.heading));
   return chunks.length ? { tldr, chunks } : null;
 }
 
@@ -261,7 +265,16 @@ function normalizeChunk(chunk) {
   if (!chunk) return null;
   const markdown = String(chunk.markdown || chunk.text || chunk.content || chunk.body || chunk.explanation || "");
   if (!markdown.trim()) return null;
-  return { heading: String(chunk.heading || ""), markdown, check: normalizeCheck(chunk.check) };
+  // The AI sometimes puts answer/why (or the whole check) on the chunk
+  // instead of nested inside "check" — merge fallbacks before validating.
+  const rawCheck = Array.isArray(chunk.check) ? chunk.check[0]
+    : (chunk.check && typeof chunk.check === "object" ? chunk.check : null);
+  const mergedCheck = rawCheck
+    ? { ...rawCheck, answer: rawCheck.answer ?? chunk.answer, why: rawCheck.why ?? chunk.why ?? chunk.explanation }
+    : (chunk.question || chunk.options
+        ? { question: chunk.question, options: chunk.options, answer: chunk.answer, why: chunk.why ?? chunk.explanation }
+        : null);
+  return { heading: String(chunk.heading || ""), markdown, check: normalizeCheck(mergedCheck) };
 }
 
 // ─── Context helpers ──────────────────────────────────────────────────────────
