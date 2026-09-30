@@ -34,6 +34,7 @@ import RecycleBinSheet from "./RecycleBinSheet.jsx";
 import CommunityFolderCard from "./CommunityFolderCard.jsx";
 import PdfCard from "./PdfCard.jsx";
 import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
+import SummaryStreamOverlay from "../SummaryStreamOverlay.jsx";
 import { getGuidedProgressIndex } from "../../lib/studyCache.js";
 import "../../research-hub.css";
 
@@ -147,6 +148,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [toast, setToast] = useState(null); // { msg, icon, actLabel, actFn }
   const toastTimer = useRef(null);
   const [viewerToken, setViewerToken] = useState(null);
+  const [generatedSummary, setGeneratedSummary] = useState(null);
   const { setMobileNavHidden } = useUI();
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const [bookmarkFolderMap, setBookmarkFolderMap] = useState({});
@@ -237,7 +239,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return () => setMobileNavHidden(false);
   }, [viewerToken, sessionMode, activeFolder, setMobileNavHidden]);
 
-  const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, generate: generateFromMaterial, retry: retryMaterialGenerate, clearError: clearMaterialGenError } = useMaterialGenerate();
+  const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, streamText, streamTitle, streamDone, generate: generateFromMaterial, retry: retryMaterialGenerate, cancel: cancelMaterialGenerate, closeStream, clearError: clearMaterialGenError } = useMaterialGenerate();
 
   useEffect(() => {
     fetchResources();
@@ -1210,6 +1212,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         setUploadError("");
         try { localStorage.removeItem("sc_resources_list"); } catch {}
         setResources((prev) => [resource, ...prev]);
+        if (data.contentType === "pdf" && (resource?.fileName || "").startsWith("[AI] Summary")) {
+          setGeneratedSummary(resource); // stream overlay offers "Open summary"
+        }
         if (data.folderId) { fetchFolderDetail(data.folderId); }
         else { fetchResources(); fetchFolders(); }
         setUploading(false);
@@ -1353,6 +1358,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         }
       } catch {}
     }
+    setGeneratedSummary(null);
     generateFromMaterial(resource, kind, handleWizardStudyToolSave, existingMcqData);
   }, [generateFromMaterial, handleWizardStudyToolSave]);
 
@@ -1604,12 +1610,30 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   }
 
+  // Live summary stream — mounts above whichever view is active while a
+  // summary is being generated (fixed inset overlay, markdown writes in live).
+  const streamOverlay = streamText !== null && (
+    <SummaryStreamOverlay
+      title={streamTitle}
+      text={streamText}
+      progress={genProgress}
+      done={streamDone}
+      savedResource={generatedSummary}
+      onCancel={cancelMaterialGenerate}
+      onClose={closeStream}
+      onOpen={(t) => { closeStream(); handleOpen(t); }}
+    />
+  );
+
   if (viewerToken) {
-    return <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onOpenResource={(t) => { setViewerToken(t); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    return (<>
+      <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onOpenResource={(t) => { setViewerToken(t); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />
+      {streamOverlay}
+    </>);
   }
 
   if (activeFolder) {
-    return (
+    return (<>
       <FolderDetailView
         folderDetail={folderDetail}
         folderLoading={folderLoading}
@@ -1669,11 +1693,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           window.dispatchEvent(new CustomEvent("sc-open-study", { detail }));
         }}
       />
-    );
+      {streamOverlay}
+    </>);
   }
 
   return (
     <div ref={ptr.ref} className="ptr-container mc-root mx-auto max-w-[1200px] p-4 sm:p-6">
+      {streamOverlay}
       <div style={ptr.indicatorStyle} className="ptr-indicator">
         {ptr.showSpinner ? (
           <div className="ptr-spinner" />

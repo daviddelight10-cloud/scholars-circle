@@ -307,16 +307,20 @@ export function generateSummaryPdf(title, subject, summaryText) {
       }
 
       case "quote": {
-        // Gold left bar + tinted box; measure height first.
+        // Callout box — ⚠️ red flags and 💎 pearls get distinct tints
+        const isWarn = /^⚠️|^⚠/.test(block.text);
+        const isPearl = /^💎/.test(block.text);
+        const boxBg = isWarn ? [253, 236, 236] : isPearl ? [248, 240, 205] : COLORS.quoteBg;
+        const barCol = isWarn ? [198, 60, 60] : COLORS.heading;
         doc.setFont("helvetica", "italic");
         doc.setFontSize(10);
         const innerW = contentWidth - 24;
         const measured = doc.splitTextToSize(stripInline(block.text), innerW);
         const boxH = measured.length * LINE_H + 14;
         ensure(boxH);
-        doc.setFillColor(...COLORS.quoteBg);
+        doc.setFillColor(...boxBg);
         doc.rect(PAGE.marginX, y - 10, contentWidth, boxH, "F");
-        doc.setFillColor(...COLORS.heading);
+        doc.setFillColor(...barCol);
         doc.rect(PAGE.marginX, y - 10, 2.5, boxH, "F");
         y = renderRichText(parseInline(block.text), PAGE.marginX + 12, y, innerW, { fontSize: 10 });
         y += 10;

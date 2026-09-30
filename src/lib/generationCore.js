@@ -1,4 +1,4 @@
-import { callAI, callAIMultimodal, extractJSON } from "./aiClient";
+import { callAI, callAITutor, callAIMultimodal, extractJSON } from "./aiClient";
 import { chunkText } from "./extractFileText";
 
 export const MAX_QUESTIONS = 1000;
@@ -88,10 +88,32 @@ ${text}
 """`;
 }
 
-export function buildSummaryPrompt(text) {
-  return `You are an expert academic assistant. Create a comprehensive but concise study summary from the content below.
+const SUMMARY_FORMAT_CONTRACT = `STRICT FORMAT CONTRACT:
+- Start directly with the first "##" section — do NOT add a top-level # title.
+- Use "##" for section headings and "###" for sub-headings.
+- Use "-" for bullet points and "1. " for numbered lists (always a space after the period).
+- Use ** only around important terms inline, e.g. - **Mitosis:** cell division that…
+- Markdown tables (| col | col |) are allowed for comparisons/classifications.
+- No HTML, no horizontal rules, no code fences. Blockquotes (>) only for the callouts below.
+- Keep bullets scannable — one idea each.`;
 
-Structure the summary under these ## sections (skip a section only if the content genuinely lacks it):
+const SUMMARY_SCAFFOLD = `Choose ONE section scaffold based on the content — YOU decide:
+
+IF the content is medical/clinical (anatomy, physiology, pathology, pharmacology, clinical medicine, nursing, dentistry, public health, biochemistry with clinical relevance):
+## Overview & Definition
+## Pathophysiology / Mechanism
+## Clinical Presentation
+## Investigations & Diagnosis
+## Management & Treatment   — include a "| Drug | Dose | Notes |" table whenever medications appear
+## Complications & Prognosis
+## Red Flags & Clinical Pearls
+## Likely Exam Questions
+
+For clinical content ONLY, also mark critical items as callout quotes inside the relevant section:
+> ⚠️ RED FLAG: <dangerous sign/complication not to miss>
+> 💎 PEARL: <high-yield clinical insight>
+
+OTHERWISE (non-medical content):
 ## Key Concepts
 ## Definitions
 ## Formulas & Key Facts
@@ -99,14 +121,14 @@ Structure the summary under these ## sections (skip a section only if the conten
 ## Likely Exam Questions
 ## Mnemonics & Memory Aids
 
-STRICT FORMAT CONTRACT:
-- Start directly with "## Key Concepts" — do NOT add a top-level # title.
-- Use "##" for section headings and "###" for sub-headings.
-- Use "-" for bullet points and "1. " for numbered lists (always a space after the period).
-- Use ** only around important terms inline, e.g. - **Mitosis:** cell division that…
-- Markdown tables (| col | col |) are allowed for comparisons/classifications.
-- No blockquotes (>), no HTML, no horizontal rules, no code fences.
-- Keep bullets scannable — one idea each.
+Skip a section only if the content genuinely lacks material for it.`;
+
+export function buildSummaryPrompt(text) {
+  return `You are an expert academic assistant. Create a comprehensive but concise study summary from the content below.
+
+${SUMMARY_SCAFFOLD}
+
+${SUMMARY_FORMAT_CONTRACT}
 
 CONTENT:
 """
@@ -129,22 +151,9 @@ ${text}
 export function buildMergeSummaryPrompt(notes) {
   return `You are an expert academic assistant. Below are study notes extracted from ALL parts of a document. Merge them into ONE comprehensive, well-organized study summary — deduplicate, group related ideas, and keep every distinct fact.
 
-Structure the summary under these ## sections (skip a section only if nothing fits):
-## Key Concepts
-## Definitions
-## Formulas & Key Facts
-## Worked Examples / Processes
-## Likely Exam Questions
-## Mnemonics & Memory Aids
+${SUMMARY_SCAFFOLD}
 
-STRICT FORMAT CONTRACT:
-- Start directly with "## Key Concepts" — do NOT add a top-level # title.
-- Use "##" for section headings and "###" for sub-headings.
-- Use "-" for bullet points and "1. " for numbered lists (always a space after the period).
-- Use ** only around important terms inline.
-- Markdown tables (| col | col |) are allowed for comparisons/classifications.
-- No blockquotes (>), no HTML, no horizontal rules, no code fences.
-- Keep bullets scannable — one idea each.
+${SUMMARY_FORMAT_CONTRACT}
 
 NOTES:
 """
@@ -491,9 +500,12 @@ export async function generateFlashcards(text, images, onProgress) {
  * @param {string} text - Extracted text
  * @param {string[]} images - Array of image data URLs
  * @param {function} [onProgress] - Progress callback
+ * @param {object} [options] - { onToken: (accumulatedRaw) => void, signal }
+ *   onToken streams the final summary text live (SSE via the tutor endpoint);
+ *   when provided, the last pass of generation streams token-by-token.
  * @returns {Promise<string>}
  */
-export async function generateSummary(text, images, onProgress) {
+export async function generateSummary(text, images, onProgress, { onToken, signal } = {}) {
   if (images.length > 0 && text.length < 50) {
     onProgress?.(`Analyzing ${images.length} image${images.length > 1 ? "s" : ""} with AI…`);
     const contextText = "The images contain study material. Generate comprehensive content covering all the content visible.";
@@ -509,10 +521,13 @@ export async function generateSummary(text, images, onProgress) {
   const chunks = chunkText(text, chunkSize);
   const aiOpts = { provider: "openrouter", model: "z-ai/glm-5.3-flash" };
 
-  // Short docs — single pass.
+  // Short docs — single pass (streams when onToken is provided).
   if (chunks.length <= 1 || text.length <= 20000) {
     onProgress?.("Generating summary…");
-    const raw = await callAI(buildSummaryPrompt(chunks.join("\n\n").slice(0, 20000)), aiOpts);
+    const prompt = buildSummaryPrompt(chunks.join("\n\n").slice(0, 20000));
+    const raw = onToken
+      ? (await callAITutor(prompt, aiOpts, { onToken, signal })).raw
+      : await callAI(prompt, aiOpts);
     if (!raw || !raw.trim()) throw new Error("AI didn't generate a summary. Try again.");
     return raw;
   }
@@ -539,7 +554,10 @@ export async function generateSummary(text, images, onProgress) {
   if (validNotes.length === 1) return validNotes[0];
 
   onProgress?.("Merging into final summary…");
-  const merged = await callAI(buildMergeSummaryPrompt(validNotes.join("\n\n").slice(0, 30000)), aiOpts);
+  const mergePrompt = buildMergeSummaryPrompt(validNotes.join("\n\n").slice(0, 30000));
+  const merged = onToken
+    ? (await callAITutor(mergePrompt, aiOpts, { onToken, signal })).raw
+    : await callAI(mergePrompt, aiOpts);
   if (!merged || !merged.trim()) return validNotes.join("\n\n");
   return merged;
 }

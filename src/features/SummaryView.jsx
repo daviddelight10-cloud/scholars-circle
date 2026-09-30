@@ -22,7 +22,7 @@ RULE: Start your reply with the answer itself — NO preamble, NO "great questio
 Format: **bold** key terms. Bullet points for lists. Numbered steps for processes.
 Length: concise and scannable — this is revision, not a lecture.`;
 
-const CHAT_STARTERS = ["Explain the hardest concept simply", "Quiz me on this summary", "Give me mnemonics for the key terms"];
+const CHAT_STARTERS = ["Explain the hardest concept simply", "Quiz me on this summary", "Test me like a viva", "Give me a clinical vignette"];
 
 function pdfDownloadUrl(fileUrl) {
   const token = (() => {

@@ -92,7 +92,12 @@ export function useMaterialGenerate() {
   const [genProgress, setGenProgress] = useState("");
   const [genError, setGenError] = useState("");
   const [genErrorId, setGenErrorId] = useState(null);
+  // Live-streamed summary text (null = not streaming / not a summary run)
+  const [streamText, setStreamText] = useState(null);
+  const [streamTitle, setStreamTitle] = useState("");
+  const [streamDone, setStreamDone] = useState(false);
   const activeRef = useRef(null);
+  const abortRef = useRef(null);
   const lastResourceRef = useRef(null);
   const lastKindRef = useRef(null);
   const lastOnSaveRef = useRef(null);
@@ -101,12 +106,15 @@ export function useMaterialGenerate() {
     if (!resource || !onSave) return;
     if (activeRef.current) return; // prevent concurrent generations
     activeRef.current = resource.id;
+    abortRef.current = new AbortController();
     lastResourceRef.current = resource;
     lastKindRef.current = kind;
     lastOnSaveRef.current = onSave;
     setGeneratingId(resource.id);
     setGenError("");
     setGenErrorId(null);
+    setStreamText(null);
+    setStreamDone(false);
 
     try {
       const baseTitle = resource.title || "Material";
@@ -128,6 +136,7 @@ export function useMaterialGenerate() {
 
         setGenProgress(`Generated ${mcqRows.length} questions ✓ — saving…`);
 
+        if (abortRef.current?.signal.aborted) return;
         onSave({
           title: `${baseTitle} — Rapid Recall`,
           subject: baseSubject,
@@ -138,11 +147,18 @@ export function useMaterialGenerate() {
           isPublic: false,
         });
       } else if (kind === "summary") {
+        // Open the streaming view instantly — it shows progress until tokens land
+        setStreamTitle(baseTitle);
+        setStreamText("");
         setGenProgress("Extracting text from material…");
         const { text, images } = await extractResourceText(resource);
-        const summaryText = await generateSummary(text, images, setGenProgress);
+        const summaryText = await generateSummary(text, images, setGenProgress, {
+          onToken: (raw) => setStreamText(raw),
+          signal: abortRef.current?.signal,
+        });
         setGenProgress("Generating formatted PDF…");
         const { fileBuffer, fileName } = summaryToPdfBuffer(baseTitle, baseSubject, summaryText);
+        if (abortRef.current?.signal.aborted) return;
         onSave({
           title: baseTitle,
           subject: baseSubject,
@@ -156,14 +172,32 @@ export function useMaterialGenerate() {
         });
       }
       setGenProgress("");
+      setStreamDone(true);
     } catch (err) {
-      setGenError(err.message || "AI generation failed. Try again.");
-      setGenErrorId(resource.id);
+      if (err.stoppedByUser) {
+        setStreamText(null); // cancelled — close the stream view quietly
+      } else {
+        setGenError(err.message || "AI generation failed. Try again.");
+        setGenErrorId(resource.id);
+      }
       setGenProgress("");
     } finally {
       activeRef.current = null;
+      abortRef.current = null;
       setGeneratingId(null);
     }
+  }, []);
+
+  // Stop the in-flight generation (abort the AI stream and close the overlay)
+  const cancel = useCallback(() => {
+    abortRef.current?.abort(new DOMException("Stopped", "AbortError"));
+    setStreamText(null);
+  }, []);
+
+  // Dismiss the finished streaming view
+  const closeStream = useCallback(() => {
+    setStreamText(null);
+    setStreamDone(false);
   }, []);
 
   const retry = useCallback(() => {
@@ -180,5 +214,5 @@ export function useMaterialGenerate() {
     setGenErrorId(null);
   }, []);
 
-  return { generatingId, genProgress, genError, genErrorId, generate, retry, clearError };
+  return { generatingId, genProgress, genError, genErrorId, streamText, streamTitle, streamDone, generate, retry, cancel, closeStream, clearError };
 }

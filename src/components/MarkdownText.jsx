@@ -323,10 +323,16 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
         continue;
       }
 
-      // Blockquote — render as callout box
+      // Blockquote — render as callout box; ⚠️ / 💎 markers get distinct styles
       if (trimmed.startsWith("> ")) {
         if (listItems.length > 0) { elements.push(<ul key={elements.length} style={{ margin: "8px 0", paddingLeft: 20, ...style }}>{listItems.map((li, j) => <li key={j} style={{ marginBottom: 4, color: P.text }}>{li}</li>)}</ul>); listItems = []; }
-        elements.push(<div key={elements.length} style={{ background: P.blockquoteBg, borderLeft: `3px solid ${P.blockquoteBorder}`, borderRadius: "0 8px 8px 0", padding: "8px 12px", margin: "8px 0", color: P.blockquoteText, ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(trimmed.slice(2), P, recallMode) }} />);
+        const qt = trimmed.slice(2);
+        const qStyle = /^⚠️|^⚠/.test(qt)
+          ? { background: "rgba(239,83,80,0.08)", borderLeft: "3px solid #EF5350", color: "#EF9A9A" }
+          : /^💎/.test(qt)
+            ? { background: "rgba(255,215,0,0.10)", borderLeft: "3px solid #FFD700", color: "#E8D9A0" }
+            : { background: P.blockquoteBg, borderLeft: `3px solid ${P.blockquoteBorder}`, color: P.blockquoteText };
+        elements.push(<div key={elements.length} style={{ ...qStyle, borderRadius: "0 8px 8px 0", padding: "8px 12px", margin: "8px 0", ...style }} dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(qt, P, recallMode) }} />);
         i++;
         continue;
       }
