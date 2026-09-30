@@ -28,7 +28,8 @@
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.16.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "smiles-drawer": "^2.1.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

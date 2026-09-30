@@ -1,3 +1,5 @@
+import MoleculeView from "./MoleculeView.jsx";
+
 const PALETTES = {
   dark: {
     text: "#e8eaf6",
@@ -192,6 +194,28 @@ function renderInlineWithTheme(text, P, recall) {
     .replace(/__ITALIC_COLOR__/g, P.italicColor);
 }
 
+// Renders ```flow blocks — pathway/sequence content like
+// "Glucose → G6P → F6P" — as arrow-separated pills instead of a code block.
+function FlowSteps({ steps, palette: P, recall }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, margin: "10px 0" }}>
+      {steps.map((s, i) => (
+        <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {i > 0 && <span style={{ color: P.accent, fontSize: 13, fontWeight: 800 }}>→</span>}
+          <span
+            style={{
+              background: P.blockquoteBg, border: `0.5px solid ${P.blockquoteBorder}`,
+              borderRadius: 8, padding: "4px 10px", fontSize: 12, color: P.text,
+              fontFamily: "Manrope,sans-serif", lineHeight: 1.5,
+            }}
+            dangerouslySetInnerHTML={{ __html: renderInlineWithTheme(s, P, recall) }}
+          />
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function MarkdownText({ children, style, theme = "dark", recallMode = false }) {
   const P = PALETTES[theme] || PALETTES.dark;
   if (!children || typeof children !== "string") {
@@ -204,14 +228,27 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
 
   for (let seg of segments) {
     if (seg.startsWith("```")) {
-      const lines = seg.replace(/^```\w*\n?/, "").replace(/```$/, "").split("\n");
+      const lang = (seg.match(/^```(\w*)/) || [])[1]?.toLowerCase() || "";
+      const body = seg.replace(/^```\w*\n?/, "").replace(/```$/, "").replace(/\n$/, "");
+      if (lang === "smiles") {
+        const [smiles, ...rest] = body.split("\n").map(l => l.trim()).filter(Boolean);
+        elements.push(<MoleculeView key={elements.length} smiles={smiles} label={rest.join(" ")} />);
+        continue;
+      }
+      if (lang === "flow") {
+        const steps = body.split(/\n|→|->/).map(s => s.trim()).filter(Boolean);
+        if (steps.length > 1) {
+          elements.push(<FlowSteps key={elements.length} steps={steps} palette={P} recall={recallMode} />);
+          continue;
+        }
+      }
       elements.push(
         <pre key={elements.length} style={{
           background: P.codeBg, border: `0.5px solid ${P.codeBorder}`,
           borderRadius: 10, padding: "12px 14px", overflowX: "auto",
           fontSize: 12.5, fontFamily: "'Cascadia Code','Fira Code','Consolas',monospace", color: P.codeText,
           margin: "10px 0", whiteSpace: "pre", lineHeight: 1.5,
-        }}>{lines.join("\n")}</pre>
+        }}>{body}</pre>
       );
       continue;
     }

@@ -2690,6 +2690,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             studyContext={studyContext}
             onPhaseChange={setStudyPhase}
             onScrollChange={setStudyScrolled}
+            onAskTutor={(q) => { setView("chat"); ask(q); }}
           />
         )}
 

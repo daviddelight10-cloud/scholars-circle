@@ -4,6 +4,7 @@ import MarkdownText from "../components/MarkdownText.jsx";
 import { getStudyCache, saveStudyCache, clearStudyCache, recordGuidedProgress } from "../lib/studyCache.js";
 import { useComboStreak } from "../lib/useComboStreak.js";
 import { haptics } from "../lib/haptics.js";
+import { studySounds } from "../lib/studySounds.js";
 import { api } from "../lib/appUtils.js";
 import { XP_PER_CORRECT, STREAK_BONUS } from "../data.js";
 
@@ -342,6 +343,8 @@ Reply ONLY with valid JSON (no markdown fences) in this exact shape:
 Rules:
 - 3-5 chunks, ordered from foundational ideas to advanced ones — each chunk is a bite-sized piece a student absorbs in ~1 minute
 - In "markdown": use **bold** for key terms, bullet lists for enumerations, > blockquotes for real-world examples or analogies, code blocks for formulas/diagrams, LaTeX ($...$) for math
+- When a pathway, cycle or step sequence matters (metabolic pathways, cascades, algorithms), include a fenced code block tagged "flow" whose content is the steps joined by → (e.g. Glucose → Glucose-6-phosphate → Fructose-6-phosphate)
+- When a molecular structure genuinely helps (sugars, amino acids, drugs — not water or simple ions), include a fenced code block tagged "smiles" with the SMILES string on the first line and the molecule name on the second line (e.g. OCC1OC(O)C(O)C(O)C1O / Glucose)
 - Every chunk MUST have a "check": a 4-option MCQ testing the core idea of that chunk (comprehension, not trivia)
 - "answer" is the 0-based index of the correct option — vary it across chunks
 - Keep the tone clear, encouraging, and concise`,
@@ -616,7 +619,7 @@ const LAUNCH_MSGS = {
 
 const STATUS_LABEL = { fuzzy: "Still fuzzy 🌫️", solid: "Got it 👍", mastered: "Nailed it 🔥" };
 
-export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null }) {
+export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null, onAskTutor = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");   // input | roadmap | section | review | summary
   const [topic, setTopic]               = useState(initialTopic);
@@ -647,6 +650,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   const checksRef                       = useRef({ correct: 0, total: 0 });
   const xpPostedRef                     = useRef(false);
   const sessionStartRef                 = useRef(0);
+  const prefetchRef                     = useRef(null);   // {sectionId, promise} — in-flight next-section generation
+  const questionPrefetchRef             = useRef(null);   // {sectionId, promise} — in-flight comprehension question
+  const [reexplaining, setReexplaining] = useState({});   // {chunkIdx: bool}
   const combo                           = useComboStreak("guided");
   const studiedCount                    = Object.keys(studied).length;
   const sessionXP                       = combo.correctCount * XP_PER_CORRECT + combo.totalStreakBonus;
@@ -675,6 +681,45 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
       updatedAt: new Date().toISOString(),
     });
   }, [studied, roadmap]);
+
+  // ── Prefetch: while the user reads a section, silently generate the NEXT
+  // section's explanation and this section's comprehension question, so both
+  // are instant when needed. Results land in the same cache handleStudy reads.
+  useEffect(() => {
+    if (phase !== "section" || !roadmap || !activeSection || !sectionData || sectionData.parseError) return;
+    const key = docCacheKey(topic, sourceContent);
+    const idx = roadmap.sections.findIndex(s => s.id === activeSection.id);
+    const next = roadmap.sections[idx + 1];
+
+    if (next && prefetchRef.current?.sectionId !== next.id) {
+      prefetchRef.current = {
+        sectionId: next.id,
+        promise: (async () => {
+          const cached = await getStudyCache(key);
+          const c = cached?.explanations?.[String(next.id)];
+          if (c?.structured?.chunks?.length || c?.text) return null;
+          const titles = roadmap.sections.filter(s => studied[s.id]).map(s => s.title);
+          const data = await aiExplain(topic, next, aiConfig, studyContext, activeSection, [...titles, activeSection.title], sourceContent, idx + 1, roadmap.sections.length);
+          if (data && !data.parseError) saveExplanation(key, next.id, data);
+          return data || null;
+        })().catch(() => null),
+      };
+    }
+
+    if (!qData && questionPrefetchRef.current?.sectionId !== activeSection.id) {
+      questionPrefetchRef.current = {
+        sectionId: activeSection.id,
+        promise: (async () => {
+          const cached = await getStudyCache(key);
+          if (cached?.explanations?.[String(activeSection.id)]?.question) return null;
+          const explainText = sectionData.chunks ? sectionData.chunks.map(x => x.markdown).join("\n\n") : sectionData.text || "";
+          const q = await aiQuestion(topic, activeSection, explainText, aiConfig, studyContext);
+          if (q?.question) saveStudyCache(key, { explanations: { [String(activeSection.id)]: { question: q } } });
+          return q || null;
+        })().catch(() => null),
+      };
+    }
+  }, [phase, activeSection, sectionData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-launch when startMode is provided with a topic ──
   useEffect(() => {
@@ -853,12 +898,21 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
         return;
       }
       setLoadingMsg("Generating explanation…");
-      const studiedTitles = roadmap ? roadmap.sections.filter(s => studied[s.id]).map(s => s.title) : [];
-      const prevSection = roadmap ? roadmap.sections.filter(s => studied[s.id]).pop() : null;
-      const sectionIdx = roadmap ? Math.max(0, roadmap.sections.findIndex(s => s.id === section.id)) : 0;
-      const data = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles, sourceContent, sectionIdx, roadmap?.sections.length || 1);
+      let data = null;
+      // The prefetch effect may already be generating this section — wait for it
+      // instead of firing a duplicate request.
+      if (prefetchRef.current?.sectionId === section.id) {
+        setLoadingMsg("Finishing up…");
+        data = await prefetchRef.current.promise;
+      }
+      if (!data) {
+        const studiedTitles = roadmap ? roadmap.sections.filter(s => studied[s.id]).map(s => s.title) : [];
+        const prevSection = roadmap ? roadmap.sections.filter(s => studied[s.id]).pop() : null;
+        const sectionIdx = roadmap ? Math.max(0, roadmap.sections.findIndex(s => s.id === section.id)) : 0;
+        data = await aiExplain(topic, section, aiConfig, studyContext, prevSection, studiedTitles, sourceContent, sectionIdx, roadmap?.sections.length || 1);
+        if (data && !data.parseError) saveExplanation(docCacheKey(topic, sourceContent), section.id, data);
+      }
       setSectionData(data);
-      if (!data.parseError) saveExplanation(docCacheKey(topic, sourceContent), section.id, data);
     } finally { setLoading(false); }
   }
 
@@ -866,9 +920,36 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     if (checkAnswers[chunkIdx] !== undefined) return;
     const check = sectionData?.chunks?.[chunkIdx]?.check;
     if (!check) return;
+    haptics.selection();
+    if (optIdx === check.answer) studySounds.correct(); else studySounds.wrong();
     setCheckAnswers(prev => ({ ...prev, [chunkIdx]: optIdx }));
     recordCheck(optIdx === check.answer);
     setVisibleChunks(v => Math.max(v, chunkIdx + 2));
+  }
+
+  // Regenerates just one chunk's explanation with a different, simpler framing —
+  // shown after the student misses that chunk's quick check.
+  async function explainDifferently(ci) {
+    const chunk = sectionData?.chunks?.[ci];
+    if (!chunk || reexplaining[ci] || !activeSection) return;
+    setReexplaining(r => ({ ...r, [ci]: true }));
+    try {
+      const chosen = chunk.check ? chunk.check.options?.[checkAnswers[ci]] : null;
+      const missed = chosen
+        ? ` They answered "${chosen}" to "${chunk.check.question}" — the correct answer was "${chunk.check.options?.[chunk.check.answer]}".`
+        : "";
+      const raw = await callAI(
+        `A student is learning "${activeSection.title}" (part of "${topic}").${missed} Re-explain this concept in a SIMPLER, different way — use a fresh analogy or concrete real-world example, and do not repeat the original phrasing. Reply with 1-3 short markdown paragraphs only (no JSON, no heading, no questions).`,
+        aiConfig
+      );
+      const text = (raw || "").trim();
+      if (text) {
+        setSectionData(prev => prev ? ({
+          ...prev,
+          chunks: prev.chunks.map((c, i) => i === ci ? { ...c, markdown: text } : c),
+        }) : prev);
+      }
+    } catch {} finally { setReexplaining(r => ({ ...r, [ci]: false })); }
   }
 
   function handleConfidence(status) {
@@ -883,13 +964,22 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     setSectionStep("question");
     setLoading(true); setLoadingMsg("Generating a comprehension question…");
     try {
-      const explainText = sectionData?.chunks
-        ? sectionData.chunks.map(c => c.markdown).join("\n\n")
-        : sectionData?.text || "";
-      const q = await aiQuestion(topic, activeSection, explainText, aiConfig, studyContext);
+      const key = docCacheKey(topic, sourceContent);
+      const sectionKey = String(activeSection.id);
+      const cached = await getStudyCache(key);
+      let q = cached?.explanations?.[sectionKey]?.question;
+      if (!q && questionPrefetchRef.current?.sectionId === activeSection.id) {
+        q = await questionPrefetchRef.current.promise;
+      }
+      if (!q) {
+        const explainText = sectionData?.chunks
+          ? sectionData.chunks.map(c => c.markdown).join("\n\n")
+          : sectionData?.text || "";
+        q = await aiQuestion(topic, activeSection, explainText, aiConfig, studyContext);
+      }
       setQData(q);
-      if (activeSection) {
-        saveStudyCache(docCacheKey(topic, sourceContent), { explanations: { [String(activeSection.id)]: { question: q } } });
+      if (q?.question) {
+        saveStudyCache(key, { explanations: { [sectionKey]: { question: q } } });
       }
     } finally { setLoading(false); }
   }
@@ -935,6 +1025,8 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   function handleReviewAnswer(optIdx) {
     if (!review || review.answers[review.idx] !== undefined) return;
     const q = review.questions[review.idx];
+    haptics.selection();
+    if (optIdx === q.answer) studySounds.correct(); else studySounds.wrong();
     setReview(prev => ({ ...prev, answers: { ...prev.answers, [prev.idx]: optIdx } }));
     recordCheck(optIdx === q.answer);
   }
@@ -1315,6 +1407,11 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                             onAnswer={(oi) => handleCheckAnswer(ci, oi)}
                           />
                         )}
+                        {chunk.check && checkAnswers[ci] !== undefined && checkAnswers[ci] !== chunk.check.answer && (
+                          <Btn variant="ghost" onClick={() => explainDifferently(ci)} disabled={reexplaining[ci]} style={{ marginTop:-8, marginBottom:14 }}>
+                            {reexplaining[ci] ? "↻ Re-explaining…" : "↻ Explain this differently"}
+                          </Btn>
+                        )}
                         {!chunk.check && ci === visibleChunks - 1 && ci < chunks.length - 1 && (
                           <Btn variant="ghost" onClick={() => setVisibleChunks(v => v + 1)} style={{ marginBottom:14 }}>
                             Continue →
@@ -1344,6 +1441,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                           <Btn variant="green" onClick={nextSection}>
                             {isLastSection ? "Finish →" : "Next section →"}
                           </Btn>
+                          {onAskTutor && (
+                            <Btn variant="ghost" onClick={() => onAskTutor(`I'm studying "${activeSection.title}" (part of "${topic}") and want help understanding it — can you explain the tricky parts differently?`)}>💬 Ask the tutor</Btn>
+                          )}
                         </div>
                       </>
                     )}
@@ -1363,6 +1463,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                       <Btn variant="green" onClick={nextSection}>
                         {isLastSection ? "Finish →" : "Next section →"}
                       </Btn>
+                      {onAskTutor && (
+                        <Btn variant="ghost" onClick={() => onAskTutor(`I'm studying "${activeSection.title}" (part of "${topic}") and want help understanding it — can you explain the tricky parts differently?`)}>💬 Ask the tutor</Btn>
+                      )}
                     </div>
                   </>
                 )}
@@ -1436,6 +1539,9 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
                   </Btn>
                   <Btn variant="ghost" onClick={() => setSectionStep("learn")}>← Back to lesson</Btn>
                   <Btn variant="ghost" onClick={() => setPhase("roadmap")}>Roadmap</Btn>
+                  {onAskTutor && (
+                    <Btn variant="ghost" onClick={() => onAskTutor(`I'm studying "${activeSection?.title}" (part of "${topic}") and my answer wasn't quite right. Can you walk me through it?`)}>💬 Ask the tutor</Btn>
+                  )}
                 </div>
               </>
             )}
