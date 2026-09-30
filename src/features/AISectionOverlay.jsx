@@ -1610,6 +1610,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   const [data, setData]             = useState(null);
   const [cardDeck, setCardDeck]     = useState(null); // flashcards for the practice view
   const [studyPhase, setStudyPhase] = useState("input"); // Guided Study phase, for contextual chrome
+  const [studyScrolled, setStudyScrolled] = useState(false); // Guided Study scroll depth
   const [attachment, setAttachment] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConvos]  = useState(() => loadConvos());
@@ -2286,9 +2287,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         </div>
         )}
 
-        {/* Floating back-to-chat — only inside a section/review/summary,
-            the deep phases whose own nav only goes back to the roadmap */}
-        {view === "study" && ["section", "review", "summary"].includes(studyPhase) && (
+        {/* Floating back-to-chat — inside deep phases, and only once the
+            user scrolls past the section's own ← Roadmap header */}
+        {view === "study" && ["section", "review", "summary"].includes(studyPhase) && studyScrolled && (
           <button
             onClick={handleBack}
             title="Back to AI Tutor"
@@ -2299,6 +2300,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               background: D.accent, border: `0.5px solid ${D.line}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", color: D.muted, fontSize: 17,
+              animation: "fade-up 0.2s ease both",
             }}
           >←</button>
         )}
@@ -2600,6 +2602,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             initialAttachment={studyAttachment}
             studyContext={studyContext}
             onPhaseChange={setStudyPhase}
+            onScrollChange={setStudyScrolled}
           />
         )}
 

@@ -616,7 +616,7 @@ const LAUNCH_MSGS = {
 
 const STATUS_LABEL = { fuzzy: "Still fuzzy 🌫️", solid: "Got it 👍", mastered: "Nailed it 🔥" };
 
-export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null }) {
+export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");   // input | roadmap | section | review | summary
   const [topic, setTopic]               = useState(initialTopic);
@@ -661,8 +661,8 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     return () => { mountedRef.current = false; window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); };
   }, []);
 
-  // ── Report phase changes (parent shows contextual chrome, e.g. exit button) ──
-  useEffect(() => { onPhaseChange?.(phase); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Report phase + scroll depth (parent shows contextual chrome, e.g. exit button) ──
+  useEffect(() => { onPhaseChange?.(phase); onScrollChange?.(false); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Record progress for the material card that launched this session ──
   useEffect(() => {
@@ -968,7 +968,10 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
 
   // ── Common wrapper — content centers in a ~780px column on wide screens
   const wrap = (children) => (
-    <div style={{ flex:1, overflowY:"auto", padding:"16px 14px 20px", scrollbarWidth:"none" }}>
+    <div
+      style={{ flex:1, overflowY:"auto", padding:"16px 14px 20px", scrollbarWidth:"none" }}
+      onScroll={(e) => onScrollChange?.(e.currentTarget.scrollTop > 100)}
+    >
       <div style={{ maxWidth:780, width:"100%", margin:"0 auto" }}>
         {children}
       </div>
