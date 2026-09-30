@@ -187,9 +187,55 @@ router.get("/groups/my", requireAuth, async (req, res) => {
     for (const m of memberships) byId.set(m.classroomId, m.classroom);
     for (const g of created) byId.set(g.id, g);
 
+    const ids = [...byId.keys()];
+
+    // Last message + member avatar stack for the list rows — batched per
+    // group (the list is small: user's own groups only).
+    const [lastMsgs, memberPreviews] = await Promise.all([
+      Promise.all(
+        ids.map((cid) =>
+          prisma.classroomMessage.findFirst({
+            where: { classroomId: cid },
+            include: { user: { select: { fullName: true, username: true } } },
+            orderBy: { createdAt: "desc" },
+          })
+        )
+      ),
+      Promise.all(
+        ids.map((cid) =>
+          prisma.classroomMember.findMany({
+            where: { classroomId: cid },
+            include: { user: { select: { userProfile: { select: { avatar: true } } } } },
+            take: 4,
+          })
+        )
+      ),
+    ]);
+
+    const lastMsgById = new Map(ids.map((cid, i) => [cid, lastMsgs[i]]));
+    const avatarsById = new Map(
+      ids.map((cid, i) => [
+        cid,
+        (memberPreviews[i] || []).map((m) => m.user?.userProfile?.avatar).filter(Boolean),
+      ])
+    );
+
     const groups = [...byId.values()]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .map((g) => groupShape(g, userId));
+      .map((g) => {
+        const last = lastMsgById.get(g.id);
+        return {
+          ...groupShape(g, userId),
+          lastMessage: last
+            ? {
+                text: last.text,
+                sender: last.user?.fullName || last.user?.username || "Someone",
+                createdAt: last.createdAt,
+              }
+            : null,
+          memberAvatars: avatarsById.get(g.id) || [],
+        };
+      });
     res.json(groups);
   } catch (error) {
     console.error("Error fetching groups:", error);

@@ -1,26 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
-import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
+import { createLiveRoom, mcqVariant, mcqQuestionCount } from "../live-quiz/liveQuizApi.js";
 import { Avatar, displayTitle } from "./feedUi";
-
-// The MCQ-playable variant of a material: itself if it's an MCQ set,
-// else its AI-generated MCQ derived resource.
-function mcqVariant(r) {
-  if (!r) return null;
-  if (r.contentType === "mcq" && r.mcqData) return r;
-  return (r.derivedResources || []).find((d) => d.contentType === "mcq" && d.mcqData) || null;
-}
-
-function mcqQuestionCount(r) {
-  const v = mcqVariant(r);
-  if (!v) return 0;
-  let data = v.mcqData;
-  if (typeof data === "string") {
-    try { data = JSON.parse(data); } catch { data = null; }
-  }
-  return Array.isArray(data) ? data.length : 0;
-}
 
 export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, liveOnly }) {
   const [text, setText] = useState("");

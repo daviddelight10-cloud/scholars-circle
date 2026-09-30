@@ -498,6 +498,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                 joinCode={joinCode}
                 onJoinHandled={() => setJoinCode(null)}
                 onOpenProfile={setProfileUserId}
+                onOpenResource={onOpenResource}
+                onJoinQuiz={handleJoinQuiz}
               />
             </>
           )}

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { API_BASE } from "../../lib/constants";
+import { Avatar } from "../feed/feedUi";
 
 const METRICS = [
   { value: "xp", label: "XP earned", emoji: "⚡" },
@@ -9,8 +10,7 @@ const METRICS = [
 ];
 
 export default function GroupGoals({ classroomId, token, isTeacher }) {
-  const [goals, setGoals] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [goals, setGoals] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newGoal, setNewGoal] = useState({ title: "", targetValue: 500, metric: "xp", deadline: "" });
   const [celebrate, setCelebrate] = useState(null);
@@ -22,24 +22,23 @@ export default function GroupGoals({ classroomId, token, isTeacher }) {
       const res = await fetch(`${API_BASE}/study-group/${classroomId}/goals`, { headers: authHeaders });
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
-      // Check for newly completed goals
-      data.forEach((g) => {
-        if (g.completedAt && !goals.find((old) => old.id === g.id && old.completedAt)) {
-          setCelebrate(g);
-          setTimeout(() => setCelebrate(null), 4000);
-        }
+      setGoals((prev) => {
+        data.forEach((g) => {
+          if (g.completedAt && !(prev || []).find((old) => old.id === g.id && old.completedAt)) {
+            setCelebrate(g);
+            setTimeout(() => setCelebrate(null), 4000);
+          }
+        });
+        return data;
       });
-      setGoals(data);
     } catch (err) {
       console.error("Goals error:", err);
-    } finally {
-      setLoading(false);
     }
-  }, [classroomId, token]);
+  }, [classroomId, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchGoals();
-    const interval = setInterval(fetchGoals, 10000);
+    const interval = setInterval(fetchGoals, 15000);
     return () => clearInterval(interval);
   }, [fetchGoals]);
 
@@ -78,140 +77,116 @@ export default function GroupGoals({ classroomId, token, isTeacher }) {
     }
   }
 
-  function getMetricEmoji(metric) {
-    return METRICS.find((m) => m.value === metric)?.emoji || "🎯";
-  }
+  const metricEmoji = (m) => METRICS.find((x) => x.value === m)?.emoji || "🎯";
+  const metricLabel = (m) => METRICS.find((x) => x.value === m)?.label || m;
 
-  function getMetricLabel(metric) {
-    return METRICS.find((m) => m.value === metric)?.label || metric;
-  }
-
-  function formatDeadline(date) {
+  function deadlineLabel(date) {
     if (!date) return null;
-    const d = new Date(date);
-    const now = new Date();
-    const days = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+    const days = Math.ceil((new Date(date) - new Date()) / 86400000);
     if (days < 0) return "Expired";
     if (days === 0) return "Due today";
     if (days === 1) return "Due tomorrow";
     return `Due in ${days}d`;
   }
 
-  if (loading) {
+  if (goals === null) {
     return (
-      <div className="cr-glass" style={{ textAlign: "center", padding: 40 }}>
-        <div className="spinner spinner-lg" style={{ margin: "0 auto 12px" }} />
-        <div style={{ fontSize: 13, color: "#6b7280" }}>Loading goals…</div>
+      <div className="fd-skeletons">
+        {[0, 1].map((i) => <div key={i} className="fd-card fd-skeleton" style={{ height: 110 }} />)}
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="gv-goals">
       {isTeacher && (
-        <div className="cr-collapsible" style={{ marginBottom: 12 }}>
-          <div className="cr-collapsible-header" onClick={() => setShowCreate(!showCreate)}>
-            <span>🎯 Create Group Goal</span>
-            <span>{showCreate ? "▲" : "▼"}</span>
-          </div>
-          {showCreate && (
-            <div className="cr-collapsible-body">
+        showCreate ? (
+          <div className="gv-goal-create fd-card">
+            <input
+              className="fd-sheet-input"
+              value={newGoal.title}
+              onChange={(e) => setNewGoal((p) => ({ ...p, title: e.target.value }))}
+              placeholder="Goal title (e.g., '500 XP this week')"
+            />
+            <div className="gv-goal-create-row">
+              <select
+                className="fd-sheet-input"
+                value={newGoal.metric}
+                onChange={(e) => setNewGoal((p) => ({ ...p, metric: e.target.value }))}
+              >
+                {METRICS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.emoji} {m.label}</option>
+                ))}
+              </select>
               <input
-                className="cr-input"
-                value={newGoal.title}
-                onChange={(e) => setNewGoal((p) => ({ ...p, title: e.target.value }))}
-                placeholder="Goal title (e.g., '500 XP this week')"
-                style={{ marginBottom: 8 }}
+                className="fd-sheet-input"
+                type="number"
+                value={newGoal.targetValue}
+                onChange={(e) => setNewGoal((p) => ({ ...p, targetValue: e.target.value }))}
+                placeholder="Target"
               />
-              <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                <select
-                  className="cr-input"
-                  value={newGoal.metric}
-                  onChange={(e) => setNewGoal((p) => ({ ...p, metric: e.target.value }))}
-                  style={{ flex: 1, minWidth: 120 }}
-                >
-                  {METRICS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.emoji} {m.label}</option>
-                  ))}
-                </select>
-                <input
-                  className="cr-input"
-                  type="number"
-                  value={newGoal.targetValue}
-                  onChange={(e) => setNewGoal((p) => ({ ...p, targetValue: e.target.value }))}
-                  placeholder="Target"
-                  style={{ flex: 1, minWidth: 80 }}
-                />
-              </div>
-              <input
-                className="cr-input"
-                type="datetime-local"
-                value={newGoal.deadline}
-                onChange={(e) => setNewGoal((p) => ({ ...p, deadline: e.target.value }))}
-                style={{ marginBottom: 8 }}
-              />
-              <button className="cr-btn" style={{ width: "100%" }} onClick={createGoal}>Create Goal</button>
             </div>
-          )}
-        </div>
+            <input
+              className="fd-sheet-input"
+              type="datetime-local"
+              value={newGoal.deadline}
+              onChange={(e) => setNewGoal((p) => ({ ...p, deadline: e.target.value }))}
+            />
+            <div className="gv-goal-create-row">
+              <button className="fd-follow-btn" style={{ flex: 1 }} onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="fd-join-btn" style={{ flex: 1 }} onClick={createGoal}>Create goal</button>
+            </div>
+          </div>
+        ) : (
+          <button className="fd-go-btn" onClick={() => setShowCreate(true)}>🎯 New group goal</button>
+        )
       )}
 
       {goals.length === 0 ? (
-        <div className="cr-empty" style={{ padding: "32px 20px" }}>
-          <div className="cr-empty-icon">🎯</div>
-          <div className="cr-empty-title">No group goals yet</div>
-          <div className="cr-empty-desc">{isTeacher ? "Create a goal to motivate your group." : "Check back soon for group study goals."}</div>
+        <div className="fd-empty">
+          <div className="fd-empty-icon">🎯</div>
+          <div className="fd-empty-title">No group goals yet</div>
+          <div className="fd-empty-sub">{isTeacher ? "Set a target — the whole group pushes toward it together." : "Check back soon for group study goals."}</div>
         </div>
       ) : (
-        <div className="sg-goals-list">
+        <div className="gv-goals-list">
           {goals.map((goal) => {
-            const isComplete = !!goal.completedAt;
-            const deadline = formatDeadline(goal.deadline);
+            const done = !!goal.completedAt;
+            const deadline = deadlineLabel(goal.deadline);
             return (
-              <div key={goal.id} className={`sg-goal-card ${isComplete ? "complete" : ""}`}>
-                <div className="sg-goal-header">
-                  <div className="sg-goal-title">
-                    {getMetricEmoji(goal.metric)} {goal.title}
-                  </div>
-                  {deadline && !isComplete && (
-                    <span className={`sg-goal-deadline ${deadline === "Expired" ? "expired" : ""}`}>{deadline}</span>
-                  )}
-                  {isComplete && <span className="sg-goal-complete-badge">✅ Done!</span>}
+              <div key={goal.id} className={`gv-goal fd-card ${done ? "done" : ""}`}>
+                <div className="gv-goal-head">
+                  <span className="gv-goal-title">{metricEmoji(goal.metric)} {goal.title}</span>
+                  {done
+                    ? <span className="gv-goal-badge done">✅ Done</span>
+                    : deadline && <span className={`gv-goal-badge ${deadline === "Expired" ? "expired" : ""}`}>{deadline}</span>}
                 </div>
-                <div className="sg-goal-progress-bar">
+                <div className="gv-goal-bar">
                   <div
-                    className="sg-goal-progress-fill"
-                    style={{
-                      width: `${goal.percentage}%`,
-                      background: isComplete
-                        ? "linear-gradient(90deg, #3DD68C, #10b981)"
-                        : "linear-gradient(90deg, #FFD700, #f59e0b)",
-                    }}
+                    className={`gv-goal-fill ${done ? "done" : ""}`}
+                    style={{ width: `${goal.percentage}%` }}
                   />
                 </div>
-                <div className="sg-goal-progress-text">
-                  <span>{goal.totalProgress.toLocaleString()} / {goal.targetValue.toLocaleString()} {getMetricLabel(goal.metric)}</span>
+                <div className="gv-goal-meta">
+                  <span>{goal.totalProgress.toLocaleString()} / {goal.targetValue.toLocaleString()} {metricLabel(goal.metric)}</span>
                   <span>{goal.percentage}%</span>
                 </div>
-                <div className="sg-goal-contributors">
-                  {goal.progress.slice(0, 5).map((p) => (
-                    <span key={p.userId} className="sg-contributor-chip">
-                      {(p.user?.fullName || p.user?.username || "S").slice(0, 8)}: {p.value}
-                    </span>
-                  ))}
-                  {goal.progress.length > 5 && <span className="sg-contributor-more">+{goal.progress.length - 5} more</span>}
-                </div>
-                {!isComplete && (
-                  <div className="sg-goal-actions">
-                    <button className="cr-btn-outline" style={{ fontSize: 11 }} onClick={() => contribute(goal.id, 10)}>
-                      +10 {getMetricEmoji(goal.metric)}
-                    </button>
-                    <button className="cr-btn-outline" style={{ fontSize: 11 }} onClick={() => contribute(goal.id, 25)}>
-                      +25 {getMetricEmoji(goal.metric)}
-                    </button>
-                    <button className="cr-btn-outline" style={{ fontSize: 11 }} onClick={() => contribute(goal.id, 50)}>
-                      +50 {getMetricEmoji(goal.metric)}
-                    </button>
+                {goal.progress?.length > 0 && (
+                  <div className="gv-goal-crew">
+                    {goal.progress.slice(0, 6).map((p) => (
+                      <span key={p.userId} className="gv-goal-crew-chip" title={`${p.user?.name || "Member"}: ${p.value}`}>
+                        <Avatar user={p.user} size={18} />
+                        {p.value}
+                      </span>
+                    ))}
+                    {goal.progress.length > 6 && <span className="gv-goal-crew-more">+{goal.progress.length - 6}</span>}
+                  </div>
+                )}
+                {!done && (
+                  <div className="gv-goal-actions">
+                    <button className="fd-follow-btn sm" onClick={() => contribute(goal.id, 10)}>+10 {metricEmoji(goal.metric)}</button>
+                    <button className="fd-follow-btn sm" onClick={() => contribute(goal.id, 25)}>+25 {metricEmoji(goal.metric)}</button>
+                    <button className="fd-follow-btn sm" onClick={() => contribute(goal.id, 50)}>+50 {metricEmoji(goal.metric)}</button>
                   </div>
                 )}
               </div>
@@ -221,12 +196,11 @@ export default function GroupGoals({ classroomId, token, isTeacher }) {
       )}
 
       {celebrate && (
-        <div className="sg-celebrate-overlay">
-          <div className="sg-celebrate-card">
-            <div className="sg-celebrate-emoji">🎉</div>
-            <div className="sg-celebrate-title">Goal Complete!</div>
-            <div className="sg-celebrate-desc">{celebrate.title}</div>
-            <div className="sg-celebrate-sub">The group crushed it together! 🙌</div>
+        <div className="gv-celebrate">
+          <div className="gv-celebrate-card">
+            <div className="gv-celebrate-emoji">🎉</div>
+            <div className="gv-celebrate-title">Goal complete!</div>
+            <div className="gv-celebrate-sub">{celebrate.title} — the group crushed it together 🙌</div>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { API_BASE } from "../../lib/constants";
+import { Avatar } from "../feed/feedUi";
 
 const MILESTONES = [
   { days: 3, emoji: "🌱", label: "Getting started" },
@@ -10,143 +11,64 @@ const MILESTONES = [
   { days: 100, emoji: "👑", label: "Legendary" },
 ];
 
+// Compact streak hero rendered at the top of the Board tab.
 export default function GroupStreak({ classroomId, token }) {
-  const [streakData, setStreakData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showCelebrate, setShowCelebrate] = useState(null);
+  const [data, setData] = useState(null);
 
-  const fetchStreak = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/study-group/${classroomId}/streak`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to load");
-      const data = await res.json();
-      setStreakData(data);
-    } catch (err) {
-      console.error("Streak error:", err);
-    } finally {
-      setLoading(false);
-    }
+      if (!res.ok) throw new Error("Failed");
+      setData(await res.json());
+    } catch {}
   }, [classroomId, token]);
 
   useEffect(() => {
-    fetchStreak();
-    const interval = setInterval(fetchStreak, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStreak]);
+    load();
+    const iv = setInterval(load, 60000);
+    return () => clearInterval(iv);
+  }, [load]);
 
-  // Check for milestone celebrations
-  useEffect(() => {
-    if (!streakData?.groupStreak) return;
-    const milestone = MILESTONES.find((m) => m.days === streakData.groupStreak);
-    if (milestone) {
-      setShowCelebrate(milestone);
-      setTimeout(() => setShowCelebrate(null), 5000);
-    }
-  }, [streakData?.groupStreak]);
+  if (!data) return null;
 
-  if (loading) {
-    return (
-      <div className="cr-glass" style={{ textAlign: "center", padding: 40 }}>
-        <div className="spinner spinner-lg" style={{ margin: "0 auto 12px" }} />
-        <div style={{ fontSize: 13, color: "#6b7280" }}>Loading streak…</div>
-      </div>
-    );
-  }
-
-  if (!streakData) return null;
-
-  const { groupStreak, totalMembers, studiedToday, totalSessions, memberStreaks } = streakData;
-  const nextMilestone = MILESTONES.find((m) => m.days > groupStreak);
-  const prevMilestone = [...MILESTONES].reverse().find((m) => m.days <= groupStreak);
-  const progressToNext = nextMilestone
-    ? Math.round(((groupStreak - (prevMilestone?.days || 0)) / (nextMilestone.days - (prevMilestone?.days || 0))) * 100)
-    : 100;
+  const { groupStreak, totalMembers, studiedToday, activeNow, memberStreaks } = data;
+  const next = MILESTONES.find((m) => m.days > groupStreak);
+  const prev = [...MILESTONES].reverse().find((m) => m.days <= groupStreak);
+  const pct = next ? Math.round(((groupStreak - (prev?.days || 0)) / (next.days - (prev?.days || 0))) * 100) : 100;
+  const topStreaks = (memberStreaks || []).filter((m) => m.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 6);
 
   return (
-    <div>
-      {/* Main streak card */}
-      <div className="sg-streak-hero">
-        <div className="sg-streak-flame">{groupStreak > 0 ? "🔥" : "💤"}</div>
-        <div className="sg-streak-count">{groupStreak}</div>
-        <div className="sg-streak-label">Day Group Streak</div>
-        <div className="sg-streak-sub">
-          {groupStreak > 0 ? "Keep it going together!" : "Start studying to begin the streak!"}
+    <div className="gv-streak-hero">
+      <div className="gv-streak-left">
+        <div className="gv-streak-flame">{groupStreak > 0 ? "🔥" : "💤"}</div>
+        <div>
+          <div className="gv-streak-num">{groupStreak}<span className="gv-streak-unit"> day streak</span></div>
+          <div className="gv-streak-sub">
+            {studiedToday}/{totalMembers} studied today{activeNow > 0 ? ` · ${activeNow} in rooms now` : ""}
+          </div>
         </div>
       </div>
 
-      {/* Quick stats */}
-      <div className="sg-streak-stats">
-        <div className="sg-streak-stat-card">
-          <div className="sg-streak-stat-icon">👥</div>
-          <div className="sg-streak-stat-value">{totalMembers}</div>
-          <div className="sg-streak-stat-label">Members</div>
-        </div>
-        <div className="sg-streak-stat-card">
-          <div className="sg-streak-stat-icon">📚</div>
-          <div className="sg-streak-stat-value">{studiedToday}</div>
-          <div className="sg-streak-stat-label">Studied Today</div>
-        </div>
-        <div className="sg-streak-stat-card">
-          <div className="sg-streak-stat-icon">🎯</div>
-          <div className="sg-streak-stat-value">{totalSessions}</div>
-          <div className="sg-streak-stat-label">Total Sessions</div>
-        </div>
-      </div>
-
-      {/* Milestone progress */}
-      {nextMilestone && (
-        <div className="sg-streak-milestone">
-          <div className="sg-streak-milestone-header">
-            <span>Next milestone: {nextMilestone.emoji} {nextMilestone.label}</span>
-            <span>{groupStreak} / {nextMilestone.days} days</span>
+      {next && (
+        <div className="gv-streak-milestone">
+          <div className="gv-streak-milestone-top">
+            <span>Next: {next.emoji} {next.label}</span>
+            <span>{groupStreak}/{next.days}d</span>
           </div>
-          <div className="sg-streak-milestone-bar">
-            <div className="sg-streak-milestone-fill" style={{ width: `${progressToNext}%` }} />
-          </div>
+          <div className="gv-streak-bar"><div className="gv-streak-fill" style={{ width: `${pct}%` }} /></div>
         </div>
       )}
 
-      {/* Milestone badges */}
-      <div className="sg-streak-badges">
-        {MILESTONES.map((m) => {
-          const achieved = groupStreak >= m.days;
-          return (
-            <div key={m.days} className={`sg-streak-badge ${achieved ? "achieved" : "locked"}`}>
-              <div className="sg-streak-badge-emoji">{achieved ? m.emoji : "🔒"}</div>
-              <div className="sg-streak-badge-label">{m.label}</div>
-              <div className="sg-streak-badge-days">{m.days} days</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Member streaks */}
-      {memberStreaks && memberStreaks.length > 0 && (
-        <div className="sg-streak-members">
-          <div className="sg-streak-members-title">🔥 Member Streaks</div>
-          {memberStreaks
-            .sort((a, b) => b.streak - a.streak)
-            .map((m) => (
-              <div key={m.userId} className="sg-streak-member-row">
-                <span className="sg-streak-member-flame">{m.streak > 0 ? "🔥" : "💤"}</span>
-                <span className="sg-streak-member-days">{m.streak} days</span>
-                <span className="sg-streak-member-xp">⚡ {m.xp?.toLocaleString() || 0} XP</span>
-              </div>
-            ))}
-        </div>
-      )}
-
-      {/* Celebration overlay */}
-      {showCelebrate && (
-        <div className="sg-celebrate-overlay">
-          <div className="sg-celebrate-card">
-            <div className="sg-celebrate-emoji" style={{ fontSize: 60 }}>{showCelebrate.emoji}</div>
-            <div className="sg-celebrate-title">Group Milestone!</div>
-            <div className="sg-celebrate-desc">{showCelebrate.label}</div>
-            <div className="sg-celebrate-sub">{groupStreak} days studying together! 🎉</div>
-          </div>
+      {topStreaks.length > 0 && (
+        <div className="gv-streak-members">
+          {topStreaks.map((m) => (
+            <span key={m.userId} className="gv-streak-member" title={m.name}>
+              <Avatar user={{ avatar: m.avatar, name: m.name }} size={18} />
+              {m.streak}d
+            </span>
+          ))}
         </div>
       )}
     </div>

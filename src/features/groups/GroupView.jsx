@@ -4,27 +4,39 @@ import { API_BASE } from "../../lib/constants";
 import GroupChat from "../study-group/GroupChat.jsx";
 import GroupMembers from "../study-group/GroupMembers.jsx";
 import GroupGoals from "../study-group/GroupGoals.jsx";
-import GroupLeaderboard from "../study-group/GroupLeaderboard.jsx";
+import GroupBoard from "../study-group/GroupBoard.jsx";
 import StudyRooms from "../study-group/StudyRooms.jsx";
 import QuizBattles from "../study-group/QuizBattles.jsx";
-import GroupStreak from "../study-group/GroupStreak.jsx";
 
 const SUB_TABS = [
   { id: "chat", icon: "💬", label: "Chat" },
-  { id: "members", icon: "👥", label: "Members" },
+  { id: "battle", icon: "⚔️", label: "Battle" },
   { id: "board", icon: "🏆", label: "Board" },
   { id: "goals", icon: "🎯", label: "Goals" },
+  { id: "members", icon: "�", label: "Members" },
   { id: "rooms", icon: "🚀", label: "Rooms" },
-  { id: "battles", icon: "⚔️", label: "Battles" },
-  { id: "streak", icon: "🔥", label: "Streak" },
 ];
+
+function initials(name) {
+  if (!name) return "?";
+  const p = name.trim().split(/\s+/);
+  return ((p[0]?.[0] || "?") + (p[1]?.[0] || "")).toUpperCase();
+}
+
+// Deterministic gradient from the group name — every group gets its own hue.
+function groupGradient(name = "") {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return `linear-gradient(135deg, hsl(${h} 65% 45%), hsl(${(h + 40) % 360} 70% 32%))`;
+}
 
 // Shared hub for a study group (kind="group" classroom). Also reusable for
 // faculty classrooms — invite/management UI hides automatically when the
 // classroom has no joinCode.
-export function GroupView({ group, token, currentUser, subjects = [], isFaculty = false, onBack, onChanged, onLeft }) {
+export function GroupView({ group, token, currentUser, subjects = [], isFaculty = false, onBack, onChanged, onLeft, onOpenResource, onJoinQuiz, onOpenProfile }) {
   const [sub, setSub] = useState("chat");
   const [members, setMembers] = useState([]);
+  const [pulse, setPulse] = useState(null); // { streak, activeNow, liveBattles }
   const [copied, setCopied] = useState(null); // "code" | "link"
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -43,7 +55,24 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
       .catch(() => {});
   }, [group?.id, token]);
 
+  const fetchPulse = useCallback(() => {
+    const h = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch(`${API_BASE}/study-group/${group.id}/streak`, { headers: h }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${API_BASE}/study-group/${group.id}/battles`, { headers: h }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
+    ])
+      .then(([streak, battles]) => {
+        setPulse({
+          streak: streak?.groupStreak || 0,
+          activeNow: streak?.activeNow || 0,
+          liveBattles: (battles || []).filter((b) => b.live).length,
+        });
+      })
+      .catch(() => {});
+  }, [group?.id, token]);
+
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
+  useEffect(() => { fetchPulse(); }, [fetchPulse]);
 
   const copy = async (what) => {
     const link = `${window.location.origin}/?tab=discuss&feedTab=groups&join=${group.joinCode}`;
@@ -97,14 +126,17 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
     }
   };
 
+  const memberCount = members.length || group.memberCount || 0;
+
   return (
     <div className="fd-group">
       <div className="fd-group-head">
         {onBack && <button className="fd-backbtn" onClick={onBack} aria-label="Back to groups">←</button>}
+        <span className="gv-avatar" style={{ background: groupGradient(group.name) }}>{initials(group.name)}</span>
         <div className="fd-group-title">
           <div className="fd-group-name">{group.name}</div>
           <div className="fd-group-meta">
-            {[group.subject, `${members.length || group.memberCount || 0} member${(members.length || group.memberCount) === 1 ? "" : "s"}`, group.isPublic ? "Public" : "Private"]
+            {[group.subject, `${memberCount} member${memberCount === 1 ? "" : "s"}`, group.isPublic ? "Public" : "Private"]
               .filter(Boolean).join(" · ")}
           </div>
         </div>
@@ -129,12 +161,16 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
 
       {group.description && <div className="fd-group-desc">{group.description}</div>}
 
-      {group.joinCode && (
-        <button className="fd-invite-strip" onClick={() => copy("link")} title="Copy invite link">
-          <span className="fd-invite-code">🔑 {group.joinCode}</span>
-          <span className="fd-invite-hint">{copied ? "✓ Copied!" : "Tap to copy invite link"}</span>
-        </button>
-      )}
+      <div className="gv-signal">
+        <span className={`gv-signal-chip ${pulse?.streak > 0 ? "hot" : ""}`}>🔥 {pulse?.streak ?? "…"}d streak</span>
+        <span className={`gv-signal-chip ${pulse?.activeNow > 0 ? "live" : ""}`}>� {pulse?.activeNow ?? "…"} studying</span>
+        <span className={`gv-signal-chip ${pulse?.liveBattles > 0 ? "battle" : ""}`}>⚔️ {pulse?.liveBattles ?? "…"} live</span>
+        {group.joinCode && (
+          <button className="gv-invite-pill" onClick={() => copy("link")} title="Copy invite link">
+            🔑 {group.joinCode} {copied ? "✓" : "⧉"}
+          </button>
+        )}
+      </div>
 
       <div className="fd-group-tabs">
         {SUB_TABS.map((t) => (
@@ -149,13 +185,27 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
       </div>
 
       <div key={sub} className="fd-group-body">
-        {sub === "chat" && <GroupChat classroomId={group.id} token={token} currentUser={currentUser} />}
-        {sub === "members" && <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} />}
-        {sub === "board" && <GroupLeaderboard classroomId={group.id} token={token} currentUser={currentUser} />}
+        {sub === "chat" && (
+          <GroupChat
+            classroomId={group.id}
+            token={token}
+            currentUser={currentUser}
+            onOpenResource={onOpenResource}
+            onJoinQuiz={onJoinQuiz}
+          />
+        )}
+        {sub === "battle" && (
+          <QuizBattles
+            classroomId={group.id}
+            token={token}
+            currentUser={currentUser}
+            onJoinQuiz={onJoinQuiz}
+          />
+        )}
+        {sub === "board" && <GroupBoard classroomId={group.id} token={token} currentUser={currentUser} />}
         {sub === "goals" && <GroupGoals classroomId={group.id} token={token} isTeacher={canManage} />}
+        {sub === "members" && <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} members={members} onOpenProfile={onOpenProfile} />}
         {sub === "rooms" && <StudyRooms classroomId={group.id} token={token} currentUser={currentUser} />}
-        {sub === "battles" && <QuizBattles classroomId={group.id} token={token} currentUser={currentUser} members={members} subjects={subjects} />}
-        {sub === "streak" && <GroupStreak classroomId={group.id} token={token} />}
       </div>
 
       {confirmDelete && (

@@ -1,200 +1,321 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "../../lib/constants";
+import { Avatar } from "../feed/feedUi";
+import { MaterialPicker } from "../feed/Composer.jsx";
 
 const EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉"];
+const POLL_MS = 6000;
 
-export default function GroupChat({ classroomId, token, currentUser, onShareResource }) {
-  const [messages, setMessages] = useState([]);
+function dayLabel(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: d.getFullYear() !== today.getFullYear() ? "numeric" : undefined });
+}
+
+function timeLabel(ts) {
+  return new Date(ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+function typeIcon(contentType) {
+  if (contentType === "mcq") return "❓";
+  if (contentType === "flashcards") return "🃏";
+  if (contentType === "summary" || contentType === "notes") return "📝";
+  return "📄";
+}
+
+// Color-hash a sender name so each member's name label reads distinctly.
+function nameColor(name = "") {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return `hsl(${h} 70% 72%)`;
+}
+
+export default function GroupChat({ classroomId, token, currentUser, onOpenResource, onJoinQuiz }) {
+  const [messages, setMessages] = useState(null);
   const [text, setText] = useState("");
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [typingUsers, setTypingUsers] = useState(new Set());
-  const [showEmojiPicker, setShowEmojiPicker] = useState(null);
-  const [error, setError] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [pickerCache, setPickerCache] = useState(null);
+  const [emojiFor, setEmojiFor] = useState(null); // messageId with open picker
+  const [error, setError] = useState(null);
   const scrollRef = useRef(null);
-  const typingTimerRef = useRef(null);
-  const lastFetchRef = useRef(0);
+  const stickRef = useRef(true);
 
+  const myId = currentUser?.id || currentUser?.sub;
   const authHeaders = { Authorization: `Bearer ${token}` };
 
-  const fetchMessages = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/study-group/${classroomId}/messages`, { headers: authHeaders });
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
-      setMessages(data);
-      lastFetchRef.current = Date.now();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      setMessages((prev) => {
+        if (!prev) return data;
+        const ids = new Set(data.map((m) => m.id));
+        const pending = prev.filter((m) => m.pending && !ids.has(m.id));
+        return [...data, ...pending];
+      });
+      setError(null);
+    } catch (e) {
+      if (!messages) setError(e.message || "Couldn't load chat");
     }
-  }, [classroomId, token]);
+  }, [classroomId, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
-  }, [fetchMessages]);
+    load();
+    const iv = setInterval(load, POLL_MS);
+    return () => clearInterval(iv);
+  }, [load]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  };
 
   useEffect(() => {
-    if (scrollRef.current) {
+    if (stickRef.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  function handleTyping() {
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
-    typingTimerRef.current = setTimeout(() => setTypingUsers(new Set()), 3000);
-  }
+  // Unique shared resources, newest first — the group's mini library.
+  const sharedMaterials = useMemo(() => {
+    const seen = new Set();
+    return (messages || [])
+      .filter((m) => m.resource && !seen.has(m.resource.id) && seen.add(m.resource.id))
+      .map((m) => m.resource);
+  }, [messages]);
 
-  async function sendMessage() {
-    if (!text.trim() || sending) return;
+  const send = async ({ resourceId, liveCode, textOverride } = {}) => {
+    const t = (textOverride ?? text).trim();
+    if ((!t && !resourceId) || sending) return;
     setSending(true);
+    const optimistic = {
+      id: `pending-${Date.now()}`,
+      text: t,
+      createdAt: new Date().toISOString(),
+      userId: myId,
+      sender: { id: myId, name: currentUser?.fullName || currentUser?.username || "You", avatar: currentUser?.avatar },
+      resourceId: resourceId || null,
+      resource: resourceId ? pickerCache?.find?.((r) => r.id === resourceId) || null : null,
+      liveCode: liveCode || null,
+      liveActive: !!liveCode,
+      reactions: [],
+      pending: true,
+    };
+    setMessages((prev) => [optimistic, ...(prev || [])]);
+    if (!textOverride) setText("");
+    stickRef.current = true;
     try {
       const res = await fetch(`${API_BASE}/study-group/${classroomId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({ text: text.trim() }),
+        body: JSON.stringify({ text: t || "Shared a material", resourceId, liveCode }),
       });
       if (!res.ok) throw new Error("Failed to send");
-      const msg = await res.json();
-      setMessages((prev) => [msg, ...prev]);
-      setText("");
-      fetchMessages();
-    } catch (err) {
-      setError(err.message);
+      const saved = await res.json();
+      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)));
+    } catch (e) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      setError(e.message);
     } finally {
       setSending(false);
     }
-  }
+  };
 
-  async function toggleReaction(messageId, emoji) {
+  const shareMaterial = (r) => {
+    setPickerOpen(false);
+    send({ resourceId: r.id, textOverride: text.trim() || `Shared ${r.title || "a material"}` });
+  };
+
+  const toggleReaction = async (messageId, emoji) => {
+    setEmojiFor(null);
+    setMessages((prev) =>
+      (prev || []).map((m) => {
+        if (m.id !== messageId) return m;
+        const existing = (m.reactions || []).find((r) => r.emoji === emoji && r.user?.id === myId);
+        return {
+          ...m,
+          reactions: existing
+            ? m.reactions.filter((r) => !(r.emoji === emoji && r.user?.id === myId))
+            : [...(m.reactions || []), { emoji, user: { id: myId } }],
+        };
+      })
+    );
     try {
       await fetch(`${API_BASE}/study-group/messages/${messageId}/reactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ emoji }),
       });
-      fetchMessages();
-    } catch (err) {
-      console.error("Reaction failed:", err);
-    }
-    setShowEmojiPicker(null);
-  }
+      load();
+    } catch {}
+  };
 
-  function formatTime(ts) {
-    const d = new Date(ts);
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    if (isToday) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
-  function getDisplayName(user) {
-    return user?.fullName || user?.username || "Scholar";
-  }
-
-  function getInitials(name) {
-    if (!name) return "?";
-    const parts = name.trim().split(/\s+/);
-    return (parts[0]?.[0] || "?") + (parts[1]?.[0] || "");
-  }
-
-  const myId = currentUser?.id || currentUser?.sub;
-
-  if (loading) {
-    return (
-      <div className="cr-glass" style={{ textAlign: "center", padding: 40 }}>
-        <div className="spinner spinner-lg" style={{ margin: "0 auto 12px" }} />
-        <div style={{ fontSize: 13, color: "#6b7280" }}>Loading chat…</div>
-      </div>
-    );
-  }
+  // oldest → newest for rendering, pre-grouped with day separators
+  const rendered = useMemo(() => {
+    const ordered = [...(messages || [])].reverse();
+    const out = [];
+    let lastDay = null;
+    ordered.forEach((m, i) => {
+      const day = dayLabel(m.createdAt);
+      const showDay = day !== lastDay;
+      lastDay = day;
+      const prev = ordered[i - 1];
+      const sameAsPrev = !showDay && prev && (prev.userId || prev.sender?.id) === (m.userId || m.sender?.id);
+      out.push({ m, day, showDay, sameAsPrev });
+    });
+    return out;
+  }, [messages]);
 
   return (
-    <div className="sg-chat-container">
-      <div ref={scrollRef} className="sg-chat-thread">
-        {messages.length === 0 && (
-          <div className="cr-empty" style={{ padding: "32px 20px" }}>
-            <div className="cr-empty-icon">💬</div>
-            <div className="cr-empty-title">No messages yet</div>
-            <div className="cr-empty-desc">Start the conversation — say hi to your study group!</div>
+    <div className="gv-chat">
+      {sharedMaterials.length > 0 && (
+        <div className="gv-materials">
+          <button className="gv-materials-head" onClick={() => setMaterialsOpen((v) => !v)}>
+            <span>📎 Shared materials <b>{sharedMaterials.length}</b></span>
+            <span className="gv-caret">{materialsOpen ? "▲" : "▼"}</span>
+          </button>
+          {materialsOpen && (
+            <div className="gv-materials-rail">
+              {sharedMaterials.map((r) => (
+                <button
+                  key={r.id}
+                  className="gv-material-chip"
+                  onClick={() => r.shareToken && onOpenResource?.(r.shareToken)}
+                  title={r.title}
+                >
+                  <span>{typeIcon(r.contentType)}</span>
+                  <span className="gv-material-chip-name">{r.title}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div ref={scrollRef} className="gv-chat-scroll" onScroll={onScroll}>
+        {messages === null && !error && (
+          <div className="fd-skeletons">
+            {[0, 1, 2].map((i) => <div key={i} className="fd-card fd-skeleton" style={{ height: 52 }} />)}
           </div>
         )}
-        {[...messages].reverse().map((msg) => {
-          const isMe = msg.userId === myId;
-          const displayName = getDisplayName(msg.user);
+        {error && messages === null && (
+          <div className="fd-empty"><div className="fd-empty-title">Couldn't load chat</div><div className="fd-empty-sub">{error}</div></div>
+        )}
+        {rendered.length === 0 && messages !== null && (
+          <div className="fd-empty" style={{ paddingTop: 40 }}>
+            <div className="fd-empty-icon">💬</div>
+            <div className="fd-empty-title">No messages yet</div>
+            <div className="fd-empty-sub">Say hi, share a material, or start a quiz battle — this is your group's home base.</div>
+          </div>
+        )}
+
+        {rendered.map(({ m, day, showDay, sameAsPrev }) => {
+          const isMe = (m.userId || m.sender?.id) === myId;
+          const sender = m.sender || {};
+          const name = sender.name || "Scholar";
+          const reactionCounts = {};
+          (m.reactions || []).forEach((r) => { reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1; });
+
           return (
-            <div key={msg.id} className={`sg-msg-row ${isMe ? "me" : "them"}`}>
-              {!isMe && (
-                <div className="sg-msg-avatar">{getInitials(displayName)}</div>
-              )}
-              <div className="sg-msg-bubble-wrap">
-                {!isMe && <div className="sg-msg-name">{displayName}</div>}
-                <div className={`sg-msg-bubble ${isMe ? "me" : "them"}`}>
-                  <div className="sg-msg-text">{msg.text}</div>
-                </div>
-                <div className="sg-msg-meta">
-                  <span className="sg-msg-time">{formatTime(msg.createdAt)}</span>
-                  {msg.reactions && msg.reactions.length > 0 && (
-                    <div className="sg-reactions-display">
-                      {Object.entries(
-                        msg.reactions.reduce((acc, r) => {
-                          acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                          return acc;
-                        }, {})
-                      ).map(([emoji, count]) => (
-                        <span key={emoji} className="sg-reaction-chip" onClick={() => toggleReaction(msg.id, emoji)}>
-                          {emoji} {count}
+            <div key={m.id}>
+              {showDay && <div className="fd-thread-day">{day}</div>}
+              <div className={`gv-msg ${isMe ? "me" : "them"} ${sameAsPrev ? "cont" : "first"}`}>
+                {!isMe && (sameAsPrev
+                  ? <span className="gv-msg-avatar-gap" />
+                  : <Avatar user={sender} size={28} />)}
+                <div className="gv-msg-body">
+                  {!isMe && !sameAsPrev && (
+                    <div className="gv-msg-name" style={{ color: nameColor(name) }}>{name}</div>
+                  )}
+                  <div
+                    className={`gv-bubble ${isMe ? "me" : "them"} ${m.pending ? "pending" : ""}`}
+                    onDoubleClick={() => setEmojiFor(emojiFor === m.id ? null : m.id)}
+                  >
+                    {m.text ? <span className="gv-bubble-text">{m.text}</span> : null}
+                    {m.resource && (
+                      <button
+                        className="gv-res-card"
+                        onClick={() => m.resource.shareToken && onOpenResource?.(m.resource.shareToken)}
+                      >
+                        <span className="gv-res-icon">{typeIcon(m.resource.contentType)}</span>
+                        <span className="gv-res-info">
+                          <span className="gv-res-title">{m.resource.title}</span>
+                          {m.resource.subject && <span className="gv-res-sub">{m.resource.subject}</span>}
                         </span>
+                        <span className="gv-res-open">Open →</span>
+                      </button>
+                    )}
+                    {m.liveCode && (
+                      <div className={`gv-battle-card ${m.liveActive ? "live" : "ended"}`}>
+                        <span className="gv-battle-flag">⚔️ Quiz battle</span>
+                        {m.resource?.title && <span className="gv-battle-title">{m.resource.title}</span>}
+                        {m.liveActive ? (
+                          <button className="gv-battle-join" onClick={() => onJoinQuiz?.(m.liveCode)}>Join →</button>
+                        ) : (
+                          <span className="gv-battle-ended">Ended</span>
+                        )}
+                      </div>
+                    )}
+                    <span className="gv-bubble-meta">
+                      {timeLabel(m.createdAt)}{m.pending ? " · sending" : ""}
+                    </span>
+                  </div>
+                  {(Object.keys(reactionCounts).length > 0 || !m.pending) && (
+                    <div className="gv-msg-foot">
+                      {Object.entries(reactionCounts).map(([emoji, count]) => (
+                        <button key={emoji} className="gv-reaction" onClick={() => toggleReaction(m.id, emoji)}>
+                          {emoji} {count}
+                        </button>
+                      ))}
+                      <button className="gv-react-add" onClick={() => setEmojiFor(emojiFor === m.id ? null : m.id)}>☺</button>
+                    </div>
+                  )}
+                  {emojiFor === m.id && (
+                    <div className="gv-emoji-row">
+                      {EMOJIS.map((e) => (
+                        <button key={e} className="gv-emoji" onClick={() => toggleReaction(m.id, e)}>{e}</button>
                       ))}
                     </div>
                   )}
-                  <button className="sg-react-btn" onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}>
-                    😊
-                  </button>
                 </div>
-                {showEmojiPicker === msg.id && (
-                  <div className="sg-emoji-picker">
-                    {EMOJIS.map((e) => (
-                      <button key={e} className="sg-emoji-btn" onClick={() => toggleReaction(msg.id, e)}>
-                        {e}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           );
         })}
-        {typingUsers.size > 0 && (
-          <div className="sg-typing">
-            {[...typingUsers].join(", ")} {typingUsers.size === 1 ? "is" : "are"} typing…
-          </div>
-        )}
       </div>
 
-      {error && <div className="sg-chat-error">{error}</div>}
-
-      <div className="sg-chat-input-row">
-        {onShareResource && (
-          <button className="sg-share-btn" onClick={onShareResource} title="Share a resource">
-            📎
-          </button>
-        )}
+      <div className="gv-composer">
+        <button className="gv-attach" onClick={() => setPickerOpen(true)} title="Share a material" aria-label="Share a material">📎</button>
         <input
-          className="sg-chat-input"
+          className="gv-input"
           value={text}
-          onChange={(e) => { setText(e.target.value); handleTyping(); }}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-          placeholder="Type a message…"
-          disabled={sending}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder="Message the group…"
+          maxLength={2000}
         />
-        <button className="sg-chat-send" onClick={sendMessage} disabled={!text.trim() || sending}>
-          {sending ? "…" : "Send"}
+        <button className="gv-send" onClick={() => send()} disabled={!text.trim() || sending} aria-label="Send">
+          {sending ? "…" : "↑"}
         </button>
       </div>
+
+      {pickerOpen && (
+        <MaterialPicker
+          token={token}
+          cache={pickerCache}
+          setCache={setPickerCache}
+          onPick={shareMaterial}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }

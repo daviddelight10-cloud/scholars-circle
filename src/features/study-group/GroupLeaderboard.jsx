@@ -1,25 +1,30 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { API_BASE } from "../../lib/constants";
+import { Avatar } from "../feed/feedUi";
+import { levelProgress } from "../streak-survival/survivalStore";
 
 const SORT_OPTIONS = [
-  { value: "xp", label: "Weekly XP", emoji: "⚡" },
-  { value: "streak", label: "Streak", emoji: "🔥" },
-  { value: "sessions", label: "Sessions", emoji: "📚" },
+  { value: "week", label: "This week" },
+  { value: "all", label: "All-time" },
+  { value: "streak", label: "Streak" },
 ];
 
-export default function GroupLeaderboard({ classroomId, token, currentUser }) {
+function medal(i) {
+  return i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
+}
+
+export default function GroupLeaderboard({ classroomId, token }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState("xp");
+  const [sort, setSort] = useState("week");
 
-  const fetchLeaderboard = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/study-group/${classroomId}/leaderboard?sort=${sort}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to load");
-      const data = await res.json();
-      setEntries(data);
+      setEntries(await res.json());
     } catch (err) {
       console.error("Leaderboard error:", err);
     } finally {
@@ -28,103 +33,94 @@ export default function GroupLeaderboard({ classroomId, token, currentUser }) {
   }, [classroomId, token, sort]);
 
   useEffect(() => {
-    fetchLeaderboard();
-    const interval = setInterval(fetchLeaderboard, 15000);
+    load();
+    const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
-  }, [fetchLeaderboard]);
+  }, [load]);
 
-  function getInitials(name) {
-    if (!name) return "?";
-    const parts = name.trim().split(/\s+/);
-    return (parts[0]?.[0] || "?") + (parts[1]?.[0] || "");
-  }
+  const valueOf = (e) =>
+    sort === "streak" ? `${e.streak}d` : sort === "all" ? `${e.xp.toLocaleString()} XP` : `+${e.weeklyXP.toLocaleString()}`;
 
-  function getRankStyle(rank) {
-    if (rank === 0) return { medal: "🥇", glow: "rgba(255,215,0,0.25)" };
-    if (rank === 1) return { medal: "🥈", glow: "rgba(192,192,192,0.2)" };
-    if (rank === 2) return { medal: "🥉", glow: "rgba(205,127,50,0.2)" };
-    return { medal: null, glow: null };
-  }
-
-  function getValueLabel(entry) {
-    if (sort === "streak") return `${entry.streak} day streak`;
-    if (sort === "sessions") return `${entry.sessions} sessions`;
-    return `${entry.weeklyXP.toLocaleString()} XP this week`;
-  }
+  const subOf = (e) => `🔥 ${e.streak}d · ${e.accuracy}% acc`;
 
   if (loading) {
     return (
-      <div className="cr-glass" style={{ textAlign: "center", padding: 40 }}>
-        <div className="spinner spinner-lg" style={{ margin: "0 auto 12px" }} />
-        <div style={{ fontSize: 13, color: "#6b7280" }}>Loading leaderboard…</div>
+      <div className="fd-skeletons">
+        {[0, 1, 2, 3].map((i) => <div key={i} className="fd-card fd-skeleton" style={{ height: 56 }} />)}
       </div>
     );
   }
 
-  const podium = entries.slice(0, 3);
+  if (entries.length === 0) {
+    return (
+      <div className="fd-empty">
+        <div className="fd-empty-icon">🏆</div>
+        <div className="fd-empty-title">No data yet</div>
+        <div className="fd-empty-sub">Answer quiz questions to climb the group board.</div>
+      </div>
+    );
+  }
+
+  // Podium order: 2nd, 1st, 3rd visually (winner center)
+  const top = entries.slice(0, 3);
+  const podiumOrder = [top[1], top[0], top[2]].filter(Boolean);
   const rest = entries.slice(3);
 
   return (
-    <div>
-      {/* Sort toggle */}
-      <div className="sg-lb-sort-row">
-        {SORT_OPTIONS.map((opt) => (
+    <div className="gv-board">
+      <div className="gv-sort-row">
+        {SORT_OPTIONS.map((o) => (
           <button
-            key={opt.value}
-            className={`sg-lb-sort-btn ${sort === opt.value ? "active" : ""}`}
-            onClick={() => setSort(opt.value)}
+            key={o.value}
+            className={`gv-sort ${sort === o.value ? "active" : ""}`}
+            onClick={() => setSort(o.value)}
           >
-            {opt.emoji} {opt.label}
+            {o.label}
           </button>
         ))}
       </div>
 
-      {/* Podium */}
-      {podium.length > 0 && (
-        <div className="sg-lb-podium">
-          {podium.map((entry, i) => {
-            const { medal, glow } = getRankStyle(i);
-            return (
-              <div key={entry.userId} className={`sg-lb-podium-card ${i === 0 ? "first" : ""}`} style={glow ? { boxShadow: `0 0 20px ${glow}` } : {}}>
-                <div className="sg-lb-podium-medal">{medal}</div>
-                <div className="sg-lb-podium-avatar">{getInitials(entry.username)}</div>
-                <div className="sg-lb-podium-name">
-                  {entry.username} {entry.isMe && <span className="sg-lb-self">(You)</span>}
-                </div>
-                <div className="sg-lb-podium-value">{getValueLabel(entry)}</div>
-                {i === 0 && <div className="sg-lb-crown">👑</div>}
+      <div className="gv-podium">
+        {podiumOrder.map((e) => {
+          const rank = entries.indexOf(e);
+          const lvl = levelProgress(e.xp).level;
+          return (
+            <div key={e.userId} className={`gv-podium-card r${rank} ${e.isMe ? "me" : ""}`}>
+              {rank === 0 && <span className="gv-podium-crown">👑</span>}
+              <Avatar user={{ avatar: e.avatar, name: e.name }} size={rank === 0 ? 52 : 42} />
+              <div className="gv-podium-name">
+                {e.name?.split(" ")[0] || e.username} {e.isMe && <span className="gv-you">you</span>}
               </div>
-            );
-          })}
-        </div>
-      )}
+              <div className="gv-podium-medal">{medal(rank)}</div>
+              <div className="gv-podium-val">{valueOf(e)}</div>
+              <div className="gv-podium-sub">LVL {lvl}</div>
+            </div>
+          );
+        })}
+      </div>
 
-      {/* Rest of leaderboard */}
-      {rest.length > 0 && (
-        <div className="sg-lb-list">
-          {rest.map((entry, i) => {
-            const rank = i + 4;
-            return (
-              <div key={entry.userId} className={`sg-lb-row ${entry.isMe ? "me" : ""}`}>
-                <div className="sg-lb-rank">#{rank}</div>
-                <div className="sg-lb-avatar">{getInitials(entry.username)}</div>
-                <div className="sg-lb-name">
-                  {entry.username} {entry.isMe && <span className="sg-lb-self">(You)</span>}
-                </div>
-                <div className="sg-lb-value">{getValueLabel(entry)}</div>
-                <div className="sg-lb-accuracy">{entry.accuracy}% acc</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div className="gv-lb-list">
+        {rest.map((e, i) => {
+          const lvl = levelProgress(e.xp).level;
+          return (
+            <div key={e.userId} className={`gv-lb-row ${e.isMe ? "me" : ""}`}>
+              <span className="gv-lb-rank">#{i + 4}</span>
+              <Avatar user={{ avatar: e.avatar, name: e.name }} size={34} />
+              <span className="gv-lb-who">
+                <span className="gv-lb-name">
+                  {e.name} {e.isMe && <span className="gv-you">you</span>}
+                </span>
+                <span className="gv-lb-sub">{subOf(e)}</span>
+              </span>
+              <span className="gv-lb-lvl">LVL {lvl}</span>
+              <span className="gv-lb-val">{valueOf(e)}</span>
+            </div>
+          );
+        })}
+      </div>
 
-      {entries.length === 0 && (
-        <div className="cr-empty" style={{ padding: "32px 20px" }}>
-          <div className="cr-empty-icon">🏆</div>
-          <div className="cr-empty-title">No data yet</div>
-          <div className="cr-empty-desc">Start studying to appear on the leaderboard!</div>
-        </div>
+      {entries.length <= 3 && rest.length === 0 && entries.some((e) => e.isMe) && (
+        <div className="gv-lb-foot">You're on the podium — keep pushing 🔥</div>
       )}
     </div>
   );

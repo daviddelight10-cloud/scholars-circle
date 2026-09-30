@@ -2,6 +2,15 @@ import express from "express";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
+import { getRoomByCode } from "../lib/liveQuizRooms.js";
+
+const RESOURCE_CARD_SELECT = { id: true, title: true, subject: true, contentType: true, shareToken: true };
+
+function liveState(code) {
+  if (!code) return { liveCode: null, liveActive: false };
+  const room = getRoomByCode(code);
+  return { liveCode: code, liveActive: !!room && room.phase !== "complete" };
+}
 
 const router = express.Router();
 
@@ -32,7 +41,7 @@ router.get("/:classroomId/messages", requireAuth, async (req, res) => {
     const messages = await prisma.classroomMessage.findMany({
       where: { classroomId },
       include: {
-        user: { select: { id: true, username: true, fullName: true, role: true } },
+        user: { select: AUTHOR_SELECT },
         reactions: {
           include: { user: { select: { id: true, username: true } } },
         },
@@ -41,7 +50,24 @@ router.get("/:classroomId/messages", requireAuth, async (req, res) => {
       take: 50,
     });
 
-    res.json(messages);
+    // Batch-attach shared-resource cards (no relation field — resolve by id)
+    const resourceIds = [...new Set(messages.map((m) => m.resourceId).filter(Boolean))];
+    const resources = resourceIds.length
+      ? await prisma.resource.findMany({
+          where: { id: { in: resourceIds } },
+          select: RESOURCE_CARD_SELECT,
+        })
+      : [];
+    const resById = new Map(resources.map((r) => [r.id, r]));
+
+    res.json(
+      messages.map(({ user, ...m }) => ({
+        ...m,
+        sender: publicUser(user),
+        resource: m.resourceId ? resById.get(m.resourceId) || null : null,
+        ...liveState(m.liveCode),
+      }))
+    );
   } catch (error) {
     console.error("Error fetching messages:", error);
     res.status(500).json({ error: "Failed to fetch messages" });
@@ -53,7 +79,7 @@ router.post("/:classroomId/messages", requireAuth, async (req, res) => {
   try {
     const { classroomId } = req.params;
     const userId = req.user.sub;
-    const { text, resourceId } = req.body;
+    const { text, resourceId, liveCode } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: "Message text required" });
 
     const isMember = await verifyMembership(classroomId, userId);
@@ -65,14 +91,20 @@ router.post("/:classroomId/messages", requireAuth, async (req, res) => {
         userId,
         text: text.trim(),
         resourceId: resourceId || null,
+        liveCode: liveCode || null,
       },
       include: {
-        user: { select: { id: true, username: true, fullName: true, role: true } },
+        user: { select: AUTHOR_SELECT },
         reactions: true,
       },
     });
 
-    res.status(201).json(message);
+    const resource = message.resourceId
+      ? await prisma.resource.findUnique({ where: { id: message.resourceId }, select: RESOURCE_CARD_SELECT })
+      : null;
+
+    const { user, ...rest } = message;
+    res.status(201).json({ ...rest, sender: publicUser(user), resource, ...liveState(message.liveCode) });
   } catch (error) {
     console.error("Error sending message:", error);
     res.status(500).json({ error: "Failed to send message" });
@@ -126,9 +158,9 @@ router.get("/:classroomId/members", requireAuth, async (req, res) => {
       include: {
         user: {
           select: {
-            id: true, username: true, fullName: true, role: true,
+            ...AUTHOR_SELECT,
             totalXp: true,
-            progress: { select: { xp: true, streak: true, sessions: true } },
+            progress: { select: { xp: true, streak: true } },
           },
         },
       },
@@ -139,15 +171,22 @@ router.get("/:classroomId/members", requireAuth, async (req, res) => {
     const creator = await prisma.user.findUnique({
       where: { id: classroom.createdById },
       select: {
-        id: true, username: true, fullName: true, role: true,
+        ...AUTHOR_SELECT,
         totalXp: true,
-        progress: { select: { xp: true, streak: true, sessions: true } },
+        progress: { select: { xp: true, streak: true } },
       },
     });
 
+    const shape = (u, extra = {}) => ({
+      ...extra,
+      user: publicUser(u),
+      xp: u?.progress?.xp || u?.totalXp || 0,
+      streak: u?.progress?.streak || 0,
+    });
+
     const allMembers = [
-      ...(creator ? [{ id: "creator-" + creator.id, user: creator, joinedAt: null, isCreator: true }] : []),
-      ...members.map((m) => ({ ...m, isCreator: false })),
+      ...(creator ? [shape(creator, { id: "creator-" + creator.id, joinedAt: null, isCreator: true })] : []),
+      ...members.map((m) => shape(m.user, { id: m.id, joinedAt: m.joinedAt, isCreator: false })),
     ];
 
     res.json(allMembers);
@@ -178,10 +217,14 @@ router.get("/:classroomId/leaderboard", requireAuth, async (req, res) => {
       include: {
         user: {
           select: {
-            id: true, username: true, fullName: true,
+            ...AUTHOR_SELECT,
             totalXp: true,
-            progress: { select: { xp: true, streak: true, sessions: true } },
-            sessions: { select: { score: true, total: true, createdAt: true } },
+            progress: { select: { xp: true, streak: true } },
+            quizAttempts: {
+              select: { score: true, total: true, xpAwarded: true, createdAt: true },
+              orderBy: { createdAt: "desc" },
+              take: 200,
+            },
           },
         },
       },
@@ -190,10 +233,14 @@ router.get("/:classroomId/leaderboard", requireAuth, async (req, res) => {
     const creator = await prisma.user.findUnique({
       where: { id: classroom.createdById },
       select: {
-        id: true, username: true, fullName: true,
+        ...AUTHOR_SELECT,
         totalXp: true,
-        progress: { select: { xp: true, streak: true, sessions: true } },
-        sessions: { select: { score: true, total: true, createdAt: true } },
+        progress: { select: { xp: true, streak: true } },
+        quizAttempts: {
+          select: { score: true, total: true, xpAwarded: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 200,
+        },
       },
     });
 
@@ -203,28 +250,39 @@ router.get("/:classroomId/leaderboard", requireAuth, async (req, res) => {
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay());
     weekStart.setHours(0, 0, 0, 0);
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
 
     const entries = allUsers.map((u) => {
-      const weeklySessions = (u.sessions || []).filter((s) => new Date(s.createdAt) >= weekStart);
-      const weeklyXP = weeklySessions.reduce((sum, s) => sum + (s.score * 10), 0);
-      const totalQuestions = (u.sessions || []).reduce((sum, s) => sum + s.total, 0);
+      const attempts = u.quizAttempts || [];
+      const weeklyXP = attempts
+        .filter((a) => new Date(a.createdAt) >= weekStart)
+        .reduce((sum, a) => sum + (a.xpAwarded || 0), 0);
+      const todayXP = attempts
+        .filter((a) => new Date(a.createdAt) >= today)
+        .reduce((sum, a) => sum + (a.xpAwarded || 0), 0);
+      const totalQuestions = attempts.reduce((sum, a) => sum + (a.total || 0), 0);
       const accuracy = totalQuestions > 0
-        ? Math.round(((u.sessions || []).reduce((sum, s) => sum + s.score, 0) / totalQuestions) * 100)
+        ? Math.round((attempts.reduce((sum, a) => sum + (a.score || 0), 0) / totalQuestions) * 100)
         : 0;
+      const pub = publicUser(u);
 
       return {
         userId: u.id,
         username: u.username || u.fullName?.split(/\s+/)[0] || "Scholar",
+        name: pub?.name || "Scholar",
+        avatar: pub?.avatar || null,
+        level: pub?.level || null,
         xp: u.progress?.xp || u.totalXp || 0,
         weeklyXP,
+        todayXP,
         streak: u.progress?.streak || 0,
-        sessions: u.progress?.sessions || 0,
         accuracy,
         isMe: u.id === userId,
       };
     });
 
-    const sortKey = sort === "streak" ? "streak" : sort === "sessions" ? "sessions" : "weeklyXP";
+    const sortKey = sort === "streak" ? "streak" : sort === "all" ? "xp" : "weeklyXP";
     entries.sort((a, b) => b[sortKey] - a[sortKey]);
 
     res.json(entries);
@@ -248,7 +306,7 @@ router.get("/:classroomId/goals", requireAuth, async (req, res) => {
       where: { classroomId },
       include: {
         progress: {
-          include: { user: { select: { id: true, username: true, fullName: true } } },
+          include: { user: { select: AUTHOR_SELECT } },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -256,6 +314,7 @@ router.get("/:classroomId/goals", requireAuth, async (req, res) => {
 
     const goalsWithTotals = goals.map((g) => ({
       ...g,
+      progress: g.progress.map((p) => ({ ...p, user: publicUser(p.user) })),
       totalProgress: g.progress.reduce((sum, p) => sum + p.value, 0),
       percentage: Math.min(100, Math.round((g.progress.reduce((sum, p) => sum + p.value, 0) / g.targetValue) * 100)),
       myProgress: g.progress.find((p) => p.userId === userId)?.value || 0,
@@ -350,15 +409,21 @@ router.get("/:classroomId/study-rooms", requireAuth, async (req, res) => {
     const rooms = await prisma.classroomStudyRoom.findMany({
       where: { classroomId, status: "active" },
       include: {
-        host: { select: { id: true, username: true, fullName: true } },
+        host: { select: AUTHOR_SELECT },
         participants: {
-          include: { user: { select: { id: true, username: true, fullName: true } } },
+          include: { user: { select: AUTHOR_SELECT } },
         },
       },
       orderBy: { startedAt: "desc" },
     });
 
-    res.json(rooms);
+    res.json(
+      rooms.map((r) => ({
+        ...r,
+        host: publicUser(r.host),
+        participants: r.participants.map((p) => ({ ...p, user: publicUser(p.user) })),
+      }))
+    );
   } catch (error) {
     console.error("Error fetching study rooms:", error);
     res.status(500).json({ error: "Failed to fetch study rooms" });
@@ -609,124 +674,53 @@ router.post("/study-rooms/:roomId/end", requireAuth, async (req, res) => {
   }
 });
 
-// ============ QUIZ DUELS ============
+// ============ QUIZ BATTLES ============
 
-// GET /api/study-group/:classroomId/duels
-router.get("/:classroomId/duels", requireAuth, async (req, res) => {
+// GET /api/study-group/:classroomId/battles — quiz-battle invites posted in
+// group chat, annotated with live-room status (rooms live in memory).
+router.get("/:classroomId/battles", requireAuth, async (req, res) => {
   try {
     const { classroomId } = req.params;
     const userId = req.user.sub;
     const isMember = await verifyMembership(classroomId, userId);
     if (!isMember) return res.status(403).json({ error: "Not a member" });
 
-    const duels = await prisma.classroomDuel.findMany({
-      where: {
-        classroomId,
-        OR: [{ challengerId: userId }, { challengedId: userId }],
-      },
+    const msgs = await prisma.classroomMessage.findMany({
+      where: { classroomId, liveCode: { not: null } },
       include: {
-        challenger: { select: { id: true, username: true, fullName: true } },
-        challenged: { select: { id: true, username: true, fullName: true } },
+        user: { select: AUTHOR_SELECT },
       },
       orderBy: { createdAt: "desc" },
       take: 20,
     });
 
-    res.json(duels);
+    const resourceIds = [...new Set(msgs.map((m) => m.resourceId).filter(Boolean))];
+    const resources = resourceIds.length
+      ? await prisma.resource.findMany({
+          where: { id: { in: resourceIds } },
+          select: RESOURCE_CARD_SELECT,
+        })
+      : [];
+    const resById = new Map(resources.map((r) => [r.id, r]));
+
+    res.json(
+      msgs.map(({ user, ...m }) => {
+        const room = m.liveCode ? getRoomByCode(m.liveCode) : null;
+        return {
+          id: m.id,
+          code: m.liveCode,
+          title: resById.get(m.resourceId)?.title || "Quiz battle",
+          host: publicUser(user),
+          createdAt: m.createdAt,
+          live: !!room && room.phase !== "complete",
+          joinable: !!room && room.phase === "lobby",
+          players: room ? room.participants.size : 0,
+        };
+      })
+    );
   } catch (error) {
-    console.error("Error fetching duels:", error);
-    res.status(500).json({ error: "Failed to fetch duels" });
-  }
-});
-
-// POST /api/study-group/:classroomId/duels
-router.post("/:classroomId/duels", requireAuth, async (req, res) => {
-  try {
-    const { classroomId } = req.params;
-    const userId = req.user.sub;
-    const { challengedId, subjectId } = req.body;
-    if (!challengedId) return res.status(400).json({ error: "Challenged user required" });
-
-    const isMember = await verifyMembership(classroomId, userId);
-    if (!isMember) return res.status(403).json({ error: "Not a member" });
-
-    if (challengedId === userId) return res.status(400).json({ error: "Cannot challenge yourself" });
-
-    const duel = await prisma.classroomDuel.create({
-      data: {
-        classroomId,
-        challengerId: userId,
-        challengedId,
-        subjectId: subjectId || null,
-      },
-      include: {
-        challenger: { select: { id: true, username: true, fullName: true } },
-        challenged: { select: { id: true, username: true, fullName: true } },
-      },
-    });
-
-    res.status(201).json(duel);
-  } catch (error) {
-    console.error("Error creating duel:", error);
-    res.status(500).json({ error: "Failed to create duel" });
-  }
-});
-
-// POST /api/study-group/duels/:duelId/respond
-router.post("/duels/:duelId/respond", requireAuth, async (req, res) => {
-  try {
-    const { duelId } = req.params;
-    const userId = req.user.sub;
-    const { status } = req.body; // accepted | declined
-
-    const duel = await prisma.classroomDuel.findUnique({ where: { id: duelId } });
-    if (!duel) return res.status(404).json({ error: "Duel not found" });
-    if (duel.challengedId !== userId) return res.status(403).json({ error: "Not the challenged user" });
-
-    const updated = await prisma.classroomDuel.update({
-      where: { id: duelId },
-      data: { status },
-    });
-
-    res.json(updated);
-  } catch (error) {
-    console.error("Error responding to duel:", error);
-    res.status(500).json({ error: "Failed to respond" });
-  }
-});
-
-// POST /api/study-group/duels/:duelId/complete
-router.post("/duels/:duelId/complete", requireAuth, async (req, res) => {
-  try {
-    const { duelId } = req.params;
-    const userId = req.user.sub;
-    const { challengerScore, challengedScore } = req.body;
-
-    const duel = await prisma.classroomDuel.findUnique({ where: { id: duelId } });
-    if (!duel) return res.status(404).json({ error: "Duel not found" });
-    if (duel.status !== "accepted") return res.status(400).json({ error: "Duel not accepted" });
-
-    const winnerId = challengerScore > challengedScore
-      ? duel.challengerId
-      : challengedScore > challengerScore
-      ? duel.challengedId
-      : null;
-
-    const updated = await prisma.classroomDuel.update({
-      where: { id: duelId },
-      data: {
-        status: "completed",
-        challengerScore: parseInt(challengerScore) || 0,
-        challengedScore: parseInt(challengedScore) || 0,
-        winnerId,
-        completedAt: new Date(),
-      },
-    });
-
-    res.json(updated);
-  } catch (error) {
-    console.error("Error completing duel:", error);
-    res.status(500).json({ error: "Failed to complete duel" });
+    console.error("Error fetching battles:", error);
+    res.status(500).json({ error: "Failed to fetch battles" });
   }
 });
 
@@ -750,9 +744,9 @@ router.get("/:classroomId/streak", requireAuth, async (req, res) => {
       include: {
         user: {
           select: {
-            id: true,
-            progress: { select: { streak: true, sessions: true, xp: true } },
-            sessions: { select: { createdAt: true } },
+            ...AUTHOR_SELECT,
+            progress: { select: { streak: true, xp: true } },
+            quizAttempts: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 10 },
           },
         },
       },
@@ -761,9 +755,9 @@ router.get("/:classroomId/streak", requireAuth, async (req, res) => {
     const creator = await prisma.user.findUnique({
       where: { id: classroom.createdById },
       select: {
-        id: true,
-        progress: { select: { streak: true, sessions: true, xp: true } },
-        sessions: { select: { createdAt: true } },
+        ...AUTHOR_SELECT,
+        progress: { select: { streak: true, xp: true } },
+        quizAttempts: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 10 },
       },
     });
 
@@ -773,26 +767,38 @@ router.get("/:classroomId/streak", requireAuth, async (req, res) => {
     const streaks = allUsers.map((u) => u.progress?.streak || 0);
     const groupStreak = streaks.length > 0 ? Math.min(...streaks.filter((s) => s > 0)) : 0;
 
-    // Members studying today
+    // Members with quiz activity today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const studiedToday = allUsers.filter((u) =>
-      (u.sessions || []).some((s) => new Date(s.createdAt) >= today)
+      (u.quizAttempts || []).some((a) => new Date(a.createdAt) >= today)
     ).length;
 
-    // Collective study hours (approx from sessions)
-    const totalSessions = allUsers.reduce((sum, u) => sum + (u.progress?.sessions || 0), 0);
+    // Members currently in an active study room for this classroom
+    const activeParticipants = await prisma.classroomStudyRoomParticipant.findMany({
+      where: { leftAt: null, studyRoom: { classroomId, status: "active" } },
+      select: { userId: true },
+    });
+    const activeNow = new Set(activeParticipants.map((p) => p.userId)).size;
+
+    const totalXP = allUsers.reduce((sum, u) => sum + (u.progress?.xp || 0), 0);
 
     res.json({
       groupStreak,
       totalMembers: allUsers.length,
       studiedToday,
-      totalSessions,
-      memberStreaks: allUsers.map((u) => ({
-        userId: u.id,
-        streak: u.progress?.streak || 0,
-        xp: u.progress?.xp || 0,
-      })),
+      activeNow,
+      totalXP,
+      memberStreaks: allUsers.map((u) => {
+        const pub = publicUser(u);
+        return {
+          userId: u.id,
+          name: pub?.name || "Scholar",
+          avatar: pub?.avatar || null,
+          streak: u.progress?.streak || 0,
+          xp: u.progress?.xp || 0,
+        };
+      }),
     });
   } catch (error) {
     console.error("Error fetching group streak:", error);

@@ -1894,6 +1894,8 @@ model ClassroomMessage {
 
   resourceId   String?  // optional shared resource
 
+  liveCode     String?  // quiz-battle invite: live-quiz room code
+
   createdAt    DateTime @default(now())
 
   classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)

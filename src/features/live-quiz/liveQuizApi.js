@@ -53,6 +53,24 @@ export function endLiveRoom(roomId) {
   return request(`/api/live-quiz/${roomId}/end`, { method: "POST" });
 }
 
+// The MCQ-playable variant of a material: itself if it's an MCQ set,
+// else its AI-generated MCQ derived resource.
+export function mcqVariant(r) {
+  if (!r) return null;
+  if (r.contentType === "mcq" && r.mcqData) return r;
+  return (r.derivedResources || []).find((d) => d.contentType === "mcq" && d.mcqData) || null;
+}
+
+export function mcqQuestionCount(r) {
+  const v = mcqVariant(r);
+  if (!v) return 0;
+  let data = v.mcqData;
+  if (typeof data === "string") {
+    try { data = JSON.parse(data); } catch { data = null; }
+  }
+  return Array.isArray(data) ? data.length : 0;
+}
+
 export function getWsUrl(roomId, ticket) {
   const base = API_BASE.startsWith("https://")
     ? API_BASE.replace("https://", "wss://")

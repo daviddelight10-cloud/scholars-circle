@@ -9,9 +9,25 @@ function initials(name) {
   return ((p[0]?.[0] || "?") + (p[1]?.[0] || "")).toUpperCase();
 }
 
+// Deterministic gradient from the group name — matches GroupView's avatar.
+function groupGradient(name = "") {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return `linear-gradient(135deg, hsl(${h} 65% 45%), hsl(${(h + 40) % 360} 70% 32%))`;
+}
+
+function relShort(ts) {
+  const m = Math.max(0, Math.round((Date.now() - new Date(ts)) / 60000));
+  if (m < 1) return "now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
 // Groups tab: your groups + create/join + public discovery. `joinCode` lets
 // the parent deep-link an invite (?join=CODE or push payload).
-export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoinHandled, onOpenProfile }) {
+export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoinHandled, onOpenProfile, onOpenResource, onJoinQuiz }) {
   const [mine, setMine] = useState(null);
   const [publicGroups, setPublicGroups] = useState([]);
   const [error, setError] = useState(null);
@@ -78,6 +94,8 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
         onChanged={patchGroup}
         onLeft={removeFromList}
         onOpenProfile={onOpenProfile}
+        onOpenResource={onOpenResource}
+        onJoinQuiz={onJoinQuiz}
       />
     );
   }
@@ -118,7 +136,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
           <SectionHeader title="Your groups" hint={`${mine.length}`} />
           {mine.map((g) => (
             <button key={g.id} className="fd-group-card" onClick={() => setOpen(g)}>
-              <span className="fd-group-avatar">{initials(g.name)}</span>
+              <span className="gv-avatar" style={{ background: groupGradient(g.name) }}>{initials(g.name)}</span>
               <span className="fd-group-info">
                 <span className="fd-group-card-name">
                   {g.name}
@@ -128,8 +146,23 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
                 <span className="fd-group-card-meta">
                   {[g.subject, `${g.memberCount} member${g.memberCount === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
                 </span>
+                {g.lastMessage && (
+                  <span className="gv-card-activity">
+                    {g.lastMessage.sender.split(" ")[0]}: {g.lastMessage.text} · {relShort(g.lastMessage.createdAt)}
+                  </span>
+                )}
               </span>
-              <span className="fd-group-code">🔑 {g.joinCode}</span>
+              <span className="gv-card-side">
+                {(g.memberAvatars || []).length > 0 && (
+                  <span className="gv-stack">
+                    {g.memberAvatars.slice(0, 3).map((a, i) => (
+                      <img key={i} src={a} alt="" className="gv-stack-img" />
+                    ))}
+                    {g.memberCount > 3 && <span className="gv-stack-more">+{g.memberCount - 3}</span>}
+                  </span>
+                )}
+                <span className="fd-group-code">🔑 {g.joinCode}</span>
+              </span>
             </button>
           ))}
         </>
@@ -165,7 +198,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
             )}
             {publicGroups.map((g) => (
               <div key={g.id} className="fd-group-card">
-                <span className="fd-group-avatar">{initials(g.name)}</span>
+                <span className="gv-avatar" style={{ background: groupGradient(g.name) }}>{initials(g.name)}</span>
                 <span className="fd-group-info">
                   <span className="fd-group-card-name">{g.name}</span>
                   <span className="fd-group-card-meta">
@@ -346,7 +379,7 @@ function JoinGroupSheet({ token, initialCode, onClose, onJoined }) {
         {error && <div className="fd-sheet-sub" style={{ color: "var(--fd-coral)" }}>{error}</div>}
         {preview && (
           <div className="fd-group-card" style={{ cursor: "default" }}>
-            <span className="fd-group-avatar">{initials(preview.name)}</span>
+            <span className="gv-avatar" style={{ background: groupGradient(preview.name) }}>{initials(preview.name)}</span>
             <span className="fd-group-info">
               <span className="fd-group-card-name">{preview.name}</span>
               <span className="fd-group-card-meta">
