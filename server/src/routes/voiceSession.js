@@ -83,6 +83,21 @@ function buildGeminiSetupMessage(session, resumeHandle) {
           },
         },
       },
+      ...(session.allowPageNav ? {
+        tools: [{
+          functionDeclarations: [{
+            name: "go_to_page",
+            description: "Navigate the student's document reader to a specific page. Call this when you reference content on a different page or want to show them where something is.",
+            parameters: {
+              type: "object",
+              properties: {
+                page: { type: "integer", description: "1-based page number" },
+              },
+              required: ["page"],
+            },
+          }],
+        }],
+      } : {}),
       realtimeInputConfig: {
         automaticActivityDetection: {
           startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
@@ -184,10 +199,14 @@ function connectGeminiSession(session, resumeHandle = null) {
     if (msg.serverContent) {
       const sc = msg.serverContent;
       if (sc.inputTranscription) {
-        session.transcript.push({ role: "user", text: sc.inputTranscription.text, ts: Date.now() });
+        pushSessionTranscript(session, "user", sc.inputTranscription.text);
       }
       if (sc.outputTranscription) {
-        session.transcript.push({ role: "tutor", text: sc.outputTranscription.text, ts: Date.now() });
+        pushSessionTranscript(session, "tutor", sc.outputTranscription.text);
+      }
+      if (sc.turnComplete || sc.interrupted) {
+        const last = session.transcript[session.transcript.length - 1];
+        if (last) last.closed = true;
       }
       forwardToClient(session, sc);
       session.lastActivityAt = Date.now();
@@ -302,13 +321,27 @@ function resetSessionTimeout(sessionId) {
   }, SESSION_TIMEOUT_MS);
 }
 
+// Streaming transcription arrives as word-sized fragments — merge consecutive
+// same-role fragments into one entry so stored transcripts read like turns.
+function pushSessionTranscript(session, role, text) {
+  const last = session.transcript[session.transcript.length - 1];
+  if (last && last.role === role && !last.closed) {
+    last.text += text;
+  } else {
+    session.transcript.push({ role, text, ts: Date.now() });
+  }
+}
+
 // POST /api/voice-session/start
 router.post("/start", requireAuth, async (req, res) => {
   try {
-    const { resourceId, voiceName = "Achird", currentPage = null, pageText = "" } = req.body || {};
+    const { resourceId, voiceName = "Achird", currentPage = null, pageText = "", level = "standard", allowPageNav = false } = req.body || {};
     if (!resourceId) {
       return res.status(400).json({ error: "resourceId is required" });
     }
+
+    const validLevels = ["easy", "standard", "exam"];
+    const sessionLevel = validLevels.includes(level) ? level : "standard";
 
     const resource = await prisma.resource.findUnique({
       where: { id: resourceId },
@@ -369,7 +402,33 @@ router.post("/start", requireAuth, async (req, res) => {
       cacheDocument(resource.id, text, chunks);
     }
 
-    const systemPrompt = buildVoiceSystemPrompt(chunks, resource.title, pageText);
+    // Tail of the last session on this document — lets the tutor pick up
+    // where they left off instead of starting cold.
+    let previousRecap = "";
+    try {
+      const prev = await prisma.voiceSession.findFirst({
+        where: { userId: req.user.sub, resourceId: resource.id, status: "ended" },
+        orderBy: { createdAt: "desc" },
+        select: { transcript: true },
+      });
+      if (prev?.transcript) {
+        const turns = typeof prev.transcript === "string" ? JSON.parse(prev.transcript) : prev.transcript;
+        if (Array.isArray(turns) && turns.length) {
+          previousRecap = turns.slice(-14)
+            .map((t) => `${t.role === "tutor" ? "Tutor" : "Student"}: ${t.text}`)
+            .join("\n")
+            .slice(-2500);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load previous voice session recap:", e.message);
+    }
+
+    const systemPrompt = buildVoiceSystemPrompt(chunks, resource.title, pageText, {
+      level: sessionLevel,
+      previousRecap,
+      allowPageNav: allowPageNav === true,
+    });
     const concepts = extractConceptsFromChunks(chunks);
 
     const sessionRecord = await prisma.voiceSession.create({
@@ -407,6 +466,8 @@ router.post("/start", requireAuth, async (req, res) => {
       droppedAudioChunks: 0,
       closed: false,
       kickoffSent: false,
+      allowPageNav: allowPageNav === true,
+      level: sessionLevel,
     };
     activeSessions.set(sessionId, session);
     connectGeminiSession(session);
@@ -536,6 +597,80 @@ router.get("/history", requireAuth, async (req, res) => {
     return res.json({ sessions });
   } catch (err) {
     return res.status(500).json({ error: "Failed to fetch session history" });
+  }
+});
+
+// ── Voice previews ──────────────────────────────────────────────────────────
+const PREVIEW_TEXT = "Hey! I'm your study tutor — ready to dive into your material together?";
+const previewCache = new Map(); // voiceName -> WAV Buffer
+
+function pcmToWav(pcm, sampleRate = 24000, channels = 1, bits = 16) {
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * channels * (bits / 8), 28);
+  header.writeUInt16LE(channels * (bits / 8), 32);
+  header.writeUInt16LE(bits, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
+// GET /api/voice-session/voice-preview/:voice — short TTS sample of a Gemini voice
+router.get("/voice-preview/:voice", requireAuth, async (req, res) => {
+  const voice = String(req.params.voice || "");
+  if (!/^[A-Za-z]+$/.test(voice) || voice.length > 30) {
+    return res.status(400).json({ error: "Invalid voice name" });
+  }
+
+  const cached = previewCache.get(voice);
+  if (cached) {
+    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.send(cached);
+  }
+
+  try {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return res.status(503).json({ error: "Preview not configured" });
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${key}`;
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Say this in a warm, upbeat tone: "${PREVIEW_TEXT}"` }] }],
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+        },
+      }),
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      console.warn(`Voice preview TTS failed (${resp.status}):`, body.slice(0, 200));
+      return res.status(502).json({ error: "Preview generation failed" });
+    }
+
+    const data = await resp.json();
+    const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!b64) return res.status(502).json({ error: "No audio in TTS response" });
+
+    const wav = pcmToWav(Buffer.from(b64, "base64"));
+    previewCache.set(voice, wav);
+    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    return res.send(wav);
+  } catch (err) {
+    console.error("Voice preview error:", err.message);
+    return res.status(500).json({ error: "Preview failed" });
   }
 });
 

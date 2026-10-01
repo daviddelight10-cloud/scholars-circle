@@ -21,7 +21,7 @@ function getWsBase() {
   return `ws://${API_BASE}`;
 }
 
-export function useVoiceSession() {
+export function useVoiceSession({ onGoToPage } = {}) {
   const [state, setState] = useState(VOICE_STATES.IDLE);
   const [error, setError] = useState(null);
   const [transcript, setTranscript] = useState([]);
@@ -47,6 +47,8 @@ export function useVoiceSession() {
   const transcriptRef = useRef([]);
   const isListeningRef = useRef(false);
   const stateRef = useRef(VOICE_STATES.IDLE);
+  const onGoToPageRef = useRef(onGoToPage);
+  onGoToPageRef.current = onGoToPage;
   const endSessionRef = useRef(null);
   const nextPlayTimeRef = useRef(0);
   const pendingAudioChunksRef = useRef(0);
@@ -522,7 +524,7 @@ export function useVoiceSession() {
     endSessionRef.current = endSession;
   }, [endSession]);
 
-  const startSession = useCallback(async (resourceId, voiceName = "Achird", currentPage = null, pageText = "") => {
+  const startSession = useCallback(async (resourceId, voiceName = "Achird", currentPage = null, pageText = "", opts = {}) => {
     setError(null);
     setTranscript([]);
     transcriptRef.current = [];
@@ -562,7 +564,11 @@ export function useVoiceSession() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ resourceId, voiceName, currentPage, pageText }),
+        body: JSON.stringify({
+          resourceId, voiceName, currentPage, pageText,
+          level: opts.level || "standard",
+          allowPageNav: !!opts.allowPageNav,
+        }),
       });
 
       const data = await res.json();
@@ -693,6 +699,28 @@ export function useVoiceSession() {
               stopMic();
               stopTimer();
               break;
+
+            case "tool_call": {
+              const calls = msg.data?.functionCalls || [];
+              for (const call of calls) {
+                if (call.name !== "go_to_page") continue;
+                const page = Number(call.args?.page);
+                let result = "Could not navigate";
+                if (Number.isInteger(page) && page > 0 && onGoToPageRef.current) {
+                  onGoToPageRef.current(page);
+                  result = `Navigated to page ${page}`;
+                }
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({
+                    type: "tool_response",
+                    id: call.id,
+                    name: call.name,
+                    response: { result },
+                  }));
+                }
+              }
+              break;
+            }
 
             case "reconnecting":
               stopPlayback();

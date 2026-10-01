@@ -17,6 +17,12 @@ export const VOICE_OPTIONS = [
   { name: "Puck", desc: "Upbeat" },
 ];
 
+export const VOICE_LEVELS = [
+  { id: "easy", label: "Beginner", desc: "Simple explanations, everyday analogies" },
+  { id: "standard", label: "Standard", desc: "Balanced teaching" },
+  { id: "exam", label: "Exam prep", desc: "Dense, fast, rapid-fire checks" },
+];
+
 export const AUDIO_CONFIG = {
   sampleRate: 16000,
   playbackSampleRate: 24000,

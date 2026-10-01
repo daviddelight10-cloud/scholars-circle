@@ -5,7 +5,8 @@ import VoiceOrb from "./VoiceOrb.jsx";
 import MaterialsDrawer from "./MaterialsDrawer.jsx";
 import ConceptsDrawer from "./ConceptsDrawer.jsx";
 import TranscriptOverlay from "./TranscriptOverlay.jsx";
-import { COLORS, FONTS, VOICE_STATES, VOICE_OPTIONS, SESSION_TIMEOUT_SEC, hexToRgba } from "./voiceConfig.js";
+import { COLORS, FONTS, VOICE_STATES, VOICE_OPTIONS, VOICE_LEVELS, SESSION_TIMEOUT_SEC, hexToRgba } from "./voiceConfig.js";
+import { playVoicePreview } from "./voicePreview.js";
 
 const ICONS = {
   mic: '<rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0014 0M12 18v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
@@ -42,6 +43,9 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
   const [showConcepts, setShowConcepts] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [voiceName, setVoiceName] = useState("Achird");
+  const [level, setLevel] = useState(() => {
+    try { return localStorage.getItem("sc-voice-level") || "standard"; } catch { return "standard"; }
+  });
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const [showDocPicker, setShowDocPicker] = useState(false);
   const [docSearch, setDocSearch] = useState("");
@@ -101,8 +105,8 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
 
   const handleStart = useCallback(() => {
     if (!selectedResourceId) return;
-    voice.startSession(selectedResourceId, voiceName);
-  }, [selectedResourceId, voiceName, voice]);
+    voice.startSession(selectedResourceId, voiceName, null, "", { level });
+  }, [selectedResourceId, voiceName, level, voice]);
 
   const handleEnd = useCallback(() => {
     voice.endSession();
@@ -354,6 +358,35 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
               </div>
             )}
 
+            <span className="sc-vt-field-label" style={{ marginTop: 20 }}>Difficulty</span>
+            <div className="sc-vt-glass" style={{ display: "flex", gap: 6, padding: 5 }}>
+              {VOICE_LEVELS.map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => {
+                    setLevel(l.id);
+                    try { localStorage.setItem("sc-voice-level", l.id); } catch {}
+                  }}
+                  title={l.desc}
+                  style={{
+                    flex: 1,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: level === l.id ? "rgba(79,142,247,0.22)" : "transparent",
+                    color: level === l.id ? COLORS.electricLight : COLORS.textDim,
+                    fontSize: 12.5,
+                    fontFamily: FONTS.body,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "background 0.15s ease, color 0.15s ease",
+                  }}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+
             <div
               className="sc-vt-glass sc-vt-voice-select"
               onClick={() => setShowVoicePicker((v) => !v)}
@@ -400,7 +433,22 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                       }}
                     >
                       {v.name}
-                      <span style={{ fontSize: 11, fontWeight: 500, color: COLORS.textFaint }}>{v.desc}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: COLORS.textFaint }}>{v.desc}</span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          title={`Preview ${v.name}`}
+                          onClick={(e) => { e.stopPropagation(); playVoicePreview(v.name); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); playVoicePreview(v.name); } }}
+                          style={{ color: COLORS.textFaint, display: "flex", cursor: "pointer" }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/>
+                            <path d="M15.5 8.5a5 5 0 010 7"/>
+                          </svg>
+                        </span>
+                      </span>
                     </button>
                   ))}
                 </div>

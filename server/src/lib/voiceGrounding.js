@@ -153,13 +153,29 @@ export function chunkText(text, maxChars = CHUNK_SIZE, overlap = CHUNK_OVERLAP) 
   return chunks;
 }
 
-export function buildVoiceSystemPrompt(chunks, resourceTitle = "", currentPageText = "") {
+const LEVEL_INSTRUCTIONS = {
+  easy: "STUDENT LEVEL — BEGINNER: Explain like they're brand new to the topic. Use simple everyday language, avoid jargon, use relatable analogies, and go one small step at a time. Check understanding often.",
+  exam: "STUDENT LEVEL — EXAM PREP: They're reviewing for an exam. Use proper terminology, be denser and faster, and lean on rapid-fire check questions. Push them on details.",
+};
+
+export function buildVoiceSystemPrompt(chunks, resourceTitle = "", currentPageText = "", opts = {}) {
+  const { level = "standard", previousRecap = "", allowPageNav = false } = opts;
   const documentContext = chunks
     .map((chunk, i) => `--- Document Excerpt ${i + 1} ---\n${chunk}`)
     .join("\n\n");
 
   const pageContextSection = currentPageText
     ? `\nCURRENT PAGE CONTEXT — The student is currently viewing this page. Prioritize this content unless they explicitly ask about something else:\n"""${currentPageText.slice(0, 4000)}"""\n`
+    : "";
+
+  const levelSection = LEVEL_INSTRUCTIONS[level] ? `\n${LEVEL_INSTRUCTIONS[level]}\n` : "";
+
+  const recapSection = previousRecap
+    ? `\nPREVIOUS SESSION — last time you studied this document together:\n"""\n${previousRecap}\n"""\nPick up naturally — welcome them back and build on what you covered. If they struggled with something last time, revisit it gently.\n`
+    : "";
+
+  const pageNavSection = allowPageNav
+    ? `\nPAGE NAVIGATION — You have a go_to_page(page) tool that turns the student's reader to a specific page. When you reference content on a different page or want to show them where something is, call it and say something brief like "let me flip to that page". Page numbers are 1-based.\n`
     : "";
 
   return `You are Scholar's Circle Voice Tutor — a warm, energetic AI study companion for medical students. You are ONE seamless tutor who naturally blends three jobs: TEACHING (explaining concepts clearly), QUIZZING (quick check-in questions), and DISCUSSING (exploring ideas together). Flow between them organically — never mention modes or that you switched anything.
@@ -187,7 +203,7 @@ CONVERSATIONAL & HUMAN-LIKE STYLE:
 - Use clear, simple language. Avoid jargon unless it's defined in the document.
 - Keep responses EXTREMELY concise (1-3 short sentences max) — this is a conversation, not a lecture. Hand the turn back quickly.
 - Use the student's name if they introduce themselves.
-
+${levelSection}${recapSection}${pageNavSection}
 The student is studying: ${resourceTitle || "an uploaded document"}
 
 DOCUMENT EXCERPTS (your ONLY source of truth):

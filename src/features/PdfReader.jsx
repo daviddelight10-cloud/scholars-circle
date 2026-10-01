@@ -3,12 +3,15 @@ import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
 import { callAIMultimodal, callAIMultimodalStream } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import McqCard from "../components/McqCard.jsx";
+import { parseMcqSegments, hasMcqBlock } from "../lib/mcqBlocks.js";
 import TypewriterText from "../components/TypewriterText.jsx";
 import FlashcardRunner from "../components/FlashcardRunner.jsx";
 import { useVoiceSession } from "../features/voice-tutor/useVoiceSession.js";
 import VoiceOrb from "../features/voice-tutor/VoiceOrb.jsx";
 import TranscriptOverlay from "../features/voice-tutor/TranscriptOverlay.jsx";
-import { VOICE_STATES, VOICE_OPTIONS, COLORS } from "../features/voice-tutor/voiceConfig.js";
+import { VOICE_STATES, VOICE_OPTIONS, VOICE_LEVELS, COLORS } from "../features/voice-tutor/voiceConfig.js";
+import { playVoicePreview } from "../features/voice-tutor/voicePreview.js";
 import {
   loadHistory, saveHistory, createHistoryEntry,
   recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
@@ -146,7 +149,7 @@ const SMART_CHIPS = [
   { label: "Step-by-step", prompt: "Break this down into clear numbered steps." },
   { label: "Give an example", prompt: "Give a concrete worked example of this." },
   { label: "Define key terms", prompt: "Define the key terms involved in plain language." },
-  { label: "Quiz me", prompt: "Ask me 2 short questions to test if I understood this. Wait for my answers." },
+  { label: "Quiz me", prompt: "Quiz me on this material — ask me one multiple-choice question at a time using the mcq format." },
   { label: "Why it matters", prompt: "Why is this important and where is it used in practice?" },
 ];
 
@@ -162,7 +165,13 @@ DETECT the content type from the image, then respond:
 • GENERAL STATEMENT → Explain the core idea simply.
 
 Format: **bold** key terms. Numbered steps for problems. Bullet points for lists.
-Length: concise, but never cut short a multi-step solution.`;
+Length: concise, but never cut short a multi-step solution.
+
+QUIZ MODE: If the student asks to be quizzed/tested ("quiz me", "test me", "another question") or is mid-quiz, respond with a brief one-line lead-in PLUS exactly one fenced quiz block — never ask questions in plain text:
+\`\`\`mcq
+{"question":"...","options":["choice A","choice B","choice C","choice D"],"answer":0,"explanation":"one sentence why"}
+\`\`\`
+Rules: "answer" is the 0-based index of the correct option. Quiz content must come from the document/page text only. One question per reply. After they answer, continue with another question or explain further based on their reply.`;
 
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, folderId: propFolderId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
@@ -406,8 +415,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [pageQuizGenerating, setPageQuizGenerating] = useState(false);
   const [pageQuizError, setPageQuizError] = useState(null);
   // ── Voice Tutor state ──────────────────────────────────────────────────────
-  const voice = useVoiceSession();
+  const voice = useVoiceSession({ onGoToPage: (p) => goToPage(p) });
   const [voiceName, setVoiceName] = useState("Achird");
+  const [voiceLevel, setVoiceLevel] = useState(() => {
+    try { return localStorage.getItem("sc-voice-level") || "standard"; } catch { return "standard"; }
+  });
   const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
   const [voiceMinimized, setVoiceMinimized] = useState(false);
   const [voiceTextInput, setVoiceTextInput] = useState("");
@@ -1363,8 +1375,8 @@ ${text}
       const text = await getPageText(currentPage);
       pageTextRef.current = text;
     } catch {}
-    await voice.startSession(propResourceId, voiceName, currentPage, pageTextRef.current);
-  }, [propResourceId, voiceName, currentPage, voice, getPageText]);
+    await voice.startSession(propResourceId, voiceName, currentPage, pageTextRef.current, { level: voiceLevel, allowPageNav: true });
+  }, [propResourceId, voiceName, voiceLevel, currentPage, voice, getPageText]);
 
   const handleVoiceEnd = useCallback(() => {
     voice.endSession();
@@ -4997,9 +5009,13 @@ ${combinedText.slice(0, 24000)}
                       <img src={msg.image} alt="Circled content" style={s.msgImage} />
                     )}
                     {msg.role === "assistant"
-                      ? (i === streamingIdx
+                      ? (i === streamingIdx && !hasMcqBlock(msg.content)
                         ? <TypewriterText text={msg.content} theme={theme} active onDone={() => setStreamingIdx(null)} onTick={() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }} />
-                        : <MarkdownText theme={theme}>{msg.content}</MarkdownText>)
+                        : parseMcqSegments(msg.content).map((seg, j) => (
+                            seg.type === "mcq"
+                              ? <McqCard key={j} mcq={seg.mcq} T={T} onNext={() => sendFollowUp("Next question please — keep quizzing me in the same format.")} />
+                              : <MarkdownText key={j} theme={theme}>{seg.text}</MarkdownText>
+                          )))
                       : msg.content}
                   </div>
                 ))}
@@ -5486,11 +5502,56 @@ ${combinedText.slice(0, 24000)}
                                   onClick={() => { setVoiceName(v.name); setVoiceMenuOpen(false); }}
                                 >
                                   {v.name}
-                                  <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>{v.desc}</span>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>{v.desc}</span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      title={`Preview ${v.name}`}
+                                      onClick={(e) => { e.stopPropagation(); playVoicePreview(v.name); }}
+                                      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); playVoicePreview(v.name); } }}
+                                      style={{ color: T.muted, display: "flex", cursor: "pointer" }}
+                                    >
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                        <path d="M11 5L6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"/>
+                                        <path d="M15.5 8.5a5 5 0 010 7"/>
+                                      </svg>
+                                    </span>
+                                  </span>
                                 </button>
                               ))}
                             </div>
                           )}
+                        </div>
+
+                        {/* Difficulty */}
+                        <div>
+                          <div style={{ ...s.studyLabel, marginBottom: 4 }}>Level</div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {VOICE_LEVELS.map((l) => (
+                              <button
+                                key={l.id}
+                                title={l.desc}
+                                style={{
+                                  flex: 1,
+                                  padding: "7px 10px",
+                                  borderRadius: 8,
+                                  border: `1px solid ${voiceLevel === l.id ? T.accent : T.border}`,
+                                  background: voiceLevel === l.id ? T.accent : "none",
+                                  color: voiceLevel === l.id ? "white" : T.muted,
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => {
+                                  setVoiceLevel(l.id);
+                                  try { localStorage.setItem("sc-voice-level", l.id); } catch {}
+                                }}
+                              >
+                                {l.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         {/* Resource warning */}

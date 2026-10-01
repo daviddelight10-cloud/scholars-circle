@@ -273,6 +273,22 @@ async function handleVoiceWsUpgrade(request, socket, head) {
         return;
       }
 
+      // Client-side tool results (e.g. go_to_page) — forward to Gemini
+      if (parsed.type === "tool_response" && parsed.id) {
+        if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+          session.geminiWs.send(JSON.stringify({
+            toolResponse: {
+              functionResponses: [{
+                id: parsed.id,
+                name: parsed.name || "go_to_page",
+                response: parsed.response || { result: "ok" },
+              }],
+            },
+          }));
+        }
+        return;
+      }
+
       if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
         if (parsed.type === "text" && parsed.text) {
           const textMsg = {
