@@ -8,7 +8,7 @@ import FlashcardRunner from "../components/FlashcardRunner.jsx";
 import { useVoiceSession } from "../features/voice-tutor/useVoiceSession.js";
 import VoiceOrb from "../features/voice-tutor/VoiceOrb.jsx";
 import TranscriptOverlay from "../features/voice-tutor/TranscriptOverlay.jsx";
-import { VOICE_STATES, VOICE_OPTIONS } from "../features/voice-tutor/voiceConfig.js";
+import { VOICE_STATES, VOICE_OPTIONS, COLORS } from "../features/voice-tutor/voiceConfig.js";
 import {
   loadHistory, saveHistory, createHistoryEntry,
   recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
@@ -407,10 +407,25 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [pageQuizError, setPageQuizError] = useState(null);
   // ── Voice Tutor state ──────────────────────────────────────────────────────
   const voice = useVoiceSession();
-  const [voiceName, setVoiceName] = useState("Aoede");
+  const [voiceName, setVoiceName] = useState("Achird");
+  const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
   const [voiceMinimized, setVoiceMinimized] = useState(false);
   const [voiceTextInput, setVoiceTextInput] = useState("");
   const voiceActive = voice.state !== VOICE_STATES.IDLE && voice.state !== VOICE_STATES.ENDED && voice.state !== VOICE_STATES.ERROR;
+  const vtStateColor = {
+    [VOICE_STATES.LISTENING]: COLORS.electric,
+    [VOICE_STATES.SPEAKING]: "#A78BFA",
+    [VOICE_STATES.THINKING]: COLORS.gold,
+    [VOICE_STATES.READY]: COLORS.green,
+  }[voice.state] || COLORS.textDim;
+  const vtStateLabel = {
+    [VOICE_STATES.CONNECTING]: "Connecting…",
+    [VOICE_STATES.READY]: "Ready — tap mic to speak",
+    [VOICE_STATES.LISTENING]: "Listening…",
+    [VOICE_STATES.SPEAKING]: "Speaking…",
+    [VOICE_STATES.THINKING]: "Thinking…",
+  }[voice.state] || "";
+  const vtTimer = `${Math.floor(voice.elapsedSec / 60)}:${String(voice.elapsedSec % 60).padStart(2, "0")}`;
 
   // Scroll mode: "single" | "vertical" | "horizontal"
   const [scrollMode, setScrollMode] = useState(() => loadStored(`sc_pdf_scrollmode_${docKey}`, "vertical"));
@@ -5420,35 +5435,62 @@ ${combinedText.slice(0, 24000)}
                     {/* Voice mode — setup */}
                     {studyMode === "voice" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                        <div style={s.studyLabel}>Voice Tutor</div>
-                        <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
-                          Talk to an AI tutor about this document. It knows what page you're reading and grounds answers only in your material.
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{
+                            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                            background: T.accent, color: "white", fontSize: 17,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            🎙️
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Voice Tutor</div>
+                            <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.4 }}>
+                              Chat hands-free — it knows the page you're reading.
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Voice picker */}
-                        <div>
-                          <div style={{ ...s.studyLabel, marginBottom: 4 }}>Voice</div>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {VOICE_OPTIONS.map((v) => (
-                              <button
-                                key={v.name}
-                                style={{
-                                  padding: "6px 12px",
-                                  borderRadius: 8,
-                                  border: `1px solid ${voiceName === v.name ? T.accent : T.border}`,
-                                  background: voiceName === v.name ? T.accent : "none",
-                                  color: voiceName === v.name ? "white" : T.muted,
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                }}
-                                onClick={() => setVoiceName(v.name)}
-                                title={v.desc}
-                              >
-                                {v.name}
-                              </button>
-                            ))}
-                          </div>
+                        {/* Voice dropdown */}
+                        <div style={{ position: "relative" }}>
+                          <button
+                            style={{
+                              width: "100%", padding: "10px 12px", borderRadius: 10,
+                              border: `1px solid ${T.border}`, background: T.inputBg,
+                              display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                            }}
+                            onClick={() => setVoiceMenuOpen((v) => !v)}
+                          >
+                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.accent }} />
+                            <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{voiceName}</span>
+                            <span style={{ fontSize: 11, color: T.muted }}>
+                              {VOICE_OPTIONS.find((v) => v.name === voiceName)?.desc}
+                            </span>
+                            <span style={{ marginLeft: "auto", fontSize: 10, color: T.muted }}>▾</span>
+                          </button>
+                          {voiceMenuOpen && (
+                            <div style={{
+                              position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+                              background: T.toolbar, border: `1px solid ${T.border}`, borderRadius: 10,
+                              boxShadow: `0 8px 24px ${T.shadow}`, zIndex: 50, overflow: "hidden",
+                            }}>
+                              {VOICE_OPTIONS.map((v) => (
+                                <button
+                                  key={v.name}
+                                  style={{
+                                    width: "100%", padding: "9px 12px", border: "none",
+                                    background: v.name === voiceName ? T.hover : "transparent",
+                                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                                    fontSize: 12.5, fontWeight: 600, color: T.text, cursor: "pointer",
+                                  }}
+                                  onClick={() => { setVoiceName(v.name); setVoiceMenuOpen(false); }}
+                                >
+                                  {v.name}
+                                  <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>{v.desc}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Resource warning */}
@@ -6249,81 +6291,110 @@ ${combinedText.slice(0, 24000)}
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              background: theme === "dark" ? "rgba(10,13,20,0.6)" : "rgba(255,255,255,0.5)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
+              background: "rgba(8, 11, 18, 0.55)",
+              backdropFilter: "blur(24px) saturate(1.15)",
+              WebkitBackdropFilter: "blur(24px) saturate(1.15)",
+              padding: "0 16px",
             }}>
-              {/* Timer */}
+              {/* Title chip */}
+              <div style={{
+                position: "absolute",
+                top: 16,
+                left: 20,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "7px 14px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: COLORS.text,
+              }}>
+                <span style={{ fontSize: 14 }}>🎙️</span>
+                Voice Tutor
+                <span style={{ color: COLORS.textDim, fontWeight: 500 }}>· {voiceName}</span>
+              </div>
+
+              {/* Timer chip */}
               <div style={{
                 position: "absolute",
                 top: 16,
                 right: 20,
+                padding: "7px 14px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: COLORS.text,
+                fontFamily: "ui-monospace, monospace",
+              }}>
+                {vtTimer}
+              </div>
+
+              {/* Voice orb with state glow */}
+              <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{
+                  position: "absolute",
+                  width: isMobile ? 260 : 320,
+                  height: isMobile ? 260 : 320,
+                  borderRadius: "50%",
+                  background: `radial-gradient(circle, ${vtStateColor}38 0%, transparent 65%)`,
+                  transition: "background 0.4s ease",
+                  pointerEvents: "none",
+                }} />
+                <VoiceOrb
+                  state={voice.state}
+                  micLevel={voice.micLevel}
+                  size={isMobile ? 180 : 220}
+                  getAudioData={voice.getAudioData}
+                />
+              </div>
+
+              {/* Status pill */}
+              <div style={{
+                marginTop: 18,
+                padding: "8px 18px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
                 fontSize: 13,
                 fontWeight: 600,
-                color: T.muted,
-                fontFamily: "ui-monospace, monospace",
+                color: COLORS.text,
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
               }}>
                 <span style={{
-                  padding: "4px 12px",
-                  borderRadius: 999,
-                  background: T.hover,
-                  border: `1px solid ${T.border}`,
-                }}>
-                  {Math.floor(voice.elapsedSec / 60)}:{String(voice.elapsedSec % 60).padStart(2, "0")}
-                </span>
-              </div>
-
-              {/* Mode label */}
-              <div style={{
-                position: "absolute",
-                top: 16,
-                left: 20,
-                fontSize: 12,
-                fontWeight: 600,
-                color: T.muted,
-                textTransform: "capitalize",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}>
-                <span style={{ fontSize: 16 }}>🎙️</span>
-                Voice Tutor · {voiceName}
-              </div>
-
-              {/* Voice orb */}
-              <VoiceOrb
-                state={voice.state}
-                micLevel={voice.micLevel}
-                size={isMobile ? 180 : 220}
-                getAudioData={voice.getAudioData}
-              />
-
-              {/* Status text */}
-              <div style={{
-                marginTop: 16,
-                fontSize: 14,
-                fontWeight: 600,
-                color: T.text,
-                textTransform: "capitalize",
-              }}>
-                {voice.state === VOICE_STATES.CONNECTING && "Connecting…"}
-                {voice.state === VOICE_STATES.READY && "Ready — tap mic to speak"}
-                {voice.state === VOICE_STATES.LISTENING && "Listening…"}
-                {voice.state === VOICE_STATES.SPEAKING && "Speaking…"}
-                {voice.state === VOICE_STATES.THINKING && "Thinking…"}
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: vtStateColor,
+                  boxShadow: `0 0 8px ${vtStateColor}`,
+                }} />
+                {vtStateLabel}
               </div>
 
               {/* Transcript overlay */}
               {voice.transcript.length > 0 && (
                 <div style={{
-                  marginTop: 12,
-                  width: isMobile ? "92%" : 460,
+                  marginTop: 14,
+                  width: isMobile ? "92%" : 480,
                   maxWidth: "92vw",
                   maxHeight: isMobile ? "30dvh" : "200px",
                   overflowY: "auto",
+                  padding: "10px 12px",
+                  borderRadius: 18,
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.09)",
                 }}>
                   <TranscriptOverlay transcript={voice.transcript} />
                 </div>
@@ -6336,16 +6407,22 @@ ${combinedText.slice(0, 24000)}
                   width: isMobile ? "92%" : 460,
                   maxWidth: "92vw",
                   display: "flex",
-                  gap: 8,
+                  gap: 6,
+                  padding: 6,
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
                 }}>
                   <input
                     style={{
                       flex: 1,
-                      padding: "10px 14px",
-                      borderRadius: 10,
-                      border: `1px solid ${T.border}`,
-                      background: T.inputBg,
-                      color: T.text,
+                      padding: "8px 14px",
+                      borderRadius: 999,
+                      border: "none",
+                      background: "transparent",
+                      color: COLORS.text,
                       fontSize: 14,
                       outline: "none",
                     }}
@@ -6361,11 +6438,12 @@ ${combinedText.slice(0, 24000)}
                   />
                   <button
                     style={{
-                      padding: "10px 16px",
-                      borderRadius: 10,
-                      background: T.accent,
+                      padding: "8px 18px",
+                      borderRadius: 999,
+                      background: COLORS.electric,
                       color: "white",
                       border: "none",
+                      fontSize: 13,
                       fontWeight: 600,
                       cursor: "pointer",
                     }}
@@ -6381,51 +6459,66 @@ ${combinedText.slice(0, 24000)}
                 </div>
               )}
 
-              {/* Action bar */}
+              {/* Controls */}
               <div style={{
                 marginTop: 20,
                 display: "flex",
                 gap: 10,
                 alignItems: "center",
+                padding: "8px 10px",
+                borderRadius: 999,
+                background: "rgba(13, 17, 26, 0.55)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+                boxShadow: "0 12px 32px rgba(0,0,0,0.3)",
               }}>
                 {/* Hands-free toggle */}
                 <button
                   style={{
-                    padding: "10px 16px",
-                    borderRadius: 999,
-                    border: `1px solid ${T.border}`,
-                    background: voice.handsFreeMode ? T.accent : T.toolbar,
-                    color: voice.handsFreeMode ? "white" : T.text,
-                    fontSize: 13,
-                    fontWeight: 600,
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    border: voice.handsFreeMode ? "none" : "1px solid rgba(255,255,255,0.12)",
+                    background: voice.handsFreeMode ? COLORS.electric : "transparent",
+                    color: voice.handsFreeMode ? "white" : COLORS.textDim,
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
+                    justifyContent: "center",
+                    transition: "background 0.2s ease, color 0.2s ease",
                   }}
                   onClick={voice.toggleHandsFree}
+                  title="Hands-free mode"
                 >
-                  {voice.handsFreeMode ? "🎙️ Hands-Free On" : "🎙️ Hands-Free"}
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+                    <path d="M8.5 8.5a5 5 0 000 7M15.5 8.5a5 5 0 010 7"/>
+                    <path d="M5.6 5.6a9 9 0 000 12.8M18.4 5.6a9 9 0 010 12.8"/>
+                  </svg>
                 </button>
 
                 {/* Mic toggle (when not hands-free) */}
                 {!voice.handsFreeMode && (
                   <button
                     style={{
-                      width: 48,
-                      height: 48,
+                      width: 52,
+                      height: 52,
                       borderRadius: "50%",
-                      border: `1px solid ${T.border}`,
-                      background: voice.state === VOICE_STATES.LISTENING ? T.accent : T.toolbar,
-                      color: voice.state === VOICE_STATES.LISTENING ? "white" : T.text,
+                      border: "none",
+                      background: voice.state === VOICE_STATES.LISTENING ? COLORS.electric : "rgba(255,255,255,0.09)",
+                      color: voice.state === VOICE_STATES.LISTENING ? "white" : COLORS.text,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      boxShadow: voice.state === VOICE_STATES.LISTENING ? `0 0 0 4px rgba(79,142,247,0.25)` : "none",
+                      transition: "background 0.2s ease, box-shadow 0.2s ease",
                     }}
                     onClick={voice.toggleListening}
+                    title="Tap to talk"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/>
                       <path d="M5 11a7 7 0 0014 0M12 18v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
@@ -6435,41 +6528,48 @@ ${combinedText.slice(0, 24000)}
                 {/* Minimize */}
                 <button
                   style={{
-                    padding: "10px 16px",
-                    borderRadius: 999,
-                    border: `1px solid ${T.border}`,
-                    background: T.toolbar,
-                    color: T.text,
-                    fontSize: 13,
-                    fontWeight: 600,
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "transparent",
+                    color: COLORS.textDim,
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
+                    justifyContent: "center",
                   }}
                   onClick={handleVoiceMinimize}
+                  title="Minimize — keep reading while it runs"
                 >
-                  ⤓ Minimize
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <polyline points="4 14 10 14 10 20"/>
+                    <polyline points="20 10 14 10 14 4"/>
+                    <line x1="14" y1="10" x2="21" y2="3"/>
+                    <line x1="3" y1="21" x2="10" y2="14"/>
+                  </svg>
                 </button>
 
                 {/* End session */}
                 <button
                   style={{
-                    padding: "10px 16px",
-                    borderRadius: 999,
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
                     border: "none",
-                    background: "#ef4444",
-                    color: "white",
-                    fontSize: 13,
-                    fontWeight: 600,
+                    background: "rgba(239,68,68,0.18)",
+                    color: "#ef4444",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
+                    justifyContent: "center",
                   }}
                   onClick={handleVoiceEnd}
+                  title="End session"
                 >
-                  ✕ End
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                    <path d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
                 </button>
               </div>
 
@@ -6500,76 +6600,86 @@ ${combinedText.slice(0, 24000)}
               right: isMobile ? 16 : 24,
               zIndex: 250,
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
-              gap: 4,
+              gap: 10,
+              padding: "7px 10px 7px 8px",
+              borderRadius: 999,
+              background: "rgba(13, 17, 26, 0.72)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
             }}>
-              {/* Quick end button */}
-              <button
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "#ef4444",
-                  color: "white",
-                  fontSize: 14,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                }}
-                onClick={handleVoiceEnd}
-                title="End session"
-              >
-                ✕
-              </button>
-
-              {/* Mini orb */}
+              {/* Mini orb — tap to expand */}
               <div
                 onClick={handleVoiceExpand}
                 style={{
-                  width: 64,
-                  height: 64,
+                  width: 38,
+                  height: 38,
                   borderRadius: "50%",
                   cursor: "pointer",
                   position: "relative",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: T.toolbar,
-                  border: `2px solid ${
-                    voice.state === VOICE_STATES.LISTENING ? "#3DD68C" :
-                    voice.state === VOICE_STATES.SPEAKING ? "#F5A623" :
-                    voice.state === VOICE_STATES.READY ? "#4F8EF7" :
-                    T.border
-                  }`,
-                  boxShadow: `0 4px 16px ${T.shadow}`,
-                  transition: "border-color 0.3s ease",
+                  boxShadow: `0 0 0 2px ${vtStateColor}`,
+                  transition: "box-shadow 0.3s ease",
                 }}
+                title="Expand Voice Tutor"
               >
                 <VoiceOrb
                   state={voice.state}
                   micLevel={voice.micLevel}
-                  size={56}
+                  size={30}
                   getAudioData={voice.getAudioData}
                 />
               </div>
 
-              {/* Status dot */}
-              <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background:
-                  voice.state === VOICE_STATES.LISTENING ? "#3DD68C" :
-                  voice.state === VOICE_STATES.SPEAKING ? "#F5A623" :
-                  voice.state === VOICE_STATES.READY ? "#4F8EF7" :
-                  T.muted,
-                animation: voice.state === VOICE_STATES.LISTENING || voice.state === VOICE_STATES.SPEAKING
-                  ? "pulse 1.5s ease-in-out infinite" : "none",
-              }} />
+              {/* Status + timer — tap to expand */}
+              <div
+                onClick={handleVoiceExpand}
+                style={{ cursor: "pointer", display: "flex", flexDirection: "column", lineHeight: 1.25 }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.text }}>
+                  {vtStateLabel || "Voice Tutor"}
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: COLORS.textDim, fontFamily: "ui-monospace, monospace" }}>
+                  {vtTimer}
+                </span>
+              </div>
+
+              {/* Expand */}
+              <button
+                style={{
+                  width: 30, height: 30, borderRadius: "50%", border: "none",
+                  background: "rgba(255,255,255,0.08)", color: COLORS.textDim,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+                onClick={handleVoiceExpand}
+                title="Expand"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <polyline points="15 3 21 3 21 9"/>
+                  <polyline points="9 21 3 21 3 15"/>
+                  <line x1="21" y1="3" x2="14" y2="10"/>
+                  <line x1="3" y1="21" x2="10" y2="14"/>
+                </svg>
+              </button>
+
+              {/* End */}
+              <button
+                style={{
+                  width: 30, height: 30, borderRadius: "50%", border: "none",
+                  background: "rgba(239,68,68,0.18)", color: "#ef4444",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+                onClick={handleVoiceEnd}
+                title="End session"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <path d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
             </div>
           )}
 

@@ -429,6 +429,28 @@ export function useVoiceSession() {
     setTranscript(transcriptRef.current);
   }, []);
 
+  // Live transcription arrives as small fragments — merge consecutive
+  // same-role fragments into one bubble instead of one bubble per word.
+  const appendTranscriptFragment = useCallback((role, text) => {
+    const prev = transcriptRef.current;
+    const last = prev[prev.length - 1];
+    if (last && last.role === role && last.open) {
+      transcriptRef.current = [...prev.slice(0, -1), { ...last, text: last.text + text }];
+    } else {
+      transcriptRef.current = [...prev, { role, text, ts: Date.now(), open: true }];
+    }
+    setTranscript(transcriptRef.current);
+  }, []);
+
+  const closeTranscriptTurn = useCallback(() => {
+    const prev = transcriptRef.current;
+    const last = prev[prev.length - 1];
+    if (last?.open) {
+      transcriptRef.current = [...prev.slice(0, -1), { ...last, open: false }];
+      setTranscript(transcriptRef.current);
+    }
+  }, []);
+
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -606,6 +628,7 @@ export function useVoiceSession() {
               const sc = msg.data;
               if (sc.interrupted) {
                 modelTurnActiveRef.current = false;
+                closeTranscriptTurn();
                 stopPlayback();
                 if (stateRef.current === VOICE_STATES.SPEAKING) {
                   setState(VOICE_STATES.READY);
@@ -616,11 +639,11 @@ export function useVoiceSession() {
                 setConnectionQuality("poor");
               }
               if (sc.inputTranscription) {
-                addToTranscript("user", sc.inputTranscription.text);
+                appendTranscriptFragment("user", sc.inputTranscription.text);
               }
               if (sc.outputTranscription) {
                 modelTurnActiveRef.current = true;
-                addToTranscript("tutor", sc.outputTranscription.text);
+                appendTranscriptFragment("tutor", sc.outputTranscription.text);
               }
               if (sc.modelTurn?.parts) {
                 for (const part of sc.modelTurn.parts) {
@@ -632,6 +655,7 @@ export function useVoiceSession() {
               }
               if (sc.turnComplete) {
                 modelTurnActiveRef.current = false;
+                closeTranscriptTurn();
                 // Flush any queued tail audio — the turn is done, no more chunks coming.
                 if (audioQueueRef.current.length > 0) {
                   drainAudioQueueRef.current?.();
@@ -772,7 +796,7 @@ export function useVoiceSession() {
       setError(err.message || "Failed to start voice session.");
       setState(VOICE_STATES.ERROR);
     }
-  }, [addToTranscript, enqueueAudioChunk, startMic, startTimer, stopMic, stopPlayback, stopTimer]);
+  }, [addToTranscript, appendTranscriptFragment, closeTranscriptTurn, enqueueAudioChunk, startMic, startTimer, stopMic, stopPlayback, stopTimer]);
 
   const toggleListening = useCallback(() => {
     if (state === VOICE_STATES.LISTENING) {
