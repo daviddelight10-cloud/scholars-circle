@@ -372,6 +372,99 @@ async function docxToPdf(file, onProgress) {
   return { pdfBlob: blob, fileName: replaceExt(file.name, ".pdf") };
 }
 
+// Cap merged-photos PDFs — each photo decodes at full resolution in-memory,
+// which gets heavy on low-RAM phones.
+const MAX_IMAGES_PER_PDF = 20;
+const IMG_MAX_EDGE_PX = 2200; // canvas raster cap
+const PDF_MAX_EDGE_PT = 842;  // A4 long edge — keeps pages a sane size
+
+/**
+ * Decode an image file through an <img> element (browser applies EXIF
+ * orientation on decode) then rasterize via canvas → JPEG dataURL. This
+ * normalizes every format jsPDF can't embed directly (GIF, BMP, WEBP…).
+ */
+async function rasterizeImage(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error("Could not decode image"));
+      img.src = url;
+    });
+    const natW = img.naturalWidth || img.width;
+    const natH = img.naturalHeight || img.height;
+    if (!natW || !natH) throw new Error("Empty image");
+
+    const scale = Math.min(1, IMG_MAX_EDGE_PX / Math.max(natW, natH));
+    const w = Math.max(1, Math.round(natW * scale));
+    const h = Math.max(1, Math.round(natH * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    // White backdrop so transparent PNGs don't come out black in JPEG
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    return { dataUrl: canvas.toDataURL("image/jpeg", 0.9), w, h };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Convert one or more image files into a single PDF — one page per photo,
+ * each page sized to the photo's own aspect ratio (like iOS "Save as PDF").
+ * Photos that fail to decode are skipped; throws only if every photo fails.
+ * @param {File[]} files
+ * @param {(status: string) => void} onProgress
+ * @returns {Promise<{pdfBlob: Blob, fileName: string}>}
+ */
+export async function imagesToPdf(files, onProgress) {
+  if (!files?.length) return null;
+  if (files.length > MAX_IMAGES_PER_PDF) {
+    throw new Error(`Too many photos — pick up to ${MAX_IMAGES_PER_PDF} at a time`);
+  }
+
+  let doc = null;
+  let decoded = 0;
+  for (let i = 0; i < files.length; i++) {
+    onProgress?.(`Adding photo ${i + 1} of ${files.length}…`);
+    try {
+      const { dataUrl, w, h } = await rasterizeImage(files[i]);
+      // Scale page so the longest side = A4 long edge; image fills the page
+      const fit = PDF_MAX_EDGE_PT / Math.max(w, h);
+      const pw = Math.max(120, w * fit);
+      const ph = Math.max(120, h * fit);
+      const orient = pw > ph ? "landscape" : "portrait";
+      if (!doc) {
+        doc = new jsPDF({ unit: "pt", format: [pw, ph], orientation: orient, compress: true });
+      } else {
+        doc.addPage([pw, ph], orient);
+      }
+      doc.addImage(dataUrl, "JPEG", 0, 0, pw, ph);
+      decoded++;
+    } catch {
+      // Skip unreadable photos (e.g. HEIC on browsers that can't decode it)
+    }
+  }
+
+  if (!doc || decoded === 0) {
+    throw new Error(
+      files.length === 1
+        ? "Could not read this photo — try saving it as JPG/PNG first"
+        : "None of the selected photos could be read"
+    );
+  }
+
+  onProgress?.("Generating PDF…");
+  const blob = doc.output("blob");
+  const base = files[0].name.replace(/\.[^.]+$/, "") || "photos";
+  const fileName = files.length === 1 ? replaceExt(files[0].name, ".pdf") : `${base} (${files.length} photos).pdf`;
+  return { pdfBlob: blob, fileName };
+}
+
 /**
  * Convert PPTX to PDF — calls server-side conversion endpoint.
  * Renames the file to .pptx if needed so the server accepts it.
@@ -437,7 +530,8 @@ export async function convertToPdf(file, onProgress) {
 
   const detectedType = await detectFileType(file);
 
-  if (detectedType === "image" || detectedType === "pdf" || detectedType === "doc") return null;
+  if (detectedType === "pdf" || detectedType === "doc") return null;
+  if (detectedType === "image") return imagesToPdf([file], onProgress);
   if (detectedType === "txt") return txtToPdf(file, onProgress);
   if (detectedType === "docx") return docxToPdf(file, onProgress);
   if (detectedType === "pptx") return pptxToPdfClient(file, onProgress);
@@ -451,5 +545,5 @@ export async function convertToPdf(file, onProgress) {
 export function needsConversion(file) {
   if (!file) return false;
   const detectedType = detectFileTypeSync(file);
-  return !(detectedType === "image" || detectedType === "pdf" || detectedType === "doc" || file.name.toLowerCase().endsWith(".json"));
+  return !(detectedType === "pdf" || detectedType === "doc" || file.name.toLowerCase().endsWith(".json"));
 }

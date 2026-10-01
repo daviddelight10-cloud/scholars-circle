@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { convertToPdf } from "../../lib/convertToPdf";
+import { convertToPdf, imagesToPdf } from "../../lib/convertToPdf";
 import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
 import { PRESET_SUBJECTS } from "./constants";
 
@@ -75,6 +75,7 @@ export default function UploadWizard({
 }) {
   const [step, setStep] = useState(1);
   const [file, setFile] = useState(null);
+  const [photoFiles, setPhotoFiles] = useState([]); // raw photos for merged-PDF reorder/remove
   const [isNote, setIsNote] = useState(false);
   const [noteContent, setNoteContent] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -103,6 +104,7 @@ export default function UploadWizard({
     if (show) {
       setStep(1);
       setFile(null);
+      setPhotoFiles([]);
       setIsNote(false);
       setNoteContent("");
       setDragOver(false);
@@ -149,8 +151,76 @@ export default function UploadWizard({
   // ── Step 1: File handling ──────────────────────────────────────────────────
 
   const handleFilePick = (e) => {
-    const f = e.target.files?.[0];
-    if (f) handleFileSelected(f);
+    handleFilesSelected(e.target.files);
+    e.target.value = ""; // allow re-picking the same photos after deselecting one
+  };
+
+  // Merge a photo list into the staged PDF. Re-run on reorder/remove so the
+  // PDF always matches the thumbnail strip order.
+  const mergePhotos = async (photos) => {
+    setConverting(true);
+    setConvertError("");
+    setConvertProgress("Converting photos to PDF…");
+    try {
+      const result = await imagesToPdf(photos, (status) => setConvertProgress(status));
+      if (result) {
+        const pdfFile = new File([result.pdfBlob], result.fileName, { type: "application/pdf" });
+        setFile(pdfFile);
+        setTitle(humanizeTitle(result.fileName));
+      }
+    } catch (err) {
+      setConvertError(err.message || "Conversion failed");
+      setFile(null);
+    } finally {
+      setConverting(false);
+      setConvertProgress("");
+    }
+  };
+
+  const handleFilesSelected = async (fileList) => {
+    const files = Array.from(fileList || []).filter(Boolean);
+    if (!files.length) return;
+    if (files.length === 1) { setPhotoFiles([]); return handleFileSelected(files[0]); }
+
+    setGenError("");
+    setConvertError("");
+    if (files.some((f) => f.size > 50 * 1024 * 1024)) { setGenError("File too large — 50MB max per file"); return; }
+
+    // Multi-select is photos-only: merge them into one multi-page PDF.
+    setConverting(true);
+    setConvertProgress("Checking photos…");
+    const types = await Promise.all(files.map((f) => detectFileType(f)));
+    if (!types.every((t) => t === "image")) {
+      setConverting(false);
+      setConvertProgress("");
+      setGenError("Multiple selection works for photos only — pick several photos, or one document at a time.");
+      return;
+    }
+    setConverting(false);
+    setConvertProgress("");
+
+    setPhotoFiles(files);
+    mergePhotos(files);
+  };
+
+  // Reorder / remove photos in the merged-PDF strip — re-merges so page order
+  // always matches what's shown.
+  const movePhoto = (i, dir) => {
+    if (converting) return; // let the in-flight merge finish before re-merging
+    const j = i + dir;
+    if (j < 0 || j >= photoFiles.length) return;
+    const next = [...photoFiles];
+    [next[i], next[j]] = [next[j], next[i]];
+    setPhotoFiles(next);
+    mergePhotos(next);
+  };
+
+  const removePhoto = (i) => {
+    if (converting) return;
+    const next = photoFiles.filter((_, idx) => idx !== i);
+    setPhotoFiles(next);
+    if (!next.length) { setFile(null); return; }
+    mergePhotos(next);
   };
 
   const handleFileSelected = async (f) => {
@@ -158,6 +228,7 @@ export default function UploadWizard({
     if (f.size > 50 * 1024 * 1024) { setGenError("File too large — 50MB max"); return; }
     setGenError("");
     setConvertError("");
+    setPhotoFiles([]); // a single file replaces any staged photo merge
 
     // Show immediate UI feedback before async detection
     setFile(f);
@@ -173,7 +244,7 @@ export default function UploadWizard({
       return;
     }
 
-    const needsConvert = !["image", "pdf", "doc"].includes(detectedType) && !f.name.toLowerCase().endsWith(".json");
+    const needsConvert = !["pdf", "doc"].includes(detectedType) && !f.name.toLowerCase().endsWith(".json");
 
     if (needsConvert) {
       setConvertProgress("Converting to PDF…");
@@ -221,8 +292,7 @@ export default function UploadWizard({
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) handleFileSelected(f);
+    if (e.dataTransfer.files?.length) handleFilesSelected(e.dataTransfer.files);
   };
 
   const canProceedStep1 = isNote ? noteContent.trim().length > 0 : file !== null && !converting;
@@ -326,7 +396,7 @@ export default function UploadWizard({
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
       <div className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6" onClick={(e) => e.stopPropagation()}>
         <input id={FILE_INPUT_ID} ref={fileInputRef} type="file" accept={DOC_ACCEPT} onChange={handleFilePick} className="hidden" />
-        <input id={IMG_INPUT_ID} ref={imgInputRef} type="file" accept="image/*" onChange={handleFilePick} className="hidden" />
+        <input id={IMG_INPUT_ID} ref={imgInputRef} type="file" accept="image/*" multiple onChange={handleFilePick} className="hidden" />
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-xl font-bold text-gold">
             {step === 1 && "Add to your space"}
@@ -342,6 +412,25 @@ export default function UploadWizard({
           <>
             {!isNote ? (
               <>
+                {photoFiles.length > 0 && (
+                  <div className="mb-3">
+                    <div className="mb-1.5 text-[10px] font-semibold text-hub-text-muted">
+                      {photoFiles.length} photo{photoFiles.length !== 1 ? "s" : ""} → 1 PDF · use arrows to reorder pages
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "thin" }}>
+                      {photoFiles.map((f, i) => (
+                        <PhotoThumb
+                          key={`${f.name}-${i}`}
+                          file={f}
+                          index={i}
+                          total={photoFiles.length}
+                          onMove={movePhoto}
+                          onRemove={removePhoto}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <label
                   htmlFor={FILE_INPUT_ID}
                   onDrop={handleDrop}
@@ -365,7 +454,7 @@ export default function UploadWizard({
                         {dragOver ? "Drop file here" : "Drag a file here — or pick below"}
                       </div>
                       <div className="text-[10px] text-hub-text-dim">
-                        PDF, DOCX, PPTX, TXT · max 50MB
+                        PDF, DOCX, PPTX, TXT · max 50MB · photos merge into one PDF
                       </div>
                     </>
                   )}
@@ -382,7 +471,7 @@ export default function UploadWizard({
                       htmlFor={IMG_INPUT_ID}
                       className="cursor-pointer rounded-lg border border-hub-border bg-hub-bg px-3 py-3 text-center text-[13px] font-bold text-hub-text transition-all active:scale-95"
                     >
-                      🖼 Photo / scan
+                      🖼 Photos / scan
                     </label>
                   </div>
                 )}
@@ -419,7 +508,7 @@ export default function UploadWizard({
 
             <div className="mt-4 flex items-center justify-between">
               <button
-                onClick={() => { setIsNote(!isNote); setFile(null); setGenError(""); setConvertError(""); }}
+                onClick={() => { setIsNote(!isNote); setFile(null); setPhotoFiles([]); setGenError(""); setConvertError(""); }}
                 className="cursor-pointer border-none bg-transparent p-0 text-[11px] text-hub-text-muted"
               >
                 {isNote ? "← Upload a file instead" : "or write a note manually →"}
@@ -689,6 +778,43 @@ export default function UploadWizard({
           }
         `}</style>
       </div>
+    </div>
+  );
+}
+
+// Single photo in the merge strip — thumbnail + move/remove controls.
+function PhotoThumb({ file, index, total, onMove, onRemove }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+
+  const btn = {
+    position: "absolute", width: 18, height: 18, borderRadius: 9,
+    border: "none", background: "rgba(0,0,0,0.7)", color: "#fff",
+    fontSize: 10, lineHeight: 1, cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: 0,
+  };
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0, width: 64 }}>
+      <div style={{
+        width: 64, height: 80, borderRadius: 8, overflow: "hidden",
+        border: "1px solid var(--hub-border, #2a2f4a)", background: "#0a0c1e",
+      }}>
+        {url && <img src={url} alt={`Photo ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+      </div>
+      <div style={{
+        position: "absolute", bottom: 2, left: 2, padding: "1px 5px",
+        borderRadius: 6, background: "rgba(0,0,0,0.7)", color: "#FFD700",
+        fontSize: 9, fontWeight: 700,
+      }}>{index + 1}</div>
+      <button type="button" title="Remove" onClick={() => onRemove(index)} style={{ ...btn, top: 2, right: 2 }}>✕</button>
+      {index > 0 && <button type="button" title="Move earlier" onClick={() => onMove(index, -1)} style={{ ...btn, top: 30, left: 2 }}>◀</button>}
+      {index < total - 1 && <button type="button" title="Move later" onClick={() => onMove(index, 1)} style={{ ...btn, top: 30, right: 2 }}>▶</button>}
     </div>
   );
 }
