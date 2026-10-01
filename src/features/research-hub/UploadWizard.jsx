@@ -3,11 +3,18 @@ import { convertToPdf } from "../../lib/convertToPdf";
 import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
 import { PRESET_SUBJECTS } from "./constants";
 
-// Any file is accepted at the OS picker level — extension-only accept lists
-// cause many Android builds (Transsion/MIUI) to open a photos-only picker with
-// no way to select PDFs/DOCX. Type validation happens in detectFileType() below.
-const ACCEPTED_EXTS = "*/*";
+// Two separate pickers: broad or media-mixed accept lists make many Android
+// builds (Transsion/MIUI) open a photos-only sheet with no file browser.
+// A document-MIME-only accept forces document handlers (Files/DocumentsUI);
+// images get their own image/* input so photos still work. Type validation
+// happens in detectFileType() below.
+const DOC_ACCEPT =
+  "application/pdf,application/msword," +
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation," +
+  "text/plain";
 const FILE_INPUT_ID = "upload-wizard-file";
+const IMG_INPUT_ID = "upload-wizard-image";
 
 function stripExt(filename) {
   const idx = filename.lastIndexOf(".");
@@ -89,6 +96,7 @@ export default function UploadWizard({
   const [creatingSpace, setCreatingSpace] = useState(false);
   const [spacePickerOpen, setSpacePickerOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const imgInputRef = useRef(null);
   const titleInputRef = useRef(null);
 
   useEffect(() => {
@@ -317,7 +325,8 @@ export default function UploadWizard({
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-3" onClick={onClose}>
       <div className="w-full max-w-[540px] max-h-[88vh] overflow-y-auto rounded-2xl border border-gold-border bg-hub-surface p-6" onClick={(e) => e.stopPropagation()}>
-        <input id={FILE_INPUT_ID} ref={fileInputRef} type="file" accept={ACCEPTED_EXTS} onChange={handleFilePick} className="hidden" />
+        <input id={FILE_INPUT_ID} ref={fileInputRef} type="file" accept={DOC_ACCEPT} onChange={handleFilePick} className="hidden" />
+        <input id={IMG_INPUT_ID} ref={imgInputRef} type="file" accept="image/*" onChange={handleFilePick} className="hidden" />
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-xl font-bold text-gold">
             {step === 1 && "Add to your space"}
@@ -332,34 +341,52 @@ export default function UploadWizard({
         {step === 1 && (
           <>
             {!isNote ? (
-              <label
-                htmlFor={FILE_INPUT_ID}
-                onDrop={handleDrop}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
-                className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition-all ${
-                  dragOver ? "border-gold-border bg-gold-dim" : file ? "border-[#22c55e]/40" : "border-hub-border"
-                }`
-                }
-              >
-                {file ? (
-                  <>
-                    <div className="text-3xl">{converting ? "⏳" : "✓"}</div>
-                    <div className="text-sm font-bold" style={{ color: converting ? "#FFD700" : "#22c55e" }}>{file.name}</div>
-                    <div className="text-[10px] text-hub-text-dim">{(file.size / 1024).toFixed(0)} KB{converting ? " · converting…" : ""}</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-4xl">📎</div>
-                    <div className="text-sm font-semibold text-hub-text">
-                      {dragOver ? "Drop file here" : "Drop your file here, or tap to browse"}
-                    </div>
-                    <div className="text-[10px] text-hub-text-dim">
-                      PDF, DOCX, PPTX, TXT, JPG, PNG · tap to browse all files · max 50MB
-                    </div>
-                  </>
+              <>
+                <label
+                  htmlFor={FILE_INPUT_ID}
+                  onDrop={handleDrop}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition-all ${
+                    dragOver ? "border-gold-border bg-gold-dim" : file ? "border-[#22c55e]/40" : "border-hub-border"
+                  }`
+                  }
+                >
+                  {file ? (
+                    <>
+                      <div className="text-3xl">{converting ? "⏳" : "✓"}</div>
+                      <div className="text-sm font-bold" style={{ color: converting ? "#FFD700" : "#22c55e" }}>{file.name}</div>
+                      <div className="text-[10px] text-hub-text-dim">{(file.size / 1024).toFixed(0)} KB{converting ? " · converting…" : ""}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-4xl">📎</div>
+                      <div className="text-sm font-semibold text-hub-text">
+                        {dragOver ? "Drop file here" : "Drag a file here — or pick below"}
+                      </div>
+                      <div className="text-[10px] text-hub-text-dim">
+                        PDF, DOCX, PPTX, TXT · max 50MB
+                      </div>
+                    </>
+                  )}
+                </label>
+                {!file && (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <label
+                      htmlFor={FILE_INPUT_ID}
+                      className="cursor-pointer rounded-lg border border-gold-border bg-gold-dim px-3 py-3 text-center text-[13px] font-bold text-gold transition-all active:scale-95"
+                    >
+                      📄 Choose document
+                    </label>
+                    <label
+                      htmlFor={IMG_INPUT_ID}
+                      className="cursor-pointer rounded-lg border border-hub-border bg-hub-bg px-3 py-3 text-center text-[13px] font-bold text-hub-text transition-all active:scale-95"
+                    >
+                      🖼 Photo / scan
+                    </label>
+                  </div>
                 )}
-              </label>
+              </>
             ) : (
               <div>
                 <label className="mb-1 block text-[11px] font-semibold text-hub-text-muted">Write your note</label>
