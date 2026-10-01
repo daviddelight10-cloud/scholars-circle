@@ -6,8 +6,6 @@ import PdfReader from "./PdfReader.jsx";
 import DocumentReader from "./DocumentReader.jsx";
 import StreakSurvival from "./streak-survival/StreakSurvival.jsx";
 import FlashcardDeckRunner from "./FlashcardDeckRunner.jsx";
-import FlashcardModeSelect from "./FlashcardModeSelect.jsx";
-import MatchingPairsGame from "./MatchingPairsGame.jsx";
 import ExamRunner from "./exam/ExamRunner.jsx";
 import SummaryView from "./SummaryView.jsx";
 import { examFromResource } from "./exam/examApi.js";
@@ -42,8 +40,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState(null);
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
-  const [flashcardMode, setFlashcardMode] = useState(null); // null | "study" | "matching"
-  const [matchGameMode, setMatchGameMode] = useState("visible"); // "flip" | "visible"
+
   const { darkMode } = useUI();
 
   // Auth form state
@@ -362,13 +359,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         return <StreakSurvival resource={resource} onBack={handleBack} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
 
       case "flashcard_deck":
-        if (flashcardMode === "study") {
-          return <FlashcardDeckRunner resource={resource} onBack={() => setFlashcardMode(null)} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
-        }
-        if (flashcardMode === "matching") {
-          return <MatchingPairsGame resource={resource} flashcardData={resource.flashcardData} gameMode={matchGameMode} onBack={() => setFlashcardMode(null)} onQuizComplete={onQuizComplete} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
-        }
-        return <FlashcardModeSelect resource={resource} onBack={handleBack} onSelect={(mode, subMode) => { setFlashcardMode(mode); if (subMode) setMatchGameMode(subMode); }} />;
+        return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
 
       case "exam":
         return (

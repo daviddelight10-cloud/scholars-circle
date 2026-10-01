@@ -1128,7 +1128,10 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 50));
     const subjectFilter = req.query.subject || null;
 
-    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf", "flashcard"] } };
+    // chat_mcq items are aggregate per-document cards fed by in-chat quiz
+    // answers — they track document-level mastery but carry no question
+    // content, so they must never surface as daily-review cards.
+    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] } };
     if (subjectFilter) where.subject = subjectFilter;
 
     // Fetch ALL due items (not just `limit`) so we can prioritize properly before capping

@@ -21,10 +21,8 @@ import LibraryView from "./LibraryView.jsx";
 import EmptyState from "./EmptyState.jsx";
 import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
-import SpacedReviewSession from "../SpacedReviewSession.jsx";
-import AdaptiveDrillSession from "../AdaptiveDrillSession.jsx";
+import StreakSurvival from "../streak-survival/StreakSurvival.jsx";
 import ExamBuilder from "../exam/ExamBuilder.jsx";
-import McqFolderRunner from "../McqFolderRunner.jsx";
 import McIcon from "./McIcon.jsx";
 import CircleSheet from "./CircleSheet.jsx";
 import CardActionSheet from "./CardActionSheet.jsx";
@@ -946,12 +944,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     if (onXpUpdate) onXpUpdate(xp);
   }, [onXpUpdate]);
 
+  // All MCQ practice now runs through StreakSurvival — one engine for due
+  // review, weak-topic drills and folder practice-all.
   const startSpacedReview = useCallback((subject, resourceIds) => {
-    setSessionMode({ type: "spaced", subject, resourceIds });
+    setSessionMode({ type: "dueItems", subject, resourceIds });
   }, []);
 
   const startAdaptiveDrill = useCallback((subject, resourceIds) => {
-    setSessionMode({ type: "adaptive", subject, resourceIds });
+    setSessionMode({ type: "dueItems", subject, resourceIds, weakFirst: true });
   }, []);
 
   const startExamBuild = useCallback((file, sources = []) => {
@@ -962,8 +962,20 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     setSessionMode({ type: "examRun", examResource });
   }, []);
 
+  // Practice-all: flatten every folder MCQ into StreakSurvival's item shape
+  // ({mcq, pageIndex, resourceId}) — the engine fetches card states itself.
   const startFolderPractice = useCallback((folder, mcqResources) => {
-    setSessionMode({ type: "folder", folder, mcqResources });
+    const items = [];
+    for (const res of mcqResources || []) {
+      let mcqData = res.mcqData;
+      if (typeof mcqData === "string") { try { mcqData = JSON.parse(mcqData); } catch { continue; } }
+      if (!Array.isArray(mcqData)) continue;
+      mcqData.forEach((mcq, i) => items.push({
+        mcq, pageIndex: i, resourceId: res.id, itemType: "mcq",
+        topic: res.title, subject: res.subject,
+      }));
+    }
+    setSessionMode({ type: "items", items, title: folder?.name });
   }, []);
 
   const handleShare = useCallback(async (token) => {
@@ -1578,11 +1590,11 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   );
 
   if (sessionMode) {
-    if (sessionMode.type === "spaced") {
-      return <SpacedReviewSession subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    if (sessionMode.type === "dueItems") {
+      return <DueItemsSession subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} weakFirst={sessionMode.weakFirst} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
     }
-    if (sessionMode.type === "adaptive") {
-      return <AdaptiveDrillSession subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
+    if (sessionMode.type === "items") {
+      return <StreakSurvival items={sessionMode.items} mode="practice" onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
     }
     if (sessionMode.type === "examBuild") {
       return (
@@ -1605,9 +1617,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           onXpUpdate={handleXpUpdate}
         />
       );
-    }
-    if (sessionMode.type === "folder") {
-      return <McqFolderRunner folder={sessionMode.folder} mcqResources={sessionMode.mcqResources} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
     }
   }
 
@@ -2117,6 +2126,59 @@ function FabAction({ icon, label, subtitle, onClick }) {
       </div>
     </div>
   );
+}
+
+
+// Resolves due MCQ items (spaced review / adaptive drill both collapse into
+// this) then hands them to StreakSurvival in practice mode — one engine.
+function DueItemsSession({ subject, resourceIds, weakFirst, onBack, onStreakUpdate, onXpUpdate }) {
+  const [items, setItems] = useState(null); // null=loading, []=empty
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams();
+    if (subject) params.set('subject', subject);
+    if (resourceIds?.length) params.set('resourceIds', resourceIds.join(','));
+    if (weakFirst) params.set('limit', '30');
+    try {
+      const authData = JSON.parse(localStorage.getItem('scholars-circle-auth') || '{}');
+      fetch(`${API_BASE}/api/resources/fsrs/due-mcqs?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${authData.authToken}` },
+      })
+        .then((r) => (r.ok ? r.json() : { items: [] }))
+        .then((data) => {
+          if (cancelled) return;
+          let list = (data.items || []).filter((i) => i.mcq);
+          if (weakFirst) list = [...list].sort((a, b) => (b.lapses || 0) - (a.lapses || 0));
+          setItems(list.map((i) => ({
+            mcq: i.mcq, pageIndex: i.pageIndex, resourceId: i.resourceId,
+            itemType: i.itemType || 'mcq', topic: i.topic, subject: i.subject,
+            state: i.state, stability: i.stability, difficulty: i.difficulty, dueAt: i.dueAt,
+          })));
+        })
+        .catch(() => { if (!cancelled) setFailed(true); });
+    } catch { setFailed(true); }
+    return () => { cancelled = true; };
+  }, [subject, resourceIds, weakFirst]);
+
+  if (failed || (items && items.length === 0)) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#060818', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: '#8b8fc0' }}>
+        <div style={{ fontSize: 40 }}>✅</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>{failed ? 'Could not load review items' : 'Nothing due right now'}</div>
+        <button onClick={onBack} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#DAA520', color: '#000', fontWeight: 700, cursor: 'pointer' }}>Back</button>
+      </div>
+    );
+  }
+  if (!items) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#060818', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b8fc0' }}>
+        <div style={{ fontSize: 14 }}>Loading questions…</div>
+      </div>
+    );
+  }
+  return <StreakSurvival items={items} mode="practice" onBack={onBack} onStreakUpdate={onStreakUpdate} onXpUpdate={onXpUpdate} />;
 }
 
 import { API_BASE } from "../../lib/constants";

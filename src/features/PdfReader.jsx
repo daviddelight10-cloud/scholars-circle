@@ -1,24 +1,24 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
-import { callAIMultimodal, callAIMultimodalStream } from "../lib/aiClient.js";
+import { callAIMultimodalStream } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import McqCard from "../components/McqCard.jsx";
 import { parseMcqSegments, hasMcqBlock } from "../lib/mcqBlocks.js";
 import TypewriterText from "../components/TypewriterText.jsx";
-import FlashcardRunner from "../components/FlashcardRunner.jsx";
 import { useVoiceSession } from "../features/voice-tutor/useVoiceSession.js";
 import VoiceOrb from "../features/voice-tutor/VoiceOrb.jsx";
 import TranscriptOverlay from "../features/voice-tutor/TranscriptOverlay.jsx";
 import { VOICE_STATES, VOICE_OPTIONS, VOICE_LEVELS, COLORS } from "../features/voice-tutor/voiceConfig.js";
 import { playVoicePreview } from "../features/voice-tutor/voicePreview.js";
 import {
-  loadHistory, saveHistory, createHistoryEntry,
-  recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
-  getMastery, recordPracticeSession, getMasteryColor, getMasteryEmoji,
+  recordPracticeResult, recordPracticeSession,
+  getMastery, getMasteryColor, getMasteryEmoji,
 } from "../lib/studyHistory.js";
+import { rateQuestion } from "./streak-survival/fsrsBridge.js";
+import { questEvent } from "./streak-survival/survivalStore.js";
 import { API_BASE } from "../lib/constants";
-import { copyShareToken, docKeyFromUrl } from "../lib/researchUtils.js";
+import { docKeyFromUrl } from "../lib/researchUtils.js";
 
 
 
@@ -177,7 +177,7 @@ QUIZ MODE: If the student asks to be quizzed/tested ("quiz me", "test me", "anot
 \`\`\`
 Rules: "answer" is the 0-based index of the correct option. One question per reply. Default scope is the CURRENT PAGE — quiz the broader document excerpts only when the student asks to be quizzed on the whole document or chapter. After every 5th question, add a 1–2 line score summary ("You're X/5 so far") and ask if they want to keep going. Never reveal the answer before they pick.`;
 
-export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, folderId: propFolderId, initialPage }) {
+export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
 
   const [numPages, setNumPages] = useState(0);
@@ -248,7 +248,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [chatMessages, setChatMessages] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [chatPosition, setChatPosition] = useState({ left: 0, top: 0 });
   const [chatError, setChatError] = useState(null);
   const [streamingIdx, setStreamingIdx] = useState(null); // index of chat message currently typing out
 
@@ -299,127 +298,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // { "msgIdx:segIdx": { picked: originalOptionIdx, correct: bool } }
   const [quizResults, setQuizResults] = useState({});
 
-  // ── AI Study Tools state ───────────────────────────────────────────────────
-  const studyPrefs = loadStored(`sc_pdf_studyprefs_${docKey}`, { studyMode: "voice", studyRangeType: "all", studyCount: 10 });
+  // ── AI Study Tools state (voice tutor + chat only) ─────────────────────────
   const [studyToolsOpen, setStudyToolsOpen] = useState(false);
-  const [studyMode, setStudyMode] = useState(studyPrefs.studyMode === "flashcard" ? "flashcard" : "voice"); // "voice" | "flashcard"
-  const [studyRangeType, setStudyRangeType] = useState(studyPrefs.studyRangeType || "all"); // "all" | "current" | "custom"
-  const [studyFrom, setStudyFrom] = useState(1);
-  const [studyTo, setStudyTo] = useState(1);
-  const [studyCount, setStudyCount] = useState(studyPrefs.studyCount || 10);
-  const [studyStep, setStudyStep] = useState("setup"); // "setup" | "loading" | "result"
-  const [studyResult, setStudyResult] = useState("");
-  const [studyError, setStudyError] = useState("");
-  const [studyLoadingMsg, setStudyLoadingMsg] = useState("");
-  const [parsedMcqs, setParsedMcqs] = useState([]);
-
-  // ── AI Study History (localStorage via shared utility) ─────────────────────
   const studyResourceId = propResourceId || docKey;
-  const [studyHistory, setStudyHistory] = useState(() => loadHistory(studyResourceId));
-  const [historyView, setHistoryView] = useState(null); // null | { type: 'mcq'|'summary', ...entry }
-  const [historyQuizAnswers, setHistoryQuizAnswers] = useState({});
-  const [historyQuizLocked, setHistoryQuizLocked] = useState({});
-  const [historyQuizIdx, setHistoryQuizIdx] = useState(0);
-  const [historyQuizShowResults, setHistoryQuizShowResults] = useState(false);
-  const [historyQuizWeakFirst, setHistoryQuizWeakFirst] = useState(false);
 
-  // Practice-first state (for newly generated MCQs)
-  const [practiceMode, setPracticeMode] = useState(false); // when true, show quiz instead of raw text
-  const [practiceAnswers, setPracticeAnswers] = useState({});
-  const [practiceLocked, setPracticeLocked] = useState({});
-  const [practiceIdx, setPracticeIdx] = useState(0);
-  const [practiceShowResults, setPracticeShowResults] = useState(false);
-  const [practiceWeakFirst, setPracticeWeakFirst] = useState(false);
-  const [showRawText, setShowRawText] = useState(false);
-
-  // Summary save-to-library state (summaries only — MCQs/flashcards stay local)
-  const [studySaveStatus, setStudySaveStatus] = useState("idle"); // "idle" | "saving" | "saved" | "error"
-  const [studySaveError, setStudySaveError] = useState("");
-
-  // Toast state (share feedback, etc.) — generated content stays local
-  const [autoSaveToast, setAutoSaveToast] = useState(null); // null | { status, label }
-  const autoSaveTimerRef = useRef(null);
-
-  // Mastery state
+  // Mastery — fed by recordPracticeResult from chat quiz answers and any
+  // legacy local practice data for this document.
   const [mastery, setMastery] = useState(() => getMastery(studyResourceId));
+  const refreshMastery = useCallback(() => setMastery(getMastery(studyResourceId)), [studyResourceId]);
 
-  useEffect(() => {
-    saveHistory(studyResourceId, studyHistory);
-    setMastery(getMastery(studyResourceId));
-  }, [studyHistory, studyResourceId]);
-
-  function saveStudyHistoryEntry(entry) {
-    const newEntry = createHistoryEntry(entry);
-    setStudyHistory((prev) => [newEntry, ...prev].slice(0, 20));
-  }
-
-  function deleteStudyHistoryEntry(id) {
-    setStudyHistory((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  function clearStudyHistory() {
-    setStudyHistory([]);
-  }
-
-  // ── Practice helpers (for newly generated MCQs) ────────────────────────────
-  function startPractice(weakFirst = false) {
-    const mcqs = weakFirst ? getWeakSpotQuestions(studyResourceId, parsedMcqs) : parsedMcqs;
-    setPracticeWeakFirst(weakFirst);
-    setPracticeAnswers({});
-    setPracticeLocked({});
-    setPracticeIdx(0);
-    setPracticeShowResults(false);
-    setPracticeMode(true);
-  }
-
-  function handlePracticeAnswer(key) {
-    if (practiceLocked[practiceIdx]) return;
-    setPracticeAnswers((prev) => ({ ...prev, [practiceIdx]: key }));
-    setPracticeLocked((prev) => ({ ...prev, [practiceIdx]: true }));
-  }
-
-  function practiceNext() {
-    if (!parsedMcqs.length) return;
-    if (practiceIdx < parsedMcqs.length - 1) {
-      setPracticeIdx(practiceIdx + 1);
-    } else {
-      setPracticeShowResults(true);
-      // Record practice results
-      recordPracticeResult(studyResourceId, parsedMcqs, practiceAnswers);
-      const score = parsedMcqs.reduce((acc, q, i) => acc + (practiceAnswers[i] === q.correct ? 1 : 0), 0);
-      recordPracticeSession(studyResourceId, null, score, parsedMcqs.length);
-      setMastery(getMastery(studyResourceId));
-    }
-  }
-
-  function practiceRetake() {
-    setPracticeAnswers({});
-    setPracticeLocked({});
-    setPracticeIdx(0);
-    setPracticeShowResults(false);
-  }
-
-  const practiceScore = parsedMcqs.length
-    ? parsedMcqs.reduce((acc, q, i) => acc + (practiceAnswers[i] === q.correct ? 1 : 0), 0)
-    : 0;
-
-  // ── FSRS Spaced Repetition state ────────────────────────────────────────────
-  const [fsrsFlashcards, setFsrsFlashcards] = useState([]);
-  const [fsrsFlashcardView, setFsrsFlashcardView] = useState("menu"); // "menu" | "generate" | "review" | "browse"
-  const [fsrsFlashcardLoading, setFsrsFlashcardLoading] = useState(false);
-  const [fsrsFlashcardError, setFsrsFlashcardError] = useState("");
-  const [fsrsFlashcardCount, setFsrsFlashcardCount] = useState(10);
   const [aiUsage, setAiUsage] = useState(null);
   const pageEnterTimeRef = useRef(Date.now());
-
-  // Page Quiz state (AI-generated questions for current page)
-  const [pageQuizOpen, setPageQuizOpen] = useState(false);
-  const [pageQuizQuestions, setPageQuizQuestions] = useState(null);
-  const [pageQuizLoading, setPageQuizLoading] = useState(false);
-  const [pageQuizAnswers, setPageQuizAnswers] = useState({});
-  const [pageQuizRevealed, setPageQuizRevealed] = useState(false);
-  const [pageQuizGenerating, setPageQuizGenerating] = useState(false);
-  const [pageQuizError, setPageQuizError] = useState(null);
   // ── Voice Tutor state ──────────────────────────────────────────────────────
   const voice = useVoiceSession({ onGoToPage: (p) => goToPage(p) });
   const [voiceName, setVoiceName] = useState("Achird");
@@ -512,8 +401,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
           }
           if (!cancelled) setDimsVersion((v) => v + 1); // one repaint to correct placeholder sizes
         })();
-        // Initialize FSRS tracking for this PDF
-        if (propResourceId) initFsrs(pdf.numPages);
         // Defer fitToWidth so fullscreen layout is painted before measuring container width
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         if (cancelled) return;
@@ -1068,18 +955,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     cctx.restore();
     const thumb = crop.toDataURL("image/png");
 
-    // Position popup near the lasso — convert canvas-relative coords to
-    // viewer-relative so this works for any page in continuous scroll
-    const cssMinX = Math.min(...poly.map((p) => p.x));
-    const cssMaxX = Math.max(...poly.map((p) => p.x));
-    const cssMaxY = Math.max(...poly.map((p) => p.y));
-    const vRect = viewerRef.current?.getBoundingClientRect() || { left: 0, top: 0, width: rect.width, height: rect.height };
-    const popupW = 280;
-    const centerX = rect.left + (cssMinX + cssMaxX) / 2 - vRect.left;
-    const bottomY = rect.top + cssMaxY - vRect.top;
-    const left = Math.max(8, Math.min(centerX - popupW / 2, vRect.width - popupW - 8));
-    const top = Math.max(60, Math.min(bottomY + 14, vRect.height - 60));
-    setChatPosition({ left, top });
     if (pg !== currentPage) setCurrentPage(pg);
 
     // Get page text for context
@@ -1111,34 +986,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   };
 
   // ---- AI Study Tools helpers ----
-  const MAX_STUDY_CHARS = 60000; // Increased — gemini-2.5-flash handles large context
-  const CHUNK_SIZE = 12000; // Per-chunk text size for map-reduce summarization
-  const CHUNK_OVERLAP = 500; // Overlap between chunks to preserve context
-
-  const capturePageImage = async () => {
-    let canvas = scrollMode === "single" ? canvasRef.current : pageCanvasRefs.current[currentPage - 1];
-
-    // If canvas doesn't exist or hasn't been rendered yet, force-render it
-    if (!canvas || canvas.width === 0 || canvas.height === 0) {
-      if (scrollMode === "single") {
-        await renderPage(currentPage);
-        canvas = canvasRef.current;
-      } else {
-        canvas = pageCanvasRefs.current[currentPage - 1];
-        if (canvas) {
-          delete canvas.dataset.rendered;
-          await renderPageToCanvas(currentPage, canvas);
-        }
-      }
-    }
-
-    if (!canvas || canvas.width === 0 || canvas.height === 0) return null;
-    try {
-      return canvas.toDataURL("image/jpeg", 0.7);
-    } catch {
-      return null;
-    }
-  };
+  const MAX_STUDY_CHARS = 60000; // gemini-2.5-flash handles large context
 
   const extractTextForRange = async (from, to) => {
     if (!pdfDocRef.current) return "";
@@ -1157,189 +1005,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     return combined;
   };
 
-  // Split text into overlapping chunks for map-reduce summarization
-  const splitIntoChunks = (text, chunkSize = CHUNK_SIZE, overlap = CHUNK_OVERLAP) => {
-    if (text.length <= chunkSize) return [text];
-    const chunks = [];
-    let start = 0;
-    while (start < text.length) {
-      const end = Math.min(start + chunkSize, text.length);
-      chunks.push(text.slice(start, end));
-      if (end >= text.length) break;
-      start = end - overlap;
-    }
-    return chunks;
-  };
-
-  // Map-reduce summarization for long texts
-  const summarizeLongText = async (fullText, onProgress) => {
-    const chunks = splitIntoChunks(fullText);
-
-    // If text fits in a single chunk, do a direct summary
-    if (chunks.length <= 1) {
-      if (onProgress) onProgress("Summarizing…");
-      const prompt = buildSummaryPrompt(fullText);
-      return await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-    }
-
-    // Map: summarize each chunk individually
-    const chunkSummaries = [];
-    for (let i = 0; i < chunks.length; i++) {
-      if (onProgress) onProgress(`Summarizing part ${i + 1} of ${chunks.length}…`);
-      const chunkPrompt = `You are an expert study assistant. This is part ${i + 1} of ${chunks.length} of a longer document. Summarize THIS section thoroughly for university exam preparation.
-
-Use this structure with Markdown headings:
-
-## Key Topics (Part ${i + 1})
-- List the main topics covered in this section
-
-## Important Details (Part ${i + 1})
-- Key facts, definitions, formulas, and concepts with **bold** key terms
-- Be thorough — include all significant points, don't skip details
-
-## Likely Exam Focus (Part ${i + 1})
-- What questions or topics from this section are most likely to appear on an exam
-
-TEXT (Part ${i + 1} of ${chunks.length}):
-"""
-${chunks[i]}
-"""`;
-      const raw = await callAIMultimodal(chunkPrompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-      chunkSummaries.push(raw || "");
-    }
-
-    // Reduce: combine all chunk summaries into one unified summary
-    if (onProgress) onProgress("Combining summaries…");
-    const combinedPrompt = `You are an expert study assistant. Below are summaries from ${chunks.length} parts of a longer document. Combine them into ONE comprehensive, well-organized study summary.
-
-Remove duplicate points. Organize by theme, not by part number. Merge related topics together.
-
-Use this final structure with Markdown headings:
-
-## Key Topics
-- List ALL main topics covered across the entire document, organized by theme
-
-## Important Details
-- All key facts, definitions, formulas, and concepts with **bold** key terms
-- Group related concepts together logically
-- Be thorough and comprehensive — this is a study guide for exam preparation
-- Include specific numbers, dates, and formulas where mentioned
-
-## Likely Exam Focus
-- What questions or topics are most likely to appear on an exam based on the full document
-- Prioritize the most important and frequently mentioned concepts
-
-Keep it well-structured and thorough. Use bullet points and **bold** key terms throughout.
-
-CHUNK SUMMARIES TO COMBINE:
-"""
-${chunkSummaries.join("\n\n---\n\n")}
-"""`;
-    return await callAIMultimodal(combinedPrompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-  };
-
-  const buildSummaryPrompt = (text) => {
-    return `You are an expert study assistant. Summarize the text below for university exam preparation.
-
-Use this structure with Markdown headings:
-
-## Key Topics
-- List the main topics covered, organized by theme
-- Use **bold** for key topic names
-
-## Important Details
-- Key facts, definitions, formulas, and concepts
-- Use **bold** for all key terms, definitions, and formulas
-- Group related concepts together logically
-- Be thorough and comprehensive — include all significant points
-- Include specific numbers, dates, and formulas where mentioned
-
-## Likely Exam Focus
-- What questions or topics are most likely to appear on an exam
-- Prioritize the most important concepts
-- Use **bold** for topics likely to be tested
-
-Keep it thorough and well-structured. Use bullet points and **bold** key terms throughout.
-
-TEXT:
-"""
-${text}
-"""`;
-  };
-
-  const resolveRange = () => {
-    if (numPages <= 1) return { from: 1, to: 1, label: "page 1" };
-    if (studyRangeType === "auto") return { from: currentPage, to: currentPage, label: `page ${currentPage} (auto)` };
-    if (studyRangeType === "current") return { from: currentPage, to: currentPage, label: `page ${currentPage}` };
-    if (studyRangeType === "custom") {
-      const from = Math.max(1, Math.min(studyFrom, numPages));
-      const to = Math.max(from, Math.min(studyTo, numPages));
-      return { from, to, label: from === to ? `page ${from}` : `pages ${from}–${to}` };
-    }
-    return { from: 1, to: numPages, label: numPages > 1 ? `pages 1–${numPages}` : "page 1" };
-  };
-
-  const parseMcqMarkdown = (raw) => {
-    const blocks = raw.split(/^---$/m).map((b) => b.trim()).filter(Boolean);
-    const mcqs = [];
-    for (const block of blocks) {
-      const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
-      if (lines.length < 3) continue;
-      const qLine = lines.find((l) => /^Q\d*[:.)]?\s*/i.test(l) || (!/^[A-D][.):]\s/.test(l) && !/^Correct\s*Answer/i.test(l) && !/^Explanation/i.test(l)));
-      if (!qLine) continue;
-      const question = qLine.replace(/^Q\d*[:.)]?\s*/i, "").trim();
-
-      const options = {};
-      for (const line of lines) {
-        const m = line.match(/^([A-D])[.):]\s*(.+)/);
-        if (m) options[m[1]] = m[2].trim();
-      }
-      if (Object.keys(options).length < 2) continue;
-
-      const correctLine = lines.find((l) => /^Correct\s*Answer/i.test(l));
-      let correct = "";
-      if (correctLine) {
-        const m = correctLine.match(/Correct\s*Answer[:\s]*([A-D])/i);
-        if (m) correct = m[1].toUpperCase();
-      }
-
-      const explLine = lines.find((l) => /^Explanation/i.test(l));
-      const explanation = explLine ? explLine.replace(/^Explanation[:.)]?\s*/i, "").trim() : "";
-
-      if (question && Object.keys(options).length >= 2 && correct) {
-        mcqs.push({ question, options, correct, explanation });
-      }
-    }
-    return mcqs;
-  };
-
   const openStudyTools = () => {
     hideChat();
     closeAllMobileOverlays();
     setStudyToolsOpen(true);
-    setStudyStep("setup");
-    setStudyError("");
-    setStudyResult("");
-    setParsedMcqs([]);
-    setStudySaveStatus("idle");
-    setStudySaveError("");
-    setHistoryView(null);
-    setHistoryQuizAnswers({});
-    setHistoryQuizLocked({});
-    setHistoryQuizIdx(0);
-    setHistoryQuizShowResults(false);
-    setPracticeMode(false);
-    setPracticeAnswers({});
-    setPracticeLocked({});
-    setPracticeIdx(0);
-    setPracticeShowResults(false);
-    setShowRawText(false);
-    setMastery(getMastery(studyResourceId));
-    if (numPages > 1 && studyRangeType === "custom") {
-      const clampedFrom = Math.max(1, Math.min(studyFrom, numPages));
-      setStudyFrom(clampedFrom);
-      setStudyTo(Math.max(clampedFrom, Math.min(studyTo, numPages)));
-    }
+    refreshMastery();
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
     if (authData.authToken) {
       fetch(`${API_BASE}/ai-proxy/usage`, {
@@ -1350,29 +1020,9 @@ ${text}
   };
 
   const closeStudyTools = () => {
-    if (voiceActive && studyMode === "voice") {
-      setVoiceMinimized(true);
-      setStudyToolsOpen(false);
-      return;
-    }
+    // An active voice session keeps running — minimize to the floating orb.
+    if (voiceActive) setVoiceMinimized(true);
     setStudyToolsOpen(false);
-    setStudyStep("setup");
-    setStudyError("");
-    setStudyResult("");
-    setParsedMcqs([]);
-    setStudySaveStatus("idle");
-    setStudySaveError("");
-    setHistoryView(null);
-    setHistoryQuizAnswers({});
-    setHistoryQuizLocked({});
-    setHistoryQuizIdx(0);
-    setHistoryQuizShowResults(false);
-    setPracticeMode(false);
-    setPracticeAnswers({});
-    setPracticeLocked({});
-    setPracticeIdx(0);
-    setPracticeShowResults(false);
-    setShowRawText(false);
   };
 
   // ── Voice Tutor handlers ───────────────────────────────────────────────────
@@ -1429,514 +1079,6 @@ ${text}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleStudyGenerate = async () => {
-    setStudyError("");
-    setStudyResult("");
-    setParsedMcqs([]);
-    setPracticeMode(false);
-    setPracticeShowResults(false);
-    setPracticeAnswers({});
-    setPracticeLocked({});
-    setPracticeIdx(0);
-    setShowRawText(false);
-
-    const { from, to, label } = resolveRange();
-    if (from > to) { setStudyError("Invalid page range."); return; }
-
-    const count = Math.max(3, Math.min(40, studyCount));
-    const isAutoMode = studyRangeType === "auto";
-
-    // Auto mode: capture current page as image and send to AI visually
-    if (isAutoMode) {
-      setStudyStep("loading");
-      setStudyLoadingMsg("Looking at page…");
-
-      const pageImage = await capturePageImage();
-      if (!pageImage) {
-        setStudyError("Could not capture the current page. Try switching to text-based mode.");
-        setStudyStep("setup");
-        return;
-      }
-
-      // Also get page text as supplementary context
-      let supplementaryText = "";
-      try { supplementaryText = await getPageText(currentPage); } catch {}
-
-      if (studyMode === "mcq") {
-        setStudyLoadingMsg("Writing questions from page…");
-        const prompt = `You are an expert exam writer for university students. Look at the page image provided and generate multiple-choice questions based on what you see.
-
-${supplementaryText ? `The page also contains this text (use alongside the image):\n"""\n${supplementaryText.slice(0, 5000)}\n"""` : ""}
-
-Determine the appropriate number of questions yourself based on how much content is on the page (between 3 and 20). A dense full page of text should yield more questions; a sparse page with little content should yield fewer.
-
-FORMAT — separate each question with a line containing only "---":
-Q: <question text>
-A. <option A>
-B. <option B>
-C. <option C>
-D. <option D>
-Correct Answer: <letter>
-Explanation: <brief explanation>
-
-Rules:
-- Exactly 4 options (A–D) per question
-- One correct answer
-- Questions should test understanding, not just memorization
-- Keep explanations to 1–2 sentences
-- Base questions on what is visible in the page image`;
-        try {
-          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-          if (!raw || raw.trim().length < 10) {
-            setStudyError("AI returned an empty response. Try again.");
-            setStudyStep("setup");
-            return;
-          }
-          setStudyResult(raw);
-          const mcqs = parseMcqMarkdown(raw);
-          setParsedMcqs(mcqs);
-          setStudyStep("result");
-          if (mcqs.length > 0) {
-            saveStudyHistoryEntry({ type: "mcq", mode: "auto", rangeLabel: `page ${currentPage}`, mcqs, rawText: raw });
-            setPracticeMode(true);
-          }
-        } catch (err) {
-          setStudyError(err.message || "Failed to generate questions. Please try again.");
-          setStudyStep("setup");
-        }
-      } else {
-        setStudyLoadingMsg("Summarizing page…");
-        const prompt = `You are an expert study assistant. Look at the page image provided and summarize it thoroughly for university exam preparation.
-
-${supplementaryText ? `The page also contains this text (use alongside the image):\n"""\n${supplementaryText.slice(0, 8000)}\n"""` : ""}
-
-Use this structure with Markdown headings:
-
-## Key Topics
-- List the main topics covered, organized by theme
-- Use **bold** for key topic names
-
-## Important Details
-- Key facts, definitions, formulas, and concepts
-- Use **bold** for all key terms, definitions, and formulas
-- Be thorough — include all significant points visible on the page
-- Include specific numbers, dates, and formulas where mentioned
-
-## Likely Exam Focus
-- What questions or topics are most likely to appear on an exam
-- Use **bold** for topics likely to be tested
-
-Be thorough and comprehensive. Use bullet points and **bold** key terms throughout.`;
-        try {
-          const raw = await callAIMultimodal(prompt, pageImage, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-          if (!raw || raw.trim().length < 10) {
-            setStudyError("AI returned an empty response. Try again.");
-            setStudyStep("setup");
-            return;
-          }
-          setStudyResult(raw);
-          setStudyStep("result");
-          saveStudyHistoryEntry({ type: "summary", mode: "auto", rangeLabel: `page ${currentPage}`, rawText: raw });
-        } catch (err) {
-          setStudyError(err.message || "Failed to generate summary. Please try again.");
-          setStudyStep("setup");
-        }
-      }
-      return;
-    }
-
-    // Text-based mode
-    setStudyStep("loading");
-    setStudyLoadingMsg("Reading pages…");
-
-    let extractedText;
-    try {
-      extractedText = await extractTextForRange(from, to);
-    } catch (e) {
-      setStudyError("Could not extract text from those pages.");
-      setStudyStep("setup");
-      return;
-    }
-
-    if (!extractedText.trim()) {
-      setStudyError("No text found in the selected pages. This PDF might be scanned images only.");
-      setStudyStep("setup");
-      return;
-    }
-
-    if (studyMode === "mcq") {
-      setStudyLoadingMsg("Writing questions…");
-      const prompt = `You are an expert exam writer for university students. Generate exactly ${count} multiple-choice questions from the text below.
-
-FORMAT — separate each question with a line containing only "---":
-Q: <question text>
-A. <option A>
-B. <option B>
-C. <option C>
-D. <option D>
-Correct Answer: <letter>
-Explanation: <brief explanation>
-
-Rules:
-- Exactly 4 options (A–D) per question
-- One correct answer
-- Questions should test understanding, not just memorization
-- Keep explanations to 1–2 sentences
-
-TEXT:
-"""
-${extractedText}
-"""`;
-      try {
-        const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-        if (!raw || raw.trim().length < 10) {
-          setStudyError("AI returned an empty response. Try again with a different page range.");
-          setStudyStep("setup");
-          return;
-        }
-        setStudyResult(raw);
-        const mcqs = parseMcqMarkdown(raw);
-        setParsedMcqs(mcqs);
-        setStudyStep("result");
-        if (mcqs.length > 0) {
-          saveStudyHistoryEntry({ type: "mcq", mode: "text", rangeLabel: label, mcqs, rawText: raw });
-          setPracticeMode(true);
-        }
-      } catch (err) {
-        setStudyError(err.message || "Failed to generate questions. Please try again.");
-        setStudyStep("setup");
-      }
-    } else {
-      try {
-        const raw = await summarizeLongText(extractedText, (msg) => setStudyLoadingMsg(msg));
-        if (!raw || raw.trim().length < 10) {
-          setStudyError("AI returned an empty response. Try again with a different page range.");
-          setStudyStep("setup");
-          return;
-        }
-        setStudyResult(raw);
-        setStudyStep("result");
-        saveStudyHistoryEntry({ type: "summary", mode: "text", rangeLabel: label, rawText: raw });
-      } catch (err) {
-        setStudyError(err.message || "Failed to generate summary. Please try again.");
-        setStudyStep("setup");
-      }
-    }
-  };
-
-  const handleStudyCopy = () => {
-    if (!studyResult) return;
-    navigator.clipboard?.writeText(studyResult).catch(() => {});
-  };
-
-  const handleStudyNew = () => {
-    setStudyStep("setup");
-    setStudyResult("");
-    setParsedMcqs([]);
-    setStudySaveStatus("idle");
-    setStudySaveError("");
-    setHistoryView(null);
-    setPracticeMode(false);
-    setPracticeAnswers({});
-    setPracticeLocked({});
-    setPracticeIdx(0);
-    setPracticeShowResults(false);
-    setShowRawText(false);
-  };
-
-  // ── History quiz helpers ──────────────────────────────────────────────────
-  function startHistoryQuiz(entry, weakFirst = false) {
-    const mcqs = weakFirst ? getWeakSpotQuestions(studyResourceId, entry.mcqs) : entry.mcqs;
-    setHistoryView({ ...entry, mcqs });
-    setHistoryQuizWeakFirst(weakFirst);
-    setHistoryQuizAnswers({});
-    setHistoryQuizLocked({});
-    setHistoryQuizIdx(0);
-    setHistoryQuizShowResults(false);
-  }
-
-  function handleHistoryQuizAnswer(key) {
-    if (historyQuizLocked[historyQuizIdx]) return;
-    setHistoryQuizAnswers((prev) => ({ ...prev, [historyQuizIdx]: key }));
-    setHistoryQuizLocked((prev) => ({ ...prev, [historyQuizIdx]: true }));
-  }
-
-  function historyQuizNext() {
-    if (!historyView?.mcqs) return;
-    if (historyQuizIdx < historyView.mcqs.length - 1) {
-      setHistoryQuizIdx(historyQuizIdx + 1);
-    } else {
-      setHistoryQuizShowResults(true);
-      // Record practice results for weak-spot tracking
-      recordPracticeResult(studyResourceId, historyView.mcqs, historyQuizAnswers);
-      const score = historyView.mcqs.reduce((acc, q, i) => acc + (historyQuizAnswers[i] === q.correct ? 1 : 0), 0);
-      recordPracticeSession(studyResourceId, historyView.id, score, historyView.mcqs.length);
-      setMastery(getMastery(studyResourceId));
-    }
-  }
-
-  function historyQuizRetake() {
-    setHistoryQuizAnswers({});
-    setHistoryQuizLocked({});
-    setHistoryQuizIdx(0);
-    setHistoryQuizShowResults(false);
-  }
-
-  async function handleSharePracticeSet(entry) {
-    // Save as public MCQ resource and get share token
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-    if (!token) return;
-    const shortTitle = (title || "Document").replace(/\.[^.]+$/, "").slice(0, 60);
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          title: `[AI] MCQs from ${shortTitle} (${entry.rangeLabel})`,
-          subject: "General",
-          contentType: "mcq",
-          mcqData: entry.mcqs,
-          description: `AI-generated MCQs from ${shortTitle}, ${entry.rangeLabel}`,
-          isPublic: true,
-        }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.shareToken) {
-        await copyShareToken(data.shareToken);
-        setAutoSaveToast({ status: "saved", label: "Share link copied!", resourceId: null });
-        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = setTimeout(() => setAutoSaveToast(null), 4000);
-      }
-    } catch {}
-  }
-
-  const historyQuizScore = historyView?.mcqs
-    ? historyView.mcqs.reduce((acc, q, i) => acc + (historyQuizAnswers[i] === q.correct ? 1 : 0), 0)
-    : 0;
-
-  // Save a summary to the library as an on-screen note — summaries only;
-  // MCQs/flashcards stay local. Rendered as markdown in the resource viewer.
-  const handleStudySave = async () => {
-    if (studySaveStatus === "saving" || studyMode !== "summary" || !studyResult) return;
-    setStudySaveStatus("saving");
-    setStudySaveError("");
-
-    const { label } = resolveRange();
-    const shortTitle = (title || "PDF").replace(/\.[^.]+$/, "").slice(0, 60);
-
-    try {
-      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      const token = authData.authToken;
-      if (!token) throw new Error("Not authenticated");
-
-      const res = await fetch(`${API_BASE}/api/resources/study-tool-save`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: `[AI] Summary: ${shortTitle} (${label})`,
-          subject: "General",
-          contentType: "note",
-          description: studyResult,
-          isPublic: false,
-          folderId: propFolderId || undefined,
-          sourceResourceId: propResourceId || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Save failed");
-      }
-
-      setStudySaveStatus("saved");
-      setTimeout(() => setStudySaveStatus("idle"), 2500);
-    } catch (err) {
-      setStudySaveStatus("error");
-      setStudySaveError(err.message || "Failed to save");
-    }
-  };
-
-  // ---- FSRS Spaced Repetition helpers ----
-  const getFsrsAuthHeaders = () => {
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${authData.authToken}`,
-    };
-  };
-
-  const initFsrs = async (totalPages) => {
-    if (!propResourceId) return;
-    try {
-      await fetch(`${API_BASE}/api/resources/fsrs/init`, {
-        method: "POST",
-        headers: getFsrsAuthHeaders(),
-        body: JSON.stringify({ resourceId: propResourceId, totalPages }),
-      });
-    } catch {}
-  };
-
-  const fetchPageQuiz = async () => {
-    if (!propResourceId) return;
-    setPageQuizLoading(true);
-    setPageQuizQuestions(null);
-    setPageQuizAnswers({});
-    setPageQuizRevealed(false);
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/page-questions/${propResourceId}/${currentPage}`, {
-        headers: getFsrsAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.questions && data.questions.length > 0) {
-          setPageQuizQuestions(data.questions);
-        }
-      }
-    } catch {}
-    setPageQuizLoading(false);
-  };
-
-  // Generate questions for specific pages with real text (lazy, incremental)
-  const generatePageQuiz = async (pageIndices) => {
-    if (!propResourceId || pageQuizGenerating) return;
-    setPageQuizGenerating(true);
-    setPageQuizError(null);
-    try {
-      const pages = pageIndices || [currentPage];
-      const pagesWithText = [];
-      for (const p of pages) {
-        try {
-          const text = await getPageText(p);
-          if (text.trim()) pagesWithText.push({ pageIndex: p, text });
-        } catch {}
-      }
-      if (pagesWithText.length === 0) { setPageQuizGenerating(false); setPageQuizError("No text could be extracted from this page."); return; }
-
-      const res = await fetch(`${API_BASE}/api/resources/fsrs/page-questions/generate`, {
-        method: "POST",
-        headers: getFsrsAuthHeaders(),
-        body: JSON.stringify({ resourceId: propResourceId, pages: pagesWithText }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setPageQuizError(data.error || "Generation failed. Please try again.");
-      } else if (data.failedPages && data.failedPages.length > 0) {
-        const failedForCurrent = data.failedPages.find(f => f.pageIndex === (pageIndices || [currentPage])[0]);
-        if (failedForCurrent) {
-          setPageQuizError(`Generation failed for this page: ${failedForCurrent.error}. Try regenerating.`);
-        } else {
-          setPageQuizError(`${data.failedPages.length} page(s) failed generation. Questions loaded for successful pages.`);
-        }
-      }
-      await fetchPageQuiz();
-    } catch (err) {
-      setPageQuizError("Network error during question generation. Please try again.");
-    }
-    setPageQuizGenerating(false);
-  };
-
-  // Queue background generation for remaining pages
-  // Regenerate questions for current page (delete + recreate)
-  const regeneratePageQuiz = async () => {
-    if (!propResourceId || pageQuizGenerating) return;
-    setPageQuizGenerating(true);
-    setPageQuizError(null);
-    try {
-      await fetch(`${API_BASE}/api/resources/fsrs/page-questions/${propResourceId}?pageIndex=${currentPage}`, {
-        method: "DELETE",
-        headers: getFsrsAuthHeaders(),
-      });
-      await generatePageQuiz([currentPage]);
-    } catch {
-      setPageQuizError("Failed to regenerate questions. Please try again.");
-    }
-    setPageQuizGenerating(false);
-  };
-
-  const openPageQuiz = () => {
-    setPageQuizOpen(true);
-    fetchPageQuiz();
-  };
-
-  // Flashcards are local-only — stored in study history (localStorage), never
-  // sent to the folder, FSRS, or daily review.
-  const fetchFlashcards = async () => {
-    const cards = (loadHistory(studyResourceId) || [])
-      .filter((e) => e.type === "flashcard" && Array.isArray(e.cards))
-      .flatMap((e) => e.cards.map((c, i) => ({ ...c, id: `${e.id}-${i}` })));
-    setFsrsFlashcards(cards);
-    return cards;
-  };
-
-  // Practice a flashcard set straight from a study-history entry
-  const startFlashcardHistoryPractice = (entry) => {
-    if (!entry?.cards?.length) return;
-    setFsrsFlashcards(entry.cards.map((c, i) => ({ ...c, id: `${entry.id}-${i}` })));
-    setStudyMode("flashcard");
-    setStudyStep("setup");
-    setHistoryView(null);
-    setFsrsFlashcardView("review");
-  };
-
-  const generateFlashcards = async () => {
-    if (fsrsFlashcardLoading) return;
-    setFsrsFlashcardLoading(true);
-    setFsrsFlashcardError("");
-    try {
-      const { from, to, label } = resolveRange();
-      const texts = [];
-      for (let n = from; n <= to; n++) {
-        const text = await getPageText(n);
-        if (text.trim()) texts.push(text);
-      }
-      const combinedText = texts.join("\n\n");
-      if (!combinedText.trim()) {
-        setFsrsFlashcardError("No text found in selected pages.");
-        setFsrsFlashcardLoading(false);
-        return;
-      }
-      const prompt = `You are an expert flashcard creator for university students. Generate exactly ${fsrsFlashcardCount} flashcards from the text below.
-
-FORMAT — return as a JSON array:
-[{"front": "question or prompt", "back": "concise answer"}]
-
-Rules:
-- Front should be a clear question, definition prompt, or concept name
-- Back should be a concise but complete answer (1-3 sentences)
-- Cover the most important concepts from the text
-- Return ONLY the JSON array, no markdown or explanation
-
-TEXT:
-"""
-${combinedText.slice(0, 24000)}
-"""`;
-      const raw = await callAIMultimodal(prompt, null, [], { provider: "openrouter", model: "z-ai/glm-5.3-flash" });
-      let parsed = [];
-      try {
-        const jsonMatch = String(raw || "").match(/\[[\s\S]*\]/);
-        parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
-      } catch {}
-      const cards = (Array.isArray(parsed) ? parsed : [])
-        .filter((c) => c && typeof c.front === "string" && typeof c.back === "string")
-        .map((c, i) => ({ front: c.front, back: c.back, id: `${Date.now()}-${i}` }));
-      if (cards.length === 0) {
-        setFsrsFlashcardError("AI returned no valid flashcards. Try a different page range.");
-      } else {
-        saveStudyHistoryEntry({ type: "flashcard", mode: "text", rangeLabel: label, cards, rawText: raw });
-        await fetchFlashcards();
-        setFsrsFlashcardView("browse");
-      }
-    } catch (err) {
-      setFsrsFlashcardError(err.message || "Failed to generate flashcards");
-    }
-    setFsrsFlashcardLoading(false);
-  };
-
   // ---- Chat popup ----
   const chatSessionRef = useRef(0);
   const closeChat = () => {
@@ -1967,6 +1109,40 @@ ${combinedText.slice(0, 24000)}
     closeAllMobileOverlays();
     setChatError(null);
     setChatOpen(true);
+  };
+
+  // Chat MCQ answers feed the same weakspot store, FSRS scheduler, streak,
+  // XP pool and quest counters as a Streak Survival run — one progress record.
+  const QUIZ_LETTERS = ["A", "B", "C", "D", "E", "F"];
+  const handleChatQuizPick = (mcq, pickedIdx) => {
+    const correct = pickedIdx === mcq.answer;
+    try {
+      const optionsObj = Object.fromEntries(mcq.options.map((o, i) => [QUIZ_LETTERS[i], o]));
+      const appMcq = { question: mcq.question, options: optionsObj, correct: QUIZ_LETTERS[mcq.answer], explanation: mcq.explanation || "" };
+      recordPracticeResult(studyResourceId, [appMcq], { 0: QUIZ_LETTERS[pickedIdx] });
+      recordPracticeSession(studyResourceId, null, correct ? 1 : 0, 1);
+      refreshMastery();
+    } catch {}
+    // Aggregate FSRS card per document — chat questions are ephemeral and
+    // have no stable bank index, so the server pins chat_mcq to pageIndex -1.
+    if (propResourceId) {
+      rateQuestion({
+        resourceId: propResourceId,
+        itemType: "chat_mcq",
+        pageIndex: -1,
+        grade: correct ? 3 : 1,
+        topic: title,
+        subject: title,
+      }).then((data) => {
+        if (data?.xpAwarded > 0) {
+          window.dispatchEvent(new CustomEvent("sc-xp-gained", { detail: { xp: data.xpAwarded } }));
+        }
+      });
+    }
+    try {
+      questEvent("answered", 1);
+      if (correct) questEvent("correct", 1);
+    } catch {}
   };
 
   // "Next question" flow — tells the model the outcome so it can adapt.
@@ -2095,15 +1271,6 @@ ${combinedText.slice(0, 24000)}
 
     const snippet = (result.before + result.match + result.after).trim();
     const firstPrompt = `I found this on page ${result.page} when searching for '${result.query}' — explain it:\n"""${snippet}"""\n\n[Full page text for context:\n"""${pageText || "(no text)"}"""\n]\nExplain it like a clear, encouraging tutor. Keep it under 90 words.`;
-
-    // Position popup in center of viewer
-    const viewer = viewerRef.current;
-    if (viewer) {
-      setChatPosition({
-        left: Math.max(8, (viewer.clientWidth - 280) / 2),
-        top: 60,
-      });
-    }
 
     setStudyToolsOpen(false);
     closeAllMobileOverlays();
@@ -2803,11 +1970,6 @@ ${combinedText.slice(0, 24000)}
   useEffect(() => {
     if (currentPage > 1) saveStored(`sc_pdf_lastpage_${docKey}`, currentPage);
   }, [currentPage, docKey]);
-
-  // ---- Study Tools: persist prefs ----
-  useEffect(() => {
-    saveStored(`sc_pdf_studyprefs_${docKey}`, { studyMode, studyRangeType, studyCount });
-  }, [studyMode, studyRangeType, studyCount, docKey]);
 
   // ---- TTS: stop on page change ----
   useEffect(() => {
@@ -3855,82 +3017,6 @@ ${combinedText.slice(0, 24000)}
       color: T.muted,
       marginBottom: 6,
     },
-    studySegRow: {
-      display: "flex",
-      gap: 0,
-      background: T.inputBg,
-      borderRadius: 10,
-      padding: 3,
-      border: `1px solid ${T.border}`,
-    },
-    studySegBtn: {
-      flex: 1,
-      padding: "8px 12px",
-      border: "none",
-      borderRadius: 8,
-      fontSize: 13,
-      fontWeight: 600,
-      cursor: "pointer",
-      transition: "all 0.15s ease",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-    },
-    studyRangeRow: {
-      display: "flex",
-      gap: 6,
-      flexWrap: "wrap",
-    },
-    studyRangeBtn: {
-      padding: "6px 12px",
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      fontSize: 12,
-      fontWeight: 500,
-      cursor: "pointer",
-      background: "none",
-      color: T.muted,
-      transition: "all 0.15s ease",
-    },
-    studyRangeInput: {
-      width: 56,
-      padding: "6px 8px",
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      fontSize: 13,
-      textAlign: "center",
-      background: T.inputBg,
-      color: T.text,
-      fontFamily: "inherit",
-    },
-    studyCountRow: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-    },
-    studyCountInput: {
-      width: 60,
-      padding: "6px 8px",
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      fontSize: 14,
-      textAlign: "center",
-      background: T.inputBg,
-      color: T.text,
-      fontFamily: "inherit",
-    },
-    studyCountChip: {
-      padding: "4px 10px",
-      border: `1px solid ${T.border}`,
-      borderRadius: 16,
-      fontSize: 11,
-      fontWeight: 600,
-      cursor: "pointer",
-      background: "none",
-      color: T.muted,
-      transition: "all 0.15s ease",
-    },
     studyGenerateBtn: {
       width: "100%",
       padding: "12px 16px",
@@ -3943,55 +3029,6 @@ ${combinedText.slice(0, 24000)}
       cursor: "pointer",
       transition: "opacity 0.15s ease",
     },
-    studyLoadingBox: {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 14,
-      padding: 40,
-      flex: 1,
-    },
-    studyLoadingText: {
-      fontSize: 14,
-      color: T.muted,
-      fontWeight: 500,
-    },
-    studyResultActions: {
-      display: "flex",
-      gap: 6,
-      padding: isMobile ? "8px 12px 12px" : "8px 14px 10px",
-      borderTop: `1px solid ${T.border}`,
-      flexShrink: 0,
-      flexWrap: "wrap",
-      alignItems: "center",
-    },
-    studyActionBtn: {
-      padding: "6px 12px",
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      fontSize: 12,
-      fontWeight: 600,
-      cursor: "pointer",
-      background: "none",
-      color: T.text,
-      transition: "all 0.15s ease",
-      display: "flex",
-      alignItems: "center",
-      gap: 4,
-    },
-    studySaveBtn: {
-      padding: "6px 14px",
-      borderRadius: 8,
-      fontSize: 12,
-      fontWeight: 700,
-      cursor: "pointer",
-      border: "none",
-      transition: "all 0.15s ease",
-      display: "flex",
-      alignItems: "center",
-      gap: 4,
-    },
     studyErrorBox: {
       background: theme === "dark" ? "rgba(233,69,96,0.15)" : "#FFF0F0",
       color: T.accent,
@@ -4002,21 +3039,6 @@ ${combinedText.slice(0, 24000)}
       display: "flex",
       flexDirection: "column",
       gap: 4,
-    },
-    studyErrorRetry: {
-      fontSize: 11,
-      fontWeight: 600,
-      color: T.accent,
-      background: "none",
-      border: "none",
-      cursor: "pointer",
-      padding: 0,
-    },
-    studyMcqNote: {
-      fontSize: 11.5,
-      color: T.muted,
-      fontStyle: "italic",
-      padding: "6px 0",
     },
   };
 
@@ -4568,17 +3590,6 @@ ${combinedText.slice(0, 24000)}
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
             </button>
 
-            {/* Page Quiz (AI-generated questions) */}
-            {propResourceId && (
-              <button
-                style={{ ...s.iconBtn, color: pageQuizOpen ? T.accent : T.muted, background: pageQuizOpen ? T.hover : "none" }}
-                onClick={() => { setPageQuizOpen((v) => !v); if (!pageQuizOpen) fetchPageQuiz(); }}
-                title="Page Quiz (AI questions)"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </button>
-            )}
-
             {/* Search */}
             <div style={s.searchWrap}>
               <button
@@ -5114,10 +4125,13 @@ ${combinedText.slice(0, 24000)}
                                   qNum={qNum}
                                   stats={quizStats}
                                   picked={res?.picked ?? null}
-                                  onPick={(orig) => setQuizResults((prev) => ({
-                                    ...prev,
-                                    [key]: { picked: orig, correct: orig === seg.mcq.answer },
-                                  }))}
+                                  onPick={(orig) => {
+                                    setQuizResults((prev) => ({
+                                      ...prev,
+                                      [key]: { picked: orig, correct: orig === seg.mcq.answer },
+                                    }));
+                                    handleChatQuizPick(seg.mcq, orig);
+                                  }}
                                   onNext={() => requestNextQuestion(res)}
                                 />
                               );
@@ -5318,11 +4332,10 @@ ${combinedText.slice(0, 24000)}
                   </div>
                 )}
 
-                {studyStep === "setup" && (
                   <div style={s.studyBody}>
 
                     {/* Mastery progress bar */}
-                    {mastery.totalQuestions > 0 && studyMode !== "flashcard" && studyMode !== "voice" && (
+                    {mastery.totalQuestions > 0 && (
                       <div style={{
                         padding: "10px 14px",
                         background: T.hover,
@@ -5348,220 +4361,6 @@ ${combinedText.slice(0, 24000)}
                         </div>
                         <div style={{ fontSize: 10, color: T.muted, marginTop: 4 }}>
                           {mastery.mastered}/{mastery.totalQuestions} questions mastered · Practiced {mastery.practicedCount} time{mastery.practicedCount !== 1 ? "s" : ""}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* History button */}
-                    {studyHistory.length > 0 && studyMode !== "flashcard" && studyMode !== "voice" && (
-                      <button
-                        style={{
-                          width: "100%",
-                          padding: "10px 14px",
-                          background: T.hover,
-                          border: `1px solid ${T.border}`,
-                          borderRadius: 10,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          color: T.text,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                        onClick={() => setStudyStep("history")}
-                      >
-                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 16 }}>🕘</span>
-                          History ({studyHistory.length})
-                        </span>
-                        <span style={{ fontSize: 12, color: T.muted }}>View past →</span>
-                      </button>
-                    )}
-
-                    {/* Page range */}
-                    {numPages > 1 && studyMode !== "voice" && (
-                      <div>
-                        <div style={s.studyLabel}>Page Range</div>
-                        <div style={s.studyRangeRow}>
-                          {["auto", "all", "current", "custom"].map((r) => (
-                            <button
-                              key={r}
-                              style={{
-                                ...s.studyRangeBtn,
-                                background: studyRangeType === r ? T.accent : "none",
-                                color: studyRangeType === r ? "white" : T.muted,
-                                borderColor: studyRangeType === r ? T.accent : T.border,
-                              }}
-                              onClick={() => setStudyRangeType(r)}
-                            >
-                              {r === "auto" ? `🤖 Auto (p.${currentPage})` : r === "all" ? `All (${numPages})` : r === "current" ? `This page (${currentPage})` : "Custom"}
-                            </button>
-                          ))}
-                        </div>
-                        {studyRangeType === "custom" && (
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-                            <input
-                              style={s.studyRangeInput}
-                              type="number"
-                              min={1}
-                              max={numPages}
-                              value={studyFrom}
-                              onChange={(e) => setStudyFrom(Math.max(1, Math.min(numPages, parseInt(e.target.value) || 1)))}
-                            />
-                            <span style={{ color: T.muted, fontSize: 12 }}>to</span>
-                            <input
-                              style={s.studyRangeInput}
-                              type="number"
-                              min={1}
-                              max={numPages}
-                              value={studyTo}
-                              onChange={(e) => setStudyTo(Math.max(1, Math.min(numPages, parseInt(e.target.value) || 1)))}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* MCQ count */}
-                    {studyMode === "mcq" && studyRangeType !== "auto" && (
-                      <div>
-                        <div style={s.studyLabel}>Number of Questions</div>
-                        <div style={s.studyCountRow}>
-                          <input
-                            style={s.studyCountInput}
-                            type="number"
-                            min={3}
-                            max={40}
-                            value={studyCount}
-                            onChange={(e) => setStudyCount(Math.max(3, Math.min(40, parseInt(e.target.value) || 10)))}
-                          />
-                          {[5, 10, 15, 20].map((n) => (
-                            <button
-                              key={n}
-                              style={{
-                                ...s.studyCountChip,
-                                background: studyCount === n ? T.accent : "none",
-                                color: studyCount === n ? "white" : T.muted,
-                                borderColor: studyCount === n ? T.accent : T.border,
-                              }}
-                              onClick={() => setStudyCount(n)}
-                            >
-                              {n}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Flashcard mode — menu */}
-                    {studyMode === "flashcard" && fsrsFlashcardView === "menu" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={s.studyLabel}>Flashcards</div>
-                        <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
-                          Generate AI flashcards from this PDF and practice them right here. Cards are saved on this device only.
-                        </div>
-                        {fsrsFlashcards.length > 0 && (
-                          <div style={{ fontSize: 12, color: T.text, background: T.hover, borderRadius: 8, padding: "8px 12px" }}>
-                            You have {fsrsFlashcards.length} flashcard{fsrsFlashcards.length > 1 ? "s" : ""} saved on this device
-                          </div>
-                        )}
-                        <button style={s.studyGenerateBtn} onClick={() => setFsrsFlashcardView("generate")}>
-                          ✨ Generate New Flashcards
-                        </button>
-                        {fsrsFlashcards.length > 0 && (
-                          <>
-                            <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.accent}`, color: T.accent }} onClick={() => setFsrsFlashcardView("review")}>
-                              🔄 Practice All ({fsrsFlashcards.length})
-                            </button>
-                            <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("browse")}>
-                              📋 Browse All ({fsrsFlashcards.length})
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Flashcard mode — generate */}
-                    {studyMode === "flashcard" && fsrsFlashcardView === "generate" && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        <div style={s.studyLabel}>Number of Flashcards</div>
-                        <div style={s.studyCountRow}>
-                          <input
-                            style={s.studyCountInput}
-                            type="number"
-                            min={3}
-                            max={30}
-                            value={fsrsFlashcardCount}
-                            onChange={(e) => setFsrsFlashcardCount(Math.max(3, Math.min(30, parseInt(e.target.value) || 10)))}
-                          />
-                          {[5, 10, 15, 20].map((n) => (
-                            <button
-                              key={n}
-                              style={{
-                                ...s.studyCountChip,
-                                background: fsrsFlashcardCount === n ? T.accent : "none",
-                                color: fsrsFlashcardCount === n ? "white" : T.muted,
-                                borderColor: fsrsFlashcardCount === n ? T.accent : T.border,
-                              }}
-                              onClick={() => setFsrsFlashcardCount(n)}
-                            >
-                              {n}
-                            </button>
-                          ))}
-                        </div>
-                        {fsrsFlashcardError && <div style={s.studyErrorBox}>{fsrsFlashcardError}</div>}
-                        <button style={s.studyGenerateBtn} disabled={fsrsFlashcardLoading} onClick={generateFlashcards}>
-                          {fsrsFlashcardLoading ? "Generating…" : `Generate ${fsrsFlashcardCount} Flashcards`}
-                        </button>
-                        <button style={{ ...s.studyGenerateBtn, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("menu")}>
-                          ← Back
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Flashcard mode — practice (local, no FSRS) */}
-                    {studyMode === "flashcard" && fsrsFlashcardView === "review" && (
-                      <div>
-                        {fsrsFlashcards.length > 0 ? (
-                          <FlashcardRunner
-                            flashcards={fsrsFlashcards}
-                            resourceId={null}
-                            theme={theme}
-                            onComplete={() => { fetchFlashcards(); setFsrsFlashcardView("menu"); }}
-                          />
-                        ) : (
-                          <div style={{ textAlign: "center", padding: "30px 16px", color: T.muted, fontSize: 13 }}>
-                            No flashcards yet. Generate some first!
-                            <button style={{ ...s.studyGenerateBtn, marginTop: 12, background: "none", border: `1px solid ${T.border}`, color: T.muted }} onClick={() => setFsrsFlashcardView("menu")}>
-                              ← Back
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Flashcard mode — browse */}
-                    {studyMode === "flashcard" && fsrsFlashcardView === "browse" && (
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                          <span style={{
-                            fontSize: 13, fontWeight: 700, color: T.text,
-                            padding: "4px 12px", borderRadius: 999, background: T.hover,
-                          }}>All Flashcards ({fsrsFlashcards.length})</span>
-                          <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setFsrsFlashcardView("menu")}>← Back</button>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 400, overflowY: "auto" }}>
-                          {fsrsFlashcards.map((fc, i) => (
-                            <div key={fc.id} className="sc-fade-in-up" style={{
-                              background: T.hover, borderRadius: 12, padding: "14px 16px",
-                              border: `0.5px solid ${T.border}`, boxShadow: `0 2px 8px ${T.shadow}`,
-                              animationDelay: `${i * 40}ms`,
-                            }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 4, lineHeight: 1.4 }}>{fc.front}</div>
-                              <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.4 }}>{fc.back}</div>
-                            </div>
-                          ))}
                         </div>
                       </div>
                     )}
@@ -5594,7 +4393,7 @@ ${combinedText.slice(0, 24000)}
                     </button>
 
                     {/* Voice mode — setup */}
-                    {studyMode === "voice" && (
+                    {(
                       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{
@@ -5733,750 +4532,13 @@ ${combinedText.slice(0, 24000)}
                         </button>
                       </div>
                     )}
-
-                    {studyError && studyMode !== "flashcard" && studyMode !== "voice" && (
-                      <div style={s.studyErrorBox}>
-                        {studyError}
-                      </div>
-                    )}
-
-                    {studyMode !== "flashcard" && studyMode !== "voice" && (
-                    <button
-                      style={{
-                        ...s.studyGenerateBtn,
-                        opacity: studyRangeType === "custom" && studyFrom > studyTo ? 0.4 : 1,
-                      }}
-                      disabled={studyRangeType === "custom" && studyFrom > studyTo}
-                      onClick={handleStudyGenerate}
-                    >
-                      {studyMode === "mcq" ? `Generate ${studyCount} Questions` : "Generate Summary"}
-                    </button>
-                    )}
                   </div>
-                )}
 
-                {studyStep === "loading" && (
-                  <div style={s.studyLoadingBox}>
-                    <span style={{ ...s.spinner, width: 24, height: 24, borderWidth: 3 }} />
-                    <span style={s.studyLoadingText}>{studyLoadingMsg}</span>
-                  </div>
-                )}
-
-                {/* ── History List ── */}
-                {studyStep === "history" && !historyView && (
-                  <div style={s.studyBody}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>🕘 Study History</span>
-                      <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setStudyStep("setup")}>← Back</button>
-                    </div>
-                    {studyHistory.length === 0 ? (
-                      <div style={{ textAlign: "center", padding: "24px 16px", color: T.muted, fontSize: 13 }}>
-                        No history yet. Generate some MCQs or summaries to see them here.
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 400, overflowY: "auto" }}>
-                          {studyHistory.map((entry) => (
-                            <div key={entry.id} style={{
-                              background: T.hover,
-                              border: `0.5px solid ${T.border}`,
-                              borderRadius: 10,
-                              padding: "10px 12px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                            }}>
-                              <span style={{ fontSize: 20, flexShrink: 0 }}>
-                                {entry.type === "mcq" ? "📝" : entry.type === "flashcard" ? "🎴" : "📄"}
-                              </span>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {entry.type === "mcq" ? `${entry.mcqs?.length || 0} questions` : entry.type === "flashcard" ? `${entry.cards?.length || 0} cards` : "Summary"} · {entry.rangeLabel}
-                                </div>
-                                <div style={{ fontSize: 10, color: T.muted, marginTop: 2 }}>
-                                  {new Date(entry.ts).toLocaleDateString(undefined, { month: "short", day: "numeric" })} at {new Date(entry.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                                </div>
-                              </div>
-                              <button
-                                style={{
-                                  padding: "6px 12px",
-                                  background: entry.type === "mcq" ? `${T.accent}20` : T.hover,
-                                  border: `1px solid ${entry.type === "mcq" ? T.accent : T.border}`,
-                                  borderRadius: 8,
-                                  fontSize: 11,
-                                  fontWeight: 700,
-                                  color: entry.type === "mcq" ? T.accent : T.text,
-                                  cursor: "pointer",
-                                  flexShrink: 0,
-                                }}
-                                onClick={() => entry.type === "mcq" ? startHistoryQuiz(entry) : entry.type === "flashcard" ? startFlashcardHistoryPractice(entry) : setHistoryView(entry)}
-                              >
-                                {entry.type === "mcq" ? "Practice" : entry.type === "flashcard" ? "Practice" : "View"}
-                              </button>
-                              {entry.type === "mcq" && getWeakSpots(studyResourceId).length > 0 && (
-                                <button
-                                  style={{
-                                    padding: "4px 8px",
-                                    background: "rgba(255,179,0,0.15)",
-                                    border: "1px solid rgba(255,179,0,0.4)",
-                                    borderRadius: 6,
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    color: "#ffb74d",
-                                    cursor: "pointer",
-                                    flexShrink: 0,
-                                  }}
-                                  onClick={() => startHistoryQuiz(entry, true)}
-                                  title="Practice weak spots first"
-                                >
-                                  ⚡
-                                </button>
-                              )}
-                              {entry.type === "mcq" && (
-                                <button
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    color: T.muted,
-                                    fontSize: 14,
-                                    cursor: "pointer",
-                                    padding: 4,
-                                    flexShrink: 0,
-                                  }}
-                                  onClick={() => handleSharePracticeSet(entry)}
-                                  title="Share with study group"
-                                >
-                                  🔗
-                                </button>
-                              )}
-                              <button
-                                style={{
-                                  background: "none",
-                                  border: "none",
-                                  color: T.muted,
-                                  fontSize: 14,
-                                  cursor: "pointer",
-                                  padding: 4,
-                                  flexShrink: 0,
-                                }}
-                                onClick={() => deleteStudyHistoryEntry(entry.id)}
-                                title="Delete"
-                              >
-                                🗑
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                        <button
-                          style={{
-                            width: "100%",
-                            marginTop: 10,
-                            padding: "8px",
-                            background: "none",
-                            border: `1px solid ${T.border}`,
-                            borderRadius: 8,
-                            fontSize: 11,
-                            color: T.muted,
-                            cursor: "pointer",
-                          }}
-                          onClick={clearStudyHistory}
-                        >
-                          Clear all history
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* ── History: Summary View ── */}
-                {studyStep === "history" && historyView?.type === "summary" && (
-                  <div style={s.studyBody}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📄 {historyView.rangeLabel}</span>
-                      <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setHistoryView(null)}>← Back to list</button>
-                    </div>
-                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 10 }}>
-                      {new Date(historyView.ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} at {new Date(historyView.ts).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                    <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                      <MarkdownText theme={theme}>{historyView.rawText}</MarkdownText>
-                    </div>
-                    <button
-                      style={{
-                        ...s.studyActionBtn,
-                        marginTop: 10,
-                        width: "100%",
-                      }}
-                      onClick={() => navigator.clipboard?.writeText(historyView.rawText).catch(() => {})}
-                    >
-                      📋 Copy
-                    </button>
-                  </div>
-                )}
-
-                {/* ── History: MCQ Quiz Practice ── */}
-                {studyStep === "history" && historyView?.type === "mcq" && !historyQuizShowResults && (
-                  <div style={s.studyBody}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📝 Practice Rapid Recall</span>
-                      <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setHistoryView(null)}>← Back</button>
-                    </div>
-                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 12 }}>
-                      {historyView.rangeLabel} · {historyView.mcqs.length} questions
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                      <div style={{ flex: 1, position: "relative", height: 6, background: T.hover, borderRadius: 999, overflow: "hidden" }}>
-                        <div className="sc-shimmer-bar" style={{
-                          position: "relative", height: "100%",
-                          width: `${historyView.mcqs.length > 0 ? ((historyQuizIdx + (historyQuizLocked[historyQuizIdx] ? 1 : 0)) / historyView.mcqs.length) * 100 : 0}%`,
-                          background: `linear-gradient(90deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
-                          borderRadius: 999, transition: "width 0.3s ease", overflow: "hidden",
-                        }} />
-                      </div>
-                      <span style={{
-                        fontSize: 11, color: T.muted, whiteSpace: "nowrap", fontWeight: 600,
-                        padding: "3px 10px", borderRadius: 999, background: T.hover,
-                      }}>Q {historyQuizIdx + 1} / {historyView.mcqs.length}</span>
-                    </div>
-                    {(() => {
-                      const q = historyView.mcqs[historyQuizIdx];
-                      if (!q) return null;
-                      const selected = historyQuizAnswers[historyQuizIdx];
-                      const isLocked = historyQuizLocked[historyQuizIdx];
-                      return (
-                        <>
-                          <div className="sc-fade-in-up" style={{
-                            fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.6, marginBottom: 14,
-                            padding: "16px 20px", borderRadius: 14, background: T.hover,
-                            border: `0.5px solid ${T.border}`, boxShadow: `0 2px 8px ${T.shadow}`,
-                          }}>
-                            <span style={{
-                              display: "inline-block", fontSize: 10, fontWeight: 700, color: T.muted,
-                              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6,
-                              padding: "2px 8px", borderRadius: 999, background: T.inputBg,
-                            }}>Question {historyQuizIdx + 1}</span>
-                            <div style={{ marginTop: 6 }}>{q.question}</div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {Object.entries(q.options).map(([key, val]) => {
-                              const isSelected = selected === key;
-                              const isCorrect = key === q.correct;
-                              const showCorrect = isLocked && isCorrect;
-                              const showWrong = isLocked && isSelected && !isCorrect;
-                              return (
-                                <div
-                                  key={key}
-                                  onClick={() => !isLocked && handleHistoryQuizAnswer(key)}
-                                  className="sc-fade-in-up"
-                                  style={{
-                                    display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 12,
-                                    cursor: isLocked ? "default" : "pointer", minHeight: 48,
-                                    background: showCorrect ? "rgba(34,197,94,0.10)" : showWrong ? "rgba(239,68,68,0.10)" : T.hover,
-                                    border: `1px solid ${showCorrect ? "rgba(34,197,94,0.5)" : showWrong ? "rgba(239,68,68,0.5)" : isSelected ? T.accent : T.border}`,
-                                    transition: "all 0.2s cubic-bezier(0.4,0,0.2,1)",
-                                  }}
-                                  onMouseEnter={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 4px 12px ${T.shadow}`; } }}
-                                  onMouseLeave={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; } }}
-                                >
-                                  <span style={{
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                                    fontSize: 12, fontWeight: 700,
-                                    color: showCorrect ? "#22c55e" : showWrong ? "#ef4444" : T.muted,
-                                    background: showCorrect ? "rgba(34,197,94,0.15)" : showWrong ? "rgba(239,68,68,0.15)" : T.inputBg,
-                                    border: `1px solid ${showCorrect ? "rgba(34,197,94,0.4)" : showWrong ? "rgba(239,68,68,0.4)" : T.border}`,
-                                  }}>{key}</span>
-                                  <span style={{ fontSize: 13, color: T.text, flex: 1, lineHeight: 1.4 }}>{val}</span>
-                                  {showCorrect && <span style={{ fontSize: 16, color: "#22c55e" }}>✓</span>}
-                                  {showWrong && <span style={{ fontSize: 16, color: "#ef4444" }}>✕</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {isLocked && (
-                            <div className="sc-fade-in-up">
-                              {q.explanation && (
-                                <div style={{
-                                  marginTop: 12, padding: "12px 16px",
-                                  background: T.hover, borderLeft: `3px solid ${T.accent}`,
-                                  borderRadius: 10, fontSize: 12, color: T.muted, lineHeight: 1.5,
-                                }}>
-                                  <span style={{ fontWeight: 700, color: T.accent }}>💡 Explanation: </span>
-                                  {q.explanation}
-                                </div>
-                              )}
-                              <button
-                                style={{
-                                  width: "100%", marginTop: 14, padding: "14px", borderRadius: 12,
-                                  fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none",
-                                  background: `linear-gradient(135deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
-                                  color: "#fff", transition: "all 0.15s ease",
-                                }}
-                                onClick={historyQuizNext}
-                                onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.02)"; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
-                              >
-                                {historyQuizIdx < historyView.mcqs.length - 1 ? "Next →" : "See Results"}
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                {/* ── History: MCQ Quiz Results ── */}
-                {studyStep === "history" && historyView?.type === "mcq" && historyQuizShowResults && (
-                  <div style={s.studyBody}>
-                    {(() => {
-                      const pct = historyView.mcqs.length > 0 ? Math.round((historyQuizScore / historyView.mcqs.length) * 100) : 0;
-                      const ringSize = 100, ringStroke = 7, ringRadius = (ringSize - ringStroke) / 2;
-                      const ringCirc = 2 * Math.PI * ringRadius;
-                      const ringOffset = ringCirc - (pct / 100) * ringCirc;
-                      const ringColor = pct >= 70 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
-                      const wrongCount = historyView.mcqs.length - historyQuizScore;
-                      return (
-                        <>
-                          <div style={{ textAlign: "center", marginBottom: 20 }}>
-                            <div className="sc-card-enter" style={{ fontSize: 48, marginBottom: 8 }}>{pct === 100 ? "🏆" : pct >= 50 ? "🎉" : "📚"}</div>
-                            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-                              <div style={{ position: "relative", width: ringSize, height: ringSize, filter: `drop-shadow(0 0 12px ${ringColor}44)` }}>
-                                <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
-                                  <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={T.hover} strokeWidth={ringStroke} />
-                                  <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={ringColor} strokeWidth={ringStroke}
-                                    strokeDasharray={ringCirc} strokeDashoffset={ringOffset} strokeLinecap="round"
-                                    style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
-                                </svg>
-                                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: ringColor }}>{pct}%</div>
-                              </div>
-                            </div>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 4 }}>{historyQuizScore} / {historyView.mcqs.length}</div>
-                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12, marginBottom: 4 }}>
-                              {[
-                                { val: historyQuizScore, label: "Correct", color: "#22c55e" },
-                                { val: wrongCount, label: "Wrong", color: "#ef4444" },
-                                { val: `${pct}%`, label: "Accuracy", color: T.accent },
-                              ].map((s) => (
-                                <div key={s.label} style={{
-                                  background: T.hover, border: `0.5px solid ${T.border}`, borderTop: `2px solid ${s.color}`,
-                                  borderRadius: 12, padding: "10px 16px", textAlign: "center", minWidth: 72,
-                                }}>
-                                  <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.val}</div>
-                                  <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto", marginBottom: 12 }}>
-                            {historyView.mcqs.map((q, i) => {
-                              const userAnswer = historyQuizAnswers[i];
-                              const isCorrect = userAnswer === q.correct;
-                              return (
-                                <div key={i} className="sc-fade-in-up" style={{
-                                  padding: "12px 14px", background: T.hover,
-                                  border: `0.5px solid ${isCorrect ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                                  borderRadius: 10, animationDelay: `${i * 30}ms`,
-                                }}>
-                                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-                                    <span style={{ fontSize: 14, flexShrink: 0 }}>{isCorrect ? "✅" : "❌"}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
-                                  </div>
-                                  <div style={{ fontSize: 11, color: T.muted, paddingLeft: 22 }}>
-                                    Correct: <span style={{ color: "#22c55e" }}>{q.correct}. {q.options[q.correct]}</span>
-                                    {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef4444" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={historyQuizRetake}>
-                              🔄 Retake
-                            </button>
-                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => handleSharePracticeSet(historyView)}>
-                              🔗 Share
-                            </button>
-                            <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => setHistoryView(null)}>
-                              ← Back to list
-                            </button>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                {studyStep === "result" && (
-                  <>
-                    <div style={s.studyBody}>
-                      {/* Practice-first for MCQs with parsed questions */}
-                      {studyMode === "mcq" && parsedMcqs.length > 0 && practiceMode && !practiceShowResults && (
-                        <>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>📝 Practice ({parsedMcqs.length} questions)</span>
-                            <button style={{ background: "none", border: "none", color: T.muted, fontSize: 12, cursor: "pointer" }} onClick={() => setPracticeMode(false)}>View text instead</button>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                            <div style={{ flex: 1, position: "relative", height: 6, background: T.hover, borderRadius: 999, overflow: "hidden" }}>
-                              <div className="sc-shimmer-bar" style={{
-                                position: "relative", height: "100%",
-                                width: `${parsedMcqs.length > 0 ? ((practiceIdx + (practiceLocked[practiceIdx] ? 1 : 0)) / parsedMcqs.length) * 100 : 0}%`,
-                                background: `linear-gradient(90deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
-                                borderRadius: 999, transition: "width 0.3s ease", overflow: "hidden",
-                              }} />
-                            </div>
-                            <span style={{
-                              fontSize: 11, color: T.muted, whiteSpace: "nowrap", fontWeight: 600,
-                              padding: "3px 10px", borderRadius: 999, background: T.hover,
-                            }}>Q {practiceIdx + 1} / {parsedMcqs.length}</span>
-                          </div>
-                          {(() => {
-                            const q = parsedMcqs[practiceIdx];
-                            if (!q) return null;
-                            const selected = practiceAnswers[practiceIdx];
-                            const isLocked = practiceLocked[practiceIdx];
-                            return (
-                              <>
-                                <div className="sc-fade-in-up" style={{
-                                  fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.6, marginBottom: 14,
-                                  padding: "16px 20px", borderRadius: 14, background: T.hover,
-                                  border: `0.5px solid ${T.border}`, boxShadow: `0 2px 8px ${T.shadow}`,
-                                }}>
-                                  <span style={{
-                                    display: "inline-block", fontSize: 10, fontWeight: 700, color: T.muted,
-                                    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6,
-                                    padding: "2px 8px", borderRadius: 999, background: T.inputBg,
-                                  }}>Question {practiceIdx + 1}</span>
-                                  <div style={{ marginTop: 6 }}>{q.question}</div>
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                  {Object.entries(q.options).map(([key, val]) => {
-                                    const isSelected = selected === key;
-                                    const isCorrect = key === q.correct;
-                                    const showCorrect = isLocked && isCorrect;
-                                    const showWrong = isLocked && isSelected && !isCorrect;
-                                    return (
-                                      <div key={key} onClick={() => !isLocked && handlePracticeAnswer(key)}
-                                        className="sc-fade-in-up"
-                                        style={{
-                                          display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 12,
-                                          cursor: isLocked ? "default" : "pointer", minHeight: 48,
-                                          background: showCorrect ? "rgba(34,197,94,0.10)" : showWrong ? "rgba(239,68,68,0.10)" : T.hover,
-                                          border: `1px solid ${showCorrect ? "rgba(34,197,94,0.5)" : showWrong ? "rgba(239,68,68,0.5)" : isSelected ? T.accent : T.border}`,
-                                          transition: "all 0.2s cubic-bezier(0.4,0,0.2,1)",
-                                        }}
-                                        onMouseEnter={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 4px 12px ${T.shadow}`; } }}
-                                        onMouseLeave={(e) => { if (!isLocked) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; } }}
-                                      >
-                                        <span style={{
-                                          display: "flex", alignItems: "center", justifyContent: "center",
-                                          width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                                          fontSize: 12, fontWeight: 700,
-                                          color: showCorrect ? "#22c55e" : showWrong ? "#ef4444" : T.muted,
-                                          background: showCorrect ? "rgba(34,197,94,0.15)" : showWrong ? "rgba(239,68,68,0.15)" : T.inputBg,
-                                          border: `1px solid ${showCorrect ? "rgba(34,197,94,0.4)" : showWrong ? "rgba(239,68,68,0.4)" : T.border}`,
-                                        }}>{key}</span>
-                                        <span style={{ fontSize: 13, color: T.text, flex: 1, lineHeight: 1.4 }}>{val}</span>
-                                        {showCorrect && <span style={{ fontSize: 16, color: "#22c55e" }}>✓</span>}
-                                        {showWrong && <span style={{ fontSize: 16, color: "#ef4444" }}>✕</span>}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                {isLocked && (
-                                  <div className="sc-fade-in-up">
-                                    {q.explanation && (
-                                      <div style={{
-                                        marginTop: 12, padding: "12px 16px",
-                                        background: T.hover, borderLeft: `3px solid ${T.accent}`,
-                                        borderRadius: 10, fontSize: 12, color: T.muted, lineHeight: 1.5,
-                                      }}>
-                                        <span style={{ fontWeight: 700, color: T.accent }}>💡 Explanation: </span>{q.explanation}
-                                      </div>
-                                    )}
-                                    <button style={{
-                                      width: "100%", marginTop: 14, padding: "14px", borderRadius: 12,
-                                      fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none",
-                                      background: `linear-gradient(135deg, ${T.accent}, ${theme === "light" ? "#7c3aed" : theme === "sepia" ? "#a0522d" : "#5c6bc0"})`,
-                                      color: "#fff", transition: "all 0.15s ease",
-                                    }} onClick={practiceNext}
-                                    onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.02)"; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
-                                      {practiceIdx < parsedMcqs.length - 1 ? "Next →" : "See Results"}
-                                    </button>
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </>
-                      )}
-
-                      {/* Practice results screen */}
-                      {studyMode === "mcq" && parsedMcqs.length > 0 && practiceMode && practiceShowResults && (
-                        <>
-                          {(() => {
-                            const pct = parsedMcqs.length > 0 ? Math.round((practiceScore / parsedMcqs.length) * 100) : 0;
-                            const ringSize = 100, ringStroke = 7, ringRadius = (ringSize - ringStroke) / 2;
-                            const ringCirc = 2 * Math.PI * ringRadius;
-                            const ringOffset = ringCirc - (pct / 100) * ringCirc;
-                            const ringColor = pct >= 70 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
-                            const wrongCount = parsedMcqs.length - practiceScore;
-                            return (
-                              <>
-                                <div style={{ textAlign: "center", marginBottom: 20 }}>
-                                  <div className="sc-card-enter" style={{ fontSize: 48, marginBottom: 8 }}>{pct === 100 ? "🏆" : pct >= 50 ? "🎉" : "📚"}</div>
-                                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-                                    <div style={{ position: "relative", width: ringSize, height: ringSize, filter: `drop-shadow(0 0 12px ${ringColor}44)` }}>
-                                      <svg width={ringSize} height={ringSize} style={{ transform: "rotate(-90deg)" }}>
-                                        <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={T.hover} strokeWidth={ringStroke} />
-                                        <circle cx={ringSize / 2} cy={ringSize / 2} r={ringRadius} fill="none" stroke={ringColor} strokeWidth={ringStroke}
-                                          strokeDasharray={ringCirc} strokeDashoffset={ringOffset} strokeLinecap="round"
-                                          style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)" }} />
-                                      </svg>
-                                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, color: ringColor }}>{pct}%</div>
-                                    </div>
-                                  </div>
-                                  <div style={{ fontSize: 18, fontWeight: 800, color: T.text, marginBottom: 4 }}>{practiceScore} / {parsedMcqs.length}</div>
-                                  <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 12, marginBottom: 4 }}>
-                                    {[
-                                      { val: practiceScore, label: "Correct", color: "#22c55e" },
-                                      { val: wrongCount, label: "Wrong", color: "#ef4444" },
-                                      { val: `${pct}%`, label: "Accuracy", color: T.accent },
-                                    ].map((s) => (
-                                      <div key={s.label} style={{
-                                        background: T.hover, border: `0.5px solid ${T.border}`, borderTop: `2px solid ${s.color}`,
-                                        borderRadius: 12, padding: "10px 16px", textAlign: "center", minWidth: 72,
-                                      }}>
-                                        <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.val}</div>
-                                        <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto", marginBottom: 12 }}>
-                                  {parsedMcqs.map((q, i) => {
-                                    const userAnswer = practiceAnswers[i];
-                                    const isCorrect = userAnswer === q.correct;
-                                    return (
-                                      <div key={i} className="sc-fade-in-up" style={{
-                                        padding: "12px 14px", background: T.hover,
-                                        border: `0.5px solid ${isCorrect ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                                        borderRadius: 10, animationDelay: `${i * 30}ms`,
-                                      }}>
-                                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-                                          <span style={{ fontSize: 14, flexShrink: 0 }}>{isCorrect ? "✅" : "❌"}</span>
-                                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{q.question}</span>
-                                        </div>
-                                        <div style={{ fontSize: 11, color: T.muted, paddingLeft: 22 }}>
-                                          Correct: <span style={{ color: "#22c55e" }}>{q.correct}. {q.options[q.correct]}</span>
-                                          {userAnswer && !isCorrect && <> · Your answer: <span style={{ color: "#ef4444" }}>{userAnswer}. {q.options[userAnswer]}</span></>}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={practiceRetake}>🔄 Retake</button>
-                                  <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={() => { setPracticeMode(false); setShowRawText(true); }}>📄 View text</button>
-                                  <button style={{ ...s.studyActionBtn, flex: 1 }} onClick={handleStudyNew}>✨ New</button>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </>
-                      )}
-
-                      {/* Fallback: raw text (when no parsed MCQs, or user chose to view text, or summary mode) */}
-                      {((studyMode === "mcq" && (parsedMcqs.length === 0 || !practiceMode)) || studyMode === "summary") && (
-                        <>
-                          {studyMode === "mcq" && parsedMcqs.length === 0 && (
-                            <div style={s.studyMcqNote}>
-                              Couldn't structure these questions for saving — you can still copy the text below.
-                            </div>
-                          )}
-                          {studyMode === "mcq" && parsedMcqs.length > 0 && !practiceMode && (
-                            <button style={{ ...s.studyGenerateBtn, marginBottom: 12 }} onClick={() => startPractice()}>
-                              📝 Practice these questions
-                            </button>
-                          )}
-                          <MarkdownText theme={theme}>{studyResult}</MarkdownText>
-                        </>
-                      )}
-                    </div>
-                    <div style={s.studyResultActions}>
-                      <button style={s.studyActionBtn} onClick={handleStudyCopy}>
-                        📋 Copy
-                      </button>
-                      <button style={s.studyActionBtn} onClick={handleStudyGenerate}>
-                        🔄 Regenerate
-                      </button>
-                      <button style={s.studyActionBtn} onClick={handleStudyNew}>
-                        ✨ New
-                      </button>
-                      {studyMode === "summary" && (
-                        <>
-                          <div style={{ flex: 1 }} />
-                          {studySaveStatus === "error" && (
-                            <span style={{ fontSize: 11, color: T.accent }}>{studySaveError}</span>
-                          )}
-                          <button
-                            style={{
-                              ...s.studySaveBtn,
-                              background: studySaveStatus === "saved" ? "#2a8a4a" : T.accent,
-                              color: "white",
-                              opacity: studySaveStatus === "saving" ? 0.5 : 1,
-                            }}
-                            disabled={studySaveStatus === "saving"}
-                            onClick={handleStudySave}
-                          >
-                            {studySaveStatus === "saving" ? "Saving…" : studySaveStatus === "saved" ? "✓ Saved" : studySaveStatus === "error" ? "Retry Save" : "💾 Save to Library"}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
               </div>
             </>
           )}
 
-          {/* Auto-save toast */}
-          {autoSaveToast && (
-            <div style={{
-              position: "fixed", bottom: isMobile ? 70 : 24, left: "50%", transform: "translateX(-50%)",
-              background: autoSaveToast.status === "saved" ? "#2a8a4a" : "#c0392b",
-              color: "white", padding: "10px 16px", borderRadius: 12, fontSize: 13, fontWeight: 600,
-              display: "flex", alignItems: "center", gap: 12, zIndex: 10000,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.3)", animation: "slideUp 0.3s ease",
-            }}>
-              <span>{autoSaveToast.status === "saved" ? "✅" : "⚠️"} {autoSaveToast.label}</span>
-            </div>
-          )}
 
-          {/* Page Quiz Panel (AI-generated questions — study aid, does NOT update FSRS) */}
-          {pageQuizOpen && !loading && !loadError && (
-            <div style={{
-              position: "absolute", bottom: isMobile ? 60 : 16, left: "50%", transform: "translateX(-50%)",
-              background: T.toolbar, border: `0.5px solid ${T.border}`, borderRadius: 14,
-              padding: "14px 20px", display: "flex", flexDirection: "column", gap: 8, zIndex: 30,
-              boxShadow: `0 4px 20px ${T.shadow}`, maxWidth: isMobile ? "94%" : 500,
-              maxHeight: isMobile ? "70vh" : "60vh", overflowY: "auto",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 13, color: T.text, fontWeight: 700 }}>📝 Page {currentPage} Quiz</span>
-                <button onClick={() => setPageQuizOpen(false)}
-                  style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
-              </div>
-
-              {pageQuizError && !pageQuizGenerating && (
-                <div style={{ padding: "10px 12px", borderRadius: 8, background: "#2a0a0a", border: "0.5px solid #ef4444", color: "#ef9a9a", fontSize: 11, marginBottom: 4 }}>
-                  ⚠️ {pageQuizError}
-                </div>
-              )}
-
-              {pageQuizLoading ? (
-                <div style={{ textAlign: "center", padding: "20px 0", color: T.muted, fontSize: 12 }}>
-                  <div style={{ width: 20, height: 20, border: `2px solid ${T.border}`, borderTopColor: "#f59e0b", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 8px" }} />
-                  Loading questions…
-                </div>
-              ) : pageQuizGenerating ? (
-                <div style={{ textAlign: "center", padding: "20px 0", color: T.muted, fontSize: 12 }}>
-                  <div style={{ width: 20, height: 20, border: `2px solid ${T.border}`, borderTopColor: "#f59e0b", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 8px" }} />
-                  AI is generating questions from this page's content…
-                </div>
-              ) : pageQuizQuestions && pageQuizQuestions.length > 0 ? (
-                <>
-                  {pageQuizQuestions.filter(q => q.questionType === "mcq").map((q, qi) => {
-                    const selected = pageQuizAnswers[q.id];
-                    const opts = q.options || {};
-                    return (
-                      <div key={q.id} style={{ background: T.hover, borderRadius: 10, padding: "10px 12px", border: `0.5px solid ${T.border}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 6 }}>
-                          {qi + 1}. {q.question}
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                          {Object.entries(opts).map(([key, val]) => {
-                            const isSelected = selected === key;
-                            const isCorrect = pageQuizRevealed && key === q.correctAnswer;
-                            const isWrong = pageQuizRevealed && isSelected && key !== q.correctAnswer;
-                            let bg = T.bg;
-                            let border = `0.5px solid ${T.border}`;
-                            let color = T.muted;
-                            if (pageQuizRevealed) {
-                              if (isCorrect) { bg = "#0f2a1a"; border = "0.5px solid #22c55e"; color = "#a5d6a7"; }
-                              else if (isWrong) { bg = "#2a0a0a"; border = "0.5px solid #ef4444"; color = "#ef9a9a"; }
-                            } else if (isSelected) {
-                              bg = "rgba(245,158,11,0.15)"; border = "0.5px solid #f59e0b"; color = "#f59e0b";
-                            }
-                            return (
-                              <button
-                                key={key}
-                                onClick={() => { if (!pageQuizRevealed) setPageQuizAnswers(prev => ({ ...prev, [q.id]: key })); }}
-                                disabled={pageQuizRevealed}
-                                style={{
-                                  padding: "5px 10px", borderRadius: 6, border, background: bg, color,
-                                  fontSize: 10, textAlign: "left", cursor: pageQuizRevealed ? "default" : "pointer",
-                                  fontWeight: isSelected ? 600 : 400,
-                                }}>
-                                <b>{key}.</b> {val}
-                                {pageQuizRevealed && isCorrect && " ✓"}
-                                {pageQuizRevealed && isWrong && " ✗"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {pageQuizRevealed && q.explanation && (
-                          <div style={{ marginTop: 6, fontSize: 9, color: T.muted, fontStyle: "italic" }}>{q.explanation}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {pageQuizQuestions.filter(q => q.questionType === "short_answer").map((q, qi) => (
-                    <div key={q.id} style={{ background: T.hover, borderRadius: 10, padding: "10px 12px", border: `0.5px solid ${T.border}` }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 4 }}>✏️ {q.question}</div>
-                      {pageQuizRevealed ? (
-                        <div style={{ background: "#0f2a1a", border: "0.5px solid #22c55e", borderRadius: 6, padding: "6px 10px", fontSize: 10, color: "#a5d6a7" }}>
-                          <b style={{ fontSize: 9, textTransform: "uppercase" }}>Model Answer:</b> {q.correctAnswer || "See explanation"}
-                          {q.explanation && <div style={{ marginTop: 3, opacity: 0.7 }}>{q.explanation}</div>}
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: 10, color: T.muted, fontStyle: "italic" }}>Think about your answer, then reveal.</div>
-                      )}
-                    </div>
-                  ))}
-
-                  <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4, flexWrap: "wrap" }}>
-                    {!pageQuizRevealed ? (
-                      <button onClick={() => setPageQuizRevealed(true)}
-                        style={{ padding: "6px 16px", borderRadius: 8, border: "1px solid #f59e0b", background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                        Reveal Answers
-                      </button>
-                    ) : (
-                      <button onClick={() => { setPageQuizRevealed(false); setPageQuizAnswers({}); }}
-                        style={{ padding: "6px 16px", borderRadius: 8, border: `0.5px solid ${T.border}`, background: T.hover, color: T.muted, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                        Try Again
-                      </button>
-                    )}
-                    <button onClick={regeneratePageQuiz} disabled={pageQuizGenerating}
-                      style={{ padding: "6px 12px", borderRadius: 8, border: `0.5px solid ${T.border}`, background: "transparent", color: T.muted, fontSize: 10, fontWeight: 500, cursor: pageQuizGenerating ? "not-allowed" : "pointer", opacity: pageQuizGenerating ? 0.5 : 1 }}>
-                      🔄 Regenerate
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div style={{ textAlign: "center", padding: "16px 0" }}>
-                  <div style={{ fontSize: 12, color: T.muted, marginBottom: 8 }}>No questions generated for this page yet.</div>
-                  <button onClick={() => generatePageQuiz([currentPage])} disabled={pageQuizGenerating}
-                    style={{ padding: "8px 20px", borderRadius: 8, border: "1px solid #f59e0b", background: "rgba(245,158,11,0.15)", color: "#f59e0b", fontSize: 11, fontWeight: 600, cursor: pageQuizGenerating ? "not-allowed" : "pointer", opacity: pageQuizGenerating ? 0.5 : 1 }}>
-                    🧠 Generate Questions for This Page
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
 
           {loading && (
             <div style={s.loadingOverlay}>

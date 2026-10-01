@@ -271,6 +271,26 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
         };
       }
       setCardStates(map);
+      // Items that carry no FSRS state (e.g. folder "practice all") get real
+      // card states fetched per-resource so weakest-first ordering works.
+      const ridSet = new Set(items.map((it) => it.resourceId).filter(Boolean));
+      const needsFetch = [...ridSet].filter((rid) =>
+        items.some((it) => it.resourceId === rid && it.state == null)
+      );
+      if (needsFetch.length && isAuthed()) {
+        Promise.all(needsFetch.map((rid) => fetchCardStates(rid))).then((maps) => {
+          setCardStates((prev) => {
+            const next = { ...prev };
+            needsFetch.forEach((rid, i) => {
+              for (const [pi, v] of Object.entries(maps[i] || {})) {
+                const k = `${rid}:${pi}`;
+                if (!next[k] || next[k].state == null) next[k] = v;
+              }
+            });
+            return next;
+          });
+        }).catch(() => {});
+      }
     } else if (resource?.id && isAuthed()) {
       initFsrs(resource.id).then(() => fetchCardStates(resource.id)).then((map) => {
         const keyed = {};
