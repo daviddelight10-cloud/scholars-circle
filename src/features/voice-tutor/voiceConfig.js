@@ -9,23 +9,13 @@ export const VOICE_STATES = {
   ENDED: "ended",
 };
 
-export const VOICE_MODES = {
-  teach: {
-    label: "Teach",
-    icon: '<path d="M4 4.5A2.5 2.5 0 016.5 2H12v20H6.5A2.5 2.5 0 014 19.5v-15z" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M20 4.5A2.5 2.5 0 0017.5 2H12v20h5.5a2.5 2.5 0 002.5-2.5v-15z" stroke="currentColor" stroke-width="1.6" fill="none"/>',
-    desc: "Learn concepts from your document",
-  },
-  quiz: {
-    label: "Quiz",
-    icon: '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/>',
-    desc: "Test your knowledge with questions",
-  },
-  discuss: {
-    label: "Discuss",
-    icon: '<path d="M4 5h16v11H8l-4 4V5z" stroke="currentColor" stroke-width="1.6" fill="none"/>',
-    desc: "Explore topics conversationally",
-  },
-};
+export const VOICE_OPTIONS = [
+  { name: "Achird", desc: "Friendly" },
+  { name: "Sulafat", desc: "Warm" },
+  { name: "Aoede", desc: "Breezy" },
+  { name: "Leda", desc: "Youthful" },
+  { name: "Puck", desc: "Upbeat" },
+];
 
 export const AUDIO_CONFIG = {
   sampleRate: 16000,

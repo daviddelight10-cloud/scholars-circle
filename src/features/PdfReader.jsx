@@ -8,7 +8,7 @@ import FlashcardRunner from "../components/FlashcardRunner.jsx";
 import { useVoiceSession } from "../features/voice-tutor/useVoiceSession.js";
 import VoiceOrb from "../features/voice-tutor/VoiceOrb.jsx";
 import TranscriptOverlay from "../features/voice-tutor/TranscriptOverlay.jsx";
-import { VOICE_STATES, VOICE_MODES } from "../features/voice-tutor/voiceConfig.js";
+import { VOICE_STATES, VOICE_OPTIONS } from "../features/voice-tutor/voiceConfig.js";
 import {
   loadHistory, saveHistory, createHistoryEntry,
   recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
@@ -17,7 +17,7 @@ import {
 import { API_BASE } from "../lib/constants";
 import { copyShareToken, docKeyFromUrl } from "../lib/researchUtils.js";
 
-const VOICE_OPTIONS = ["Aoede", "Puck", "Charon", "Kore", "Fenrir"];
+
 
 
 const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
@@ -285,9 +285,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [flashcardSaved, setFlashcardSaved] = useState(false);
 
   // ── AI Study Tools state ───────────────────────────────────────────────────
-  const studyPrefs = loadStored(`sc_pdf_studyprefs_${docKey}`, { studyMode: "mcq", studyRangeType: "all", studyCount: 10 });
+  const studyPrefs = loadStored(`sc_pdf_studyprefs_${docKey}`, { studyMode: "voice", studyRangeType: "all", studyCount: 10 });
   const [studyToolsOpen, setStudyToolsOpen] = useState(false);
-  const [studyMode, setStudyMode] = useState(studyPrefs.studyMode || "mcq"); // "mcq" | "summary"
+  const [studyMode, setStudyMode] = useState(studyPrefs.studyMode === "flashcard" ? "flashcard" : "voice"); // "voice" | "flashcard"
   const [studyRangeType, setStudyRangeType] = useState(studyPrefs.studyRangeType || "all"); // "all" | "current" | "custom"
   const [studyFrom, setStudyFrom] = useState(1);
   const [studyTo, setStudyTo] = useState(1);
@@ -407,7 +407,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [pageQuizError, setPageQuizError] = useState(null);
   // ── Voice Tutor state ──────────────────────────────────────────────────────
   const voice = useVoiceSession();
-  const [voiceMode, setVoiceMode] = useState("teach");
   const [voiceName, setVoiceName] = useState("Aoede");
   const [voiceMinimized, setVoiceMinimized] = useState(false);
   const [voiceTextInput, setVoiceTextInput] = useState("");
@@ -1349,8 +1348,8 @@ ${text}
       const text = await getPageText(currentPage);
       pageTextRef.current = text;
     } catch {}
-    await voice.startSession(propResourceId, voiceMode, voiceName, currentPage, pageTextRef.current);
-  }, [propResourceId, voiceMode, voiceName, currentPage, voice, getPageText]);
+    await voice.startSession(propResourceId, voiceName, currentPage, pageTextRef.current);
+  }, [propResourceId, voiceName, currentPage, voice, getPageText]);
 
   const handleVoiceEnd = useCallback(() => {
     voice.endSession();
@@ -5172,42 +5171,6 @@ ${combinedText.slice(0, 24000)}
 
                 {studyStep === "setup" && (
                   <div style={s.studyBody}>
-                    {/* Mode toggle */}
-                    <div>
-                      <div style={s.studyLabel}>Mode</div>
-                      <div style={s.studySegRow}>
-                        <button
-                          style={{
-                            ...s.studySegBtn,
-                            background: studyMode === "mcq" ? T.accent : "none",
-                            color: studyMode === "mcq" ? "white" : T.text,
-                          }}
-                          onClick={() => setStudyMode("mcq")}
-                        >
-                          📝 MCQs
-                        </button>
-                        <button
-                          style={{
-                            ...s.studySegBtn,
-                            background: studyMode === "summary" ? T.accent : "none",
-                            color: studyMode === "summary" ? "white" : T.text,
-                          }}
-                          onClick={() => setStudyMode("summary")}
-                        >
-                          📄 Summary
-                        </button>
-                        <button
-                          style={{
-                            ...s.studySegBtn,
-                            background: studyMode === "voice" ? T.accent : "none",
-                            color: studyMode === "voice" ? "white" : T.text,
-                          }}
-                          onClick={() => setStudyMode("voice")}
-                        >
-                          🎙️ Voice
-                        </button>
-                      </div>
-                    </div>
 
                     {/* Mastery progress bar */}
                     {mastery.totalQuestions > 0 && studyMode !== "flashcard" && studyMode !== "voice" && (
@@ -5462,50 +5425,27 @@ ${combinedText.slice(0, 24000)}
                           Talk to an AI tutor about this document. It knows what page you're reading and grounds answers only in your material.
                         </div>
 
-                        {/* Mode selector */}
-                        <div>
-                          <div style={{ ...s.studyLabel, marginBottom: 4 }}>Tutor Mode</div>
-                          <div style={s.studySegRow}>
-                            {Object.entries(VOICE_MODES).map(([key, val]) => (
-                              <button
-                                key={key}
-                                style={{
-                                  ...s.studySegBtn,
-                                  background: voiceMode === key ? T.accent : "none",
-                                  color: voiceMode === key ? "white" : T.text,
-                                  fontSize: 12,
-                                }}
-                                onClick={() => setVoiceMode(key)}
-                              >
-                                {val.label}
-                              </button>
-                            ))}
-                          </div>
-                          <div style={{ fontSize: 11, color: T.muted, marginTop: 6 }}>
-                            {VOICE_MODES[voiceMode]?.desc}
-                          </div>
-                        </div>
-
                         {/* Voice picker */}
                         <div>
                           <div style={{ ...s.studyLabel, marginBottom: 4 }}>Voice</div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                             {VOICE_OPTIONS.map((v) => (
                               <button
-                                key={v}
+                                key={v.name}
                                 style={{
                                   padding: "6px 12px",
                                   borderRadius: 8,
-                                  border: `1px solid ${voiceName === v ? T.accent : T.border}`,
-                                  background: voiceName === v ? T.accent : "none",
-                                  color: voiceName === v ? "white" : T.muted,
+                                  border: `1px solid ${voiceName === v.name ? T.accent : T.border}`,
+                                  background: voiceName === v.name ? T.accent : "none",
+                                  color: voiceName === v.name ? "white" : T.muted,
                                   fontSize: 12,
                                   fontWeight: 600,
                                   cursor: "pointer",
                                 }}
-                                onClick={() => setVoiceName(v)}
+                                onClick={() => setVoiceName(v.name)}
+                                title={v.desc}
                               >
-                                {v}
+                                {v.name}
                               </button>
                             ))}
                           </div>
@@ -6350,7 +6290,7 @@ ${combinedText.slice(0, 24000)}
                 gap: 6,
               }}>
                 <span style={{ fontSize: 16 }}>🎙️</span>
-                {voiceMode} · {voiceName}
+                Voice Tutor · {voiceName}
               </div>
 
               {/* Voice orb */}

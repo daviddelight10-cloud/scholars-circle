@@ -500,7 +500,7 @@ export function useVoiceSession() {
     endSessionRef.current = endSession;
   }, [endSession]);
 
-  const startSession = useCallback(async (resourceId, mode = "teach", voiceName = "Achird", currentPage = null, pageText = "") => {
+  const startSession = useCallback(async (resourceId, voiceName = "Achird", currentPage = null, pageText = "") => {
     setError(null);
     setTranscript([]);
     transcriptRef.current = [];
@@ -540,7 +540,7 @@ export function useVoiceSession() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ resourceId, mode, voiceName, currentPage, pageText }),
+        body: JSON.stringify({ resourceId, voiceName, currentPage, pageText }),
       });
 
       const data = await res.json();
@@ -668,12 +668,6 @@ export function useVoiceSession() {
               setState(VOICE_STATES.ENDED);
               stopMic();
               stopTimer();
-              break;
-
-            case "mode_switching":
-              stopPlayback();
-              stopMic();
-              setState(VOICE_STATES.CONNECTING);
               break;
 
             case "reconnecting":
@@ -904,16 +898,6 @@ export function useVoiceSession() {
     }
   }, []);
 
-  const switchMode = useCallback((newMode) => {
-    if (!newMode) return;
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: "mode_switch",
-        mode: newMode,
-      }));
-    }
-  }, []);
-
   return {
     state,
     error,
@@ -934,7 +918,6 @@ export function useVoiceSession() {
     toggleHandsFree,
     sendText,
     sendPageChange,
-    switchMode,
     setError,
     stopPlayback,
     getAudioData,

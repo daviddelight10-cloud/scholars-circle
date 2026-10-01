@@ -5,15 +5,7 @@ import VoiceOrb from "./VoiceOrb.jsx";
 import MaterialsDrawer from "./MaterialsDrawer.jsx";
 import ConceptsDrawer from "./ConceptsDrawer.jsx";
 import TranscriptOverlay from "./TranscriptOverlay.jsx";
-import { COLORS, FONTS, VOICE_STATES, VOICE_MODES, SESSION_TIMEOUT_SEC, hexToRgba } from "./voiceConfig.js";
-
-const VOICE_OPTIONS = [
-  { name: "Achird", desc: "Friendly" },
-  { name: "Sulafat", desc: "Warm" },
-  { name: "Aoede", desc: "Breezy" },
-  { name: "Leda", desc: "Youthful" },
-  { name: "Puck", desc: "Upbeat" },
-];
+import { COLORS, FONTS, VOICE_STATES, VOICE_OPTIONS, SESSION_TIMEOUT_SEC, hexToRgba } from "./voiceConfig.js";
 
 const ICONS = {
   mic: '<rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0014 0M12 18v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
@@ -33,12 +25,6 @@ function SvgIcon({ name, size = 18, viewBox = "0 0 24 24" }) {
   );
 }
 
-function ModeIcon({ svgPath, size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" dangerouslySetInnerHTML={{ __html: svgPath }} />
-  );
-}
-
 function getAuthToken() {
   try {
     const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
@@ -51,7 +37,6 @@ function getAuthToken() {
 export default function VoiceTutor({ preselectedResourceId = null, onExit, onSessionActiveChange }) {
   const [resources, setResources] = useState([]);
   const [selectedResourceId, setSelectedResourceId] = useState(preselectedResourceId);
-  const [mode, setMode] = useState("teach");
   const [loadingResources, setLoadingResources] = useState(true);
   const [showMaterials, setShowMaterials] = useState(false);
   const [showConcepts, setShowConcepts] = useState(false);
@@ -116,8 +101,8 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
 
   const handleStart = useCallback(() => {
     if (!selectedResourceId) return;
-    voice.startSession(selectedResourceId, mode, voiceName);
-  }, [selectedResourceId, mode, voiceName, voice]);
+    voice.startSession(selectedResourceId, voiceName);
+  }, [selectedResourceId, voiceName, voice]);
 
   const handleEnd = useCallback(() => {
     voice.endSession();
@@ -278,9 +263,9 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
         </div>
 
         <div className="sc-vt-session-grid">
-          {/* Left panel: controls (doc picker, mode tabs, voice picker) */}
+          {/* Left panel: controls (doc picker, voice picker) */}
           <div className="sc-vt-controls">
-            <span className="sc-vt-field-label">1. Select Source Material</span>
+            <span className="sc-vt-field-label">Select Source Material</span>
             {loadingResources ? (
               <div className="sc-vt-glass sc-vt-doc-select" style={{ cursor: "default" }}>
                 <div className="sc-vt-doc-icon"><SvgIcon name="doc" size={18} /></div>
@@ -368,25 +353,6 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
                 )}
               </div>
             )}
-
-            <span className="sc-vt-field-label" style={{ marginTop: 20 }}>2. Interaction Mode</span>
-            <div className="sc-vt-glass sc-vt-mode-row">
-              {Object.entries(VOICE_MODES).map(([key, m]) => (
-                <button
-                  key={key}
-                  className={`sc-vt-mode-btn ${mode === key ? "active" : ""}`}
-                  onClick={() => {
-                    setMode(key);
-                    if (isActive && voice.switchMode) {
-                      voice.switchMode(key);
-                    }
-                  }}
-                >
-                  <ModeIcon svgPath={m.icon} size={16} />
-                  {m.label}
-                </button>
-              ))}
-            </div>
 
             <div
               className="sc-vt-glass sc-vt-voice-select"
@@ -529,24 +495,6 @@ export default function VoiceTutor({ preselectedResourceId = null, onExit, onSes
             {/* Active session: floating action bar */}
             {isActive && (
               <div className="sc-vt-action-bar">
-                {/* Mode switcher — visible on mobile when controls panel is hidden */}
-                <div className="sc-vt-action-modes">
-                  {Object.entries(VOICE_MODES).map(([key, m]) => (
-                    <button
-                      key={key}
-                      className={`sc-vt-action-mode-btn ${mode === key ? "active" : ""}`}
-                      onClick={() => {
-                        setMode(key);
-                        if (voice.switchMode) voice.switchMode(key);
-                      }}
-                      title={m.desc}
-                    >
-                      <ModeIcon svgPath={m.icon} size={14} />
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-
                 <div className="sc-vt-action-pill">
                   <button
                     className="sc-vt-action-icon-btn"

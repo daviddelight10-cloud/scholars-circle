@@ -36,7 +36,7 @@ import topicsRoutes from "./routes/topics.js";
 import masteryRoutes from "./routes/mastery.js";
 import paymentRoutes from "./routes/payment.js";
 import referralRoutes from "./routes/referrals.js";
-import voiceSessionRoutes, { getActiveSession, deleteActiveSession, getActiveSessions, consumeTicket, rebuildGeminiSession } from "./routes/voiceSession.js";
+import voiceSessionRoutes, { getActiveSession, deleteActiveSession, getActiveSessions, consumeTicket, sendSessionKickoff } from "./routes/voiceSession.js";
 import curriculumRoutes from "./routes/curriculum.js";
 import studyCacheRoutes from "./routes/studyCache.js";
 import studyGroupRoutes from "./routes/studyGroup.js";
@@ -233,6 +233,9 @@ async function handleVoiceWsUpgrade(request, socket, head) {
       ws.send(JSON.stringify({ type: "setup_complete" }));
     }
 
+    // First attach → kick off the tutor's greeting (once per session)
+    sendSessionKickoff(session);
+
     ws.on("message", (data, isBinary) => {
       if (!session.setupComplete) return;
       session.lastActivityAt = Date.now();
@@ -267,16 +270,6 @@ async function handleVoiceWsUpgrade(request, socket, head) {
       // Handle ping/pong keepalive
       if (parsed.type === "ping") {
         ws.send(JSON.stringify({ type: "pong", t: parsed.t }));
-        return;
-      }
-
-      // Handle mode switch — opens a new Gemini session with fresh system instructions
-      if (parsed.type === "mode_switch" && parsed.mode) {
-        const validModes = ["teach", "quiz", "discuss"];
-        if (!validModes.includes(parsed.mode)) return;
-        console.log(`Mode switch requested for session ${sessionId}: ${session.mode} -> ${parsed.mode}`);
-        ws.send(JSON.stringify({ type: "mode_switching", from: session.mode, to: parsed.mode }));
-        rebuildGeminiSession(session, parsed.mode);
         return;
       }
 

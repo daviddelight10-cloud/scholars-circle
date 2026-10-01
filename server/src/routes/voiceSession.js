@@ -247,20 +247,23 @@ function reconnectGeminiSession(session) {
   }
 }
 
-export function rebuildGeminiSession(session, newMode) {
-  const pageText = "";
-  session.systemPrompt = buildVoiceSystemPrompt(
-    session.chunks,
-    newMode,
-    session.resourceTitle,
-    pageText,
-  );
-  session.mode = newMode;
-
-  console.log(`Reconnecting to Gemini Live for mode switch: model=${getLiveModel()}, mode=${newMode}`);
-  // Fresh session, not a resume — mode switch replaces the system instructions.
-  session.resumeHandle = null;
-  reconnectGeminiSession(session);
+// Sends the session-start kickoff turn once, when the client socket attaches —
+// prompts the tutor to greet the student and take the initiative.
+export function sendSessionKickoff(session) {
+  if (session.kickoffSent || !session.setupComplete) return;
+  if (!session.geminiWs || session.geminiWs.readyState !== WebSocket.OPEN) return;
+  session.kickoffSent = true;
+  session.geminiWs.send(JSON.stringify({
+    clientContent: {
+      turns: [
+        {
+          role: "user",
+          parts: [{ text: "[Session started — greet the student and kick things off as instructed.]" }],
+        },
+      ],
+      turnComplete: true,
+    },
+  }));
 }
 
 async function endSessionInDB(sessionId, status = "ended", transcript = null) {
@@ -302,14 +305,9 @@ function resetSessionTimeout(sessionId) {
 // POST /api/voice-session/start
 router.post("/start", requireAuth, async (req, res) => {
   try {
-    const { resourceId, mode = "teach", voiceName = "Achird", currentPage = null, pageText = "" } = req.body || {};
+    const { resourceId, voiceName = "Achird", currentPage = null, pageText = "" } = req.body || {};
     if (!resourceId) {
       return res.status(400).json({ error: "resourceId is required" });
-    }
-
-    const validModes = ["teach", "quiz", "discuss"];
-    if (!validModes.includes(mode)) {
-      return res.status(400).json({ error: "mode must be one of: teach, quiz, discuss" });
     }
 
     const resource = await prisma.resource.findUnique({
@@ -371,14 +369,14 @@ router.post("/start", requireAuth, async (req, res) => {
       cacheDocument(resource.id, text, chunks);
     }
 
-    const systemPrompt = buildVoiceSystemPrompt(chunks, mode, resource.title, pageText);
+    const systemPrompt = buildVoiceSystemPrompt(chunks, resource.title, pageText);
     const concepts = extractConceptsFromChunks(chunks);
 
     const sessionRecord = await prisma.voiceSession.create({
       data: {
         userId: req.user.sub,
         resourceId: resource.id,
-        mode,
+        mode: "tutor",
         status: "active",
         transcript: JSON.stringify([]),
       },
@@ -390,7 +388,7 @@ router.post("/start", requireAuth, async (req, res) => {
       id: sessionId,
       userId: req.user.sub,
       resourceId: resource.id,
-      mode,
+      mode: "tutor",
       geminiWs: null,
       clientWs: null,
       startTime: Date.now(),
@@ -408,6 +406,7 @@ router.post("/start", requireAuth, async (req, res) => {
       geminiSetupError: null,
       droppedAudioChunks: 0,
       closed: false,
+      kickoffSent: false,
     };
     activeSessions.set(sessionId, session);
     connectGeminiSession(session);
@@ -443,14 +442,14 @@ router.post("/start", requireAuth, async (req, res) => {
       return res.status(502).json({ error: `Failed to establish voice session with Gemini: ${setupErr.message}` });
     }
 
-    logSecurityEvent(req.user.sub, "voice_session_start", { sessionId, resourceId, mode }, req);
+    logSecurityEvent(req.user.sub, "voice_session_start", { sessionId, resourceId, mode: "tutor" }, req);
 
     const ticket = generateTicket(sessionId, req.user.sub);
 
     return res.json({
       sessionId,
       ticket,
-      mode,
+      mode: "tutor",
       resourceTitle: resource.title,
       materials: {
         title: resource.title,
