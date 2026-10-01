@@ -9,3 +9,6 @@ server/dist/
 .env.production
 *.log
 .zcode/
+
+# Vite build temp files
+vite.config.js.timestamp-*.mjs
