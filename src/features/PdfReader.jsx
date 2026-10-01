@@ -146,11 +146,8 @@ function loadPdfJs() {
 
 const SMART_CHIPS = [
   { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
-  { label: "Step-by-step", prompt: "Break this down into clear numbered steps." },
   { label: "Give an example", prompt: "Give a concrete worked example of this." },
-  { label: "Define key terms", prompt: "Define the key terms involved in plain language." },
   { label: "Quiz me", prompt: "Quiz me on this material — ask me one multiple-choice question at a time using the mcq format." },
-  { label: "Why it matters", prompt: "Why is this important and where is it used in practice?" },
 ];
 
 const TUTOR_SYSTEM = `You are a study assistant. A student circled content in their PDF and needs a direct answer.
@@ -548,7 +545,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const container = viewerRef.current;
     if (!container) return null;
     const isMob = window.innerWidth < 640;
-    const available = container.clientWidth - (isMob ? 8 : 40);
+    const readingMax = base.width > base.height ? 1100 : 900;
+    const available = isMob
+      ? container.clientWidth - 8
+      : Math.min(container.clientWidth - 40, readingMax);
     // Continuous modes show many pages at once — fit to the median measured
     // page width so mixed-size documents don't leave most pages oversized.
     let fitBasis = base.width;
