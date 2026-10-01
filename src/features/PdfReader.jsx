@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
-import { callAIMultimodal } from "../lib/aiClient.js";
+import { callAIMultimodal, callAIMultimodalStream } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import TypewriterText from "../components/TypewriterText.jsx";
 import FlashcardRunner from "../components/FlashcardRunner.jsx";
@@ -214,6 +214,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Mobile / overflow menu
   const [isMobile, setIsMobile] = useState(false);
+  // Chat docks beside the document from 900px up (tablet landscape, laptop);
+  // 640–899px (portrait tablets) get a floating card, <640px the bottom sheet.
+  const [dockW, setDockW] = useState(0); // 0 = not dockable
+  const dockMode = dockW > 0;
   const [showOverflow, setShowOverflow] = useState(false);
 
   // Circle-to-Ask state (now part of tool modes)
@@ -1063,12 +1067,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setChatError(null);
 
     try {
-      const answer = await callAIMultimodal(firstPrompt, thumb, [], { provider: "openrouter" });
-      setChatMessages((prev) => {
-        const next = [...prev, { role: "assistant", content: answer || "No response." }];
-        setStreamingIdx(next.length - 1);
-        return next;
-      });
+      await streamChatAnswer(firstPrompt, thumb, []);
     } catch (err) {
       setChatError(err.message || "Something went wrong reaching the AI.");
     } finally {
@@ -1904,13 +1903,45 @@ ${combinedText.slice(0, 24000)}
   };
 
   // ---- Chat popup ----
+  const chatSessionRef = useRef(0);
   const closeChat = () => {
+    chatSessionRef.current++;
     setChatOpen(false);
     setChatMessages([]);
     setChatLoading(false);
     setChatInput("");
     setChatError(null);
     setStreamingIdx(null);
+  };
+
+  // Streams an AI answer into the chat as a live assistant message. Tokens
+  // update one message in place; it's finalized (flag stripped) on completion.
+  const streamChatAnswer = async (prompt, image, history) => {
+    const session = chatSessionRef.current;
+    const finalize = (content) => session === chatSessionRef.current && setChatMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.role === "assistant" && last.streaming) {
+        return [...prev.slice(0, -1), { role: "assistant", content: content || last.content }];
+      }
+      return content ? [...prev, { role: "assistant", content }] : prev;
+    });
+    try {
+      const text = await callAIMultimodalStream(prompt, image, history, { provider: "openrouter" }, {
+        onToken: (raw) => {
+          if (session !== chatSessionRef.current) return;
+          setChatMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && last.streaming) return [...prev.slice(0, -1), { ...last, content: raw }];
+            return [...prev, { role: "assistant", content: raw, streaming: true }];
+          });
+          if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+        },
+      });
+      finalize(text || "No response.");
+    } catch (err) {
+      finalize(undefined);
+      throw err;
+    }
   };
 
   // Close study tools when chat opens (mutual exclusion)
@@ -1934,12 +1965,7 @@ ${combinedText.slice(0, 24000)}
     const promptWithContext = `${TUTOR_SYSTEM}${followCtx}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nUSER FOLLOW-UP: ${trimmed}\n\nAnswer the follow-up directly. Start with the answer.`;
 
     try {
-      const answer = await callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" });
-      setChatMessages((prev) => {
-        const next = [...prev, { role: "assistant", content: answer || "No response." }];
-        setStreamingIdx(next.length - 1);
-        return next;
-      });
+      await streamChatAnswer(promptWithContext, null, historyForApi);
     } catch (err) {
       setChatError(err.message || "Something went wrong. Try sending that again.");
     } finally {
@@ -1967,14 +1993,7 @@ ${combinedText.slice(0, 24000)}
     const historyForApi = chatMessages.slice(0, actualIdx + 1);
     const retryCtx = pageTextRef.current ? `\n\nPage text:\n${pageTextRef.current.slice(0, 800)}` : "";
     const promptWithContext = `${TUTOR_SYSTEM}${retryCtx}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nRETRY: ${lastUserMsg.content}\n\nAnswer directly. Start with the answer.`;
-    callAIMultimodal(promptWithContext, null, historyForApi, { provider: "openrouter" })
-      .then((answer) => {
-        setChatMessages((prev) => {
-          const next = [...prev, { role: "assistant", content: answer || "No response." }];
-          setStreamingIdx(next.length - 1);
-          return next;
-        });
-      })
+    streamChatAnswer(promptWithContext, null, historyForApi)
       .catch((err) => {
         setChatError(err.message || "Something went wrong. Try again.");
       })
@@ -2011,12 +2030,7 @@ ${combinedText.slice(0, 24000)}
     setChatError(null);
 
     try {
-      const answer = await callAIMultimodal(firstPrompt, null, [], { provider: "openrouter" });
-      setChatMessages((prev) => {
-        const next = [...prev, { role: "assistant", content: answer || "No response." }];
-        setStreamingIdx(next.length - 1);
-        return next;
-      });
+      await streamChatAnswer(firstPrompt, null, []);
     } catch (err) {
       setChatError(err.message || "Something went wrong reaching the AI.");
     } finally {
@@ -2094,7 +2108,7 @@ ${combinedText.slice(0, 24000)}
       // Desktop docked chat stays open — closing it mid-gesture reflows the
       // workspace under the pointer and corrupts the lasso. Mobile sheet still
       // closes since it covers the document.
-      if (isMobile) closeChat();
+      if (!dockMode) closeChat();
       return;
     }
 
@@ -2568,7 +2582,7 @@ ${combinedText.slice(0, 24000)}
         setRenderStrokes("");
         lassoPoints.current = [];
         currentStrokes.current = [];
-        if (prev === "circle" && isMobile) closeChat(); // desktop dock persists — dismiss via ✕
+        if (prev === "circle" && !dockMode) closeChat(); // docked chat persists — dismiss via ✕
       }
       if (next !== "highlight") setShowColorPicker(false);
       setAnnotateTab(next === "pen" || next === "highlight" || next === "erase" ? next : "none");
@@ -2638,10 +2652,18 @@ ${combinedText.slice(0, 24000)}
       let maxRatio = 0;
       entries.forEach((entry) => {
         const pg = parseInt(entry.target.dataset.page, 10);
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.3) {
+        // Ratio relative to the VIEWER, not the page — a page taller than the
+        // viewport can never reach a high page-relative ratio, which left
+        // partially visible neighbours "invisible" (no render window, no circle).
+        const rb = entry.rootBounds;
+        const ir = entry.intersectionRect;
+        const vr = scrollMode === "horizontal"
+          ? ir.width / (rb?.width || 1)
+          : ir.height / (rb?.height || 1);
+        if (entry.isIntersecting && vr >= 0.1) {
           newVisible.add(pg);
-          if (entry.intersectionRatio > maxRatio) {
-            maxRatio = entry.intersectionRatio;
+          if (vr > maxRatio) {
+            maxRatio = vr;
             mostVisiblePage = pg;
           }
         }
@@ -2652,7 +2674,7 @@ ${combinedText.slice(0, 24000)}
           setCurrentPage(mostVisiblePage);
         }
       }
-    }, { root: viewerRef.current, threshold: [0, 0.3, 0.5, 0.7, 1] });
+    }, { root: viewerRef.current, threshold: Array.from({ length: 21 }, (_, i) => i / 20) });
 
     observerRef.current = observer;
 
@@ -2666,7 +2688,11 @@ ${combinedText.slice(0, 24000)}
 
   // ---- Mobile detection ----
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
+    const check = () => {
+      const w = window.innerWidth;
+      setIsMobile(w < 640);
+      setDockW(w >= 1200 ? 400 : w >= 900 ? 340 : 0);
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -2734,7 +2760,7 @@ ${combinedText.slice(0, 24000)}
       background: T.bg,
       borderRadius: "10px",
       position: "relative",
-      ...(fullscreen && (isMobile ? {
+      ...(fullscreen && {
         position: "fixed",
         inset: 0,
         zIndex: 9999,
@@ -2744,20 +2770,7 @@ ${combinedText.slice(0, 24000)}
         paddingBottom: "env(safe-area-inset-bottom)",
         paddingLeft: "env(safe-area-inset-left)",
         paddingRight: "env(safe-area-inset-right)",
-      } : {
-        // Desktop: centered floating window, not edge-to-edge
-        position: "fixed",
-        top: "4.5vh",
-        bottom: "4.5vh",
-        left: "50%",
-        transform: "translateX(-50%)",
-        width: "min(1120px, 88vw)",
-        height: "auto",
-        zIndex: 9999,
-        borderRadius: 16,
-        border: `1px solid ${T.border}`,
-        boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
-      })),
+      }),
     },
     toolbar: {
       background: T.toolbar,
@@ -2889,7 +2902,7 @@ ${combinedText.slice(0, 24000)}
       display: "flex",
       justifyContent: "flex-start",
       alignItems: "flex-start",
-      padding: isMobile ? "8px 4px 40px" : "24px 16px 40px",
+      padding: isMobile ? "8px 4px 40px" : "24px 32px 40px",
       position: "relative",
       // "auto" when zoomed so one finger pans natively; "none" at fit so swipe
       // gestures are ours. Pinch is always handled by the non-passive listener.
@@ -3110,15 +3123,32 @@ ${combinedText.slice(0, 24000)}
       animation: "slideUp 0.2s ease",
       touchAction: "auto",
       WebkitOverflowScrolling: "touch",
-    } : {
-      // Desktop: docked right-hand panel inside the workspace row — pushes the
+    } : dockMode ? {
+      // Docked right-hand panel inside the workspace row — pushes the
       // document aside instead of floating over it (NotebookLM-style)
       position: "relative",
-      width: 400,
+      width: dockW,
       flexShrink: 0,
       minHeight: 0,
       background: T.toolbar,
       borderLeft: `1px solid ${T.border}`,
+      display: "flex",
+      flexDirection: "column",
+      touchAction: "auto",
+    } : {
+      // Portrait tablets: not enough width to dock — floating card
+      position: "fixed",
+      top: "50%",
+      right: 16,
+      transform: "translate3d(0, -50%, 0)",
+      width: 380,
+      maxWidth: "calc(100vw - 32px)",
+      maxHeight: "calc(100dvh - 100px)",
+      background: T.toolbar,
+      border: `1px solid ${T.border}`,
+      borderRadius: 12,
+      boxShadow: `0 12px 36px ${T.shadow}`,
+      zIndex: 100,
       display: "flex",
       flexDirection: "column",
       touchAction: "auto",
@@ -3642,7 +3672,7 @@ ${combinedText.slice(0, 24000)}
       position: "absolute",
       bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 20,
       // Docked chat occupies the right 400px — shift the FAB left of it
-      right: chatOpen && !isMobile ? 416 : isMobile ? 16 : 20,
+      right: chatOpen && dockMode ? dockW + 16 : isMobile ? 16 : 20,
       width: 48,
       height: 48,
       borderRadius: "50%",
@@ -4881,7 +4911,7 @@ ${combinedText.slice(0, 24000)}
                         />
                       )}
                       {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
-                      {visiblePages.has(pg) && (
+                      {(
                         <svg
                           ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
                           style={{
@@ -4959,7 +4989,7 @@ ${combinedText.slice(0, 24000)}
                       : msg.content}
                   </div>
                 ))}
-                {chatLoading && (
+                {chatLoading && !chatMessages[chatMessages.length - 1]?.streaming && (
                   <div style={s.msgLoading}>
                     <span style={s.spinner} /> Analyzing…
                   </div>
@@ -5012,7 +5042,7 @@ ${combinedText.slice(0, 24000)}
 
           {/* Floating nav pill — page nav + zoom + circle-to-ask (mobile & desktop) */}
           {!chromeHidden && !loading && !loadError && (
-            <div style={{ ...s.navDock, right: chatOpen && !isMobile ? 400 : 0 }} onTouchStart={(e) => e.stopPropagation()}>
+            <div style={{ ...s.navDock, right: chatOpen && dockMode ? dockW : 0 }} onTouchStart={(e) => e.stopPropagation()}>
               <div style={s.navPill}>
                 <button
                   style={{ ...s.navBtn, opacity: currentPage <= 1 ? 0.35 : 1 }}
@@ -5069,7 +5099,7 @@ ${combinedText.slice(0, 24000)}
 
           {/* AI Study Tools floating button — hidden only under the mobile sheet; the
               desktop dock leaves the document usable so the FAB stays visible */}
-          {(!chatOpen || !isMobile) && !loading && !loadError && !(voiceActive && !voiceMinimized) && (
+          {(!chatOpen || dockMode) && !loading && !loadError && !(voiceActive && !voiceMinimized) && (
             isMobile ? (
               <button
                 style={{
@@ -6732,18 +6762,5 @@ ${combinedText.slice(0, 24000)}
 
   // iOS: in fullscreen, mount on document.body — fixed elements inside the
   // #root overflow scroller lose z-order to body-level fixed elements (nav)
-  return fullscreen
-    ? createPortal(
-        <>
-          {!isMobile && (
-            <div
-              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9998 }}
-              onClick={() => (onBack ? onBack() : setFullscreen(false))}
-            />
-          )}
-          {reader}
-        </>,
-        document.body
-      )
-    : reader;
+  return fullscreen ? createPortal(reader, document.body) : reader;
 }

@@ -462,6 +462,115 @@ export async function callAIMultimodal(prompt, imageOrImages, history = [], aiCo
   return data.text || "";
 }
 
+// Streaming variant of callAIMultimodal. onToken receives the accumulated text.
+// Falls back to the buffered JSON response on servers without stream support.
+export async function callAIMultimodalStream(prompt, imageOrImages, history = [], aiConfig = {}, { onToken, signal } = {}) {
+  let provider = aiConfig.provider || "openrouter";
+  let model;
+  if (provider === "openrouter" || provider === "gemini") {
+    model = aiConfig.model || (provider === "gemini" ? "gemini-2.5-flash" : "z-ai/glm-5.3-flash");
+  } else {
+    provider = "openrouter";
+    model = "z-ai/glm-5.3-flash";
+  }
+
+  const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+  const token = authData.authToken;
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const images = imageOrImages ? (Array.isArray(imageOrImages) ? imageOrImages : [imageOrImages]) : [];
+
+  const ctl = new AbortController();
+  const timeout = setTimeout(() => ctl.abort(new DOMException("Timed out", "TimeoutError")), 120000);
+  if (signal) {
+    if (signal.aborted) ctl.abort(signal.reason);
+    else signal.addEventListener("abort", () => ctl.abort(signal.reason), { once: true });
+  }
+  const stoppedError = () => {
+    const e = new Error("Generation stopped.");
+    e.stoppedByUser = true;
+    return e;
+  };
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/ai-proxy/generate-multimodal`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: JSON.stringify({ prompt, images: images.length > 0 ? images : undefined, history, provider, model, stream: true }),
+      signal: ctl.signal,
+    });
+  } catch (netErr) {
+    clearTimeout(timeout);
+    if (signal?.aborted) throw stoppedError();
+    if (netErr.name === "TimeoutError" || netErr.name === "AbortError") {
+      throw new Error("AI request timed out. Please try again.");
+    }
+    throw new Error("Network error reaching AI service. Please check your connection.");
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (!res.ok || !contentType.includes("text/event-stream")) {
+    clearTimeout(timeout);
+    let data = {};
+    try { data = await res.json(); } catch {}
+    if (!res.ok) {
+      if (res.status === 429) {
+        window.dispatchEvent(new CustomEvent("sc-open-premium"));
+        const err = new Error(data?.error || "Daily AI limit reached. Upgrade for unlimited access!");
+        err.isLimitError = true;
+        throw err;
+      }
+      throw new Error(data?.error || `AI service error (${res.status})`);
+    }
+    const text = data.text || "";
+    onToken?.(text);
+    return text;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let raw = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const eventBlock = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of eventBlock.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          let evt;
+          try { evt = JSON.parse(payload); } catch { continue; }
+          if (evt.type === "token") {
+            raw += evt.text || "";
+            onToken?.(raw);
+          } else if (evt.type === "error") {
+            throw new Error(evt.message || "AI stream failed.");
+          }
+        }
+      }
+    }
+  } catch (streamErr) {
+    clearTimeout(timeout);
+    if (signal?.aborted) throw stoppedError();
+    if (streamErr.name === "AbortError" || streamErr.name === "TimeoutError") {
+      throw new Error("AI request timed out. Please try again.");
+    }
+    throw streamErr;
+  }
+  clearTimeout(timeout);
+  if (!raw) throw new Error("AI returned an empty response.");
+  return raw;
+}
+
 // Chat-style AI call with system prompt + conversation history.
 // Routes through the same backend proxy as callAI, but sends system + messages
 // fields instead of a single prompt string. Returns plain text string.
