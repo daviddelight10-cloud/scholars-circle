@@ -1054,7 +1054,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
     setStudyToolsOpen(false);
     closeAllMobileOverlays();
-    setChatMessages([{ role: "user", content: "What did I circle?", image: thumb }]);
+    // Append to the thread when the dock is already open (NotebookLM-style:
+    // each circle becomes a new turn), otherwise start a fresh thread.
+    const circleMsg = { role: "user", content: "What did I circle?", image: thumb };
+    setChatMessages((prev) => (chatOpen ? [...prev, circleMsg] : [circleMsg]));
     setChatOpen(true);
     setChatLoading(true);
     setChatError(null);
@@ -2088,7 +2091,10 @@ ${combinedText.slice(0, 24000)}
       setIsDrawing(true);
       lassoPoints.current = [p];
       setLassoPath(`M ${p.x},${p.y}`);
-      closeChat();
+      // Desktop docked chat stays open — closing it mid-gesture reflows the
+      // workspace under the pointer and corrupts the lasso. Mobile sheet still
+      // closes since it covers the document.
+      if (isMobile) closeChat();
       return;
     }
 
@@ -2562,7 +2568,7 @@ ${combinedText.slice(0, 24000)}
         setRenderStrokes("");
         lassoPoints.current = [];
         currentStrokes.current = [];
-        if (prev === "circle") closeChat();
+        if (prev === "circle" && isMobile) closeChat(); // desktop dock persists — dismiss via ✕
       }
       if (next !== "highlight") setShowColorPicker(false);
       setAnnotateTab(next === "pen" || next === "highlight" || next === "erase" ? next : "none");
@@ -2741,14 +2747,14 @@ ${combinedText.slice(0, 24000)}
       } : {
         // Desktop: centered floating window, not edge-to-edge
         position: "fixed",
-        top: "3vh",
-        bottom: "3vh",
+        top: "4.5vh",
+        bottom: "4.5vh",
         left: "50%",
         transform: "translateX(-50%)",
-        width: "min(1280px, 94vw)",
+        width: "min(1120px, 88vw)",
         height: "auto",
         zIndex: 9999,
-        borderRadius: 14,
+        borderRadius: 16,
         border: `1px solid ${T.border}`,
         boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
       })),
@@ -3633,9 +3639,10 @@ ${combinedText.slice(0, 24000)}
     },
     // ── AI Study Tools styles ────────────────────────────────────────────────
     studyFab: {
-      position: "fixed",
+      position: "absolute",
       bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom))" : 20,
-      right: isMobile ? 16 : 20,
+      // Docked chat occupies the right 400px — shift the FAB left of it
+      right: chatOpen && !isMobile ? 416 : isMobile ? 16 : 20,
       width: 48,
       height: 48,
       borderRadius: "50%",
@@ -5060,8 +5067,9 @@ ${combinedText.slice(0, 24000)}
             </div>
           )}
 
-          {/* AI Study Tools floating button — mobile FAB or desktop FAB */}
-          {!chatOpen && !loading && !loadError && !(voiceActive && !voiceMinimized) && (
+          {/* AI Study Tools floating button — hidden only under the mobile sheet; the
+              desktop dock leaves the document usable so the FAB stays visible */}
+          {(!chatOpen || !isMobile) && !loading && !loadError && !(voiceActive && !voiceMinimized) && (
             isMobile ? (
               <button
                 style={{
