@@ -150,6 +150,13 @@ const SMART_CHIPS = [
   { label: "Quiz me", prompt: "Quiz me on this material — ask me one multiple-choice question at a time using the mcq format." },
 ];
 
+// Shown on an empty chat thread — page-scoped by definition.
+const STARTER_CHIPS = [
+  { label: "Explain this page", prompt: "Explain the key points on this page — keep it clear and concise." },
+  { label: "Summarize this page", prompt: "Summarize this page in a few bullet points." },
+  { label: "Quiz me", prompt: "Quiz me on this page — ask me one multiple-choice question at a time using the mcq format." },
+];
+
 const TUTOR_SYSTEM = `You are a study assistant. A student circled content in their PDF and needs a direct answer.
 
 RULE: Start your reply with the answer itself — NO preamble, NO "this is about...", NO "why it matters", NO compliments.
@@ -168,7 +175,7 @@ QUIZ MODE: If the student asks to be quizzed/tested ("quiz me", "test me", "anot
 \`\`\`mcq
 {"question":"...","options":["choice A","choice B","choice C","choice D"],"answer":0,"explanation":"one sentence why"}
 \`\`\`
-Rules: "answer" is the 0-based index of the correct option. Quiz content must come from the document/page text only. One question per reply. After they answer, continue with another question or explain further based on their reply.`;
+Rules: "answer" is the 0-based index of the correct option. One question per reply. Default scope is the CURRENT PAGE — quiz the broader document excerpts only when the student asks to be quizzed on the whole document or chapter. After every 5th question, add a 1–2 line score summary ("You're X/5 so far") and ask if they want to keep going. Never reveal the answer before they pick.`;
 
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, folderId: propFolderId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
@@ -289,6 +296,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Save-flashcard confirmation
   const [flashcardSaved, setFlashcardSaved] = useState(false);
+  // { "msgIdx:segIdx": { picked: originalOptionIdx, correct: bool } }
+  const [quizResults, setQuizResults] = useState({});
 
   // ── AI Study Tools state ───────────────────────────────────────────────────
   const studyPrefs = loadStored(`sc_pdf_studyprefs_${docKey}`, { studyMode: "voice", studyRangeType: "all", studyCount: 10 });
@@ -1084,10 +1093,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
     setStudyToolsOpen(false);
     closeAllMobileOverlays();
-    // Append to the thread when the dock is already open (NotebookLM-style:
-    // each circle becomes a new turn), otherwise start a fresh thread.
+    // Append to any existing thread (NotebookLM-style: each circle becomes a
+    // new turn), otherwise start a fresh thread.
     const circleMsg = { role: "user", content: "What did I circle?", image: thumb };
-    setChatMessages((prev) => (chatOpen ? [...prev, circleMsg] : [circleMsg]));
+    setChatMessages((prev) => (prev.length ? [...prev, circleMsg] : [circleMsg]));
     setChatOpen(true);
     setChatLoading(true);
     setChatError(null);
@@ -1305,7 +1314,7 @@ ${text}
   };
 
   const openStudyTools = () => {
-    closeChat();
+    hideChat();
     closeAllMobileOverlays();
     setStudyToolsOpen(true);
     setStudyStep("setup");
@@ -1938,6 +1947,34 @@ ${combinedText.slice(0, 24000)}
     setChatInput("");
     setChatError(null);
     setStreamingIdx(null);
+    setQuizResults({});
+  };
+
+  // Dismiss the chat but keep the thread, so reopening resumes the
+  // conversation instead of starting over.
+  const hideChat = () => {
+    chatSessionRef.current++;
+    setChatOpen(false);
+    setChatLoading(false);
+    setChatInput("");
+    setChatError(null);
+    setStreamingIdx(null);
+  };
+
+  // Open the chat directly (no circled content) — keeps any existing thread.
+  const openChatDirect = () => {
+    setStudyToolsOpen(false);
+    closeAllMobileOverlays();
+    setChatError(null);
+    setChatOpen(true);
+  };
+
+  // "Next question" flow — tells the model the outcome so it can adapt.
+  const requestNextQuestion = (res) => {
+    const vals = Object.values(quizResults);
+    const c = vals.filter((v) => v.correct).length;
+    const tail = vals.length ? ` I'm ${c}/${vals.length} so far.` : "";
+    sendFollowUp(`${res ? `I got that one ${res.correct ? "right" : "wrong"}. ` : ""}Next question — same mcq format.${tail}`);
   };
 
   // Streams an AI answer into the chat as a live assistant message. Tokens
@@ -1986,8 +2023,28 @@ ${combinedText.slice(0, 24000)}
     // Build history for API (exclude the current message we just added)
     const historyForApi = [...chatMessages, { role: "user", content: trimmed }];
 
-    // Add page text context to the prompt
-    const followCtx = pageTextRef.current ? `\n\nPage text for reference:\n${pageTextRef.current.slice(0, 800)}` : "";
+    // Refresh page text so a question asked after navigating uses the page
+    // actually on screen (getPageText is LRU-cached).
+    try { pageTextRef.current = await getPageText(currentPage); } catch {}
+
+    // Quiz scope: "quiz me on the whole document" pulls a window of pages
+    // around the current one; plain "quiz me" stays on this page.
+    const isQuizIntent = /\b(quiz|test|question|mcq)\b/i.test(trimmed);
+    const wantsDocScope = isQuizIntent && /\b(whole|entire|full|all|document|chapter|everything|overall)\b/i.test(trimmed);
+    let ctxText = pageTextRef.current || "";
+    let ctxLabel = `Page ${currentPage} text`;
+    if (wantsDocScope) {
+      try {
+        const from = Math.max(1, currentPage - 3);
+        const to = Math.min(numPages, currentPage + 15);
+        const docSlice = await extractTextForRange(from, to);
+        if (docSlice) {
+          ctxText = docSlice;
+          ctxLabel = `Document excerpts (pages ${from}–${to})`;
+        }
+      } catch {}
+    }
+    const followCtx = ctxText ? `\n\n${ctxLabel} for reference:\n${ctxText.slice(0, 8000)}` : "";
     const promptWithContext = `${TUTOR_SYSTEM}${followCtx}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nUSER FOLLOW-UP: ${trimmed}\n\nAnswer the follow-up directly. Start with the answer.`;
 
     try {
@@ -2017,7 +2074,7 @@ ${combinedText.slice(0, 24000)}
     setChatError(null);
     setChatLoading(true);
     const historyForApi = chatMessages.slice(0, actualIdx + 1);
-    const retryCtx = pageTextRef.current ? `\n\nPage text:\n${pageTextRef.current.slice(0, 800)}` : "";
+    const retryCtx = pageTextRef.current ? `\n\nPage text:\n${pageTextRef.current.slice(0, 4000)}` : "";
     const promptWithContext = `${TUTOR_SYSTEM}${retryCtx}\n\n---\n\nCONVERSATION SO FAR:\n${historyForApi.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n")}\n\nRETRY: ${lastUserMsg.content}\n\nAnswer directly. Start with the answer.`;
     streamChatAnswer(promptWithContext, null, historyForApi)
       .catch((err) => {
@@ -3970,9 +4027,27 @@ ${combinedText.slice(0, 24000)}
     return true;
   });
 
-  const showChips = chatMessages.length > 0 && chatMessages[chatMessages.length - 1]?.role === "assistant" && !chatLoading;
+  const showChips = (chatMessages.length === 0 || chatMessages[chatMessages.length - 1]?.role === "assistant") && !chatLoading;
   const lastIsAssistant = chatMessages.length > 0 && chatMessages[chatMessages.length - 1]?.role === "assistant";
   const lastAssistantMsg = [...chatMessages].reverse().find((m) => m.role === "assistant");
+
+  // Parsed assistant segments (text + mcq + mcq_error), question numbering,
+  // and running quiz score — shared by the thread renderer.
+  const chatSegs = useMemo(
+    () => chatMessages.map((m) => (m.role === "assistant" ? parseMcqSegments(m.content) : null)),
+    [chatMessages]
+  );
+  const mcqPrefix = useMemo(() => {
+    const pre = [0];
+    chatSegs.forEach((segs, i) => {
+      pre[i + 1] = pre[i] + (segs ? segs.filter((s) => s.type === "mcq").length : 0);
+    });
+    return pre;
+  }, [chatSegs]);
+  const quizStats = useMemo(() => {
+    const vals = Object.values(quizResults);
+    return { answered: vals.length, correct: vals.filter((v) => v.correct).length };
+  }, [quizResults]);
 
   const saveAsFlashcard = () => {
     if (!lastAssistantMsg) return;
@@ -4992,17 +5067,32 @@ ${combinedText.slice(0, 24000)}
             mobile: fixed bottom sheet (fixed positioning escapes the flex row) */}
         {chatOpen && (
           <>
-            {isMobile && <div style={s.chatBackdrop} onClick={closeChat} onTouchStart={(e) => e.stopPropagation()} />}
+            {isMobile && <div style={s.chatBackdrop} onClick={hideChat} onTouchStart={(e) => e.stopPropagation()} />}
             <div style={s.chatPopup} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
               {isMobile && <div style={s.sheetHandle} />}
               <div style={s.chatHead}>
                 <span style={s.chatTag}>
-                  {chatMessages.length > 0 ? `Answer · p.${currentPage}` : "Loading…"}
+                  {chatMessages.length > 0 ? `Chat · p.${currentPage}` : `Ask · p.${currentPage}`}
                 </span>
-                <button style={s.chatClose} onClick={closeChat}>✕</button>
+                {quizStats.answered > 0 && (
+                  <span style={{
+                    marginLeft: "auto", marginRight: 8,
+                    fontSize: 11, fontWeight: 700, padding: "3px 10px",
+                    borderRadius: 999, background: "rgba(61,214,140,0.12)",
+                    border: "1px solid rgba(61,214,140,0.3)", color: "#3DD68C",
+                  }}>
+                    🧠 {quizStats.correct}/{quizStats.answered}
+                  </span>
+                )}
+                <button style={s.chatClose} onClick={hideChat}>✕</button>
               </div>
 
               <div ref={chatScrollRef} style={s.chatThread}>
+                {chatMessages.length === 0 && !chatLoading && (
+                  <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.6, padding: "10px 4px" }}>
+                    Ask anything about this page or the document — or circle something on the page to ask about it directly.
+                  </div>
+                )}
                 {chatMessages.map((msg, i) => (
                   <div key={i} style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
                     {msg.image && (
@@ -5011,11 +5101,39 @@ ${combinedText.slice(0, 24000)}
                     {msg.role === "assistant"
                       ? (i === streamingIdx && !hasMcqBlock(msg.content)
                         ? <TypewriterText text={msg.content} theme={theme} active onDone={() => setStreamingIdx(null)} onTick={() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }} />
-                        : parseMcqSegments(msg.content).map((seg, j) => (
-                            seg.type === "mcq"
-                              ? <McqCard key={j} mcq={seg.mcq} T={T} onNext={() => sendFollowUp("Next question please — keep quizzing me in the same format.")} />
-                              : <MarkdownText key={j} theme={theme}>{seg.text}</MarkdownText>
-                          )))
+                        : (chatSegs[i] || []).map((seg, j) => {
+                            if (seg.type === "mcq") {
+                              const qNum = mcqPrefix[i] + (chatSegs[i].slice(0, j + 1).filter((sg) => sg.type === "mcq").length);
+                              const key = `${i}:${j}`;
+                              const res = quizResults[key];
+                              return (
+                                <McqCard
+                                  key={j}
+                                  mcq={seg.mcq}
+                                  T={T}
+                                  qNum={qNum}
+                                  stats={quizStats}
+                                  picked={res?.picked ?? null}
+                                  onPick={(orig) => setQuizResults((prev) => ({
+                                    ...prev,
+                                    [key]: { picked: orig, correct: orig === seg.mcq.answer },
+                                  }))}
+                                  onNext={() => requestNextQuestion(res)}
+                                />
+                              );
+                            }
+                            if (seg.type === "mcq_error") {
+                              return (
+                                <McqCard
+                                  key={j}
+                                  T={T}
+                                  error
+                                  onRetry={() => sendFollowUp("That quiz question didn't render — please send it again in the exact mcq format.")}
+                                />
+                              );
+                            }
+                            return <MarkdownText key={j} theme={theme}>{seg.text}</MarkdownText>;
+                          }))
                       : msg.content}
                   </div>
                 ))}
@@ -5034,7 +5152,7 @@ ${combinedText.slice(0, 24000)}
 
               {showChips && (
                 <div style={s.chipsRow}>
-                  {SMART_CHIPS.map((chip) => (
+                  {(chatMessages.length === 0 ? STARTER_CHIPS : SMART_CHIPS).map((chip) => (
                     <button key={chip.label} style={s.chip} onClick={() => sendFollowUp(chip.prompt)}>
                       {chip.label}
                     </button>
@@ -5447,6 +5565,33 @@ ${combinedText.slice(0, 24000)}
                         </div>
                       </div>
                     )}
+
+                    {/* Chat entry — talk to the AI without circling first */}
+                    <button
+                      onClick={openChatDirect}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        width: "100%", padding: "12px 14px", borderRadius: 12,
+                        border: `1px solid ${T.border}`, background: T.hover,
+                        cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+                        marginBottom: 14,
+                      }}
+                    >
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                        background: "rgba(79,142,247,0.14)", color: "#4F8EF7", fontSize: 17,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        💬
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>Chat with AI</div>
+                        <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.4 }}>
+                          Ask about this page — or circle anything to ask directly.
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 15, color: T.muted }}>›</span>
+                    </button>
 
                     {/* Voice mode — setup */}
                     {studyMode === "voice" && (

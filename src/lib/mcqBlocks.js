@@ -1,9 +1,11 @@
-// Splits assistant message content into text and interactive-quiz segments.
-// The AI emits quizzes as fenced blocks:
+// Splits assistant message content into text, interactive-quiz, and
+// quiz-error segments. The AI emits quizzes as fenced blocks:
 //   ```mcq
 //   {"question":"...","options":["A","B","C","D"],"answer":0,"explanation":"..."}
 //   ```
-// Incomplete/unterminated fences (mid-stream) are silently dropped.
+// Incomplete/unterminated fences (mid-stream) are silently dropped. A fence
+// that IS closed but holds invalid JSON or a malformed question becomes an
+// mcq_error segment so the UI can offer a retry.
 export function parseMcqSegments(content) {
   if (!content || !content.includes("```mcq")) {
     return [{ type: "text", text: content }];
@@ -18,21 +20,12 @@ export function parseMcqSegments(content) {
     if (m.index > last) {
       segments.push({ type: "text", text: content.slice(last, m.index) });
     }
-    try {
-      const q = JSON.parse(m[1].trim());
-      if (
-        typeof q.question === "string" &&
-        Array.isArray(q.options) &&
-        q.options.length >= 2 &&
-        Number.isInteger(q.answer) &&
-        q.answer >= 0 &&
-        q.answer < q.options.length
-      ) {
-        segments.push({ type: "mcq", mcq: q });
-      }
-    } catch {
-      // partial or malformed JSON — skip
+    const closed = m[0].endsWith("```");
+    if (closed) {
+      const q = validateMcq(m[1]);
+      segments.push(q ? { type: "mcq", mcq: q } : { type: "mcq_error" });
     }
+    // unterminated fence = still streaming or truncated — drop it
     last = m.index + m[0].length;
   }
 
@@ -40,6 +33,32 @@ export function parseMcqSegments(content) {
     segments.push({ type: "text", text: content.slice(last) });
   }
   return segments;
+}
+
+function validateMcq(raw) {
+  try {
+    const q = JSON.parse(raw.trim());
+    const question = typeof q.question === "string" ? q.question.trim() : "";
+    if (!question) return null;
+
+    const seen = new Set();
+    const options = (Array.isArray(q.options) ? q.options : [])
+      .map((o) => String(o).trim())
+      .filter((o) => {
+        if (!o || seen.has(o.toLowerCase())) return false;
+        seen.add(o.toLowerCase());
+        return true;
+      });
+    if (options.length < 2) return null;
+
+    const answer = Number(q.answer);
+    if (!Number.isInteger(answer) || answer < 0 || answer >= options.length) return null;
+
+    const explanation = typeof q.explanation === "string" ? q.explanation.trim() : "";
+    return { question, options, answer, explanation };
+  } catch {
+    return null;
+  }
 }
 
 export function hasMcqBlock(content) {
