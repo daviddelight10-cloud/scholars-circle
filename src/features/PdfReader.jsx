@@ -2728,7 +2728,7 @@ ${combinedText.slice(0, 24000)}
       background: T.bg,
       borderRadius: "10px",
       position: "relative",
-      ...(fullscreen && {
+      ...(fullscreen && (isMobile ? {
         position: "fixed",
         inset: 0,
         zIndex: 9999,
@@ -2738,7 +2738,20 @@ ${combinedText.slice(0, 24000)}
         paddingBottom: "env(safe-area-inset-bottom)",
         paddingLeft: "env(safe-area-inset-left)",
         paddingRight: "env(safe-area-inset-right)",
-      }),
+      } : {
+        // Desktop: centered floating window, not edge-to-edge
+        position: "fixed",
+        top: "3vh",
+        bottom: "3vh",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "min(1280px, 94vw)",
+        height: "auto",
+        zIndex: 9999,
+        borderRadius: 14,
+        border: `1px solid ${T.border}`,
+        boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+      })),
     },
     toolbar: {
       background: T.toolbar,
@@ -3092,18 +3105,14 @@ ${combinedText.slice(0, 24000)}
       touchAction: "auto",
       WebkitOverflowScrolling: "touch",
     } : {
-      position: "fixed",
-      top: "50%",
-      right: 16,
-      transform: "translate3d(0, -50%, 0)",
-      width: 420,
-      maxWidth: "calc(100vw - 32px)",
-      maxHeight: "calc(100dvh - 100px)",
+      // Desktop: docked right-hand panel inside the workspace row — pushes the
+      // document aside instead of floating over it (NotebookLM-style)
+      position: "relative",
+      width: 400,
+      flexShrink: 0,
+      minHeight: 0,
       background: T.toolbar,
-      border: `1px solid ${T.border}`,
-      borderRadius: 12,
-      boxShadow: `0 12px 36px ${T.shadow}`,
-      zIndex: 100,
+      borderLeft: `1px solid ${T.border}`,
       display: "flex",
       flexDirection: "column",
       touchAction: "auto",
@@ -4915,11 +4924,88 @@ ${combinedText.slice(0, 24000)}
           )}
           </div>{/* end zoomable content wrapper */}
         </main>
+
+        {/* Chat — desktop: docked side panel (flex child of workspace);
+            mobile: fixed bottom sheet (fixed positioning escapes the flex row) */}
+        {chatOpen && (
+          <>
+            {isMobile && <div style={s.chatBackdrop} onClick={closeChat} onTouchStart={(e) => e.stopPropagation()} />}
+            <div style={s.chatPopup} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
+              {isMobile && <div style={s.sheetHandle} />}
+              <div style={s.chatHead}>
+                <span style={s.chatTag}>
+                  {chatMessages.length > 0 ? `Answer · p.${currentPage}` : "Loading…"}
+                </span>
+                <button style={s.chatClose} onClick={closeChat}>✕</button>
+              </div>
+
+              <div ref={chatScrollRef} style={s.chatThread}>
+                {chatMessages.map((msg, i) => (
+                  <div key={i} style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
+                    {msg.image && (
+                      <img src={msg.image} alt="Circled content" style={s.msgImage} />
+                    )}
+                    {msg.role === "assistant"
+                      ? (i === streamingIdx
+                        ? <TypewriterText text={msg.content} theme={theme} active onDone={() => setStreamingIdx(null)} onTick={() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }} />
+                        : <MarkdownText theme={theme}>{msg.content}</MarkdownText>)
+                      : msg.content}
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div style={s.msgLoading}>
+                    <span style={s.spinner} /> Analyzing…
+                  </div>
+                )}
+                {chatError && (
+                  <div style={s.msgError}>
+                    {chatError}
+                    <button style={s.retryBtn} onClick={retryLastMessage}>Try again</button>
+                  </div>
+                )}
+              </div>
+
+              {showChips && (
+                <div style={s.chipsRow}>
+                  {SMART_CHIPS.map((chip) => (
+                    <button key={chip.label} style={s.chip} onClick={() => sendFollowUp(chip.prompt)}>
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div style={s.chatInputRow}>
+                {lastIsAssistant && (
+                  <button style={s.saveCardBtn} onClick={saveAsFlashcard}>
+                    {flashcardSaved ? "✓ Saved" : "🔖 Save"}
+                  </button>
+                )}
+                <textarea
+                  ref={inputRef}
+                  style={s.chatTextarea}
+                  rows={1}
+                  placeholder="Ask a follow-up…"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={handleChatKeyDown}
+                />
+                <button
+                  style={s.chatSendBtn}
+                  onClick={() => sendFollowUp(chatInput)}
+                  disabled={!chatInput.trim() || chatLoading}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>{/* end workspace */}
 
           {/* Floating nav pill — page nav + zoom + circle-to-ask (mobile & desktop) */}
           {!chromeHidden && !loading && !loadError && (
-            <div style={s.navDock} onTouchStart={(e) => e.stopPropagation()}>
+            <div style={{ ...s.navDock, right: chatOpen && !isMobile ? 400 : 0 }} onTouchStart={(e) => e.stopPropagation()}>
               <div style={s.navPill}>
                 <button
                   style={{ ...s.navBtn, opacity: currentPage <= 1 ? 0.35 : 1 }}
@@ -5011,81 +5097,6 @@ ${combinedText.slice(0, 24000)}
             )
           )}
 
-          {/* Chat popup — mobile bottom sheet / desktop side panel */}
-          {chatOpen && (
-            <>
-              {isMobile && <div style={s.chatBackdrop} onClick={closeChat} onTouchStart={(e) => e.stopPropagation()} />}
-              <div style={s.chatPopup} onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()}>
-                {isMobile && <div style={s.sheetHandle} />}
-                <div style={s.chatHead}>
-                  <span style={s.chatTag}>
-                    {chatMessages.length > 0 ? `Answer · p.${currentPage}` : "Loading…"}
-                  </span>
-                  <button style={s.chatClose} onClick={closeChat}>✕</button>
-                </div>
-
-                <div ref={chatScrollRef} style={s.chatThread}>
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} style={msg.role === "user" ? s.msgUser : s.msgAssistant}>
-                      {msg.image && (
-                        <img src={msg.image} alt="Circled content" style={s.msgImage} />
-                      )}
-                      {msg.role === "assistant"
-                        ? (i === streamingIdx
-                          ? <TypewriterText text={msg.content} theme={theme} active onDone={() => setStreamingIdx(null)} onTick={() => { if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight; }} />
-                          : <MarkdownText theme={theme}>{msg.content}</MarkdownText>)
-                        : msg.content}
-                    </div>
-                  ))}
-                  {chatLoading && (
-                    <div style={s.msgLoading}>
-                      <span style={s.spinner} /> Analyzing…
-                    </div>
-                  )}
-                  {chatError && (
-                    <div style={s.msgError}>
-                      {chatError}
-                      <button style={s.retryBtn} onClick={retryLastMessage}>Try again</button>
-                    </div>
-                  )}
-                </div>
-
-                {showChips && (
-                  <div style={s.chipsRow}>
-                    {SMART_CHIPS.map((chip) => (
-                      <button key={chip.label} style={s.chip} onClick={() => sendFollowUp(chip.prompt)}>
-                        {chip.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div style={s.chatInputRow}>
-                  {lastIsAssistant && (
-                    <button style={s.saveCardBtn} onClick={saveAsFlashcard}>
-                      {flashcardSaved ? "✓ Saved" : "🔖 Save"}
-                    </button>
-                  )}
-                  <textarea
-                    ref={inputRef}
-                    style={s.chatTextarea}
-                    rows={1}
-                    placeholder="Ask a follow-up…"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={handleChatKeyDown}
-                  />
-                  <button
-                    style={s.chatSendBtn}
-                    onClick={() => sendFollowUp(chatInput)}
-                    disabled={!chatInput.trim() || chatLoading}
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
 
           {/* AI Study Tools panel — mobile bottom sheet / desktop side panel */}
           {studyToolsOpen && (
@@ -6713,5 +6724,18 @@ ${combinedText.slice(0, 24000)}
 
   // iOS: in fullscreen, mount on document.body — fixed elements inside the
   // #root overflow scroller lose z-order to body-level fixed elements (nav)
-  return fullscreen ? createPortal(reader, document.body) : reader;
+  return fullscreen
+    ? createPortal(
+        <>
+          {!isMobile && (
+            <div
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9998 }}
+              onClick={() => (onBack ? onBack() : setFullscreen(false))}
+            />
+          )}
+          {reader}
+        </>,
+        document.body
+      )
+    : reader;
 }
