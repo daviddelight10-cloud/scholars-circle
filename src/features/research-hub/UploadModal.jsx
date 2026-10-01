@@ -55,9 +55,10 @@ export default function UploadModal({
   const handleFileSelected = (file) => {
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { toast.warning("File too large — 50MB max"); return; }
-    setUploadFile(file);
     const detected = extToContentType(file.name);
-    if (detected) setUploadType(detected);
+    if (!detected) { toast.warning("Unsupported file type — use PDF, DOCX, PPTX, TXT, or an image"); return; }
+    setUploadFile(file);
+    setUploadType(detected);
     if (file.type.startsWith("image/")) {
       const url = URL.createObjectURL(file);
       setUploadPreview(url);
@@ -106,6 +107,7 @@ export default function UploadModal({
   const handleAiFileSelected = (file) => {
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { setAiError("File too large — 50MB max"); return; }
+    if (!extToContentType(file.name)) { setAiError("Unsupported file type — use PDF, DOCX, PPTX, TXT, or an image"); return; }
     setAiFile(file);
     setAiError("");
   };
@@ -208,7 +210,7 @@ export default function UploadModal({
                 dragOver ? "border-gold-border bg-gold-dim" : uploadFile ? "border-[#22c55e]/40" : "border-hub-border"
               }`}
             >
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleFilePick} className="hidden" ref={fileInputRef} />
+              <input type="file" accept="*/*" onChange={handleFilePick} className="hidden" ref={fileInputRef} />
               {uploadPreview ? (
                 <div className="flex flex-col items-center gap-2">
                   <img src={uploadPreview} alt="Preview" className="max-h-[160px] max-w-full rounded-md object-contain" />
@@ -279,7 +281,7 @@ export default function UploadModal({
                   aiDragOver ? "border-gold-border bg-gold-dim" : aiFile ? "border-[#22c55e]/40" : "border-hub-border"
                 }`}
               >
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp" onChange={handleAiFilePick} className="hidden" ref={aiFileInputRef} />
+                <input type="file" accept="*/*" onChange={handleAiFilePick} className="hidden" ref={aiFileInputRef} />
                 {aiFile ? (
                   <span className="text-[13px] text-[#22c55e]">✓ {aiFile.name} ({(aiFile.size / 1024).toFixed(0)} KB)</span>
                 ) : (

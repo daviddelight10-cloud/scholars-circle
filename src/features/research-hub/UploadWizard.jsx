@@ -3,7 +3,10 @@ import { convertToPdf } from "../../lib/convertToPdf";
 import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
 import { PRESET_SUBJECTS } from "./constants";
 
-const ACCEPTED_EXTS = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.txt,.pptx,.webp,.gif,.bmp";
+// Any file is accepted at the OS picker level — extension-only accept lists
+// cause many Android builds (Transsion/MIUI) to open a photos-only picker with
+// no way to select PDFs/DOCX. Type validation happens in detectFileType() below.
+const ACCEPTED_EXTS = "*/*";
 const FILE_INPUT_ID = "upload-wizard-file";
 
 function stripExt(filename) {
@@ -352,7 +355,7 @@ export default function UploadWizard({
                       {dragOver ? "Drop file here" : "Drop your file here, or tap to browse"}
                     </div>
                     <div className="text-[10px] text-hub-text-dim">
-                      PDF, DOCX, PPTX, TXT, JPG, PNG · max 50MB
+                      PDF, DOCX, PPTX, TXT, JPG, PNG · tap to browse all files · max 50MB
                     </div>
                   </>
                 )}
