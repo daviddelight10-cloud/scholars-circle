@@ -1316,7 +1316,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       <canvas ref={canvasRef} className="confetti-canvas" />
       <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
 
-        {/* HUD — slim prototype-style bar: hearts+combo while running, streak otherwise */}
+        {/* HUD — slim prototype-style bar: hearts+combo while running, streak otherwise. Hidden on the end screen — its stats are already in the results chips. */}
+        {screen !== 'end' && (
         <header className="hud">
           <div className="hud-left">
             {runMode === 'survival' && (screen === 'game' || screen === 'review') ? (
@@ -1350,6 +1351,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
             )}
           </div>
         </header>
+        )}
 
         {/* ═══ HOME ═══ */}
         {screen === 'home' && (
@@ -1702,6 +1704,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               )}
               {endInfo.cleared > 0 && <span className="run-chip green">🔁 {endInfo.cleared} cleared</span>}
               {endInfo.revives > 0 && <span className="run-chip revive-chip">❤️‍🩹 {endInfo.revives} revive{endInfo.revives > 1 ? 's' : ''}</span>}
+              <span className="run-chip gold">best: {Math.max(best, endInfo.best)}</span>
+              {endInfo.newBest && <span className="new-best-pill show">NEW BEST!</span>}
             </div>
             {stats?.dailyGoal != null && (
               <div className={`goal-nudge show ${(stats.reviewedToday || 0) >= stats.dailyGoal ? 'done' : (stats.dailyGoal - (stats.reviewedToday || 0)) <= 3 ? 'close' : 'far'}`}>
@@ -1711,10 +1715,6 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               </div>
             )}
             <div className="end-quote show">“{endInfo.quote.t}”<span className="q-author">— {endInfo.quote.a}</span></div>
-            <div className="best-row">
-              <span className="best-pill">best: {Math.max(best, endInfo.best)}</span>
-              {endInfo.newBest && <span className="new-best-pill show">NEW BEST!</span>}
-            </div>
             {questsCard({ marginTop: 14, textAlign: 'left' })}
             <button className="primary" onClick={() => startRun(runMode)}>
               {endInfo.allMastered ? (runMode === 'survival' ? 'Run it back' : 'Practice again') : 'Continue practice'}
