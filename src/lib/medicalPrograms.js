@@ -410,7 +410,6 @@ export const MEDICAL_BADGES = [
   { id: "anatomy_master", icon: "🦴", label: "Anatomy Master", desc: "Complete 50 Anatomy questions correctly" },
   { id: "pharma_pro", icon: "💊", label: "Pharma Pro", desc: "Complete 50 Pharmacology questions correctly" },
   { id: "clinical_reasoner", icon: "🧠", label: "Clinical Reasoner", desc: "Solve 10 clinical case simulations" },
-  { id: "osce_ready", icon: "🏥", label: "OSCE Ready", desc: "Complete 5 OSCE practice stations" },
   { id: "drug_expert", icon: "💉", label: "Drug Expert", desc: "Review 50 drug reference entries" },
   { id: "lab_wizard", icon: "🧪", label: "Lab Wizard", desc: "Master 20 lab value interpretations" },
   { id: "first_diagnosis", icon: "🔍", label: "First Diagnosis", desc: "Complete your first clinical case" },
@@ -420,14 +419,13 @@ export const MEDICAL_BADGES = [
 ];
 
 export const MEDICAL_TABS = [
-  "today", "practice", "clinical-cases", "osce", "aitutor", "drug-ref", "lab-values", "analytics", "research-hub",
+  "today", "practice", "clinical-cases", "aitutor", "drug-ref", "lab-values", "analytics", "research-hub",
 ];
 
 export const MEDICAL_TAB_LABELS = {
   today: "🏠 Home",
   practice: "📚 Q-Bank",
   "clinical-cases": "🩺 Clinical Cases",
-  osce: "🏥 OSCE Prep",
   aitutor: "🤖 AI Tutor",
   "drug-ref": "💊 Drug Reference",
   "lab-values": "🧪 Lab Values",

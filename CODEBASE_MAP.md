@@ -144,7 +144,7 @@ ACTIVE SESSION STATE:
 ### 4.2 Tab Navigation
 
 ```
-PRIMARY_TABS = ["today", "clinical-cases", "osce", "aitutor", "voice-tutor",
+PRIMARY_TABS = ["today", "clinical-cases", "aitutor", "voice-tutor",
                 "drug-ref", "lab-values", "medical-calculators", "analytics",
                 "research-hub"]
 
@@ -152,6 +152,7 @@ Tab Redirects (consolidation):
   leaderboard/achievements/gamification → analytics (with subTab)
   learn/bank/practice/pastpapers/studypaths → research-hub
   notes/flashcards/cheatsheet/outline → resources (with subTab)
+  osce → clinical-cases (OSCE Prep removed — covered by clinical cases)
 
 Tab → Component Map:
   "today"              → <Home />
@@ -163,7 +164,6 @@ Tab → Component Map:
   "resources"          → <Resources /> (notes, flashcards, cheatsheet, outline)
   "classroom"          → <ClassroomPage />
   "clinical-cases"     → <ClinicalCases />
-  "osce"               → <OSCEPrep />
   "drug-ref"           → <DrugReference />
   "lab-values"         → <LabValues />
   "medical-calculators"→ <MedicalCalculators />
@@ -274,7 +274,7 @@ Badges (30+ in constants.js):
   Accuracy: 50, 100, 500 correct
   Time: Night Owl(10pm+), Early Bird(<6am), Weekend Warrior, Midnight Oil
   Subject: Well Rounded(all subjects), Subject Master(10x one subject)
-  Medical: Anatomy Master, Pharma Pro, Clinical Reasoner, OSCE Ready
+  Medical: Anatomy Master, Pharma Pro, Clinical Reasoner
   Mastery: 80%, 100%, All 80%
   Coins: 50, 100, 500
   Speed: exam < 2min, quiz < 30s
@@ -427,8 +427,7 @@ ClassroomPage (src/components/Classroom.jsx)
 ### 5.6 Medical Reference Tools
 
 ```
-ClinicalCases — AI-generated clinical case simulations
-OSCEPrep — clinical examination practice stations
+ClinicalCases — AI-generated clinical case simulations (OSCE-style grading)
 DrugReference — searchable drug database
 LabValues — reference ranges with interpretation
 MedicalCalculators — BMI, GFR, creatinine clearance, etc.

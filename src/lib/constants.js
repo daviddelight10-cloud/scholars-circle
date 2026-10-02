@@ -61,7 +61,7 @@ export const FREE_TIER_ACHIEVEMENTS = [
   { id: "trial_complete", icon: "🎯", label: "Trial Complete", desc: "Earn all free trial achievements", check: (p, u, a) => a.length >= 7 },
 ];
 
-export const PRIMARY_TABS = ["today", "clinical-cases", "osce", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub", "discuss"];
+export const PRIMARY_TABS = ["today", "clinical-cases", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub", "discuss"];
 
 // Full-bleed screens that render their own floating exit pill — no global back header or bottom nav
 export const BARE_TABS = [
@@ -87,7 +87,7 @@ export const TAB_LABELS = {
   pastpapers: "📄 Past Papers", notifications: "🔔 Notifications",
   "teacher-questions": "📝 My Questions", "campus-comm": "📢 Announcements",
   premium: "💎 Premium",
-  "clinical-cases": "🩺 Clinical Cases", osce: "🏥 OSCE Prep",
+  "clinical-cases": "🩺 Clinical Cases",
   "drug-ref": "💊 Drug Reference", "lab-values": "🧪 Lab Values",
   "medical-calculators": "🧮 Med Calculators",
   "voice-tutor": "🎙️ Voice Tutor",

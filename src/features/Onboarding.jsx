@@ -586,7 +586,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
           {step === 0 ? (
             <div className="ob-acard">
               {[
-                [Stethoscope, "Clinical case simulations & OSCE prep"],
+                [Stethoscope, "Clinical case simulations"],
                 [Sparkles, "AI tutor, drug reference & calculators"],
                 [FlaskConical, "Lab values + spaced-repetition flashcards"],
                 [Flame, "Streaks, XP & a class leaderboard"],

@@ -150,25 +150,6 @@ Given the presenting complaint or clinical scenario:
 
 Note: Educational only. Not for clinical decision-making.`,
 
-  osce_practice: `\n\n## Mode: OSCE Station Practice
-Simulate an OSCE station. Structure:
-
-STATION TYPE: [e.g., History taking, Examination, Procedure, Communication]
-
-SCENARIO: Brief patient/candidate instructions (2-3 lines)
-
-TASK: What the candidate must do (numbered steps)
-
-CHECKLIST: Mark scheme with pass/fail criteria for each step
-
-TIMING: Suggested time allocation
-
-COMMON PITFALLS: What students typically get wrong
-
-EXAMINER NOTES: Key points the examiner looks for
-
-After presenting the station, ask the student to attempt it, then provide feedback.`,
-
   summarize: `\n\n## Mode: Summarizer
 Output in plain text (no markdown symbols):
 
@@ -224,5 +205,4 @@ export const userPrompt = {
   translate: (text, target) => `Translate to ${target}:\n\n${text}`,
   clinical_case: (specialty) => `Generate a clinical case simulation${specialty ? ` in ${specialty}` : ""}`,
   differential: (scenario) => `Generate a differential diagnosis for this presentation: ${scenario}`,
-  osce_practice: (stationType) => `Create an OSCE practice station${stationType ? ` on ${stationType}` : ""}`,
 };

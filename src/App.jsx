@@ -164,7 +164,6 @@ const SettingsPage = lazyWithRetry(() => import("./features/settings/SettingsPag
 const ReferScreen = lazyWithRetry(() => import("./features/settings/ReferScreen.jsx"));
 
 const ClinicalCases = lazyWithRetry(() => import("./features/clinicalCases/VirtualPatient.jsx"));
-const OSCEPrep = lazyWithRetry(() => import("./features/osce/OSCEPrep.jsx"));
 const DrugReference = lazyWithRetry(() => import("./features/drugReference/DrugReference.jsx"));
 const LabValues = lazyWithRetry(() => import("./features/labValues/LabValues.jsx"));
 const MedicalCalculators = lazyWithRetry(() => import("./features/medicalCalculators/MedicalCalculators.jsx"));
@@ -1780,6 +1779,7 @@ function App() {
     else if (tab === "flashcards") { setResourcesSubTab("flashcards"); setTab("resources"); }
     else if (tab === "cheatsheet") { setResourcesSubTab("cheatsheet"); setTab("resources"); }
     else if (tab === "outline") { setResourcesSubTab("outline"); setTab("resources"); }
+    else if (tab === "osce") { setTab("clinical-cases"); }
   }, [tab]);
 
   // Activate the free-tier trial on entry + welcome tour on first activation
@@ -8150,12 +8150,6 @@ function App() {
 
               </button>
 
-              <button className={tab === "osce" ? "active" : ""} onClick={() => { setTab("osce"); setShowMobileMenu(false); }}>
-
-                🏥 OSCE Prep
-
-              </button>
-
               <button className={tab === "drug-ref" ? "active" : ""} onClick={() => { setTab("drug-ref"); setShowMobileMenu(false); }}>
 
                 💊 Drug Reference
@@ -9341,14 +9335,6 @@ function App() {
               updateStats={(partial) => setStats((s) => ({ ...s, ...partial }))}
               onBack={goBack}
             />
-          </Suspense>
-        </ErrorBoundary>
-      )}
-
-      {tab === "osce" && (
-        <ErrorBoundary>
-          <Suspense fallback={<TabSkeleton />}>
-            <OSCEPrep />
           </Suspense>
         </ErrorBoundary>
       )}

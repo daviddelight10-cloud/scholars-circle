@@ -6,7 +6,7 @@ export default function FAQSection() {
   const faqs = [
     {
       question: 'What is Scholar\'s Circle?',
-      answer: 'Scholar\'s Circle is an all-in-one study platform built exclusively for medical and health-science students. It includes clinical case simulations, OSCE prep, drug reference, lab values, AI medical tutoring, spaced repetition flashcards, and gamification features.'
+      answer: 'Scholar\'s Circle is an all-in-one study platform built exclusively for medical and health-science students. It includes clinical case simulations, drug reference, lab values, AI medical tutoring, spaced repetition flashcards, and gamification features.'
     },
     {
       question: 'Which medical programs are supported?',
@@ -14,7 +14,7 @@ export default function FAQSection() {
     },
     {
       question: 'How much does it cost?',
-      answer: 'We offer both free and premium plans. The free plan includes basic practice modes and limited questions. Premium plans unlock clinical cases, OSCE prep, drug reference, AI features, advanced analytics, and gamification elements. Contact us for institutional pricing.'
+      answer: 'We offer both free and premium plans. The free plan includes basic practice modes and limited questions. Premium plans unlock clinical cases, drug reference, AI features, advanced analytics, and gamification elements. Contact us for institutional pricing.'
     },
     {
       question: 'Can medical educators use Scholar\'s Circle?',

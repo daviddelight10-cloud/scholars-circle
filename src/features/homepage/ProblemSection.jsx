@@ -99,7 +99,7 @@ export default function ProblemSection() {
                 Scholar's Circle: The Medical Solution
               </h3>
               <p style={{ color: '#cbd5e1', marginBottom: '24px' }}>
-                We bring everything together in one medical-first platform. Clinical cases, OSCE prep, 
+                We bring everything together in one medical-first platform. Clinical cases, 
                 drug reference, spaced repetition — no more switching between apps.
               </p>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, lineHeight: 2 }}>
@@ -109,7 +109,7 @@ export default function ProblemSection() {
                 </li>
                 <li style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#cbd5e1' }}>
                   <span style={{ color: '#22c55e' }}>✓</span>
-                  Clinical case simulations & OSCE practice
+                  Clinical case simulations (OSCE-style)
                 </li>
                 <li style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#cbd5e1' }}>
                   <span style={{ color: '#22c55e' }}>✓</span>

@@ -378,7 +378,7 @@ const APP_FEATURES = `Scholar's Circle app features (answer "how do I…" questi
 - Guided Study (📚 button here): roadmap → explain → questions → flashcards on any topic
 - Voice Tutor: hands-free spoken lessons
 - Study Groups & Live Sessions: real-time quiz battles with classmates
-- Clinical tools: clinical cases, OSCE practice, drug reference, lab values, medical calculators
+- Clinical tools: clinical cases (OSCE-style virtual patients), drug reference, lab values, medical calculators
 - Gamification: XP, streaks, leagues/leaderboard, badges
 - This AI chat: attachments (+ button), voice input (mic), practice questions pulled from real MCQ sets, and Research Hub documents`;
 
