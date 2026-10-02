@@ -60,6 +60,30 @@ function normText(s) {
     .trim();
 }
 
+/**
+ * Resolve the correct MCQ option letter from whatever field the model emitted:
+ * "correct" | "correctAnswer" | "answer" | "answerLetter" | "correctOption".
+ * Accepts a bare letter ("B"), decorated letter ("B)", "(b)", "B: ..."),
+ * a 0-based numeric index, or the full answer text matched against options.
+ */
+function resolveMcqCorrect(raw, options) {
+  let v = raw.correct ?? raw.correctAnswer ?? raw.answer ?? raw.answerLetter ?? raw.correctOption;
+  if (typeof v === "number") v = String.fromCharCode(65 + v);
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const decorated = s.match(/^[\(\[]?([A-Da-d])[)\].:\s-]/);
+  const letter = decorated ? decorated[1].toUpperCase() : s.toUpperCase().charAt(0);
+  if (options[letter]?.trim()) return letter;
+  const want = normText(s);
+  if (want) {
+    for (const [k, val] of Object.entries(options)) {
+      const opt = normText(val);
+      if (opt && (opt === want || want.includes(opt) || opt.includes(want))) return k;
+    }
+  }
+  return null;
+}
+
 /** Normalize a raw AI-produced question into the canonical shape, or null if invalid. */
 export function normalizeQuestion(raw, index = 0) {
   if (!raw || typeof raw !== "object") return null;
@@ -89,37 +113,43 @@ export function normalizeQuestion(raw, index = 0) {
       for (const k of ["A", "B", "C", "D"]) options[k] = String(opts[k] ?? "");
     }
     if (!options || Object.values(options).filter((v) => v.trim()).length < 2) return null;
-    let correct = raw.correct;
-    if (typeof correct === "number") correct = String.fromCharCode(65 + correct);
-    correct = String(correct || "").trim().toUpperCase().charAt(0);
-    if (!options[correct]) return null;
+    let correct = resolveMcqCorrect(raw, options);
+    if (!correct) return null;
     return { ...q, options, correct };
   }
 
   if (type === "truefalse") {
-    let correct = raw.correct;
+    let correct = raw.correct ?? raw.correctAnswer ?? raw.answer;
     if (typeof correct === "string") {
       const s = correct.trim().toLowerCase();
-      correct = s === "true" || s === "a" || s === "yes";
+      if (["true", "t", "yes", "y", "a"].includes(s)) correct = true;
+      else if (["false", "f", "no", "n", "b"].includes(s)) correct = false;
+      else return null;
     }
+    if (typeof correct === "number") correct = correct === 1;
     if (typeof correct !== "boolean") return null;
     return { ...q, correct };
   }
 
   if (type === "fillblank") {
     const answers = [];
-    if (Array.isArray(raw.acceptableAnswers)) answers.push(...raw.acceptableAnswers);
-    if (raw.answer) answers.unshift(raw.answer);
-    if (raw.correct && typeof raw.correct === "string") answers.unshift(raw.correct);
+    for (const key of ["acceptableAnswers", "acceptedAnswers", "answers"]) {
+      if (Array.isArray(raw[key])) answers.push(...raw[key]);
+    }
+    for (const key of ["answer", "correct", "correctAnswer"]) {
+      if (typeof raw[key] === "string" && raw[key]) answers.unshift(raw[key]);
+    }
     const acceptableAnswers = [...new Set(answers.map((a) => String(a).trim()).filter(Boolean))];
     if (acceptableAnswers.length === 0) return null;
     return { ...q, acceptableAnswers };
   }
 
   // shortanswer / essay — written, AI-graded
-  const modelAnswer = String(raw.modelAnswer || raw.answer || "").trim();
+  const modelAnswer = String(
+    raw.modelAnswer || raw.answer || raw.expectedAnswer || raw.referenceAnswer || raw.sampleAnswer || ""
+  ).trim();
   if (!modelAnswer) return null;
-  let markingScheme = raw.markingScheme;
+  let markingScheme = raw.markingScheme ?? raw.markScheme ?? raw.rubric ?? raw.gradingPoints ?? raw.criteria;
   if (Array.isArray(markingScheme)) {
     markingScheme = markingScheme
       .map((p) => (typeof p === "string" ? p : p?.point || p?.criterion || ""))

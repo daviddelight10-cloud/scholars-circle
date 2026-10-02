@@ -255,6 +255,8 @@ export async function generateExam(text, images, config, analysis, onProgress) {
   );
 
   const allRows = [];
+  let firstError = null;
+  const failCount = { n: 0 };
   for (let start = 0; start < chunks.length; start += CONCURRENCY_LIMIT) {
     const batch = [];
     for (let i = start; i < Math.min(start + CONCURRENCY_LIMIT, chunks.length); i++) {
@@ -265,15 +267,19 @@ export async function generateExam(text, images, config, analysis, onProgress) {
         language: analysis?.language,
       });
       batch.push(
-        callAI(prompt, AI_MODEL)
-          .then((raw) => {
+        (async () => {
+          for (let attempt = 0; attempt < 2; attempt++) {
             try {
+              const raw = await callAI(prompt, AI_MODEL);
               return mapQuestions(extractJSON(raw, "array"));
-            } catch {
-              return [];
+            } catch (err) {
+              if (!firstError) firstError = err;
+              if (attempt === 0) await new Promise((r) => setTimeout(r, 1000));
             }
-          })
-          .catch(() => [])
+          }
+          failCount.n++;
+          return [];
+        })()
       );
     }
     const results = await Promise.all(batch);
@@ -289,8 +295,15 @@ export async function generateExam(text, images, config, analysis, onProgress) {
   questions = questions.filter((q) => types.includes(q.type));
 
   if (!questions.length) {
-    if (extractMode) warnings.push("AI found fewer extractable questions than expected — try generating instead.");
-    throw new Error("AI couldn't produce questions from this content. Try a different file or mode.");
+    // If every chunk failed at the AI call itself, surface the real cause
+    // (expired session, rate limit, provider outage) instead of a generic message.
+    if (firstError && failCount.n >= chunks.length) throw firstError;
+    // Extraction found nothing usable — fall back to authoring new questions.
+    if (extractMode) {
+      onProgress?.("No extractable questions found — writing new ones instead…");
+      return generateExam(text, images, config, { ...analysis, docType: "study_material" }, onProgress);
+    }
+    throw firstError || new Error("The AI couldn't turn this document into exam questions — try a different file or fewer question types.");
   }
   if (!extractMode && questions.length < targetCount * 0.5) {
     warnings.push(`Only ${questions.length} of ${targetCount} requested questions could be generated.`);

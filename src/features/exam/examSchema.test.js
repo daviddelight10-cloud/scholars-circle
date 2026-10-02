@@ -61,6 +61,34 @@ describe("normalizeQuestion", () => {
     expect(normalizeQuestion({ type: "matching", question: "x" })).toBeNull();
     expect(normalizeQuestion({ type: "mcq", question: "" })).toBeNull();
   });
+
+  it("accepts common field variants from different models", () => {
+    // correctAnswer as decorated letter
+    const a = normalizeQuestion({
+      type: "mcq", question: "q", options: { A: "x", B: "y" }, correctAnswer: "B) y",
+    });
+    expect(a.correct).toBe("B");
+
+    // answer as full option text
+    const b = normalizeQuestion({
+      type: "mcq", question: "q", options: { A: "ribosome", B: "nucleus" }, answer: "nucleus",
+    });
+    expect(b.correct).toBe("B");
+
+    // truefalse with "no"
+    expect(normalizeQuestion({ type: "truefalse", question: "q", answer: "No" }).correct).toBe(false);
+
+    // essay with rubric/expectedAnswer variants
+    const e = normalizeQuestion({
+      type: "essay", question: "q", expectedAnswer: "model", rubric: ["p1", "p2"],
+    });
+    expect(e.modelAnswer).toBe("model");
+    expect(e.markingScheme).toEqual(["p1", "p2"]);
+
+    // fillblank with acceptedAnswers
+    const f = normalizeQuestion({ type: "fillblank", question: "q", acceptedAnswers: ["x", "y"] });
+    expect(f.acceptableAnswers).toEqual(["x", "y"]);
+  });
 });
 
 describe("normalizeExamPayload", () => {

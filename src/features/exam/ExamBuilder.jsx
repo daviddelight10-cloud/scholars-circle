@@ -7,6 +7,19 @@ import ExamRunner from "./ExamRunner";
 
 const DEFAULT_COUNT = 20;
 
+/** Map raw failures to user-friendly copy. */
+function friendlyError(err) {
+  const raw = String(err?.message || "");
+  const m = raw.toLowerCase();
+  if (/invalid or expired|missing token|401|unauthori/.test(m))
+    return "Your session expired — sign out and back in, then try again.";
+  if (/429|limit reached/.test(m))
+    return raw || "Daily AI limit reached — upgrade for unlimited access.";
+  if (/timed? ?out|network|unreachable|502|503|temporarily/.test(m))
+    return "The AI is busy right now — wait a moment and hit Build again.";
+  return raw || "Couldn't build the exam. Try a different file or fewer question types.";
+}
+
 function Slider({ label, value, min, max, step = 1, onChange, format }) {
   return (
     <div className="exb-field">
@@ -89,7 +102,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, o
       setName(f.title ? `Exam — ${f.title}` : "Exam");
       setPhase("config");
     } catch (err) {
-      setError(err.message || "Failed to analyze this document.");
+      setError(friendlyError(err) || "Failed to analyze this document.");
       setPhase(candidates.length ? "pick" : "config");
     } finally {
       setProgress("");
@@ -135,7 +148,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, o
       setRunPayload({ ...payload, _warnings: w });
       setPhase("run");
     } catch (err) {
-      setError(err.message || "AI couldn't build the exam. Try again.");
+      setError(friendlyError(err));
       setPhase("config");
     } finally {
       setProgress("");
@@ -167,6 +180,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, o
     return (
       <div className="exr-root exr-scroll">
         <BuilderTop title="Build an exam" sub="Pick a document — the AI reads it and builds the exam to match." onBack={onExit} />
+        {error && <div className="exr-warn" style={{ margin: "0 16px 10px" }}>{error}</div>}
         <div className="exb-pick-list">
           {candidates.length === 0 && (
             <div className="exr-empty">📭 No documents here yet. Upload a PDF or note first.</div>
@@ -325,7 +339,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, o
         {warnings.map((w, i) => <div key={i} className="exr-warn">{w}</div>)}
 
         <button className="exr-btn primary big" disabled={selTypes.length === 0} onClick={build}>
-          {savedExam ? "Build a new version" : "Build my exam"} ✨
+          {error ? "Try again" : savedExam ? "Build a new version" : "Build my exam"} ✨
         </button>
       </div>
     </div>
