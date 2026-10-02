@@ -642,7 +642,7 @@ const LAUNCH_MSGS = {
 
 const STATUS_LABEL = { fuzzy: "Still fuzzy 🌫️", solid: "Got it 👍", mastered: "Nailed it 🔥" };
 
-export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null, onAskTutor = null, onViewSource = null }) {
+export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "input", initialAttachment = null, studyContext = null, onPhaseChange = null, onScrollChange = null, onAskTutor = null, onViewSource = null, onExit = null }) {
   const isAutoLaunch = !!(initialTopic.trim() && startMode !== "input");
   const [phase, setPhase]               = useState("input");   // input | roadmap | section | review | summary
   const [topic, setTopic]               = useState(initialTopic);
@@ -1143,6 +1143,12 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
     <>
       <style>{STYLES}</style>
 
+      {onExit && (
+        <div style={{ display:"flex", alignItems:"center", marginBottom:12 }}>
+          <Btn variant="ghost" onClick={onExit}>← Back</Btn>
+        </div>
+      )}
+
       {/* Offline banner */}
       {!isOnline && (
         <div style={{
@@ -1299,6 +1305,12 @@ export default function GuidedStudy({ aiConfig, initialTopic = "", startMode = "
   if (phase === "roadmap" && roadmap) return wrap(
     <>
       <style>{STYLES}</style>
+
+      {onExit && (
+        <div style={{ display:"flex", alignItems:"center", marginBottom:12 }}>
+          <Btn variant="ghost" onClick={onExit}>← Back</Btn>
+        </div>
+      )}
 
       <ProgressBar current={studiedCount} total={roadmap.sections.length} />
 

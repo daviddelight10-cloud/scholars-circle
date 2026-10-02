@@ -1827,9 +1827,19 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     }
   }
 
+  function exitStudy() {
+    // Folder-launched sessions return to their folder; others drop to chat.
+    const folderId = studyContext?.returnTo?.folderId;
+    if (folderId) {
+      window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail: { folderId } }));
+      return;
+    }
+    setView("chat");
+  }
+
   function handleBack() {
     if (showHistory) { setShowHistory(false); return; }
-    if (view === "study")    { setView("chat"); return; }
+    if (view === "study")    { exitStudy(); return; }
     if (view === "practice") { setView("chat"); return; }
     onExit?.();
   }
@@ -2692,6 +2702,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
             onScrollChange={setStudyScrolled}
             onAskTutor={(q) => { setView("chat"); ask(q); }}
             onViewSource={(shareToken, page) => onOpenResource?.(shareToken, page)}
+            onExit={exitStudy}
           />
         )}
 

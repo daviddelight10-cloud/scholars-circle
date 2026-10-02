@@ -313,13 +313,16 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   useEffect(() => {
     if (window.__sc_pending_hub_tab) {
-      const { tab, openUpload, openCreateFolder } = window.__sc_pending_hub_tab;
+      const { tab, openUpload, openCreateFolder, folderId } = window.__sc_pending_hub_tab;
       if (tab === "space" || tab === "fsrs" || tab === "progress") {
         setActiveTab("library");
       } else if (tab === "department") {
         setActiveTab("community");
       } else if (tab) {
         setActiveTab(tab);
+      }
+      if (folderId) {
+        setTimeout(() => openFolder(folderId), 300);
       }
       if (openUpload) {
         setTimeout(() => openUpload(), 300);
@@ -1324,7 +1327,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           topic: file.title,
           mode: "auto-roadmap",
           attachment: { name: file.fileName || file.title, content, pageStarts, shareToken: file.shareToken },
-          context: { resourceId: file.id, matches: [{ title: file.title, contentType: file.contentType }] },
+          context: { resourceId: file.id, matches: [{ title: file.title, contentType: file.contentType }], returnTo: { folderId: file.folderId || activeFolder } },
         },
       }));
     } catch (err) {
@@ -1698,7 +1701,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           const detail = {
             topic: topicCtx.title || (typeof topicCtx === "string" ? topicCtx : ""),
             mode: "auto-roadmap",
-            context: typeof topicCtx === "object" ? topicCtx : null,
+            context: typeof topicCtx === "object"
+              ? { ...topicCtx, returnTo: { folderId: folderDetail?.id || activeFolder } }
+              : { returnTo: { folderId: folderDetail?.id || activeFolder } },
           };
           window.dispatchEvent(new CustomEvent("sc-open-study", { detail }));
         }}
