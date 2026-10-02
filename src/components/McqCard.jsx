@@ -8,8 +8,16 @@ export default function McqCard({ mcq, T, picked = null, onPick, qNum, stats, on
   const [displayOrder] = useState(() => {
     if (!mcq) return [];
     const idx = mcq.options.map((_, i) => i);
+    // Deterministic shuffle seeded by the question text — stable across
+    // remounts so option letters don't jump if the card re-renders.
+    let seed = 7;
+    for (const c of mcq.question) seed = (seed * 31 + c.charCodeAt(0)) | 0;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
     for (let i = idx.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(rand() * (i + 1));
       [idx[i], idx[j]] = [idx[j], idx[i]];
     }
     return idx;
