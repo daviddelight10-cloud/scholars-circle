@@ -14,6 +14,7 @@ import MarkdownText from "../components/MarkdownText.jsx";
 import { useUI } from "../contexts/UIContext.jsx";
 
 import { API_BASE } from "../lib/constants";
+import { canUse } from "../lib/freeTier.js";
 import { supabase } from "../lib/supabaseClient.js";
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -362,6 +363,29 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         return <FlashcardDeckRunner resource={resource} onBack={handleBack} onStreakUpdate={onStreakUpdate} onXpUpdate={handleXpUpdate} />;
 
       case "exam":
+        if (!canUse("exam")) {
+          return (
+            <div style={{ padding: "48px 24px", textAlign: "center", maxWidth: 420, margin: "0 auto" }}>
+              <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
+              <h3 style={{ margin: "0 0 8px" }}>Exam Simulator is Premium</h3>
+              <p style={{ fontSize: 14, opacity: 0.75, lineHeight: 1.6, marginBottom: 20 }}>
+                Your free trial has ended — upgrade to keep running exam simulations.
+              </p>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}
+                style={{ background: "#FFD700", color: "#111", border: "none", padding: "12px 28px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 14 }}
+              >
+                Upgrade to Premium
+              </button>
+              <button
+                onClick={handleBack}
+                style={{ display: "block", margin: "14px auto 0", background: "transparent", color: "inherit", border: "none", cursor: "pointer", opacity: 0.7 }}
+              >
+                Back
+              </button>
+            </div>
+          );
+        }
         return (
           <ExamRunner
             exam={examFromResource(resource)}

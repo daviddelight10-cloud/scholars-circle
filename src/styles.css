@@ -1370,10 +1370,10 @@ button:active {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DEMO BANNER - FUTURISTIC ALERT
+   FREE-TIER BANNER - FUTURISTIC ALERT
    ═══════════════════════════════════════════════════════════ */
 
-.demo-banner {
+.freetier-banner {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1384,26 +1384,26 @@ button:active {
   -webkit-backdrop-filter: blur(10px);
 }
 
-.demo-banner.warning {
+.freetier-banner.warning {
   background: linear-gradient(145deg, rgba(250, 204, 21, 0.1), rgba(245, 158, 11, 0.05));
   border: 1px solid rgba(250, 204, 21, 0.3);
 }
 
-.demo-banner.info {
+.freetier-banner.info {
   background: linear-gradient(145deg, rgba(45, 212, 160, 0.1), rgba(34, 197, 94, 0.05));
   border: 1px solid rgba(45, 212, 160, 0.3);
 }
 
-.demo-banner .banner-icon {
+.freetier-banner .banner-icon {
   font-size: 20px;
 }
 
-.demo-banner .banner-text {
+.freetier-banner .banner-text {
   flex: 1;
   font-size: 13px;
 }
 
-.demo-banner .banner-action {
+.freetier-banner .banner-action {
   padding: 6px 14px;
   border-radius: 8px;
   font-size: 12px;
@@ -1415,7 +1415,7 @@ button:active {
   transition: all 0.3s;
 }
 
-.demo-banner .banner-action:hover {
+.freetier-banner .banner-action:hover {
   transform: scale(1.05);
   box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
 }
@@ -1836,8 +1836,8 @@ button:active {
   color: #FFD700;
 }
 
-/* Demo Badge */
-.demo-badge {
+/* Free-tier Badge */
+.freetier-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;

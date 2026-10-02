@@ -1,7 +1,5 @@
 import React, { memo } from "react";
 import { NotesEditor, CheatSheet } from "../components/StudyTools";
-import DemoLockedOverlay from "../components/DemoLockedOverlay";
-import { DEMO_LIMITS } from "../lib/constants";
 import { CardSkeleton, ListSkeleton } from "../components/LoadingSkeleton";
 import { useAuth } from "../contexts/AuthContext";
 import { useUI } from "../contexts/UIContext";
@@ -12,7 +10,7 @@ function Resources({
   notes: notesProp,
   setNotes,
   token: tokenProp,
-  demoMode: demoModeProp,
+  freeTierMode: freeTierModeProp,
   resourcesSubTab: resourcesSubTabProp,
   setResourcesSubTab: setResourcesSubTabProp,
   toast,
@@ -20,12 +18,11 @@ function Resources({
 }) {
   const { token: ctxToken } = useAuth();
   const { subjects: ctxSubjects, notes: ctxNotes } = useUserData();
-  const { demoMode: ctxDemoMode, resourcesSubTab: ctxResourcesSubTab, setResourcesSubTab: ctxSetResourcesSubTab } = useUI();
+  const { resourcesSubTab: ctxResourcesSubTab, setResourcesSubTab: ctxSetResourcesSubTab } = useUI();
 
   const subjects = subjectsProp ?? ctxSubjects ?? [];
   const notes = notesProp ?? ctxNotes ?? {};
   const token = tokenProp ?? ctxToken;
-  const demoMode = demoModeProp ?? ctxDemoMode ?? false;
   const resourcesSubTab = resourcesSubTabProp ?? ctxResourcesSubTab ?? "notes";
   const setResourcesSubTab = setResourcesSubTabProp ?? ctxSetResourcesSubTab;
   if (loading) {
@@ -60,31 +57,11 @@ function Resources({
       </div>
 
       {resourcesSubTab === "notes" && (
-        <>
-          {demoMode && (
-            <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>📝</span>
-                <span style={{ fontSize: 13 }}>Free Trial: {DEMO_LIMITS.notesLimit - Object.values(notes).flat().length} notes remaining.</span>
-              </div>
-            </div>
-          )}
-          <NotesEditor
-            subjects={subjects}
-            notes={notes}
-            setNotes={(newNotes) => {
-              if (demoMode) {
-                const noteCount = Object.values(newNotes).flat().length;
-                if (noteCount > DEMO_LIMITS.notesLimit) {
-                  toast.warning(`Free Trial limit: Max ${DEMO_LIMITS.notesLimit} notes. Upgrade for unlimited!`);
-                  return;
-                }
-              }
-              setNotes(newNotes);
-            }}
-            demoMode={demoMode}
-          />
-        </>
+        <NotesEditor
+          subjects={subjects}
+          notes={notes}
+          setNotes={setNotes}
+        />
       )}
 
       {resourcesSubTab === "cheatsheet" && (

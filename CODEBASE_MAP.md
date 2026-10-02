@@ -79,10 +79,10 @@ UserDataProvider (UserDataContext)
 └── Reducer: SET_STATS, UPDATE_STATS, SET_HISTORY, SET_SUBJECTS, etc.
 
 UIProvider (UIContext)
-├── State: tab, darkMode, showMobileMenu, demoMode, demoUsage,
+├── State: tab, darkMode, showMobileMenu, freeTierMode, freeTierUsage,
 │          progressSubTab, resourcesSubTab, aiTutorSubTab, aiConfig, etc.
 ├── In-memory only; App.jsx handles persistence + side effects
-└── Reducer: SET_TAB, TOGGLE_DARK_MODE, SET_DEMO_MODE, etc.
+└── Reducer: SET_TAB, TOGGLE_DARK_MODE, SET_FREE_TIER_MODE, etc.
 
 Context Sync Bridge (App.jsx):
   App.jsx local state → Context providers via useEffect hooks
@@ -119,9 +119,9 @@ UI STATE:
   darkMode, themePack, density, headerExpanded
   showOnboarding, showPaymentModal, showDeleteModal, loadingOverlay
 
-DEMO MODE STATE:
-  demoMode, demoUsage (daily counters), demoLocked
-  DEMO_LIMITS: { aiMessages:5, quizDaily:5, dailyTimeLimit:30min, masteryCap:70%, ... }
+FREE-TIER STATE:
+  freeTierMode, freeTierUsage (trial progress/achievements mirror)
+  lib/freeTier.js: phase, counters, heart cooldown (per-user, localStorage)
 
 RESOURCE STATE:
   notes, customFlashcards, customQuestions, outlineProgress, timetable, discussion
@@ -295,28 +295,40 @@ Celebrations:
   StudyHeatmap (GitHub-style calendar), LeagueProgress
 ```
 
-### 4.6 Demo Mode
+### 4.6 Free Tier
 
 ```
-Activation: login with demo credentials → demoMode=true
+Activation: LockedScreen "Start Free Trial" → freeTierMode=true
+           (or offline TEST_USERS fallback login)
 
-Daily Limits (DEMO_LIMITS):
-  aiMessages: 5, practiceQuestions: 10, quizDaily: 5
-  dailyTimeLimit: 30 min, totalSessions: 5
-  flashcardReviews: 10, lectureToNotesDaily: 1
-  masteryCap: 70%, maxSpacedReviewCards: 5
-  allowedDifficulties: ["easy", "medium"]
-  leaderboardAccess: false, classroomAccess: false
+Phases (src/lib/freeTier.js, persisted per user at sc_freetier::<uid>):
+  trial — first FREE_TIER_LIMITS.trialDays days: everything unlocked
+  free  — permanent free tier with soft caps
 
-Enforcement:
-  DemoLockedOverlay when limits hit
-  Daily reset at midnight (toDateString check)
-  demoLocked flag when time/quiz limit reached
-  Features gated: Study Groups, Classroom, Leaderboard
+Limits (FREE_TIER_LIMITS):
+  aiTutorDaily: 5 msgs/day (resets by date)
+  summariesTotal: 5 lifetime · mcqGensTotal: 5 lifetime
+  guidedStudiesTotal: 2 lifetime
+  survivalHeartsBeforeCooldown: 6 → survivalCooldownMinutes: 10
+  Exam Simulator + Voice Tutor: premium-only post-trial
+  Classroom: gated for the whole free experience
 
-Demo Achievements (8):
-  Demo Explorer, Feature Tester, Quiz Master, AI Curious,
-  Timetable Planner, Note Taker, Flashcard Flipper, Demo Complete
+Enforcement (soft gates, action-time checks):
+  canUse()/consume() in lib/freeTier.js — never whole-app locks
+  ResearchHub: startExamBuild/startExamRun (premium),
+    startSpacedReview/startAdaptiveDrill/startFolderPractice (cooldown),
+    handleGenerateFromMaterial (cap check; consume() on success in
+    useMaterialGenerate)
+  App.jsx: sc-open-study + Dashboard onOpenStudy (guided study),
+    sc-open-voice-tutor (premium), onStartExam (premium)
+  AISectionOverlay: ask() (daily AI Tutor cap), 📚 study toggle
+  ResourceViewer: exam resources gated; StreakSurvival self-gates
+    via startRun()/auto-start + hearts-recharge card on home screen
+  UpgradeGate.jsx (was DemoLockedOverlay) — CTA opens the real
+    payment modal via the sc-open-premium event
+
+Free-Tier Achievements (8): Trial Explorer, Feature Tester, Quiz Master,
+  AI Curious, Timetable Planner, Note Taker, Flashcard Flipper, Trial Complete
 ```
 
 ---
@@ -710,7 +722,7 @@ src/components/
 │                           StudyHeatmap, LeagueProgress
 ├── Classroom.jsx         — classroom UI (32KB)
 ├── Dashboard.jsx         — dashboard UI (34KB)
-├── DemoLockedOverlay.jsx — demo limit reached overlay
+├── UpgradeGate.jsx       — premium-feature gate (opens real payment modal)
 ├── Discussion.jsx        — discussion board
 ├── ErrorBoundary.jsx     — React error boundary
 ├── FlashcardRunner.jsx   — flashcard study runner

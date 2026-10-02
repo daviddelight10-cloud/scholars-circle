@@ -7,7 +7,8 @@ import { fetchTranscript, formatTime } from "./AITutor/youtubeApi.js";
 import { resolvePractice, buildAppCatalog, APP_FEATURES, buildDocCatalog, findResources, searchDocuments, hasDocIntent, resolveMcqPractice, authHeaders, docTypeMeta } from "./AITutor/appKnowledge.js";
 import GuidedStudy from "./GuidedStudy";
 import MarkdownText from "../components/MarkdownText.jsx";
-import { API_BASE } from "../lib/constants";
+import { API_BASE, FREE_TIER_LIMITS } from "../lib/constants";
+import { canUse, consume } from "../lib/freeTier.js";
 import { listFolders, createFolder } from "../lib/foldersApi";
 import { toast } from "../components/Toast";
 
@@ -2029,6 +2030,13 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     const hasAttachment = !!attach;
     const q = rawQ?.trim() || (hasAttachment ? `Analyze this ${attach.type === "img" ? "image" : "document"}: ${attach.name}` : "");
     if (!q || loading) return;
+    // Free plan: AI Tutor is capped per day (trial + paid users bypass)
+    if (!canUse("aiTutor")) {
+      toast.error(`Free plan: ${FREE_TIER_LIMITS.aiTutorDaily} AI Tutor messages per day — upgrade for unlimited`);
+      window.dispatchEvent(new CustomEvent("sc-open-premium"));
+      return;
+    }
+    consume("aiTutor");
     // Per-message intent — in General, obvious keywords produce the right
     // artifact inline (badge on the reply shows what was used) without ever
     // touching the selector. A deliberately picked pill is a one-shot
@@ -2353,7 +2361,15 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
 
           {/* 📚 Guided Study button */}
           <button
-            onClick={() => setView(view === "study" ? "chat" : "study")}
+            onClick={() => {
+              if (view !== "study" && !canUse("guidedStudy")) {
+                toast.error(`Free plan: Guided Study limited to ${FREE_TIER_LIMITS.guidedStudiesTotal} sessions — upgrade for unlimited`);
+                window.dispatchEvent(new CustomEvent("sc-open-premium"));
+                return;
+              }
+              if (view !== "study") consume("guidedStudy");
+              setView(view === "study" ? "chat" : "study");
+            }}
             title="Guided Study"
             style={{
               width: 32, height: 32, borderRadius: "50%",

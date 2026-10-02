@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LEAGUES, API_BASE, EMPTY_STATS, DEMO_LIMITS } from "../constants";
+import { LEAGUES, API_BASE, EMPTY_STATS, FREE_TIER_LIMITS } from "../constants";
 import { BADGES, BADGE_GROUPS, resolveBadges } from "../badges";
 
 const baseCtx = (over = {}) => ({
@@ -155,9 +155,13 @@ describe("misc exports", () => {
     expect(EMPTY_STATS.weeklyGoal).toBeGreaterThan(0);
   });
 
-  it("DEMO_LIMITS define sane positive caps", () => {
-    expect(DEMO_LIMITS.aiMessages).toBeGreaterThan(0);
-    expect(DEMO_LIMITS.trialDays).toBeGreaterThan(0);
-    expect(DEMO_LIMITS.allowedTabs.length).toBeGreaterThan(0);
+  it("FREE_TIER_LIMITS define sane positive caps", () => {
+    expect(FREE_TIER_LIMITS.aiTutorDaily).toBeGreaterThan(0);
+    expect(FREE_TIER_LIMITS.trialDays).toBeGreaterThan(0);
+    expect(FREE_TIER_LIMITS.summariesTotal).toBeGreaterThan(0);
+    expect(FREE_TIER_LIMITS.mcqGensTotal).toBeGreaterThan(0);
+    expect(FREE_TIER_LIMITS.guidedStudiesTotal).toBeGreaterThan(0);
+    expect(FREE_TIER_LIMITS.survivalHeartsBeforeCooldown).toBeGreaterThan(0);
+    expect(FREE_TIER_LIMITS.survivalCooldownMinutes).toBeGreaterThan(0);
   });
 });

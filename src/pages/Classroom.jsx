@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { Classroom as ClassroomComponent } from "../components/Classroom";
-import DemoLockedOverlay from "../components/DemoLockedOverlay";
+import UpgradeGate from "../components/UpgradeGate";
 import { api } from "../lib/appUtils";
 import { CardSkeleton, ListSkeleton } from "../components/LoadingSkeleton";
 import { useAuth } from "../contexts/AuthContext";
@@ -15,21 +15,21 @@ function Classroom({
   isFaculty: isFacultyProp,
   authUser: authUserProp,
   token: tokenProp,
-  demoMode: demoModeProp,
+  freeTierMode: freeTierModeProp,
   backendSubjects,
   onImportQuestions,
   loading,
 }) {
   const { user: ctxUser, token: ctxToken, isFaculty: ctxIsFaculty } = useAuth();
   const { subjects: ctxSubjects, assignments: ctxAssignments } = useUserData();
-  const { demoMode: ctxDemoMode } = useUI();
+  const { freeTierMode: ctxFreeTierMode } = useUI();
 
   const subjects = subjectsProp ?? ctxSubjects ?? [];
   const assignments = assignmentsProp ?? ctxAssignments ?? [];
   const isFaculty = isFacultyProp ?? ctxIsFaculty ?? false;
   const authUser = authUserProp ?? ctxUser;
   const token = tokenProp ?? ctxToken;
-  const demoMode = demoModeProp ?? ctxDemoMode ?? false;
+  const freeTierMode = freeTierModeProp ?? ctxFreeTierMode ?? false;
   if (loading) {
     return (
       <>
@@ -39,9 +39,9 @@ function Classroom({
       </>
     );
   }
-  if (demoMode) {
+  if (freeTierMode) {
     return (
-      <DemoLockedOverlay
+      <UpgradeGate
         title="🏫 Classroom Locked"
         description="Join virtual classrooms, participate in discussions, and submit assignments. Upgrade to Pro for full classroom access!"
         icon="🏫"

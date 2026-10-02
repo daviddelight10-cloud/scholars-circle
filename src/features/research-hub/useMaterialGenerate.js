@@ -3,6 +3,7 @@ import { extractFileText } from "../../lib/extractFileText";
 import { generateSummaryPdf } from "../../lib/generateSummaryPdf";
 import { generateMcqs, generateSummary } from "../../lib/generationCore";
 import { API_BASE } from "../../lib/constants";
+import { consume } from "../../lib/freeTier.js";
 
 const FETCH_TIMEOUT_MS = 30_000;
 
@@ -171,6 +172,7 @@ export function useMaterialGenerate() {
           isPublic: false,
         });
       }
+      consume(kind === "mcqs" ? "mcqGen" : "summary");
       setGenProgress("");
       setStreamDone(true);
     } catch (err) {

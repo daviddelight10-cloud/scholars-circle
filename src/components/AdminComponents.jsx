@@ -289,7 +289,7 @@ export function KeyManagement({ token }) {
   );
 }
 
-export function LockedScreen({ activationKey, username, userRole, onLogout, onTryDemo, onRefresh, isChecking, onGetPremium, deferredPrompt, onInstall, isIOS }) {
+export function LockedScreen({ activationKey, username, userRole, onLogout, onTryFreeTier, onRefresh, isChecking, onGetPremium, deferredPrompt, onInstall, isIOS }) {
   const [showActivationKey, setShowActivationKey] = useState(false);
 
   const isFaculty = userRole === "TEACHER" || userRole === "LECTURER";
@@ -446,14 +446,14 @@ export function LockedScreen({ activationKey, username, userRole, onLogout, onTr
             </div>
             {/* Features */}
             <ul style={{ textAlign: "left", fontSize: 13, marginBottom: 24, lineHeight: 2, listStyle: "none", padding: 0 }}>
-              <li>✓ All practice modes</li>
-              <li>✓ AI Tutor access</li>
+              <li>✓ Full access for 2 days — everything unlocked</li>
+              <li>✓ Then free forever with daily limits</li>
               <li>✓ All subjects unlocked</li>
-              <li>✓ No daily limits</li>
-              <li>✓ Full features for 2 days</li>
+              <li>✓ Survival practice keeps working</li>
+              <li>✓ No card required</li>
             </ul>
             <button
-              onClick={onTryDemo}
+              onClick={onTryFreeTier}
               style={{
                 width: "100%",
                 padding: "14px 24px",

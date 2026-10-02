@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { callAI } from '../../lib/aiClient.js';
 import { recordPracticeResult } from '../../lib/studyHistory.js';
-import { API_BASE } from '../../lib/constants';
+import { API_BASE, FREE_TIER_LIMITS } from '../../lib/constants';
+import { recordSurvivalHeartLoss, survivalCooldownRemaining } from '../../lib/freeTier.js';
 import { getMyLeague, getLeagueStandings, checkBadges } from '../../lib/gamificationApi.js';
 import {
   loadSave, mutate, tickDay,
@@ -167,6 +168,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   // ── Run state ──
   const [lives, setLives] = useState(MAX_LIVES);
+  // Free-tier heart cooldown (0 for trial/paid users)
+  const [cooldownMs, setCooldownMs] = useState(() => survivalCooldownRemaining());
+  useEffect(() => {
+    if (cooldownMs <= 0) return;
+    const t = setInterval(() => setCooldownMs(survivalCooldownRemaining()), 1000);
+    return () => clearInterval(t);
+  }, [cooldownMs > 0]); // eslint-disable-line react-hooks/exhaustive-deps
   const [streak, setStreak] = useState(0);
   const [runBest, setRunBest] = useState(0);
   const [qNum, setQNum] = useState(0);
@@ -305,6 +313,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   useEffect(() => {
     if (startedRef.current || bank.length === 0) return;
     startedRef.current = true;
+    if (survivalCooldownRemaining() > 0) { setScreen('home'); return; }
     if (isDaily) {
       serveIdx(0, 'practice');
     } else {
@@ -557,6 +566,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const nl = lives - 1;
     setLives(nl);
     sound.heart();
+    // Free-tier pacing: N lost hearts → cooldown on new sessions (this run continues)
+    if (recordSurvivalHeartLoss()) {
+      toast(`💔 Hearts depleted — ${FREE_TIER_LIMITS.survivalCooldownMinutes} min recharge`, '#FF5E7E', 2800);
+    }
     if (nl <= 0) setTimeout(() => triggerGameOver(), 650);
   }
 
@@ -885,6 +898,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   // ── Run lifecycle ──
   function startRun(mode) {
     sound.click();
+    // Free-tier heart cooldown — blocks new sessions, premium bypasses
+    const cd = survivalCooldownRemaining();
+    if (cd > 0) {
+      setCooldownMs(cd);
+      setScreen('home');
+      toast(`💔 Out of hearts — recharging`, '#FF5E7E', 2400);
+      return;
+    }
     // Daily warmup bonus once per day
     const today = new Date().toISOString().slice(0, 10);
     if (save.warmupDate !== today) {
@@ -1354,22 +1375,43 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               </div>
             </div>
 
-            <button className="mode-card survival" onClick={() => startRun('survival')}>
-              <span className="mc-ico">🔥</span>
-              <span className="mc-mid">
-                <span className="mc-title">Survival Run</span>
-                <span className="mc-desc">3 lives · {Math.min(SECTION_SIZE, bank.length)} questions · clear the section</span>
-              </span>
-              <span className="mc-arrow">›</span>
-            </button>
-            <button className="mode-card practice" onClick={() => startRun('practice')}>
-              <span className="mc-ico">📚</span>
-              <span className="mc-mid">
-                <span className="mc-title">Practice</span>
-                <span className="mc-desc">No lives · FSRS picks your weakest questions first</span>
-              </span>
-              <span className="mc-arrow">›</span>
-            </button>
+            {cooldownMs > 0 ? (
+              <div className="mode-card" style={{ cursor: 'default', borderColor: 'rgba(255,94,126,0.4)' }}>
+                <span className="mc-ico">💔</span>
+                <span className="mc-mid">
+                  <span className="mc-title">Hearts recharging</span>
+                  <span className="mc-desc">
+                    {Math.floor(cooldownMs / 60000)}:{String(Math.floor((cooldownMs % 60000) / 1000)).padStart(2, '0')} until you can play again
+                  </span>
+                </span>
+                <button
+                  className="mc-arrow"
+                  style={{ border: 0, background: 'linear-gradient(135deg,#FFB627,#FF7A9E)', color: '#111', fontWeight: 700, borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
+                  onClick={() => window.dispatchEvent(new CustomEvent('sc-open-premium'))}
+                >
+                  Go Premium
+                </button>
+              </div>
+            ) : (
+              <>
+                <button className="mode-card survival" onClick={() => startRun('survival')}>
+                  <span className="mc-ico">🔥</span>
+                  <span className="mc-mid">
+                    <span className="mc-title">Survival Run</span>
+                    <span className="mc-desc">3 lives · {Math.min(SECTION_SIZE, bank.length)} questions · clear the section</span>
+                  </span>
+                  <span className="mc-arrow">›</span>
+                </button>
+                <button className="mode-card practice" onClick={() => startRun('practice')}>
+                  <span className="mc-ico">📚</span>
+                  <span className="mc-mid">
+                    <span className="mc-title">Practice</span>
+                    <span className="mc-desc">No lives · FSRS picks your weakest questions first</span>
+                  </span>
+                  <span className="mc-arrow">›</span>
+                </button>
+              </>
+            )}
 
             {forecast.some((n) => n > 0) && (
               <button className="forecast-card" onClick={() => startRun('practice')}>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { callAI } from "../lib/aiClient";
 import { api } from "../lib/appUtils";
-import { DEMO_LIMITS } from "../lib/constants";
+import { FREE_TIER_LIMITS } from "../lib/constants";
+import { canUse, consume, usageRemaining } from "../lib/freeTier.js";
 import { buildSystemPrompt, buildConversationContext } from "../features/AITutor/prompts.js";
 import { detectDiscipline } from "../features/AITutor/disciplines.js";
 
-export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token, demoMode, demoUsage, setDemoUsage }) {
+export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, token }) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -40,8 +41,9 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
     const msgToSend = overrideMessage || message;
     if (!msgToSend.trim() || loading) return;
 
-    if (demoMode && (demoUsage.aiTutorMessages || 0) >= DEMO_LIMITS.aiTutorMessages) {
-      setChatHistory([...chatHistory, { role: "assistant", content: `Demo limit reached: You've used ${DEMO_LIMITS.aiTutorMessages} AI tutor messages. Register for full access.`, timestamp: Date.now() }]);
+    if (!canUse("aiTutor")) {
+      setChatHistory([...chatHistory, { role: "assistant", content: `Free plan limit reached: ${FREE_TIER_LIMITS.aiTutorDaily} AI Tutor messages per day. Upgrade for unlimited access.`, timestamp: Date.now() }]);
+      window.dispatchEvent(new CustomEvent("sc-open-premium"));
       return;
     }
 
@@ -54,9 +56,7 @@ export function AITutorChat({ aiConfig, chatHistory, setChatHistory, subjects, t
     const newHistory = [...chatHistory, { role: "user", content: userMsg, timestamp: Date.now() }];
     setChatHistory(newHistory);
 
-    if (demoMode) {
-      setDemoUsage(prev => ({ ...prev, aiTutorMessages: (prev.aiTutorMessages || 0) + 1 }));
-    }
+    consume("aiTutor");
 
     try {
       const subject = selectedSubject ? { id: selectedSubject, label: selectedSubject } : null;

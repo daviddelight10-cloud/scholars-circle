@@ -35,52 +35,30 @@ export const LEAGUES = [
   { id: "champion", name: "Champion", icon: "👑", minXP: 5000, color: "#ff6b6b" },
 ];
 
-export const DEMO_USERS = [
+export const TEST_USERS = [
   { username: "teacher", password: "teacher123", role: "teacher", isActivated: true },
   { username: "student", password: "student123", role: "student", isActivated: false },
 ];
 
-export const DEMO_LIMITS = {
-  aiMessages: 5,
-  practiceQuestions: 10,
-  questionBankQuestions: 5,
-  flashcardReviews: 10,
-  timetableSlots: 3,
-  reminders: 2,
-  allowedTabs: ["today", "subjects", "quiz", "settings"],
-  dailyTimeLimit: 30,
-  totalSessions: 5,
-  exportEnabled: false,
-  analyticsDepth: "basic",
-  trialDays: 2,
-  masteryCap: 70,
-  maxStreak: 7,
-  allowedDifficulties: ["easy", "medium"],
-  maxSpacedReviewCards: 5,
-  maxCustomFlashcardDecks: 1,
-  allowedThemes: ["aurora", "paper", "gold"],
-  premiumThemes: ["neon"],
-  leaderboardAccess: false,
-  pastPapersLimit: 1,
-  aiTutorMessages: 3,
-  classroomAccess: false,
-  notesLimit: 5,
-  hidePremiumTabs: true,
-  aiStudyAssistantDaily: 1,
-  lectureToNotesDaily: 1,
-  questionBankLocked: true,
-  quizDaily: 5,
+export const FREE_TIER_LIMITS = {
+  trialDays: 2,                      // full-access trial window
+  aiTutorDaily: 5,                   // AI Tutor messages per day (post-trial)
+  summariesTotal: 5,                 // lifetime AI summaries (post-trial)
+  mcqGensTotal: 5,                   // lifetime Rapid Recall generations (post-trial)
+  guidedStudiesTotal: 2,             // lifetime guided study sessions (post-trial)
+  survivalHeartsBeforeCooldown: 6,   // hearts lost before the cooldown kicks in
+  survivalCooldownMinutes: 10,       // wait before new practice/survival sessions
 };
 
-export const DEMO_ACHIEVEMENTS = [
-  { id: "demo_explorer", icon: "🗺️", label: "Demo Explorer", desc: "Visit 5 different tabs", check: (p) => p.tabsVisited.size >= 5 },
+export const FREE_TIER_ACHIEVEMENTS = [
+  { id: "trial_explorer", icon: "🗺️", label: "Trial Explorer", desc: "Visit 5 different tabs", check: (p) => p.tabsVisited.size >= 5 },
   { id: "feature_tester", icon: "🧪", label: "Feature Tester", desc: "Try 3 different features", check: (p) => p.featuresTried.size >= 3 },
   { id: "quiz_master", icon: "📝", label: "Quiz Master", desc: "Complete 3 practice sessions", check: (p, u) => u.practiceQuestions >= 3 },
   { id: "ai_curious", icon: "🤖", label: "AI Curious", desc: "Use AI Tutor once", check: (p, u) => u.aiMessages >= 1 },
   { id: "timetable_planner", icon: "📅", label: "Timetable Planner", desc: "Add 2 timetable slots", check: (p, u) => u.timetableSlots >= 2 },
   { id: "note_taker", icon: "📝", label: "Note Taker", desc: "Create a note", check: (p) => p.featuresTried.has("notes") },
   { id: "flashcard_flipper", icon: "🔄", label: "Flashcard Flipper", desc: "Review 5 flashcards", check: (p, u) => u.flashcardReviews >= 5 },
-  { id: "demo_complete", icon: "🎯", label: "Demo Complete", desc: "Earn all demo achievements", check: (p, u, a) => a.length >= 7 },
+  { id: "trial_complete", icon: "🎯", label: "Trial Complete", desc: "Earn all free trial achievements", check: (p, u, a) => a.length >= 7 },
 ];
 
 export const PRIMARY_TABS = ["today", "clinical-cases", "osce", "aitutor", "voice-tutor", "drug-ref", "lab-values", "medical-calculators", "analytics", "research-hub", "discuss"];

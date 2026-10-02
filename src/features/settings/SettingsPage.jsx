@@ -4,7 +4,7 @@ import { DISCIPLINES } from "../AITutor/disciplines.js";
 import { ACADEMIC_LEVELS } from "../StudentProfile.jsx";
 import TabSkeleton from "../../components/TabSkeleton.jsx";
 import ConfirmModal from "./ConfirmModal.jsx";
-import { API_BASE, DEMO_ACHIEVEMENTS } from "../../lib/constants";
+import { API_BASE, FREE_TIER_ACHIEVEMENTS } from "../../lib/constants";
 import { planLabel } from "../../lib/plans";
 import { version } from "../../../package.json";
 import ExitPill from "../../components/ExitPill.jsx";
@@ -21,8 +21,8 @@ export default function SettingsPage({
   token,
   isActivated,
   isFaculty,
-  demoMode,
-  demoUsage,
+  freeTierMode,
+  freeTierUsage,
   studentProfile,
   onLogout,
   onReset,
@@ -231,14 +231,14 @@ export default function SettingsPage({
         </a>
       </div>
 
-      {/* Demo progress */}
-      {demoMode && demoUsage?.demoProgress && (
+      {/* Free trial progress */}
+      {freeTierMode && freeTierUsage?.freeTierProgress && (
         <>
-          <div className="st-glabel">Demo Progress</div>
+          <div className="st-glabel">Free Trial Progress</div>
           <div className="st-group" style={{ padding: 14 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
-              {DEMO_ACHIEVEMENTS.map((ach) => {
-                const earned = demoUsage.demoProgress.achievements?.includes(ach.id);
+              {FREE_TIER_ACHIEVEMENTS.map((ach) => {
+                const earned = freeTierUsage.freeTierProgress.achievements?.includes(ach.id);
                 return (
                   <div key={ach.id} style={{
                     background: earned ? "rgba(61,220,132,.08)" : "var(--st-card2)",
@@ -255,12 +255,12 @@ export default function SettingsPage({
             </div>
             <div style={{ marginTop: 14, padding: 12, background: "rgba(255,214,10,.06)", borderRadius: 12, border: "1px solid rgba(255,214,10,.15)" }}>
               <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>
-                Completion: {Math.round(((demoUsage.demoProgress.achievements?.length || 0) / DEMO_ACHIEVEMENTS.length) * 100)}%
+                Completion: {Math.round(((freeTierUsage.freeTierProgress.achievements?.length || 0) / FREE_TIER_ACHIEVEMENTS.length) * 100)}%
               </div>
               <div style={{ height: 6, background: "rgba(255,255,255,.06)", borderRadius: 3, overflow: "hidden" }}>
                 <div style={{
                   height: "100%",
-                  width: `${((demoUsage.demoProgress.achievements?.length || 0) / DEMO_ACHIEVEMENTS.length) * 100}%`,
+                  width: `${((freeTierUsage.freeTierProgress.achievements?.length || 0) / FREE_TIER_ACHIEVEMENTS.length) * 100}%`,
                   background: "linear-gradient(90deg, var(--st-accent2), var(--st-accent))",
                   transition: "width 0.3s",
                 }} />

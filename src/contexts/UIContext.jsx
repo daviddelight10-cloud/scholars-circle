@@ -11,8 +11,8 @@ const initialState = {
   deletePassword: "",
   deleteLoading: false,
   showOnboarding: false,
-  demoMode: false,
-  demoUsage: { aiCalls: 0, practiceQuestions: 0 },
+  freeTierMode: false,
+  freeTierUsage: { aiCalls: 0, practiceQuestions: 0 },
   progressSubTab: "leaderboard",
   resourcesSubTab: "notes",
   aiTutorSubTab: "chat",
@@ -53,12 +53,12 @@ function uiReducer(state, action) {
       return { ...state, deleteLoading: action.payload };
     case "SET_ONBOARDING":
       return { ...state, showOnboarding: action.payload };
-    case "SET_DEMO_MODE":
-      return { ...state, demoMode: action.payload };
-    case "SET_DEMO_USAGE":
-      return { ...state, demoUsage: action.payload };
-    case "UPDATE_DEMO_USAGE":
-      return { ...state, demoUsage: { ...state.demoUsage, ...action.payload } };
+    case "SET_FREE_TIER_MODE":
+      return { ...state, freeTierMode: action.payload };
+    case "SET_FREE_TIER_USAGE":
+      return { ...state, freeTierUsage: action.payload };
+    case "UPDATE_FREE_TIER_USAGE":
+      return { ...state, freeTierUsage: { ...state.freeTierUsage, ...action.payload } };
     case "SET_PROGRESS_SUB_TAB":
       return { ...state, progressSubTab: action.payload };
     case "SET_RESOURCES_SUB_TAB":
@@ -104,9 +104,9 @@ export function UIProvider({ children }) {
     setDeletePassword: (password) => dispatch({ type: "SET_DELETE_PASSWORD", payload: password }),
     setDeleteLoading: (loading) => dispatch({ type: "SET_DELETE_LOADING", payload: loading }),
     setOnboarding: (show) => dispatch({ type: "SET_ONBOARDING", payload: show }),
-    setDemoMode: (demo) => dispatch({ type: "SET_DEMO_MODE", payload: demo }),
-    setDemoUsage: (usage) => dispatch({ type: "SET_DEMO_USAGE", payload: usage }),
-    updateDemoUsage: (usage) => dispatch({ type: "UPDATE_DEMO_USAGE", payload: usage }),
+    setFreeTierMode: (on) => dispatch({ type: "SET_FREE_TIER_MODE", payload: on }),
+    setFreeTierUsage: (usage) => dispatch({ type: "SET_FREE_TIER_USAGE", payload: usage }),
+    updateFreeTierUsage: (usage) => dispatch({ type: "UPDATE_FREE_TIER_USAGE", payload: usage }),
     setProgressSubTab: (tab) => dispatch({ type: "SET_PROGRESS_SUB_TAB", payload: tab }),
     setResourcesSubTab: (tab) => dispatch({ type: "SET_RESOURCES_SUB_TAB", payload: tab }),
     setAiTutorSubTab: (tab) => dispatch({ type: "SET_AI_TUTOR_SUB_TAB", payload: tab }),

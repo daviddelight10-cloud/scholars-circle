@@ -32,6 +32,8 @@ import RecycleBinSheet from "./RecycleBinSheet.jsx";
 import CommunityFolderCard from "./CommunityFolderCard.jsx";
 import PdfCard from "./PdfCard.jsx";
 import { useMaterialGenerate, extractResourceText } from "./useMaterialGenerate.js";
+import { canUse, survivalCooldownRemaining } from "../../lib/freeTier.js";
+import { FREE_TIER_LIMITS } from "../../lib/constants.js";
 import SummaryStreamOverlay from "../SummaryStreamOverlay.jsx";
 import { getGuidedProgressIndex } from "../../lib/studyCache.js";
 import "../../research-hub.css";
@@ -550,6 +552,22 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     toastTimer.current = setTimeout(() => setToast(null), opts.actLabel ? 4500 : 2400);
   };
 
+  // Premium-only features (exam simulator, voice tutor post-trial)
+  const guardPremiumFeature = useCallback((feature) => {
+    if (canUse(feature)) return true;
+    showToast("This is a Premium feature — upgrade to unlock it", { icon: "lock", actLabel: "Upgrade", actFn: () => window.dispatchEvent(new CustomEvent("sc-open-premium")) });
+    return false;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Survival/practice cooldown — blocks new sessions while hearts recover
+  const guardSurvivalCooldown = useCallback(() => {
+    const ms = survivalCooldownRemaining();
+    if (ms <= 0) return true;
+    const mins = Math.ceil(ms / 60000);
+    showToast(`Out of hearts — practice resumes in ${mins} min`, { icon: "heart", actLabel: "Upgrade", actFn: () => window.dispatchEvent(new CustomEvent("sc-open-premium")) });
+    return false;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const dismissToast = useCallback(() => {
     clearTimeout(toastTimer.current);
     setToast(null);
@@ -950,24 +968,29 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   // All MCQ practice now runs through StreakSurvival — one engine for due
   // review, weak-topic drills and folder practice-all.
   const startSpacedReview = useCallback((subject, resourceIds) => {
+    if (!guardSurvivalCooldown()) return;
     setSessionMode({ type: "dueItems", subject, resourceIds });
-  }, []);
+  }, [guardSurvivalCooldown]);
 
   const startAdaptiveDrill = useCallback((subject, resourceIds) => {
+    if (!guardSurvivalCooldown()) return;
     setSessionMode({ type: "dueItems", subject, resourceIds, weakFirst: true });
-  }, []);
+  }, [guardSurvivalCooldown]);
 
   const startExamBuild = useCallback((file, sources = []) => {
+    if (!guardPremiumFeature("exam")) return;
     setSessionMode({ type: "examBuild", file: file || null, sources });
-  }, []);
+  }, [guardPremiumFeature]);
 
   const startExamRun = useCallback((examResource) => {
+    if (!guardPremiumFeature("exam")) return;
     setSessionMode({ type: "examRun", examResource });
-  }, []);
+  }, [guardPremiumFeature]);
 
   // Practice-all: flatten every folder MCQ into StreakSurvival's item shape
   // ({mcq, pageIndex, resourceId}) — the engine fetches card states itself.
   const startFolderPractice = useCallback((folder, mcqResources) => {
+    if (!guardSurvivalCooldown()) return;
     const items = [];
     for (const res of mcqResources || []) {
       let mcqData = res.mcqData;
@@ -979,7 +1002,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       }));
     }
     setSessionMode({ type: "items", items, title: folder?.name });
-  }, []);
+  }, [guardSurvivalCooldown]);
 
   const handleShare = useCallback(async (token) => {
     const success = await copyShareToken(token);
@@ -1317,6 +1340,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   const handleGuidedStudy = useCallback(async (file) => {
     if (!file || preparingStudy) return;
+    if (!canUse("guidedStudy")) {
+      showToast(`Free plan: Guided Study limited to ${FREE_TIER_LIMITS.guidedStudiesTotal} sessions — upgrade for unlimited`, { icon: "lock", actLabel: "Upgrade", actFn: () => window.dispatchEvent(new CustomEvent("sc-open-premium")) });
+      return;
+    }
     setPreparingStudy(true);
     try {
       const { text, pageStarts } = await extractResourceText(file);
@@ -1362,6 +1389,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   }, [goingLive, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGenerateFromMaterial = useCallback((resource, kind) => {
+    const feature = kind === "summary" ? "summary" : "mcqGen";
+    if (!canUse(feature)) {
+      const label = kind === "summary" ? "AI Summaries" : "Rapid Recall";
+      const left = FREE_TIER_LIMITS[feature === "summary" ? "summariesTotal" : "mcqGensTotal"];
+      showToast(`Free plan: ${label} limited to ${left} total — upgrade for unlimited`, { icon: "lock", actLabel: "Upgrade", actFn: () => window.dispatchEvent(new CustomEvent("sc-open-premium")) });
+      return;
+    }
     let existingMcqData = null;
     if (resource.variants?.mcq?.mcqData) {
       try {

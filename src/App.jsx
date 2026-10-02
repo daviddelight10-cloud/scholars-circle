@@ -68,17 +68,21 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import TabSkeleton from "./components/TabSkeleton";
 import {
   NOTES_KEY, CUSTOM_QUESTIONS_KEY, AI_DOCS_KEY, LECTURE_NOTES_KEY,
-  EMPTY_STATS, EMPTY_QUESTS, LEAGUES, DEMO_USERS, DEMO_LIMITS,
-  DEMO_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS, BARE_TABS,
+  EMPTY_STATS, EMPTY_QUESTS, LEAGUES, TEST_USERS, FREE_TIER_LIMITS,
+  FREE_TIER_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS, BARE_TABS,
   LECTURER_ALLOWED_TABS, LECTURER_HOME_TAB,
 } from "./lib/constants";
 import { PLANS, getPlan, naira } from "./lib/plans.js";
+import {
+  isFreeTier, freeTierPhase, trialDaysLeft, trialEndPending, markTrialEndNotified,
+  enterFreeTier, exitFreeTier, canUse, consume, loadState,
+} from "./lib/freeTier.js";
 import {
   loadFromStorage, todayKey, percent, pickAdaptiveQuestion,
   getLeague, getNextLeague, api, syncUserDataToBackend, loadUserDataFromBackend,
 } from "./lib/appUtils";
 
-import DemoLockedOverlay from "./components/DemoLockedOverlay";
+import UpgradeGate from "./components/UpgradeGate";
 import {
   ConfettiOverlay, CelebrationToast, StreakLossWarning,
   StudyHeatmap, LeagueProgress,
@@ -94,7 +98,7 @@ import { KeyManagement, LockedScreen } from "./components/AdminComponents";
 
 
 
-// DemoLockedOverlay imported from ./components/DemoLockedOverlay
+// UpgradeGate imported from ./components/UpgradeGate
 
 
 
@@ -194,7 +198,7 @@ const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test
 
 
 
-// DEMO_USERS, DEMO_LIMITS, DEMO_ACHIEVEMENTS imported from ./lib/constants
+// TEST_USERS, FREE_TIER_LIMITS, FREE_TIER_ACHIEVEMENTS imported from ./lib/constants
 
 // API_BASE imported from ./lib/constants
 
@@ -602,6 +606,12 @@ function App() {
   // Listen for "Start Studying" from embedded roadmap in Research Hub folders
   useEffect(() => {
     const handleOpenStudy = (e) => {
+      if (freeTierPhase() === "free" && !canUse("guidedStudy")) {
+        toast.error(`Guided Study is limited to ${FREE_TIER_LIMITS.guidedStudiesTotal} sessions on the free plan. Upgrade for unlimited access!`);
+        setShowPaymentModal(true);
+        return;
+      }
+      if (freeTierPhase() === "free") consume("guidedStudy");
       const { topic, mode, context, attachment } = e.detail || {};
       setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "auto-roadmap"); setAiStudyAttachment(attachment || null); setAiStudyContext(context || null); setAiKey(k => k + 1); setTab("aitutor");
     };
@@ -921,35 +931,11 @@ function App() {
 
 
 
-  const [demoMode, setDemoMode] = useState(() => {
-
-    try {
-
-      const authRaw = localStorage.getItem("scholars-circle-auth");
-
-      let uid = localStorage.getItem("scholars-circle-current-user") || "guest";
-
-      if (authRaw) {
-
-        const authParsed = JSON.parse(authRaw);
-
-        uid = authParsed.authUser?.id || authParsed.authUser?.username || uid;
-
-      }
-
-      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
-
-      if (raw) return JSON.parse(raw).demoMode ?? false;
-
-    } catch { /* ignore */ }
-
-    return false;
-
-  });
+  const [freeTierMode, setFreeTierMode] = useState(() => isFreeTier());
 
 
 
-  const [demoUsage, setDemoUsage] = useState(() => {
+  const [freeTierUsage, setFreeTierUsage] = useState(() => {
 
     try {
 
@@ -971,11 +957,13 @@ function App() {
 
         const parsed = JSON.parse(raw);
 
-        if (parsed.demoUsage) {
+        const legacyUsage = parsed.freeTierUsage || parsed.demoUsage;
+
+        if (legacyUsage) {
 
           const today = new Date().toDateString();
 
-          const storedDate = parsed.demoUsage.sessionDate;
+          const storedDate = legacyUsage.sessionDate;
 
           // Reset daily counters if it's a new day
 
@@ -983,33 +971,27 @@ function App() {
 
           return {
 
-            ...parsed.demoUsage,
+            ...legacyUsage,
 
-            // Reset daily counters if new day
+            
 
-            sessionTimeMinutes: isSameDay ? (parsed.demoUsage.sessionTimeMinutes || 0) : 0,
+            sessionTimeMinutes: isSameDay ? (legacyUsage.sessionTimeMinutes || 0) : 0,
 
             sessionDate: today,
 
-            quizUsed: isSameDay && parsed.demoUsage.quizDate === today ? (parsed.demoUsage.quizUsed || 0) : 0,
 
-            quizDate: isSameDay && parsed.demoUsage.quizDate === today ? parsed.demoUsage.quizDate : null,
 
-            aiStudyAssistantUsed: isSameDay && parsed.demoUsage.aiStudyAssistantDate === today ? (parsed.demoUsage.aiStudyAssistantUsed || 0) : 0,
 
-            aiStudyAssistantDate: isSameDay && parsed.demoUsage.aiStudyAssistantDate === today ? parsed.demoUsage.aiStudyAssistantDate : null,
 
-            lectureToNotesUsed: isSameDay && parsed.demoUsage.lectureToNotesDate === today ? (parsed.demoUsage.lectureToNotesUsed || 0) : 0,
 
-            lectureToNotesDate: isSameDay && parsed.demoUsage.lectureToNotesDate === today ? parsed.demoUsage.lectureToNotesDate : null,
 
-            demoProgress: {
+            freeTierProgress: {
 
-              tabsVisited: new Set(parsed.demoUsage.demoProgress?.tabsVisited || []),
+              tabsVisited: new Set(legacyUsage.freeTierProgress?.tabsVisited || legacyUsage.demoProgress?.tabsVisited || []),
 
-              featuresTried: new Set(parsed.demoUsage.demoProgress?.featuresTried || []),
+              featuresTried: new Set(legacyUsage.freeTierProgress?.featuresTried || legacyUsage.demoProgress?.featuresTried || []),
 
-              achievements: parsed.demoUsage.demoProgress?.achievements || [],
+              achievements: legacyUsage.freeTierProgress?.achievements || legacyUsage.demoProgress?.achievements || [],
 
             },
 
@@ -1045,25 +1027,17 @@ function App() {
 
       pastPapersUsed: 0,
 
-      aiTutorMessages: 0,
 
-      trialStartDate: null,
 
-      // New daily usage counters
+      
 
-      aiStudyAssistantUsed: 0,
 
-      aiStudyAssistantDate: null,
 
-      lectureToNotesUsed: 0,
 
-      lectureToNotesDate: null,
 
-      quizUsed: 0,
 
-      quizDate: null,
 
-      demoProgress: {
+      freeTierProgress: {
 
         tabsVisited: new Set(),
 
@@ -1079,11 +1053,11 @@ function App() {
 
 
 
-  const [showTimeWarning, setShowTimeWarning] = useState(false);
-
-  const [showDemoSummary, setShowDemoSummary] = useState(false);
+  const [showFreeTierSummary, setShowFreeTierSummary] = useState(false);
 
   const [showExpirationWarning, setShowExpirationWarning] = useState(false);
+
+  const [showTrialEnded, setShowTrialEnded] = useState(false);
 
   const [aiDefaultView, setAiDefaultView] = useState("chat");
 
@@ -1096,66 +1070,9 @@ function App() {
   const [aiStudyAttachment, setAiStudyAttachment] = useState(null);
   const [aiStudyContext, setAiStudyContext] = useState(null);
 
-  const [showDemoTour, setShowDemoTour] = useState(false);
+  const [showFreeTierTour, setShowFreeTierTour] = useState(false);
 
   const [tourStep, setTourStep] = useState(0);
-
-  const [demoLocked, setDemoLocked] = useState(() => {
-
-    try {
-
-      const authRaw = localStorage.getItem("scholars-circle-auth");
-
-      let uid = localStorage.getItem("scholars-circle-current-user") || "guest";
-
-      if (authRaw) {
-
-        const authParsed = JSON.parse(authRaw);
-
-        uid = authParsed.authUser?.id || authParsed.authUser?.username || uid;
-
-      }
-
-      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
-
-      if (raw) {
-
-        const parsed = JSON.parse(raw);
-
-        const today = new Date().toDateString();
-
-        // Check if demo is locked due to time limit (same day)
-
-        if (parsed.demoLocked && parsed.demoLockedDate === today) {
-
-          return true;
-
-        }
-
-        // Check if time limit was reached (same day)
-
-        if (parsed.demoUsage?.sessionDate === today && parsed.demoUsage?.sessionTimeMinutes >= DEMO_LIMITS.dailyTimeLimit) {
-
-          return true;
-
-        }
-
-        // Check if quiz limit was reached (same day)
-
-        if (parsed.demoUsage?.quizDate === today && (parsed.demoUsage?.quizUsed || 0) >= DEMO_LIMITS.quizDaily) {
-
-          return true;
-
-        }
-
-      }
-
-    } catch { /* ignore */ }
-
-    return false;
-
-  });
-
 
 
 
@@ -1337,8 +1254,8 @@ function App() {
   useEffect(() => { ctxUserData.setLastActivity(lastActivity); }, [lastActivity]);
   useEffect(() => { ctxUI.setTab(tab); }, [tab]);
   useEffect(() => { ctxUI.setDarkMode(darkMode); }, [darkMode]);
-  useEffect(() => { ctxUI.setDemoMode(demoMode); }, [demoMode]);
-  useEffect(() => { ctxUI.setDemoUsage(demoUsage); }, [demoUsage]);
+  useEffect(() => { ctxUI.setFreeTierMode(freeTierMode); }, [freeTierMode]);
+  useEffect(() => { ctxUI.setFreeTierUsage(freeTierUsage); }, [freeTierUsage]);
   useEffect(() => { ctxUI.setProgressSubTab(progressSubTab); }, [progressSubTab]);
   useEffect(() => { ctxUI.setResourcesSubTab(resourcesSubTab); }, [resourcesSubTab]);
 
@@ -1347,6 +1264,11 @@ function App() {
 
   useEffect(() => {
     function openVoiceTutor(e) {
+      if (freeTierPhase() === "free" && !canUse("voiceTutor")) {
+        toast.error("Voice Tutor is a Premium feature. Upgrade to keep using it!");
+        setShowPaymentModal(true);
+        return;
+      }
       const resourceId = e.detail?.resourceId || null;
       setVoiceTutorResourceId(resourceId);
       setTab("voice-tutor");
@@ -1713,25 +1635,29 @@ function App() {
 
 
 
-        if (parsed.demoMode !== undefined) setDemoMode(parsed.demoMode);
+        setFreeTierMode(isFreeTier());
 
-        if (parsed.demoUsage) {
+        const migratedUsage = parsed.freeTierUsage || parsed.demoUsage;
 
-          setDemoUsage(prev => ({
+        if (migratedUsage) {
+
+          const migratedProgress = migratedUsage.freeTierProgress || migratedUsage.demoProgress || {};
+
+          setFreeTierUsage(prev => ({
 
             ...prev,
 
-            ...parsed.demoUsage,
+            ...migratedUsage,
 
-            demoProgress: {
+            freeTierProgress: {
 
-              ...prev.demoProgress,
+              ...prev.freeTierProgress,
 
-              tabsVisited: new Set(parsed.demoUsage.demoProgress?.tabsVisited || []),
+              tabsVisited: new Set(migratedProgress.tabsVisited || []),
 
-              featuresTried: new Set(parsed.demoUsage.demoProgress?.featuresTried || []),
+              featuresTried: new Set(migratedProgress.featuresTried || []),
 
-              achievements: parsed.demoUsage.demoProgress?.achievements || [],
+              achievements: migratedProgress.achievements || [],
 
             },
 
@@ -1805,81 +1731,42 @@ function App() {
 
 
 
-  // Track tab visits for demo achievements
+  // Track tab visits for free-tier achievements
 
   useEffect(() => {
 
-    if (!demoMode || !booted) return;
+    if (!freeTierMode || !booted) return;
 
-    setDemoUsage(prev => ({
+    setFreeTierUsage(prev => ({
 
       ...prev,
 
-      demoProgress: {
+      freeTierProgress: {
 
-        ...prev.demoProgress,
+        ...prev.freeTierProgress,
 
-        tabsVisited: new Set([...prev.demoProgress.tabsVisited, tab]),
+        tabsVisited: new Set([...prev.freeTierProgress.tabsVisited, tab]),
 
       },
 
     }));
 
-  }, [tab, demoMode, booted]);
+  }, [tab, freeTierMode, booted]);
 
 
 
-  // Track session time
-
+  // Track session time (drives the Free Tier summary's "Study Time" stat)
   useEffect(() => {
-
-    if (!demoMode || !booted) return;
-
+    if (!freeTierMode || !booted) return;
     const interval = setInterval(() => {
-
-      setDemoUsage(prev => {
-
+      setFreeTierUsage(prev => {
         const today = new Date().toDateString();
-
         const currentMinutes = prev.sessionDate === today ? prev.sessionTimeMinutes : 0;
-
-        const newMinutes = currentMinutes + 1;
-
-        // Show warning at 80% of daily limit
-
-        if (newMinutes === Math.floor(DEMO_LIMITS.dailyTimeLimit * 0.8)) {
-
-          setShowTimeWarning(true);
-
-        }
-
-        // Block at 100% of daily limit - lock demo
-
-        if (newMinutes >= DEMO_LIMITS.dailyTimeLimit) {
-
-          setShowTimeWarning(false);
-
-          setDemoLocked(true);
-
-        }
-
-        return {
-
-          ...prev,
-
-          sessionTimeMinutes: newMinutes,
-
-          sessionDate: today,
-
-        };
-
+        return { ...prev, sessionTimeMinutes: currentMinutes + 1, sessionDate: today };
       });
-
     }, 60000); // Every minute
-
     return () => clearInterval(interval);
-
-  }, [demoMode, booted]);
+  }, [freeTierMode, booted]);
 
 
 
@@ -1895,72 +1782,51 @@ function App() {
     else if (tab === "outline") { setResourcesSubTab("outline"); setTab("resources"); }
   }, [tab]);
 
-  // Initialize trial start date when demo mode is activated
+  // Activate the free-tier trial on entry + welcome tour on first activation
+  useEffect(() => {
+    if (!freeTierMode || !booted) return;
+    const isNewTrial = !loadState().trialStartDate;
+    enterFreeTier(); // idempotent — sets trialStartDate once
+    if (isNewTrial) setShowFreeTierTour(true);
+  }, [freeTierMode, booted]);
+
+  // Trial lifecycle: warn near expiry, show the one-time "trial ended" modal
+  useEffect(() => {
+    if (!freeTierMode || !booted) return;
+    const check = () => {
+      const phase = freeTierPhase();
+      if (phase === "trial" && trialDaysLeft() <= 1) setShowExpirationWarning(true);
+      if (phase === "free" && trialEndPending()) {
+        markTrialEndNotified();
+        setShowTrialEnded(true);
+      }
+    };
+    check();
+    const interval = setInterval(check, 60000); // catch expiry mid-session
+    return () => clearInterval(interval);
+  }, [freeTierMode, booted]);
+
+
+
+  // Check free-tier achievements
 
   useEffect(() => {
 
-    if (demoMode && !demoUsage.trialStartDate) {
+    if (!freeTierMode || !booted) return;
 
-      setDemoUsage(prev => ({
+    const earned = FREE_TIER_ACHIEVEMENTS.filter(a => 
 
-        ...prev,
-
-        trialStartDate: Date.now(),
-
-      }));
-
-      // Show tour on first demo activation
-
-      setShowDemoTour(true);
-
-    }
-
-  }, [demoMode, demoUsage.trialStartDate]);
-
-
-
-  // Check for trial expiration
-
-  useEffect(() => {
-
-    if (!demoMode || !demoUsage.trialStartDate) return;
-
-    const daysElapsed = (Date.now() - demoUsage.trialStartDate) / (1000 * 60 * 60 * 24);
-
-    const daysRemaining = DEMO_LIMITS.trialDays - daysElapsed;
-
-    // Show warning when 3 days or less remaining
-
-    if (daysRemaining <= 3 && daysRemaining > 0) {
-
-      setShowExpirationWarning(true);
-
-    }
-
-
-  }, [demoMode, demoUsage.trialStartDate]);
-
-
-
-  // Check demo achievements
-
-  useEffect(() => {
-
-    if (!demoMode || !booted) return;
-
-    const earned = DEMO_ACHIEVEMENTS.filter(a => 
-
-      a.check(demoUsage.demoProgress, demoUsage, demoUsage.demoProgress.achievements)
+      a.check(freeTierUsage.freeTierProgress, freeTierUsage, freeTierUsage.freeTierProgress.achievements)
 
     );
 
-    setDemoUsage(prev => ({
+    setFreeTierUsage(prev => ({
 
       ...prev,
 
-      demoProgress: {
+      freeTierProgress: {
 
-        ...prev.demoProgress,
+        ...prev.freeTierProgress,
 
         achievements: earned.map(a => a.id),
 
@@ -1968,23 +1834,23 @@ function App() {
 
     }));
 
-  }, [demoUsage, demoMode, booted]);
+  }, [freeTierUsage, freeTierMode, booted]);
 
 
 
   function trackFeatureTry(feature) {
 
-    if (!demoMode) return;
+    if (!freeTierMode) return;
 
-    setDemoUsage(prev => ({
+    setFreeTierUsage(prev => ({
 
       ...prev,
 
-      demoProgress: {
+      freeTierProgress: {
 
-        ...prev.demoProgress,
+        ...prev.freeTierProgress,
 
-        featuresTried: new Set([...prev.demoProgress.featuresTried, feature]),
+        featuresTried: new Set([...prev.freeTierProgress.featuresTried, feature]),
 
       },
 
@@ -2139,7 +2005,7 @@ function App() {
 
     } else {
 
-      // Demo/offline user: load from localStorage only
+      // Free-tier/offline user: load from localStorage only
 
       loadLocalState();
 
@@ -2590,9 +2456,9 @@ function App() {
 
 
 
-    // Don't save user data when no user is logged in AND not in demo mode
+    // Don't save user data when no user is logged in AND not on the free tier
 
-    if (!auth.user && !demoMode) return;
+    if (!auth.user && !freeTierMode) return;
 
 
 
@@ -2718,27 +2584,24 @@ function App() {
 
 
 
-        demoMode,
+        freeTierMode,
 
 
 
-        demoLocked,
-
-        demoLockedDate: demoLocked ? new Date().toDateString() : null,
 
 
 
-        demoUsage: {
+        freeTierUsage: {
 
-          ...demoUsage,
+          ...freeTierUsage,
 
-          demoProgress: {
+          freeTierProgress: {
 
-            tabsVisited: Array.from(demoUsage.demoProgress.tabsVisited),
+            tabsVisited: Array.from(freeTierUsage.freeTierProgress.tabsVisited),
 
-            featuresTried: Array.from(demoUsage.demoProgress.featuresTried),
+            featuresTried: Array.from(freeTierUsage.freeTierProgress.featuresTried),
 
-            achievements: demoUsage.demoProgress.achievements,
+            achievements: freeTierUsage.freeTierProgress.achievements,
 
           },
 
@@ -2754,11 +2617,11 @@ function App() {
 
 
 
-    // Also sync to backend if logged in (but not in demo mode)
+    // Also sync to backend if logged in (not for free-tier guests)
 
     // Skip sync when login/logout transition is in progress to prevent wiping data
 
-    if (token && !demoMode && !syncPausedRef.current) {
+    if (token && !freeTierMode && !syncPausedRef.current) {
 
 
 
@@ -2926,15 +2789,11 @@ function App() {
 
 
 
-    demoMode,
+    freeTierMode,
 
 
 
-    demoUsage,
-
-
-
-    demoLocked,
+    freeTierUsage,
 
 
 
@@ -3067,9 +2926,9 @@ function App() {
 
 
 
-      // Reset demo mode on successful login
+      // Reset free tier on successful login (the new account's own state loads next)
 
-      setDemoMode(false);
+      setFreeTierMode(false);
 
 
 
@@ -3135,9 +2994,9 @@ function App() {
 
 
 
-      // Check if this is a demo user (fallback for offline/demo mode)
+      // Offline test-user fallback (no backend reachable)
 
-      const hit = DEMO_USERS.find((u) => u.username === trimmedEmail && u.password === trimmedPassword);
+      const hit = TEST_USERS.find((u) => u.username === trimmedEmail && u.password === trimmedPassword);
 
 
 
@@ -3159,9 +3018,11 @@ function App() {
 
 
 
-      // Enable demo mode for demo users so their usage data persists
+      // Enable free tier for offline test users so their usage data persists
 
-      setDemoMode(true);
+      enterFreeTier();
+
+      setFreeTierMode(true);
 
 
 
@@ -3420,7 +3281,7 @@ function App() {
 
 
 
-      // Clear ALL localStorage to prevent inheriting demo data
+      // Clear ALL localStorage to prevent inheriting another account's data
 
       localStorage.clear();
 
@@ -3442,9 +3303,9 @@ function App() {
 
       clearUserState();
 
-      setDemoMode(false);
+      setFreeTierMode(false);
 
-      setDemoUsage({
+      setFreeTierUsage({
 
         aiMessages: 0,
 
@@ -3470,23 +3331,15 @@ function App() {
 
         pastPapersUsed: 0,
 
-        aiTutorMessages: 0,
 
-        trialStartDate: null,
 
-        aiStudyAssistantUsed: 0,
 
-        aiStudyAssistantDate: null,
 
-        lectureToNotesUsed: 0,
 
-        lectureToNotesDate: null,
 
-        quizUsed: 0,
 
-        quizDate: null,
 
-        demoProgress: {
+        freeTierProgress: {
 
           tabsVisited: new Set(),
 
@@ -3731,20 +3584,6 @@ function App() {
     if (result.score === result.total && result.total >= 5) {
 
       triggerCelebration('perfect', { score: result.score, total: result.total });
-
-    }
-
-
-
-    // Demo streak cap warning
-
-    if (demoMode && newStreak >= DEMO_LIMITS.maxStreak) {
-
-      setTimeout(() => {
-
-        toast.info(`🔥 Amazing! Demo streak limit of ${DEMO_LIMITS.maxStreak} days reached. Upgrade for unlimited!`);
-
-      }, 500);
 
     }
 
@@ -4085,9 +3924,9 @@ function App() {
 
     clearUserState();
 
-    setDemoMode(false);
+    setFreeTierMode(false);
 
-    setDemoLocked(false);
+    exitFreeTier();
 
 
 
@@ -4098,8 +3937,6 @@ function App() {
       "scholars-circle-auth",
 
       "scholars-circle-current-user",
-
-      "sc_demo_locked",
 
       "scholars-circle-heatmap",
 
@@ -4273,9 +4110,11 @@ function App() {
 
           toast.success("✅ Your account has been activated! Welcome aboard!");
 
-          // Exit demo mode so restrictions are lifted immediately
+          // Exit free tier so restrictions are lifted immediately
 
-          setDemoMode(false);
+          exitFreeTier();
+
+          setFreeTierMode(false);
 
         } else if (prevIsActivated === true && newIsActivated === false && !userIsTeacher) {
 
@@ -4285,9 +4124,11 @@ function App() {
 
           toast.error("Your account has been deactivated. Please contact your teacher.");
 
-          // Exit demo mode if active
+          // Exit free tier if active
 
-          setDemoMode(false);
+          exitFreeTier();
+
+          setFreeTierMode(false);
 
         }
 
@@ -4392,7 +4233,7 @@ function App() {
 
   useEffect(() => {
 
-    if (!token || !auth.user?.id || demoMode) return;
+    if (!token || !auth.user?.id || freeTierMode) return;
 
 
 
@@ -4471,7 +4312,7 @@ function App() {
     };
 
 
-  }, [token, auth.user?.id, demoMode]);
+  }, [token, auth.user?.id, freeTierMode]);
 
 
 
@@ -5571,51 +5412,7 @@ function App() {
 
 
 
-    // Check if demo is locked
-
-    if (demoMode && demoLocked) {
-
-      return;
-
-    }
-
-
-
-    // Check daily quiz limit for demo mode
-
-    if (demoMode) {
-
-      const today = new Date().toDateString();
-
-      const usedToday = demoUsage.quizDate === today ? demoUsage.quizUsed : 0;
-
-      if (usedToday >= DEMO_LIMITS.quizDaily) {
-
-        setDemoLocked(true);
-
-        return;
-
-      }
-
-    }
-
-
-
-    // Limit questions to 10 for demo users
-
     let finalPool = pool;
-
-    if (demoMode && pool.length > 10) {
-
-      finalPool = pool.slice(0, 10);
-
-      setTimeout(() => {
-
-        toast.info("Free Trial: Limited to 10 questions. Upgrade for unlimited!");
-
-      }, 300);
-
-    }
 
 
 
@@ -5651,17 +5448,11 @@ function App() {
 
 
 
-    if (demoMode) {
+    if (freeTierMode) {
 
-      const today = new Date().toDateString();
-
-      setDemoUsage(prev => ({
+      setFreeTierUsage(prev => ({
 
         ...prev,
-
-        quizUsed: prev.quizDate === today ? (prev.quizUsed || 0) + 1 : 1,
-
-        quizDate: today,
 
         practiceQuestions: prev.practiceQuestions + 1,
 
@@ -5683,36 +5474,6 @@ function App() {
 
 
 
-    // Check if demo is locked
-
-    if (demoMode && demoLocked) {
-
-      return;
-
-    }
-
-
-
-    // Check daily quiz limit for demo mode
-
-    if (demoMode) {
-
-      const today = new Date().toDateString();
-
-      const usedToday = demoUsage.quizDate === today ? demoUsage.quizUsed : 0;
-
-      if (usedToday >= DEMO_LIMITS.quizDaily) {
-
-        setDemoLocked(true);
-
-        return;
-
-      }
-
-    }
-
-
-
     const questions = SUBJECTS.map((s) => {
 
 
@@ -5729,19 +5490,7 @@ function App() {
 
 
 
-    // Limit to 10 questions for demo users
-
-    const finalQuestions = demoMode && questions.length > 10 ? questions.slice(0, 10) : questions;
-
-    if (demoMode && questions.length > 10) {
-
-      setTimeout(() => {
-
-        toast.info("Free Trial: Limited to 10 questions. Upgrade for unlimited!");
-
-      }, 300);
-
-    }
+    const finalQuestions = questions;
 
 
 
@@ -5749,17 +5498,11 @@ function App() {
 
 
 
-    if (demoMode) {
+    if (freeTierMode) {
 
-      const today = new Date().toDateString();
-
-      setDemoUsage(prev => ({
+      setFreeTierUsage(prev => ({
 
         ...prev,
-
-        quizUsed: prev.quizDate === today ? (prev.quizUsed || 0) + 1 : 1,
-
-        quizDate: today,
 
         practiceQuestions: prev.practiceQuestions + 1,
 
@@ -5789,7 +5532,7 @@ function App() {
 
 
 
-    const maxQuestions = demoMode ? 10 : 8;
+    const maxQuestions = 10;
 
 
 
@@ -5821,13 +5564,9 @@ function App() {
 
 
 
-    if (demoMode) {
+    if (freeTierMode) {
 
-      setTimeout(() => {
-
-        toast.info("Free Trial: Limited to 10 questions. Upgrade for unlimited!");
-
-      }, 300);
+      setFreeTierUsage(prev => ({ ...prev, practiceQuestions: prev.practiceQuestions + picked.length }));
 
     }
 
@@ -5847,17 +5586,11 @@ function App() {
 
   function startSpacedReview(questions) {
 
-    let cardsToReview = questions || dueCards;
+    const cardsToReview = questions || dueCards;
 
-    if (demoMode && cardsToReview.length > DEMO_LIMITS.maxSpacedReviewCards) {
+    if (freeTierMode) {
 
-      cardsToReview = cardsToReview.slice(0, DEMO_LIMITS.maxSpacedReviewCards);
-
-      setTimeout(() => {
-
-        toast.info(`Demo: Limited to ${DEMO_LIMITS.maxSpacedReviewCards} spaced review cards. Upgrade for unlimited!`);
-
-      }, 300);
+      setFreeTierUsage(prev => ({ ...prev, practiceQuestions: prev.practiceQuestions + cardsToReview.length }));
 
     }
 
@@ -5899,19 +5632,9 @@ function App() {
 
     
 
-    // Limit to 10 questions for demo users
+    // Cap the drill at 10 questions
 
-    const finalWeak = demoMode && weak.length > 10 ? weak.slice(0, 10) : weak;
-
-    if (demoMode && weak.length > 10) {
-
-      setTimeout(() => {
-
-        toast.info("Free Trial: Limited to 10 questions. Upgrade for unlimited!");
-
-      }, 300);
-
-    }
+    const finalWeak = weak.length > 10 ? weak.slice(0, 10) : weak;
 
 
 
@@ -5939,19 +5662,7 @@ function App() {
 
     
 
-    // Limit to 10 questions for demo users
-
-    const finalWrongs = demoMode && wrongs.length > 10 ? wrongs.slice(0, 10) : wrongs;
-
-    if (demoMode && wrongs.length > 10) {
-
-      setTimeout(() => {
-
-        toast.info("Free Trial: Limited to 10 questions. Upgrade for unlimited!");
-
-      }, 300);
-
-    }
+    const finalWrongs = wrongs;
 
 
 
@@ -6838,9 +6549,9 @@ function App() {
 
   // Gate: non-activated students see locked screen
 
-  console.log("[GATE CHECK] auth.user:", !!auth.user, "isActivated:", isActivated, "demoMode:", demoMode, "willLock:", auth.user && !isActivated && !demoMode);
+  console.log("[GATE CHECK] auth.user:", !!auth.user, "isActivated:", isActivated, "freeTierMode:", freeTierMode, "willLock:", auth.user && !isActivated && !freeTierMode);
 
-  if (auth.user && !isActivated && !demoMode) {
+  if (auth.user && !isActivated && !freeTierMode) {
 
     console.log("[GATE] Showing locked screen");
 
@@ -6980,7 +6691,7 @@ function App() {
 
           onLogout={logout}
 
-          onTryDemo={() => setDemoMode(true)}
+          onTryFreeTier={() => { enterFreeTier(); setFreeTierMode(true); }}
 
           onRefresh={refreshAuth}
 
@@ -7722,177 +7433,6 @@ function App() {
 
 
 
-      {showTimeWarning && demoMode && (
-
-        <div style={{
-
-          position: "fixed",
-
-          top: 20,
-
-          right: 20,
-
-          background: "rgba(239,68,68,0.95)",
-
-          color: "white",
-
-          padding: 16,
-
-          borderRadius: 8,
-
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-
-          zIndex: 1000,
-
-          maxWidth: 300
-
-        }}>
-
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>? Time Limit Warning</div>
-
-          <div style={{ fontSize: 13, marginBottom: 12 }}>
-
-            You've used {demoUsage.sessionTimeMinutes} of {DEMO_LIMITS.dailyTimeLimit} daily minutes. Upgrade for unlimited time.
-
-          </div>
-
-          <div style={{ display: "flex", gap: 8 }}>
-
-            <button
-
-              onClick={() => setShowTimeWarning(false)}
-
-              style={{ flex: 1, background: "rgba(255,255,255,0.2)", color: "white", border: "none", padding: "8px", borderRadius: 4, cursor: "pointer" }}
-
-            >
-
-              Dismiss
-
-            </button>
-
-            <button
-
-              onClick={() => { setShowTimeWarning(false); setShowPaymentModal(true); }}
-
-              style={{ flex: 1, background: "white", color: "#ef4444", border: "none", padding: "8px", borderRadius: 4, cursor: "pointer", fontWeight: 600 }}
-
-            >
-
-              Upgrade
-
-            </button>
-
-          </div>
-
-        </div>
-
-      )}
-
-
-
-      {showDemoSummary && demoMode && (
-
-        <div className="modal-overlay" onClick={() => setShowDemoSummary(false)}>
-
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
-
-            <h3 style={{ margin: "0 0 16px 0" }}>📊 Demo Summary</h3>
-
-            <div style={{ marginBottom: 20 }}>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-
-                <div style={{ background: "rgba(255,215,0,0.1)", padding: 12, borderRadius: 8 }}>
-
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>{demoUsage.demoProgress.achievements.length}/{DEMO_ACHIEVEMENTS.length}</div>
-
-                  <div style={{ fontSize: 12, marginTop: 4 }}>Achievements</div>
-
-                </div>
-
-                <div style={{ background: "rgba(52,211,153,0.1)", padding: 12, borderRadius: 8 }}>
-
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#34d399" }}>{demoUsage.demoProgress.tabsVisited.size}</div>
-
-                  <div style={{ fontSize: 12, marginTop: 4 }}>Tabs Visited</div>
-
-                </div>
-
-                <div style={{ background: "rgba(250,204,21,0.1)", padding: 12, borderRadius: 8 }}>
-
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#facc15" }}>{demoUsage.practiceQuestions}</div>
-
-                  <div style={{ fontSize: 12, marginTop: 4 }}>Questions</div>
-
-                </div>
-
-                <div style={{ background: "rgba(218,165,32,0.1)", padding: 12, borderRadius: 8 }}>
-
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#DAA520" }}>{demoUsage.sessionTimeMinutes}m</div>
-
-                  <div style={{ fontSize: 12, marginTop: 4 }}>Study Time</div>
-
-                </div>
-
-              </div>
-
-              <div style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>🎁 What You'll Get with Full Version:</div>
-
-                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
-
-                  <li>Unlimited practice questions & AI messages</li>
-
-                  <li>Advanced analytics & confidence heatmap</li>
-
-                  <li>Full subject library (all courses)</li>
-
-                  <li>No time limits - study as much as you want</li>
-
-                  <li>Export your data & progress</li>
-
-                  <li>Priority support & new features</li>
-
-                </ul>
-
-              </div>
-
-            </div>
-
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-
-              <button
-
-                onClick={() => setShowDemoSummary(false)}
-
-                style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
-
-              >
-
-                Continue Demo
-
-              </button>
-
-              <button
-
-                onClick={() => { setShowDemoSummary(false); setShowPaymentModal(true); }}
-
-                style={{ background: "#FFD700", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
-
-              >
-
-                Upgrade Now
-
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      )}
 
 
 
@@ -8038,121 +7578,16 @@ function App() {
 
 
 
-      {/* Demo Locked Screen - shown when time limit reached */}
-
-      {demoLocked && demoMode && (
-
-        <div className="modal-overlay" style={{ zIndex: 10000 }}>
-
-          <div role="dialog" aria-modal="true" aria-label="Daily time limit reached" className="modal-box" style={{ maxWidth: 500, textAlign: "center", background: "var(--card-bg, #232328)", border: "1px solid var(--border-color, #3a3a40)" }}>
-
-            <div style={{ fontSize: 64, marginBottom: 16 }}>📱</div>
-
-            <h2 style={{ margin: "0 0 12px 0", color: "var(--warning-color, #fbbf24)" }}>Daily Time Limit Reached</h2>
-
-            <p style={{ marginBottom: 20, lineHeight: 1.6, color: "var(--text-secondary, #cbd5e1)" }}>
-
-              You've used your {DEMO_LIMITS.dailyTimeLimit} minutes for today. Upgrade for unlimited access or wait until tomorrow!
-
-            </p>
-
-            <div style={{ background: "var(--success-bg, rgba(45,212,160,0.1))", borderRadius: 10, padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--success-border, rgba(45,212,160,0.3))" }}>
-
-              <strong style={{ color: "var(--success-text, #2dd4a0)", display: "block", marginBottom: 10 }}>? Upgrade for:</strong>
-
-              <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, fontSize: 12, color: "var(--text-primary, #f1f5f9)" }}>
-
-                <li>Unlimited study time</li>
-
-                <li>Unlimited quizzes & practice</li>
-
-                <li>Full subject library</li>
-
-                <li>AI Tutor & flashcards</li>
-
-              </ul>
-
-            </div>
-
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-
-              <button
-
-                onClick={() => {
-
-                  setShowPaymentModal(true);
-
-                }}
-
-                style={{ background: "var(--accent-color, #FFD700)", color: "white", fontWeight: 600, padding: "12px 24px", fontSize: 14, border: "none", borderRadius: 6, cursor: "pointer" }}
-
-              >
-
-                Upgrade Now
-
-              </button>
-
-              <button
-
-                onClick={() => {
-
-                  const tomorrow = new Date();
-
-                  tomorrow.setDate(tomorrow.getDate() + 1);
-
-                  tomorrow.setHours(0, 0, 0, 0);
-
-                  const hoursLeft = Math.ceil((tomorrow.getTime() - Date.now()) / (1000 * 60 * 60));
-
-                  toast.info(`Come back tomorrow! Limits reset in ~${hoursLeft} hours.`);
-
-                }}
-
-                style={{ background: "transparent", border: "1px solid var(--border-color, #3a3a40)", color: "var(--text-primary, #f1f5f9)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
-
-              >
-
-                Wait Till Tomorrow
-
-              </button>
-
-              <button
-
-                onClick={() => {
-
-                  if (confirm("Are you sure you want to log out? Your demo progress will be saved.")) {
-
-                    logout();
-
-                  }
-
-                }}
-
-                style={{ background: "var(--danger-bg, rgba(239,68,68,0.1))", border: "1px solid var(--danger-border, #ef4444)", color: "var(--danger-text, #fca5a5)", padding: "10px 20px", fontSize: 13, borderRadius: 6, cursor: "pointer" }}
-
-              >
-
-                Log Out
-
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      )}
 
 
 
-      {showDemoSummary && demoMode && !demoLocked && (
+      {showFreeTierSummary && freeTierMode && (
 
-        <div className="modal-overlay" onClick={() => setShowDemoSummary(false)}>
+        <div className="modal-overlay" onClick={() => setShowFreeTierSummary(false)}>
 
           <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
 
-            <h3 style={{ margin: "0 0 16px 0" }}>📊 Demo Summary</h3>
+            <h3 style={{ margin: "0 0 16px 0" }}>📊 Free Trial Summary</h3>
 
             <div style={{ marginBottom: 20 }}>
 
@@ -8160,7 +7595,7 @@ function App() {
 
                 <div style={{ background: "rgba(255,215,0,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>{demoUsage.demoProgress.achievements.length}/{DEMO_ACHIEVEMENTS.length}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#FFD700" }}>{freeTierUsage.freeTierProgress.achievements.length}/{FREE_TIER_ACHIEVEMENTS.length}</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Achievements</div>
 
@@ -8168,7 +7603,7 @@ function App() {
 
                 <div style={{ background: "rgba(52,211,153,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#34d399" }}>{demoUsage.demoProgress.tabsVisited.size}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#34d399" }}>{freeTierUsage.freeTierProgress.tabsVisited.size}</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Tabs Visited</div>
 
@@ -8176,7 +7611,7 @@ function App() {
 
                 <div style={{ background: "rgba(250,204,21,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#facc15" }}>{demoUsage.practiceQuestions}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#facc15" }}>{freeTierUsage.practiceQuestions}</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Questions</div>
 
@@ -8184,7 +7619,7 @@ function App() {
 
                 <div style={{ background: "rgba(218,165,32,0.1)", padding: 12, borderRadius: 8 }}>
 
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#DAA520" }}>{demoUsage.sessionTimeMinutes}m</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#DAA520" }}>{freeTierUsage.sessionTimeMinutes}m</div>
 
                   <div style={{ fontSize: 12, marginTop: 4 }}>Study Time</div>
 
@@ -8220,19 +7655,19 @@ function App() {
 
               <button
 
-                onClick={() => setShowDemoSummary(false)}
+                onClick={() => setShowFreeTierSummary(false)}
 
                 style={{ background: "transparent", color: "white", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
 
               >
 
-                Continue Demo
+                Continue Free
 
               </button>
 
               <button
 
-                onClick={() => { setShowDemoSummary(false); setShowPaymentModal(true); }}
+                onClick={() => { setShowFreeTierSummary(false); setShowPaymentModal(true); }}
 
                 style={{ background: "#FFD700", color: "white", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
 
@@ -8342,8 +7777,25 @@ function App() {
 
 
 
-      {showExpirationWarning && demoMode && demoUsage.trialStartDate && (
+      {freeTierMode && freeTierPhase() === "trial" && !showExpirationWarning && (
+        <button
+          onClick={() => setShowPaymentModal(true)}
+          style={{
+            position: "fixed", top: 12, right: 12, zIndex: 900,
+            background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.45)",
+            borderRadius: 999, padding: "6px 12px", cursor: "pointer",
+            fontSize: 12, fontWeight: 700, color: "#FFD700",
+            display: "flex", alignItems: "center", gap: 6,
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          ⏳ Trial: {trialDaysLeft()} {trialDaysLeft() === 1 ? "day" : "days"} left
+        </button>
+      )}
 
+
+
+      {showExpirationWarning && freeTierMode && freeTierPhase() === "trial" && (
         <div style={{
 
           position: "fixed",
@@ -8378,7 +7830,7 @@ function App() {
 
               <div style={{ fontSize: 13 }}>
 
-                Your {DEMO_LIMITS.trialDays}-day trial expires in {Math.max(0, Math.ceil(DEMO_LIMITS.trialDays - (Date.now() - demoUsage.trialStartDate) / (1000 * 60 * 60 * 24)))} days. Upgrade now to keep your progress!
+                Your {FREE_TIER_LIMITS.trialDays}-day free trial has {trialDaysLeft()} {trialDaysLeft() === 1 ? "day" : "days"} left. Upgrade now to keep full access!
 
               </div>
 
@@ -8404,7 +7856,46 @@ function App() {
 
 
 
-      {showDemoTour && demoMode && (
+      {showTrialEnded && freeTierMode && (
+        <div className="modal-overlay" style={{ zIndex: 3000 }}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <span style={{ fontSize: 40, display: "block", marginBottom: 8 }}>⏰</span>
+              <h3 style={{ margin: 0 }}>Your free trial has ended</h3>
+            </div>
+            <p style={{ fontSize: 14, lineHeight: 1.6, opacity: 0.85 }}>
+              Your {FREE_TIER_LIMITS.trialDays} days of full access are over — but you're not locked out. You keep a free plan with:
+            </p>
+            <ul style={{ fontSize: 13, lineHeight: 1.8, paddingLeft: 20, margin: "0 0 12px 0" }}>
+              <li>Survival Streak practice (paced by hearts)</li>
+              <li>{FREE_TIER_LIMITS.summariesTotal} AI Summaries & {FREE_TIER_LIMITS.mcqGensTotal} Rapid Recalls</li>
+              <li>{FREE_TIER_LIMITS.guidedStudiesTotal} Guided Study sessions</li>
+              <li>{FREE_TIER_LIMITS.aiTutorDaily} AI Tutor messages daily</li>
+            </ul>
+            <p style={{ fontSize: 13, lineHeight: 1.6, opacity: 0.85 }}>
+              Upgrade to restore unlimited Exam Simulator, Voice Tutor, unlimited summaries and more.
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+              <button
+                onClick={() => setShowTrialEnded(false)}
+                style={{ background: "transparent", color: "inherit", border: "1px solid rgba(255,255,255,0.3)", padding: "10px 20px", borderRadius: 6, cursor: "pointer" }}
+              >
+                Continue Free
+              </button>
+              <button
+                onClick={() => { setShowTrialEnded(false); setShowPaymentModal(true); }}
+                style={{ background: "#FFD700", color: "#111", border: "none", padding: "10px 20px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+              >
+                Upgrade Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
+      {showFreeTierTour && freeTierMode && (
 
         <div style={{
 
@@ -8448,11 +7939,11 @@ function App() {
 
             <div style={{ fontSize: 32, marginBottom: 16 }}>💯</div>
 
-            <h3 style={{ margin: "0 0 12px 0" }}>Welcome to Demo Mode!</h3>
+            <h3 style={{ margin: "0 0 12px 0" }}>Welcome to your Free Trial!</h3>
 
             <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 20, opacity: 0.8 }}>
 
-              Explore Scholar's Circle with limited access. Try different features to unlock demo achievements and see what the full version offers.
+              You have {FREE_TIER_LIMITS.trialDays} days of full access — Exam Simulator, AI Tutor, Voice Tutor, everything. After that you keep a free plan with daily limits.
 
             </p>
 
@@ -8468,7 +7959,7 @@ function App() {
 
                 <li>Use AI Tutor to explore smart learning</li>
 
-                <li>Check Settings to view your demo progress</li>
+                <li>Check Settings to view your free-tier progress</li>
 
               </ul>
 
@@ -8476,7 +7967,7 @@ function App() {
 
             <button
 
-              onClick={() => setShowDemoTour(false)}
+              onClick={() => setShowFreeTierTour(false)}
 
               style={{ width: "100%", background: "#FFD700", color: "white", border: "none", padding: "12px", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 14 }}
 
@@ -8945,7 +8436,7 @@ function App() {
 
               ["analytics", "Progress", BarChart3],
 
-            ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
+            ].filter(([id]) => !freeTierMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
 
               <button
 
@@ -9009,7 +8500,7 @@ function App() {
 
               ["resources", "Resources", BookOpen],
 
-            ].filter(([id]) => !demoMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
+            ].filter(([id]) => !freeTierMode || !["classroom"].includes(id)).map(([id, label, Icon]) => (
 
               <button
 
@@ -9209,6 +8700,12 @@ function App() {
           onOpenLearn={() => { setAiDefaultView("chat"); setAiStudyTopic(""); setAiKey(k => k + 1); setTab("aitutor"); }}
 
           onOpenStudy={(topic, mode, attachment, context) => {
+            if (freeTierPhase() === "free" && !canUse("guidedStudy")) {
+              toast.error(`Guided Study is limited to ${FREE_TIER_LIMITS.guidedStudiesTotal} sessions on the free plan. Upgrade for unlimited access!`);
+              setShowPaymentModal(true);
+              return;
+            }
+            if (freeTierPhase() === "free") consume("guidedStudy");
             setAiDefaultView("study"); setAiStudyTopic(topic || ""); setAiStudyMode(mode || "input"); setAiStudyAttachment(attachment || null); setAiStudyContext(context || null); setAiKey(k => k + 1); setTab("aitutor");
             if (mode === "auto-roadmap") {
               const outlineText = attachment?.content || "";
@@ -9281,54 +8778,16 @@ function App() {
 
       {tab === "lectures" && (
 
-        demoMode && (() => {
-
-          const today = new Date().toDateString();
-
-          const usedToday = demoUsage.lectureToNotesDate === today ? demoUsage.lectureToNotesUsed : 0;
-
-          return usedToday >= DEMO_LIMITS.lectureToNotesDaily;
-
-        })() ? (
-
-          <DemoLockedOverlay
-
-            title="Lecture to Notes"
-
-            description={`You've used your daily Lecture to Notes limit (${DEMO_LIMITS.lectureToNotesDaily}/day). Upgrade for unlimited access!`}
-
-            icon="⏱️"
-
-            features={["Unlimited lecture conversions", "AI-powered summaries", "Auto-generated flashcards", "Key term extraction"]}
-
-            showPlans={true}
-
+        <Suspense fallback={<TabSkeleton />}>
+          <LectureToNotes
+            subjects={subjects}
+            aiConfig={aiConfig}
+            onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
+            freeTierMode={freeTierMode}
+            freeTierUsage={freeTierUsage}
+            setFreeTierUsage={setFreeTierUsage}
           />
-
-        ) : (
-
-          <Suspense fallback={<TabSkeleton />}>
-          <>
-            {demoMode && (
-              <div style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.3)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 16 }}>⏱️</span>
-                  <span style={{ fontSize: 13 }}>Demo: {DEMO_LIMITS.lectureToNotesDaily - (demoUsage.lectureToNotesDate === new Date().toDateString() ? demoUsage.lectureToNotesUsed : 0)} Lecture to Notes use(s) remaining today.</span>
-                </div>
-              </div>
-            )}
-            <LectureToNotes
-              subjects={subjects}
-              aiConfig={aiConfig}
-              onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
-              demoMode={demoMode}
-              demoUsage={demoUsage}
-              setDemoUsage={setDemoUsage}
-            />
-          </>
-          </Suspense>
-
-        )
+        </Suspense>
 
       )}
 
@@ -9423,31 +8882,6 @@ function App() {
 
 
 
-          {demoMode && (
-
-            <>
-
-              <div className="demo-banner warning">
-
-                <span className="banner-icon">💡</span>
-
-                <span className="banner-text">Free Trial: Limited to 4 subjects. Upgrade for full access.</span>
-
-                <button className="banner-action" onClick={() => setShowPaymentModal(true)}>Upgrade</button>
-
-              </div>
-
-              <div className="demo-banner info">
-
-                <span className="banner-icon">💡</span>
-
-                <span className="banner-text">Demo: {Math.max(0, DEMO_LIMITS.quizDaily - (demoUsage.quizDate === new Date().toDateString() ? demoUsage.quizUsed : 0))} quiz(es) remaining today.</span>
-
-              </div>
-
-            </>
-
-          )}
 
 
 
@@ -9464,10 +8898,6 @@ function App() {
 
 
               let m = mastery[s.id] || 0;
-
-              const isCapped = demoMode && m > DEMO_LIMITS.masteryCap;
-
-              if (demoMode && m > DEMO_LIMITS.masteryCap) m = DEMO_LIMITS.masteryCap;
 
 
 
@@ -9503,7 +8933,7 @@ function App() {
 
 
 
-                      <circle cx="34" cy="34" r={r} fill="none" stroke={locked ? "#4f5a67" : isCapped ? "#facc15" : "#2dd4a0"} strokeWidth="4"
+                      <circle cx="34" cy="34" r={r} fill="none" stroke={locked ? "#4f5a67" : "#2dd4a0"} strokeWidth="4"
 
 
 
@@ -9527,11 +8957,11 @@ function App() {
 
 
 
-                    <strong>{s.label} {locked ? "🔒" : isCapped ? "⏳" : ""}</strong>
+                    <strong>{s.label} {locked ? "🔒" : ""}</strong>
 
 
 
-                    <span className="muted">{m}%{isCapped && " (Demo Cap)"}</span>
+                    <span className="muted">{m}%</span>
 
 
 
@@ -9555,19 +8985,6 @@ function App() {
 
 
 
-          {demoMode && subjects.some(s => (mastery[s.id] || 0) >= DEMO_LIMITS.masteryCap) && (
-
-            <div className="demo-banner warning" style={{ marginTop: 16 }}>
-
-              <span className="banner-icon">⚠️</span>
-
-              <span className="banner-text">Mastery capped at {DEMO_LIMITS.masteryCap}% in demo. Upgrade to unlock full mastery tracking!</span>
-
-              <button className="banner-action" onClick={() => setShowPaymentModal(true)}>Upgrade</button>
-
-            </div>
-
-          )}
 
 
 
@@ -9583,7 +9000,7 @@ function App() {
 
 
 
-            {demoMode ? (
+            {freeTierMode ? (
 
               <button
 
@@ -9687,11 +9104,7 @@ function App() {
 
 
 
-              {demoMode && dueCards.length > DEMO_LIMITS.maxSpacedReviewCards
-
-                ? `⏱ Spaced Review (${DEMO_LIMITS.maxSpacedReviewCards}/${dueCards.length}) ⏱`
-
-                : `Spaced Review (${dueCards.length})`}
+              {`Spaced Review (${dueCards.length})`}
 
 
 
@@ -9793,7 +9206,7 @@ function App() {
           isFaculty={isFaculty}
           authUser={auth.user}
           token={token}
-          demoMode={demoMode}
+          freeTierMode={freeTierMode}
           backendSubjects={backendSubjects}
           onImportQuestions={(rows) => setCustomQuestions((p) => [...p, ...rows])}
         />
@@ -9820,7 +9233,7 @@ function App() {
           setCustomFlashcards={setCustomFlashcards}
           token={token}
           mastery={mastery}
-          demoMode={demoMode}
+          freeTierMode={freeTierMode}
           resourcesSubTab={resourcesSubTab}
           setResourcesSubTab={setResourcesSubTab}
           outlineSubjectId={outlineSubjectId}
@@ -10002,8 +9415,8 @@ function App() {
           token={token}
           isActivated={isActivated}
           isFaculty={isFaculty}
-          demoMode={demoMode}
-          demoUsage={demoUsage}
+          freeTierMode={freeTierMode}
+          freeTierUsage={freeTierUsage}
           studentProfile={studentProfile}
           onLogout={logout}
           onReset={handleResetAll}
@@ -10032,6 +9445,11 @@ function App() {
           onExit={() => setTab(homeTab)}
           onStartExam={(session) => {
             if (!session?.questions?.length) return;
+            if (!canUse("exam")) {
+              toast.error("Exam Simulator is a Premium feature — upgrade to unlock it.");
+              setShowPaymentModal(true);
+              return;
+            }
             setActiveSession(session);
           }}
           onOpenResource={(shareToken, page) => {
