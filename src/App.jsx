@@ -7777,24 +7777,6 @@ function App() {
 
 
 
-      {freeTierMode && freeTierPhase() === "trial" && !showExpirationWarning && (
-        <button
-          onClick={() => setShowPaymentModal(true)}
-          style={{
-            position: "fixed", top: 12, right: 12, zIndex: 900,
-            background: "rgba(255,215,0,0.12)", border: "1px solid rgba(255,215,0,0.45)",
-            borderRadius: 999, padding: "6px 12px", cursor: "pointer",
-            fontSize: 12, fontWeight: 700, color: "#FFD700",
-            display: "flex", alignItems: "center", gap: 6,
-            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-          }}
-        >
-          ⏳ Trial: {trialDaysLeft()} {trialDaysLeft() === 1 ? "day" : "days"} left
-        </button>
-      )}
-
-
-
       {showExpirationWarning && freeTierMode && freeTierPhase() === "trial" && (
         <div style={{
 

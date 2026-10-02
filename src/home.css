@@ -70,6 +70,12 @@
 .hm-pill b { color: var(--hm-text); font-size: 11.5px; font-weight: 700; }
 .hm-pill.hm-gem { cursor: pointer; transition: .15s; font-family: var(--hm-font-mono); }
 .hm-pill.hm-gem:active { transform: scale(.95); }
+.hm-pill.hm-trial {
+  cursor: pointer; border-color: rgba(255,213,0,.45);
+  background: rgba(255,213,0,.10); color: var(--hm-muted);
+}
+.hm-pill.hm-trial b { color: #FFC55C; }
+.hm-pill.hm-trial:active { transform: scale(.95); }
 .hm-gicon {
   width: 32px; height: 32px; border-radius: 10px;
   background: rgba(13,17,26,.82);

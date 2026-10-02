@@ -1,7 +1,10 @@
 import { memo } from "react";
 import HIcon from "./HIcon.jsx";
+import { freeTierPhase, trialDaysLeft } from "../../lib/freeTier.js";
 
 function GameBar({ streak, save, onOpenShop, onOpenBoard, onOpenStats }) {
+  const inTrial = freeTierPhase() === "trial";
+  const daysLeft = inTrial ? trialDaysLeft() : 0;
   return (
     <div className="hm-gamebar">
       <div className="hm-gb-row">
@@ -12,6 +15,15 @@ function GameBar({ streak, save, onOpenShop, onOpenBoard, onOpenStats }) {
           <span className="hm-chip hm-freeze" title="Streak freezes">
             <HIcon name="freeze" size={11} /><b>{save.freezes}</b>
           </span>
+        )}
+        {inTrial && (
+          <button
+            className="hm-pill hm-trial"
+            title="Free trial — tap to upgrade"
+            onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}
+          >
+            ⏳<b>{daysLeft}d</b> trial
+          </button>
         )}
         <span className="hm-gb-sp" />
         <button className="hm-pill hm-gem" onClick={onOpenShop} title="Open rewards shop">
