@@ -1009,7 +1009,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     chatNearBottomRef.current = true;
 
     try {
-      await streamChatAnswer(firstPrompt, thumb, trimHistory(chatMessages), { page: pg });
+      await streamChatAnswer(firstPrompt, thumb, trimHistory(chatMessages, pg), { page: pg });
     } catch (err) {
       if (!err.stoppedByUser) setChatError(err.message || "Something went wrong reaching the AI.");
     } finally {
@@ -1162,10 +1162,13 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // Context caps: keep the last N turns, and only the most recent circled
   // image — older thumbs cost tokens on every turn and go stale quickly.
   const MAX_HISTORY_TURNS = 10;
-  const trimHistory = (msgs) => {
+  const trimHistory = (msgs, pageOfTurn) => {
     const recent = msgs.slice(-MAX_HISTORY_TURNS);
     let lastImg = -1;
-    recent.forEach((m, i) => { if (m.image) lastImg = i; });
+    // A circled image only stays in history while it matches THIS turn's page.
+    // After the student scrolls, a stale circle would anchor the model to the
+    // old page (the image outweighs fresh page text) — so it drops out.
+    recent.forEach((m, i) => { if (m.image && m.page === pageOfTurn) lastImg = i; });
     return recent.map((m, i) => ({
       role: m.role,
       content: m.content,
@@ -1439,7 +1442,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const promptWithContext = `${TUTOR_SYSTEM}${contextBlock}${navNote}\n\n---\n\n${trimmed}`;
 
     try {
-      await streamChatAnswer(promptWithContext, pageImage, trimHistory(chatMessages), { page: currentPage, sources: sourcePages });
+      await streamChatAnswer(promptWithContext, pageImage, trimHistory(chatMessages, currentPage), { page: currentPage, sources: sourcePages });
     } catch (err) {
       if (!err.stoppedByUser) setChatError(err.message || "Something went wrong. Try sending that again.");
     } finally {
@@ -1464,7 +1467,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setChatMessages((prev) => prev.slice(0, actualIdx + 1));
     setChatError(null);
     setChatLoading(true);
-    const historyForApi = trimHistory(chatMessages.slice(0, actualIdx));
+    const historyForApi = trimHistory(chatMessages.slice(0, actualIdx), lastUserMsg.page ?? currentPage);
     const msgPage = lastUserMsg.page ?? currentPage;
     let msgText = "";
     try { msgText = await getPageText(msgPage); } catch {}
@@ -1501,7 +1504,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     chatNearBottomRef.current = true;
 
     try {
-      await streamChatAnswer(firstPrompt, null, trimHistory(chatMessages), { page: result.page });
+      await streamChatAnswer(firstPrompt, null, trimHistory(chatMessages, result.page), { page: result.page });
     } catch (err) {
       if (!err.stoppedByUser) setChatError(err.message || "Something went wrong reaching the AI.");
     } finally {
