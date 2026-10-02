@@ -1072,14 +1072,13 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       && (screen === 'game' || screen === 'review')
       && (answered > 0 || streak > 0 || reviewMissedRef.current.length > 0);
     if (inRun) { setQuitTarget(target); return; }
-    if (target === 'exit' || isDaily) { onBack?.(); return; }
-    setScreen('home');
+    onBack?.();
   }
 
   function confirmQuit() {
     const target = quitTarget;
     setQuitTarget(null);
-    if (runEndedRef.current) { target === 'exit' ? onBack?.() : setScreen('home'); return; }
+    if (runEndedRef.current) { onBack?.(); return; }
     // Record the partial run so progress isn't silently discarded.
     runEndedRef.current = true;
     editSave((s) => { s.stats.runs += 1; });
