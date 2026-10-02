@@ -1131,14 +1131,25 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     // chat_mcq items are aggregate per-document cards fed by in-chat quiz
     // answers — they track document-level mastery but carry no question
     // content, so they must never surface as daily-review cards.
-    const where = { userId: req.user.sub, dueAt: { lte: now }, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] } };
+    const where = {
+      userId: req.user.sub,
+      dueAt: { lte: now },
+      resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
+      itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] },
+    };
     if (subjectFilter) where.subject = subjectFilter;
 
     // Fetch ALL due items (not just `limit`) so we can prioritize properly before capping
     const items = await prisma.pdfReviewItem.findMany({
       where,
       include: {
-        resource: { select: { id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true, mcqData: true, folderId: true, folder: { select: { id: true, name: true } } } },
+        resource: {
+          select: {
+            id: true, title: true, subject: true, shareToken: true, fileUrl: true, contentType: true, mcqData: true, folderId: true, uploadedBy: true,
+            folder: { select: { id: true, name: true } },
+            bookmarks: { where: { userId: req.user.sub }, take: 1, select: { folderId: true, folder: { select: { id: true, name: true } } } },
+          },
+        },
       },
       orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
     });
@@ -1193,12 +1204,17 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
       byTopic[key].push(item);
     }
 
-    // Group by folder for folder-tab navigation
+    // Group by folder for folder-tab navigation. Owned resources group under
+    // the resource's folder; bookmarked community resources group under the
+    // caller's bookmark folder (or "Community" when unfiled) — the resource's
+    // own folderId belongs to the uploader, not the reviewer.
     const byFolder = {};
     for (const item of enriched) {
-      const folderId = item.resource?.folderId || null;
-      const folderName = item.resource?.folder?.name || "Unfiled";
-      const key = folderId || "__unfiled__";
+      const owned = item.resource?.uploadedBy === req.user.sub;
+      const bookmark = item.resource?.bookmarks?.[0];
+      const folderId = owned ? (item.resource?.folderId || null) : (bookmark?.folderId || null);
+      const folderName = owned ? (item.resource?.folder?.name || "Unfiled") : (bookmark?.folder?.name || "Community");
+      const key = folderId || (owned ? "__unfiled__" : "__community__");
       if (!byFolder[key]) {
         byFolder[key] = { folderId, folderName, items: [], dueCount: 0 };
       }
@@ -1226,7 +1242,11 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
   try {
     const now = new Date();
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, resource: { folderId: { not: null } }, itemType: { notIn: ["page", "whole_pdf", "flashcard"] } },
+      where: {
+        userId: req.user.sub,
+        resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
+        itemType: { notIn: ["page", "whole_pdf", "flashcard"] },
+      },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
     });
 
@@ -1306,7 +1326,11 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
     since.setDate(since.getDate() - days);
 
     const items = await prisma.pdfReviewItem.findMany({
-      where: { userId: req.user.sub, itemType: { notIn: ["page", "whole_pdf", "flashcard"] } },
+      where: {
+        userId: req.user.sub,
+        resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
+        itemType: { notIn: ["page", "whole_pdf", "flashcard"] },
+      },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true },
     });
 
@@ -2046,7 +2070,7 @@ router.get("/fsrs/due-mcqs", requireAuth, async (req, res) => {
       userId: req.user.sub,
       itemType: { in: ["mcq", "legacy_mcq"] },
       dueAt: { lte: now },
-      resource: { folderId: { not: null } },
+      resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
     };
 
     if (subject) {
@@ -2106,6 +2130,7 @@ router.get("/fsrs/weak-topics", requireAuth, async (req, res) => {
     const where = {
       userId: req.user.sub,
       itemType: { in: ["mcq", "legacy_mcq"] },
+      resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
     };
 
     if (subject) {
