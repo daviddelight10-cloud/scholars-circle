@@ -2,13 +2,13 @@ import { useState } from "react";
 import PaystackPop from "@paystack/inline-js";
 import "./settings/settings.css";
 import { toast } from "../components/Toast";
-import { PLANS, getPlan, planLabel, naira } from "../lib/plans";
+import { PLANS, getPlan, planLabel, naira, waPaymentProofLink } from "../lib/plans";
 import ExitPill from "../components/ExitPill.jsx";
 
 const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_2c321f6a4471b672ee716506912ede6f6f99d8cd";
 const OPAY_ACCOUNT = "9069372522";
 const OPAY_NAME = "Zibiri-David Delight Aluaye";
-const WHATSAPP_LINK = "https://wa.link/yj2em4";
+const WHATSAPP_LINK = "https://wa.me/2349028617178";
 
 export default function PremiumPage({ user, token, isActivated, onActivated, onNavigate, onBack }) {
   const [selectedPlan, setSelectedPlan] = useState("semester");
@@ -96,13 +96,7 @@ export default function PremiumPage({ user, token, isActivated, onActivated, onN
 
   function handleTransferConfirm() {
     if (!plan) return;
-    const message = encodeURIComponent(
-      `Hi, I've made a transfer for the ${plan.label} plan (${naira(plan.price)}).\n\n` +
-      `My Activation Key: ${activationKey}\n` +
-      `Amount Paid: ${naira(plan.price)}\n\n` +
-      `Here's my payment proof:`
-    );
-    window.open(`${WHATSAPP_LINK}?text=${message}`, "_blank");
+    window.open(waPaymentProofLink(selectedPlan, user), "_blank");
     toast.info("📱 Opening WhatsApp. Send your receipt — activation within 2 hours.");
   }
 

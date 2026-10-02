@@ -72,7 +72,7 @@ import {
   FREE_TIER_ACHIEVEMENTS, API_BASE, PRIMARY_TABS, TAB_LABELS, BARE_TABS,
   LECTURER_ALLOWED_TABS, LECTURER_HOME_TAB,
 } from "./lib/constants";
-import { PLANS, getPlan, naira } from "./lib/plans.js";
+import { PLANS, getPlan, naira, waPaymentProofLink } from "./lib/plans.js";
 import {
   isFreeTier, freeTierPhase, trialDaysLeft, trialEndPending, markTrialEndNotified,
   enterFreeTier, exitFreeTier, canUse, consume, loadState,
@@ -6530,7 +6530,7 @@ function App() {
               {/* Support */}
               <div style={{ marginTop: 20, textAlign: 'center' }}>
                 <p style={{ fontSize: '0.82rem', color: '#646E84' }}>
-                  Need help? <a href="https://wa.link/yj2em4?text=Hi%20Scholar's%20Circle%20team,%20I%20need%20help%20with%20my%20account." target="_blank" rel="noopener noreferrer" style={{ color: '#25D366', fontWeight: 600 }}>WhatsApp us</a> or <a href="tel:09028617178" style={{ color: '#FFD700', fontWeight: 600 }}>call 09028617178</a>
+                  Need help? <a href={`https://wa.me/2349028617178?text=${encodeURIComponent("Hi Scholar's Circle team, I need help with my account.")}`} target="_blank" rel="noopener noreferrer" style={{ color: '#25D366', fontWeight: 600 }}>WhatsApp us</a> or <a href="tel:09028617178" style={{ color: '#FFD700', fontWeight: 600 }}>call 09028617178</a>
                 </p>
               </div>
 
@@ -7554,7 +7554,7 @@ function App() {
                         Activation key: <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fbbf24", letterSpacing: 1 }}>{auth.user?.activationKey || "N/A"}</span>
                       </div>
                       <a
-                        href={`https://wa.link/yj2em4?text=${encodeURIComponent(`Hi, I've paid for ${getPlan(selectedPlan)?.label || selectedPlan} plan. Key: ${auth.user?.activationKey || "N/A"}. Proof:`)}`}
+                        href={waPaymentProofLink(selectedPlan, auth.user)}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{

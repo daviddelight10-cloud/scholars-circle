@@ -21,3 +21,23 @@ export function planLabel(id) {
 export function naira(n) {
   return "₦" + Number(n).toLocaleString();
 }
+
+export const WHATSAPP_NUMBER = "2349028617178";
+
+// Builds a WhatsApp deep-link pre-filled with payment details so support can
+// match a bank transfer to the right account without a back-and-forth.
+export function waPaymentProofLink(planId, user) {
+  const plan = getPlan(planId);
+  const lines = [
+    "Hi Scholar's Circle team, I've made a bank transfer for Premium.",
+    "",
+    `Plan: ${plan ? plan.label : planId}`,
+    `Amount: ${plan ? naira(plan.price) : "—"}`,
+    `Activation key: ${user?.activationKey || "—"}`,
+  ];
+  const name = user?.fullName || user?.username;
+  if (name) lines.push(`Name: ${name}`);
+  if (user?.email) lines.push(`Email: ${user.email}`);
+  lines.push("", "Payment proof attached below 👇");
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`;
+}

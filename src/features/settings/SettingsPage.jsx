@@ -13,7 +13,7 @@ const NotificationSettings = lazy(() =>
   import("../NotificationCenter.jsx").then((m) => ({ default: m.NotificationSettings }))
 );
 
-const WHATSAPP_LINK = "https://wa.link/yj2em4";
+const WHATSAPP_LINK = "https://wa.me/2349028617178";
 const SUPPORT_PHONE = "09028617178";
 
 export default function SettingsPage({
