@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useUI } from "../../contexts/UIContext.jsx";
 import HIcon from "./HIcon.jsx";
 import { lapsedSubjects } from "../../lib/homeUtils.js";
 import { levelProgress } from "../../features/streak-survival/survivalStore.js";
@@ -19,12 +20,20 @@ function initials(name) {
 }
 
 function Sheet({ open, onClose, children }) {
+  const { setMobileNavHidden } = useUI();
   const [shown, setShown] = useState(false);
   useEffect(() => {
     if (!open) return;
     const raf = requestAnimationFrame(() => setShown(true));
     return () => { cancelAnimationFrame(raf); setShown(false); };
   }, [open]);
+  // Sheets live inside #root, whose fixed children lose z-order to the
+  // body-level mobile nav on iOS — unmount the nav while a sheet is open.
+  useEffect(() => {
+    if (!open) return;
+    setMobileNavHidden(true);
+    return () => setMobileNavHidden(false);
+  }, [open, setMobileNavHidden]);
   if (!open) return null;
   return (
     <>

@@ -15,6 +15,7 @@ import WelcomeSheet from "./home/WelcomeSheet.jsx";
 import { ShopSheet, BoardSheet, StatsSheet, GoalSheet } from "./home/HomeSheets.jsx";
 import HIcon from "./home/HIcon.jsx";
 import { useDailyWelcome } from "../hooks/useDailyWelcome.js";
+import { useUI } from "../contexts/UIContext.jsx";
 import { API_BASE } from "../lib/constants";
 import "../home.css";
 
@@ -54,6 +55,7 @@ export default function Dashboard({
   onStartSubject, onOpenTab, onOpenLeaderboard, onOpenStats,
   onOpenAI, onOpenLearn, onOpenStudy, onOpenResource, token, authUser,
 }) {
+  const { setMobileNavHidden } = useUI();
   const [fsrsStats, setFsrsStats] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sc_fsrs_stats") || "null")?.data ?? null; } catch { return null; }
   });
@@ -89,6 +91,14 @@ export default function Dashboard({
   }, []);
 
   useEffect(() => { fetchFsrsStats(); }, [fetchFsrsStats]);
+
+  // Daily Review is a fullscreen overlay inside #root — hide the body-level
+  // mobile nav so it can't cover the grade buttons on iOS.
+  useEffect(() => {
+    if (!showDailyReview) return;
+    setMobileNavHidden(true);
+    return () => setMobileNavHidden(false);
+  }, [showDailyReview, setMobileNavHidden]);
 
   // Day-rollover for quests (resets progress at local midnight)
   useEffect(() => { tickDay(); setSave({ ...loadSave() }); }, []);
