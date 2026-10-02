@@ -71,7 +71,7 @@ function resolveMcqCorrect(raw, options) {
   if (typeof v === "number") v = String.fromCharCode(65 + v);
   const s = String(v ?? "").trim();
   if (!s) return null;
-  const decorated = s.match(/^[\(\[]?([A-Da-d])[)\].:\s-]/);
+  const decorated = s.match(/^[([]?([A-Da-d])[)\].:\s-]/);
   const letter = decorated ? decorated[1].toUpperCase() : s.toUpperCase().charAt(0);
   if (options[letter]?.trim()) return letter;
   const want = normText(s);
