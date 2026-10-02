@@ -10,11 +10,11 @@ export default function PricingSection() {
       price: '₦0',
       period: 'forever',
       features: [
-        'Access to basic practice modes',
-        'Limited medical questions per day',
+        'Basic practice modes',
+        'Limited questions per day',
         'Community forum access',
-        'Basic progress tracking',
-        'Mobile access'
+        'Progress tracking',
+        'Works on your phone'
       ],
       highlight: false,
       ctaText: 'Get Started'
@@ -24,15 +24,15 @@ export default function PricingSection() {
       price: isAnnual ? '₦2,400' : '₦700',
       period: isAnnual ? 'month' : 'week',
       features: [
-        'Unlimited medical practice questions',
-        'AI Medical Tutor access',
+        'Unlimited practice questions',
+        'AI Tutor with Circle to Ask',
+        'Voice Tutor — learn hands-free',
         'Clinical case simulations',
-        'OSCE prep stations',
         'Drug reference & lab values',
-        'Advanced flashcards with spaced repetition',
-        'Detailed analytics & insights',
-        'Weak area focus mode',
-        'Gamification (XP, streaks, medical badges)',
+        'Smart review — remembers what you\'ll forget',
+        'Detailed progress analytics',
+        'Weak-area focus mode',
+        'XP, streaks & study leaderboard',
         'Priority support',
         'Offline access for clinical rotations'
       ],
@@ -46,42 +46,52 @@ export default function PricingSection() {
       features: [
         'All Premium features',
         'Unlimited student accounts',
-        'Clinical educator dashboard',
-        'Medical question bank management',
+        'Educator dashboard',
+        'Question bank management',
         'Clinical case authoring tools',
         'Campus communication tools',
-        'Assignment & OSCE management',
+        'Assignment management',
         'Custom branding',
-        'Dedicated support',
-        'API access'
+        'Dedicated support'
       ],
       highlight: false,
-      ctaText: 'Contact Sales'
+      ctaText: 'Contact Us'
     }
   ];
+
+  const gold = '#F5A623';
 
   return (
     <section id="pricing" style={{
       padding: '80px 16px',
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #0D0E18 100%)'
+      background: 'linear-gradient(180deg, #0a0a0a 0%, #0d0c08 100%)',
+      fontFamily: 'Manrope, sans-serif'
     }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: '64px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '56px' }}>
+          <span style={{
+            fontFamily: 'Manrope, sans-serif', fontSize: '0.8rem', fontWeight: 800,
+            color: gold, letterSpacing: '0.1em', textTransform: 'uppercase',
+            marginBottom: 14, display: 'block'
+          }}>Pricing</span>
           <h2 style={{
-            fontSize: 'clamp(1.875rem, 4vw, 3rem)',
+            fontSize: 'clamp(1.875rem, 4vw, 2.6rem)',
             fontWeight: 700,
             color: '#fff',
-            marginBottom: '16px'
+            marginBottom: '14px',
+            fontFamily: 'Sora, sans-serif',
+            letterSpacing: '-0.02em'
           }}>
-            Simple, Transparent Pricing
+            Simple pricing, no surprises
           </h2>
           <p style={{
-            color: '#94a3b8',
-            fontSize: '1.125rem',
-            maxWidth: '600px',
-            margin: '0 auto 32px'
+            color: '#A8B0C4',
+            fontSize: '1.1rem',
+            maxWidth: '560px',
+            margin: '0 auto 32px',
+            lineHeight: 1.65
           }}>
-            Choose the plan that works best for you. Upgrade or downgrade anytime.
+            Start free. Upgrade when you need unlimited practice — downgrade anytime.
           </p>
 
           {/* Toggle */}
@@ -89,23 +99,25 @@ export default function PricingSection() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '16px'
+            gap: '14px'
           }}>
             <span style={{
               fontSize: '14px',
-              color: !isAnnual ? '#fff' : '#94a3b8'
+              fontWeight: 700,
+              color: !isAnnual ? '#fff' : '#707A90'
             }}>
               Weekly
             </span>
             <button
               onClick={() => setIsAnnual(!isAnnual)}
+              aria-label="Toggle annual billing"
               style={{
                 position: 'relative',
-                width: '56px',
+                width: '54px',
                 height: '28px',
                 borderRadius: '14px',
                 transition: 'background 0.3s',
-                background: isAnnual ? '#3D7EFF' : '#3a3a40',
+                background: isAnnual ? gold : '#2c2c30',
                 border: 'none',
                 cursor: 'pointer'
               }}
@@ -123,12 +135,13 @@ export default function PricingSection() {
             </button>
             <span style={{
               fontSize: '14px',
-              color: isAnnual ? '#fff' : '#94a3b8'
+              fontWeight: 700,
+              color: isAnnual ? '#fff' : '#707A90'
             }}>
               Annual
             </span>
             {isAnnual && (
-              <span style={{ fontSize: '12px', color: '#22c55e', marginLeft: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 800, color: '#3DD68C', marginLeft: '6px' }}>
                 Save 15%
               </span>
             )}
@@ -137,99 +150,99 @@ export default function PricingSection() {
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '32px',
-          maxWidth: '900px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '22px',
+          maxWidth: '960px',
           margin: '0 auto'
         }}>
           {plans.map((plan, index) => (
             <div key={index} style={{
               position: 'relative',
-              background: 'linear-gradient(145deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.5))',
-              border: plan.highlight 
-                ? '1px solid rgba(255, 215, 0, 0.5)' 
-                : '1px solid rgba(51, 65, 85, 0.5)',
-              borderRadius: '16px',
-              padding: '32px',
-              transition: 'all 0.3s',
-              boxShadow: plan.highlight 
-                ? '0 10px 40px rgba(255, 215, 0, 0.2)' 
+              background: 'linear-gradient(145deg, rgba(23, 23, 27, 0.9), rgba(13, 13, 14, 0.9))',
+              border: plan.highlight
+                ? `1px solid rgba(245, 166, 35, 0.55)`
+                : '1px solid rgba(255, 255, 255, 0.09)',
+              borderRadius: '18px',
+              padding: '30px',
+              transition: 'transform 0.2s ease, border-color 0.2s ease',
+              boxShadow: plan.highlight
+                ? '0 12px 44px rgba(245, 166, 35, 0.14)'
                 : 'none'
             }}>
               {plan.highlight && (
                 <div style={{
                   position: 'absolute',
-                  top: '-12px',
+                  top: '-13px',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  background: 'linear-gradient(135deg, #3D7EFF, #6E4AFF)',
-                  color: '#fff',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  padding: '4px 16px',
+                  background: `linear-gradient(135deg, #FFD700, ${gold})`,
+                  color: '#1A1300',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  padding: '5px 16px',
                   borderRadius: '20px'
                 }}>
                   MOST POPULAR
                 </div>
               )}
-              <h3 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', marginBottom: '6px', fontFamily: 'Sora, sans-serif' }}>
                 {plan.title}
               </h3>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '24px' }}>
-                <span style={{ fontSize: '36px', fontWeight: 700, color: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', marginBottom: '24px' }}>
+                <span style={{ fontSize: '2.1rem', fontWeight: 800, color: plan.highlight ? gold : '#fff', fontFamily: 'Sora, sans-serif' }}>
                   {plan.price}
                 </span>
-                <span style={{ color: '#94a3b8' }}>/ {plan.period}</span>
+                <span style={{ color: '#707A90', fontSize: '0.9rem' }}>/ {plan.period}</span>
               </div>
-              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px', lineHeight: 2 }}>
+              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 28px', lineHeight: 1.9 }}>
                 {plan.features.map((feature, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', color: '#cbd5e1', fontSize: '14px' }}>
-                    <span style={{ color: '#22c55e', marginTop: '2px' }}>✓</span>
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#C6CCDC', fontSize: '0.92rem' }}>
+                    <span style={{ color: '#3DD68C', marginTop: '2px', fontWeight: 800, flexShrink: 0 }}>✓</span>
                     <span>{feature}</span>
                   </li>
                 ))}
               </ul>
               {plan.title === 'Institution' ? (
-                <button
-                  onClick={() => {
-                    const contactSection = document.querySelector('#pricing');
-                    if (contactSection) {
-                      contactSection.scrollIntoView({ behavior: 'smooth' });
-                    }
-                  }}
+                <a
+                  href="https://wa.me/2349028617178"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
                     display: 'block',
                     width: '100%',
-                    padding: '12px 24px',
+                    padding: '13px 24px',
                     borderRadius: '12px',
-                    fontWeight: 600,
-                    transition: 'all 0.3s',
-                    border: 'none',
+                    fontWeight: 800,
+                    transition: 'all 0.2s',
+                    border: '1px solid rgba(255,255,255,0.14)',
                     cursor: 'pointer',
-                    background: '#3a3a40',
+                    background: 'rgba(255,255,255,0.06)',
                     color: '#fff',
                     textDecoration: 'none',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    fontSize: '0.95rem'
                   }}
                 >
-                  {plan.ctaText}
-                </button>
+                  {plan.ctaText} →
+                </a>
               ) : (
                 <Link to="/signup" style={{
                   display: 'block',
                   width: '100%',
-                  padding: '12px 24px',
+                  padding: '13px 24px',
                   borderRadius: '12px',
-                  fontWeight: 600,
-                  transition: 'all 0.3s',
-                  border: 'none',
+                  fontWeight: 800,
+                  transition: 'all 0.2s',
                   cursor: 'pointer',
                   background: plan.highlight
-                    ? 'linear-gradient(135deg, #3D7EFF, #6E4AFF)'
-                    : '#3a3a40',
-                  color: '#fff',
+                    ? `linear-gradient(135deg, #FFD700, ${gold})`
+                    : 'rgba(255,255,255,0.06)',
+                  border: plan.highlight ? 'none' : '1px solid rgba(255,255,255,0.14)',
+                  color: plan.highlight ? '#1A1300' : '#fff',
                   textDecoration: 'none',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  fontSize: '0.95rem'
                 }}>
                   {plan.ctaText}
                 </Link>
@@ -238,9 +251,9 @@ export default function PricingSection() {
           ))}
         </div>
 
-        <div style={{ marginTop: '48px', textAlign: 'center' }}>
-          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
-            Need a custom plan for your institution?
+        <div style={{ marginTop: '44px', textAlign: 'center' }}>
+          <p style={{ color: '#A8B0C4', fontSize: '0.95rem', marginBottom: '16px' }}>
+            Need a custom plan for your school or department?
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <a
@@ -248,16 +261,16 @@ export default function PricingSection() {
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                padding: '10px 24px',
+                padding: '11px 22px',
                 background: 'linear-gradient(135deg, #25D366, #128C7E)',
                 color: '#fff',
-                fontWeight: 600,
+                fontWeight: 800,
                 borderRadius: '10px',
                 textDecoration: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontSize: '14px'
+                fontSize: '0.9rem'
               }}
             >
               WhatsApp
@@ -265,23 +278,24 @@ export default function PricingSection() {
             <a
               href="mailto:dsilearn1@gmail.com"
               style={{
-                padding: '10px 24px',
-                background: 'linear-gradient(135deg, #3D7EFF, #6E4AFF)',
+                padding: '11px 22px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.14)',
                 color: '#fff',
-                fontWeight: 600,
+                fontWeight: 800,
                 borderRadius: '10px',
                 textDecoration: 'none',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontSize: '14px'
+                fontSize: '0.9rem'
               }}
             >
               Email Us
             </a>
           </div>
-          <p style={{ color: '#64748b', fontSize: '12px' }}>
-            All prices are in Nigerian Naira (₦). Taxes may apply.
+          <p style={{ color: '#707A90', fontSize: '0.78rem', marginTop: '18px' }}>
+            All prices in Nigerian Naira (₦). Taxes may apply.
           </p>
         </div>
       </div>
