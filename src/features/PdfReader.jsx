@@ -1407,7 +1407,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
           if (docSlice) ctxParts.push(`[Pages ${from}–${to}]\n${docSlice.slice(0, 8000)}`);
         } catch {}
       } else {
-        ctxParts.push(`[Current page ${currentPage}]\n${pageTextRef.current.slice(0, 3500)}`);
+        ctxParts.push(`[Current page ${currentPage} — the student is viewing THIS page now]\n${pageTextRef.current.slice(0, 3500)}`);
         // Grounding: non-quiz questions also get the document pages that best
         // match the query, so "what does chapter 3 say about X" has real context.
         if (!isQuizIntent) {
@@ -1430,7 +1430,13 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       : pageImage
         ? "\n\nThe current page is attached as an image — this PDF has no text layer, so answer from the image."
         : "";
-    const promptWithContext = `${TUTOR_SYSTEM}${contextBlock}\n\n---\n\n${trimmed}`;
+    // Anchoring fix: history still discusses the earlier page — tell the model
+    // the student moved, so "this"/"here"/"this page" bind to the new page.
+    const lastUserPage = [...chatMessages].reverse().find((m) => m.role === "user")?.page;
+    const navNote = lastUserPage != null && lastUserPage !== currentPage
+      ? `\n\nNOTE: The student has scrolled to page ${currentPage} since your last exchange — "this", "here", "this page" now refer to page ${currentPage}, not the earlier discussion.`
+      : "";
+    const promptWithContext = `${TUTOR_SYSTEM}${contextBlock}${navNote}\n\n---\n\n${trimmed}`;
 
     try {
       await streamChatAnswer(promptWithContext, pageImage, trimHistory(chatMessages), { page: currentPage, sources: sourcePages });
