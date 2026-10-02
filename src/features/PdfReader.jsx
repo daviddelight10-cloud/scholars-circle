@@ -367,6 +367,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pageItemRefs = useRef([]);
   const pageCanvasRefs = useRef([]);
   const observerRef = useRef(null);
+  const pageVrRef = useRef(new Map());
   const [visiblePages, setVisiblePages] = useState(new Set([1]));
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const zoomIndicatorTimerRef = useRef(null);
@@ -2122,10 +2123,15 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         // partially visible neighbours "invisible" (no render window, no circle).
         const rb = entry.rootBounds;
         const ir = entry.intersectionRect;
-        const vr = scrollMode === "horizontal"
-          ? ir.width / (rb?.width || 1)
-          : ir.height / (rb?.height || 1);
-        if (entry.isIntersecting && vr >= 0.1) {
+        const vr = entry.isIntersecting
+          ? (scrollMode === "horizontal"
+            ? ir.width / (rb?.width || 1)
+            : ir.height / (rb?.height || 1))
+          : 0;
+        // Persist per-page ratios — entries only include pages whose
+        // intersection changed, so the incumbent's ratio must come from the map.
+        pageVrRef.current.set(pg, vr);
+        if (vr >= 0.1) {
           newVisible.add(pg);
           if (vr > maxRatio) {
             maxRatio = vr;
@@ -2135,7 +2141,12 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       });
       if (newVisible.size > 0) {
         setVisiblePages((prev) => new Set([...prev, ...newVisible]));
-        if (maxRatio >= 0.5 && mostVisiblePage !== currentPage) {
+        // Most-visible wins — no fixed 0.5 gate, which froze currentPage when
+        // several pages shared the viewport (zoomed out, short/landscape pages,
+        // boundary scroll) and left AI chat context pages behind. 8% hysteresis
+        // stops flip-flopping while parked on a page boundary.
+        const incumbentVr = pageVrRef.current.get(currentPage) || 0;
+        if (mostVisiblePage !== currentPage && maxRatio >= incumbentVr + 0.08) {
           setCurrentPage(mostVisiblePage);
         }
       }
