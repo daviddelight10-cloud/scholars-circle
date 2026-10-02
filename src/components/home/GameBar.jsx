@@ -3,8 +3,8 @@ import HIcon from "./HIcon.jsx";
 import { freeTierPhase, trialDaysLeft } from "../../lib/freeTier.js";
 
 function GameBar({ streak, save, onOpenShop, onOpenBoard, onOpenStats }) {
-  const inTrial = freeTierPhase() === "trial";
-  const daysLeft = inTrial ? trialDaysLeft() : 0;
+  const phase = freeTierPhase(); // 'trial' | 'free' | null (paid)
+  const daysLeft = phase === "trial" ? trialDaysLeft() : 0;
   return (
     <div className="hm-gamebar">
       <div className="hm-gb-row">
@@ -16,13 +16,22 @@ function GameBar({ streak, save, onOpenShop, onOpenBoard, onOpenStats }) {
             <HIcon name="freeze" size={11} /><b>{save.freezes}</b>
           </span>
         )}
-        {inTrial && (
+        {phase === "trial" && (
           <button
             className="hm-pill hm-trial"
             title="Free trial — tap to upgrade"
             onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}
           >
             ⏳<b>{daysLeft}d</b> trial
+          </button>
+        )}
+        {phase === "free" && (
+          <button
+            className="hm-pill hm-free"
+            title="Free plan — tap to upgrade"
+            onClick={() => window.dispatchEvent(new CustomEvent("sc-open-premium"))}
+          >
+            💎 Free
           </button>
         )}
         <span className="hm-gb-sp" />

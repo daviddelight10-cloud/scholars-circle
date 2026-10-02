@@ -76,6 +76,10 @@
 }
 .hm-pill.hm-trial b { color: #FFC55C; }
 .hm-pill.hm-trial:active { transform: scale(.95); }
+.hm-pill.hm-free {
+  cursor: pointer; opacity: .72; transition: .15s;
+}
+.hm-pill.hm-free:active { transform: scale(.95); }
 .hm-gicon {
   width: 32px; height: 32px; border-radius: 10px;
   background: rgba(13,17,26,.82);
