@@ -11,6 +11,7 @@ function loadPosts() {
     const raw = fs.readFileSync(path.join(POSTS_DIR, filename), 'utf-8');
     const { data: frontmatter, content } = matter(raw);
     const slug = filename.replace(/\.md$/, '');
+    const words = content.trim().split(/\s+/).length;
     return {
       slug,
       title: frontmatter.title || slug,
@@ -18,7 +19,7 @@ function loadPosts() {
       excerpt: frontmatter.excerpt || '',
       tags: frontmatter.tags || [],
       ogImage: frontmatter.ogImage || null,
-      readingTime: frontmatter.readingTime || null,
+      readingTime: frontmatter.readingTime || Math.max(1, Math.round(words / 200)),
       content,
     };
   }).sort((a, b) => new Date(b.date) - new Date(a.date));

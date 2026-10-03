@@ -3,8 +3,7 @@ title: "How to Use Spaced Repetition for WAEC, NECO and JAMB"
 date: "2026-08-09"
 excerpt: "Spaced repetition is the most evidence-backed study technique. Here's how to apply it to Nigerian exams like WAEC, NECO and JAMB."
 tags: ["study-tips", "spaced-repetition", "exam-prep"]
-ogImage: "/blog/images/how-to-use-spaced-repetition-for-waec-neco-jamb.png"
-readingTime: 3
+ogImage: "/blog/images/science-of-spaced-repetition.png"
 ---
 
 If you've ever read a chapter three times and still blanked on exam day, you're not alone. The problem isn't your memory — it's **how** you're reviewing. To understand why this works, read [The Science of Spaced Repetition](/blog/science-of-spaced-repetition).
@@ -49,6 +48,10 @@ Scholar's Circle uses **FSRS** — the modern spaced-repetition scheduler Anki a
 - The algorithm calculates when to show the item next
 - Items you struggle with appear more frequently
 - Items you know cold get spaced further apart
+
+![A review card in Scholar's Circle showing the next scheduled review date](/images/showcase/survival.jpg)
+
+*The engine in action — answer a question and it schedules your next review automatically.*
 
 ## Practical Tips
 

@@ -25,7 +25,7 @@ export default function BlogList() {
 
       <header style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,10,10,0.78)', backdropFilter: 'blur(14px)', borderBottom: `1px solid ${line}` }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 72 }}>
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'Sora, sans-serif', fontWeight: 800, fontSize: '1.15rem', color: text }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: gold, boxShadow: `0 0 0 4px rgba(245,166,35,0.14)` }} />
             Scholar's Circle
           </Link>
@@ -36,7 +36,7 @@ export default function BlogList() {
       <section style={{ padding: '64px 0 32px' }}>
         <div className="wrap" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
           <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem', fontWeight: 600, color: blue, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14, display: 'block' }}>Scholar's Circle Blog</span>
-          <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, fontFamily: 'Syne, sans-serif', marginBottom: 16 }}>Study smarter, not harder.</h1>
+          <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, fontFamily: 'Sora, sans-serif', marginBottom: 16 }}>Study smarter, not harder.</h1>
           <p style={{ color: textDim, fontSize: '1.1rem', maxWidth: 580 }}>Evidence-backed study tips, exam prep guides, and the science behind how your brain actually learns.</p>
         </div>
       </section>
@@ -45,13 +45,19 @@ export default function BlogList() {
         <div className="wrap" style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
           <div className="blog-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 22 }}>
             {posts.map(post => (
-              <Link key={post.slug} to={`/blog/${post.slug}`} className="blog-card" style={{ background: inkCard, border: `1px solid ${line}`, borderRadius: 18, padding: 28, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Link key={post.slug} to={`/blog/${post.slug}`} className="blog-card" style={{ background: inkCard, border: `1px solid ${line}`, borderRadius: 18, overflow: 'hidden', padding: 0, display: 'flex', flexDirection: 'column' }}>
+                {post.ogImage && (
+                  <div style={{ height: 150, overflow: 'hidden', borderBottom: `1px solid ${line}` }}>
+                    <img src={post.ogImage} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                )}
+                <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {post.tags.map(tag => (
                     <span key={tag} style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', color: textDim, border: `1px solid ${lineStrong}`, borderRadius: 999, padding: '3px 9px' }}>{tag}</span>
                   ))}
                 </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: text }}>{post.title}</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'Sora, sans-serif', color: text }}>{post.title}</h2>
                 <p style={{ color: textDim, fontSize: '0.92rem', flex: 1 }}>{post.excerpt}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: `1px solid ${line}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -61,6 +67,7 @@ export default function BlogList() {
                     )}
                   </div>
                   <span style={{ fontSize: '0.82rem', fontWeight: 600, color: gold }}>Read more →</span>
+                </div>
                 </div>
               </Link>
             ))}

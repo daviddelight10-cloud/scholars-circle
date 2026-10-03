@@ -4,7 +4,6 @@ date: "2026-08-07"
 excerpt: "Why does cramming feel productive but fail on exam day? The answer lies in how your brain actually stores memories."
 tags: ["study-tips", "spaced-repetition", "science"]
 ogImage: "/blog/images/science-of-spaced-repetition.png"
-readingTime: 3
 ---
 
 You've been there. Exam is tomorrow. You read the entire textbook in one sitting. You feel prepared. Then you open the question paper and... nothing.

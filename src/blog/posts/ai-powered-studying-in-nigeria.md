@@ -3,8 +3,7 @@ title: "The Ultimate Guide to AI-Powered Studying in Nigeria"
 date: "2026-08-08"
 excerpt: "AI is transforming how Nigerian students learn. From generating practice questions to explaining diagrams, here's everything you need to know."
 tags: ["ai", "study-tips", "technology"]
-ogImage: "/blog/images/ai-powered-studying-in-nigeria.png"
-readingTime: 3
+ogImage: "/images/showcase/circle-mark.jpg"
 ---
 
 Artificial intelligence is no longer just a buzzword — it's a practical tool that can transform how you study. And you don't need an expensive subscription to benefit from it.
@@ -28,6 +27,14 @@ Ever stared at a diagram in your textbook and wished someone could explain it? W
 - Lasso any line, diagram, or paragraph in your PDF
 - Ask a question about that specific content
 - Get an explanation grounded in that exact page
+
+![Drawing a circle around a diagram in a lecture PDF](/images/showcase/circle-mark.jpg)
+
+*Circle the part of your notes you don't understand…*
+
+![The AI explaining the circled diagram in plain language](/images/showcase/circle-answer.jpg)
+
+*…and get an answer grounded in that exact page.*
 
 ### 3. Adaptive Learning
 
