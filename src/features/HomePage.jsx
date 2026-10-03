@@ -9,10 +9,20 @@ const TESTIMONIALS = [
 ];
 
 const FEATURES = [
+  { icon: '👥', title: 'Study live with friends', desc: 'Drop a 6-letter code in the group chat — up to 8 friends answer the same questions at the same time, with voice chat, XP wagers, and whoever got it right teaching the rest.' },
   { icon: '⭕', title: 'Ask your notes anything', desc: 'Circle any diagram, table, or paragraph in your lecture PDF and get an answer grounded in that exact page — like leaning over to ask the sharpest person in your study group.' },
+  { icon: '🎓', title: 'Sit the exam before the exam', desc: 'Timed mock exams built from your own materials — then a results summary that shows exactly which topics failed you, before the real CBT does.' },
   { icon: '🧠', title: 'Review at the right moment', desc: 'A smart review engine tracks everything you\'ve practiced and brings back exactly what you\'re about to forget — not what you already know cold.' },
   { icon: '🔥', title: 'Practice that feels like a game', desc: 'Hearts, combos, XP and streaks turn revision into something you actually want to open at midnight — not something you dread before exams.' },
   { icon: '📚', title: 'Your department\'s shelf', desc: 'Past questions and shared materials for Medicine, Nursing, Pharmacy, Physiology and more — filtered to your department and level.' },
+];
+
+const SHOWCASE = [
+  { img: '/images/showcase/circle-mark.jpg', tag: 'Circle to Ask', caption: 'Draw a circle around anything in your PDF' },
+  { img: '/images/showcase/circle-answer.jpg', tag: 'Circle to Ask', caption: 'Get an answer grounded in that exact page' },
+  { img: '/images/showcase/live-lobby.jpg', tag: 'Live with friends', caption: 'Share a code — everyone answers together, with voice' },
+  { img: '/images/showcase/exam-results.jpg', tag: 'Exam simulator', caption: 'See exactly which topics failed you — before the real exam' },
+  { img: '/images/showcase/survival.jpg', tag: 'Streak Survival', caption: 'Hearts, XP and streaks keep you coming back' },
 ];
 
 const TIMELINE = [
@@ -47,6 +57,7 @@ function useInView(threshold = 0.15) {
 
 export default function HomePage() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showCta, setShowCta] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrollPct, setScrollPct] = useState(0);
   const [ringAnimated, setRingAnimated] = useState(false);
@@ -65,6 +76,7 @@ export default function HomePage() {
       const max = root.scrollHeight - root.clientHeight;
       setScrollPct(max > 0 ? (root.scrollTop / max) * 100 : 0);
       setIsScrolled(root.scrollTop > 30);
+      setShowCta(root.scrollTop > 700 && max - root.scrollTop > 400);
     };
     if (root) {
       root.addEventListener('scroll', onScroll, { passive: true });
@@ -177,6 +189,17 @@ export default function HomePage() {
 
         .feature-card { transition: border-color 0.2s ease, transform 0.2s ease; }
         .feature-card:hover { border-color: ${lineStrong}; transform: translateY(-2px); }
+
+        .showcase-scroll { display: flex; gap: 18px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding: 4px 28px 20px; }
+        .showcase-scroll::-webkit-scrollbar { display: none; }
+        .shot-card { flex: 0 0 220px; scroll-snap-align: start; }
+        .shot-frame { border-radius: 22px; overflow: hidden; border: 1px solid ${lineStrong}; background: #000; box-shadow: 0 18px 44px rgba(0,0,0,0.45); }
+        .shot-frame img { display: block; width: 100%; height: auto; }
+        @media (min-width: 1100px) { .shot-card { flex: 0 0 236px; } .showcase-scroll { justify-content: center; overflow-x: visible; flex-wrap: wrap; } }
+
+        .sticky-cta { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 55; display: none; }
+        @media (max-width: 900px) { .sticky-cta.show { display: flex; } }
+        @media (min-width: 901px) { .sticky-cta { display: none !important; } }
 
         @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr !important; gap: 48px !important; } .hero-visual { height: 280px; order: -1; } .nav-links { display: none !important; } .nav-actions { display: none !important; } .menu-btn { display: flex !important; } }
         @media (min-width: 901px) { .menu-btn { display: none !important; } .mobile-menu { display: none !important; } }
@@ -321,9 +344,31 @@ export default function HomePage() {
 
           {/* Ticker */}
           <div style={{ marginTop: 54, paddingTop: 22, borderTop: `1px solid ${line}`, display: 'flex', gap: 28, flexWrap: 'wrap', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem', color: textFaint }}>
-            <span><span className="pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: green, marginRight: 7, boxShadow: `0 0 0 3px rgba(61,214,140,0.18)` }} /><b style={{ color: textDim }}>1,284</b> practice questions answered this week</span>
-            <span><b style={{ color: textDim }}>96</b> study groups active right now</span>
-            <span><b style={{ color: textDim }}>12</b> health-science programs, one shared shelf</span>
+            <span><span className="pulse-dot" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: green, marginRight: 7, boxShadow: `0 0 0 3px rgba(61,214,140,0.18)` }} /><b style={{ color: textDim }}>Free forever</b> — no card, no catch</span>
+            <span><b style={{ color: textDim }}>2-day full trial</b> of every premium feature</span>
+            <span>Built by MBBS students at <b style={{ color: textDim }}>LCU</b></span>
+          </div>
+        </div>
+      </section>
+
+      {/* See it in action — real screenshots */}
+      <section style={{ padding: '72px 0', background: inkSoft, borderTop: `1px solid ${line}`, borderBottom: `1px solid ${line}` }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+          <div style={{ ...wrapStyle, maxWidth: 640, marginBottom: 36, textAlign: 'left' }}>
+            <span style={eyebrow}>Straight from the app</span>
+            <h2 style={h2Style}>See it in action.</h2>
+            <p style={{ color: textDim, marginTop: 12, fontSize: '1.05rem' }}>Real screens, real questions, real group sessions — no mockups.</p>
+          </div>
+          <div className="showcase-scroll">
+            {SHOWCASE.map((s, i) => (
+              <div key={i} className="shot-card">
+                <div className="shot-frame">
+                  <img src={s.img} alt={`${s.tag} — ${s.caption}`} loading="lazy" />
+                </div>
+                <p style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: gold, marginTop: 12 }}>{s.tag}</p>
+                <p style={{ fontSize: '0.9rem', color: textDim, lineHeight: 1.5, marginTop: 4 }}>{s.caption}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -584,6 +629,22 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Sticky mobile CTA — appears after hero, hides near footer */}
+      {isMobile && (
+        <div className={`sticky-cta${showCta && !menuOpen ? ' show' : ''}`}>
+          <Link to="/signup" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            width: '100%', padding: '13px 18px 13px 20px', borderRadius: 999,
+            background: `linear-gradient(135deg, ${goldBright}, ${gold})`,
+            color: '#1A1300', fontWeight: 800, fontSize: '0.95rem',
+            boxShadow: '0 12px 32px rgba(245,166,35,0.35)',
+          }}>
+            <span>Start free — full access for 2 days</span>
+            <span style={{ fontSize: '1.1rem' }}>→</span>
+          </Link>
+        </div>
+      )}
     </main>
   );
 }
