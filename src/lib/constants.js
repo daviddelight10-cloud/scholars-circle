@@ -70,9 +70,10 @@ export const BARE_TABS = [
 ];
 
 // Simplified experience for LECTURER role: only these destinations exist
-export const LECTURER_NAV_TABS = ["research-hub", "aitutor", "discuss", "profile", "settings"];
-// Reachable but not in nav: voice-tutor is launched from materials inside Space
-export const LECTURER_ALLOWED_TABS = [...LECTURER_NAV_TABS, "voice-tutor"];
+export const LECTURER_NAV_TABS = ["research-hub", "aitutor", "insights", "profile", "settings"];
+// Reachable but not in nav: voice-tutor launches from materials; discuss stays
+// reachable so DM deep-links still open the conversation view.
+export const LECTURER_ALLOWED_TABS = [...LECTURER_NAV_TABS, "voice-tutor", "discuss"];
 export const LECTURER_HOME_TAB = "research-hub";
 
 export const TAB_LABELS = {
@@ -91,4 +92,5 @@ export const TAB_LABELS = {
   "drug-ref": "💊 Drug Reference", "lab-values": "🧪 Lab Values",
   "medical-calculators": "🧮 Med Calculators",
   "voice-tutor": "🎙️ Voice Tutor",
+  insights: "📊 Insights",
 };

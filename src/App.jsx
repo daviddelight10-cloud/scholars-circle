@@ -114,6 +114,7 @@ const ResearchHub = lazyWithRetry(() => import("./features/research-hub/Research
 
 const ResourceViewer = lazyWithRetry(() => import("./features/ResourceViewer"));
 const TeacherResourcesHub = lazyWithRetry(() => import("./features/TeacherResourcesHub"));
+const LecturerInsights = lazyWithRetry(() => import("./features/LecturerInsights"));
 const AdminDashboard = lazyWithRetry(() => import("./features/AdminDashboard"));
 const Lecturers = lazyWithRetry(() => import("./features/Lecturers/index.jsx"));
 const LecturerProfileEditor = lazyWithRetry(() => import("./features/Lecturers/LecturerProfileEditor.jsx").then(m => ({ default: m.LecturerProfileEditor })));
@@ -7964,6 +7965,23 @@ function App() {
 
         </button>
 
+        {isLecturerRole ? (
+        <button
+
+          className={tab === "insights" ? "active" : ""}
+
+          onClick={() => setTab("insights")}
+
+          title="Insights"
+
+        >
+
+          <BarChart3 size={20} className="nav-icon" />
+
+          <span className="nav-label">Insights</span>
+
+        </button>
+        ) : (
         <button
 
           className={tab === "discuss" ? "active" : ""}
@@ -7979,6 +7997,7 @@ function App() {
           <span className="nav-label">Feed</span>
 
         </button>
+        )}
 
         {isLecturerRole && (
         <>
@@ -8300,7 +8319,7 @@ function App() {
 
               ["aitutor", "AI Tutor", Bot],
 
-              ["discuss", "Feed", MessageCircle],
+              ["insights", "Insights", BarChart3],
 
               ["profile", "Profile", User],
 
@@ -9473,6 +9492,18 @@ function App() {
           onDeepLinkHandled={() => setFeedDeepLink(null)}
           onOpenResource={(shareToken, page) => { setHomeViewerPage(page || null); setHomeViewerReturnTab("research-hub"); setHomeViewerToken(shareToken); }}
         />
+        </Suspense>
+      )}
+
+      {tab === "insights" && isLecturerRole && (
+        <Suspense fallback={<TabSkeleton />}>
+        <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
+          <div style={{ marginBottom: 20 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#e8eaf6", marginBottom: 6 }}>📊 Your Impact</h1>
+            <p style={{ fontSize: 13, color: "#7b82b8" }}>How students are engaging with your materials</p>
+          </div>
+          <LecturerInsights token={token} />
+        </div>
         </Suspense>
       )}
 
