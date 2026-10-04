@@ -70,7 +70,7 @@ export const BARE_TABS = [
 ];
 
 // Simplified experience for LECTURER role: only these destinations exist
-export const LECTURER_NAV_TABS = ["research-hub", "aitutor", "insights", "profile", "settings"];
+export const LECTURER_NAV_TABS = ["research-hub", "aitutor", "insights", "discuss", "profile", "settings"];
 // Reachable but not in nav: voice-tutor launches from materials; discuss stays
 // reachable so DM deep-links still open the conversation view.
 export const LECTURER_ALLOWED_TABS = [...LECTURER_NAV_TABS, "voice-tutor", "discuss"];

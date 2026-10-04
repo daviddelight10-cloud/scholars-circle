@@ -7981,7 +7981,7 @@ function App() {
           <span className="nav-label">Insights</span>
 
         </button>
-        ) : (
+        ) : null}
         <button
 
           className={tab === "discuss" ? "active" : ""}
@@ -7997,7 +7997,6 @@ function App() {
           <span className="nav-label">Feed</span>
 
         </button>
-        )}
 
         {isLecturerRole && (
         <>
@@ -8320,6 +8319,8 @@ function App() {
               ["aitutor", "AI Tutor", Bot],
 
               ["insights", "Insights", BarChart3],
+
+              ["discuss", "Feed", MessageCircle],
 
               ["profile", "Profile", User],
 
