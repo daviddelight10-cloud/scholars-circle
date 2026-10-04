@@ -9297,7 +9297,7 @@ function App() {
 
       {tab === "teacher-resources" && (
         <Suspense fallback={<TabSkeleton />}>
-        <TeacherResourcesHub onBack={() => setTab(homeTab)} />
+        <TeacherResourcesHub onBack={() => setTab(homeTab)} isLecturer={isLecturerRole} />
         </Suspense>
       )}
 

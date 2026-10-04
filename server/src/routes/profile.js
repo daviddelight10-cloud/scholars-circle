@@ -24,7 +24,12 @@ router.get("/", requireAuth, async (req, res) => {
       },
     });
 
-    res.json({ profile, userDept });
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+      select: { role: true },
+    });
+
+    res.json({ profile, userDept, role: user?.role || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

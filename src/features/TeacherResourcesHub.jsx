@@ -11,7 +11,7 @@ import ShareSheet from "./ShareSheet";
 import { API_BASE } from "../lib/constants";
 
 
-export default function TeacherResourcesHub({ onBack } = {}) {
+export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const lastFetchKey = useRef("");
@@ -65,7 +65,11 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     try { return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}"); } catch { return {}; }
   }, []);
   const authToken = auth.authToken || "";
-  const isLecturer = auth.authUser?.role === "LECTURER";
+  const [apiRole, setApiRole] = useState(null);
+  // Prop wins (App knows the role reliably); then storage, then /api/profile
+  const isLecturer = isLecturerProp !== undefined
+    ? isLecturerProp
+    : String(auth.authUser?.role || "").toUpperCase() === "LECTURER" || apiRole === "LECTURER";
   const [collapsedUnis, setCollapsedUnis] = useState({});
 
   useEffect(() => {
@@ -89,6 +93,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     try {
       const data = await getMyProfile();
       if (data?.profile) setUserProfile(data.profile);
+      if (data?.role) setApiRole(data.role);
     } catch {}
   };
 
