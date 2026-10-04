@@ -4,6 +4,7 @@ import { callAI, extractJSON } from "../../lib/aiClient";
 import { getSubjectBadgeColor } from "../../lib/researchUtils";
 import { getDepartments } from "../../lib/departments.js";
 import { getMyProfile } from "../../lib/profileApi.js";
+import { listFolders } from "../../lib/foldersApi";
 import { API_BASE } from "../../lib/constants";
 
 
@@ -22,11 +23,15 @@ export default function ResourceUploadForm() {
   });
   const [departments, setDepartments] = useState([]);
   const [selectedDeptIds, setSelectedDeptIds] = useState([]);
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]); // bulk upload queue
+  const [fileResults, setFileResults] = useState({}); // name -> "ok"|"err:msg"|"uploading"
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [userProfile, setUserProfile] = useState(null);
+  const [folders, setFolders] = useState([]);
+  const [selectedFolderId, setSelectedFolderId] = useState("");
+  const [existingFiles, setExistingFiles] = useState([]); // for duplicate warning
 
   // MCQ Builder state
   const [mcqMode, setMcqMode] = useState("manual"); // manual | ai
@@ -48,6 +53,15 @@ export default function ResourceUploadForm() {
     getMyProfile().then((data) => {
       if (data?.profile) setUserProfile(data.profile);
     }).catch(() => {});
+    listFolders().then((d) => setFolders(d.own || [])).catch(() => {});
+    // Existing uploads — for duplicate warnings
+    try {
+      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+      fetch(`${API_BASE}/api/resources/teacher/my`, { headers: { Authorization: `Bearer ${authData.authToken}` } })
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rs) => setExistingFiles(rs.map((r) => ({ t: (r.title || "").toLowerCase(), f: (r.fileName || "").toLowerCase() }))))
+        .catch(() => {});
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -81,15 +95,47 @@ export default function ResourceUploadForm() {
   };
 
   const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      if (selectedFile.size > 50 * 1024 * 1024) {
-        setError("File exceeds 50MB limit");
-        setFile(null);
-        return;
-      }
-      setFile(selectedFile);
-      setError("");
+    const picked = Array.from(e.target.files || []);
+    if (!picked.length) return;
+    const ok = picked.filter((f) => f.size <= 50 * 1024 * 1024);
+    if (ok.length < picked.length) setError(`${picked.length - ok.length} file(s) skipped — over the 50MB limit`);
+    else setError("");
+    setFiles((prev) => [...prev, ...ok]);
+    setFileResults({});
+    e.target.value = ""; // allow re-selecting the same file
+  };
+
+  // Duplicate warning: same title or file already uploaded
+  const duplicateNames = new Set(
+    existingFiles.flatMap((r) => [r.t, r.f].filter(Boolean))
+  );
+  const dupWarnings = files.filter((f) => duplicateNames.has(f.name.toLowerCase()));
+
+  const uploadOne = async (f, title) => {
+    const fd = new FormData();
+    fd.append("title", title);
+    fd.append("subject", formData.subject);
+    fd.append("contentType", formData.contentType.toLowerCase().replace(" ", "_"));
+    fd.append("description", formData.description);
+    fd.append("isPremium", formData.isPremium);
+    if (selectedDeptIds.length > 0) fd.append("departmentIds", JSON.stringify(selectedDeptIds));
+    if (formData.level) fd.append("level", formData.level);
+    if (formData.semester) fd.append("semester", formData.semester);
+    if (formData.courseCode) fd.append("courseCode", formData.courseCode);
+    if (formData.tags) fd.append("tags", JSON.stringify(formData.tags.split(",").map((t) => t.trim()).filter(Boolean)));
+    if (userProfile?.universityId) fd.append("universityId", userProfile.universityId);
+    if (selectedFolderId) fd.append("folderId", selectedFolderId);
+    fd.append("file", f);
+
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    const response = await fetch(`${API_BASE}/api/resources`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${authData.authToken}` },
+      body: fd,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Upload failed");
     }
   };
 
@@ -171,64 +217,77 @@ export default function ResourceUploadForm() {
         return;
       }
     } else {
-      if (!file) {
-        setError("File is required for this content type");
+      if (!files.length) {
+        setError("At least one file is required for this content type");
         return;
       }
     }
 
     setUploading(true);
     setUploadProgress(0);
+    setFileResults({});
 
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append("title", formData.title);
-      formDataToSend.append("subject", formData.subject);
-      formDataToSend.append("contentType", formData.contentType.toLowerCase().replace(" ", "_"));
-      formDataToSend.append("description", formData.description);
-      formDataToSend.append("isPremium", formData.isPremium);
-      if (selectedDeptIds.length > 0) formDataToSend.append("departmentIds", JSON.stringify(selectedDeptIds));
-      if (formData.level) formDataToSend.append("level", formData.level);
-      if (formData.semester) formDataToSend.append("semester", formData.semester);
-      if (formData.courseCode) formDataToSend.append("courseCode", formData.courseCode);
-      if (formData.tags) formDataToSend.append("tags", JSON.stringify(formData.tags.split(",").map(t => t.trim()).filter(Boolean)));
-      if (userProfile?.universityId) formDataToSend.append("universityId", userProfile.universityId);
-
       if (isMcqType) {
+        // Single MCQ upload (question bank, no file)
+        const formDataToSend = new FormData();
+        formDataToSend.append("title", formData.title);
+        formDataToSend.append("subject", formData.subject);
+        formDataToSend.append("contentType", formData.contentType.toLowerCase().replace(" ", "_"));
+        formDataToSend.append("description", formData.description);
+        formDataToSend.append("isPremium", formData.isPremium);
+        if (selectedDeptIds.length > 0) formDataToSend.append("departmentIds", JSON.stringify(selectedDeptIds));
+        if (formData.level) formDataToSend.append("level", formData.level);
+        if (formData.semester) formDataToSend.append("semester", formData.semester);
+        if (formData.courseCode) formDataToSend.append("courseCode", formData.courseCode);
+        if (formData.tags) formDataToSend.append("tags", JSON.stringify(formData.tags.split(",").map(t => t.trim()).filter(Boolean)));
+        if (userProfile?.universityId) formDataToSend.append("universityId", userProfile.universityId);
+        if (selectedFolderId) formDataToSend.append("folderId", selectedFolderId);
         formDataToSend.append("mcqData", JSON.stringify(mcqBank));
+
+        const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+        const response = await fetch(`${API_BASE}/api/resources`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${authData.authToken}` },
+          body: formDataToSend,
+        });
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Upload failed");
+        }
       } else {
-        formDataToSend.append("file", file);
+        // File queue — one POST per file; title = form title for single, filename for bulk
+        const results = {};
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const title = files.length === 1 ? formData.title : f.name.replace(/\.[^.]+$/, "");
+          results[f.name] = "uploading";
+          setFileResults({ ...results });
+          try {
+            await uploadOne(f, title);
+            results[f.name] = "ok";
+          } catch (err) {
+            results[f.name] = `err:${err.message}`;
+          }
+          setFileResults({ ...results });
+          setUploadProgress(Math.round(((i + 1) / files.length) * 100));
+        }
+        const failed = files.filter((f) => results[f.name]?.startsWith("err:"));
+        if (failed.length === files.length) {
+          throw new Error(results[files[0].name].slice(4) || "Upload failed");
+        }
+        if (failed.length > 0) {
+          setError(`${failed.length} of ${files.length} uploads failed — check the queue below`);
+          return; // stay on page so lecturer can see what failed
+        }
       }
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => Math.min(prev + 10, 90));
-      }, 200);
-
-      const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-      const response = await fetch(`${API_BASE}/api/resources`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${authData.authToken}`,
-        },
-        body: formDataToSend,
-      });
-
-      clearInterval(progressInterval);
       setUploadProgress(100);
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Upload failed");
-      }
-
-      // Success
       setTimeout(() => {
         navigate("/teacher/resources", { state: { refresh: true } });
       }, 500);
     } catch (err) {
-      // "Failed to fetch" usually means network/CORS error
-      const msg = err.message === "Failed to fetch" 
+      const msg = err.message === "Failed to fetch"
         ? "Network error — check your connection or server may be down"
         : (err.message || "Upload failed");
       setError(msg);
@@ -428,18 +487,46 @@ export default function ResourceUploadForm() {
           </div>
         </div>
 
-        {/* File Upload (hidden for MCQ) */}
+        {/* Destination folder (optional) */}
+        {folders.length > 0 && (
+          <div>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Add to Folder (optional)
+            </label>
+            <select
+              value={selectedFolderId}
+              onChange={(e) => setSelectedFolderId(e.target.value)}
+              style={{
+                width: "100%",
+                background: "#0a0c1e",
+                border: "0.5px solid #1e2245",
+                borderRadius: "8px",
+                padding: "10px 14px",
+                fontSize: "14px",
+                color: "#DAA520",
+                outline: "none",
+              }}
+            >
+              <option value="">— Don't add to a folder —</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>📁 {f.name}{f.courseCode ? ` (${f.courseCode})` : ""}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* File Upload (hidden for MCQ) — supports multiple files */}
         {!isMcqType && (
           <div>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "#4a5080", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              File *
+              File{files.length > 1 ? "s" : ""} * {files.length > 1 && <span style={{ textTransform: "none", color: "#7b82b8" }}>({files.length} — each becomes a resource named after the file)</span>}
             </label>
             <div
               onClick={() => document.getElementById("fileInput").click()}
               style={{
                 border: "1px dashed #2a2d4a",
                 borderRadius: "10px",
-                padding: "30px",
+                padding: files.length ? "16px" : "30px",
                 textAlign: "center",
                 cursor: "pointer",
                 transition: "borderColor 0.15s",
@@ -450,16 +537,45 @@ export default function ResourceUploadForm() {
               <input
                 id="fileInput"
                 type="file"
+                multiple
                 onChange={handleFileChange}
                 accept=".pdf,.docx,.doc,.txt,.json,.png,.jpg,.jpeg,.webp,.gif,.bmp,.pptx"
                 style={{ display: "none" }}
               />
               <div style={{ fontSize: "24px", color: "#3a3d60", marginBottom: "8px" }}>📁</div>
               <p style={{ fontSize: "14px", color: "#4a5080", margin: 0 }}>
-                {file ? file.name : "Drop file here or tap to browse"}
+                {files.length ? "Tap to add more files" : "Drop files here or tap to browse"}
               </p>
-              <span style={{ fontSize: "12px", color: "#2e3260" }}>PDF, DOCX, PPTX, TXT, Images · Max 20MB</span>
+              <span style={{ fontSize: "12px", color: "#2e3260" }}>PDF, DOCX, PPTX, TXT, Images · Max 50MB each</span>
             </div>
+
+            {/* Duplicate warnings */}
+            {dupWarnings.length > 0 && (
+              <div style={{ marginTop: 8, padding: "8px 12px", background: "#1a1000", border: "0.5px solid #3a2800", borderRadius: "8px", fontSize: "12px", color: "#ffcc80" }}>
+                ⚠️ Possible duplicates — {dupWarnings.map((f) => f.name).join(", ")} already exist in your uploads
+              </div>
+            )}
+
+            {/* File queue */}
+            {files.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: 10 }}>
+                {files.map((f, i) => {
+                  const st = fileResults[f.name];
+                  return (
+                    <div key={`${f.name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "8px", fontSize: "12px" }}>
+                      <span style={{ flex: 1, color: "#c5c9e8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                      <span style={{ color: "#4a5080", fontSize: "10px", flexShrink: 0 }}>{(f.size / 1024 / 1024).toFixed(1)}MB</span>
+                      {st === "uploading" && <span style={{ color: "#DAA520", fontSize: "11px" }}>⏳</span>}
+                      {st === "ok" && <span style={{ color: "#66bb6a", fontSize: "11px" }}>✓</span>}
+                      {st?.startsWith("err:") && <span style={{ color: "#ef9a9a", fontSize: "10px" }} title={st.slice(4)}>✗ failed</span>}
+                      {!uploading && (
+                        <button type="button" onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#4a5080", cursor: "pointer", fontSize: "13px", padding: 0 }}>✕</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

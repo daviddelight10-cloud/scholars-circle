@@ -138,6 +138,228 @@ router.get("/teacher/my", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/resources/teacher/insights — aggregate analytics for the uploader's materials (LECTURER)
+router.get("/teacher/insights", requireAuth, requireRole("LECTURER"), async (req, res) => {
+  try {
+    const uid = req.user.sub;
+    const mine = await prisma.resource.findMany({
+      where: { uploadedBy: uid },
+      select: { id: true, title: true, contentType: true, viewCount: true, avgRating: true, ratingCount: true, shareToken: true, status: true, createdAt: true },
+      orderBy: { viewCount: "desc" },
+    });
+    const ids = mine.map((r) => r.id);
+    if (!ids.length) return res.json({ empty: true, materials: [], days: [], viewsPerDay: [], totals: { materials: 0, views: 0, students: 0, attempts: 0, bookmarks: 0, likes: 0, avgRating: 0, comments: 0 }, topMaterials: [], comments: [], struggling: [] });
+
+    const since = new Date(); since.setDate(since.getDate() - 30);
+    const [views, bookmarks, likes, ratings, comments, attempts] = await Promise.all([
+      prisma.resourceView.findMany({ where: { resourceId: { in: ids }, viewedAt: { gte: since } }, select: { userId: true, resourceId: true, viewedAt: true } }),
+      prisma.resourceBookmark.count({ where: { resourceId: { in: ids } } }),
+      prisma.resourceLike.count({ where: { resourceId: { in: ids } } }),
+      prisma.resourceRating.findMany({ where: { resourceId: { in: ids } }, select: { stars: true } }),
+      prisma.resourceComment.findMany({
+        where: { resourceId: { in: ids } },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: { id: true, text: true, createdAt: true, user: { select: { username: true } }, resource: { select: { id: true, title: true } } },
+      }),
+      prisma.quizAttempt.findMany({ where: { resourceId: { in: ids } }, select: { userId: true, score: true, total: true } }),
+    ]);
+
+    const days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (29 - i));
+      return d.toDateString();
+    });
+    const viewsPerDay = days.map((day) => views.filter((v) => new Date(v.viewedAt).toDateString() === day).length);
+
+    // Students struggling across the uploader's materials (avg < 50% on 2+ attempts)
+    const byUser = {};
+    attempts.forEach((a) => {
+      (byUser[a.userId] = byUser[a.userId] || { score: 0, total: 0, n: 0 });
+      byUser[a.userId].score += a.score; byUser[a.userId].total += a.total; byUser[a.userId].n++;
+    });
+    const strugglingIds = Object.entries(byUser)
+      .filter(([, s]) => s.n >= 2 && s.total > 0 && s.score / s.total < 0.5)
+      .sort((a, b) => a[1].score / a[1].total - b[1].score / b[1].total)
+      .slice(0, 10)
+      .map(([id]) => id);
+    const strugglingUsers = strugglingIds.length
+      ? await prisma.user.findMany({ where: { id: { in: strugglingIds } }, select: { id: true, username: true, email: true } })
+      : [];
+    const struggling = strugglingIds.map((id) => ({
+      ...(strugglingUsers.find((u) => u.id === id) || { id, username: "?" }),
+      attempts: byUser[id].n,
+      avgPct: Math.round((byUser[id].score / byUser[id].total) * 100),
+    }));
+
+    const avgRating = ratings.length ? ratings.reduce((s, r) => s + r.stars, 0) / ratings.length : 0;
+    const viewsByRes = {};
+    views.forEach((v) => { viewsByRes[v.resourceId] = (viewsByRes[v.resourceId] || 0) + 1; });
+
+    res.json({
+      days,
+      viewsPerDay,
+      totals: {
+        materials: mine.length,
+        views: mine.reduce((s, r) => s + r.viewCount, 0),
+        students: new Set(views.map((v) => v.userId).filter(Boolean)).size,
+        attempts: attempts.length,
+        bookmarks,
+        likes,
+        comments: comments.length,
+        avgRating: Math.round(avgRating * 10) / 10,
+      },
+      topMaterials: mine.slice(0, 6).map((r) => ({ ...r, views30d: viewsByRes[r.id] || 0 })),
+      comments,
+      struggling,
+    });
+  } catch (e) {
+    console.error("teacher/insights:", e);
+    res.status(500).json({ error: "Failed to load insights" });
+  }
+});
+
+// GET /api/resources/:id/analytics — per-material analytics (uploader or staff)
+router.get("/:id/analytics", requireAuth, async (req, res) => {
+  try {
+    const resource = await prisma.resource.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, title: true, uploadedBy: true, contentType: true, viewCount: true, mcqData: true, avgRating: true, ratingCount: true, shareToken: true, createdAt: true },
+    });
+    if (!resource) return res.status(404).json({ error: "Resource not found" });
+    const isStaff = req.user.role === "TEACHER" || req.user.role === "LECTURER";
+    if (resource.uploadedBy !== req.user.sub && !isStaff) {
+      return res.status(403).json({ error: "Only the uploader can view analytics" });
+    }
+
+    const since = new Date(); since.setDate(since.getDate() - 30);
+    const [views, bookmarks, likes, ratings, comments, attempts] = await Promise.all([
+      prisma.resourceView.findMany({ where: { resourceId: resource.id, viewedAt: { gte: since } }, select: { userId: true, viewedAt: true } }),
+      prisma.resourceBookmark.count({ where: { resourceId: resource.id } }),
+      prisma.resourceLike.count({ where: { resourceId: resource.id } }),
+      prisma.resourceRating.findMany({ where: { resourceId: resource.id }, select: { stars: true, createdAt: true } }),
+      prisma.resourceComment.findMany({
+        where: { resourceId: resource.id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { id: true, text: true, createdAt: true, flagged: true, user: { select: { username: true } } },
+      }),
+      prisma.quizAttempt.findMany({
+        where: { resourceId: resource.id },
+        select: { userId: true, score: true, total: true, mode: true, details: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    const days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (29 - i));
+      return d.toDateString();
+    });
+    const viewsPerDay = days.map((day) => views.filter((v) => new Date(v.viewedAt).toDateString() === day).length);
+
+    // Named viewers: most recent view per user
+    const latestByUser = {};
+    views.forEach((v) => {
+      if (!v.userId) return;
+      if (!latestByUser[v.userId] || new Date(v.viewedAt) > new Date(latestByUser[v.userId].viewedAt)) {
+        latestByUser[v.userId] = { viewedAt: v.viewedAt, count: 0 };
+      }
+      latestByUser[v.userId].count++;
+    });
+    const viewerIds = Object.keys(latestByUser);
+    const viewers = viewerIds.length
+      ? await prisma.user.findMany({ where: { id: { in: viewerIds } }, select: { id: true, username: true, email: true } })
+      : [];
+    const viewerList = viewers
+      .map((u) => ({ ...u, lastViewed: latestByUser[u.id].viewedAt, viewCount: latestByUser[u.id].count }))
+      .sort((a, b) => new Date(b.lastViewed) - new Date(a.lastViewed));
+
+    // Quiz analytics — per-question miss rate from attempt details
+    let quiz = null;
+    if (attempts.length) {
+      const totalScore = attempts.reduce((s, a) => s + (a.total ? a.score / a.total : 0), 0);
+      const avgPct = Math.round((totalScore / attempts.length) * 100);
+      const missCount = {};
+      const seenCount = {};
+      attempts.forEach((a) => {
+        const det = Array.isArray(a.details) ? a.details : [];
+        det.forEach((d) => {
+          const qi = d.questionIndex;
+          if (qi == null) return;
+          seenCount[qi] = (seenCount[qi] || 0) + 1;
+          if (!d.correct) missCount[qi] = (missCount[qi] || 0) + 1;
+        });
+      });
+      const mcqs = Array.isArray(resource.mcqData) ? resource.mcqData : [];
+      const questionStats = Object.keys(seenCount)
+        .map((qi) => ({
+          index: Number(qi),
+          question: mcqs[qi]?.question || `Question ${Number(qi) + 1}`,
+          missRate: Math.round(((missCount[qi] || 0) / seenCount[qi]) * 100),
+          attempts: seenCount[qi],
+        }))
+        .sort((a, b) => b.missRate - a.missRate);
+
+      // Struggling students on THIS material (avg < 50%)
+      const byUser = {};
+      attempts.forEach((a) => {
+        (byUser[a.userId] = byUser[a.userId] || { score: 0, total: 0, n: 0 });
+        byUser[a.userId].score += a.score; byUser[a.userId].total += a.total; byUser[a.userId].n++;
+      });
+      const strugglingIds = Object.entries(byUser)
+        .filter(([, s]) => s.total > 0 && s.score / s.total < 0.5)
+        .map(([id]) => id);
+      const strugglingUsers = strugglingIds.length
+        ? await prisma.user.findMany({ where: { id: { in: strugglingIds } }, select: { id: true, username: true, email: true } })
+        : [];
+      const struggling = strugglingIds.map((id) => ({
+        ...(strugglingUsers.find((u) => u.id === id) || { id, username: "?" }),
+        attempts: byUser[id].n,
+        avgPct: Math.round((byUser[id].score / byUser[id].total) * 100),
+      }));
+
+      quiz = { attempts: attempts.length, uniqueTakers: Object.keys(byUser).length, avgPct, questionStats, struggling };
+    }
+
+    const avgRating = ratings.length ? ratings.reduce((s, r) => s + r.stars, 0) / ratings.length : 0;
+
+    res.json({
+      resource: { id: resource.id, title: resource.title, contentType: resource.contentType, shareToken: resource.shareToken, createdAt: resource.createdAt },
+      views: { total: resource.viewCount, unique30d: viewerIds.length, perDay: viewsPerDay, days },
+      engagement: { bookmarks, likes, comments: comments.length, avgRating: Math.round(avgRating * 10) / 10, ratingCount: ratings.length },
+      viewers: viewerList.slice(0, 50),
+      comments,
+      quiz,
+    });
+  } catch (e) {
+    console.error("resource analytics:", e);
+    res.status(500).json({ error: "Failed to load analytics" });
+  }
+});
+
+// PATCH /api/resources/bulk — bulk metadata update (owner only; must precede PATCH /:id)
+router.patch("/bulk", requireAuth, requireRole("TEACHER", "LECTURER"), async (req, res) => {
+  try {
+    const { ids, fields } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: "ids required" });
+    if (ids.length > 100) return res.status(400).json({ error: "Max 100 resources per bulk edit" });
+
+    const allowed = {};
+    ["subject", "level", "semester", "courseCode", "isPremium", "department"].forEach((k) => {
+      if (fields && fields[k] !== undefined && fields[k] !== "") allowed[k] = fields[k];
+    });
+    if (!Object.keys(allowed).length) return res.status(400).json({ error: "No editable fields provided" });
+
+    // Owners only — a TEACHER admin can bulk-edit anything, lecturers only their own
+    const where = { id: { in: ids } };
+    if (req.user.role !== "TEACHER") where.uploadedBy = req.user.sub;
+    const result = await prisma.resource.updateMany({ where, data: allowed });
+    res.json({ updated: result.count });
+  } catch (e) {
+    console.error("bulk patch:", e);
+    res.status(500).json({ error: "Bulk update failed" });
+  }
+});
+
 // GET /api/resources/bookmarks - Get current user's bookmarked resources (with folderId)
 router.get("/bookmarks", requireAuth, async (req, res) => {
   try {

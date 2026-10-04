@@ -5,6 +5,9 @@ import { getDepartments } from "../lib/departments.js";
 import { getMyProfile } from "../lib/profileApi.js";
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, getPendingResources } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
+import LecturerInsights from "./LecturerInsights";
+import MaterialStatsDrawer from "./MaterialStatsDrawer";
+import ShareSheet from "./ShareSheet";
 import { API_BASE } from "../lib/constants";
 
 
@@ -50,6 +53,19 @@ export default function TeacherResourcesHub({ onBack } = {}) {
   const [newFolderSemester, setNewFolderSemester] = useState("");
   const [activeFolderTab, setActiveFolderTab] = useState("materials");
   const [groupByUniversity, setGroupByUniversity] = useState(true);
+
+  // Lecturer-only insights & sharing
+  const [statsId, setStatsId] = useState(null);
+  const [shareTarget, setShareTarget] = useState(null); // { title, shareUrl }
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [bulkForm, setBulkForm] = useState({ subject: "", level: "", semester: "" });
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const auth = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}"); } catch { return {}; }
+  }, []);
+  const authToken = auth.authToken || "";
+  const isLecturer = auth.authUser?.role === "LECTURER";
   const [collapsedUnis, setCollapsedUnis] = useState({});
 
   useEffect(() => {
@@ -453,13 +469,26 @@ export default function TeacherResourcesHub({ onBack } = {}) {
     return { materials, summaries, mcqs };
   }, [folderDetail]);
 
-  const renderResourceRow = (resource, showApproveReject = false) => {
+  const renderResourceRow = (resource, showApproveReject = false, showStats = false) => {
     const badgeColor = getSubjectBadgeColor(resource.subject);
     const icon = getContentTypeIcon(resource.contentType);
     const iconClass = getContentTypeIconClass(resource.contentType);
+    const isChecked = selected.has(resource.id);
 
     return (
-      <div key={resource.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 14px", background: "#0d0f20", border: "0.5px solid #1e2245", borderRadius: "10px" }}>
+      <div key={resource.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 14px", background: isChecked ? "#141631" : "#0d0f20", border: isChecked ? "0.5px solid #B8860B" : "0.5px solid #1e2245", borderRadius: "10px" }}>
+        {selectMode && showStats && (
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() => setSelected((prev) => {
+              const next = new Set(prev);
+              isChecked ? next.delete(resource.id) : next.add(resource.id);
+              return next;
+            })}
+            style={{ width: 16, height: 16, accentColor: "#DAA520", cursor: "pointer", flexShrink: 0 }}
+          />
+        )}
         <div style={{
           width: "36px", height: "36px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0,
           background: iconClass === "icon-pdf" ? "#2a0a0a" : iconClass === "icon-mcq" ? "#0f1440" : iconClass === "icon-note" ? "#0f2a1a" : "#1a1000",
@@ -515,6 +544,24 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
             >📝</button>
           )}
+          {isLecturer && (
+            <button onClick={() => setShareTarget({ title: resource.title, shareUrl: `${window.location.origin}/resources/${resource.shareToken}` })} title="Share" style={{
+              width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+            }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#B8860B"; e.currentTarget.style.color = "#FFD700"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
+            >🔗</button>
+          )}
+          {isLecturer && showStats && (
+            <button onClick={() => setStatsId(resource.id)} title="Material analytics" style={{
+              width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
+              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
+            }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#0f1440"; e.currentTarget.style.borderColor = "#B8860B"; e.currentTarget.style.color = "#FFD700"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#111328"; e.currentTarget.style.borderColor = "#2a2d4a"; e.currentTarget.style.color = "#5a6090"; }}
+            >📊</button>
+          )}
           <button onClick={() => openEdit(resource)} title="Edit" style={{
             width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
@@ -563,6 +610,9 @@ export default function TeacherResourcesHub({ onBack } = {}) {
               {folderDetail?.semester && <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: "8px", background: "#0f2a1a", color: "#a5d6a7", border: "0.5px solid #2a6a3a" }}>{folderDetail.semester}</span>}
             </div>
           </div>
+          {folderDetail?.shareToken && isLecturer && (
+            <button onClick={() => setShareTarget({ title: `Folder: ${folderDetail.name}`, shareUrl: `${window.location.origin}/folders/${folderDetail.shareToken}` })} style={{ padding: "8px 12px", background: "#0f1440", border: "0.5px solid #2a3080", borderRadius: "8px", fontSize: 13, color: "#DAA520", cursor: "pointer" }}>🔗 Share</button>
+          )}
           {folderDetail && (
             <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ padding: "8px 12px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "8px", fontSize: 13, color: "#ef9a9a", cursor: "pointer" }}>🗑 Delete</button>
           )}
@@ -644,6 +694,11 @@ export default function TeacherResourcesHub({ onBack } = {}) {
         <button onClick={() => setActiveTab("all")} style={activeTab === "all" ? tabActiveStyle : tabStyle}>
           📚 All Materials ({filteredAllMaterials.length})
         </button>
+        {isLecturer && (
+          <button onClick={() => setActiveTab("insights")} style={activeTab === "insights" ? tabActiveStyle : tabStyle}>
+            📊 Insights
+          </button>
+        )}
         <button onClick={() => setShowFilterSheet(true)} style={{
           ...filterBtnStyle,
           background: activeFilterCount > 0 ? "#1a1a1a" : "#0f1128",
@@ -697,8 +752,8 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             </div>
           ) : (
             <>
-              {/* Group toggle */}
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+              {/* Group toggle + select mode */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", flexWrap: "wrap" }}>
                 <button
                   onClick={() => setGroupByUniversity((v) => !v)}
                   style={{
@@ -710,8 +765,63 @@ export default function TeacherResourcesHub({ onBack } = {}) {
                 >
                   🎓 Group by University
                 </button>
+                {isLecturer && (
+                  <button
+                    onClick={() => { setSelectMode((v) => !v); setSelected(new Set()); }}
+                    style={{
+                      padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+                      background: selectMode ? "#1a1a1a" : "#0f1128",
+                      border: selectMode ? "0.5px solid #B8860B" : "0.5px solid #1e2245",
+                      color: selectMode ? "#FFD700" : "#7b82b8",
+                    }}
+                  >
+                    ☑ Select
+                  </button>
+                )}
                 <span style={{ fontSize: "12px", color: "#4a5080" }}>{filteredResources.length} resource{filteredResources.length !== 1 ? "s" : ""}</span>
               </div>
+
+              {/* Bulk edit bar */}
+              {selectMode && selected.size > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px", padding: "10px 12px", background: "#141631", border: "0.5px solid #B8860B", borderRadius: "10px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#FFD700" }}>{selected.size} selected</span>
+                  <select value={bulkForm.subject} onChange={(e) => setBulkForm((p) => ({ ...p, subject: e.target.value }))} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "7px", padding: "6px 10px", fontSize: "12px", color: "#e8eaf6" }}>
+                    <option value="">Subject…</option>
+                    {[...new Set(filteredResources.map((r) => r.subject).filter(Boolean))].sort().map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select value={bulkForm.level} onChange={(e) => setBulkForm((p) => ({ ...p, level: e.target.value }))} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "7px", padding: "6px 10px", fontSize: "12px", color: "#e8eaf6" }}>
+                    <option value="">Level…</option>
+                    {levels.map((l) => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                  <select value={bulkForm.semester} onChange={(e) => setBulkForm((p) => ({ ...p, semester: e.target.value }))} style={{ background: "#0a0c1e", border: "0.5px solid #1e2245", borderRadius: "7px", padding: "6px 10px", fontSize: "12px", color: "#e8eaf6" }}>
+                    <option value="">Semester…</option>
+                    {semesters.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button
+                    disabled={bulkBusy || (!bulkForm.subject && !bulkForm.level && !bulkForm.semester)}
+                    onClick={async () => {
+                      setBulkBusy(true);
+                      try {
+                        const res = await fetch(`${API_BASE}/api/resources/bulk`, {
+                          method: "PATCH",
+                          headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+                          body: JSON.stringify({ ids: [...selected], fields: Object.fromEntries(Object.entries(bulkForm).filter(([, v]) => v)) }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error || "Bulk update failed");
+                        showToast(`Updated ${data.updated} resource${data.updated !== 1 ? "s" : ""} ✓`);
+                        setSelected(new Set()); setSelectMode(false); setBulkForm({ subject: "", level: "", semester: "" });
+                        fetchMyResources();
+                      } catch (err) { showToast(err.message); }
+                      setBulkBusy(false);
+                    }}
+                    style={{ padding: "7px 14px", background: "#1a1a1a", border: "0.5px solid #B8860B", borderRadius: "7px", fontSize: "12px", fontWeight: 700, color: "#FFD700", cursor: "pointer" }}
+                  >
+                    {bulkBusy ? "Applying…" : "Apply"}
+                  </button>
+                  <button onClick={() => { setSelectMode(false); setSelected(new Set()); }} style={{ padding: "7px 12px", background: "transparent", border: "0.5px solid #2a2d4a", borderRadius: "7px", fontSize: "12px", color: "#7b82b8", cursor: "pointer" }}>Cancel</button>
+                </div>
+              )}
 
               {groupByUniversity ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -740,7 +850,7 @@ export default function TeacherResourcesHub({ onBack } = {}) {
                         </div>
                         {!isCollapsed && (
                           <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "12px" }}>
-                            {uniResources.map((r) => renderResourceRow(r, false))}
+                            {uniResources.map((r) => renderResourceRow(r, false, true))}
                           </div>
                         )}
                       </div>
@@ -749,12 +859,17 @@ export default function TeacherResourcesHub({ onBack } = {}) {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {filteredResources.map((r) => renderResourceRow(r, false))}
+                  {filteredResources.map((r) => renderResourceRow(r, false, true))}
                 </div>
               )}
             </>
           )}
         </>
+      )}
+
+      {/* Insights Tab — lecturer only */}
+      {activeTab === "insights" && isLecturer && (
+        <LecturerInsights token={authToken} />
       )}
 
       {/* Folders Tab */}
@@ -1088,6 +1203,14 @@ export default function TeacherResourcesHub({ onBack } = {}) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Lecturer overlays */}
+      {statsId && (
+        <MaterialStatsDrawer resourceId={statsId} token={authToken} onClose={() => setStatsId(null)} />
+      )}
+      {shareTarget && (
+        <ShareSheet title={shareTarget.title} shareUrl={shareTarget.shareUrl} token={authToken} notify={showToast} onClose={() => setShareTarget(null)} />
       )}
 
       <style>{`
