@@ -68,6 +68,22 @@ const CSS = `
 `;
 
 const ROLE_COLORS = { STUDENT: D.teal, TEACHER: D.orange, LECTURER: D.pink };
+const EVENT_LABELS = {
+  admin_role_change: "🔄 Role changed",
+  admin_user_deleted: "🗑 User deleted",
+  admin_folder_deleted: "📁 Folder deleted",
+  admin_broadcast: "📣 Push broadcast",
+  admin_payment_approved: "✅ Payment approved",
+  admin_payment_rejected: "❌ Payment rejected",
+  account_deleted: "👤 Account deleted",
+};
+
+function deviceOf(ua) {
+  if (!ua) return "Unknown device";
+  const os = /Windows/i.test(ua) ? "Windows" : /Mac OS/i.test(ua) ? "Mac" : /Android/i.test(ua) ? "Android" : /iPhone|iPad/i.test(ua) ? "iOS" : /Linux/i.test(ua) ? "Linux" : "Other";
+  const br = /Edg/i.test(ua) ? "Edge" : /Chrome/i.test(ua) ? "Chrome" : /Firefox/i.test(ua) ? "Firefox" : /Safari/i.test(ua) ? "Safari" : "Browser";
+  return `${br} · ${os}`;
+}
 const REPORT_REASONS = { outdated: "🕐 Outdated", errors: "❌ Errors", course: "📚 Wrong course", spam: "🚫 Spam" };
 const PLAN_LABELS = { week1: "1 Week", week2: "2 Weeks", month1: "1 Month", semester: "Semester" };
 
@@ -294,6 +310,24 @@ function UserDrawer({ userId, token, onClose, onChanged }) {
           </div>
         )}
 
+        {/* Recent logins */}
+        <div className="ad-card">
+          <div className="ad-title">Recent logins</div>
+          {!u.recentLogins?.length ? (
+            <div style={{ fontSize: 11.5, color: D.hint }}>No login events recorded yet.</div>
+          ) : (
+            u.recentLogins.map((l, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 11.5, borderBottom: i < u.recentLogins.length - 1 ? `0.5px solid ${D.line}` : "none" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600 }}>{deviceOf(l.userAgent)}</div>
+                  <div style={{ fontSize: 10, color: D.hint, fontFamily: "monospace" }}>{l.ip || "no ip"}</div>
+                </div>
+                <span style={{ fontSize: 10, color: D.muted }}>{timeAgo(l.createdAt)}</span>
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Role */}
         <div className="ad-card">
           <div className="ad-title">Role</div>
@@ -368,6 +402,8 @@ export default function AdminDashboard({ token }) {
   const [reportStatus, setReportStatus] = useState("open");
   const [aiUsage, setAiUsage] = useState(null);
   const [revenue, setRevenue] = useState(null);
+  const [activity, setActivity] = useState(null);
+  const [sharedIps, setSharedIps] = useState(null);
 
   const [drawerUser, setDrawerUser] = useState(null);
   const [userSearch, setUserSearch] = useState("");
@@ -402,6 +438,7 @@ export default function AdminDashboard({ token }) {
     try {
       const [u, l] = await Promise.all([api("/users", { token }), api("/users/logins", { token })]);
       setUsers(u); setLogins(l);
+      api("/admin/shared-ips", { token }).then(setSharedIps).catch(() => setSharedIps([]));
       markLoaded("users");
     } catch (e) { toast.error(e.message); }
     setBusy(false);
@@ -430,6 +467,13 @@ export default function AdminDashboard({ token }) {
     setBusy(false);
   }, [token]);
 
+  const loadActivity = useCallback(async () => {
+    setBusy(true);
+    try { setActivity(await api("/admin/activity", { token })); markLoaded("activity"); }
+    catch (e) { toast.error(e.message); }
+    setBusy(false);
+  }, [token]);
+
   // Lazy-load per tab
   useEffect(() => {
     if (!token) return;
@@ -438,7 +482,8 @@ export default function AdminDashboard({ token }) {
     if (sub === "reports" && !loaded.reports) loadReports();
     if (sub === "ai" && !loaded.ai) loadAi();
     if (sub === "revenue" && !loaded.revenue) loadRevenue();
-  }, [sub, token, loaded, loadOverview, loadUsers, loadReports, loadAi, loadRevenue]);
+    if (sub === "activity" && !loaded.activity) loadActivity();
+  }, [sub, token, loaded, loadOverview, loadUsers, loadReports, loadAi, loadRevenue, loadActivity]);
 
   const refresh = () => {
     if (sub === "overview") loadOverview();
@@ -446,6 +491,7 @@ export default function AdminDashboard({ token }) {
     else if (sub === "reports") loadReports();
     else if (sub === "ai") loadAi();
     else if (sub === "revenue") loadRevenue();
+    else if (sub === "activity") loadActivity();
   };
 
   // ── users tab derived data ──
@@ -528,6 +574,7 @@ export default function AdminDashboard({ token }) {
     ["reports", "🚩 Reports", stats?.openReports],
     ["ai", "🤖 AI Usage"],
     ["revenue", "💰 Revenue"],
+    ["activity", "🧾 Activity"],
     ["broadcast", "📣 Broadcast"],
   ];
 
@@ -628,6 +675,22 @@ export default function AdminDashboard({ token }) {
       {/* ── USERS ── */}
       {sub === "users" && (
         <>
+          {sharedIps?.length > 0 && (
+            <div className="ad-card" style={{ borderColor: "rgba(251,146,60,0.35)" }}>
+              <div className="ad-title" style={{ color: D.orange }}>⚠️ Shared IPs — possible account sharing</div>
+              {sharedIps.map((s) => (
+                <div key={s.ip} style={{ padding: "7px 0", borderBottom: `0.5px solid ${D.line}`, fontSize: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontFamily: "monospace", color: D.orange }}>{s.ip}</span>
+                    <Pill color={D.orange}>{s.count} accounts</Pill>
+                  </div>
+                  <div style={{ fontSize: 11, color: D.muted }}>
+                    {s.users.map((u) => u.username || u.email).join(" · ")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
             {[["all", "All"], ["students", "Students"], ["faculty", "Faculty"], ["premium", "Premium"], ["free", "Free"], ["expired", "Expired"], ["pending", "Pending pay"]].map(([k, l]) => (
               <button key={k} className={`ad-fp${userFilter === k ? " on" : ""}`} onClick={() => setUserFilter(k)}>{l}</button>
@@ -850,6 +913,31 @@ export default function AdminDashboard({ token }) {
                         <div style={{ fontSize: 10, color: D.hint, fontFamily: "monospace" }}>{s.transactionId}</div>
                       </div>
                       <Pill color={D.orange}>{PLAN_LABELS[s.planType] || "—"}</Pill>
+                      <button className="ad-btn green" style={{ fontSize: 10 }} onClick={() => setConfirm({
+                        title: `Approve ${s.username || s.email}'s payment?`,
+                        body: `Activates their ${PLAN_LABELS[s.planType] || "month1"} plan now — same as a verified Paystack payment (stacks onto any live subscription).`,
+                        confirmLabel: "Approve & activate",
+                        run: async () => {
+                          try {
+                            await api(`/admin/users/${s.id}/approve-payment`, { token, method: "POST", body: { plan: s.planType } });
+                            toast.success("Payment approved, plan activated");
+                            loadRevenue();
+                          } catch (e) { toast.error(e.message); }
+                        },
+                      })}>✓</button>
+                      <button className="ad-btn red" style={{ fontSize: 10 }} onClick={() => setConfirm({
+                        title: `Reject ${s.username || s.email}'s payment?`,
+                        body: "Marks the payment as rejected. The user stays unactivated.",
+                        confirmLabel: "Reject",
+                        danger: true,
+                        run: async () => {
+                          try {
+                            await api(`/admin/users/${s.id}/reject-payment`, { token, method: "POST" });
+                            toast.success("Payment rejected");
+                            loadRevenue();
+                          } catch (e) { toast.error(e.message); }
+                        },
+                      })}>✕</button>
                     </div>
                   ))}
                 </div>
@@ -857,6 +945,37 @@ export default function AdminDashboard({ token }) {
             </>
           )}
         </>
+      )}
+
+      {/* ── ACTIVITY — audit trail ── */}
+      {sub === "activity" && (
+        <div className="ad-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", borderBottom: `0.5px solid ${D.line}`, fontSize: 11, fontWeight: 700, color: D.gold, letterSpacing: "0.07em", textTransform: "uppercase", fontFamily: "Syne,sans-serif" }}>
+            🧾 Security &amp; admin audit trail
+          </div>
+          <div style={{ maxHeight: 520, overflowY: "auto" }}>
+            {!activity ? <Spinner /> : activity.length === 0 ? <Empty text="No events recorded yet — admin actions and security events will appear here." /> : (
+              activity.map((e, i) => (
+                <div key={e.id} className="ad-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", fontSize: 12, borderBottom: i < activity.length - 1 ? `0.5px solid ${D.line}` : "none" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div>
+                      <span style={{ fontWeight: 600 }}>{EVENT_LABELS[e.eventType] || e.eventType}</span>
+                      {e.target && <span style={{ color: D.muted }}> → {e.target}</span>}
+                    </div>
+                    <div style={{ fontSize: 10, color: D.hint }}>
+                      by {e.actor}
+                      {e.ip && <span> · <span style={{ fontFamily: "monospace" }}>{e.ip}</span></span>}
+                      {e.details?.plan && <span> · {PLAN_LABELS[e.details.plan] || e.details.plan}</span>}
+                      {e.details?.title && <span> · "{e.details.title}"</span>}
+                      {e.details?.email && <span> · {e.details.email}</span>}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10, color: D.muted, whiteSpace: "nowrap" }}>{timeAgo(e.createdAt)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── BROADCAST ── */}

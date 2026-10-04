@@ -15,6 +15,12 @@ const supabaseAdmin = createClient(
 );
 
 const PLAN_PRICES = { week1: 700, week2: 1300, month1: 2400, semester: 7000 };
+const PLAN_DURATIONS = {
+  week1: 7 * 864e5,
+  week2: 14 * 864e5,
+  month1: 30 * 864e5,
+  semester: 120 * 864e5,
+};
 const PLAN_LABELS = { week1: "1 Week", week2: "2 Weeks", month1: "1 Month", semester: "Semester" };
 // Monthly-equivalent for MRR estimate
 const PLAN_MONTHLY = { week1: 2800, week2: 2600, month1: 2400, semester: 1750 };
@@ -312,10 +318,16 @@ router.get("/users/:id", ...admin, async (req, res) => {
 
     const since = new Date();
     since.setDate(since.getDate() - 30);
-    const [lastLogin, aiCalls30d, uploads] = await Promise.all([
+    const [lastLogin, aiCalls30d, uploads, recentLogins] = await Promise.all([
       prisma.loginEvent.findFirst({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
       prisma.aiUsageLog.count({ where: { userId: user.id, createdAt: { gte: since } } }),
       prisma.resource.count({ where: { uploadedBy: user.id } }),
+      prisma.loginEvent.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { createdAt: true, ip: true, userAgent: true },
+      }),
     ]);
 
     let activatedByUsername = null;
@@ -324,7 +336,7 @@ router.get("/users/:id", ...admin, async (req, res) => {
       activatedByUsername = t?.username || null;
     }
 
-    res.json({ ...user, lastLoginAt: lastLogin?.createdAt || null, aiCalls30d, uploads, activatedByUsername });
+    res.json({ ...user, lastLoginAt: lastLogin?.createdAt || null, aiCalls30d, uploads, activatedByUsername, recentLogins });
   } catch (e) {
     console.error("admin/user detail:", e);
     res.status(500).json({ error: "Failed to load user" });
@@ -398,6 +410,124 @@ router.post("/broadcast", ...admin, async (req, res) => {
   } catch (e) {
     console.error("admin/broadcast:", e);
     res.status(500).json({ error: "Broadcast failed" });
+  }
+});
+
+// ─── GET /admin/activity — security/admin audit trail ─────────────────────────
+router.get("/activity", ...admin, async (_req, res) => {
+  try {
+    const events = await prisma.securityEvent.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    const actorIds = [...new Set(events.map((e) => e.userId).filter(Boolean))];
+    const targetIds = [...new Set(events.map((e) => e.details?.targetUser).filter(Boolean))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: [...new Set([...actorIds, ...targetIds])] } },
+      select: { id: true, username: true, email: true },
+    });
+    const userMap = Object.fromEntries(users.map((u) => [u.id, u.username || u.email]));
+    res.json(events.map((e) => ({
+      ...e,
+      actor: e.userId ? userMap[e.userId] || "system" : "system",
+      target: e.details?.targetUser ? userMap[e.details.targetUser] || e.details.targetUser : null,
+    })));
+  } catch (e) {
+    console.error("admin/activity:", e);
+    res.status(500).json({ error: "Failed to load activity" });
+  }
+});
+
+// ─── GET /admin/shared-ips — detect accounts sharing an IP (30d) ──────────────
+router.get("/shared-ips", ...admin, async (_req, res) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const events = await prisma.loginEvent.findMany({
+      where: { createdAt: { gte: since }, ip: { not: null } },
+      select: { ip: true, userId: true },
+    });
+    const byIp = {};
+    events.forEach((e) => {
+      (byIp[e.ip] = byIp[e.ip] || new Set()).add(e.userId);
+    });
+    const shared = Object.entries(byIp)
+      .filter(([, set]) => set.size >= 3)
+      .map(([ip, set]) => ({ ip, userIds: [...set] }))
+      .sort((a, b) => b.userIds.length - a.userIds.length)
+      .slice(0, 20);
+    const allIds = [...new Set(shared.flatMap((s) => s.userIds))];
+    const users = allIds.length
+      ? await prisma.user.findMany({ where: { id: { in: allIds } }, select: { id: true, username: true, email: true, role: true } })
+      : [];
+    const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+    res.json(shared.map((s) => ({
+      ip: s.ip,
+      count: s.userIds.length,
+      users: s.userIds.map((id) => userMap[id] || { id, username: "?" }),
+    })));
+  } catch (e) {
+    console.error("admin/shared-ips:", e);
+    res.status(500).json({ error: "Failed to load shared IPs" });
+  }
+});
+
+// ─── POST /admin/users/:id/approve-payment — manual activation ────────────────
+// Mirrors the /payment/verify success path: stacks onto a live subscription,
+// applies banked referral days, marks payment verified.
+router.post("/users/:id/approve-payment", ...admin, async (req, res) => {
+  try {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target) return res.status(404).json({ error: "User not found" });
+
+    const plan = PLAN_DURATIONS[req.body.plan] ? req.body.plan : (target.planType && PLAN_DURATIONS[target.planType] ? target.planType : "month1");
+    const now = new Date();
+    const baseDate = (target.isActivated && target.activationExpiry && new Date(target.activationExpiry) > now)
+      ? new Date(target.activationExpiry)
+      : now;
+    let expiryDate = new Date(baseDate.getTime() + PLAN_DURATIONS[plan]);
+
+    // Apply banked referral days like the real payment flow does
+    const banked = target.referralBankedDays || 0;
+    if (banked > 0) {
+      expiryDate = new Date(expiryDate.getTime() + banked * 864e5);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: target.id },
+      data: {
+        isActivated: true,
+        activatedAt: target.activatedAt || now,
+        activationExpiry: expiryDate,
+        planType: plan,
+        paymentStatus: "verified",
+        referralBankedDays: 0,
+      },
+      select: { id: true, username: true, isActivated: true, planType: true, activationExpiry: true },
+    });
+    logSecurityEvent(req.user.sub, "admin_payment_approved", { targetUser: target.id, plan, bankedDaysApplied: banked }, req);
+    res.json(updated);
+  } catch (e) {
+    console.error("admin/approve-payment:", e);
+    res.status(500).json({ error: "Failed to approve payment" });
+  }
+});
+
+// ─── POST /admin/users/:id/reject-payment — mark payment rejected ─────────────
+router.post("/users/:id/reject-payment", ...admin, async (req, res) => {
+  try {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target) return res.status(404).json({ error: "User not found" });
+    const updated = await prisma.user.update({
+      where: { id: target.id },
+      data: { paymentStatus: "rejected" },
+      select: { id: true, username: true, paymentStatus: true },
+    });
+    logSecurityEvent(req.user.sub, "admin_payment_rejected", { targetUser: target.id }, req);
+    res.json(updated);
+  } catch (e) {
+    console.error("admin/reject-payment:", e);
+    res.status(500).json({ error: "Failed to reject payment" });
   }
 });
 

@@ -31,6 +31,28 @@ export function invalidateUserCache(supabaseId) {
   if (supabaseId) userCache.delete(supabaseId);
 }
 
+// Throttled activity tracking — one LoginEvent per user per 30 min, never per request.
+// Powers DAU/WAU/MAU, login forensics, and shared-IP detection in the admin panel.
+const activitySeen = new Map(); // prismaUserId -> last write ts
+const ACTIVITY_INTERVAL = 30 * 60 * 1000;
+
+function trackActivity(req) {
+  const userId = req.user?.sub;
+  if (!userId) return;
+  const last = activitySeen.get(userId);
+  const now = Date.now();
+  if (last && now - last < ACTIVITY_INTERVAL) return;
+  activitySeen.set(userId, now);
+  // Fire-and-forget: never let tracking delay or break a request.
+  prisma.loginEvent.create({
+    data: {
+      userId,
+      ip: req.ip || null,
+      userAgent: req.get?.("user-agent") || null,
+    },
+  }).catch(() => {});
+}
+
 function extractToken(req) {
   const auth = req.headers.authorization || "";
   let token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
@@ -76,6 +98,7 @@ export async function requireAuth(req, res, next) {
       role: roleFromToken,
       username: decoded.user_metadata?.username || null,
     };
+    trackActivity(req);
     return next();
   }
 
@@ -98,6 +121,7 @@ export async function requireAuth(req, res, next) {
       username: prismaUser.username || decoded.user_metadata?.username || null,
     };
 
+    trackActivity(req);
     return next();
   } catch (err) {
     console.error("[requireAuth] DB lookup error:", err.message);

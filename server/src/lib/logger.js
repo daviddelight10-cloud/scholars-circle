@@ -1,6 +1,7 @@
 import winston from 'winston';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { prisma } from '../db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,15 +37,27 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export const logSecurityEvent = (userId, eventType, details, req) => {
+  const ip = req?.ip || null;
+  const userAgent = req?.get?.('user-agent') || null;
   logger.warn({
     type: 'security',
     userId,
     eventType,
     details,
-    ip: req?.ip,
-    userAgent: req?.get('user-agent'),
+    ip,
+    userAgent,
     timestamp: new Date().toISOString()
   });
+  // Persist to DB for the admin audit trail — fire-and-forget, never block the request.
+  prisma.securityEvent.create({
+    data: {
+      userId: userId || null,
+      eventType: String(eventType || "unknown"),
+      details: details || {},
+      ip,
+      userAgent,
+    },
+  }).catch(() => {});
 };
 
 export const logError = (error, context = {}) => {

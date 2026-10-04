@@ -558,6 +558,34 @@ model LoginEvent {
 
 
 
+model SecurityEvent {
+
+  id        String   @id @default(cuid())
+
+  userId    String?
+
+  eventType String
+
+  details   Json     @default("{}")
+
+  ip        String?
+
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+
+
+  @@index([createdAt])
+
+  @@index([userId])
+
+  @@index([eventType])
+
+}
+
+
+
 model UserProgress {
 
   id           String   @id @default(cuid())
