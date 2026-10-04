@@ -43,6 +43,7 @@ import studyGroupRoutes from "./routes/studyGroup.js";
 import feedRoutes from "./routes/feed.js";
 import messageRoutes from "./routes/messages.js";
 import liveQuizRoutes, { attachLiveQuizSocket } from "./routes/liveQuiz.js";
+import adminRoutes from "./routes/admin.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
 import { startStudyReminderJob } from "./lib/studyReminderJob.js";
@@ -164,6 +165,7 @@ app.use("/api/study-cache", studyCacheRoutes);
 app.use("/api/live-quiz", liveQuizRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/admin", adminRoutes);
 
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));

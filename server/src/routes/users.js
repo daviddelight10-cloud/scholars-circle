@@ -377,6 +377,13 @@ router.get("/", requireAuth, requireRole("TEACHER"), async (_req, res) => {
       role: true,
       createdAt: true,
       updatedAt: true,
+      isActivated: true,
+      activatedAt: true,
+      activationExpiry: true,
+      planType: true,
+      paymentStatus: true,
+      referralCode: true,
+      _count: { select: { referralsGiven: true } },
     },
     orderBy: { createdAt: "desc" },
   });

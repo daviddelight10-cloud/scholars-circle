@@ -663,18 +663,6 @@ function App() {
 
 
 
-  const [adminUsers, setAdminUsers] = useState([]);
-
-
-
-  const [adminLogins, setAdminLogins] = useState([]);
-
-
-
-  const [adminLoading, setAdminLoading] = useState(false);
-
-
-
   const [customQuestions, setCustomQuestions] = useState([]);
 
 
@@ -2385,62 +2373,6 @@ function App() {
 
 
   }, [auth.user?.id]);
-
-
-
-
-
-
-
-  async function refreshAdmin() {
-
-
-
-    if (!token) return;
-
-
-
-    setAdminLoading(true);
-
-
-
-    try {
-
-
-
-      const [u, l] = await Promise.all([api("/users", { token }), api("/users/logins", { token })]);
-
-
-
-      setAdminUsers(u);
-
-
-
-      setAdminLogins(l);
-
-
-
-    } catch {
-
-
-
-      setAdminUsers([]);
-
-
-
-      setAdminLogins([]);
-
-
-
-    } finally {
-
-      setAdminLoading(false);
-
-    }
-
-
-
-  }
 
 
 
@@ -9254,13 +9186,7 @@ function App() {
 
       {tab === "admin" && isTeacher && (
         <Suspense fallback={<TabSkeleton />}>
-        <AdminDashboard
-          adminUsers={adminUsers}
-          adminLogins={adminLogins}
-          adminLoading={adminLoading}
-          onRefresh={refreshAdmin}
-          token={token}
-        />
+        <AdminDashboard token={token} />
         </Suspense>
       )}
 
