@@ -1,4 +1,5 @@
 import MoleculeView from "./MoleculeView.jsx";
+import ReactionView from "./ReactionView.jsx";
 
 const PALETTES = {
   dark: {
@@ -235,10 +236,14 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
       if (!lang) {
         const nl = body.indexOf("\n");
         const first = (nl === -1 ? body : body.slice(0, nl)).trim().toLowerCase();
-        if (first === "smiles" || first === "flow") { lang = first; body = body.slice(nl + 1); }
+        if (first === "smiles" || first === "reaction" || first === "flow") { lang = first; body = body.slice(nl + 1); }
       }
       if (lang === "smiles") {
         elements.push(<MoleculeView key={elements.length} body={body} />);
+        continue;
+      }
+      if (lang === "reaction") {
+        elements.push(<ReactionView key={elements.length} body={body} />);
         continue;
       }
       if (lang === "flow") {

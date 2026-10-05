@@ -256,6 +256,7 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
         `- "answer" is REQUIRED and must never be empty.\n` +
         `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
         `- "suggestMode": include ONLY when another mode clearly fits the request better — flashcards for cards/memorization, quiz when they want to be tested, exam for timed/mock tests, video when they want to watch a lesson, materials when they ask for their notes/documents. Omit it otherwise.\n` +
+        `- For chemical structures/reactions, use fenced "smiles" (SMILES + molecule name) or "reaction" (reactants>agents>products SMILES + reaction name) code blocks — never ASCII-art molecules.\n` +
         `- If the student asks how to use the app, answer using the feature list above.`
       : `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"},"suggestMode":"<one of: materials|video|flashcards|quiz|exam>"${modeSchema}}\n\n` +
         `Rules:\n` +
@@ -264,6 +265,7 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
         `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
         `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
         `- "suggestMode": include ONLY when another mode clearly fits the request better; omit otherwise.\n` +
+        `- For chemical structures/reactions, use fenced "smiles" (SMILES + molecule name) or "reaction" (reactants>agents>products SMILES + reaction name) code blocks — never ASCII-art molecules.\n` +
         `- If the student asks how to use the app, answer using the feature list above.` +
         (MODE_PROMPTS[opts.mode] || ""));
 

@@ -186,6 +186,19 @@ DETECT the content type from the image, then respond:
 • GENERAL STATEMENT → Explain the core idea simply.
 
 Format: **bold** key terms. Numbered steps for problems. Bullet points for lists.
+
+CHEMISTRY: Never draw molecules or reactions with ASCII/text art. Instead emit fenced blocks that render as real structures:
+• Molecule/structure → a fenced block tagged "smiles" with a valid SMILES string on the first line and the molecule name on the second line, e.g.:
+\`\`\`smiles
+CC(=O)Oc1ccccc1C(=O)O
+Aspirin
+\`\`\`
+• Chemical reaction → a fenced block tagged "reaction" with reaction SMILES reactants>agents>products on the first line and the reaction name on the second line, e.g.:
+\`\`\`reaction
+CCO.CC(=O)O>H2SO4>CC(=O)OCC.O
+Esterification
+\`\`\`
+If you don't know a valid SMILES, put just the molecule's name in the block — never a formula alone.
 Sprinkle 1–3 relevant emojis per reply where they add clarity (✅ takeaways, 📌 definitions, ⚠️ warnings) — light touch, never mid-sentence, never inside the mcq block.
 Length: concise, but never cut short a multi-step solution.
 
@@ -1185,7 +1198,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const scored = [];
     for (let n = 1; n <= Math.min(numP, 200); n++) {
       if (n === excludePage) continue;
-      let text = "";
+      let text;
       try { text = await getPageText(n); } catch { continue; }
       if (!text) continue;
       const lower = text.toLowerCase();
