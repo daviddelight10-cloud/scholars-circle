@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
 import { callAIMultimodal } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { CHEMISTRY_RULES_BRIEF } from "../lib/chemistryPrompt.js";
 import {
   loadHistory, saveHistory, createHistoryEntry,
   recordPracticeResult, getWeakSpots, getWeakSpotQuestions,
@@ -422,13 +423,13 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
       if (studyMode === "mcq") {
         promptText = `You are an expert exam writer for university students. Look at the image provided and generate multiple-choice questions based on what you see.\n\nDetermine the appropriate number of questions yourself based on how much content is in the image (between 3 and 15).\n\nFORMAT — separate each question with a line containing only "---":\nQ: <question text>\nA. <option A>\nB. <option B>\nC. <option C>\nD. <option D>\nCorrect Answer: <letter>\nExplanation: <brief explanation>\n\nRules:\n- Exactly 4 options (A–D) per question\n- One correct answer\n- Questions should test understanding, not just memorization\n- Keep explanations to 1–2 sentences\n- Base questions on what is visible in the image`;
       } else {
-        promptText = `You are an expert study assistant. Look at the image provided and summarize it for university exam preparation.\n\nUse this structure with Markdown headings:\n\n## Key Topics\n- List the main topics covered\n\n## Important Details\n- Key facts, definitions, formulas, and concepts\n\n## Likely Exam Focus\n- What questions or topics are most likely to appear on an exam based on this content\n\nKeep it concise but thorough. Use bullet points and bold key terms.`;
+        promptText = `You are an expert study assistant. Look at the image provided and summarize it for university exam preparation.\n\nUse this structure with Markdown headings:\n\n## Key Topics\n- List the main topics covered\n\n## Important Details\n- Key facts, definitions, formulas, and concepts\n\n## Likely Exam Focus\n- What questions or topics are most likely to appear on an exam based on this content\n\nKeep it concise but thorough. Use bullet points and bold key terms.\n\n${CHEMISTRY_RULES_BRIEF}`;
       }
     } else if ((contentType === "docx" || contentType === "txt" || contentType === "pptx") && extractedText) {
       if (studyMode === "mcq") {
         promptText = `You are an expert exam writer for university students. Generate multiple-choice questions from the text below.\n\nDetermine the appropriate number of questions yourself based on how much content is in the text (between 10 and 20). Cover all key topics.\n\nFORMAT — separate each question with a line containing only "---":\nQ: <question text>\nA. <option A>\nB. <option B>\nC. <option C>\nD. <option D>\nCorrect Answer: <letter>\nExplanation: <brief explanation>\n\nRules:\n- Exactly 4 options (A–D) per question\n- One correct answer\n- Questions should test understanding, not just memorization\n- Keep explanations to 1–2 sentences\n\nTEXT:\n"""\n${extractedText.slice(0, 10000)}\n"""`;
       } else {
-        promptText = `You are an expert study assistant. Summarize the text below for university exam preparation.\n\nUse this structure with Markdown headings:\n\n## Key Topics\n- List the main topics covered\n\n## Important Details\n- Key facts, definitions, formulas, and concepts\n\n## Likely Exam Focus\n- What questions or topics are most likely to appear on an exam based on this content\n\nKeep it concise but thorough. Use bullet points and bold key terms.\n\nTEXT:\n"""\n${extractedText.slice(0, 10000)}\n"""`;
+        promptText = `You are an expert study assistant. Summarize the text below for university exam preparation.\n\nUse this structure with Markdown headings:\n\n## Key Topics\n- List the main topics covered\n\n## Important Details\n- Key facts, definitions, formulas, and concepts\n\n## Likely Exam Focus\n- What questions or topics are most likely to appear on an exam based on this content\n\nKeep it concise but thorough. Use bullet points and bold key terms.\n\n${CHEMISTRY_RULES_BRIEF}\n\nTEXT:\n"""\n${extractedText.slice(0, 10000)}\n"""`;
       }
     } else {
       setStudyError("No content available to generate study materials.");
@@ -484,7 +485,7 @@ export default function DocumentReader({ fileUrl, title, contentType, resourceId
         contextText = `The user is reading a document with this content:\n"""\n${extractedText.slice(0, 8000)}\n"""`;
       }
 
-      const systemMsg = { role: "system", content: contextText };
+      const systemMsg = { role: "system", content: `${contextText}\n\n${CHEMISTRY_RULES_BRIEF}`.trim() };
       const history = [systemMsg, ...chatMessages.slice(-6)];
       console.log("[DocReader] chat AI call start", { contentType, hasText: !!extractedText, hasImage: !!imageToSend, historyLen: history.length });
       const raw = await callAIMultimodal(chatInput.trim(), imageToSend, history, { provider: "openrouter", model: "z-ai/glm-5.3-flash" });

@@ -1,78 +1,98 @@
-import { useEffect, useRef, useState } from "react";
-import { loadSmilesDrawer, parseSpecies, drawTreeToSvg } from "../lib/moleculeDraw.js";
+import { useEffect, useMemo, useState } from "react";
+import ChemCard from "./ChemCard.jsx";
+import { skinFor, useChemMode } from "./chemSkin.js";
+import { analyzeSmiles, condensedFormula, parseMoleculeBlock, subscript } from "../lib/chemistry.js";
+import { MODES, autoMode, canExpand, isLightTheme, loadSmilesDrawer, renderMolecule, resolveSpecies } from "../lib/moleculeDraw.js";
 
-// Renders a ```smiles block as a 2D skeletal structure. smiles-drawer is
-// lazy-loaded so it only ships when a molecule actually appears. The SMILES
-// line is auto-detected (models sometimes put the name first, or write a
-// formula instead — KNOWN_SMILES rescues common molecules); if nothing
-// resolves, the raw text is shown instead of breaking the section.
-export default function MoleculeView({ body }) {
-  const hostRef = useRef(null);
-  const [status, setStatus] = useState("loading");
-  const [info, setInfo] = useState({ smiles: "", label: "" });
+const infoLine = (smiles) => {
+  const info = analyzeSmiles(smiles);
+  if (!info) return "";
+  const parts = [];
+  const cf = condensedFormula(info.graph);
+  if (cf) parts.push(cf);
+  parts.push(subscript(info.formula));
+  if (info.mass) parts.push(`${info.mass.toFixed(2)} g/mol`);
+  return parts.join("  ·  ");
+};
+
+// Renders a ```smiles block. Each line is checked (valid SMILES? matches the
+// stated formula?) and repaired from the built-in library / PubChem when the
+// model got it wrong. Simple chains default to textbook expanded formulas,
+// rings to skeletal. Anything unresolvable stays visible as raw text.
+export default function MoleculeView({ body, theme = "dark" }) {
+  const light = isLightTheme(theme);
+  const { entries, caption } = useMemo(() => parseMoleculeBlock(body), [body]);
+  const [done, setDone] = useState({ body: null, S: null, items: [] });
+  const [pref, setPref] = useChemMode();
 
   useEffect(() => {
-    const lines = String(body || "").split("\n").map(l => l.trim()).filter(Boolean);
-    if (!lines.length) { setStatus("fail"); return; }
     let cancelled = false;
-    loadSmilesDrawer().then((S) => {
-      if (cancelled) return;
-
-      // Use whichever line actually parses as SMILES; the rest becomes the caption.
-      let hit = null, smiIdx = -1;
-      for (let i = 0; i < lines.length; i++) {
-        hit = parseSpecies(S, lines[i]);
-        if (hit) { smiIdx = i; break; }
-      }
-      if (!hit) {
-        console.warn("[MoleculeView] no usable SMILES in block:", body);
-        if (!cancelled) { setInfo({ smiles: lines[0], label: lines.slice(1).join(" ") }); setStatus("fail"); }
-        return;
-      }
-      if (!cancelled) setInfo({ smiles: lines[smiIdx], label: lines.filter((_, i) => i !== smiIdx).join(" ") });
+    (async () => {
       try {
-        const host = hostRef.current;
-        if (!host) return;
-        const svg = drawTreeToSvg(S, hit.tree, 340, 220);
-        host.innerHTML = "";
-        host.appendChild(svg);
-        if (!cancelled) setStatus("ok");
-      } catch (e) {
-        console.warn("[MoleculeView] draw failed:", e);
-        if (!cancelled) setStatus("fail");
+        const S = await loadSmilesDrawer();
+        const items = [];
+        for (const e of entries) items.push(await resolveSpecies(S, e.raw, e));
+        if (!cancelled) setDone({ body, S, items });
+      } catch (err) {
+        console.warn("[MoleculeView] failed:", err);
+        if (!cancelled) setDone({ body, S: null, items: entries.map(() => null) });
       }
-    }).catch((e) => {
-      console.warn("[MoleculeView] smiles-drawer load failed:", e);
-      if (!cancelled) setStatus("fail");
-    });
+    })();
     return () => { cancelled = true; };
-  }, [body]);
+  }, [body, entries]);
+
+  const skin = skinFor(theme);
+  const ready = done.body === body;
+  const { S, items } = done;
+
+  const drawn = ready ? items.map((it, i) => {
+    if (!it || !S) return null;
+    const mode = pref || autoMode(it.smiles);
+    const r = renderMolecule(S, it.smiles, { mode, light });
+    return r && { ...it, ...r, name: entries[i].name || it.label || "", info: infoLine(it.smiles) };
+  }) : [];
+  const activeMode = pref || drawn.find(Boolean)?.mode || "skeletal";
+  const modes = !drawn.some(Boolean) ? [] : drawn.some((d) => d && canExpand(d.smiles, light)) ? MODES : MODES.filter((m) => m !== "expanded");
+  const single = entries.length === 1;
+  const only = single ? drawn[0] : null;
 
   return (
-    <div style={{
-      margin: "10px 0", padding: "12px 14px", borderRadius: 12,
-      background: "#0d0f14", border: "0.5px solid rgba(255,215,0,0.2)",
-      display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-    }}>
-      <div ref={hostRef} style={{ display: status === "ok" ? "block" : "none", maxWidth: "100%" }} />
-      {status === "loading" && (
-        <div style={{ fontSize: 11, color: "#9AA3B5", fontFamily: "Manrope,sans-serif", padding: "12px 0" }}>
-          Drawing structure…
-        </div>
+    <ChemCard
+      theme={theme} modes={modes} mode={activeMode} onMode={setPref}
+      copyText={ready ? drawn.map((d, i) => (d ? d.smiles : entries[i].raw)).join("\n") : ""}
+      downloadMarkup={only?.markup || ""}
+    >
+      {({ zoom }) => (
+        <>
+          {!ready && <div style={{ fontSize: 11, color: skin.muted, fontFamily: "Manrope,sans-serif", padding: "12px 0" }}>Drawing structure…</div>}
+          {ready && (
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 18, width: "100%" }}>
+              {entries.map((e, i) => {
+                const d = drawn[i];
+                return (
+                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, maxWidth: "100%" }}>
+                    {d ? (
+                      <div
+                        onClick={() => zoom(d.markup)} role="img" aria-label={`${e.name || "Chemical structure"} (${d.smiles})`}
+                        title="Tap to enlarge" style={{ cursor: "zoom-in", maxWidth: "100%" }}
+                        dangerouslySetInnerHTML={{ __html: d.markup }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: 12, color: skin.text, fontFamily: "monospace", background: "rgba(128,128,128,0.12)", borderRadius: 8, padding: "6px 12px" }}>
+                        {e.raw || e.name}
+                      </div>
+                    )}
+                    {(d?.name || e.name) && <div style={{ fontSize: 12, color: skin.caption, fontFamily: "Manrope,sans-serif", fontWeight: 700 }}>{d?.name || e.name}</div>}
+                    {d?.info && <div style={{ fontSize: 10.5, color: skin.muted, fontFamily: "Manrope,sans-serif" }}>{d.info}</div>}
+                    {d?.suspect && <div style={{ fontSize: 10.5, color: "#E0A100", fontFamily: "Manrope,sans-serif" }} title="The AI's structure did not match the stated formula and no reference was found.">Could not verify this structure</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {caption && <div style={{ fontSize: 11, color: skin.caption, fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>{caption}</div>}
+        </>
       )}
-      {status === "fail" && (
-        <div style={{
-          fontSize: 12, color: "#C9CFDB", fontFamily: "monospace",
-          background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "6px 12px",
-        }}>
-          {info.smiles || body}
-        </div>
-      )}
-      {info.label && (
-        <div style={{ fontSize: 11, color: "#E8D9A0", fontFamily: "Manrope,sans-serif", fontWeight: 600 }}>
-          {info.label}
-        </div>
-      )}
-    </div>
+    </ChemCard>
   );
 }

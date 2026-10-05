@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { callAI } from "../lib/aiClient";
 import MarkdownText from "../components/MarkdownText.jsx";
+import { CHEMISTRY_RULES_BRIEF } from "../lib/chemistryPrompt.js";
 import { getStudyCache, saveStudyCache, clearStudyCache, recordGuidedProgress } from "../lib/studyCache.js";
 import { useComboStreak } from "../lib/useComboStreak.js";
 import { haptics } from "../lib/haptics.js";
@@ -367,7 +368,7 @@ Rules:
 - 3-5 chunks, ordered from foundational ideas to advanced ones — each chunk is a bite-sized piece a student absorbs in ~1 minute
 - In "markdown": use **bold** for key terms, bullet lists for enumerations, > blockquotes for real-world examples or analogies, code blocks for formulas/diagrams, LaTeX ($...$) for math
 - When a pathway, cycle or step sequence matters (metabolic pathways, cascades, algorithms), include a fenced code block tagged "flow" whose content is the steps joined by → (e.g. Glucose → Glucose-6-phosphate → Fructose-6-phosphate)
-- When a molecular structure genuinely helps (sugars, amino acids, drugs — not water or simple ions), include a fenced code block tagged "smiles" with the SMILES string on the first line and the molecule name on the second line (e.g. OCC1OC(O)C(O)C(O)C1O / Glucose). The first line MUST be valid SMILES notation — never a molecular formula like C6H12O6 and never just the name. For chemical reactions use a fenced block tagged "reaction" with reactants>agents>products SMILES on the first line and the reaction name on the second line — never ASCII-art molecules
+- When a molecular structure or reaction genuinely helps (sugars, amino acids, drugs, simple organic chains — not water or simple ions): ${CHEMISTRY_RULES_BRIEF}
 - Every chunk MUST have a "check": a 4-option MCQ testing the core idea of that chunk (comprehension, not trivia)
 - "answer" is the 0-based index of the correct option — vary it across chunks
 - Keep the tone clear, encouraging, and concise`,

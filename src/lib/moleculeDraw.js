@@ -1,152 +1,293 @@
-// Shared molecule-drawing helpers — used by MoleculeView (```smiles blocks)
-// and ReactionView (```reaction blocks). smiles-drawer stays lazy-loaded so it
-// only ships when a molecule actually appears.
+// Shared chemistry rendering — used by MoleculeView (```smiles blocks) and
+// ReactionView (```reaction blocks).
+//   • resolveSpecies: model text → a trustworthy SMILES (validate, then fall
+//     back to the built-in library, then PubChem by name)
+//   • renderMolecule: SMILES → SVG in one of three student-friendly modes
+//     (expanded formula / condensed zig-zag / skeletal line-angle)
+//   • renderReaction: one SVG per reaction step
+// smiles-drawer is lazy-loaded so it only ships when chemistry appears.
 
-// Canonical SMILES for common molecules — used when the model writes a name
-// or molecular formula (C6H12O6) instead of a parseable SMILES string.
-export const KNOWN_SMILES = {
-  // sugars
-  glucose: "OCC1OC(O)C(O)C(O)C1O",
-  fructose: "OCC1OC(O)(CO)C(O)C1O",
-  galactose: "OCC1OC(O)C(O)C(O)C1O",
-  mannose: "OCC1OC(O)C(O)C(O)C1O",
-  ribose: "OCC1OC(O)C(O)C1O",
-  deoxyribose: "OCC1OC(O)CC1O",
-  sucrose: "OCC1OC(OC2(CO)OC(CO)C(O)C2O)C(O)C(O)C1O",
-  lactose: "OCC1OC(OC2C(CO)OC(O)C(O)C2O)C(O)C(O)C1O",
-  maltose: "OCC1OC(OC2C(CO)OC(O)C(O)C2O)C(O)C(O)C1O",
-  glucose6phosphate: "O=P(O)(O)OCC1OC(O)C(O)C(O)C1O",
-  // nucleobases + nucleosides
-  adenine: "Nc1ncnc2c1nc[nH]2",
-  guanine: "Nc1nc2c(nc[nH]2)c(=O)[nH]1",
-  cytosine: "Nc1cc[nH]c(=O)n1",
-  uracil: "O=c1[nH]cc[nH]c1=O",
-  thymine: "Cc1c[nH]c(=O)[nH]c1=O",
-  adenosine: "Nc1ncnc2c1ncn2C1OC(CO)C(O)C1O",
-  atp: "Nc1ncnc2c1ncn2C1OC(COP(=O)(O)OP(=O)(O)OP(=O)(O)O)C(O)C1O",
-  // neurotransmitters
-  dopamine: "NCCc1cc(O)c(O)cc1",
-  serotonin: "NCCc1c[nH]c2ccc(O)cc12",
-  adrenaline: "CNCC(O)c1cc(O)c(O)cc1",
-  epinephrine: "CNCC(O)c1cc(O)c(O)cc1",
-  noradrenaline: "NCC(O)c1cc(O)c(O)cc1",
-  norepinephrine: "NCC(O)c1cc(O)c(O)cc1",
-  acetylcholine: "CC(=O)OCC[N+](C)(C)C",
-  histamine: "NCCc1c[nH]cn1",
-  gaba: "NCCCC(=O)O",
-  glutamate: "NC(CCC(=O)O)C(=O)O",
-  melatonin: "CC(=O)NCCc1c[nH]c2ccc(OC)cc12",
-  // amino acids
-  glycine: "NCC(=O)O",
-  alanine: "CC(N)C(=O)O",
-  valine: "CC(C)C(N)C(=O)O",
-  leucine: "CC(C)CC(N)C(=O)O",
-  isoleucine: "CCC(C)C(N)C(=O)O",
-  serine: "NC(CO)C(=O)O",
-  threonine: "CC(O)C(N)C(=O)O",
-  cysteine: "NC(CS)C(=O)O",
-  methionine: "CSCCC(N)C(=O)O",
-  proline: "OC(=O)C1CCCN1",
-  phenylalanine: "NC(Cc1ccccc1)C(=O)O",
-  tyrosine: "NC(Cc1ccc(O)cc1)C(=O)O",
-  tryptophan: "NC(Cc1c[nH]c2ccccc12)C(=O)O",
-  aspartate: "NC(CC(=O)O)C(=O)O",
-  asparagine: "NC(=O)CC(N)C(=O)O",
-  lysine: "NCCCCC(N)C(=O)O",
-  arginine: "NC(N)=NCCCC(N)C(=O)O",
-  histidine: "NC(Cc1c[nH]cn1)C(=O)O",
-  glutamine: "NC(=O)CCC(N)C(=O)O",
-  // metabolites
-  urea: "NC(=O)N",
-  lactate: "CC(O)C(=O)O",
-  lacticacid: "CC(O)C(=O)O",
-  pyruvate: "CC(=O)C(=O)O",
-  pyruvicacid: "CC(=O)C(=O)O",
-  citrate: "OC(=O)CC(O)(CC(=O)O)C(=O)O",
-  citricacid: "OC(=O)CC(O)(CC(=O)O)C(=O)O",
-  aceticacid: "CC(=O)O",
-  ethanol: "CCO",
-  glycerol: "OCC(O)CO",
-  palmiticacid: "CCCCCCCCCCCCCCCC(=O)O",
-  oleicacid: "CCCCCCCCC=CCCCCCCCC(=O)O",
-  betahydroxybutyrate: "CC(O)CC(=O)O",
-  acetoacetate: "CC(=O)CC(=O)O",
-  creatine: "CN(CC(=O)O)C(=N)N",
-  ascorbicacid: "OCC(O)C1OC(=O)C(O)=C1O",
-  vitaminc: "OCC(O)C1OC(=O)C(O)=C1O",
-  // drugs
-  aspirin: "CC(=O)Oc1ccccc1C(=O)O",
-  paracetamol: "CC(=O)Nc1ccc(O)cc1",
-  acetaminophen: "CC(=O)Nc1ccc(O)cc1",
-  ibuprofen: "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
-  caffeine: "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
-  morphine: "CN1CCC23c4c5ccc(O)c4OC2C(O)C=CC3C1C5",
-  metformin: "CN(C)C(=N)NC(=N)N",
-  warfarin: "CC(=O)CC(C1=CC=CC=C1)C1=C(O)C2=CC=CC=C2OC1=O",
-  cholesterol: "CC(C)CCCC(C)C1CCC2C1(CCC3C2CC=C4C3(CCC(C4)O)C)C",
-  // small molecules
-  benzene: "c1ccccc1",
-  phenol: "Oc1ccccc1",
-  aniline: "Nc1ccccc1",
-  toluene: "Cc1ccccc1",
-  water: "O",
-  carbondioxide: "O=C=O",
-  ammonia: "N",
-  methane: "C",
-};
+import { analyzeSmiles, isValidSmiles, parseFormula, sameCounts, stripAtomMaps, agentLabel, prettyAgent } from "./chemistry.js";
+import { renderExpandedSvg } from "./expandedFormula.js";
 
-const normKey = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+export const MODES = ["expanded", "condensed", "skeletal"];
+export const MODE_LABELS = { expanded: "Expanded", condensed: "Condensed", skeletal: "Skeletal" };
+export const isLightTheme = (theme) => theme === "light" || theme === "sepia";
 
-// Exact match, or name with a prefix like "d-glucose" / "α-d-glucose".
-// (endsWith keeps "glucose-6-phosphate" from wrongly matching "glucose".)
-export function lookupSmiles(line) {
-  const n = normKey(line);
-  if (!n) return null;
-  if (KNOWN_SMILES[n]) return KNOWN_SMILES[n];
-  if (n.length > 5) {
-    for (const [k, v] of Object.entries(KNOWN_SMILES)) {
-      if (k.length >= 5 && n.endsWith(k)) return v;
-    }
-  }
-  return null;
-}
-
-// Lazy-load smiles-drawer, normalizing the module shape (default vs named).
+let sdPromise = null;
 export function loadSmilesDrawer() {
-  return import("smiles-drawer").then((mod) => {
+  sdPromise ||= import("smiles-drawer").then((mod) => {
     const S = mod.default || mod;
     if (!S?.Parser || !S?.SvgDrawer) throw new Error("smiles-drawer unavailable");
     return S;
   });
+  sdPromise.catch(() => { sdPromise = null; });
+  return sdPromise;
 }
 
-// Try a raw string as SMILES first, then as a known molecule name/formula.
-// Returns { tree, smiles } or null.
-export function parseSpecies(S, raw) {
-  const line = String(raw || "").trim();
-  if (!line) return null;
-  try {
-    const tree = S.Parser.parse(line);
-    if (tree) return { tree, smiles: line };
-  } catch { /* not valid SMILES — try name lookup */ }
-  const smi = lookupSmiles(line);
-  if (smi) {
-    try {
-      const tree = S.Parser.parse(smi);
-      if (tree) return { tree, smiles: smi };
-    } catch { /* known entry should parse — fall through */ }
+// ---- SMILES validation ------------------------------------------------------
+export function canParse(S, smiles) {
+  if (!smiles || !isValidSmiles(smiles)) return false;
+  try { return !!S.Parser.parse(smiles); } catch { return false; }
+}
+
+// ---- built-in library + PubChem --------------------------------------------
+const normKey = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const STEREO_PREFIXES = ["alphad", "betad", "alphal", "betal", "alpha", "beta", "trans", "cis", "dl", "d", "l", "rac", "s", "r"];
+
+let knownPromise = null;
+const loadKnown = () => (knownPromise ||= import("./knownMolecules.json").then((m) => m.default || m).catch(() => ({})));
+
+export async function lookupKnown(text) {
+  const known = await loadKnown();
+  const n = normKey(text);
+  if (!n) return null;
+  let hit = known[n];
+  for (const p of STEREO_PREFIXES) {
+    if (hit) break;
+    if (n.startsWith(p) && known[n.slice(p.length)]) hit = known[n.slice(p.length)];
   }
-  return null;
+  return hit ? { smiles: hit[0], formula: hit[1], name: hit[2] } : null;
 }
 
-// Draw a parsed molecule tree into a fresh SVG element. Caller appends it.
-export function drawTreeToSvg(S, tree, width = 340, height = 220) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("width", String(width));
-  svg.setAttribute("height", String(height));
-  svg.style.maxWidth = "100%";
-  svg.style.height = "auto";
-  new S.SvgDrawer({ width, height, bondThickness: 1.2 }).draw(tree, svg, "dark", null, false);
-  return svg;
+const PC_KEY = "sc_pubchem_v1";
+const PC_HIT_TTL = 30 * 864e5, PC_MISS_TTL = 3 * 864e5, PC_MAX = 300;
+const pcMem = new Map();
+let pcStore = null, pcChain = Promise.resolve();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const readStore = () => {
+  if (pcStore) return pcStore;
+  try { pcStore = JSON.parse(localStorage.getItem(PC_KEY) || "{}"); } catch { pcStore = {}; }
+  return pcStore;
+};
+const writeStore = (key, value) => {
+  const store = readStore();
+  store[key] = { ...value, t: Date.now() };
+  const keys = Object.keys(store);
+  if (keys.length > PC_MAX) keys.sort((a, b) => store[a].t - store[b].t).slice(0, keys.length - PC_MAX).forEach((k) => delete store[k]);
+  try { localStorage.setItem(PC_KEY, JSON.stringify(store)); } catch { /* storage full or blocked — memory cache still works */ }
+};
+
+async function fetchPubchem(name, key) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(name)}/property/SMILES,MolecularFormula/JSON`;
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (r.status === 404) { writeStore(key, { s: "" }); return null; }
+    if (!r.ok) return null;
+    const p = (await r.json()).PropertyTable?.Properties?.[0];
+    const smiles = p?.SMILES || p?.IsomericSMILES;
+    if (!smiles) { writeStore(key, { s: "" }); return null; }
+    writeStore(key, { s: smiles, f: p.MolecularFormula });
+    return { smiles, formula: p.MolecularFormula };
+  } catch { return null; } finally { clearTimeout(timer); await sleep(220); }
+}
+
+// Name → { smiles, formula } via PubChem (free, CORS-enabled). Cached in
+// memory + localStorage, and serialized to stay under PubChem's rate limit.
+export function pubchemLookup(name) {
+  const q = String(name || "").trim();
+  if (q.length < 3 || q.length > 80 || (typeof navigator !== "undefined" && navigator.onLine === false)) return Promise.resolve(null);
+  const key = q.toLowerCase();
+  if (pcMem.has(key)) return pcMem.get(key);
+  const c = readStore()[key];
+  if (c && Date.now() - c.t < (c.s ? PC_HIT_TTL : PC_MISS_TTL)) {
+    const v = c.s ? { smiles: c.s, formula: c.f } : null;
+    pcMem.set(key, Promise.resolve(v));
+    return pcMem.get(key);
+  }
+  const p = (pcChain = pcChain.then(() => fetchPubchem(q, key)));
+  pcMem.set(key, p);
+  p.then((v) => { if (!v) pcMem.delete(key); });
+  return p;
+}
+
+// Turns whatever the model wrote for one species into a SMILES we trust.
+// Returns { smiles, source: "model"|"library"|"pubchem", suspect? } or null.
+export async function resolveSpecies(S, raw, { name = "", formula = "" } = {}) {
+  const cand = stripAtomMaps(String(raw || "").trim());
+  const ok = canParse(S, cand);
+  const info = ok ? analyzeSmiles(cand) : null;
+  let suspect = false;
+  if (ok) {
+    const want = formula ? parseFormula(formula) : null;
+    if (info && want && !sameCounts(info.counts, want)) suspect = true;
+    const lib = name ? await lookupKnown(name) : null;
+    const libCounts = lib && parseFormula(lib.formula);
+    if (info && libCounts && !sameCounts(info.counts, libCounts) && canParse(S, lib.smiles)) return { smiles: lib.smiles, source: "library", label: lib.name };
+    if (!suspect) return { smiles: cand, source: "model" };
+  }
+  const queries = [name, ok ? "" : cand].filter(Boolean);
+  for (const q of queries) {
+    const lib = await lookupKnown(q);
+    if (lib && canParse(S, lib.smiles)) return { smiles: lib.smiles, source: "library", label: lib.name };
+  }
+  for (const q of queries.filter((x) => /[A-Za-z]{3,}/.test(x))) {
+    const pc = await pubchemLookup(q);
+    if (pc && canParse(S, pc.smiles)) return { smiles: pc.smiles, source: "pubchem", label: q };
+  }
+  return ok ? { smiles: cand, source: "model", suspect: true } : null;
+}
+
+// ---- drawing ----------------------------------------------------------------
+const svgCache = new Map();
+const cached = (key, make) => {
+  if (svgCache.has(key)) return svgCache.get(key);
+  const v = make();
+  if (v) { svgCache.set(key, v); if (svgCache.size > 300) svgCache.delete(svgCache.keys().next().value); }
+  return v;
+};
+
+const drawerOpts = (mode, extra = {}) => ({
+  bondLength: 26, bondSpacing: 0.17 * 26, scale: 1, fontSizeLarge: 10, fontSizeSmall: 6,
+  padding: 10, bondThickness: 1.2, terminalCarbons: mode === "condensed", compactDrawing: false, ...extra,
+});
+
+function drawWithSmilesDrawer(S, smiles, mode, light) {
+  const attempt = (extra) => {
+    const svg = new S.SvgDrawer(drawerOpts(mode, extra)).draw(S.Parser.parse(smiles), null, light ? "light" : "dark");
+    const width = parseFloat(svg.style.width) || 200, height = parseFloat(svg.style.height) || 150;
+    svg.style.maxWidth = "100%";
+    svg.style.height = "auto";
+    return { markup: svg.outerHTML, width, height };
+  };
+  try { return attempt({}); } catch { return attempt({ experimentalSSSR: true }); }
+}
+
+// SMILES → { markup, mode, width, height }. `mode` is the mode actually used
+// (expanded silently falls back to condensed for rings/large molecules).
+export function renderMolecule(S, smiles, { mode = "skeletal", light = false } = {}) {
+  return cached(`${mode}|${light ? 1 : 0}|${smiles}`, () => {
+    try {
+      if (mode === "expanded") {
+        const r = renderExpandedSvg(smiles, { light });
+        if (r) return { ...r, mode: "expanded" };
+        const fallback = analyzeSmiles(smiles)?.hasRing ? "skeletal" : "condensed";
+        return { ...drawWithSmilesDrawer(S, smiles, fallback, light), mode: fallback };
+      }
+      return { ...drawWithSmilesDrawer(S, smiles, mode, light), mode };
+    } catch (e) {
+      console.warn("[chem] draw failed:", smiles, e);
+      return null;
+    }
+  });
+}
+
+export const canExpand = (smiles, light = false) => !!renderExpandedSvg(smiles, { light });
+
+// The default mode for a molecule: simple chains as expanded formulas, other
+// acyclic molecules condensed, everything with rings skeletal.
+export function autoMode(smiles) {
+  const info = analyzeSmiles(smiles);
+  if (!info) return "skeletal";
+  if (info.heavy <= 8 && canExpand(smiles)) return "expanded";
+  return info.hasRing ? "skeletal" : "condensed";
+}
+
+// ---- reactions --------------------------------------------------------------
+const NS = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs = {}, text) => {
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  if (text !== undefined) el.textContent = text;
+  return el;
+};
+const wrapText = (text, max = 22) => {
+  const lines = [];
+  let line = "";
+  for (const word of String(text).split(/\s+/).filter(Boolean)) {
+    if (line && (line + " " + word).length > max) { lines.push(line); line = word; } else line = line ? line + " " + word : word;
+  }
+  return line ? lines.concat(line) : lines;
+};
+const textWidth = (t, size) => t.length * size * 0.58;
+
+// species: [{ smiles } | { text }]; agents/conditions: plain strings.
+// Returns { markup, width, height, mode } — one SVG for a single step.
+export function renderReaction(S, { reactants, agents = [], products, conditions = "" }, { mode = "skeletal", light = false } = {}) {
+  const ink = light ? "#1F2430" : "#EDEFF5", muted = light ? "#667085" : "#9AA3B5", accent = light ? "#444B5A" : "#FFD700";
+  const GAP = 12, SIZE = 12;
+  const items = [];
+  const usedModes = new Set();
+
+  const speciesItem = (sp) => {
+    if (sp.smiles) {
+      const r = renderMolecule(S, sp.smiles, { mode, light });
+      if (r) {
+        usedModes.add(r.mode);
+        const tpl = document.createElement("template");
+        tpl.innerHTML = r.markup.trim();
+        const node = tpl.content.firstElementChild;
+        node.removeAttribute("style");
+        return { node, w: r.width, h: r.height };
+      }
+    }
+    const label = sp.text || sp.smiles || "?";
+    const w = Math.max(24, textWidth(label, 14) + 12);
+    const g = svgEl("svg", { viewBox: `0 0 ${w} 24` });
+    g.appendChild(svgEl("text", { x: w / 2, y: 12, fill: ink, "font-size": 14, "text-anchor": "middle", "dominant-baseline": "central" }, label));
+    return { node: g, w, h: 24 };
+  };
+  const plus = () => {
+    const g = svgEl("svg", { viewBox: "0 0 14 24" });
+    g.appendChild(svgEl("text", { x: 7, y: 12, fill: muted, "font-size": 18, "font-weight": 600, "text-anchor": "middle", "dominant-baseline": "central" }, "+"));
+    return { node: g, w: 14, h: 24 };
+  };
+  const addSide = (list) => list.forEach((sp, i) => { if (i) items.push(plus()); items.push(speciesItem(sp)); });
+
+  addSide(reactants);
+  const above = wrapText(agents.join(", ")), below = wrapText(conditions);
+  const textW = Math.max(0, ...[...above, ...below].map((l) => textWidth(l, SIZE)));
+  const arrowW = Math.max(64, Math.min(220, textW + 24));
+  items.push({ arrow: true, w: arrowW, h: 24 });
+  addSide(products);
+
+  const maxH = Math.max(40, ...items.map((it) => it.h)) + (above.length + below.length > 2 ? 16 : 0);
+  const total = items.reduce((t, it) => t + it.w + GAP, -GAP);
+  const root = svgEl("svg", { xmlns: NS, viewBox: `0 0 ${Math.round(total)} ${Math.round(maxH)}`, width: Math.round(total), height: Math.round(maxH), "font-family": "Arial, Helvetica, sans-serif" });
+  let x = 0;
+  const cy = maxH / 2;
+  for (const it of items) {
+    if (it.arrow) {
+      root.appendChild(svgEl("line", { x1: x, y1: cy, x2: x + it.w - 3, y2: cy, stroke: accent, "stroke-width": 1.6, "stroke-linecap": "round" }));
+      root.appendChild(svgEl("polygon", { points: `${x + it.w},${cy} ${x + it.w - 8},${cy - 4.5} ${x + it.w - 8},${cy + 4.5}`, fill: accent }));
+      above.forEach((l, i) => root.appendChild(svgEl("text", { x: x + it.w / 2, y: cy - 8 - (above.length - 1 - i) * (SIZE + 2), fill: ink, "font-size": SIZE, "text-anchor": "middle" }, l)));
+      below.forEach((l, i) => root.appendChild(svgEl("text", { x: x + it.w / 2, y: cy + 8 + SIZE + i * (SIZE + 2), fill: muted, "font-size": SIZE, "text-anchor": "middle" }, l)));
+    } else {
+      it.node.setAttribute("x", Math.round(x));
+      it.node.setAttribute("y", Math.round((maxH - it.h) / 2));
+      it.node.setAttribute("width", Math.round(it.w));
+      it.node.setAttribute("height", Math.round(it.h));
+      root.appendChild(it.node);
+    }
+    x += it.w + GAP;
+  }
+  root.setAttribute("style", "max-width:100%;height:auto");
+  const used = usedModes.size === 1 ? [...usedModes][0] : usedModes.size ? "condensed" : mode;
+  return { markup: root.outerHTML, width: total, height: maxH, mode: used };
+}
+
+// Agents: SMILES → common label ("OS(=O)(=O)O" → H₂SO₄); anything else is
+// shown as written with subscripts ("H2SO4" → H₂SO₄, "heat" → Δ).
+export const agentText = (agent) => (isValidSmiles(agent) ? agentLabel(agent) : prettyAgent(agent));
+
+// ---- export helpers ---------------------------------------------------------
+export function toStandaloneSvg(markup, { background = "#0d0f14" } = {}) {
+  const doc = new DOMParser().parseFromString(markup, "image/svg+xml");
+  const svg = doc.documentElement;
+  if (svg.nodeName !== "svg") return markup;
+  const vb = (svg.getAttribute("viewBox") || "").split(/\s+/).map(Number);
+  if (vb.length === 4) {
+    svg.setAttribute("width", String(Math.round(vb[2])));
+    svg.setAttribute("height", String(Math.round(vb[3])));
+    const bg = doc.createElementNS(NS, "rect");
+    ["x", "y", "width", "height"].forEach((a, i) => bg.setAttribute(a, String(vb[i])));
+    bg.setAttribute("fill", background);
+    svg.insertBefore(bg, svg.firstChild);
+  }
+  svg.removeAttribute("style");
+  svg.setAttribute("xmlns", NS);
+  return new XMLSerializer().serializeToString(svg);
 }

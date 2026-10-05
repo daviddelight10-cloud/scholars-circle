@@ -239,11 +239,11 @@ export default function MarkdownText({ children, style, theme = "dark", recallMo
         if (first === "smiles" || first === "reaction" || first === "flow") { lang = first; body = body.slice(nl + 1); }
       }
       if (lang === "smiles") {
-        elements.push(<MoleculeView key={elements.length} body={body} />);
+        elements.push(<MoleculeView key={elements.length} body={body} theme={theme} />);
         continue;
       }
       if (lang === "reaction") {
-        elements.push(<ReactionView key={elements.length} body={body} />);
+        elements.push(<ReactionView key={elements.length} body={body} theme={theme} />);
         continue;
       }
       if (lang === "flow") {
