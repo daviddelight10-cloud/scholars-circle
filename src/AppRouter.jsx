@@ -6,9 +6,9 @@ import { lazyWithRetry } from './lib/lazyWithRetry.js';
 
 const App = lazyWithRetry(() => import('./App'));
 const ResearchHub = lazyWithRetry(() => import('./features/research-hub/ResearchHub'));
-const ResourceViewer = lazyWithRetry(() => import('./features/ResourceViewer'));
 const TeacherResourcesHub = lazyWithRetry(() => import('./features/TeacherResourcesHub'));
 const SharedFolderView = lazyWithRetry(() => import('./features/SharedFolderView'));
+const SharedResourceView = lazyWithRetry(() => import('./features/SharedResourceView'));
 const LiveQuizPage = lazyWithRetry(() => import('./features/live-quiz/LiveQuizPage'));
 const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
 const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
@@ -71,7 +71,7 @@ export default function AppRouter() {
 
       {/* Research Hub routes - requires auth */}
       <Route path="/resources" element={<RequireAuth><div className="app dark"><ResearchHub /></div></RequireAuth>} />
-      <Route path="/resources/:token" element={<div className="app dark"><ResourceViewer /></div>} />
+      <Route path="/resources/:token" element={<div className="app dark"><SharedResourceView /></div>} />
       <Route path="/teacher/resources" element={<div className="app dark"><TeacherResourcesHub /></div>} />
       <Route path="/teacher/resources/upload" element={<div className="app dark"><ResourceUploadForm /></div>} />
 

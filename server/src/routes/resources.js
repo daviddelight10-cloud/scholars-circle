@@ -991,14 +991,28 @@ router.get("/:token", optionalAuth, async (req, res) => {
   try {
     const { token } = req.params;
 
+    // Derived study variants (MCQ sets, AI summaries, exams) — the shared
+    // view groups these under their source material. mcqData/flashcardData
+    // are needed for question counts; they're withheld from guests below.
+    const derivedSelect = {
+      id: true, contentType: true, title: true, shareToken: true,
+      fileName: true, description: true, mcqData: true, flashcardData: true,
+      linkShared: true,
+    };
+
     const resource = await prisma.resource.findUnique({
       where: { shareToken: token },
       include: {
         uploader: { select: { id: true, username: true, role: true } },
+        university: { select: { id: true, name: true } },
+        bookmarks: { where: { userId: req.user?.sub || "" }, take: 1, select: { id: true } },
+        derivedResources: { select: derivedSelect },
         sourceResource: {
           select: {
-            id: true, title: true, shareToken: true,
-            derivedResources: { select: { id: true, contentType: true, shareToken: true } },
+            id: true, title: true, shareToken: true, contentType: true,
+            subject: true, courseCode: true, viewCount: true, createdAt: true,
+            uploadedBy: true, linkShared: true, fileName: true,
+            derivedResources: { select: derivedSelect },
           },
         },
       },
@@ -1009,18 +1023,51 @@ router.get("/:token", optionalAuth, async (req, res) => {
     }
 
     // Link sharing off — the share token only resolves for the uploader
-    if (resource.linkShared === false && req.user?.sub !== resource.uploadedBy) {
+    const isOwner = req.user?.sub === resource.uploadedBy;
+    if (resource.linkShared === false && !isOwner) {
       return res.status(404).json({ error: "Resource not found" });
     }
+
+    const countQuestions = (d) => {
+      try {
+        const raw = d.mcqData ?? d.flashcardData;
+        const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(data)) return data.length;
+        if (Array.isArray(data?.questions)) return data.questions.length;
+      } catch {}
+      return null;
+    };
+
+    // Recipients don't see variants whose link sharing was switched off.
+    // Guests never receive question payloads — just the count.
+    const shapeDerived = (list) =>
+      (list || [])
+        .filter((d) => d.linkShared !== false || isOwner)
+        .map((d) => {
+          const { mcqData, flashcardData, fileUrl, storagePath, ...rest } = d;
+          return req.user
+            ? { ...rest, mcqData, flashcardData }
+            : { ...rest, questionCount: countQuestions(d) };
+        });
+
+    const { bookmarks, ...rest } = resource;
+    const payload = {
+      ...rest,
+      derivedResources: shapeDerived(resource.derivedResources),
+      sourceResource: resource.sourceResource
+        ? { ...resource.sourceResource, derivedResources: shapeDerived(resource.sourceResource.derivedResources) }
+        : null,
+      bookmarked: (bookmarks?.length || 0) > 0,
+    };
 
     // Unauthenticated guests get safe metadata only — fileUrl/mcqData withheld
     // The frontend shows its login/signup overlay for the actual content
     if (!req.user) {
-      const { fileUrl, storagePath, mcqData, ...safe } = resource;
+      const { fileUrl, storagePath, mcqData, flashcardData, ...safe } = payload;
       return res.json({ ...safe, _requiresAuth: true });
     }
 
-    res.json(resource);
+    res.json(payload);
   } catch (error) {
     console.error("Error fetching resource by token:", error);
     res.status(500).json({ error: "Failed to fetch resource" });

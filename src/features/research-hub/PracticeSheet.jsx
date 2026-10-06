@@ -30,6 +30,8 @@ const relTime = (ts) => {
 
 function getVariantCount(variant) {
   if (!variant) return 0;
+  // Server-computed count for guests (question payload is withheld)
+  if (variant.questionCount != null) return variant.questionCount;
   try {
     if (variant.contentType === "mcq" && variant.mcqData) {
       const data = typeof variant.mcqData === "string" ? JSON.parse(variant.mcqData) : variant.mcqData;

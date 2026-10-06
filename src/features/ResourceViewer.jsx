@@ -105,7 +105,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       });
       if (res.ok) {
         const data = await res.json();
-        setCache(cacheKey, data);
+        // Don't cache the guest-safe response — it has no fileUrl, and a
+        // user who logs in via the overlay would get stuck on it for 5 min
+        if (!data._requiresAuth) setCache(cacheKey, data);
         setResource(data);
         triggerLogView(data);
       } else if (res.status === 404) {
