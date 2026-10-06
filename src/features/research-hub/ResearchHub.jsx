@@ -1684,10 +1684,27 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     />
   );
 
+  // ShareSheet mounts above whichever view is active — the early returns below
+  // (folder detail, resource viewer) render instead of the main list, so the
+  // sheet must be included there or a share triggered inside a folder only
+  // becomes visible after navigating back out.
+  const shareSheet = (
+    <div className="mc-root" style={{ display: "contents" }}>
+      <ShareSheet
+        open={!!shareTarget}
+        onClose={() => setShareTarget(null)}
+        target={shareTarget}
+        notify={(m) => showToast(m, { icon: "link" })}
+        onEnableLink={handleEnableLinkShare}
+      />
+    </div>
+  );
+
   if (viewerToken) {
     return (<>
       <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onOpenResource={(t) => { setViewerToken(t); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />
       {streamOverlay}
+      {shareSheet}
     </>);
   }
 
@@ -1755,6 +1772,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         }}
       />
       {streamOverlay}
+      {shareSheet}
     </>);
   }
 
@@ -2119,13 +2137,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onShare={handleActionShare}
         onReport={handleActionReport}
       />
-      <ShareSheet
-        open={!!shareTarget}
-        onClose={() => setShareTarget(null)}
-        target={shareTarget}
-        notify={(m) => showToast(m, { icon: "link" })}
-        onEnableLink={handleEnableLinkShare}
-      />
+      {shareSheet}
       <ReportSheet
         open={showReport}
         onClose={() => { setShowReport(false); setActionTarget(null); }}
