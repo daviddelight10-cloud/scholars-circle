@@ -795,7 +795,21 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     canvases.forEach((c) => {
       if (c) {
         const pg = scrollMode === "single" ? currentPage : parseInt(c.parentElement?.dataset?.page, 10);
-        const base = pageDimsRef.current[pg] || pageDimsRef.current[1];
+        let base = pageDimsRef.current[pg];
+        if (!base) {
+          // Never borrow page 1's dims for a different page — its aspect would
+          // squeeze the bitmap. The canvas already knows its true aspect from
+          // its last render; derive base dims from it, else measure lazily.
+          const rs = parseFloat(c.dataset.renderedScale || "0");
+          const sw = parseFloat(c.style.width);
+          const sh = parseFloat(c.style.height);
+          if (rs > 0 && Number.isFinite(sw) && Number.isFinite(sh) && sw > 0 && sh > 0) {
+            base = { width: sw / rs, height: sh / rs };
+            pageDimsRef.current[pg] = base;
+          } else {
+            measurePageDims(pg);
+          }
+        }
         if (base) {
           c.style.width = (base.width * newScale) + "px";
           c.style.height = (base.height * newScale) + "px";
