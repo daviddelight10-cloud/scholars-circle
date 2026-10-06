@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/appUtils";
 import { getContentTypeIcon } from "../lib/researchUtils";
 import MaterialStatsDrawer from "./MaterialStatsDrawer";
-import ShareSheet from "./ShareSheet";
+import ShareSheet from "./research-hub/ShareSheet.jsx";
 
 const C = {
   bg: "#0d0f20", card: "#11132a", line: "#1e2245",
@@ -134,7 +134,7 @@ export default function LecturerInsights({ token }) {
               </div>
             </div>
             <button style={btn} onClick={() => setStatsId(r.id)}>📊 Stats</button>
-            <button style={btn} onClick={() => setShareTarget({ title: r.title, shareToken: r.shareToken })}>🔗 Share</button>
+            <button style={btn} onClick={() => setShareTarget({ type: "resource", id: r.id, shareToken: r.shareToken, title: r.title, contentType: r.contentType, isOwner: true })}>🔗 Share</button>
           </div>
         ))}
       </Card>
@@ -158,14 +158,14 @@ export default function LecturerInsights({ token }) {
       </Card>
 
       {statsId && <MaterialStatsDrawer resourceId={statsId} token={token} onClose={() => setStatsId(null)} />}
-      {shareTarget && (
+      <div className="mc-root" style={{ display: "contents" }}>
         <ShareSheet
-          title={shareTarget.title}
-          shareUrl={`${window.location.origin}/resources/${shareTarget.shareToken}`}
-          token={token}
+          open={!!shareTarget}
+          target={shareTarget}
+          allowAnnounce
           onClose={() => setShareTarget(null)}
         />
-      )}
+      </div>
     </div>
   );
 }

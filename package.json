@@ -24,6 +24,7 @@
     "livekit-client": "^2.22.3",
     "lucide-react": "^1.17.0",
     "pdfjs-dist": "^3.11.174",
+    "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",

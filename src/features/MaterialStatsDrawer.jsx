@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/appUtils";
-import ShareSheet from "./ShareSheet";
+import ShareSheet from "./research-hub/ShareSheet.jsx";
 
 const C = {
   bg: "#0d0f20", card: "#11132a", line: "#1e2245",
@@ -181,13 +181,23 @@ export default function MaterialStatsDrawer({ resourceId, token, onClose }) {
           </>
         )}
       </div>
-      {showShare && data && (
-        <ShareSheet
-          title={data.resource.title}
-          shareUrl={`${window.location.origin}/resources/${data.resource.shareToken}`}
-          token={token}
-          onClose={() => setShowShare(false)}
-        />
+      {data && (
+        <div className="mc-root" style={{ display: "contents" }}>
+          <ShareSheet
+            open={showShare}
+            target={{
+              type: "resource",
+              id: data.resource.id,
+              shareToken: data.resource.shareToken,
+              title: data.resource.title,
+              meta: data.resource.subject,
+              contentType: data.resource.contentType,
+              isOwner: true,
+            }}
+            allowAnnounce
+            onClose={() => setShowShare(false)}
+          />
+        </div>
       )}
     </>
   );

@@ -9,6 +9,7 @@ import { MessagesTab } from "../messages/MessagesTab";
 import { GroupsTab } from "../groups/GroupsTab";
 import { Avatar, SectionHeader, displayTitle } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
+import ShareSheet from "../research-hub/ShareSheet.jsx";
 import "../../feed.css";
 
 const TABS = [
@@ -42,6 +43,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [followBusy, setFollowBusy] = useState({});
   const [trending, setTrending] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
+  const [shareTarget, setShareTarget] = useState(null); // unified ShareSheet target
 
   const me = useMemo(
     () => ({
@@ -52,6 +54,30 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     }),
     [authUser]
   );
+
+  const handleShareBlock = useCallback((b) => {
+    if (b.type === "folder" && b.folder?.shareToken) {
+      setShareTarget({
+        type: "folder",
+        id: b.folder.id,
+        shareToken: b.folder.shareToken,
+        title: b.folder.name,
+        meta: [b.folder.courseCode, b.folder.level].filter(Boolean).join(" · "),
+        visibility: "link",
+        isOwner: b.folder.ownerId != null && b.folder.ownerId === me?.id,
+      });
+    } else if (b.resource?.shareToken) {
+      setShareTarget({
+        type: "resource",
+        id: b.resource.id,
+        shareToken: b.resource.shareToken,
+        title: b.resource.title,
+        meta: b.resource.subject,
+        contentType: b.resource.contentType,
+        isOwner: b.resource.uploadedBy === me?.id,
+      });
+    }
+  }, [me?.id]);
 
   const subjectChips = useMemo(() => {
     const set = new Set();
@@ -368,6 +394,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           onEndRoom={handleEndRoom}
           onOpenProfile={setProfileUserId}
           onJoinQuiz={handleJoinQuiz}
+          onShare={handleShareBlock}
         />
       );
     });
@@ -661,6 +688,19 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           }}
         />
       )}
+
+      {/* Unified share sheet — mc-root wrapper supplies the palette vars */}
+      <div className="mc-root" style={{ display: "contents" }}>
+        <ShareSheet
+          open={!!shareTarget}
+          onClose={() => setShareTarget(null)}
+          target={shareTarget}
+          onOpenDestination={(dest) => {
+            if (dest === "chats") setTab("chats");
+            else loadFeed({ quiet: true });
+          }}
+        />
+      </div>
     </div>
   );
 }

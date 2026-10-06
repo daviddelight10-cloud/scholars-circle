@@ -41,4 +41,7 @@ export const groupsApi = {
     req(`/classroom/groups/${id}`, { token, method: "PATCH", body: fields }),
   remove: ({ token, id }) => req(`/classroom/groups/${id}`, { token, method: "DELETE" }),
   detail: ({ token, id }) => req(`/classroom/${id}`, { token }),
+  // Group chat messages live on the study-group router (classroomId === group id).
+  sendMessage: ({ token, id, text, resourceId, liveCode } = {}) =>
+    req(`/study-group/${id}/messages`, { token, method: "POST", body: { text, resourceId, liveCode } }),
 };

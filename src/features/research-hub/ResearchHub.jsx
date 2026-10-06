@@ -742,6 +742,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       shareToken: t.shareToken,
       title: t.name,
       meta: t.kind,
+      contentType: t.contentType,
     });
   };
 
@@ -764,6 +765,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   const handleShareFolder = (folder) => {
     if (!folder) return;
+    const uid = getCurrentUserId();
     setShareTarget({
       type: "folder",
       id: folder.id,
@@ -771,12 +773,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       title: folder.name,
       meta: [folder.courseCode, folder.level, folder.semester].filter(Boolean).join(" · "),
       visibility: folder.visibility,
+      isOwner: !!(uid && String(folder.ownerId) === uid),
     });
   };
 
   // Private space → generate a share token so the sheet can offer the link.
   const handleEnableLinkShare = useCallback(async (target) => {
-    const updated = await apiUpdateFolder(target.id, { generateShareToken: true });
+    const updated = await apiUpdateFolder(target.id, { generateShareToken: true, visibility: "link" });
     const token = updated?.shareToken || null;
     if (token) {
       setShareTarget((prev) => prev ? { ...prev, shareToken: token, visibility: "link" } : prev);
@@ -787,6 +790,18 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       }));
     }
     return token;
+  }, []);
+
+  // Owner turns link sharing off — token is kept server-side, so turning it
+  // back on reuses the same link.
+  const handleDisableLinkShare = useCallback(async (target) => {
+    await apiUpdateFolder(target.id, { visibility: "private" });
+    setShareTarget((prev) => prev ? { ...prev, visibility: "private" } : prev);
+    setFolderDetail((prev) => prev && prev.id === target.id ? { ...prev, visibility: "private" } : prev);
+    setFolders((prev) => ({
+      ...prev,
+      own: (prev.own || []).map((f) => f.id === target.id ? { ...f, visibility: "private" } : f),
+    }));
   }, []);
 
   const handleToggleFolderBookmark = useCallback(async (folder) => {
@@ -1018,6 +1033,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       shareToken: res.shareToken,
       title: res.title,
       meta: [res.subject, res.courseCode].filter(Boolean).join(" · "),
+      contentType: res.contentType,
+      isOwner: true,
     });
   }, [resources]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1696,6 +1713,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         target={shareTarget}
         notify={(m) => showToast(m, { icon: "link" })}
         onEnableLink={handleEnableLinkShare}
+        onDisableLink={handleDisableLinkShare}
       />
     </div>
   );

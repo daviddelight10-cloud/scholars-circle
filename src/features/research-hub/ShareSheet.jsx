@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import CircleSheet from "./CircleSheet.jsx";
 import McIcon from "./McIcon.jsx";
 import { feedApi } from "../feed/feedApi.js";
 import { groupsApi } from "../groups/groupsApi.js";
 import { messagesApi } from "../messages/messagesApi.js";
-import { API_BASE } from "../../lib/constants.js";
+import { api } from "../../lib/appUtils.js";
+// The sheet imports its own styles so it works from any feature
+// (feed, teacher hubs, resource viewer) — not just inside ResearchHub.
+import "../../research-hub.css";
 
 function getAuth() {
   try {
@@ -15,23 +19,58 @@ function getAuth() {
 }
 
 const buildUrl = (t) =>
-  !t?.shareToken
+  !t?.shareToken || (t?.type === "folder" && t?.visibility === "private")
     ? null
     : `${window.location.origin}${t.type === "folder" ? "/folders/" : "/resources/"}${t.shareToken}`;
 
+const RECENTS_KEY = "sc-share-recents";
+const loadRecents = () => {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+};
+const pushRecent = (r) => {
+  const next = [r, ...loadRecents().filter((x) => !(x.kind === r.kind && x.id === r.id))].slice(0, 4);
+  try { localStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch {}
+  return next;
+};
+
+const PREVIEW_ICON = {
+  mcq: "list", exam: "grad", summary: "books", flashcard: "list",
+};
+
+const VISIBILITY = {
+  link: { icon: "globe", label: "Anyone with the link" },
+  shared: { icon: "landmark", label: "Department" },
+  private: { icon: "lock", label: "Private — link off" },
+};
+
 /**
  * Unified share sheet — one entry point for every "Share" action in the app.
- * target: { type: "resource"|"folder", id, shareToken, title, meta, visibility }
- * onEnableLink: async (target) => shareToken — turns on link sharing for a
- * private folder and returns the new token.
+ * target: { type: "resource"|"folder", id, shareToken, title, meta, visibility,
+ *           contentType, isOwner }
+ * onEnableLink / onDisableLink: async (target) => shareToken — toggles link
+ * sharing on a folder (returns the token when enabling).
+ * onOpenDestination: (dest) => void — lets hosts deep-link "Open chats"/"View feed".
+ * allowAnnounce: renders the teacher "Announce to students" row.
  */
-export default function ShareSheet({ open, onClose, target, notify, onEnableLink, onRequireAuth }) {
-  const [pane, setPane] = useState("main"); // main | groups | friends
+export default function ShareSheet({ open, onClose, target, notify, onEnableLink, onDisableLink, onRequireAuth, onOpenDestination, allowAnnounce }) {
+  const [pane, setPane] = useState("main"); // main | groups | friends | sent
   const [url, setUrl] = useState(() => buildUrl(target));
   const [enabling, setEnabling] = useState(false);
   const [note, setNote] = useState("");
   const [qrOpen, setQrOpen] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
+  const [present, setPresent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [recents, setRecents] = useState(loadRecents);
+  const [sentTo, setSentTo] = useState(null); // { label, dest, destLabel }
+  const [announcing, setAnnouncing] = useState(false);
+  const [announced, setAnnounced] = useState(false);
 
   // Sub-view data
   const [groups, setGroups] = useState(null);
@@ -41,6 +80,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
   const say = notify || ((m) => { setNote(m); setTimeout(() => setNote(""), 2200); });
   const authed = !!getAuth().authToken;
   const isResource = target?.type === "resource";
+  const cap = caption.trim();
 
   // Reset sheet state when a new target is shared (adjust-during-render,
   // React's recommended alternative to an effect for prop-derived resets).
@@ -51,9 +91,15 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     setUrl(buildUrl(target));
     setNote("");
     setQrOpen(false);
+    setQrDataUrl(null);
+    setPresent(false);
+    setCaption("");
+    setSentTo(null);
+    setAnnounced(false);
     setPeerQ("");
     setPeers(null);
     setGroups(null);
+    setRecents(loadRecents());
   }
 
   useEffect(() => {
@@ -69,7 +115,22 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     return () => clearTimeout(t);
   }, [peerQ, pane, authed]);
 
+  // Generate the QR locally — no third-party service sees the share URL.
+  // Stale codes are cleared on target change / disableLink; they never render
+  // while url is null anyway (the QR UI only shows inside the url branch).
+  useEffect(() => {
+    if (!url) return;
+    let live = true;
+    QRCode.toDataURL(url, { width: 360, margin: 1, color: { dark: "#111111", light: "#ffffff" } })
+      .then((d) => { if (live) setQrDataUrl(d); })
+      .catch(() => { if (live) setQrDataUrl(null); });
+    return () => { live = false; };
+  }, [url]);
+
   if (!target) return null;
+
+  const shareText = () =>
+    [cap, `📚 ${target.title}`, `Open it here: ${url}`].filter(Boolean).join("\n");
 
   const copy = async () => {
     if (!url) return;
@@ -90,7 +151,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     if (!url) return;
     try {
       if (navigator.share) {
-        await navigator.share({ title: target.title, text: target.meta || target.title, url });
+        await navigator.share({ title: target.title, text: cap || target.meta || target.title, url });
       } else {
         await copy();
       }
@@ -101,8 +162,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
 
   const whatsapp = () => {
     if (!url) return;
-    const text = `📚 ${target.title}\n\nOpen it here: ${url}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText())}`, "_blank");
   };
 
   const enableLink = async () => {
@@ -111,8 +171,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     try {
       const shareToken = await onEnableLink(target);
       if (shareToken) {
-        const t = { ...target, shareToken };
-        setUrl(buildUrl(t));
+        setUrl(buildUrl({ ...target, shareToken, visibility: "link" }));
         say("Link sharing on ✓");
       }
     } catch (e) {
@@ -121,12 +180,32 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     setEnabling(false);
   };
 
+  const disableLink = async () => {
+    if (enabling || !onDisableLink) return;
+    setEnabling(true);
+    try {
+      await onDisableLink(target);
+      setUrl(null);
+      setQrDataUrl(null);
+      setQrOpen(false);
+      say("Link sharing off — the old link no longer opens this space");
+    } catch (e) {
+      say(e.message || "Couldn't turn off link sharing");
+    }
+    setEnabling(false);
+  };
+
+  const succeed = (label, dest, destLabel) => {
+    setSentTo({ label, dest, destLabel });
+    setPane("sent");
+  };
+
   const postToFeed = async () => {
     if (busy) return;
     setBusy(true);
     try {
-      await feedApi.createPost({ text: `📚 ${target.title}`, resourceId: target.id });
-      setNote("Posted to your circle ✓");
+      await feedApi.createPost({ text: cap || `📚 ${target.title}`, resourceId: target.id });
+      succeed("Posted to your circle", "feed", "View feed");
     } catch (e) {
       say(e.message || "Couldn't post");
     }
@@ -137,19 +216,14 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     if (busy) return;
     setBusy(true);
     try {
-      const { authToken } = getAuth();
-      const res = await fetch(`${API_BASE}/study-group/${g.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
-        body: JSON.stringify(
-          isResource
-            ? { text: `Shared ${target.title}`, resourceId: target.id }
-            : { text: `📁 ${target.title}\n${url}` }
-        ),
+      await groupsApi.sendMessage({
+        id: g.id,
+        ...(isResource
+          ? { text: cap || `Shared ${target.title}`, resourceId: target.id }
+          : { text: [cap, `📁 ${target.title}`, url].filter(Boolean).join("\n") }),
       });
-      if (!res.ok) throw new Error("Couldn't send to this group");
-      setPane("main");
-      setNote(`Sent to ${g.name} ✓`);
+      setRecents(pushRecent({ kind: "group", id: g.id, name: g.name, icon: g.icon || "💬", sub: g.subject }));
+      succeed(`Sent to ${g.name}`, "chats", "Open chats");
     } catch (e) {
       say(e.message || "Couldn't send");
     }
@@ -160,13 +234,36 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     if (busy) return;
     setBusy(true);
     try {
-      await messagesApi.send({ toUserId: p.id, content: `📚 ${target.title}\n${url}` });
-      setPane("main");
-      setNote(`Sent to ${p.name || p.username} ✓`);
+      await messagesApi.send({ toUserId: p.id, content: [cap, `📚 ${target.title}`, url].filter(Boolean).join("\n") });
+      setRecents(pushRecent({ kind: "friend", id: p.id, name: p.name || p.username, sub: p.handle || p.uni }));
+      succeed(`Sent to ${p.name || p.username}`, "chats", "Open chats");
     } catch (e) {
       say(e.message || "Couldn't send");
     }
     setBusy(false);
+  };
+
+  const announce = async () => {
+    if (announcing || announced || !url) return;
+    setAnnouncing(true);
+    try {
+      await api("/announcements", {
+        token: getAuth().authToken,
+        method: "POST",
+        body: {
+          title: `📚 ${target.title}`,
+          content: `New material shared with you:\n\n${url}\n\nOpen it to start studying.`,
+          category: "GENERAL",
+          priority: "NORMAL",
+          targetRoles: ["STUDENT"],
+        },
+      });
+      setAnnounced(true);
+      say("Announcement sent to students ✓");
+    } catch (e) {
+      say(e.message || "Couldn't announce");
+    }
+    setAnnouncing(false);
   };
 
   const requireAuth = () => {
@@ -174,32 +271,86 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     onRequireAuth?.();
   };
 
-  const qrUrl = url
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodeURIComponent(url)}`
-    : null;
+  const openDest = () => {
+    if (sentTo?.dest && onOpenDestination) onOpenDestination(sentTo.dest);
+    onClose?.();
+  };
+
+  const vis = target.type === "folder" ? VISIBILITY[target.visibility || (url ? "link" : "private")] : null;
+  const previewIcon = target.type === "folder" ? "folder" : PREVIEW_ICON[target.contentType] || "filetext";
 
   return (
-    <CircleSheet open={open} onClose={onClose} title={pane === "main" ? "Share" : pane === "groups" ? "Send to a group" : "Send to a friend"} kind={isResource ? "Material" : "Space"}>
-      {pane !== "main" && (
+    <CircleSheet open={open} onClose={onClose} title={pane === "main" ? "Share" : pane === "groups" ? "Send to a group" : pane === "friends" ? "Send to a friend" : "Shared"} kind={isResource ? "Material" : "Space"}>
+      {(pane === "groups" || pane === "friends") && (
         <button className="sh-back" onClick={() => setPane("main")}>
           <McIcon name="chev" style={{ transform: "rotate(90deg)" }} /> Back
         </button>
+      )}
+
+      {pane === "sent" && sentTo && (
+        <div className="sh-sent">
+          <div className="sh-sent-check"><McIcon name="check" /></div>
+          <div className="sh-sent-label">{sentTo.label}</div>
+          <div className="sh-sent-actions">
+            {onOpenDestination && sentTo.dest && (
+              <button className="sh-btn" onClick={openDest}>{sentTo.destLabel}</button>
+            )}
+            <button className="sh-btn sh-btn-primary" onClick={onClose}>Done</button>
+          </div>
+        </div>
       )}
 
       {pane === "main" && (
         <>
           {/* Preview */}
           <div className="sh-preview">
-            <span className="sh-preview-icon">{isResource ? "📄" : "📁"}</span>
+            <span className="sh-preview-icon"><McIcon name={previewIcon} /></span>
             <div className="sh-preview-info">
               <div className="sh-preview-title">{target.title}</div>
-              {target.meta && <div className="sh-preview-meta">{target.meta}</div>}
+              <div className="sh-preview-meta">
+                {target.meta && <span>{target.meta}</span>}
+                {vis && (
+                  <span className={`sh-vis${target.visibility === "link" || (!target.visibility && url) ? " on" : ""}`}>
+                    <McIcon name={vis.icon} /> {vis.label}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
+
+          {authed && (
+            <input
+              className="sh-caption"
+              placeholder="Add a note… (optional)"
+              value={caption}
+              maxLength={200}
+              onChange={(e) => setCaption(e.target.value)}
+            />
+          )}
 
           {/* In-circle destinations */}
           {authed ? (
             <>
+              {recents.length > 0 && (
+                <>
+                  <div className="sh-section">Recent</div>
+                  {recents.map((r) => (
+                    <button
+                      key={`${r.kind}-${r.id}`}
+                      className="mc-act-row compact"
+                      onClick={() => (r.kind === "group" ? sendToGroup(r) : sendToFriend(r))}
+                      disabled={busy}
+                    >
+                      <span className="sh-row-ic">{r.kind === "group" ? r.icon || "💬" : "👤"}</span>
+                      <div>
+                        <div className="mc-r-t">{r.name}</div>
+                        {r.sub && <div className="mc-r-s">{r.sub}</div>}
+                      </div>
+                      <span className="sh-chev"><McIcon name="share" /></span>
+                    </button>
+                  ))}
+                </>
+              )}
               <div className="sh-section">Send in Circle</div>
               {isResource && (
                 <button className="mc-act-row" onClick={postToFeed} disabled={busy}>
@@ -226,6 +377,15 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
                 </div>
                 <span className="sh-chev"><McIcon name="chev-r" /></span>
               </button>
+              {allowAnnounce && url && (
+                <button className="mc-act-row" onClick={announce} disabled={announcing || announced}>
+                  <span className="sh-row-ic">📣</span>
+                  <div>
+                    <div className="mc-r-t">{announced ? "Announced to students ✓" : announcing ? "Sending…" : "Announce to students"}</div>
+                    <div className="mc-r-s">Posts the link as an announcement for your class</div>
+                  </div>
+                </button>
+              )}
             </>
           ) : (
             onRequireAuth && (
@@ -255,14 +415,26 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
                   <span className="sh-row-ic" style={{ fontSize: 15 }}>💬</span> WhatsApp
                 </button>
               </div>
-              <button className="sh-qr-toggle" onClick={() => setQrOpen((v) => !v)}>
-                {qrOpen ? "Hide QR code" : "Show QR code"}
-              </button>
-              {qrOpen && (
-                <div className="sh-qr">
-                  <img src={qrUrl} alt="QR code" width={140} height={140} />
-                  <div className="sh-qr-cap">Project in class — students scan to open</div>
-                </div>
+              <div className="sh-actions" style={{ marginTop: 8 }}>
+                <button className="sh-btn" onClick={() => setQrOpen((v) => !v)}>
+                  <McIcon name="grid" /> {qrOpen ? "Hide QR" : "QR code"}
+                </button>
+                {qrDataUrl && (
+                  <button className="sh-btn" onClick={() => setPresent(true)}>
+                    <McIcon name="eye" /> Present
+                  </button>
+                )}
+                {target.isOwner && onDisableLink && (
+                  <button className="sh-btn sh-btn-danger" onClick={disableLink} disabled={enabling}>
+                    <McIcon name="lock" /> {enabling ? "Turning off…" : "Turn off"}
+                  </button>
+                )}
+              </div>
+              {qrOpen && qrDataUrl && (
+                <button className="sh-qr" onClick={() => setPresent(true)} title="Present fullscreen">
+                  <img src={qrDataUrl} alt="QR code" width={140} height={140} />
+                  <div className="sh-qr-cap">Tap to present — students scan to open</div>
+                </button>
               )}
             </>
           ) : (
@@ -318,6 +490,18 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
             ))}
           </div>
         </>
+      )}
+
+      {/* Fullscreen QR for classroom projection */}
+      {present && qrDataUrl && (
+        <div className="sh-present" onClick={() => setPresent(false)}>
+          <div className="sh-present-card" onClick={(e) => e.stopPropagation()}>
+            <div className="sh-present-title">{target.title}</div>
+            <img src={qrDataUrl} alt="QR code" className="sh-present-qr" />
+            <div className="sh-present-url">{url.replace(/^https?:\/\//, "")}</div>
+            <div className="sh-qr-cap">Students scan to open — tap anywhere to close</div>
+          </div>
+        </div>
       )}
     </CircleSheet>
   );

@@ -3,11 +3,11 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount } from "../lib/researchUtils";
 import { getDepartments } from "../lib/departments.js";
 import { getMyProfile } from "../lib/profileApi.js";
-import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, getPendingResources } from "../lib/foldersApi";
+import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, updateFolder as apiUpdateFolder, getPendingResources } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
 import LecturerInsights from "./LecturerInsights";
 import MaterialStatsDrawer from "./MaterialStatsDrawer";
-import ShareSheet from "./ShareSheet";
+import ShareSheet from "./research-hub/ShareSheet.jsx";
 import { API_BASE } from "../lib/constants";
 
 
@@ -550,7 +550,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
             >📝</button>
           )}
           {isLecturer && (
-            <button onClick={() => setShareTarget({ title: resource.title, shareUrl: `${window.location.origin}/resources/${resource.shareToken}` })} title="Share" style={{
+            <button onClick={() => setShareTarget({ type: "resource", id: resource.id, shareToken: resource.shareToken, title: resource.title, meta: resource.subject, contentType: resource.contentType, isOwner: true })} title="Share" style={{
               width: "32px", height: "32px", background: "#111328", border: "0.5px solid #2a2d4a", borderRadius: "7px",
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6090", fontSize: "13px",
             }}
@@ -616,7 +616,7 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
             </div>
           </div>
           {folderDetail?.shareToken && isLecturer && (
-            <button onClick={() => setShareTarget({ title: `Folder: ${folderDetail.name}`, shareUrl: `${window.location.origin}/folders/${folderDetail.shareToken}` })} style={{ padding: "8px 12px", background: "#0f1440", border: "0.5px solid #2a3080", borderRadius: "8px", fontSize: 13, color: "#DAA520", cursor: "pointer" }}>🔗 Share</button>
+            <button onClick={() => setShareTarget({ type: "folder", id: folderDetail.id, shareToken: folderDetail.shareToken, title: folderDetail.name, meta: folderDetail.courseCode, visibility: folderDetail.visibility, isOwner: true })} style={{ padding: "8px 12px", background: "#0f1440", border: "0.5px solid #2a3080", borderRadius: "8px", fontSize: 13, color: "#DAA520", cursor: "pointer" }}>🔗 Share</button>
           )}
           {folderDetail && (
             <button onClick={() => handleDeleteFolder(folderDetail.id)} style={{ padding: "8px 12px", background: "#2a0a0a", border: "0.5px solid #4a1010", borderRadius: "8px", fontSize: 13, color: "#ef9a9a", cursor: "pointer" }}>🗑 Delete</button>
@@ -1214,9 +1214,20 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
       {statsId && (
         <MaterialStatsDrawer resourceId={statsId} token={authToken} onClose={() => setStatsId(null)} />
       )}
-      {shareTarget && (
-        <ShareSheet title={shareTarget.title} shareUrl={shareTarget.shareUrl} token={authToken} notify={showToast} onClose={() => setShareTarget(null)} />
-      )}
+      <div className="mc-root" style={{ display: "contents" }}>
+        <ShareSheet
+          open={!!shareTarget}
+          target={shareTarget}
+          notify={showToast}
+          onClose={() => setShareTarget(null)}
+          allowAnnounce
+          onEnableLink={async (t) => {
+            const updated = await apiUpdateFolder(t.id, { generateShareToken: true, visibility: "link" });
+            return updated?.shareToken || null;
+          }}
+          onDisableLink={async (t) => { await apiUpdateFolder(t.id, { visibility: "private" }); }}
+        />
+      </div>
 
       <style>{`
         @keyframes fadeup {

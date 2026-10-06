@@ -896,6 +896,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               shareToken: resource.shareToken || token,
               title: resource.title,
               meta: [resource.subject, resource.courseCode].filter(Boolean).join(" · "),
+              contentType: resource.contentType,
             }}
             notify={(m) => showToast(m)}
           />

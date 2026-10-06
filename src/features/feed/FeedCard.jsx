@@ -2,6 +2,7 @@ import { useState } from "react";
 import { feedApi } from "./feedApi";
 import { CommentsSection } from "./CommentsSection";
 import { Avatar, displayTitle, relTime } from "./feedUi";
+import { linkify } from "../../lib/linkify.jsx";
 
 const TYPE_ICONS = {
   note: "📝", pdf: "📄", mcq: "❓", tutorial_question: "📘",
@@ -133,7 +134,7 @@ function ResourceInner({ resource, uni, token, onOpenResource }) {
   );
 }
 
-export function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount, onOpenResource, onOpenTab }) {
+export function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount, onOpenResource, onOpenTab, onShare }) {
   const isPost = block.type === "post";
   const isResource = block.type === "resource";
   const isFolder = block.type === "folder";
@@ -164,11 +165,13 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
       ? `${window.location.origin}/folders/${block.folder.shareToken}`
       : block.resource?.shareToken
         ? `${window.location.origin}/resources/${block.resource.shareToken}`
-        : window.location.href;
+        : null;
+    // Shareable target → unified ShareSheet (material cards, destinations).
+    if (url && onShare) { onShare(block); setMenuOpen(false); return; }
     try {
       if (navigator.share) {
-        await navigator.share({ title: block.resource?.title || "Scholars Circle", text: block.text?.slice(0, 120), url });
-      } else {
+        await navigator.share({ title: block.resource?.title || "Scholars Circle", text: block.text?.slice(0, 120), url: url || window.location.href });
+      } else if (url) {
         await navigator.clipboard.writeText(url);
       }
     } catch {}
@@ -224,7 +227,7 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
   );
 }
 
-export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile, onJoinQuiz }) {
+export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile, onJoinQuiz, onShare }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(block.comments ?? block.resource?.comments ?? 0);
   const [acceptedId, setAcceptedId] = useState(block.acceptedCommentId || null);
@@ -294,6 +297,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
           onDeleted={onDelete}
           onOpenResource={onOpenResource}
           onOpenTab={onOpenTab}
+          onShare={onShare}
         />
       </div>
     );
@@ -324,6 +328,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
           commentCount={commentCount}
           onOpenResource={onOpenResource}
           onOpenTab={onOpenTab}
+          onShare={onShare}
         />
         {commentsOpen && (
           <CommentsSection
@@ -379,7 +384,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
           </div>
         </div>
       ) : (
-        <div className="fd-card-text">{block.text}</div>
+        <div className="fd-card-text">{linkify(block.text)}</div>
       )}
 
       {block.resource && (
@@ -394,6 +399,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
         commentCount={commentCount}
         onOpenResource={onOpenResource}
         onOpenTab={onOpenTab}
+        onShare={onShare}
       />
 
       {commentsOpen && (
