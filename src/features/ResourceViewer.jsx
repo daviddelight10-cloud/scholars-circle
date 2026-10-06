@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, copyShareToken } from "../lib/researchUtils";
+import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass } from "../lib/researchUtils";
 import { recordRecentDoc } from "../lib/homeUtils.js";
 import PdfReader from "./PdfReader.jsx";
 import DocumentReader from "./DocumentReader.jsx";
@@ -11,7 +11,9 @@ import SummaryView from "./SummaryView.jsx";
 import { examFromResource } from "./exam/examApi.js";
 import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import MarkdownText from "../components/MarkdownText.jsx";
+import ShareSheet from "./research-hub/ShareSheet.jsx";
 import { useUI } from "../contexts/UIContext.jsx";
+import "../research-hub.css";
 
 import { API_BASE } from "../lib/constants";
 import { canUse } from "../lib/freeTier.js";
@@ -40,6 +42,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   const [authCase, setAuthCase] = useState("loggedin"); // loggedin | guest | new
   const [user, setUser] = useState(null);
   const [toast, setToast] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [trialInfo, setTrialInfo] = useState(null); // { allowed, freeTrialViews, freeTrialLimit }
 
   const { darkMode } = useUI();
@@ -257,12 +260,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     }
   };
 
-  const handleShare = async () => {
-    const success = await copyShareToken(token);
-    if (success) {
-      showToast("Link copied! 🔗");
-    }
-  };
+  const handleShare = () => setShareOpen(true);
 
   const showToast = (message) => {
     setToast(message);
@@ -883,6 +881,24 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         >
           <span>✓</span>
           {toast}
+        </div>
+      )}
+
+      {/* Unified share sheet — needs .mc-root for the mc-* palette vars */}
+      {resource && (
+        <div className="mc-root">
+          <ShareSheet
+            open={shareOpen}
+            onClose={() => setShareOpen(false)}
+            target={{
+              type: "resource",
+              id: resource.id,
+              shareToken: resource.shareToken || token,
+              title: resource.title,
+              meta: [resource.subject, resource.courseCode].filter(Boolean).join(" · "),
+            }}
+            notify={(m) => showToast(m)}
+          />
         </div>
       )}
 

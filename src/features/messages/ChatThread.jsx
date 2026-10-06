@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { messagesApi } from "./messagesApi";
 import { Avatar } from "../feed/feedUi";
+import { linkify } from "../../lib/linkify.jsx";
 
 const POLL_MS = 4000;
 
@@ -127,7 +128,7 @@ export function ChatThread({ token, me, partner, onBack, onOpenProfile, onRead }
                   ? <span style={{ width: 26, flexShrink: 0 }} />
                   : <Avatar user={partner} size={26} />)}
                 <div className={`fd-bubble ${m.isMine ? "me" : "them"} ${m.pending ? "pending" : ""}`}>
-                  <span className="fd-bubble-text">{m.text}</span>
+                  <span className="fd-bubble-text">{linkify(m.text)}</span>
                   <span className="fd-bubble-meta">
                     {timeLabel(m.ts)}
                     {m.isMine && !m.pending && (m.read ? " · read" : "")}

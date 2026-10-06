@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "../../lib/constants";
 import { Avatar } from "../feed/feedUi";
 import { MaterialPicker } from "../feed/Composer.jsx";
+import { linkify } from "../../lib/linkify.jsx";
 
 const EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉"];
 const POLL_MS = 6000;
@@ -239,7 +240,7 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
                     className={`gv-bubble ${isMe ? "me" : "them"} ${m.pending ? "pending" : ""}`}
                     onDoubleClick={() => setEmojiFor(emojiFor === m.id ? null : m.id)}
                   >
-                    {m.text ? <span className="gv-bubble-text">{m.text}</span> : null}
+                    {m.text ? <span className="gv-bubble-text">{linkify(m.text)}</span> : null}
                     {m.resource && (
                       <button
                         className="gv-res-card"

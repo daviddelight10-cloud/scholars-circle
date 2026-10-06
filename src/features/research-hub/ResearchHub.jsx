@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
-import { copyShareToken } from "../../lib/researchUtils";
+
 import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, restoreFolder as apiRestoreFolder, purgeFolder as apiPurgeFolder, getRecycleBin, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark } from "../../lib/foldersApi";
 import { submitReport } from "../../lib/reportsApi.js";
 import { getMyProfile } from "../../lib/profileApi.js";
@@ -26,6 +26,7 @@ import ExamBuilder from "../exam/ExamBuilder.jsx";
 import McIcon from "./McIcon.jsx";
 import CircleSheet from "./CircleSheet.jsx";
 import CardActionSheet from "./CardActionSheet.jsx";
+import ShareSheet from "./ShareSheet.jsx";
 import ReportSheet from "./ReportSheet.jsx";
 import ProfileSheet from "./ProfileSheet.jsx";
 import RecycleBinSheet from "./RecycleBinSheet.jsx";
@@ -142,6 +143,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [recycleBinBusyId, setRecycleBinBusyId] = useState(null);
   const [recycleBinOpen, setRecycleBinOpen] = useState(false);
   const [actionTarget, setActionTarget] = useState(null); // { id, name, kind, type, shareToken }
+  const [shareTarget, setShareTarget] = useState(null); // { type, id, shareToken, title, meta, visibility }
   const [showReport, setShowReport] = useState(false);
   const [profileOwner, setProfileOwner] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // own space pending soft delete
@@ -734,29 +736,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     const t = actionTarget;
     setActionTarget(null);
     if (!t) return;
-    const url = cardActionUrl(t);
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: t.name, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        showToast("Link copied to clipboard", { icon: "link" });
-      }
-    } catch {
-      // user cancelled share — no-op
-    }
-  };
-
-  const handleActionCopyLink = async () => {
-    const t = actionTarget;
-    setActionTarget(null);
-    if (!t) return;
-    try {
-      await navigator.clipboard.writeText(cardActionUrl(t));
-      showToast("Link copied to clipboard", { icon: "link" });
-    } catch {
-      showToast("Could not copy link");
-    }
+    setShareTarget({
+      type: t.type === "folder" ? "folder" : "resource",
+      id: t.id,
+      shareToken: t.shareToken,
+      title: t.name,
+      meta: t.kind,
+    });
   };
 
   const handleActionReport = () => {
@@ -776,16 +762,32 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     }
   };
 
-  const handleShareFolder = async (folder) => {
-    if (!folder?.shareToken) { showToast("Share not available"); return; }
-    const url = `${window.location.origin}/folders/${folder.shareToken}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast("Folder link copied! 🔗");
-    } catch {
-      showToast("Could not copy link");
-    }
+  const handleShareFolder = (folder) => {
+    if (!folder) return;
+    setShareTarget({
+      type: "folder",
+      id: folder.id,
+      shareToken: folder.shareToken || null,
+      title: folder.name,
+      meta: [folder.courseCode, folder.level, folder.semester].filter(Boolean).join(" · "),
+      visibility: folder.visibility,
+    });
   };
+
+  // Private space → generate a share token so the sheet can offer the link.
+  const handleEnableLinkShare = useCallback(async (target) => {
+    const updated = await apiUpdateFolder(target.id, { generateShareToken: true });
+    const token = updated?.shareToken || null;
+    if (token) {
+      setShareTarget((prev) => prev ? { ...prev, shareToken: token, visibility: "link" } : prev);
+      setFolderDetail((prev) => prev && prev.id === target.id ? { ...prev, shareToken: token, visibility: "link" } : prev);
+      setFolders((prev) => ({
+        ...prev,
+        own: (prev.own || []).map((f) => f.id === target.id ? { ...f, shareToken: token, visibility: "link" } : f),
+      }));
+    }
+    return token;
+  }, []);
 
   const handleToggleFolderBookmark = useCallback(async (folder) => {
     if (!folder?.id) return;
@@ -1004,10 +1006,20 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     setSessionMode({ type: "items", items, title: folder?.name });
   }, [guardSurvivalCooldown]);
 
-  const handleShare = useCallback(async (token) => {
-    const success = await copyShareToken(token);
-    if (success) showToast("Link copied! 🔗");
-  }, []);
+  const handleShare = useCallback((file) => {
+    // Callers pass the whole resource object (FileMenu's onShare(file)) —
+    // the sheet needs title/subject/shareToken for its destinations.
+    const res = file?.shareToken != null ? file
+      : resources.find((r) => r.shareToken === file || r.id === file);
+    if (!res) { showToast("Share not available"); return; }
+    setShareTarget({
+      type: "resource",
+      id: res.id,
+      shareToken: res.shareToken,
+      title: res.title,
+      meta: [res.subject, res.courseCode].filter(Boolean).join(" · "),
+    });
+  }, [resources]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOpen = useCallback((token) => {
     const res = resources.find((r) => r.shareToken === token);
@@ -2105,8 +2117,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onClose={() => setActionTarget(null)}
         target={actionTarget}
         onShare={handleActionShare}
-        onCopyLink={handleActionCopyLink}
         onReport={handleActionReport}
+      />
+      <ShareSheet
+        open={!!shareTarget}
+        onClose={() => setShareTarget(null)}
+        target={shareTarget}
+        notify={(m) => showToast(m, { icon: "link" })}
+        onEnableLink={handleEnableLinkShare}
       />
       <ReportSheet
         open={showReport}

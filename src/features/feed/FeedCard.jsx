@@ -163,7 +163,7 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
     const url = isFolder && block.folder?.shareToken
       ? `${window.location.origin}/folders/${block.folder.shareToken}`
       : block.resource?.shareToken
-        ? `${window.location.origin}/r/${block.resource.shareToken}`
+        ? `${window.location.origin}/resources/${block.resource.shareToken}`
         : window.location.href;
     try {
       if (navigator.share) {
