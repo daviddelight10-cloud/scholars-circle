@@ -2464,6 +2464,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
       flexShrink: 0,
+      // Size to the canvas so a zoomed page overflows (and pans) instead of
+      // being clamped to the column width
+      width: "max-content",
       scrollSnapAlign: scrollMode === "horizontal" ? "center" : "unset",
     },
     pageLabel: {
@@ -2593,6 +2596,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     },
     // Lasso / highlight overlay
     lassoOverlay: {
+      maxWidth: "none",
       position: "absolute",
       inset: 0,
       width: "100%",
@@ -4360,6 +4364,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                 ref={canvasRef}
                 style={{
                   display: "block",
+                  // Global `canvas { max-width:100%; height:auto }` would clamp the
+                  // width while the inline pixel height stays → stretched page.
+                  maxWidth: "none",
                   filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
                 }}
               />
@@ -4439,6 +4446,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                         ref={(el) => { pageCanvasRefs.current[pg - 1] = el; }}
                         style={{
                           display: "block",
+                          maxWidth: "none",
                           filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
                         }}
                       />
