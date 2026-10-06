@@ -293,6 +293,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const inputRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
   const pageDimsRef = useRef({}); // { pageNum: { width, height } } for virtualization placeholders
+  const dimsMeasuringRef = useRef(new Set()); // pages with an in-flight dims measurement
   const renderTasksRef = useRef({}); // { pageNum: renderTask } for per-canvas cancellation
   const pinchStartDistRef = useRef(0);
   const pinchStartScaleRef = useRef(1);
@@ -713,10 +714,32 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
   };
 
+  // Lazily measure one page's base dimensions — placeholders for unmeasured
+  // pages otherwise borrow page 1's aspect and look stretched on mixed-size
+  // documents. Retries pages the load-time loop failed to measure.
+  const measurePageDims = useCallback(async (pg) => {
+    if (!pdfDocRef.current || pageDimsRef.current[pg] || dimsMeasuringRef.current.has(pg)) return;
+    dimsMeasuringRef.current.add(pg);
+    try {
+      const page = await pdfDocRef.current.getPage(pg);
+      if (!pageDimsRef.current[pg]) {
+        const vp = page.getViewport({ scale: 1 });
+        pageDimsRef.current[pg] = { width: vp.width, height: vp.height };
+        setDimsVersion((v) => v + 1); // repaint so the placeholder corrects
+      }
+    } catch {}
+    dimsMeasuringRef.current.delete(pg);
+  }, []);
+
   // Get placeholder dimensions for virtualized pages
   const getPlaceholderDims = (pg) => {
-    const base = pageDimsRef.current[pg] || pageDimsRef.current[1];
+    const base = pageDimsRef.current[pg];
     if (base) return { width: base.width * scale, height: base.height * scale };
+    // Unknown page — measure it now (self-corrects on the next repaint) and
+    // use page 1 only as a transient stand-in so scroll length stays sane.
+    measurePageDims(pg);
+    const fallback = pageDimsRef.current[1];
+    if (fallback) return { width: fallback.width * scale, height: fallback.height * scale };
     return { width: 0, height: 0 };
   };
 
@@ -2399,14 +2422,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       overflowY: "auto",
       overflowX: "auto",
       position: "relative",
-      touchAction: userZoomed ? "auto" : "pan-y",
+      // "auto" — horizontal pan is only possible when content overflows
+      // (wider-than-median pages at fit, zoomed pages), and native pinch is
+      // blocked by user-scalable=no + our non-passive pinch handlers.
+      touchAction: "auto",
     } : {
       flex: 1,
       overflowX: "auto",
-      overflowY: userZoomed ? "auto" : "hidden",
+      overflowY: "auto",
       position: "relative",
       scrollSnapType: pinchActive ? "none" : "x mandatory",
-      touchAction: userZoomed ? "auto" : "pan-x",
+      touchAction: "auto",
     },
     pageShadow: {
       position: "relative",
