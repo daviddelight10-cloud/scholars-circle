@@ -799,12 +799,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         container.scrollTop += (r2.top + anchor.fy * r2.height) - screenY;
         container.scrollLeft += (r2.left + anchor.fx * r2.width) - screenX;
       } else {
-        if (scrollMode !== "horizontal") {
-          container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
-        }
-        if (scrollMode !== "vertical") {
-          container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
-        }
+        container.scrollTop = contentY * scaleRatio - (screenY - rect.top);
+        container.scrollLeft = contentX * scaleRatio - (screenX - rect.left);
       }
     }));
   };
@@ -853,6 +849,13 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const handleZoomOut = () => {
     zoomToCenter(Math.max(0.5, scale / 1.2));
     showZoomBadge();
+  };
+
+  // Tap the % chip → return to fit-to-width
+  const resetToFit = () => {
+    setUserZoomed(false);
+    resetPanZoom();
+    fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
   };
 
   const getPageText = useCallback(async (n) => {
@@ -2394,7 +2397,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     } : scrollMode === "vertical" ? {
       flex: 1,
       overflowY: "auto",
-      overflowX: userZoomed ? "auto" : "hidden",
+      overflowX: "auto",
       position: "relative",
       touchAction: userZoomed ? "auto" : "pan-y",
     } : {
@@ -4270,7 +4273,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
             style={{
               transform: (scrollMode === "single" || pinchActive) ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
               transformOrigin: "0 0",
-              transition: pinchActive || isPanning ? "none" : "transform 0.2s ease-out",
+              transition: "none",
               willChange: pinchActive || isPanning ? "transform" : "auto",
               ...(scrollMode === "single" ? {
                 flex: 1,
@@ -4282,7 +4285,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
               } : scrollMode === "vertical" ? {
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
+                alignItems: "flex-start",
                 gap: isMobile ? 8 : 16,
                 width: "100%",
                 minHeight: "100%",
@@ -4290,7 +4293,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
               } : {
                 display: "flex",
                 flexDirection: "row",
-                alignItems: "center",
+                alignItems: "flex-start",
                 gap: isMobile ? 8 : 24,
                 height: "100%",
                 minWidth: "100%",
@@ -4380,6 +4383,10 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                   ref={(el) => { pageItemRefs.current[pg - 1] = el; }}
                   style={{
                     ...s.continuousPageItem,
+                    // Auto margins center the page when it fits and collapse to
+                    // start-alignment when it overflows, so the far edge stays
+                    // reachable via scroll — align-items:center would clip it.
+                    margin: scrollMode === "horizontal" ? "auto 0" : "0 auto",
                     ...(!isInVirtual && dims.height > 0 ? {
                       width: dims.width,
                       height: dims.height,
@@ -4696,7 +4703,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                 <button style={s.navBtn} onClick={handleZoomOut} title="Zoom out" aria-label="Zoom out">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
                 </button>
-                <span style={s.zoomChip}>{Math.round(scale * 100)}%</span>
+                <button
+                  style={{ ...s.zoomChip, background: "none", border: "none", cursor: "pointer", fontFamily: s.zoomChip.fontFamily }}
+                  onClick={resetToFit}
+                  title="Reset to fit width"
+                  aria-label="Reset zoom to fit width"
+                >
+                  {Math.round(scale * 100)}%
+                </button>
                 <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in" aria-label="Zoom in">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                 </button>
