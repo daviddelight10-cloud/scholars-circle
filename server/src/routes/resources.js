@@ -144,7 +144,7 @@ router.get("/teacher/insights", requireAuth, requireRole("LECTURER"), async (req
     const uid = req.user.sub;
     const mine = await prisma.resource.findMany({
       where: { uploadedBy: uid },
-      select: { id: true, title: true, contentType: true, viewCount: true, avgRating: true, ratingCount: true, shareToken: true, status: true, createdAt: true },
+      select: { id: true, title: true, contentType: true, viewCount: true, avgRating: true, ratingCount: true, shareToken: true, status: true, linkShared: true, createdAt: true },
       orderBy: { viewCount: "desc" },
     });
     const ids = mine.map((r) => r.id);
@@ -223,7 +223,7 @@ router.get("/:id/analytics", requireAuth, async (req, res) => {
   try {
     const resource = await prisma.resource.findUnique({
       where: { id: req.params.id },
-      select: { id: true, title: true, uploadedBy: true, contentType: true, viewCount: true, mcqData: true, avgRating: true, ratingCount: true, shareToken: true, createdAt: true },
+      select: { id: true, title: true, uploadedBy: true, contentType: true, viewCount: true, mcqData: true, avgRating: true, ratingCount: true, shareToken: true, linkShared: true, createdAt: true },
     });
     if (!resource) return res.status(404).json({ error: "Resource not found" });
     const isStaff = req.user.role === "TEACHER" || req.user.role === "LECTURER";
@@ -1005,6 +1005,11 @@ router.get("/:token", optionalAuth, async (req, res) => {
     });
 
     if (!resource) {
+      return res.status(404).json({ error: "Resource not found" });
+    }
+
+    // Link sharing off — the share token only resolves for the uploader
+    if (resource.linkShared === false && req.user?.sub !== resource.uploadedBy) {
       return res.status(404).json({ error: "Resource not found" });
     }
 
@@ -2044,7 +2049,7 @@ router.post("/:token/view", requireAuth, async (req, res) => {
 router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, subject, description, isPremium, department, level, semester, departmentIds, mcqData, universityId } = req.body;
+    const { title, subject, description, isPremium, department, level, semester, departmentIds, mcqData, universityId, linkShared } = req.body;
 
     const resource = await prisma.resource.findUnique({
       where: { id },
@@ -2096,6 +2101,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
         ...(level !== undefined && { level }),
         ...(semester !== undefined && { semester }),
         ...(universityId !== undefined && { universityId: universityId || null }),
+        ...(linkShared !== undefined && { linkShared: linkShared === true || linkShared === "true" }),
         ...(parsedMcqData && { mcqData: parsedMcqData }),
         ...(parsedDeptIds !== null && {
           resourceDepts: {

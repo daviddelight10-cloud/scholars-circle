@@ -74,6 +74,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         title: b.resource.title,
         meta: b.resource.subject,
         contentType: b.resource.contentType,
+        linkShared: b.resource.linkShared,
         isOwner: b.resource.uploadedBy === me?.id,
       });
     }

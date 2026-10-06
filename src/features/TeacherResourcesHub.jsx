@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass, formatViewCount } from "../lib/researchUtils";
 import { getDepartments } from "../lib/departments.js";
 import { getMyProfile } from "../lib/profileApi.js";
+import { api } from "../lib/appUtils.js";
 import { listFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, updateFolder as apiUpdateFolder, getPendingResources } from "../lib/foldersApi";
 import ResourceViewer from "./ResourceViewer";
 import LecturerInsights from "./LecturerInsights";
@@ -1222,10 +1223,20 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
           onClose={() => setShareTarget(null)}
           allowAnnounce
           onEnableLink={async (t) => {
+            if (t.type === "resource") {
+              await api(`/api/resources/${t.id}`, { token: authToken, method: "PATCH", body: { linkShared: true } });
+              return t.shareToken;
+            }
             const updated = await apiUpdateFolder(t.id, { generateShareToken: true, visibility: "link" });
             return updated?.shareToken || null;
           }}
-          onDisableLink={async (t) => { await apiUpdateFolder(t.id, { visibility: "private" }); }}
+          onDisableLink={async (t) => {
+            if (t.type === "resource") {
+              await api(`/api/resources/${t.id}`, { token: authToken, method: "PATCH", body: { linkShared: false } });
+              return;
+            }
+            await apiUpdateFolder(t.id, { visibility: "private" });
+          }}
         />
       </div>
 

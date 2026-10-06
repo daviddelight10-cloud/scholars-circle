@@ -1535,6 +1535,7 @@ model Resource {
   isPremium   Boolean  @default(false)
   viewCount   Int      @default(0)
   shareToken  String   @unique
+  linkShared  Boolean  @default(true) // when false, share-token link only opens for the uploader
   mcqData     Json?    // For MCQ type: stores questions array
   flashcardData Json?  // For flashcard_deck type: stores [{front, back}] array
   status      String   @default("approved")  // pending | approved | rejected | private

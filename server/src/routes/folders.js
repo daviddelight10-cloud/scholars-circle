@@ -279,14 +279,16 @@ router.get("/shared/:shareToken", optionalAuth, async (req, res) => {
     // For authenticated users: approved + their own resources + their bookmarked resources in this folder
     const resourceWhere = {
       folderId: folder.id,
+      // Materials with link sharing off aren't openable by link for anyone
+      // except their uploader, so hide them from shared-folder recipients.
       ...(userId
         ? {
             OR: [
-              { status: "approved" },
+              { status: "approved", linkShared: true },
               { uploadedBy: userId },
             ],
           }
-        : { status: "approved" }),
+        : { status: "approved", linkShared: true }),
     };
 
     const resources = await prisma.resource.findMany({

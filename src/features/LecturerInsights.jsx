@@ -134,7 +134,7 @@ export default function LecturerInsights({ token }) {
               </div>
             </div>
             <button style={btn} onClick={() => setStatsId(r.id)}>📊 Stats</button>
-            <button style={btn} onClick={() => setShareTarget({ type: "resource", id: r.id, shareToken: r.shareToken, title: r.title, contentType: r.contentType, isOwner: true })}>🔗 Share</button>
+            <button style={btn} onClick={() => setShareTarget({ type: "resource", id: r.id, shareToken: r.shareToken, title: r.title, contentType: r.contentType, linkShared: r.linkShared, isOwner: true })}>🔗 Share</button>
           </div>
         ))}
       </Card>

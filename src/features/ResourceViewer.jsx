@@ -897,6 +897,8 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               title: resource.title,
               meta: [resource.subject, resource.courseCode].filter(Boolean).join(" · "),
               contentType: resource.contentType,
+              linkShared: resource.linkShared,
+              isOwner: !!user?.id && resource.uploadedBy === user.id,
             }}
             notify={(m) => showToast(m)}
           />

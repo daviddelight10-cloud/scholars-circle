@@ -743,6 +743,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       title: t.name,
       meta: t.kind,
       contentType: t.contentType,
+      linkShared: t.linkShared,
     });
   };
 
@@ -777,8 +778,27 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     });
   };
 
+  // Resource link toggle — keeps the resources list in sync with the sheet.
+  const setResourceLinkShared = useCallback(async (id, linkShared) => {
+    const res = await fetch(`${API_BASE}/api/resources/${id}`, {
+      method: "PATCH",
+      headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ linkShared }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Couldn't update link sharing");
+    }
+    setShareTarget((prev) => prev && prev.type === "resource" ? { ...prev, linkShared } : prev);
+    setResources((prev) => (prev || []).map((r) => r.id === id ? { ...r, linkShared } : r));
+  }, []);
+
   // Private space → generate a share token so the sheet can offer the link.
   const handleEnableLinkShare = useCallback(async (target) => {
+    if (target.type === "resource") {
+      await setResourceLinkShared(target.id, true);
+      return target.shareToken;
+    }
     const updated = await apiUpdateFolder(target.id, { generateShareToken: true, visibility: "link" });
     const token = updated?.shareToken || null;
     if (token) {
@@ -790,11 +810,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       }));
     }
     return token;
-  }, []);
+  }, [setResourceLinkShared]);
 
   // Owner turns link sharing off — token is kept server-side, so turning it
   // back on reuses the same link.
   const handleDisableLinkShare = useCallback(async (target) => {
+    if (target.type === "resource") {
+      await setResourceLinkShared(target.id, false);
+      return;
+    }
     await apiUpdateFolder(target.id, { visibility: "private" });
     setShareTarget((prev) => prev ? { ...prev, visibility: "private" } : prev);
     setFolderDetail((prev) => prev && prev.id === target.id ? { ...prev, visibility: "private" } : prev);
@@ -802,7 +826,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       ...prev,
       own: (prev.own || []).map((f) => f.id === target.id ? { ...f, visibility: "private" } : f),
     }));
-  }, []);
+  }, [setResourceLinkShared]);
 
   const handleToggleFolderBookmark = useCallback(async (folder) => {
     if (!folder?.id) return;
@@ -1034,6 +1058,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       title: res.title,
       meta: [res.subject, res.courseCode].filter(Boolean).join(" · "),
       contentType: res.contentType,
+      linkShared: res.linkShared,
       isOwner: true,
     });
   }, [resources]); // eslint-disable-line react-hooks/exhaustive-deps

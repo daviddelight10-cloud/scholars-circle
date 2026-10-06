@@ -67,6 +67,8 @@ function postBlock(p, myId) {
           contentType: p.resource.contentType,
           shareToken: p.resource.shareToken,
           viewCount: p.resource.viewCount,
+          linkShared: p.resource.linkShared,
+          uploadedBy: p.resource.uploadedBy,
           saved: p.resource._count?.bookmarks || 0,
         }
       : null,
@@ -91,6 +93,8 @@ function resourceBlock(r) {
       contentType: r.contentType,
       shareToken: r.shareToken,
       viewCount: r.viewCount,
+      linkShared: r.linkShared,
+      uploadedBy: r.uploadedBy,
       saved: r._count?.bookmarks || 0,
       comments: r._count?.comments || 0,
       likes: r._count?.resourceLikes || 0,
@@ -193,7 +197,7 @@ router.get("/", requireAuth, async (req, res) => {
           resource: {
             select: {
               id: true, title: true, subject: true, contentType: true,
-              shareToken: true, viewCount: true,
+              shareToken: true, viewCount: true, linkShared: true, uploadedBy: true,
               _count: { select: { bookmarks: true } },
             },
           },
@@ -206,6 +210,9 @@ router.get("/", requireAuth, async (req, res) => {
       prisma.resource.findMany({
         where: {
           status: "approved",
+          // Materials with link sharing off aren't openable by link — they
+          // would surface as dead feed cards, so leave them out of the stream.
+          linkShared: true,
           ...uploaderFilter,
           ...cursorFilter,
           ...(subject ? { subject } : {}),
@@ -873,7 +880,7 @@ router.get("/users/:id", requireAuth, async (req, res) => {
           resource: {
             select: {
               id: true, title: true, subject: true, contentType: true,
-              shareToken: true, viewCount: true,
+              shareToken: true, viewCount: true, linkShared: true, uploadedBy: true,
               _count: { select: { bookmarks: true } },
             },
           },

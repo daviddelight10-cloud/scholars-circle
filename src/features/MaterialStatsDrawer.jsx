@@ -192,6 +192,7 @@ export default function MaterialStatsDrawer({ resourceId, token, onClose }) {
               title: data.resource.title,
               meta: data.resource.subject,
               contentType: data.resource.contentType,
+              linkShared: data.resource.linkShared,
               isOwner: true,
             }}
             allowAnnounce

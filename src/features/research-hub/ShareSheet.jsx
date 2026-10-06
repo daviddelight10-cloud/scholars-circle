@@ -19,7 +19,9 @@ function getAuth() {
 }
 
 const buildUrl = (t) =>
-  !t?.shareToken || (t?.type === "folder" && t?.visibility === "private")
+  !t?.shareToken
+  || (t?.type === "folder" && t?.visibility === "private")
+  || (t?.type === "resource" && t?.linkShared === false)
     ? null
     : `${window.location.origin}${t.type === "folder" ? "/folders/" : "/resources/"}${t.shareToken}`;
 
@@ -165,13 +167,26 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText())}`, "_blank");
   };
 
+  // Resources can toggle their own link — parents can still override via
+  // onEnableLink/onDisableLink (needed for folders, which sync list state).
+  const resourceLinkPatch = async (on) => {
+    await api(`/api/resources/${target.id}`, {
+      token: getAuth().authToken,
+      method: "PATCH",
+      body: { linkShared: on },
+    });
+    return on ? target.shareToken : null;
+  };
+  const doEnable = onEnableLink || (isResource && target.isOwner ? () => resourceLinkPatch(true) : null);
+  const doDisable = onDisableLink || (isResource && target.isOwner ? () => resourceLinkPatch(false) : null);
+
   const enableLink = async () => {
-    if (enabling || !onEnableLink) return;
+    if (enabling || !doEnable) return;
     setEnabling(true);
     try {
-      const shareToken = await onEnableLink(target);
+      const shareToken = await doEnable(target);
       if (shareToken) {
-        setUrl(buildUrl({ ...target, shareToken, visibility: "link" }));
+        setUrl(buildUrl({ ...target, shareToken, visibility: "link", linkShared: true }));
         say("Link sharing on ✓");
       }
     } catch (e) {
@@ -181,10 +196,10 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
   };
 
   const disableLink = async () => {
-    if (enabling || !onDisableLink) return;
+    if (enabling || !doDisable) return;
     setEnabling(true);
     try {
-      await onDisableLink(target);
+      await doDisable(target);
       setUrl(null);
       setQrDataUrl(null);
       setQrOpen(false);
@@ -276,7 +291,11 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     onClose?.();
   };
 
-  const vis = target.type === "folder" ? VISIBILITY[target.visibility || (url ? "link" : "private")] : null;
+  const vis = target.type === "folder"
+    ? VISIBILITY[target.visibility || (url ? "link" : "private")]
+    : url
+      ? { icon: "globe", label: "Anyone with the link" }
+      : { icon: "lock", label: "Link off" };
   const previewIcon = target.type === "folder" ? "folder" : PREVIEW_ICON[target.contentType] || "filetext";
 
   return (
@@ -310,7 +329,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
               <div className="sh-preview-meta">
                 {target.meta && <span>{target.meta}</span>}
                 {vis && (
-                  <span className={`sh-vis${target.visibility === "link" || (!target.visibility && url) ? " on" : ""}`}>
+                  <span className={`sh-vis${url || target.visibility === "shared" ? " on" : ""}`}>
                     <McIcon name={vis.icon} /> {vis.label}
                   </span>
                 )}
@@ -424,7 +443,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
                     <McIcon name="eye" /> Present
                   </button>
                 )}
-                {target.isOwner && onDisableLink && (
+                {target.isOwner && doDisable && (
                   <button className="sh-btn sh-btn-danger" onClick={disableLink} disabled={enabling}>
                     <McIcon name="lock" /> {enabling ? "Turning off…" : "Turn off"}
                   </button>
@@ -437,15 +456,15 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
                 </button>
               )}
             </>
-          ) : (
-            <button className="mc-act-row" onClick={enableLink} disabled={enabling || !onEnableLink}>
+          ) : doEnable ? (
+            <button className="mc-act-row" onClick={enableLink} disabled={enabling}>
               <McIcon name="lock" />
               <div>
                 <div className="mc-r-t">{enabling ? "Turning on…" : "Turn on link sharing"}</div>
-                <div className="mc-r-s">This space is private — anyone with the link will be able to view it</div>
+                <div className="mc-r-s">{isResource ? "This material is private — anyone with the link will be able to open it" : "This space is private — anyone with the link will be able to view it"}</div>
               </div>
             </button>
-          )}
+          ) : null}
 
           {note && <div className="sh-note">{note}</div>}
         </>
