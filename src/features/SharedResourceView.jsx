@@ -68,6 +68,7 @@ export default function SharedResourceView() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [goingLive, setGoingLive] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function SharedResourceView() {
     navigate("/login?redirect=" + encodeURIComponent(`/resources/${token}`));
   }, [navigate, token]);
 
-  const isOwner = !!auth.authUser?.id && resource?.uploadedBy === auth.authUser.id;
+  const isOwner = !!auth.authUser?.id && String(resource?.uploadedBy) === String(auth.authUser.id);
 
   // Normalize into the file+variants shape the practice sheet expects.
   // The shared item can be a source file, a derived variant (quiz/summary
@@ -362,7 +363,21 @@ export default function SharedResourceView() {
           </div>
           {resource.description && (
             <div className="col-span-full mt-1 px-1" style={{ color: "#9AA3B5", fontSize: 13, lineHeight: 1.6 }}>
-              {resource.description}
+              <div
+                style={descExpanded
+                  ? { whiteSpace: "pre-wrap" }
+                  : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}
+              >
+                {resource.description}
+              </div>
+              {resource.description.length > 180 && (
+                <button
+                  onClick={() => setDescExpanded((v) => !v)}
+                  style={{ background: "none", border: "none", color: "#F5A623", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: "4px 0" }}
+                >
+                  {descExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -396,6 +411,11 @@ export default function SharedResourceView() {
         target={shareTarget}
         notify={say}
         onRequireAuth={loginRedirect}
+        onOpenDestination={(dest) => {
+          window.__sc_pending_feed_tab = dest === "chats" ? "chats" : "feed";
+          window.dispatchEvent(new CustomEvent("sc-open-feed"));
+          navigate("/app");
+        }}
       />
 
       {/* Toast */}

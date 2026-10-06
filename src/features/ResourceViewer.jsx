@@ -190,7 +190,9 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         localStorage.setItem("scholars-circle-auth", JSON.stringify(authPayload));
         setUser(appUser);
         setAuthCase("loggedin");
-        triggerLogView(resource || { shareToken: token });
+        // The in-memory resource is still the guest-safe payload (no fileUrl)
+        // — refetch now that localStorage carries the token.
+        fetchResource();
       } else {
         setAuthError("Login succeeded but profile not found. Please contact support.");
       }
@@ -250,7 +252,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         localStorage.setItem("scholars-circle-auth", JSON.stringify(authPayload));
         setUser(appUser);
         setAuthCase("loggedin");
-        triggerLogView(resource || { shareToken: token });
+        fetchResource();
       } else {
         setAuthError("Account created but profile setup failed. Please log in.");
         setAuthCase("guest");
@@ -854,9 +856,14 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               meta: [resource.subject, resource.courseCode].filter(Boolean).join(" · "),
               contentType: resource.contentType,
               linkShared: resource.linkShared,
-              isOwner: !!user?.id && resource.uploadedBy === user.id,
+              isOwner: !!user?.id && String(resource.uploadedBy) === String(user.id),
             }}
             notify={(m) => showToast(m)}
+            onOpenDestination={(dest) => {
+              window.__sc_pending_feed_tab = dest === "chats" ? "chats" : "feed";
+              window.dispatchEvent(new CustomEvent("sc-open-feed"));
+              navigate("/app");
+            }}
           />
         </div>
       )}

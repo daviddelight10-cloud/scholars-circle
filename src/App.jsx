@@ -603,6 +603,23 @@ function App() {
     return () => window.removeEventListener("sc-open-research-hub", handleOpenResearchHub);
   }, []);
 
+  // ShareSheet success-pane deep links ("Open chats" / "View feed") set a
+  // pending flag, dispatch this event, then navigate("/app"). The listener
+  // covers the in-app case; the mount read below covers standalone routes
+  // like /resources where App isn't mounted when the event fires.
+  useEffect(() => {
+    const consume = () => {
+      const pending = window.__sc_pending_feed_tab;
+      if (!pending) return;
+      window.__sc_pending_feed_tab = null;
+      setFeedDeepLink({ feedTab: pending });
+      setTab("discuss");
+    };
+    consume(); // pending may already be set from a standalone-route navigation
+    window.addEventListener("sc-open-feed", consume);
+    return () => window.removeEventListener("sc-open-feed", consume);
+  }, []);
+
   // Listen for "Start Studying" from embedded roadmap in Research Hub folders
   useEffect(() => {
     const handleOpenStudy = (e) => {

@@ -147,6 +147,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [showReport, setShowReport] = useState(false);
   const [profileOwner, setProfileOwner] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // own space pending soft delete
+  const [renameTarget, setRenameTarget] = useState(null); // file pending rename
+  const [renameValue, setRenameValue] = useState("");
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [fileDeleteTarget, setFileDeleteTarget] = useState(null); // file pending delete
   const [toast, setToast] = useState(null); // { msg, icon, actLabel, actFn }
   const toastTimer = useRef(null);
   const [viewerToken, setViewerToken] = useState(null);
@@ -716,21 +720,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   // ── Card actions (⋮): share / copy link / report ─────────────────────
   const openCardActions = useCallback((item) => {
     const isFolder = item.visibility != null;
+    const uid = getCurrentUserId();
     setActionTarget({
       id: item.id,
       name: isFolder ? item.name : item.title,
       kind: isFolder ? "Folder" : "PDF document",
       type: isFolder ? "folder" : "resource",
       shareToken: item.shareToken,
+      // Carry through what the ShareSheet needs — community cards share
+      // other people's items, so ownership/visibility can't be assumed.
+      visibility: item.visibility,
+      contentType: item.contentType,
+      linkShared: item.linkShared,
+      isOwner: !!(uid && String(isFolder ? item.ownerId : item.uploadedBy) === uid),
     });
   }, []);
-
-  const cardActionUrl = (t) => {
-    if (!t) return window.location.origin;
-    return t.type === "folder"
-      ? `${window.location.origin}/folders/${t.shareToken || ""}`
-      : `${window.location.origin}/resources/${t.shareToken || ""}`;
-  };
 
   const handleActionShare = async () => {
     const t = actionTarget;
@@ -744,6 +748,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       meta: t.kind,
       contentType: t.contentType,
       linkShared: t.linkShared,
+      visibility: t.visibility,
+      isOwner: t.isOwner,
     });
   };
 
@@ -1051,6 +1057,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     const res = file?.shareToken != null ? file
       : resources.find((r) => r.shareToken === file || r.id === file);
     if (!res) { showToast("Share not available"); return; }
+    // My Space mixes owned + bookmarked materials — deriving owner keeps the
+    // link on/off control off cards the user can't actually mutate.
+    const uid = getCurrentUserId();
     setShareTarget({
       type: "resource",
       id: res.id,
@@ -1059,7 +1068,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       meta: [res.subject, res.courseCode].filter(Boolean).join(" · "),
       contentType: res.contentType,
       linkShared: res.linkShared,
-      isOwner: true,
+      isOwner: !!(uid && String(res.uploadedBy) === uid),
     });
   }, [resources]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1346,12 +1355,19 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return role === "TEACHER" || role === "LECTURER";
   }, [userProfile]);
 
-  const handleRenameResource = useCallback(async (file) => {
+  const handleRenameResource = useCallback((file) => {
     if (!file?.id) return;
-    const next = prompt("Rename file", file.title);
-    if (next === null) return;
-    const title = next.trim();
-    if (!title || title === file.title) return;
+    setRenameTarget(file);
+    setRenameValue(file.title || "");
+  }, []);
+
+  const submitFileRename = async () => {
+    const file = renameTarget;
+    if (!file || renameBusy) return;
+    const title = renameValue.trim();
+    if (!title) { showToast("Give the file a name"); return; }
+    if (title === file.title) { setRenameTarget(null); return; }
+    setRenameBusy(true);
     try {
       const res = await fetch(`${API_BASE}/api/resources/${file.id}`, {
         method: "PATCH",
@@ -1362,17 +1378,24 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Rename failed");
       }
+      setRenameTarget(null);
       showToast("Renamed");
       if (activeFolder) fetchFolderDetail(activeFolder);
       fetchResources();
     } catch (err) {
       showToast(err.message || "Rename failed");
+    } finally {
+      setRenameBusy(false);
     }
-  }, [activeFolder]);
+  };
 
-  const handleDeleteResource = useCallback(async (file) => {
-    if (!file?.id) return;
-    if (!confirm(`Permanently delete "${file.title}"? This cannot be undone.`)) return;
+  const handleDeleteResource = useCallback((file) => {
+    if (file?.id) setFileDeleteTarget(file);
+  }, []);
+
+  const confirmFileDelete = async () => {
+    const file = fileDeleteTarget;
+    if (!file) return;
     try {
       const res = await fetch(`${API_BASE}/api/resources/${file.id}`, {
         method: "DELETE",
@@ -1382,13 +1405,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to delete file");
       }
+      setFileDeleteTarget(null);
       showToast("File deleted");
       if (activeFolder) fetchFolderDetail(activeFolder);
       fetchResources();
     } catch (err) {
       showToast(err.message || "Failed to delete file");
     }
-  }, [activeFolder]);
+  };
 
   const [preparingStudy, setPreparingStudy] = useState(false);
 
@@ -1739,7 +1763,54 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         notify={(m) => showToast(m, { icon: "link" })}
         onEnableLink={handleEnableLinkShare}
         onDisableLink={handleDisableLinkShare}
+        onOpenDestination={(dest) => {
+          window.__sc_pending_feed_tab = dest === "chats" ? "chats" : "feed";
+          window.dispatchEvent(new CustomEvent("sc-open-feed"));
+          navigate("/app");
+        }}
       />
+    </div>
+  );
+
+  // File rename/delete confirmations — same mount-everywhere pattern as
+  // shareSheet since FileMenu fires these inside the folder detail branch.
+  const fileActionSheets = (
+    <div className="mc-root" style={{ display: "contents" }}>
+      <CircleSheet open={!!renameTarget} onClose={() => setRenameTarget(null)} title={renameTarget?.title} kind="File">
+        <input
+          className="sh-search"
+          placeholder="File name"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submitFileRename(); }}
+          autoFocus
+        />
+        <button className="mc-act-row" onClick={submitFileRename} disabled={renameBusy}>
+          <McIcon name="check" />
+          <div>
+            <div className="mc-r-t">{renameBusy ? "Renaming…" : "Rename file"}</div>
+          </div>
+        </button>
+        <button className="mc-act-row" onClick={() => setRenameTarget(null)}>
+          <McIcon name="x" />
+          <div><div className="mc-r-t">Cancel</div></div>
+        </button>
+      </CircleSheet>
+      <CircleSheet open={!!fileDeleteTarget} onClose={() => setFileDeleteTarget(null)} title={fileDeleteTarget?.title} kind="File">
+        <p className="mc-sheet-hint">
+          This file will be permanently deleted. This cannot be undone.
+        </p>
+        <button className="mc-act-row danger" onClick={confirmFileDelete}>
+          <McIcon name="trash" />
+          <div>
+            <div className="mc-r-t">Delete file</div>
+          </div>
+        </button>
+        <button className="mc-act-row" onClick={() => setFileDeleteTarget(null)}>
+          <McIcon name="x" />
+          <div><div className="mc-r-t">Cancel</div></div>
+        </button>
+      </CircleSheet>
     </div>
   );
 
@@ -1816,6 +1887,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       />
       {streamOverlay}
       {shareSheet}
+      {fileActionSheets}
     </>);
   }
 
@@ -2181,6 +2253,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onReport={handleActionReport}
       />
       {shareSheet}
+      {fileActionSheets}
       <ReportSheet
         open={showReport}
         onClose={() => { setShowReport(false); setActionTarget(null); }}

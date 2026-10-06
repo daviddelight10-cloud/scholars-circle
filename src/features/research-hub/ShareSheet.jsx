@@ -177,8 +177,8 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     });
     return on ? target.shareToken : null;
   };
-  const doEnable = onEnableLink || (isResource && target.isOwner ? () => resourceLinkPatch(true) : null);
-  const doDisable = onDisableLink || (isResource && target.isOwner ? () => resourceLinkPatch(false) : null);
+  const doEnable = target.isOwner ? (onEnableLink || (isResource ? () => resourceLinkPatch(true) : null)) : null;
+  const doDisable = target.isOwner ? (onDisableLink || (isResource ? () => resourceLinkPatch(false) : null)) : null;
 
   const enableLink = async () => {
     if (enabling || !doEnable) return;
@@ -203,7 +203,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
       setUrl(null);
       setQrDataUrl(null);
       setQrOpen(false);
-      say("Link sharing off — the old link no longer opens this space");
+      say(isResource ? "Link sharing off — the old link no longer opens" : "Link sharing off — the old link no longer opens this space");
     } catch (e) {
       say(e.message || "Couldn't turn off link sharing");
     }

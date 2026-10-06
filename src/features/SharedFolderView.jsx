@@ -73,6 +73,18 @@ export default function SharedFolderView() {
     navigate("/login?redirect=" + encodeURIComponent(`/folders/${shareToken}`));
   }, [navigate, shareToken]);
 
+  const isOwner = (() => {
+    const uid = getAuth().authUser?.id;
+    return !!(uid && folder && String(folder.ownerId ?? folder.owner?.id) === String(uid));
+  })();
+
+  // Deep-links straight into this folder inside My Space (ResearchHub reads
+  // the pending detail on mount). Used by owners and saved-state visitors.
+  const openMySpace = useCallback((deep) => {
+    if (deep && folder?.id) window.__sc_pending_hub_tab = { tab: "space", folderId: folder.id };
+    navigate("/resources");
+  }, [folder, navigate]);
+
   const handleToggleFolderBookmark = useCallback(async () => {
     if (!folder) return;
     if (!isAuthenticated) { loginRedirect(); return; }
@@ -150,16 +162,18 @@ export default function SharedFolderView() {
     );
   }, [allFiles, fileSearch]);
 
-  // Owner-only practice actions — guests log in, members save the space first.
+  // Owner-only practice actions — guests log in, members save the space
+  // first, owners go straight to My Space (self-bookmark would 400).
   const studyGate = useCallback(() => {
     if (!isAuthenticated) { loginRedirect(); return; }
+    if (isOwner) { say("This is your space — study tools are in My Space"); return; }
     if (!folderBookmarked) {
       handleToggleFolderBookmark();
       say("Space saved — study tools live in My Space");
     } else {
       say("Open this space in My Space to use study tools");
     }
-  }, [isAuthenticated, folderBookmarked, loginRedirect, handleToggleFolderBookmark, say]);
+  }, [isAuthenticated, isOwner, folderBookmarked, loginRedirect, handleToggleFolderBookmark, say]);
 
   const handleGoLive = useCallback(async (file) => {
     if (!isAuthenticated) { loginRedirect(); return; }
@@ -187,7 +201,8 @@ export default function SharedFolderView() {
     title: folder.name,
     meta: [folder.courseCode, folder.level, folder.semester].filter(Boolean).join(" · "),
     visibility: folder.visibility,
-  }), [folder, shareToken]);
+    isOwner,
+  }), [folder, shareToken, isOwner]);
 
   if (viewerToken) {
     return <ResourceViewer token={viewerToken} onBack={() => setViewerToken(null)} />;
@@ -277,18 +292,18 @@ export default function SharedFolderView() {
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-2 relative">
                 <button
-                  onClick={folderBookmarked ? () => navigate("/resources") : handleToggleFolderBookmark}
+                  onClick={isOwner ? () => openMySpace(true) : folderBookmarked ? () => openMySpace(false) : handleToggleFolderBookmark}
                   disabled={bookmarkBusy}
                   className="rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all active:scale-95"
                   style={{
-                    background: folderBookmarked ? "rgba(255,255,255,0.07)" : "linear-gradient(135deg,#d98f0f,#F5A623)",
-                    color: folderBookmarked ? "#EDEFF5" : "#0a0a0a",
-                    border: folderBookmarked ? "1px solid rgba(255,255,255,0.12)" : "none",
+                    background: (folderBookmarked || isOwner) ? "rgba(255,255,255,0.07)" : "linear-gradient(135deg,#d98f0f,#F5A623)",
+                    color: (folderBookmarked || isOwner) ? "#EDEFF5" : "#0a0a0a",
+                    border: (folderBookmarked || isOwner) ? "1px solid rgba(255,255,255,0.12)" : "none",
                     cursor: bookmarkBusy ? "wait" : "pointer",
                     opacity: bookmarkBusy ? 0.6 : 1,
                   }}
                 >
-                  {bookmarkBusy ? "Saving…" : folderBookmarked ? "✓ Saved — open My Space" : isAuthenticated ? "☆ Save to my space" : "🔑 Log in to save"}
+                  {bookmarkBusy ? "Saving…" : isOwner ? "Open in My Space — it's yours" : folderBookmarked ? "✓ Saved — open My Space" : isAuthenticated ? "☆ Save to my space" : "🔑 Log in to save"}
                 </button>
               </div>
             </div>
@@ -414,6 +429,11 @@ export default function SharedFolderView() {
         target={shareTarget}
         notify={say}
         onRequireAuth={loginRedirect}
+        onOpenDestination={(dest) => {
+          window.__sc_pending_feed_tab = dest === "chats" ? "chats" : "feed";
+          window.dispatchEvent(new CustomEvent("sc-open-feed"));
+          navigate("/app");
+        }}
       />
 
       {/* Toast */}

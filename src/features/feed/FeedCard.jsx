@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
 import { CommentsSection } from "./CommentsSection";
 import { Avatar, displayTitle, relTime } from "./feedUi";
@@ -135,6 +136,7 @@ function ResourceInner({ resource, uni, token, onOpenResource }) {
 }
 
 export function PostActions({ block, token, onDeleted, setCommentsOpen, commentCount, onOpenResource, onOpenTab, onShare }) {
+  const navigate = useNavigate();
   const isPost = block.type === "post";
   const isResource = block.type === "resource";
   const isFolder = block.type === "folder";
@@ -161,13 +163,16 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
   };
 
   const share = async () => {
+    // Shareable target → unified ShareSheet. Folders always go through the
+    // sheet: a department-shared folder may have no shareToken yet, and the
+    // owner needs the sheet's "Turn on link sharing" row rather than a
+    // fallback that would silently share the current page's URL.
+    if (onShare && (isFolder || block.resource?.shareToken)) { onShare(block); setMenuOpen(false); return; }
     const url = isFolder && block.folder?.shareToken
       ? `${window.location.origin}/folders/${block.folder.shareToken}`
       : block.resource?.shareToken
         ? `${window.location.origin}/resources/${block.resource.shareToken}`
         : null;
-    // Shareable target → unified ShareSheet (material cards, destinations).
-    if (url && onShare) { onShare(block); setMenuOpen(false); return; }
     try {
       if (navigator.share) {
         await navigator.share({ title: block.resource?.title || "Scholars Circle", text: block.text?.slice(0, 120), url: url || window.location.href });
@@ -180,8 +185,13 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
 
   const openTarget = () => {
     setMenuOpen(false);
-    if (isResource && block.resource?.shareToken) onOpenResource?.(block.resource.shareToken);
-    if (isFolder) onOpenTab?.("research-hub");
+    if (isResource && block.resource?.shareToken) { onOpenResource?.(block.resource.shareToken); return; }
+    if (isFolder) {
+      // The shared-folder view is the universal path — it renders for any
+      // visibility level and handles owner/member/guest states itself.
+      if (block.folder?.shareToken) navigate(`/folders/${block.folder.shareToken}`);
+      else onOpenTab?.("research-hub");
+    }
   };
 
   return (

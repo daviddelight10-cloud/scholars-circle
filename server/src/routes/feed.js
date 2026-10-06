@@ -117,6 +117,8 @@ function folderBlock(f) {
       level: f.level,
       semester: f.semester,
       shareToken: f.shareToken,
+      visibility: f.visibility,
+      ownerId: f.ownerId,
       resourceCount: f._count?.resources || 0,
       saves: f._count?.folderBookmarks || 0,
     },
@@ -191,6 +193,9 @@ router.get("/", requireAuth, async (req, res) => {
           ...authorFilter,
           ...cursorFilter,
           ...(subject ? { resource: { subject } } : {}),
+          // Posts attached to a material whose link was turned off are dead
+          // cards for everyone except the uploader.
+          NOT: { resource: { is: { linkShared: false, uploadedBy: { not: uid } } } },
         },
         include: {
           author: { select: AUTHOR_SELECT },

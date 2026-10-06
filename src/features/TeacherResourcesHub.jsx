@@ -1237,6 +1237,11 @@ export default function TeacherResourcesHub({ onBack, isLecturer: isLecturerProp
             }
             await apiUpdateFolder(t.id, { visibility: "private" });
           }}
+          onOpenDestination={(dest) => {
+            window.__sc_pending_feed_tab = dest === "chats" ? "chats" : "feed";
+            window.dispatchEvent(new CustomEvent("sc-open-feed"));
+            navigate("/app");
+          }}
         />
       </div>
 

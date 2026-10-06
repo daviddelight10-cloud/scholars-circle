@@ -96,12 +96,22 @@ router.get("/", requireAuth, async (req, res) => {
           // Own library (mine=1) includes private/pending materials
           ...(mine === "1"
             ? []
-            : [{
-                OR: [
-                  { status: "approved" },
-                  { uploadedBy: req.user.sub, status: "rejected" },
-                ],
-              }]),
+            : [
+                {
+                  OR: [
+                    { status: "approved" },
+                    { uploadedBy: req.user.sub, status: "rejected" },
+                  ],
+                },
+                // Materials with link sharing off 404 for non-owners — keep
+                // them out of community listings so they aren't dead cards.
+                {
+                  OR: [
+                    { linkShared: true },
+                    { uploadedBy: req.user.sub },
+                  ],
+                },
+              ]),
         ],
       },
       include: {

@@ -56,15 +56,17 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   );
 
   const handleShareBlock = useCallback((b) => {
-    if (b.type === "folder" && b.folder?.shareToken) {
+    if (b.type === "folder") {
+      // Open the sheet even without a shareToken — owners get the
+      // "Turn on link sharing" row; non-owners just see the badge.
       setShareTarget({
         type: "folder",
         id: b.folder.id,
-        shareToken: b.folder.shareToken,
+        shareToken: b.folder.shareToken || null,
         title: b.folder.name,
         meta: [b.folder.courseCode, b.folder.level].filter(Boolean).join(" · "),
-        visibility: "link",
-        isOwner: b.folder.ownerId != null && b.folder.ownerId === me?.id,
+        visibility: b.folder.visibility || "link",
+        isOwner: b.folder.ownerId != null && String(b.folder.ownerId) === String(me?.id),
       });
     } else if (b.resource?.shareToken) {
       setShareTarget({
