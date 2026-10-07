@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getResourceByShareToken, unbookmarkResource } from "../lib/resourcesApi";
 import { formatViewCount } from "../lib/researchUtils";
 import { formatRelativeDate } from "./research-hub/constants.js";
@@ -58,6 +58,7 @@ const isAiSummaryItem = (r) =>
 export default function SharedResourceView() {
   const { token } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [resource, setResource] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,6 +66,7 @@ export default function SharedResourceView() {
   const [auth] = useState(getAuth);
   const isAuthenticated = !!auth.authToken;
   const [bookmarked, setBookmarked] = useState(false);
+  const [savedFolderId, setSavedFolderId] = useState(null);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [goingLive, setGoingLive] = useState(false);
@@ -81,6 +83,7 @@ export default function SharedResourceView() {
         if (!alive) return;
         setResource(data);
         setBookmarked(!!data.bookmarked);
+        setSavedFolderId(data.bookmarkFolderId || null);
         setLoading(false);
       })
       .catch((err) => {
@@ -101,6 +104,24 @@ export default function SharedResourceView() {
   const loginRedirect = useCallback(() => {
     navigate("/login?redirect=" + encodeURIComponent(`/resources/${token}`));
   }, [navigate, token]);
+
+  // In-app navigations leave a history entry we can pop back to; a link
+  // opened fresh (new tab, external app) has key "default" — then the exit
+  // is /app for members and the landing page for guests, never the bare
+  // /resources route that strands users outside the shell.
+  const goBack = useCallback(() => {
+    if (location.key !== "default") navigate(-1);
+    else navigate(isAuthenticated ? "/app" : "/");
+  }, [location.key, navigate, isAuthenticated]);
+
+  // Deep-link into the app's research-hub tab — with the space open when we
+  // know it — instead of the standalone /resources mount of ResearchHub.
+  const openMySpace = useCallback((folderId) => {
+    const detail = { tab: "space", ...(folderId ? { folderId } : {}) };
+    window.__sc_pending_hub_tab = detail;
+    window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail }));
+    navigate("/app");
+  }, [navigate]);
 
   const isOwner = !!auth.authUser?.id && String(resource?.uploadedBy) === String(auth.authUser.id);
 
@@ -146,8 +167,9 @@ export default function SharedResourceView() {
   }, [resource, saveTargetId, bookmarked, isAuthenticated, loginRedirect, say]);
 
   // After SaveToSpaceSheet bookmarks into the chosen space.
-  const handleSaved = useCallback((result, _folderId, folderName) => {
+  const handleSaved = useCallback((result, folderId, folderName) => {
     setBookmarked(true);
+    setSavedFolderId(folderId || null);
     const extra = (result?.bookmarkedIds?.length || 1) - 1;
     const into = folderName ? ` to "${folderName}"` : "";
     if (savePurpose === "study") {
@@ -181,13 +203,13 @@ export default function SharedResourceView() {
         createLiveRoom(mcq.id),
         import("./live-quiz/LiveQuizPage"),
       ]);
-      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
+      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId, returnTo: `/resources/${token}` } });
     } catch (e) {
       say(e.message || "Couldn't start live session");
     } finally {
       setGoingLive(false);
     }
-  }, [isAuthenticated, goingLive, loginRedirect, navigate, say]);
+  }, [isAuthenticated, goingLive, loginRedirect, navigate, say, token]);
 
   const shareTarget = useMemo(() => resource && ({
     type: "resource",
@@ -222,7 +244,7 @@ export default function SharedResourceView() {
           <div style={{ fontSize: 15, fontWeight: 800, color: "#EDEFF5", marginBottom: 6 }}>Material not accessible</div>
           <div style={{ fontSize: 13, color: "#646E84", marginBottom: 18 }}>{error || "The owner may have turned off link sharing, or this link expired."}</div>
           <button
-            onClick={() => navigate(isAuthenticated ? "/resources" : "/")}
+            onClick={goBack}
             style={{ padding: "10px 22px", background: "rgba(255,179,0,0.12)", border: "1px solid rgba(255,179,0,0.35)", borderRadius: "10px", fontSize: 13, fontWeight: 800, color: "#FFB300", cursor: "pointer" }}
           >
             {isAuthenticated ? "Go to My Space" : "Back home"}
@@ -246,7 +268,7 @@ export default function SharedResourceView() {
         <div className="sp-header px-5 md:px-8 lg:px-12">
           <div className="flex items-center justify-between">
             <button
-              onClick={() => navigate(isAuthenticated ? "/resources" : "/")}
+              onClick={goBack}
               aria-label="Back"
               className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
               style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
@@ -291,7 +313,7 @@ export default function SharedResourceView() {
               <div className="mt-4 flex flex-wrap items-center gap-2 relative">
                 {isOwner ? (
                   <button
-                    onClick={() => navigate("/resources")}
+                    onClick={() => openMySpace(resource.folderId)}
                     className="rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all active:scale-95"
                     style={{ background: "rgba(255,255,255,0.07)", color: "#EDEFF5", border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}
                   >
@@ -299,7 +321,7 @@ export default function SharedResourceView() {
                   </button>
                 ) : (
                   <button
-                    onClick={bookmarked ? () => navigate("/resources") : handleToggleBookmark}
+                    onClick={bookmarked ? () => openMySpace(savedFolderId) : handleToggleBookmark}
                     disabled={bookmarkBusy}
                     className="rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all active:scale-95"
                     style={{
@@ -417,7 +439,7 @@ export default function SharedResourceView() {
         onExamSimulation={studyGate}
         onGoLive={handleGoLive}
         goingLive={goingLive}
-        onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`) : loginRedirect())}
+        onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`, { state: { returnTo: `/resources/${token}` } }) : loginRedirect())}
       />
 
       {/* Save — pick a space (or create one) before the material lands */}

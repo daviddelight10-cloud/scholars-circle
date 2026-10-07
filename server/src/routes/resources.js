@@ -1011,7 +1011,7 @@ router.get("/:token", optionalAuth, async (req, res) => {
       include: {
         uploader: { select: { id: true, username: true, role: true } },
         university: { select: { id: true, name: true } },
-        bookmarks: { where: { userId: req.user?.sub || "" }, take: 1, select: { id: true } },
+        bookmarks: { where: { userId: req.user?.sub || "" }, take: 1, select: { id: true, folderId: true } },
         derivedResources: { select: derivedSelect },
         sourceResource: {
           select: {
@@ -1070,6 +1070,7 @@ router.get("/:token", optionalAuth, async (req, res) => {
         ? { ...resource.sourceResource, derivedResources: shapeDerived(resource.sourceResource.derivedResources) }
         : null,
       bookmarked: (bookmarks?.length || 0) > 0,
+      bookmarkFolderId: bookmarks?.[0]?.folderId || null,
     };
 
     // Unauthenticated guests get safe metadata only — fileUrl/mcqData withheld

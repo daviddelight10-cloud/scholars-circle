@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getFolderByShareToken, bookmarkFolder, unbookmarkFolder } from "../lib/foldersApi";
 import { formatViewCount } from "../lib/researchUtils";
 import { formatRelativeDate } from "./research-hub/constants.js";
@@ -33,6 +33,7 @@ const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutor
 export default function SharedFolderView() {
   const { shareToken } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [folder, setFolder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -80,11 +81,23 @@ export default function SharedFolderView() {
     return !!(uid && folder && String(folder.ownerId ?? folder.owner?.id) === String(uid));
   })();
 
-  // Deep-links straight into this folder inside My Space (ResearchHub reads
-  // the pending detail on mount). Used by owners and saved-state visitors.
+  // In-app navigations leave a history entry we can pop back to; a link
+  // opened fresh (new tab, external app) has key "default" — then the exit
+  // is /app for members and the landing page for guests, never the bare
+  // /resources route that strands users outside the shell.
+  const goBack = useCallback(() => {
+    if (location.key !== "default") navigate(-1);
+    else navigate(isAuthenticated ? "/app" : "/");
+  }, [location.key, navigate, isAuthenticated]);
+
+  // Deep-links straight into this folder inside the app's research-hub tab
+  // (ResearchHub reads the pending detail on mount). Used by owners and
+  // saved-state visitors.
   const openMySpace = useCallback((deep) => {
-    if (deep && folder?.id) window.__sc_pending_hub_tab = { tab: "space", folderId: folder.id };
-    navigate("/resources");
+    const detail = deep && folder?.id ? { tab: "space", folderId: folder.id } : { tab: "space" };
+    window.__sc_pending_hub_tab = detail;
+    window.dispatchEvent(new CustomEvent("sc-open-research-hub", { detail }));
+    navigate("/app");
   }, [folder, navigate]);
 
   const handleToggleFolderBookmark = useCallback(async () => {
@@ -188,13 +201,13 @@ export default function SharedFolderView() {
         createLiveRoom(mcq.id),
         import("./live-quiz/LiveQuizPage"),
       ]);
-      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
+      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId, returnTo: `/folders/${shareToken}` } });
     } catch (e) {
       say(e.message || "Couldn't start live session");
     } finally {
       setGoingLive(false);
     }
-  }, [isAuthenticated, goingLive, loginRedirect, navigate, say]);
+  }, [isAuthenticated, goingLive, loginRedirect, navigate, say, shareToken]);
 
   const shareTarget = useMemo(() => folder && ({
     type: "folder",
@@ -228,7 +241,7 @@ export default function SharedFolderView() {
           <div style={{ fontSize: 15, fontWeight: 800, color: "#EDEFF5", marginBottom: 6 }}>Space not accessible</div>
           <div style={{ fontSize: 13, color: "#646E84", marginBottom: 18 }}>{error || "The owner may have turned off link sharing, or this link expired."}</div>
           <button
-            onClick={() => navigate(isAuthenticated ? "/resources" : "/")}
+            onClick={goBack}
             style={{ padding: "10px 22px", background: "rgba(255,179,0,0.12)", border: "1px solid rgba(255,179,0,0.35)", borderRadius: "10px", fontSize: 13, fontWeight: 800, color: "#FFB300", cursor: "pointer" }}
           >
             {isAuthenticated ? "Go to My Space" : "Back home"}
@@ -249,7 +262,7 @@ export default function SharedFolderView() {
         <div className="sp-header px-5 md:px-8 lg:px-12">
           <div className="flex items-center justify-between">
             <button
-              onClick={() => navigate(isAuthenticated ? "/resources" : "/")}
+              onClick={goBack}
               aria-label="Back"
               className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
               style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
@@ -421,7 +434,7 @@ export default function SharedFolderView() {
         onExamSimulation={studyGate}
         onGoLive={handleGoLive}
         goingLive={goingLive}
-        onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`) : loginRedirect())}
+        onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`, { state: { returnTo: `/folders/${shareToken}` } }) : loginRedirect())}
         onSaveMaterial={!isOwner ? (f) => {
           if (!isAuthenticated) { loginRedirect(); return; }
           if (folderBookmarked) { say("This space is already saved — materials are in your library"); return; }

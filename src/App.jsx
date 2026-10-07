@@ -600,6 +600,10 @@ function App() {
       if (e.detail) window.__sc_pending_hub_tab = e.detail;
       setTab("research-hub");
     };
+    // Mount read — standalone routes (shared links, live-quiz exits) set the
+    // pending flag then navigate("/app"); the event only fires when App is
+    // already mounted. ResearchHub consumes the flag itself once mounted.
+    if (window.__sc_pending_hub_tab) setTab("research-hub");
     window.addEventListener("sc-open-research-hub", handleOpenResearchHub);
     return () => window.removeEventListener("sc-open-research-hub", handleOpenResearchHub);
   }, []);

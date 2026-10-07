@@ -1458,7 +1458,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         createLiveRoom(mcq.id),
         import("../live-quiz/LiveQuizPage"),
       ]);
-      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
+      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId, returnTo: window.location.pathname } });
     } catch (err) {
       showToast(err.message || "Couldn't start live session");
     } finally {
@@ -1870,7 +1870,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         goingLive={goingLive}
         onSetCourseCode={handleSetFolderCourseCode}
         preparingStudy={preparingStudy}
-        onJoinLive={(code) => navigate(`/live/${code}`)}
+        onJoinLive={(code) => navigate(`/live/${code}`, { state: { returnTo: window.location.pathname } })}
         onDeleteResource={handleDeleteResource}
         onRenameResource={handleRenameResource}
         canDeleteFile={canDeleteFile}

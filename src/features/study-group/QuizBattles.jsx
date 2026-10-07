@@ -23,7 +23,7 @@ export default function QuizBattles({ classroomId, token, currentUser, onJoinQui
 
   const openBattle = useCallback((code) => {
     if (onJoinQuiz) return onJoinQuiz(code);
-    navigate(`/live/${code}`);
+    navigate(`/live/${code}`, { state: { returnTo: window.location.pathname } });
   }, [onJoinQuiz, navigate]);
 
   const load = useCallback(async () => {

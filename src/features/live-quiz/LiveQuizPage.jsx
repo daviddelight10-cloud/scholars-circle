@@ -47,7 +47,9 @@ export default function LiveQuizPage() {
     }
   };
 
-  const exit = () => navigate("/resources", { replace: true });
+  // Return to wherever the session was launched (shared landing, /app tab…),
+  // never the bare /resources route that strands users outside the app shell.
+  const exit = () => navigate(location.state?.returnTo || "/app", { replace: true });
 
   if (joined) {
     return (

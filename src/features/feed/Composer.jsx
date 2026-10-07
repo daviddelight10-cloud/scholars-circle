@@ -213,7 +213,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
         import("../live-quiz/LiveQuizPage"),
       ]);
       onClose();
-      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId } });
+      navigate(`/live/${res.code}`, { state: { ticket: res.ticket, roomId: res.roomId, returnTo: window.location.pathname } });
     } catch (err) {
       alert(err.message);
       setBusy(false);
