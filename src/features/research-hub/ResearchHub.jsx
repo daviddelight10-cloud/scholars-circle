@@ -211,6 +211,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const [activeFolder, setActiveFolder] = useState(null);
   const [folderDetail, setFolderDetail] = useState(null);
   const [folderLoading, setFolderLoading] = useState(false);
+  const [folderDeleted, setFolderDeleted] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderCourseCode, setNewFolderCourseCode] = useState("");
@@ -527,8 +528,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     setFolderLoading(true);
     try {
       setFolderDetail(await getFolder(folderId));
-    } catch {
-      showToast("Failed to load folder");
+      setFolderDeleted(false);
+    } catch (e) {
+      if (e?.deleted) setFolderDeleted(true);
+      else showToast("Failed to load folder");
     } finally {
       setFolderLoading(false);
     }
@@ -882,6 +885,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const openFolder = (folderId) => {
     setActiveFolder(folderId);
     setFolderDetail(null);
+    setFolderDeleted(false);
     setActiveFolderTab("materials");
     fetchFolderDetail(folderId);
   };
@@ -889,6 +893,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const closeFolder = () => {
     setActiveFolder(null);
     setFolderDetail(null);
+    setFolderDeleted(false);
     setActiveFolderTab("materials");
   };
 
@@ -1094,6 +1099,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       haptics.light();
       setBookmarkBusyId(resource.id);
       const prevIds = bookmarkedIds;
+      const prevFolderMap = bookmarkFolderMap;
       setBookmarkedIds((prev) => {
         const next = new Set(prev);
         allIds.forEach((id) => next.delete(id));
@@ -1104,17 +1110,29 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         allIds.forEach((id) => delete next[id]);
         return next;
       });
+      // Drop it from the open space's list immediately — folderDetail is
+      // server-fetched state, so without this the card lingers until refresh.
+      setFolderDetail((prev) => prev ? {
+        ...prev,
+        bookmarkedResources: (prev.bookmarkedResources || []).filter((r) => !allIds.includes(r.id)),
+      } : prev);
       fetch(`${API_BASE}/api/resources/${resource.id}/bookmark`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       }).then((res) => {
-        if (res.ok) showToast("Removed from your space");
-        else {
+        if (res.ok) {
+          showToast("Removed from your space");
+          if (activeFolder) fetchFolderDetail(activeFolder);
+        } else {
           setBookmarkedIds(prevIds);
+          setBookmarkFolderMap(prevFolderMap);
+          if (activeFolder) fetchFolderDetail(activeFolder);
           showToast("Failed to remove bookmark");
         }
       }).catch(() => {
         setBookmarkedIds(prevIds);
+        setBookmarkFolderMap(prevFolderMap);
+        if (activeFolder) fetchFolderDetail(activeFolder);
         showToast("Network error — try again");
       }).finally(() => setBookmarkBusyId(null));
     } else {
@@ -1123,7 +1141,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       setBookmarkTarget(resource);
       setShowBookmarkPicker(true);
     }
-  }, [bookmarkedIds]);
+  }, [bookmarkedIds, bookmarkFolderMap, activeFolder]);
 
   const handleBookmarkWithFolder = useCallback(async (resource, folderId) => {
     haptics.success();
@@ -1832,6 +1850,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       <FolderDetailView
         folderDetail={folderDetail}
         folderLoading={folderLoading}
+        folderDeleted={folderDeleted}
         folderCategorized={folderCategorized}
         activeFolderTab={activeFolderTab}
         setActiveFolderTab={setActiveFolderTab}

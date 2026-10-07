@@ -338,6 +338,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
       targetGrade: "A",
       studyHoursPerDay: Math.round((dailyMinutes / 60) * 10) / 10,
       courses: selectedSubjects,
+      onboarded: true,
     }).catch((e) => console.warn("Profile backend save failed:", e?.message || e));
     onComplete({
       selectedSubjects,

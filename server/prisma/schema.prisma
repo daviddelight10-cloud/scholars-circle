@@ -123,6 +123,8 @@ model User {
 
   termsAcceptedAt DateTime?        // stamped at signup (or first login for existing accounts)
 
+  onboardedAt   DateTime?          // set when the onboarding wizard completes or is skipped — syncs across devices
+
   sessions       SessionAttempt[]
 
   assignments  Assignment[]      @relation("AssignmentCreatedBy")

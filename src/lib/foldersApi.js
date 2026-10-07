@@ -43,7 +43,9 @@ export async function getFolder(id) {
   const res = await authFetch(`${API_BASE}/api/folders/${id}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to load folder");
+    const e = new Error(err.error || "Failed to load folder");
+    e.deleted = !!err.deleted;
+    throw e;
   }
   return res.json();
 }
@@ -52,7 +54,9 @@ export async function getFolderByShareToken(shareToken) {
   const res = await authFetch(`${API_BASE}/api/folders/shared/${shareToken}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to load shared folder");
+    const e = new Error(err.error || "Failed to load shared folder");
+    e.deleted = !!err.deleted;
+    throw e;
   }
   return res.json();
 }

@@ -4,6 +4,7 @@ import { prisma } from "../db.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { cloneSkeletonForUser } from "../lib/topicExtractionService.js";
 import { isMastered } from "../lib/fsrs.js";
+import { deleteFile } from "../lib/supabaseStorage.js";
 
 const router = express.Router();
 
@@ -14,6 +15,34 @@ async function generateFolderShareToken() {
     const existing = await prisma.folder.findUnique({ where: { shareToken: token }, select: { id: true } }).catch(() => null);
     if (!existing) return token;
   }
+}
+
+// Permanently delete a folder AND its contents: resources inside are removed
+// (storage objects + derived study tools), and saves-into-this-folder go with
+// it — nothing is orphaned as a loose material. Other users' bookmarks *of*
+// those resources cascade with the resource rows.
+async function purgeFolderCascade(folderId) {
+  const resources = await prisma.resource.findMany({
+    where: { folderId },
+    select: { id: true, storagePath: true, derivedResources: { select: { id: true, storagePath: true } } },
+  });
+  const paths = [];
+  for (const r of resources) {
+    if (r.storagePath) paths.push(r.storagePath);
+    for (const d of r.derivedResources || []) if (d.storagePath) paths.push(d.storagePath);
+  }
+  await Promise.all(paths.map((p) => deleteFile(p).catch((e) => console.warn("storage delete failed:", e.message))));
+
+  const ids = resources.map((r) => r.id);
+  if (ids.length) {
+    await prisma.resource.deleteMany({
+      where: { OR: [{ id: { in: ids } }, { sourceResourceId: { in: ids } }] },
+    });
+  }
+
+  await prisma.resourceBookmark.deleteMany({ where: { folderId } });
+  await prisma.folderDepartment.deleteMany({ where: { folderId } });
+  await prisma.folder.delete({ where: { id: folderId } });
 }
 
 // Helper: check if user can access a folder
@@ -266,8 +295,11 @@ router.get("/shared/:shareToken", optionalAuth, async (req, res) => {
       },
     });
 
-    if (!folder || folder.visibility !== "link" || folder.deletedAt) {
+    if (!folder || folder.visibility !== "link") {
       return res.status(404).json({ error: "Folder not found" });
+    }
+    if (folder.deletedAt) {
+      return res.status(410).json({ error: "This space has been deleted by its owner", deleted: true });
     }
 
     const userId = req.user?.sub || null;
@@ -319,10 +351,15 @@ router.get("/recycle-bin", requireAuth, async (req, res) => {
     const userId = req.user.sub;
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Hard-delete expired folders (30-day retention)
-    await prisma.folder.deleteMany({
+    // Hard-delete expired folders (30-day retention) — with their contents,
+    // so nothing resurfaces as a loose material.
+    const expired = await prisma.folder.findMany({
       where: { ownerId: userId, deletedAt: { not: null, lt: cutoff } },
-    }).catch(() => null);
+      select: { id: true },
+    }).catch(() => []);
+    for (const f of expired) {
+      await purgeFolderCascade(f.id).catch((e) => console.warn("auto-purge failed for folder", f.id, e.message));
+    }
 
     const folders = await prisma.folder.findMany({
       where: { ownerId: userId, deletedAt: { not: null } },
@@ -361,8 +398,11 @@ router.get("/:id", requireAuth, async (req, res) => {
       },
     });
 
-    if (!folder || folder.deletedAt) {
+    if (!folder) {
       return res.status(404).json({ error: "Folder not found" });
+    }
+    if (folder.deletedAt) {
+      return res.status(410).json({ error: "This space has been deleted", deleted: true });
     }
 
     const hasAccess = await canAccessFolder(userId, folder);
@@ -662,16 +702,8 @@ router.delete("/:id/purge", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Only the owner can delete this folder" });
     }
 
-    // Detach all resources (set folderId to null, don't delete files)
-    await prisma.resource.updateMany({
-      where: { folderId: id },
-      data: { folderId: null },
-    });
-
-    // Delete folder dept associations (cascade handles this, but explicit for safety)
-    await prisma.folderDepartment.deleteMany({ where: { folderId: id } });
-
-    await prisma.folder.delete({ where: { id } });
+    // Delete the folder's contents with it — no orphaned loose materials.
+    await purgeFolderCascade(id);
 
     res.json({ success: true });
   } catch (error) {

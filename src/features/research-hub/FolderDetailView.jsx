@@ -6,7 +6,7 @@ import SpaceFileCard from "./SpaceFileCard.jsx";
 import PracticeSheet from "./PracticeSheet.jsx";
 
 export default function FolderDetailView({
-  folderDetail, folderLoading, folderCategorized, activeFolderTab, setActiveFolderTab,
+  folderDetail, folderLoading, folderDeleted, folderCategorized, activeFolderTab, setActiveFolderTab,
   folderIsOwner, onClose, onShareFolder, onDeleteFolder,
   onUploadToFolder, onToggleFolderBookmark, folderBookmarkedIds, folderBookmarkBusyId,
   bookmarkedIds, bookmarkBusyId, onOpen, onToggleBookmark, onShare, mcqProgress, guidedProgress,
@@ -82,6 +82,30 @@ export default function FolderDetailView({
       {label}
     </button>
   );
+
+  if (folderDeleted) {
+    return (
+      <div className="mx-auto w-full max-w-[1400px]" style={{ paddingBottom: "96px" }}>
+        <div className="sp-header px-5 md:px-8 lg:px-12">
+          <button
+            onClick={onClose}
+            aria-label="Back to My Space"
+            className="flex h-9 w-9 items-center justify-center rounded-full border text-[#9AA3B5] transition-colors"
+            style={{ background: "#1a1a1c", borderColor: "rgba(255,255,255,0.07)" }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+        <EmptyState
+          icon="🗑️"
+          title="This space has been deleted"
+          message="The owner removed this space and everything in it. Any materials you saved from it are gone too."
+        />
+      </div>
+    );
+  }
 
   return (
     <>

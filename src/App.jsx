@@ -129,7 +129,7 @@ import { ExamSimulator, selectAdaptiveQuestions, calculateSessionAnalytics, Post
 
 import { OnboardingWizard, isOnboarded, markOnboarded } from "./features/Onboarding";
 
-import { getMyProfile } from "./lib/profileApi.js";
+import { getMyProfile, saveMyProfile } from "./lib/profileApi.js";
 
 
 
@@ -343,19 +343,10 @@ function App() {
 
 
 
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-
-    try {
-
-      const u = JSON.parse(localStorage.getItem("scholars-circle-auth"))?.authUser;
-
-      if (String(u?.role || "").toLowerCase() === "lecturer") return false;
-
-    } catch { /* ignore */ }
-
-    return !isOnboarded();
-
-  });
+  // Start hidden — the wizard only appears once the server confirms the
+  // account was never onboarded (localStorage alone re-shows it on every
+  // new device for returning users).
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
 
 
@@ -822,18 +813,21 @@ function App() {
 
   useEffect(() => {
     if (!onboardingUid) return;
-    if (isLecturerRole) { markOnboarded(onboardingUid); setShowOnboarding(false); return; }
+    if (isLecturerRole) { markOnboarded(onboardingUid); saveMyProfile({ onboarded: true }).catch(() => {}); setShowOnboarding(false); return; }
     if (isOnboarded(onboardingUid)) { setShowOnboarding(false); return; }
-    setShowOnboarding(true);
     let cancelled = false;
     getMyProfile().then((data) => {
       if (cancelled) return;
       const p = data?.profile;
-      if (p && (p.programme || p.discipline) && p.level) {
+      // Server flag (syncs across devices) + legacy heuristic for accounts
+      // that completed onboarding before the flag existed.
+      if (data?.onboardedAt || (p && (p.programme || p.discipline) && p.level)) {
         markOnboarded(onboardingUid);
         setShowOnboarding(false);
+      } else {
+        setShowOnboarding(true);
       }
-    }).catch(() => {});
+    }).catch(() => { if (!cancelled) setShowOnboarding(true); });
     return () => { cancelled = true; };
   }, [onboardingUid, isLecturerRole]);
 
@@ -7103,7 +7097,7 @@ function App() {
 
 
 
-          onSkip={() => { markOnboarded(onboardingUid); setShowOnboarding(false); }}
+          onSkip={() => { markOnboarded(onboardingUid); saveMyProfile({ onboarded: true }).catch(() => {}); setShowOnboarding(false); }}
 
 
 

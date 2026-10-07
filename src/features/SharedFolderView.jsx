@@ -37,6 +37,7 @@ export default function SharedFolderView() {
   const [folder, setFolder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleted, setDeleted] = useState(false);
   const [viewerToken, setViewerToken] = useState(null);
   const [isAuthenticated] = useState(() => !!getAuth().authToken);
   const [folderBookmarked, setFolderBookmarked] = useState(false);
@@ -59,6 +60,7 @@ export default function SharedFolderView() {
       })
       .catch((err) => {
         if (!alive) return;
+        setDeleted(!!err.deleted);
         setError(err.message || "Failed to load folder");
         setLoading(false);
       });
@@ -237,9 +239,15 @@ export default function SharedFolderView() {
     return (
       <div className="mc-root" style={{ minHeight: "100dvh", background: "#0a0a0a" }}>
         <div style={{ padding: "80px 20px", textAlign: "center" }}>
-          <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "#EDEFF5", marginBottom: 6 }}>Space not accessible</div>
-          <div style={{ fontSize: 13, color: "#646E84", marginBottom: 18 }}>{error || "The owner may have turned off link sharing, or this link expired."}</div>
+          <div style={{ fontSize: 44, marginBottom: 12 }}>{deleted ? "�️" : "�🔒"}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#EDEFF5", marginBottom: 6 }}>
+            {deleted ? "This space has been deleted" : "Space not accessible"}
+          </div>
+          <div style={{ fontSize: 13, color: "#646E84", marginBottom: 18 }}>
+            {deleted
+              ? "The owner removed this space and everything in it."
+              : (error || "The owner may have turned off link sharing, or this link expired.")}
+          </div>
           <button
             onClick={goBack}
             style={{ padding: "10px 22px", background: "rgba(255,179,0,0.12)", border: "1px solid rgba(255,179,0,0.35)", borderRadius: "10px", fontSize: 13, fontWeight: 800, color: "#FFB300", cursor: "pointer" }}

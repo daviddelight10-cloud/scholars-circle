@@ -7,34 +7,34 @@ const LAST_UPDATED = "7 October 2026";
 const WA_LINK = `https://wa.me/${WHATSAPP_NUMBER}`;
 
 const CSS = `
-  .lg-page { min-height: 100dvh; background: #08090f; color: #e8eaf6; font-family: 'Manrope', system-ui, sans-serif; padding: 24px 16px 64px; }
+  .lg-page { min-height: 100dvh; background: #0a0a0a; color: #EDEFF5; font-family: 'Inter', system-ui, sans-serif; padding: 24px 16px 64px; }
   .lg-inner { max-width: 720px; margin: 0 auto; }
-  .lg-back { display: inline-flex; align-items: center; gap: 6px; color: #8b92c4; text-decoration: none; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
-  .lg-back:hover { color: #FFD700; }
-  .lg-title { font-size: 26px; font-weight: 800; margin: 0 0 4px; color: #fff; }
-  .lg-upd { font-size: 12px; color: #4a5080; margin-bottom: 24px; }
-  .lg-h2 { font-size: 15px; font-weight: 800; color: #FFD700; margin: 26px 0 8px; letter-spacing: 0.02em; }
-  .lg-page p, .lg-page li { font-size: 14px; line-height: 1.75; color: #c3c8e0; margin: 0 0 10px; }
+  .lg-back { display: inline-flex; align-items: center; gap: 6px; color: #9AA3B5; text-decoration: none; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
+  .lg-back:hover { color: #F5A623; }
+  .lg-title { font-size: 26px; font-weight: 800; margin: 0 0 4px; color: #fff; font-family: 'Syne', 'Inter', sans-serif; }
+  .lg-upd { font-size: 12px; color: #646E84; margin-bottom: 24px; }
+  .lg-h2 { font-size: 15px; font-weight: 800; color: #F5A623; margin: 26px 0 8px; letter-spacing: 0.02em; }
+  .lg-page p, .lg-page li { font-size: 14px; line-height: 1.75; color: #c9cede; margin: 0 0 10px; }
   .lg-page ul { padding-left: 20px; margin: 0 0 12px; }
   .lg-page li { margin-bottom: 5px; }
   .lg-page a { color: #FFD700; text-decoration: none; }
   .lg-page a:hover { text-decoration: underline; }
-  .lg-card { background: #0e1020; border: 0.5px solid #1e2140; border-radius: 16px; padding: 18px; margin: 16px 0; }
-  .lg-note { background: rgba(218,165,32,0.08); border: 0.5px solid rgba(218,165,32,0.3); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #e8d9a8; line-height: 1.6; margin: 14px 0; }
+  .lg-card { background: #141414; border: 0.5px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 18px; margin: 16px 0; }
+  .lg-note { background: rgba(245,166,35,0.08); border: 0.5px solid rgba(245,166,35,0.3); border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #f0d9a8; line-height: 1.6; margin: 14px 0; }
   .lg-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-  .lg-field label { font-size: 12px; font-weight: 700; color: #8b92c4; letter-spacing: 0.04em; text-transform: uppercase; }
-  .lg-field input, .lg-field textarea { background: #12142a; border: 0.5px solid #1e2140; border-radius: 10px; padding: 11px 13px; font-size: 14px; color: #e8eaf6; font-family: inherit; outline: none; }
-  .lg-field input:focus, .lg-field textarea:focus { border-color: #DAA520; }
+  .lg-field label { font-size: 12px; font-weight: 700; color: #9AA3B5; letter-spacing: 0.04em; text-transform: uppercase; }
+  .lg-field input, .lg-field textarea { background: #1a1a1c; border: 0.5px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 11px 13px; font-size: 14px; color: #EDEFF5; font-family: inherit; outline: none; }
+  .lg-field input:focus, .lg-field textarea:focus { border-color: #F5A623; }
   .lg-field textarea { min-height: 96px; resize: vertical; }
-  .lg-hint { font-size: 12px; color: #4a5080; margin-top: -8px; margin-bottom: 14px; }
-  .lg-check { display: flex; gap: 10px; align-items: flex-start; background: #12142a; border: 0.5px solid #1e2140; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #c3c8e0; line-height: 1.55; cursor: pointer; }
-  .lg-check input { margin-top: 3px; accent-color: #DAA520; }
-  .lg-submit { width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 14px; font-weight: 800; font-family: inherit; letter-spacing: 0.03em; cursor: pointer; background: linear-gradient(135deg, #DAA520, #b8860b); color: #fff; transition: opacity 0.15s; }
+  .lg-hint { font-size: 12px; color: #646E84; margin-top: -8px; margin-bottom: 14px; }
+  .lg-check { display: flex; gap: 10px; align-items: flex-start; background: #1a1a1c; border: 0.5px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #c9cede; line-height: 1.55; cursor: pointer; }
+  .lg-check input { margin-top: 3px; accent-color: #F5A623; }
+  .lg-submit { width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 14px; font-weight: 800; font-family: inherit; letter-spacing: 0.03em; cursor: pointer; background: linear-gradient(135deg, #F5A623, #e08600); color: #14100a; transition: opacity 0.15s; }
   .lg-submit:disabled { opacity: 0.45; cursor: default; }
   .lg-err { background: rgba(248,113,113,0.1); border: 0.5px solid rgba(248,113,113,0.35); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #f87171; margin-bottom: 14px; }
-  .lg-done { background: rgba(52,211,153,0.08); border: 0.5px solid rgba(52,211,153,0.35); border-radius: 16px; padding: 24px 18px; text-align: center; margin: 20px 0; }
-  .lg-done-t { font-size: 17px; font-weight: 800; color: #34d399; margin-bottom: 6px; }
-  .lg-done-p { font-size: 13px; color: #8b92c4; line-height: 1.6; }
+  .lg-done { background: rgba(45,212,160,0.08); border: 0.5px solid rgba(45,212,160,0.35); border-radius: 16px; padding: 24px 18px; text-align: center; margin: 20px 0; }
+  .lg-done-t { font-size: 17px; font-weight: 800; color: #2dd4a0; margin-bottom: 6px; }
+  .lg-done-p { font-size: 13px; color: #9AA3B5; line-height: 1.6; }
 `;
 
 function LegalShell({ title, children }) {

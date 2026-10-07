@@ -26,10 +26,10 @@ router.get("/", requireAuth, async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.sub },
-      select: { role: true },
+      select: { role: true, onboardedAt: true },
     });
 
-    res.json({ profile, userDept, role: user?.role || null });
+    res.json({ profile, userDept, role: user?.role || null, onboardedAt: user?.onboardedAt || null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -60,6 +60,8 @@ router.put("/", requireAuth, async (req, res) => {
       yearLevel,
       semester,
       courses,
+      // One-way flag: onboarding finished/skipped — syncs the wizard across devices
+      onboarded,
     } = req.body;
 
     // Resolve universityId — clients may send fallback ids (e.g. "ng-12")
@@ -133,6 +135,13 @@ router.put("/", requireAuth, async (req, res) => {
         university: { select: { id: true, name: true, type: true, city: true } },
       },
     });
+
+    if (onboarded) {
+      await prisma.user.update({
+        where: { id: req.user.sub },
+        data: { onboardedAt: new Date() },
+      });
+    }
 
     // Sync UserDepartment if departmentId is provided
     if (departmentId && yearLevel) {
