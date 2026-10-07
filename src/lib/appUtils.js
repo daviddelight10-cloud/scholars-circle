@@ -53,8 +53,19 @@ export function pickAdaptiveQuestion(pool, wrongCounts, mastery) {
   return weighted[Math.floor(Math.random() * weighted.length)];
 }
 
-export async function api(path, { token, method = "GET", body } = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+/**
+ * Validate a ?redirect= param so it can only point at a same-origin path.
+ * Blocks "//host" protocol-relative URLs, "\", "@" tricks, and whitespace —
+ * anything else falls back to /app. Use everywhere auth flows redirect.
+ */
+export function safeRedirect(param, fallback = "/app") {
+  if (typeof param !== "string") return fallback;
+  if (!param.startsWith("/") || param.startsWith("//")) return fallback;
+  if (/[\s\\@]/.test(param)) return fallback;
+  return param;
+}
+
+export async function api(path, { token, method = "GET", body } = {}) {  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: {
       "Content-Type": "application/json",

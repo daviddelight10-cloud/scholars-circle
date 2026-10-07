@@ -41,6 +41,7 @@ import curriculumRoutes from "./routes/curriculum.js";
 import studyCacheRoutes from "./routes/studyCache.js";
 import studyGroupRoutes from "./routes/studyGroup.js";
 import feedRoutes from "./routes/feed.js";
+import ogRoutes from "./routes/og.js";
 import messageRoutes from "./routes/messages.js";
 import liveQuizRoutes, { attachLiveQuizSocket } from "./routes/liveQuiz.js";
 import adminRoutes from "./routes/admin.js";
@@ -164,6 +165,7 @@ app.use("/api/curriculum", curriculumRoutes);
 app.use("/api/study-cache", studyCacheRoutes);
 app.use("/api/live-quiz", liveQuizRoutes);
 app.use("/api/feed", feedRoutes);
+app.use("/og", ogRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/admin", adminRoutes);
 

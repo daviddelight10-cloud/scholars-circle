@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { aiRateLimit } from "../middleware/aiRateLimit.js";
@@ -43,23 +44,18 @@ const upload = multer({
   },
 });
 
-// Helper: Generate unique 6-char share token
+// Helper: Generate unique share token — crypto-random, URL-safe base64url.
+// 9 bytes → 12 chars (~72 bits), vs the old 6-char Math.random tokens
+// (~31 bits) which were enumerable by guessing.
 async function generateShareToken() {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  let unique = false;
-
-  while (!unique) {
-    token = Array.from({ length: 6 }, () =>
-      chars[Math.floor(Math.random() * chars.length)]
-    ).join("");
-
+  while (true) {
+    const token = crypto.randomBytes(9).toString("base64url");
     const existing = await prisma.resource.findUnique({
       where: { shareToken: token },
-    });
-    if (!existing) unique = true;
+      select: { id: true },
+    }).catch(() => null);
+    if (!existing) return token;
   }
-  return token;
 }
 
 // GET /api/resources - List resources with filters
@@ -1035,6 +1031,12 @@ router.get("/:token", optionalAuth, async (req, res) => {
     // Link sharing off — the share token only resolves for the uploader
     const isOwner = req.user?.sub === resource.uploadedBy;
     if (resource.linkShared === false && !isOwner) {
+      return res.status(404).json({ error: "Resource not found" });
+    }
+    // Moderation-rejected material must never be reachable by link.
+    // "private" (AI study-tool saves) stays link-shareable — linkShared is
+    // the owner's control for that.
+    if (resource.status === "rejected" && !isOwner) {
       return res.status(404).json({ error: "Resource not found" });
     }
 

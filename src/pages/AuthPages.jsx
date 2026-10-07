@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient.js';
 import { API_BASE } from '../lib/constants';
+import { safeRedirect } from '../lib/appUtils.js';
 
 export default function AuthPages() {
   const location = useLocation();
@@ -82,8 +83,8 @@ export default function AuthPages() {
         localStorage.setItem('scholars-circle-auth', JSON.stringify({ authUser: appUser, authToken: sessionToken }));
       }
 
-      const redirectParam = new URLSearchParams(window.location.search).get('redirect');
-      if (redirectParam && redirectParam.startsWith('/')) {
+      const redirectParam = safeRedirect(new URLSearchParams(window.location.search).get('redirect'), null);
+      if (redirectParam) {
         window.location.href = redirectParam;
       } else {
         navigate('/app');
@@ -122,10 +123,16 @@ export default function AuthPages() {
     }
 
     try {
+      const redirectDest = safeRedirect(new URLSearchParams(window.location.search).get('redirect'));
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: emailVal,
         password: passwordVal,
-        options: { data: { username: usernameVal, role } },
+        options: {
+          data: { username: usernameVal, role },
+          // Confirm-email link should bring the user back to what they were
+          // signing up for (e.g. a shared material), not the site root.
+          emailRedirectTo: `${window.location.origin}${redirectDest}`,
+        },
       });
 
       if (signUpError) throw signUpError;
@@ -155,13 +162,28 @@ export default function AuthPages() {
           console.error('Profile creation failed:', err);
         }
 
+        // Store the full app user (with id) — owner checks, feed, and sharing
+        // all key off authUser.id, which the bare signup payload lacks.
+        let appUser = { email: emailVal, username: usernameVal, role };
+        try {
+          const res = await fetch(`${API_BASE}/auth/refresh`, {
+            headers: { Authorization: `Bearer ${sessionToken}` },
+          });
+          const profileData = await res.json();
+          if (profileData?.user) appUser = profileData.user;
+        } catch {}
+
         localStorage.setItem('scholars-circle-auth', JSON.stringify({
-          authUser: { email: emailVal, username: usernameVal, role },
+          authUser: appUser,
           authToken: sessionToken
         }));
         setSignupRole('STUDENT');
-        
-        navigate('/app');
+
+        // Honour ?redirect= the same way login does — shared links must land
+        // the brand-new account back on the thing that was shared.
+        const finalDest = safeRedirect(new URLSearchParams(window.location.search).get('redirect'), null);
+        if (finalDest) window.location.href = finalDest;
+        else navigate('/app');
       } else {
         setInfo('Account created! Please check your email to confirm your account, then sign in.');
         setMode('login');
@@ -177,8 +199,8 @@ export default function AuthPages() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { 
-          redirectTo: `${window.location.origin}${new URLSearchParams(window.location.search).get('redirect') || '/app'}` 
+        options: {
+          redirectTo: `${window.location.origin}${safeRedirect(new URLSearchParams(window.location.search).get('redirect'))}`
         },
       });
       if (error) throw error;

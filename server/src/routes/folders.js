@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { cloneSkeletonForUser } from "../lib/topicExtractionService.js";
@@ -6,17 +7,13 @@ import { isMastered } from "../lib/fsrs.js";
 
 const router = express.Router();
 
-// Helper: generate unique 8-char folder share token
+// Helper: generate unique folder share token — crypto-random, URL-safe.
 async function generateFolderShareToken() {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  let unique = false;
-  while (!unique) {
-    token = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-    const existing = await prisma.folder.findUnique({ where: { shareToken: token } }).catch(() => null);
-    if (!existing) unique = true;
+  while (true) {
+    const token = crypto.randomBytes(9).toString("base64url");
+    const existing = await prisma.folder.findUnique({ where: { shareToken: token }, select: { id: true } }).catch(() => null);
+    if (!existing) return token;
   }
-  return token;
 }
 
 // Helper: check if user can access a folder

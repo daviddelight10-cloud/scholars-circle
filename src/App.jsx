@@ -80,6 +80,7 @@ import {
 import {
   loadFromStorage, todayKey, percent, pickAdaptiveQuestion,
   getLeague, getNextLeague, api, syncUserDataToBackend, loadUserDataFromBackend,
+  safeRedirect,
 } from "./lib/appUtils";
 
 import UpgradeGate from "./components/UpgradeGate";
@@ -2928,8 +2929,8 @@ function App() {
 
 
 
-      const redirectParam = new URLSearchParams(window.location.search).get('redirect');
-      if (redirectParam && redirectParam.startsWith('/')) {
+      const redirectParam = safeRedirect(new URLSearchParams(window.location.search).get('redirect'), null);
+      if (redirectParam) {
         window.location.href = redirectParam;
         return;
       }
@@ -3134,6 +3135,7 @@ function App() {
         password,
         options: {
           data: { username, role },
+          emailRedirectTo: `${window.location.origin}${safeRedirect(new URLSearchParams(window.location.search).get('redirect'))}`,
         },
       });
 
@@ -3303,8 +3305,8 @@ function App() {
 
 
 
-      const redirectParam = new URLSearchParams(window.location.search).get('redirect');
-      if (redirectParam && redirectParam.startsWith('/')) {
+      const redirectParam = safeRedirect(new URLSearchParams(window.location.search).get('redirect'), null);
+      if (redirectParam) {
         window.location.href = redirectParam;
         return;
       }
@@ -6294,7 +6296,7 @@ function App() {
                     onClick={async () => {
                       const { error: oauthError } = await supabase.auth.signInWithOAuth({
                         provider: "google",
-                        options: { redirectTo: `${window.location.origin}${new URLSearchParams(window.location.search).get('redirect') || '/app'}` },
+                        options: { redirectTo: `${window.location.origin}${safeRedirect(new URLSearchParams(window.location.search).get('redirect'))}` },
                       });
                       if (oauthError) {
                         setAuth((a) => ({ ...a, error: oauthError.message, info: "" }));
@@ -6443,7 +6445,7 @@ function App() {
                     onClick={async () => {
                       const { error: oauthError } = await supabase.auth.signInWithOAuth({
                         provider: "google",
-                        options: { redirectTo: `${window.location.origin}${new URLSearchParams(window.location.search).get('redirect') || '/app'}` },
+                        options: { redirectTo: `${window.location.origin}${safeRedirect(new URLSearchParams(window.location.search).get('redirect'))}` },
                       });
                       if (oauthError) {
                         setAuth((a) => ({ ...a, error: oauthError.message, info: "" }));

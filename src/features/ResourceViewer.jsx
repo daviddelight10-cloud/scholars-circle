@@ -216,7 +216,11 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password: signupPassword,
-        options: { data: { fullName } },
+        options: {
+          data: { fullName },
+          // Confirm-email link returns to this shared resource, not the root.
+          emailRedirectTo: window.location.href,
+        },
       });
       if (signUpError) throw signUpError;
       const sessionToken = signUpData.session?.access_token || "";

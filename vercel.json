@@ -44,6 +44,28 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/resources/:token",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Tt]elegram|facebookexternalhit|Facebot|[Tt]witterbot|[Ss]lackbot|[Dd]iscordbot|[Ll]inkedIn[Bb]ot|[Gg]ooglebot|bingbot|Applebot|[Pp]interest|redditbot|Embedly|SkypeUriPreview|vkShare).*"
+        }
+      ],
+      "destination": "https://scholars-circle-production.up.railway.app/og/resource/:token"
+    },
+    {
+      "source": "/folders/:token",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Tt]elegram|facebookexternalhit|Facebot|[Tt]witterbot|[Ss]lackbot|[Dd]iscordbot|[Ll]inkedIn[Bb]ot|[Gg]ooglebot|bingbot|Applebot|[Pp]interest|redditbot|Embedly|SkypeUriPreview|vkShare).*"
+        }
+      ],
+      "destination": "https://scholars-circle-production.up.railway.app/og/folder/:token"
+    },
     { "source": "/((?!api/|sitemap\\.xml|robots\\.txt).*)", "destination": "/index.html" }
   ]
 }
