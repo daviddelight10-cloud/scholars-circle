@@ -182,7 +182,7 @@ router.get("/community", requireAuth, async (req, res) => {
           },
         },
         university: { select: { id: true, name: true } },
-        _count: { select: { resources: true, folderBookmarks: true } },
+        _count: { select: { resources: true, folderBookmarks: true, bookmarks: true } },
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -219,7 +219,7 @@ router.get("/", requireAuth, async (req, res) => {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
         university: { select: { id: true, name: true } },
-        _count: { select: { resources: true } },
+        _count: { select: { resources: true, bookmarks: true } },
       },
       orderBy: { updatedAt: "desc" },
     });
@@ -245,7 +245,7 @@ router.get("/", requireAuth, async (req, res) => {
             folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
             owner: { select: { id: true, username: true, role: true } },
             university: { select: { id: true, name: true } },
-            _count: { select: { resources: true } },
+            _count: { select: { resources: true, bookmarks: true } },
           },
           orderBy: { updatedAt: "desc" },
         });
@@ -261,7 +261,7 @@ router.get("/", requireAuth, async (req, res) => {
             folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
             owner: { select: { id: true, username: true, role: true } },
             university: { select: { id: true, name: true } },
-            _count: { select: { resources: true } },
+            _count: { select: { resources: true, bookmarks: true } },
           },
         },
       },
@@ -367,7 +367,7 @@ router.get("/recycle-bin", requireAuth, async (req, res) => {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
         university: { select: { id: true, name: true } },
-        _count: { select: { resources: true } },
+        _count: { select: { resources: true, bookmarks: true } },
       },
       orderBy: { deletedAt: "desc" },
     });
@@ -678,7 +678,7 @@ router.post("/:id/restore", requireAuth, async (req, res) => {
         folderDepts: { include: { department: { select: { id: true, name: true, icon: true } } } },
         owner: { select: { id: true, username: true, role: true } },
         university: { select: { id: true, name: true } },
-        _count: { select: { resources: true } },
+        _count: { select: { resources: true, bookmarks: true } },
       },
     });
 

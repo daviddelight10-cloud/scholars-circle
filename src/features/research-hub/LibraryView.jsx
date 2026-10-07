@@ -128,7 +128,7 @@ export default function LibraryView({
   const sortFolders = (list) => {
     const arr = [...list];
     if (spaceSort === "name") arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    else if (spaceSort === "items") arr.sort((a, b) => ((b._count?.resources || 0) - (a._count?.resources || 0)));
+    else if (spaceSort === "items") arr.sort((a, b) => (((b._count?.resources || 0) + (b._count?.bookmarks || 0)) - ((a._count?.resources || 0) + (a._count?.bookmarks || 0))));
     return arr; // "recent" = API order (updatedAt desc)
   };
 

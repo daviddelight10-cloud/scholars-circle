@@ -60,14 +60,15 @@ router.post("/progress", requireAuth, async (req, res) => {
       update: {
         xp: maxXp,
         sessions: data.sessions,
-        streak: data.streak,
+        // streak + lastStudied are server-owned (updateUniversalStreak /
+        // freeze consumption) — accepting client values here would let stale
+        // local state overwrite a freeze-preserved streak.
         coins: data.coins,
         weeklyGoal: data.weeklyGoal,
         totalCorrect: data.totalCorrect,
         mastery: data.mastery,
         wrongCounts: data.wrongCounts,
         srData: data.srData,
-        lastStudied: data.lastStudied ? new Date(data.lastStudied) : null,
         lastActivity: data.lastActivity ? new Date(data.lastActivity) : null,
         darkMode: data.darkMode,
         themePack: data.themePack,
@@ -343,14 +344,15 @@ router.post("/sync", requireAuth, async (req, res) => {
         update: {
           xp: maxXp,
           sessions: data.stats.sessions,
-          streak: data.stats.streak,
+          // streak + lastStudied are server-owned (updateUniversalStreak /
+          // freeze consumption) — a stale client streak would clobber a
+          // freeze-preserved streak otherwise.
           coins: data.stats.coins,
           weeklyGoal: data.stats.weeklyGoal,
           totalCorrect: data.stats.totalCorrect,
           mastery: data.mastery,
           wrongCounts: data.wrongCounts,
           srData: data.srData,
-          lastStudied: data.lastStudied ? new Date(data.lastStudied) : null,
           lastActivity: data.lastActivity ? new Date(data.lastActivity) : null,
         },
         create: {

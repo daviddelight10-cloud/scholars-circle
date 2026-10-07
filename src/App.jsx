@@ -1905,7 +1905,11 @@ function App() {
 
               const diffDays = Math.round((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
 
-              if (diffDays > 1) validatedStreak = 0;
+              // One freeze covers each missed day — streak only breaks when
+              // the gap exceeds the freeze inventory.
+              const missed = diffDays - 1;
+
+              if (missed > 0 && (data.progress.freezes ?? 0) < missed) validatedStreak = 0;
 
             }
 
@@ -1918,6 +1922,8 @@ function App() {
             sessions: data.progress.sessions ?? 0,
 
             streak: validatedStreak,
+
+            freezes: data.progress.freezes ?? 0,
 
             coins: data.progress.coins ?? 0,
 
@@ -2123,13 +2129,22 @@ function App() {
 
 
 
-    // If more than 1 day has passed, reset streak to 0
+    // If more than 1 day has passed, reset streak to 0 — unless freezes
+    // cover the missed days (mirrors updateUniversalStreak on the server)
 
     if (diffDays > 1) {
 
-      console.log('[STREAK] Resetting streak - missed', diffDays, 'days since last study');
+      setStats(prev => {
 
-      setStats(prev => ({ ...prev, streak: 0 }));
+        const missed = diffDays - 1;
+
+        if ((prev.freezes || 0) >= missed) return prev;
+
+        console.log('[STREAK] Resetting streak - missed', missed, 'days since last study');
+
+        return { ...prev, streak: 0 };
+
+      });
 
     }
 
@@ -3439,9 +3454,25 @@ function App() {
 
     } else {
 
-      // Missed day(s) - reset streak
+      // Missed day(s) — one freeze covers each missed day; the server does
+      // the same math in updateUniversalStreak and decrements its inventory.
+      // Decrement the local mirror so the display stays in sync.
 
-      newStreak = 1;
+      const missed = diffDays - 1;
+
+      const available = stats.freezes || 0;
+
+      if (missed > 0 && available >= missed) {
+
+        newStreak = stats.streak + 1;
+
+        setStats((s) => ({ ...s, freezes: Math.max(0, (s.freezes || 0) - missed) }));
+
+      } else {
+
+        newStreak = 1;
+
+      }
 
     }
 
