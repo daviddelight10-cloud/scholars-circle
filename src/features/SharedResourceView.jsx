@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getResourceByShareToken, bookmarkResource, unbookmarkResource } from "../lib/resourcesApi";
+import { getResourceByShareToken, unbookmarkResource } from "../lib/resourcesApi";
 import { formatViewCount } from "../lib/researchUtils";
 import { formatRelativeDate } from "./research-hub/constants.js";
 import { createLiveRoom } from "./live-quiz/liveQuizApi.js";
 import ResourceViewer from "./ResourceViewer";
 import PracticeSheet from "./research-hub/PracticeSheet.jsx";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
+import SaveToSpaceSheet from "./research-hub/SaveToSpaceSheet.jsx";
 import EmptyState from "./research-hub/EmptyState.jsx";
 import { IC } from "./research-hub/spaceRowIcons.jsx";
 import { ProgressRing } from "./research-hub/spaceRowUi.jsx";
@@ -68,6 +69,8 @@ export default function SharedResourceView() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [goingLive, setGoingLive] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [saveSheetOpen, setSaveSheetOpen] = useState(false);
+  const [savePurpose, setSavePurpose] = useState("save"); // "save" | "study" — drives the toast
   const [descExpanded, setDescExpanded] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -124,18 +127,17 @@ export default function SharedResourceView() {
   const handleToggleBookmark = useCallback(async () => {
     if (!resource || !saveTargetId) return;
     if (!isAuthenticated) { loginRedirect(); return; }
+    if (!bookmarked) {
+      // No loose saves — picking a space is required, same as My Space.
+      setSavePurpose("save");
+      setSaveSheetOpen(true);
+      return;
+    }
     setBookmarkBusy(true);
     try {
-      if (bookmarked) {
-        await unbookmarkResource(saveTargetId);
-        setBookmarked(false);
-        say("Removed from your space");
-      } else {
-        const result = await bookmarkResource(saveTargetId);
-        setBookmarked(true);
-        const extra = (result?.bookmarkedIds?.length || 1) - 1;
-        say(extra > 0 ? `Material + ${extra} study tool${extra > 1 ? "s" : ""} saved ✓` : "Saved to your space ✓");
-      }
+      await unbookmarkResource(saveTargetId);
+      setBookmarked(false);
+      say("Removed from your space");
     } catch {
       say("Couldn't update — try again");
     } finally {
@@ -143,16 +145,30 @@ export default function SharedResourceView() {
     }
   }, [resource, saveTargetId, bookmarked, isAuthenticated, loginRedirect, say]);
 
-  // Owner-only practice actions — guests log in, members save first.
+  // After SaveToSpaceSheet bookmarks into the chosen space.
+  const handleSaved = useCallback((result, _folderId, folderName) => {
+    setBookmarked(true);
+    const extra = (result?.bookmarkedIds?.length || 1) - 1;
+    const into = folderName ? ` to "${folderName}"` : "";
+    if (savePurpose === "study") {
+      say(`Saved${into} — study tools live in My Space`);
+    } else {
+      say(extra > 0
+        ? `Material + ${extra} study tool${extra > 1 ? "s" : ""} saved${into} ✓`
+        : `Saved${into} ✓`);
+    }
+  }, [say, savePurpose]);
+
+  // Owner-only practice actions — guests log in, members save into a space first.
   const studyGate = useCallback(() => {
     if (!isAuthenticated) { loginRedirect(); return; }
     if (!bookmarked && !isOwner) {
-      handleToggleBookmark();
-      say("Material saved — study tools live in My Space");
+      setSavePurpose("study");
+      setSaveSheetOpen(true);
     } else {
       say("Open this material in My Space to use study tools");
     }
-  }, [isAuthenticated, bookmarked, isOwner, loginRedirect, handleToggleBookmark, say]);
+  }, [isAuthenticated, bookmarked, isOwner, loginRedirect, say]);
 
   const handleGoLive = useCallback(async (f) => {
     if (!isAuthenticated) { loginRedirect(); return; }
@@ -402,6 +418,15 @@ export default function SharedResourceView() {
         onGoLive={handleGoLive}
         goingLive={goingLive}
         onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`) : loginRedirect())}
+      />
+
+      {/* Save — pick a space (or create one) before the material lands */}
+      <SaveToSpaceSheet
+        open={saveSheetOpen}
+        resource={file ? { id: saveTargetId, title: file.title, subject: resource.subject } : null}
+        onClose={() => setSaveSheetOpen(false)}
+        onSaved={handleSaved}
+        notify={say}
       />
 
       {/* Re-share */}

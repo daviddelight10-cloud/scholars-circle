@@ -7,6 +7,7 @@ import { createLiveRoom } from "./live-quiz/liveQuizApi.js";
 import ResourceViewer from "./ResourceViewer";
 import PracticeSheet from "./research-hub/PracticeSheet.jsx";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
+import SaveToSpaceSheet from "./research-hub/SaveToSpaceSheet.jsx";
 import EmptyState from "./research-hub/EmptyState.jsx";
 import { IC } from "./research-hub/spaceRowIcons.jsx";
 import { ProgressRing } from "./research-hub/spaceRowUi.jsx";
@@ -43,6 +44,7 @@ export default function SharedFolderView() {
   const [fileSearch, setFileSearch] = useState("");
   const [goingLive, setGoingLive] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [saveTarget, setSaveTarget] = useState(null); // file pending a space pick
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -420,6 +422,20 @@ export default function SharedFolderView() {
         onGoLive={handleGoLive}
         goingLive={goingLive}
         onJoinLive={(code) => (isAuthenticated ? navigate(`/live/${code}`) : loginRedirect())}
+        onSaveMaterial={!isOwner ? (f) => {
+          if (!isAuthenticated) { loginRedirect(); return; }
+          if (folderBookmarked) { say("This space is already saved — materials are in your library"); return; }
+          setSaveTarget(f);
+        } : undefined}
+      />
+
+      {/* Per-file save — pick (or create) a space; never a loose save */}
+      <SaveToSpaceSheet
+        open={!!saveTarget}
+        resource={saveTarget ? { id: saveTarget.id, title: saveTarget.title, subject: saveTarget.subject } : null}
+        onClose={() => setSaveTarget(null)}
+        onSaved={(_r, _fid, name) => say(`Saved to "${name || "your space"}" ✓`)}
+        notify={say}
       />
 
       {/* Re-share */}

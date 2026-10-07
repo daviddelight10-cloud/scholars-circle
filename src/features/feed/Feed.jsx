@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
 import { messagesApi } from "../messages/messagesApi";
@@ -10,6 +10,7 @@ import { GroupsTab } from "../groups/GroupsTab";
 import { Avatar, SectionHeader, displayTitle } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import ShareSheet from "../research-hub/ShareSheet.jsx";
+import SaveToSpaceSheet from "../research-hub/SaveToSpaceSheet.jsx";
 import "../../feed.css";
 
 const TABS = [
@@ -44,6 +45,15 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [trending, setTrending] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
   const [shareTarget, setShareTarget] = useState(null); // unified ShareSheet target
+  const [saveTarget, setSaveTarget] = useState(null); // { resource, onDone } — space picker for feed saves
+  const [notice, setNotice] = useState(null);
+  const noticeTimer = useRef(null);
+  const say = useCallback((msg) => {
+    setNotice(msg);
+    clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 2600);
+  }, []);
+  const handleSaveResource = useCallback((resource, onDone) => setSaveTarget({ resource, onDone }), []);
 
   const me = useMemo(
     () => ({
@@ -398,6 +408,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
           onOpenProfile={setProfileUserId}
           onJoinQuiz={handleJoinQuiz}
           onShare={handleShareBlock}
+          onSaveResource={handleSaveResource}
         />
       );
     });
@@ -703,7 +714,28 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             else loadFeed({ quiet: true });
           }}
         />
+        <SaveToSpaceSheet
+          open={!!saveTarget}
+          resource={saveTarget?.resource}
+          onClose={() => setSaveTarget(null)}
+          notify={say}
+          onSaved={(_r, _fid, name) => {
+            saveTarget?.onDone?.();
+            say(`Saved to "${name || "your space"}" ✓`);
+          }}
+        />
       </div>
+
+      {/* Toast */}
+      {notice && (
+        <div
+          className="fixed bottom-24 left-1/2 z-[1002] flex -translate-x-1/2 items-center gap-2.5 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg"
+          style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", maxWidth: "calc(100vw - 32px)" }}
+          role="status"
+        >
+          <span className="truncate">{notice}</span>
+        </div>
+      )}
     </div>
   );
 }

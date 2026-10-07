@@ -19,9 +19,10 @@ export async function getResourceByShareToken(shareToken) {
   return res.json();
 }
 
-export async function bookmarkResource(resourceId) {
+export async function bookmarkResource(resourceId, folderId) {
   const res = await authFetch(`${API_BASE}/api/resources/${resourceId}/bookmark`, {
     method: "POST",
+    body: JSON.stringify(folderId ? { folderId } : {}),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

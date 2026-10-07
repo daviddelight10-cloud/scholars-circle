@@ -94,11 +94,19 @@ export function RoomCard({ room, me, onJoin, onLeave, onEnd, onOpenResource, com
   );
 }
 
-function ResourceInner({ resource, uni, token, onOpenResource }) {
+function ResourceInner({ resource, uni, token, onOpenResource, onSaveResource }) {
   const [saved, setSaved] = useState(false);
   const [saveCount, setSaveCount] = useState(resource.saved || 0);
   const toggleSave = async (e) => {
     e.stopPropagation();
+    // New saves go through the space picker — never a loose material.
+    if (!saved && onSaveResource) {
+      onSaveResource(resource, () => {
+        setSaved(true);
+        setSaveCount((c) => c + 1);
+      });
+      return;
+    }
     const next = !saved;
     setSaved(next);
     setSaveCount((c) => c + (next ? 1 : -1));
@@ -237,7 +245,7 @@ export function PostActions({ block, token, onDeleted, setCommentsOpen, commentC
   );
 }
 
-export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile, onJoinQuiz, onShare }) {
+export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete, onJoinRoom, onLeaveRoom, onEndRoom, onOpenProfile, onJoinQuiz, onShare, onSaveResource }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentCount, setCommentCount] = useState(block.comments ?? block.resource?.comments ?? 0);
   const [acceptedId, setAcceptedId] = useState(block.acceptedCommentId || null);
@@ -329,7 +337,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
             <div className="fd-card-meta">uploaded a resource · {relTime(block.ts)}</div>
           </div>
         </div>
-        <ResourceInner resource={block.resource} uni={block.uni} token={token} onOpenResource={onOpenResource} />
+        <ResourceInner resource={block.resource} uni={block.uni} token={token} onOpenResource={onOpenResource} onSaveResource={onSaveResource} />
         <PostActions
           block={block}
           token={token}
@@ -398,7 +406,7 @@ export function FeedCard({ block, token, me, onOpenResource, onOpenTab, onDelete
       )}
 
       {block.resource && (
-        <ResourceInner resource={block.resource} uni={block.author?.uni} token={token} onOpenResource={onOpenResource} />
+        <ResourceInner resource={block.resource} uni={block.author?.uni} token={token} onOpenResource={onOpenResource} onSaveResource={onSaveResource} />
       )}
 
       <PostActions

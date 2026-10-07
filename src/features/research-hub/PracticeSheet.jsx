@@ -109,6 +109,7 @@ const IcoSliders = (p) => (
 );
 const IcoChevron = (p) => <I {...p}><path d="M9 6l6 6-6 6" /></I>;
 const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></I>;
+const IcoBookmark = (p) => <I {...p}><path d="M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z" /></I>;
 
 const initials = (name) =>
   (name || "?").split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
@@ -150,6 +151,7 @@ export default function PracticeSheet({
   mcqProgress,
   guidedProgress,
   onJoinLive,
+  onSaveMaterial,
 }) {
   const { modalProps, focusRef } = useModalA11y({
     isOpen: !!file,
@@ -513,6 +515,16 @@ export default function PracticeSheet({
               sub={file.fileName || "Source document"}
               onClick={act(() => onOpen(file.shareToken))}
             />
+            {onSaveMaterial && (
+              <PmTile
+                delay={250}
+                tint="tint-amber"
+                icon={<IcoBookmark size={17} />}
+                name="Save to My Space"
+                sub="Pick a space for this material"
+                onClick={act(() => onSaveMaterial(file))}
+              />
+            )}
           </div>
 
           {/* Live */}
