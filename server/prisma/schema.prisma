@@ -121,6 +121,8 @@ model User {
 
   updatedAt      DateTime          @updatedAt
 
+  termsAcceptedAt DateTime?        // stamped at signup (or first login for existing accounts)
+
   sessions       SessionAttempt[]
 
   assignments  Assignment[]      @relation("AssignmentCreatedBy")
@@ -1799,13 +1801,20 @@ model FolderQuizAttempt {
 // ============ CONTENT REPORTS (folders / resources) ============
 model Report {
   id         String   @id @default(cuid())
-  reporterId String
-  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reporterId String?  // null = external copyright claimant (no account)
+  reporter   User?    @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   targetType String   // "folder" | "resource"
   targetId   String
-  reason     String   // outdated | errors | course | spam
+  reason     String   // outdated | errors | course | spam | copyright
   note       String?
   status     String   @default("open") // open | reviewed | dismissed
+  // Copyright takedown fields (reason === "copyright"; guest notices via
+  // POST /api/reports/copyright carry reporterId = null):
+  contactName         String?
+  contactEmail        String?  // email or WhatsApp number — claimant's channel
+  claimDescription    String?  // description of the copyrighted work
+  evidenceUrl         String?
+  declarationAccepted Boolean  @default(false) // good-faith / accuracy / authorization
   createdAt  DateTime @default(now())
 
   @@unique([reporterId, targetType, targetId])

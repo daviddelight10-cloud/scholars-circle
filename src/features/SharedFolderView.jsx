@@ -422,6 +422,16 @@ export default function SharedFolderView() {
             </div>
           )}
         </div>
+
+        {/* Report / legal — the copyright form is public, no account needed */}
+        <div className="px-5 md:px-8 lg:px-12 mt-8" style={{ textAlign: "center" }}>
+          <button
+            onClick={() => navigate(`/copyright?u=${encodeURIComponent(window.location.href)}`)}
+            style={{ background: "none", border: "none", color: "#4a5080", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
+          >
+            ⚑ Report this content
+          </button>
+        </div>
       </div>
 
       {/* Practice sheet — same one My Space uses */}

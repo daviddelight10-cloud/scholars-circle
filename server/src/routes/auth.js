@@ -84,7 +84,11 @@ router.post("/profile", requireSupabaseAuth, async (req, res) => {
 
       const linked = await prisma.user.update({
         where: { id: existingByEmail.id },
-        data: { supabaseId },
+        data: {
+          supabaseId,
+          // Signing up via a linked account still accepts the terms
+          ...(existingByEmail.termsAcceptedAt ? {} : { termsAcceptedAt: new Date() }),
+        },
       });
 
       try {
@@ -173,6 +177,7 @@ router.post("/profile", requireSupabaseAuth, async (req, res) => {
         role: desiredRole,
         activationKey,
         isActivated: desiredRole !== "STUDENT",
+        termsAcceptedAt: new Date(),
       },
 
     });
@@ -305,6 +310,7 @@ router.get("/refresh", requireAuth, async (req, res) => {
         activationExpiry: true,
         planType: true,
         activatedAt: true,
+        termsAcceptedAt: true,
         totalXp: true,
         freeTrialViews: true,
         freeTrialLimit: true,
@@ -328,6 +334,13 @@ router.get("/refresh", requireAuth, async (req, res) => {
         isActivated = false;
         console.log(`[auth/refresh] User ${user.username || user.email} deactivated — key expired at ${user.activationExpiry}`);
       }
+    }
+
+    // Grandfather existing accounts: first successful session after the
+    // terms pages shipped stamps acceptance (login screen shows the consent line).
+    if (!user.termsAcceptedAt) {
+      prisma.user.update({ where: { id: user.id }, data: { termsAcceptedAt: new Date() } })
+        .catch((e) => console.warn("termsAcceptedAt stamp failed:", e.message));
     }
 
     return res.json({

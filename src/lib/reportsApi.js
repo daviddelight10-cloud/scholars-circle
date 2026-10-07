@@ -19,3 +19,18 @@ export async function submitReport({ targetType, targetId, reason, note }) {
   }
   return res.json();
 }
+
+// Public copyright takedown notice — no account required (rights holders
+// submit through /copyright without signing up).
+export async function submitCopyrightReport(payload) {
+  const res = await fetch(`${API_BASE}/api/reports/copyright`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to submit notice");
+  }
+  return res.json();
+}

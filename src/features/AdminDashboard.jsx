@@ -72,6 +72,8 @@ const EVENT_LABELS = {
   admin_role_change: "🔄 Role changed",
   admin_user_deleted: "🗑 User deleted",
   admin_folder_deleted: "📁 Folder deleted",
+  admin_resource_status: "🗂 Material status changed",
+  admin_resource_deleted: "🗑 Material deleted",
   admin_broadcast: "📣 Push broadcast",
   admin_payment_approved: "✅ Payment approved",
   admin_payment_rejected: "❌ Payment rejected",
@@ -84,7 +86,7 @@ function deviceOf(ua) {
   const br = /Edg/i.test(ua) ? "Edge" : /Chrome/i.test(ua) ? "Chrome" : /Firefox/i.test(ua) ? "Firefox" : /Safari/i.test(ua) ? "Safari" : "Browser";
   return `${br} · ${os}`;
 }
-const REPORT_REASONS = { outdated: "🕐 Outdated", errors: "❌ Errors", course: "📚 Wrong course", spam: "🚫 Spam" };
+const REPORT_REASONS = { outdated: "🕐 Outdated", errors: "❌ Errors", course: "📚 Wrong course", spam: "🚫 Spam", copyright: "⚖️ Copyright" };
 const PLAN_LABELS = { week1: "1 Week", week2: "2 Weeks", month1: "1 Month", semester: "Semester" };
 
 function timeAgo(ts) {
@@ -400,6 +402,10 @@ export default function AdminDashboard({ token }) {
   const [logins, setLogins] = useState([]);
   const [reports, setReports] = useState(null);
   const [reportStatus, setReportStatus] = useState("open");
+  const [materials, setMaterials] = useState(null);
+  const [matSearch, setMatSearch] = useState("");
+  const [matStatus, setMatStatus] = useState("all");
+  const [matPage, setMatPage] = useState(0);
   const [aiUsage, setAiUsage] = useState(null);
   const [revenue, setRevenue] = useState(null);
   const [activity, setActivity] = useState(null);
@@ -474,6 +480,35 @@ export default function AdminDashboard({ token }) {
     setBusy(false);
   }, [token]);
 
+  const loadMaterials = useCallback(async () => {
+    setBusy(true);
+    try {
+      const qs = new URLSearchParams();
+      if (matSearch.trim()) qs.set("q", matSearch.trim());
+      if (matStatus !== "all") qs.set("status", matStatus);
+      if (matPage) qs.set("page", String(matPage));
+      setMaterials(await api(`/admin/resources?${qs}`, { token }));
+      markLoaded("materials");
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  }, [token, matSearch, matStatus, matPage]);
+
+  const modStatus = useCallback(async (r, status) => {
+    try {
+      await api(`/admin/resources/${r.id}/status`, { token, method: "PATCH", body: { status } });
+      toast.success(`"${r.title}" → ${status}`);
+      loadMaterials();
+    } catch (e) { toast.error(e.message); }
+  }, [token, loadMaterials]);
+
+  const modDelete = useCallback(async (r) => {
+    try {
+      const res = await api(`/admin/resources/${r.id}`, { token, method: "DELETE" });
+      toast.success(res.derivedRemoved ? `Deleted — ${res.derivedRemoved} study tool(s) removed too` : "Material deleted");
+      loadMaterials();
+    } catch (e) { toast.error(e.message); }
+  }, [token, loadMaterials]);
+
   // Lazy-load per tab
   useEffect(() => {
     if (!token) return;
@@ -485,10 +520,18 @@ export default function AdminDashboard({ token }) {
     if (sub === "activity" && !loaded.activity) loadActivity();
   }, [sub, token, loaded, loadOverview, loadUsers, loadReports, loadAi, loadRevenue, loadActivity]);
 
+  // Materials tab — debounced reload covers first open + every search/filter change
+  useEffect(() => {
+    if (sub !== "materials" || !token) return;
+    const t = setTimeout(() => loadMaterials(), 300);
+    return () => clearTimeout(t);
+  }, [sub, token, matSearch, matStatus, matPage, loadMaterials]);
+
   const refresh = () => {
     if (sub === "overview") loadOverview();
     else if (sub === "users") loadUsers();
     else if (sub === "reports") loadReports();
+    else if (sub === "materials") loadMaterials();
     else if (sub === "ai") loadAi();
     else if (sub === "revenue") loadRevenue();
     else if (sub === "activity") loadActivity();
@@ -572,6 +615,7 @@ export default function AdminDashboard({ token }) {
     ["overview", "📊 Overview"],
     ["users", "👥 Users"],
     ["reports", "🚩 Reports", stats?.openReports],
+    ["materials", "🗂 Materials"],
     ["ai", "🤖 AI Usage"],
     ["revenue", "💰 Revenue"],
     ["activity", "🧾 Activity"],
@@ -783,11 +827,36 @@ export default function AdminDashboard({ token }) {
                     <div style={{ fontSize: 11, color: D.hint }}>
                       {r.target?.subject && <span>{r.target.subject} · </span>}
                       {r.target?.uploader?.username && <span>by {r.target.uploader.username} · </span>}
-                      reported by {r.reporter?.username || r.reporter?.email || "?"} · {timeAgo(r.createdAt)}
+                      reported by {r.reporter ? (r.reporter.username || r.reporter.email || "?") : `${r.contactName || "External claimant"} (no account)`} · {timeAgo(r.createdAt)}
                     </div>
+                    {r.reason === "copyright" && (r.contactName || r.claimDescription) && (
+                      <div style={{ fontSize: 12, color: D.muted, marginTop: 8, background: "rgba(192,132,252,0.08)", border: `0.5px solid rgba(192,132,252,0.25)`, borderRadius: 8, padding: "8px 10px" }}>
+                        {r.contactName && <div><b style={{ color: D.text }}>{r.contactName}</b>{r.contactEmail && <span style={{ color: D.hint }}> · {r.contactEmail}</span>}</div>}
+                        {r.claimDescription && <div style={{ marginTop: 4 }}>{r.claimDescription}</div>}
+                        {r.evidenceUrl && <a href={r.evidenceUrl} target="_blank" rel="noopener noreferrer" style={{ color: D.goldBright, fontSize: 11 }}>Original work ↗</a>}
+                      </div>
+                    )}
                     {r.note && <div style={{ fontSize: 12, color: D.muted, marginTop: 8, background: D.faint, borderRadius: 8, padding: "8px 10px" }}>"{r.note}"</div>}
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {r.target && r.targetType === "resource" && r.status === "open" && (
+                      <button className="ad-btn red" style={{ fontSize: 10 }} onClick={() => setConfirm({
+                        title: `Take down "${r.target.title}"?`,
+                        body: "Marks the material as rejected — hidden from the community and its share link stops working for everyone except the uploader.",
+                        confirmLabel: "Take down",
+                        danger: true,
+                        run: async () => {
+                          try {
+                            await api(`/admin/resources/${r.targetId}/status`, { token, method: "PATCH", body: { status: "rejected" } });
+                            await api(`/admin/reports/${r.id}`, { token, method: "PATCH", body: { status: "reviewed" } });
+                            toast.success("Taken down, report resolved");
+                            loadReports();
+                          } catch (e) { toast.error(e.message); }
+                        },
+                      })}>
+                        ⛔ Take down
+                      </button>
+                    )}
                     {r.target && (
                       <button className="ad-btn red" style={{ fontSize: 10 }} onClick={() => setConfirm({
                         title: `Delete this ${r.targetType}?`,
@@ -823,6 +892,82 @@ export default function AdminDashboard({ token }) {
               </div>
             ))
           )}
+        </>
+      )}
+
+      {/* ── MATERIALS — search + moderation ── */}
+      {sub === "materials" && (
+        <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            {[["all", "All"], ["approved", "Public"], ["private", "Private"], ["rejected", "Rejected"], ["pending", "Pending"]].map(([k, l]) => (
+              <button key={k} className={`ad-fp${matStatus === k ? " on" : ""}`} onClick={() => { setMatStatus(k); setMatPage(0); }}>{l}</button>
+            ))}
+          </div>
+          <input
+            className="ad-input"
+            value={matSearch}
+            onChange={(e) => { setMatSearch(e.target.value); setMatPage(0); }}
+            placeholder="Search title, subject, course code, or uploader…"
+            style={{ width: "100%", marginBottom: 10 }}
+          />
+          <div className="ad-card" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "10px 14px", borderBottom: `0.5px solid ${D.line}`, fontSize: 11, fontWeight: 700, color: D.gold, letterSpacing: "0.07em", textTransform: "uppercase", fontFamily: "Syne,sans-serif" }}>
+              {materials ? `${materials.total} material${materials.total !== 1 ? "s" : ""}` : "Materials"}
+            </div>
+            {!materials ? <Spinner /> : materials.items.length === 0 ? <Empty text="No materials match." /> : (
+              materials.items.map((r, i) => (
+                <div key={r.id} className="ad-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", fontSize: 12, borderBottom: i < materials.items.length - 1 ? `0.5px solid ${D.line}` : "none", flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 170 }}>
+                    <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                    <div style={{ fontSize: 10, color: D.hint }}>
+                      {r.uploader?.username || r.uploader?.email || "?"} · {r.subject || "—"}
+                      {r.courseCode ? ` · ${r.courseCode}` : ""} · {timeAgo(r.createdAt)}
+                      {r._count?.derivedResources > 0 ? ` · +${r._count.derivedResources} tools` : ""}
+                    </div>
+                  </div>
+                  <Pill color={D.muted}>{r.contentType}</Pill>
+                  <Pill color={r.status === "approved" ? D.green : r.status === "private" ? D.teal : r.status === "rejected" ? D.red : D.orange}>{r.status}</Pill>
+                  {r.flagCount > 0 && <Pill color={D.red}>⚑ {r.flagCount}</Pill>}
+                  {r.linkShared && r.shareToken ? (
+                    <a href={`/resources/${r.shareToken}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: D.goldBright, textDecoration: "none", fontWeight: 700, whiteSpace: "nowrap" }}>View ↗</a>
+                  ) : (
+                    <span style={{ fontSize: 10, color: D.hint, whiteSpace: "nowrap" }}>link off</span>
+                  )}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {r.status !== "approved" && (
+                      <button className="ad-btn green" style={{ fontSize: 10 }} onClick={() => modStatus(r, "approved")}>🌐 Public</button>
+                    )}
+                    {r.status !== "private" && (
+                      <button className="ad-btn ghost" style={{ fontSize: 10 }} onClick={() => modStatus(r, "private")}>🔒 Private</button>
+                    )}
+                    {r.status !== "rejected" && (
+                      <button className="ad-btn ghost" style={{ fontSize: 10, color: D.orange, borderColor: "rgba(251,146,60,0.4)" }} onClick={() => setConfirm({
+                        title: `Reject "${r.title}"?`,
+                        body: "Hides it from the community and kills the share link for everyone except the uploader.",
+                        confirmLabel: "Reject",
+                        danger: true,
+                        run: () => modStatus(r, "rejected"),
+                      })}>⛔ Reject</button>
+                    )}
+                    <button className="ad-btn red" style={{ fontSize: 10 }} onClick={() => setConfirm({
+                      title: `Delete "${r.title}"?`,
+                      body: `Permanently removes this material${r._count?.derivedResources ? ` and its ${r._count.derivedResources} generated study tool(s)` : ""}, including stored files. This cannot be undone.`,
+                      confirmLabel: "Delete permanently",
+                      danger: true,
+                      run: () => modDelete(r),
+                    })}>🗑</button>
+                  </div>
+                </div>
+              ))
+            )}
+            {materials && materials.total > materials.take && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderTop: `0.5px solid ${D.line}` }}>
+                <button className="ad-btn ghost" disabled={matPage === 0} onClick={() => setMatPage((p) => p - 1)}>← Prev</button>
+                <span style={{ fontSize: 11, color: D.hint }}>Page {matPage + 1} of {Math.ceil(materials.total / materials.take)}</span>
+                <button className="ad-btn ghost" disabled={(matPage + 1) * materials.take >= materials.total} onClick={() => setMatPage((p) => p + 1)}>Next →</button>
+              </div>
+            )}
+          </div>
         </>
       )}
 

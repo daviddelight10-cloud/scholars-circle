@@ -486,7 +486,10 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
         </div>
       )}
 
-      {pane === "friends" && (
+      {/* Gate on `open` too — CircleSheet keeps children mounted while closed,
+          so an ungated autoFocus input would pop the keyboard on every render
+          after the user closes the sheet while on this pane. */}
+      {open && pane === "friends" && (
         <>
           <input
             className="sh-search"

@@ -20,7 +20,7 @@ export default function CardActionSheet({ open, onClose, target, onShare, onRepo
         <McIcon name="flag" />
         <div>
           <div className="mc-r-t">Report</div>
-          <div className="mc-r-s">Outdated, wrong, or doesn't match the course</div>
+          <div className="mc-r-s">Outdated, wrong, copyright, or doesn't match the course</div>
         </div>
       </button>
     </CircleSheet>

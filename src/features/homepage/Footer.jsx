@@ -70,6 +70,7 @@ export default function Footer() {
               <li><a href="mailto:dsilearn1@gmail.com" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Email</a></li>
               <li><Link to="/privacy" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Privacy Policy</Link></li>
               <li><Link to="/terms" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Terms of Service</Link></li>
+              <li><Link to="/copyright" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Copyright &amp; Takedown</Link></li>
             </ul>
           </div>
         </div>
@@ -88,6 +89,7 @@ export default function Footer() {
           <div style={{ display: 'flex', gap: '24px' }}>
             <Link to="/privacy" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Privacy</Link>
             <Link to="/terms" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Terms</Link>
+            <Link to="/copyright" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px', transition: 'color 0.3s' }}>Copyright</Link>
           </div>
         </div>
       </div>

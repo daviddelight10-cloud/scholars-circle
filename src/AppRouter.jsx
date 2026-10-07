@@ -13,6 +13,9 @@ const LiveQuizPage = lazyWithRetry(() => import('./features/live-quiz/LiveQuizPa
 const ResourceUploadForm = lazyWithRetry(() => import('./components/teacher/ResourceUploadForm'));
 const BlogList = lazyWithRetry(() => import('./blog/BlogList'));
 const BlogPost = lazyWithRetry(() => import('./blog/BlogPost'));
+const PrivacyPage = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.PrivacyPage })));
+const TermsPage = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.TermsPage })));
+const CopyrightPolicyPage = lazyWithRetry(() => import('./pages/LegalPages').then(m => ({ default: m.CopyrightPolicyPage })));
 
 function RequireAuth({ children }) {
   const location = useLocation();
@@ -84,6 +87,11 @@ export default function AppRouter() {
       {/* Blog routes */}
       <Route path="/blog" element={<BlogList />} />
       <Route path="/blog/:slug" element={<BlogPost />} />
+
+      {/* Legal — public (copyright form accepts guest notices) */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/copyright" element={<CopyrightPolicyPage />} />
 
       {/* Catch all - redirect to landing page */}
       <Route path="*" element={<Navigate to="/" replace />} />

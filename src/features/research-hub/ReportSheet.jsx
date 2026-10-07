@@ -6,6 +6,7 @@ const REASONS = [
   { key: "errors", title: "Wrong answers or errors", sub: "Incorrect solutions, typos, broken pages" },
   { key: "course", title: "Not this course", sub: "Content doesn't match the course code or level" },
   { key: "spam", title: "Spam or inappropriate", sub: "Ads, abuse, or irrelevant uploads" },
+  { key: "copyright", title: "Copyright infringement", sub: "Someone's work is shared without permission" },
 ];
 
 /**
@@ -22,6 +23,12 @@ export default function ReportSheet({ open, onClose, target, onSubmit }) {
   }, [open, target]);
 
   if (!target) return null;
+
+  // Formal copyright notices go to the dedicated takedown form (also open to
+  // non-members). Pre-fill the material's share link when we have a token.
+  const copyrightUrl = target.shareToken
+    ? `/copyright?u=${encodeURIComponent(`${window.location.origin}/${target.type === "folder" ? "folders" : "resources"}/${target.shareToken}`)}`
+    : "/copyright";
 
   const submit = async () => {
     if (!reason || busy) return;
@@ -48,6 +55,13 @@ export default function ReportSheet({ open, onClose, target, onSubmit }) {
           </div>
         </button>
       ))}
+
+      {reason === "copyright" && (
+        <p className="mc-sheet-hint" style={{ marginBottom: 10 }}>
+          Flagging hides it for review. To have the material formally removed under copyright,
+          <a href={copyrightUrl} style={{ color: "var(--gold, #FFD700)", marginLeft: 4 }}>file a takedown notice →</a>
+        </p>
+      )}
 
       <textarea
         className="mc-rep-note"

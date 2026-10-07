@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import "./settings.css";
 import { DISCIPLINES } from "../AITutor/disciplines.js";
 import { ACADEMIC_LEVELS } from "../StudentProfile.jsx";
@@ -213,6 +214,29 @@ export default function SettingsPage({
           <div className="st-faq"><b>Not installing on iPhone?</b> — Tap Share → Add to Home Screen. Make sure you're on Safari and HTTPS.</div>
           <div className="st-faq"><b>Activate account?</b> — Share your activation key (Account section above) with your teacher or pay for Premium.</div>
         </details>
+      </div>
+
+      {/* Legal */}
+      <div className="st-glabel">Legal</div>
+      <div className="st-group">
+        <Link className="st-row st-press" to="/privacy" style={{ textDecoration: "none" }}>
+          <span className="st-ricon">🔒</span>
+          <span className="st-rlabel">Privacy Policy</span>
+          <span className="st-chev">›</span>
+        </Link>
+        <Link className="st-row st-press" to="/terms" style={{ textDecoration: "none" }}>
+          <span className="st-ricon">📜</span>
+          <span className="st-rlabel">Terms of Service</span>
+          <span className="st-chev">›</span>
+        </Link>
+        <Link className="st-row st-press" to="/copyright" style={{ textDecoration: "none" }}>
+          <span className="st-ricon">⚖️</span>
+          <span className="st-rlabel">
+            Copyright &amp; takedown
+            <span className="st-rdesc">Report infringing materials — no account needed</span>
+          </span>
+          <span className="st-chev">›</span>
+        </Link>
       </div>
 
       {/* Feedback */}

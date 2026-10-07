@@ -1777,24 +1777,29 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   const fileActionSheets = (
     <div className="mc-root" style={{ display: "contents" }}>
       <CircleSheet open={!!renameTarget} onClose={() => setRenameTarget(null)} title={renameTarget?.title} kind="File">
-        <input
-          className="sh-search"
-          placeholder="File name"
-          value={renameValue}
-          onChange={(e) => setRenameValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") submitFileRename(); }}
-          autoFocus
-        />
-        <button className="mc-act-row" onClick={submitFileRename} disabled={renameBusy}>
-          <McIcon name="check" />
-          <div>
-            <div className="mc-r-t">{renameBusy ? "Renaming…" : "Rename file"}</div>
-          </div>
-        </button>
-        <button className="mc-act-row" onClick={() => setRenameTarget(null)}>
-          <McIcon name="x" />
-          <div><div className="mc-r-t">Cancel</div></div>
-        </button>
+        {/* Children mount only when a file is targeted — CircleSheet renders
+            them even while closed, and the input's autoFocus would pop the
+            mobile keyboard the moment the hub loads. */}
+        {renameTarget && (<>
+          <input
+            className="sh-search"
+            placeholder="File name"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submitFileRename(); }}
+            autoFocus
+          />
+          <button className="mc-act-row" onClick={submitFileRename} disabled={renameBusy}>
+            <McIcon name="check" />
+            <div>
+              <div className="mc-r-t">{renameBusy ? "Renaming…" : "Rename file"}</div>
+            </div>
+          </button>
+          <button className="mc-act-row" onClick={() => setRenameTarget(null)}>
+            <McIcon name="x" />
+            <div><div className="mc-r-t">Cancel</div></div>
+          </button>
+        </>)}
       </CircleSheet>
       <CircleSheet open={!!fileDeleteTarget} onClose={() => setFileDeleteTarget(null)} title={fileDeleteTarget?.title} kind="File">
         <p className="mc-sheet-hint">

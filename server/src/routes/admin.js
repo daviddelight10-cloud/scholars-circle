@@ -4,6 +4,7 @@ import { prisma } from "../db.js";
 import { requireAuth, requireRole, invalidateUserCache } from "../middleware/auth.js";
 import { sendPushToUsers, isPushConfigured } from "../lib/pushSender.js";
 import { logSecurityEvent } from "../lib/logger.js";
+import { deleteFile } from "../lib/supabaseStorage.js";
 
 const router = express.Router();
 
@@ -290,6 +291,104 @@ router.get("/content", ...admin, async (_req, res) => {
   } catch (e) {
     console.error("admin/content:", e);
     res.status(500).json({ error: "Failed to load content" });
+  }
+});
+
+// ─── GET /admin/resources — searchable material moderation list ───────────────
+// ?q= matches title / subject / course code / uploader username or email.
+// ?status=all|approved|private|rejected|pending — default all. ?page=0-based.
+router.get("/resources", ...admin, async (req, res) => {
+  try {
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 80) : "";
+    const status = ["approved", "private", "rejected", "pending"].includes(req.query.status) ? req.query.status : undefined;
+    const page = Math.max(0, parseInt(req.query.page, 10) || 0);
+    const take = 50;
+
+    const where = {
+      ...(status && { status }),
+      ...(q && {
+        OR: [
+          { title: { contains: q, mode: "insensitive" } },
+          { subject: { contains: q, mode: "insensitive" } },
+          { courseCode: { contains: q, mode: "insensitive" } },
+          { uploader: { username: { contains: q, mode: "insensitive" } } },
+          { uploader: { email: { contains: q, mode: "insensitive" } } },
+        ],
+      }),
+    };
+
+    const [items, total] = await Promise.all([
+      prisma.resource.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: page * take,
+        take,
+        select: {
+          id: true, title: true, subject: true, courseCode: true, contentType: true,
+          status: true, linkShared: true, shareToken: true, flagCount: true,
+          viewCount: true, createdAt: true,
+          uploader: { select: { id: true, username: true, email: true } },
+          _count: { select: { derivedResources: true } },
+        },
+      }),
+      prisma.resource.count({ where }),
+    ]);
+
+    res.json({ items, total, page, take });
+  } catch (e) {
+    console.error("admin/resources:", e);
+    res.status(500).json({ error: "Failed to load materials" });
+  }
+});
+
+// ─── PATCH /admin/resources/:id/status — approve / private / reject ───────────
+// private hides from community but the uploader's link keeps working;
+// rejected also kills the link for non-owners (token route 404s).
+const MOD_STATUSES = ["approved", "private", "rejected", "pending"];
+router.patch("/resources/:id/status", ...admin, async (req, res) => {
+  try {
+    const { status } = req.body || {};
+    if (!MOD_STATUSES.includes(status)) {
+      return res.status(400).json({ error: "status must be approved | private | rejected | pending" });
+    }
+    const updated = await prisma.resource.update({
+      where: { id: req.params.id },
+      data: { status },
+      select: { id: true, title: true, status: true },
+    });
+    logSecurityEvent(req.user.sub, "admin_resource_status", { resource: updated.id, status }, req);
+    res.json(updated);
+  } catch (e) {
+    console.error("admin/resource status:", e);
+    if (e.code === "P2025") return res.status(404).json({ error: "Resource not found" });
+    res.status(500).json({ error: "Failed to update status" });
+  }
+});
+
+// ─── DELETE /admin/resources/:id — hard delete + derived tools ────────────────
+// A takedown removes the source AND its AI-derived variants (summaries, MCQ
+// sets, flashcards) — otherwise infringing content survives in saved spaces.
+router.delete("/resources/:id", ...admin, async (req, res) => {
+  try {
+    const source = await prisma.resource.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, title: true, storagePath: true, derivedResources: { select: { id: true, storagePath: true } } },
+    });
+    if (!source) return res.status(404).json({ error: "Resource not found" });
+
+    // Storage cleanup first — rows go after (paths captured while they exist).
+    const paths = [source.storagePath, ...source.derivedResources.map((d) => d.storagePath)].filter(Boolean);
+    await Promise.all(paths.map((p) => deleteFile(p).catch((e) => console.warn("storage delete failed:", e.message))));
+
+    await prisma.resource.deleteMany({
+      where: { OR: [{ id: source.id }, { sourceResourceId: source.id }] },
+    });
+
+    logSecurityEvent(req.user.sub, "admin_resource_deleted", { resource: source.id, title: source.title, derivedRemoved: source.derivedResources.length }, req);
+    res.json({ ok: true, derivedRemoved: source.derivedResources.length });
+  } catch (e) {
+    console.error("admin/resource delete:", e);
+    res.status(500).json({ error: "Failed to delete resource" });
   }
 });
 

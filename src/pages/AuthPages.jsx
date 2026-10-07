@@ -579,6 +579,11 @@ export default function AuthPages() {
                 {loading ? 'Signing in…' : 'Sign in →'}
               </button>
             </form>
+            <p style={{ textAlign: 'center', marginTop: 12, fontSize: '0.72rem', color: '#646E84' }}>
+              Signing in means you agree to our{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#9AA3B5' }}>Terms</a> and{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#9AA3B5' }}>Privacy Policy</a>.
+            </p>
 
             <p style={{ textAlign: 'center', marginTop: 20, fontSize: '0.9rem', color: '#9AA3B5' }}>
               No account? <span onClick={() => switchMode('signup')} style={{ color: '#F5A623', fontWeight: 700, cursor: 'pointer' }}>Create one</span>
@@ -713,7 +718,7 @@ export default function AuthPages() {
 
               <label style={{ fontSize: '0.88rem', color: '#9AA3B5', display: 'flex', gap: 9, alignItems: 'flex-start', lineHeight: 1.4 }}>
                 <input type="checkbox" style={{ marginTop: 3, accentColor: '#F5A623', width: 15, height: 15, flexShrink: 0 }} required />
-                <span>I agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Privacy Policy</a>.</span>
+                <span>I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD700', fontWeight: 600 }}>Privacy Policy</a>.</span>
               </label>
 
               {error && <div className="auth-banner auth-banner-err">{error}</div>}
