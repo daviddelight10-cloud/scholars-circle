@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE } from "../../lib/constants";
-import { Avatar } from "../feed/feedUi";
+import { groupChatApi } from "../messages/messagesApi";
+import { Avatar, FdSheet } from "../feed/feedUi";
 import { MaterialPicker } from "../feed/Composer.jsx";
 import { linkify } from "../../lib/linkify.jsx";
 
 const EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉"];
-const POLL_MS = 6000;
+const POLL_MS = 5000;
 
 function dayLabel(ts) {
   const d = new Date(ts);
@@ -35,31 +35,48 @@ function nameColor(name = "") {
   return `hsl(${h} 70% 72%)`;
 }
 
-export default function GroupChat({ classroomId, token, currentUser, onOpenResource, onJoinQuiz, onStartBattle }) {
+export default function GroupChat({ classroomId, token, currentUser, onOpenResource, onJoinQuiz, onStartBattle, onAddGoal, canModerate }) {
   const [messages, setMessages] = useState(null);
+  const [typing, setTyping] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [pinsOpen, setPinsOpen] = useState(false);
   const [pickerCache, setPickerCache] = useState(null);
-  const [emojiFor, setEmojiFor] = useState(null); // messageId with open picker
+  const [menuFor, setMenuFor] = useState(null);      // message with open action sheet
+  const [replyTo, setReplyTo] = useState(null);
   const [error, setError] = useState(null);
+  const [showJump, setShowJump] = useState(false);
+  const [newCount, setNewCount] = useState(0);
   const scrollRef = useRef(null);
+  const textRef = useRef(null);
+  const pressTimer = useRef(null);
   const stickRef = useRef(true);
+  const lastTypingSent = useRef(0);
+  const prevLen = useRef(0);
 
   const myId = currentUser?.id || currentUser?.sub;
-  const authHeaders = { Authorization: `Bearer ${token}` };
+  const myName = currentUser?.fullName || currentUser?.username || "You";
 
   const load = useCallback(async () => {
+    if (document.hidden) return;
     try {
-      const res = await fetch(`${API_BASE}/study-group/${classroomId}/messages`, { headers: authHeaders });
-      if (!res.ok) throw new Error("Failed to load");
-      const data = await res.json();
+      const data = await groupChatApi.getMessages({ token, classroomId });
+      const list = data.messages || [];
+      setTyping(data.typing || []);
       setMessages((prev) => {
-        if (!prev) return data;
-        const ids = new Set(data.map((m) => m.id));
-        const pending = prev.filter((m) => m.pending && !ids.has(m.id));
-        return [...data, ...pending];
+        if (!prev) { prevLen.current = list.length; return list; }
+        const ids = new Set(list.map((m) => m.id));
+        const pending = prev.filter((m) => (m.pending || m.failed) && !ids.has(m.id));
+        const merged = [...list, ...pending];
+        if (!stickRef.current && merged.length > prevLen.current) {
+          setNewCount((c) => c + merged.length - prevLen.current);
+          setShowJump(true);
+        }
+        prevLen.current = merged.length;
+        return merged;
       });
       setError(null);
     } catch (e) {
@@ -70,20 +87,48 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
   useEffect(() => {
     load();
     const iv = setInterval(load, POLL_MS);
-    return () => clearInterval(iv);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
   }, [load]);
 
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    stickRef.current = atBottom;
+    if (atBottom) { setShowJump(false); setNewCount(0); }
   };
 
   useEffect(() => {
     if (stickRef.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setShowJump(false);
+      setNewCount(0);
     }
   }, [messages]);
+
+  const jumpToBottom = () => {
+    stickRef.current = true;
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    setShowJump(false);
+    setNewCount(0);
+  };
+
+  const maybePingTyping = (value) => {
+    if (!value.trim()) return;
+    const now = Date.now();
+    if (now - lastTypingSent.current > 2500) {
+      lastTypingSent.current = now;
+      groupChatApi.sendTyping({ token, classroomId, name: myName.split(" ")[0] });
+    }
+  };
+
+  const autoGrow = (el) => {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  };
 
   // Unique shared resources, newest first — the group's mini library.
   const sharedMaterials = useMemo(() => {
@@ -92,6 +137,11 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
       .filter((m) => m.resource && !seen.has(m.resource.id) && seen.add(m.resource.id))
       .map((m) => m.resource);
   }, [messages]);
+
+  const pinnedMessages = useMemo(
+    () => (messages || []).filter((m) => m.pinnedAt && !m.pending && !m.failed),
+    [messages]
+  );
 
   const send = async ({ resourceId, liveCode, textOverride } = {}) => {
     const t = (textOverride ?? text).trim();
@@ -102,32 +152,38 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
       text: t,
       createdAt: new Date().toISOString(),
       userId: myId,
-      sender: { id: myId, name: currentUser?.fullName || currentUser?.username || "You", avatar: currentUser?.avatar },
+      sender: { id: myId, name: myName, avatar: currentUser?.avatar },
       resourceId: resourceId || null,
       resource: resourceId ? pickerCache?.find?.((r) => r.id === resourceId) || null : null,
       liveCode: liveCode || null,
       liveActive: !!liveCode,
+      replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, senderName: (replyTo.userId || replyTo.sender?.id) === myId ? "You" : (replyTo.sender?.name || "Scholar") } : null,
       reactions: [],
       pending: true,
+      _retry: { resourceId, liveCode, replyToId: replyTo?.id, text: t },
     };
     setMessages((prev) => [optimistic, ...(prev || [])]);
-    if (!textOverride) setText("");
+    if (!textOverride) { setText(""); autoGrow(textRef.current); }
+    setReplyTo(null);
     stickRef.current = true;
     try {
-      const res = await fetch(`${API_BASE}/study-group/${classroomId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({ text: t || "Shared a material", resourceId, liveCode }),
+      const saved = await groupChatApi.send({
+        token, classroomId,
+        text: t || "Shared a material",
+        resourceId, liveCode,
+        replyToId: replyTo?.id,
       });
-      if (!res.ok) throw new Error("Failed to send");
-      const saved = await res.json();
       setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)));
-    } catch (e) {
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      setError(e.message);
+    } catch {
+      setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? { ...m, pending: false, failed: true } : m)));
     } finally {
       setSending(false);
     }
+  };
+
+  const retry = (m) => {
+    setMessages((prev) => prev.filter((x) => x.id !== m.id));
+    send({ resourceId: m._retry?.resourceId, liveCode: m._retry?.liveCode, textOverride: m._retry?.text ?? m.text });
   };
 
   const shareMaterial = (r) => {
@@ -136,7 +192,6 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
   };
 
   const toggleReaction = async (messageId, emoji) => {
-    setEmojiFor(null);
     setMessages((prev) =>
       (prev || []).map((m) => {
         if (m.id !== messageId) return m;
@@ -150,14 +205,33 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
       })
     );
     try {
-      await fetch(`${API_BASE}/study-group/messages/${messageId}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({ emoji }),
-      });
+      await groupChatApi.react({ token, messageId, emoji });
       load();
     } catch {}
   };
+
+  const togglePin = async (m) => {
+    try {
+      await groupChatApi.pin({ token, messageId: m.id });
+      setMessages((prev) => prev.map((x) => x.id === m.id ? { ...x, pinnedAt: x.pinnedAt ? null : new Date().toISOString() } : x));
+    } catch (e) { setError(e.message); }
+  };
+
+  const deleteMessage = async (m) => {
+    setMessages((prev) => prev.filter((x) => x.id !== m.id));
+    try {
+      await groupChatApi.deleteMessage({ token, messageId: m.id });
+    } catch (e) { setError(e.message); load(); }
+  };
+
+  const copyText = (t) => { try { navigator.clipboard.writeText(t); } catch {} };
+
+  const openMenu = (m) => { if (!m.pending && !m.failed) setMenuFor(m); };
+  const startPress = (m) => {
+    clearTimeout(pressTimer.current);
+    pressTimer.current = setTimeout(() => openMenu(m), 450);
+  };
+  const cancelPress = () => clearTimeout(pressTimer.current);
 
   // oldest → newest for rendering, pre-grouped with day separators
   const rendered = useMemo(() => {
@@ -175,8 +249,35 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
     return out;
   }, [messages]);
 
+  const typingLine = typing.length === 0 ? null
+    : typing.length === 1 ? `${typing[0].name} is typing…`
+    : `${typing.map((t) => t.name).join(", ")} are typing…`;
+
   return (
     <div className="gv-chat">
+      {pinnedMessages.length > 0 && (
+        <div className="gv-materials gv-pins">
+          <button className="gv-materials-head" onClick={() => setPinsOpen((v) => !v)}>
+            <span>📌 Pinned <b>{pinnedMessages.length}</b></span>
+            <span className="gv-caret">{pinsOpen ? "▲" : "▼"}</span>
+          </button>
+          {pinsOpen && (
+            <div className="gv-pins-list">
+              {pinnedMessages.map((m) => (
+                <button
+                  key={m.id}
+                  className="gv-pin-row"
+                  onClick={() => document.getElementById(`gmsg-${m.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                >
+                  <b>{m.sender?.name || "Scholar"}</b>
+                  <span>{m.text || (m.resource ? `📎 ${m.resource.title}` : "")}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {sharedMaterials.length > 0 && (
         <div className="gv-materials">
           <button className="gv-materials-head" onClick={() => setMaterialsOpen((v) => !v)}>
@@ -218,6 +319,7 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
             <div className="fd-quick-chips">
               <button className="fd-quick-chip" onClick={() => setPickerOpen(true)}>📎 Share a material</button>
               {onStartBattle && <button className="fd-quick-chip" onClick={onStartBattle}>⚔️ Start a battle</button>}
+              {onAddGoal && <button className="fd-quick-chip" onClick={onAddGoal}>🎯 Set a goal</button>}
             </div>
           </div>
         )}
@@ -230,9 +332,15 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
           (m.reactions || []).forEach((r) => { reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1; });
 
           return (
-            <div key={m.id}>
+            <div key={m.id} id={`gmsg-${m.id}`}>
               {showDay && <div className="fd-thread-day">{day}</div>}
-              <div className={`gv-msg ${isMe ? "me" : "them"} ${sameAsPrev ? "cont" : "first"}`}>
+              <div
+                className={`gv-msg ${isMe ? "me" : "them"} ${sameAsPrev ? "cont" : "first"}`}
+                onTouchStart={() => startPress(m)}
+                onTouchEnd={cancelPress}
+                onTouchMove={cancelPress}
+                onContextMenu={(e) => { e.preventDefault(); openMenu(m); }}
+              >
                 {!isMe && (sameAsPrev
                   ? <span className="gv-msg-avatar-gap" />
                   : <Avatar user={sender} size={28} />)}
@@ -240,10 +348,17 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
                   {!isMe && !sameAsPrev && (
                     <div className="gv-msg-name" style={{ color: nameColor(name) }}>{name}</div>
                   )}
-                  <div
-                    className={`gv-bubble ${isMe ? "me" : "them"} ${m.pending ? "pending" : ""}`}
-                    onDoubleClick={() => setEmojiFor(emojiFor === m.id ? null : m.id)}
-                  >
+                  <div className={`gv-bubble ${isMe ? "me" : "them"} ${m.pending ? "pending" : ""} ${m.failed ? "failed" : ""}`}>
+                    {m.pinnedAt && <span className="gv-pin-flag">📌</span>}
+                    {m.replyTo && (
+                      <button
+                        className="fd-reply-quote"
+                        onClick={() => document.getElementById(`gmsg-${m.replyTo.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                      >
+                        <b>{m.replyTo.isMine ? "You" : m.replyTo.senderName}</b>
+                        <span>{m.replyTo.deleted ? "Message deleted" : m.replyTo.text}</span>
+                      </button>
+                    )}
                     {m.text ? <span className="gv-bubble-text">{linkify(m.text)}</span> : null}
                     {m.resource && (
                       <button
@@ -270,24 +385,18 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
                       </div>
                     )}
                     <span className="gv-bubble-meta">
-                      {timeLabel(m.createdAt)}{m.pending ? " · sending" : ""}
+                      {m.failed ? "⚠ Not sent — tap ↻" : timeLabel(m.createdAt)}{m.pending ? " · sending" : ""}
                     </span>
                   </div>
-                  {(Object.keys(reactionCounts).length > 0 || !m.pending) && (
+                  {m.failed && <button className="fd-retry" onClick={() => retry(m)} aria-label="Retry">↻</button>}
+                  {Object.keys(reactionCounts).length > 0 && (
                     <div className="gv-msg-foot">
                       {Object.entries(reactionCounts).map(([emoji, count]) => (
                         <button key={emoji} className="gv-reaction" onClick={() => toggleReaction(m.id, emoji)}>
                           {emoji} {count}
                         </button>
                       ))}
-                      <button className="gv-react-add" onClick={() => setEmojiFor(emojiFor === m.id ? null : m.id)}>☺</button>
-                    </div>
-                  )}
-                  {emojiFor === m.id && (
-                    <div className="gv-emoji-row">
-                      {EMOJIS.map((e) => (
-                        <button key={e} className="gv-emoji" onClick={() => toggleReaction(m.id, e)}>{e}</button>
-                      ))}
+                      <button className="gv-react-add" onClick={() => openMenu(m)}>☺</button>
                     </div>
                   )}
                 </div>
@@ -297,12 +406,32 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
         })}
       </div>
 
+      {typingLine && <div className="gv-typing-line">{typingLine}</div>}
+
+      {showJump && (
+        <button className="fd-jump-bottom" onClick={jumpToBottom}>
+          ↓{newCount > 0 ? ` ${newCount} new` : ""}
+        </button>
+      )}
+
+      {replyTo && (
+        <div className="fd-reply-bar">
+          <span className="fd-reply-bar-in">
+            <b>{(replyTo.userId || replyTo.sender?.id) === myId ? "You" : (replyTo.sender?.name || "Scholar")}</b>
+            <span>{replyTo.text}</span>
+          </span>
+          <button className="fd-icon-btn" onClick={() => setReplyTo(null)} aria-label="Cancel reply">✕</button>
+        </div>
+      )}
+
       <div className="gv-composer">
-        <button className="gv-attach" onClick={() => setPickerOpen(true)} title="Share a material" aria-label="Share a material">📎</button>
-        <input
+        <button className="gv-attach" onClick={() => setPlusOpen(true)} title="More actions" aria-label="More actions">＋</button>
+        <textarea
+          ref={textRef}
+          rows={1}
           className="gv-input"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); autoGrow(e.target); maybePingTyping(e.target.value); }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder="Message the group…"
           maxLength={2000}
@@ -320,6 +449,39 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
           onPick={shareMaterial}
           onClose={() => setPickerOpen(false)}
         />
+      )}
+
+      {plusOpen && (
+        <FdSheet title="Add to chat" onClose={() => setPlusOpen(false)} className="fd-action-sheet">
+          <div className="fd-sheet-actions">
+            <button className="fd-sheet-action" onClick={() => { setPlusOpen(false); setPickerOpen(true); }}>📎 Share a material</button>
+            {onStartBattle && <button className="fd-sheet-action" onClick={() => { setPlusOpen(false); onStartBattle(); }}>⚔️ Start a quiz battle</button>}
+            {onAddGoal && <button className="fd-sheet-action" onClick={() => { setPlusOpen(false); onAddGoal(); }}>🎯 Set a group goal</button>}
+          </div>
+        </FdSheet>
+      )}
+
+      {menuFor && (
+        <FdSheet title={menuFor.sender?.name || "Message"} onClose={() => setMenuFor(null)} className="fd-action-sheet">
+          <div className="gv-emoji-row" style={{ justifyContent: "center", marginBottom: 12 }}>
+            {EMOJIS.map((e) => (
+              <button key={e} className="gv-emoji" onClick={() => { toggleReaction(menuFor.id, e); setMenuFor(null); }}>{e}</button>
+            ))}
+          </div>
+          <div className="fd-sheet-actions">
+            <button className="fd-sheet-action" onClick={() => { setReplyTo(menuFor); setMenuFor(null); textRef.current?.focus(); }}>↩ Reply</button>
+            {menuFor.text && <button className="fd-sheet-action" onClick={() => { copyText(menuFor.text); setMenuFor(null); }}>⧉ Copy text</button>}
+            <button className="fd-sheet-action" onClick={() => { togglePin(menuFor); setMenuFor(null); }}>
+              {menuFor.pinnedAt ? "📌 Unpin" : "📌 Pin to top"}
+            </button>
+            {menuFor.resource?.shareToken && (
+              <button className="fd-sheet-action" onClick={() => { onOpenResource?.(menuFor.resource.shareToken); setMenuFor(null); }}>📄 Open material</button>
+            )}
+            {((menuFor.userId || menuFor.sender?.id) === myId || canModerate) && (
+              <button className="fd-sheet-action danger" onClick={() => { deleteMessage(menuFor); setMenuFor(null); }}>🗑 Delete</button>
+            )}
+          </div>
+        </FdSheet>
       )}
     </div>
   );

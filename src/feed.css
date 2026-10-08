@@ -1948,3 +1948,131 @@ button.fd-group-card:hover { background: rgba(255, 255, 255, 0.07); border-color
 .fd-screen .gv-materials { flex-shrink: 0; }
 .fd-screen .gv-chat { flex: 1; min-height: 0; }
 .fd-screen .gv-chat-scroll { padding: 10px 14px; }
+
+/* ===== Chat upgrade additions ===== */
+
+/* Online dot + request chip in inbox rows */
+.fd-dot-online {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--fd-green); margin-right: 5px;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.7);
+}
+.fd-badge.req { color: var(--fd-amber); border-color: rgba(255, 181, 71, 0.4); }
+
+/* "New messages" divider (first unread on open) */
+.fd-unread-divider {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  margin: 8px 0; font-size: 11px; font-weight: 700; color: var(--fd-blue);
+  text-transform: uppercase; letter-spacing: 0.8px;
+}
+.fd-unread-divider::before, .fd-unread-divider::after {
+  content: ""; flex: 1; height: 1px; background: rgba(108, 158, 255, 0.3);
+}
+
+/* Quoted reply: bar above composer + preview inside bubble */
+.fd-reply-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px 6px;
+  border-top: 1px solid var(--fd-card-border);
+}
+.fd-reply-bar-in {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  padding: 6px 10px; border-radius: 10px;
+  background: var(--fd-card); border-left: 3px solid var(--fd-blue);
+  font-size: 12px;
+}
+.fd-reply-bar-in b { font-size: 11px; color: var(--fd-blue); }
+.fd-reply-bar-in span { color: var(--fd-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-reply-quote {
+  display: flex; flex-direction: column; gap: 1px;
+  width: 100%; text-align: left;
+  padding: 5px 9px; margin-bottom: 4px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18); border-left: 3px solid var(--fd-blue);
+  font-size: 11.5px;
+}
+.fd-bubble.me .fd-reply-quote { background: rgba(255, 255, 255, 0.12); border-left-color: rgba(255,255,255,0.6); }
+.fd-reply-quote b { font-size: 10.5px; color: var(--fd-blue); }
+.fd-bubble.me .fd-reply-quote b { color: #ffe; }
+.fd-reply-quote span { color: var(--fd-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.fd-bubble.me .fd-reply-quote span { color: rgba(255,255,255,0.8); }
+
+/* Failed-send state + retry */
+.fd-bubble.failed, .gv-bubble.failed { border: 1px solid rgba(255, 107, 94, 0.5); }
+.fd-bubble.failed .fd-bubble-meta, .gv-bubble.failed .gv-bubble-meta { color: var(--fd-coral); }
+.fd-retry {
+  flex-shrink: 0; align-self: flex-end; margin-bottom: 4px;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid rgba(255, 107, 94, 0.4); background: rgba(255, 107, 94, 0.12);
+  color: var(--fd-coral); font-size: 14px;
+}
+
+/* Reaction chips pinned under a DM bubble */
+.fd-bubble-reactions {
+  display: flex; gap: 4px; position: absolute; bottom: -10px; right: 8px;
+}
+.fd-msg-row.them .fd-bubble-reactions { right: auto; left: 8px; }
+.fd-bubble-reactions i {
+  font-style: normal; font-size: 11px; padding: 1px 6px;
+  background: #1b1b20; border: 1px solid var(--fd-card-border); border-radius: 999px;
+}
+.fd-msg-row { position: relative; }
+.fd-msg-row { padding-bottom: 2px; }
+.fd-msg-row:has(.fd-bubble-reactions) { padding-bottom: 12px; }
+
+/* Jump-to-bottom pill */
+.fd-jump-bottom {
+  position: absolute; right: 16px; bottom: 76px; z-index: 5;
+  display: flex; align-items: center; gap: 4px;
+  padding: 7px 14px; border-radius: 999px;
+  background: var(--fd-blue); color: #fff; border: 0;
+  font-size: 12px; font-weight: 700;
+  box-shadow: 0 6px 20px rgba(79, 142, 247, 0.4);
+}
+.fd-thread { position: relative; }
+.gv-chat { position: relative; }
+
+/* Action sheet rows (long-press menu, + menu) */
+.fd-sheet-actions { display: flex; flex-direction: column; gap: 2px; }
+.fd-sheet-action {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 12px 10px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--fd-text);
+  font-size: 14.5px; font-weight: 600; text-align: left;
+}
+.fd-sheet-action:hover { background: var(--fd-card); }
+.fd-sheet-action.danger { color: var(--fd-coral); }
+
+/* Typing line + pins strip in group chat */
+.gv-typing-line {
+  flex-shrink: 0; padding: 2px 14px 0;
+  font-size: 11.5px; color: var(--fd-muted); font-style: italic;
+}
+.gv-pin-flag { position: absolute; top: -6px; right: 6px; font-size: 10px; }
+.gv-bubble { position: relative; }
+.gv-pins-list { display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 8px; }
+.gv-pin-row {
+  display: flex; flex-direction: column; gap: 1px; text-align: left;
+  padding: 6px 10px; border: 0; border-radius: 8px;
+  background: var(--fd-card); color: var(--fd-text);
+}
+.gv-pin-row b { font-size: 10.5px; color: var(--fd-amber); }
+.gv-pin-row span { font-size: 12px; color: var(--fd-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Textarea composers grow to ~4 lines */
+.fd-thread-input textarea, .gv-composer textarea.gv-input {
+  font-family: inherit; font-size: 15px; line-height: 1.4;
+  resize: none; overflow-y: auto; max-height: 120px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--fd-card-border);
+  border-radius: 18px; color: var(--fd-text); outline: none;
+  padding: 9px 14px; flex: 1;
+}
+.fd-thread-input textarea:focus, .gv-composer textarea.gv-input:focus { border-color: var(--fd-blue); }
+.fd-thread-input { align-items: flex-end; }
+.gv-composer { align-items: flex-end; }
+
+/* Long-press menu needs to not trigger text selection / callout */
+.fd-bubble { position: relative; }
+.fd-bubble, .gv-bubble, .fd-msg-row, .gv-msg {
+  -webkit-touch-callout: none;
+}

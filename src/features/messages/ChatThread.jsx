@@ -62,7 +62,7 @@ export function ChatThread({ token, me, partner, onBack, onOpenProfile, onOpenRe
             const firstUnread = list.find((m) => !m.isMine && !m.read);
             unreadBoundary.current = firstUnread?.id || "none";
           }
-          if (!prev) return list;
+          if (!prev) { prevLen.current = list.length; return list; }
           const ids = new Set(list.map((m) => m.id));
           const pending = prev.filter((m) => (m.pending || m.failed) && !ids.has(m.id));
           const merged = [...list, ...pending];

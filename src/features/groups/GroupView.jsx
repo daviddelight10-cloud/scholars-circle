@@ -187,6 +187,8 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
             onOpenResource={onOpenResource}
             onJoinQuiz={onJoinQuiz}
             onStartBattle={() => setSub("play")}
+            onAddGoal={canManage ? () => setSub("goals") : undefined}
+            canModerate={isCreator || isFaculty}
           />
         )}
         {sub === "play" && (
