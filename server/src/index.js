@@ -44,6 +44,7 @@ import feedRoutes from "./routes/feed.js";
 import ogRoutes from "./routes/og.js";
 import messageRoutes from "./routes/messages.js";
 import liveQuizRoutes, { attachLiveQuizSocket } from "./routes/liveQuiz.js";
+import osceRoomRoutes, { attachOsceSocket } from "./routes/osceRooms.js";
 import adminRoutes from "./routes/admin.js";
 import { buildPageContextMessage } from "./lib/voiceGrounding.js";
 import { configurePush } from "./lib/pushSender.js";
@@ -164,6 +165,7 @@ app.use("/api/voice-session", voiceSessionRoutes);
 app.use("/api/curriculum", curriculumRoutes);
 app.use("/api/study-cache", studyCacheRoutes);
 app.use("/api/live-quiz", liveQuizRoutes);
+app.use("/api/osce-rooms", osceRoomRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/og", ogRoutes);
 app.use("/api/messages", messageRoutes);
@@ -185,6 +187,17 @@ async function handleVoiceWsUpgrade(request, socket, head) {
   if (liveQuizMatch) {
     wss.handleUpgrade(request, socket, head, (ws) => {
       const ok = attachLiveQuizSocket(request, ws);
+      if (!ok) {
+        try { ws.close(1008, "Unauthorized"); } catch {}
+      }
+    });
+    return;
+  }
+
+  const osceMatch = pathname.match(/^\/api\/osce-rooms\/([^/]+)\/ws$/);
+  if (osceMatch) {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      const ok = attachOsceSocket(request, ws);
       if (!ok) {
         try { ws.close(1008, "Unauthorized"); } catch {}
       }

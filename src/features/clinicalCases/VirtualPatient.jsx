@@ -4,8 +4,12 @@ import { callAIChat, extractJSON } from "../../lib/aiClient";
 import { fsrsNewCard, fsrsRate, toFsrsCard } from "../../lib/fsrs.js";
 import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS, STATION_TYPES, DEFAULT_CLOSING_POINTS, voiceForCase } from "./caseData";
 import { analyzeCommunication, invitesHiddenAgenda } from "./commMetrics";
+import { buildPatientPrompt } from "./patientPrompt.js";
 import { useVoiceSession } from "../voice-tutor/useVoiceSession.js";
 import { VOICE_STATES } from "../voice-tutor/voiceConfig.js";
+import OsceGroup from "./OsceGroup.jsx";
+import StationCreator from "./StationCreator.jsx";
+import { getCustomStations } from "./stationLibrary.js";
 import ExitPill from "../../components/ExitPill.jsx";
 import "./virtualPatient.css";
 
@@ -148,6 +152,10 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   const [stationMode, setStationMode] = useState(() => loadLocal(getStorageKey(STATION_MODE_KEY), false));
   const [agendaRevealed, setAgendaRevealed] = useState(false);
   const [vivaIdx, setVivaIdx] = useState(0);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [creatorEdit, setCreatorEdit] = useState(null);
+  const [customStations, setCustomStations] = useState(() => getCustomStations());
 
   // Consult state
   const [activeCase, setActiveCase] = useState(null);
@@ -270,7 +278,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   // Load resume snapshot on mount; auto-open onboarding for first-time users
   useEffect(() => {
     const snap = loadLocal(getStorageKey(ACTIVE_CONSULT_KEY), null);
-    if (snap && CASES[snap.caseIndex]) {
+    if (snap && (snap.caseIndex != null ? CASES[snap.caseIndex] : snap.customCase)) {
       setResumeSnapshot(snap);
       return;
     }
@@ -412,9 +420,9 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     const L = latest.current;
     if (!L.activeCase) return;
     const idx = CASES.indexOf(L.activeCase);
-    if (idx < 0) return;
     const snap = {
-      caseIndex: idx,
+      caseIndex: idx >= 0 ? idx : null,
+      customCase: idx < 0 ? L.activeCase : null,
       mode: L.gameMode,
       messages: L.allMessages || L.messages,
       examinerMessages: L.examinerMessages,
@@ -531,7 +539,8 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
 
   /* ============ NAVIGATION ============ */
   function startCase(idx) {
-    const c = CASES[idx];
+    const c = typeof idx === "number" ? CASES[idx] : idx;
+    if (!c) return;
     if (voiceLive) voice.endSession();
     voiceAgendaScanRef.current = 0;
     setActiveCase(c);
@@ -567,7 +576,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   function resumeCase() {
     if (!resumeSnapshot) return;
     const snap = resumeSnapshot;
-    const c = CASES[snap.caseIndex];
+    const c = snap.caseIndex != null ? CASES[snap.caseIndex] : snap.customCase;
     if (!c) return;
     setActiveCase(c);
     if (voiceLive) voice.endSession();
@@ -642,8 +651,6 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     setChatInput("");
 
     const c = activeCase;
-    const isDataStation = c.station_type === "data";
-    const isCounselling = c.station_type === "counselling";
     // Deterministic agenda gate: the reveal fires only when the student's
     // message actively invites it (ICE/empathy/open "anything else").
     const agendaTrigger = c.hidden_agenda && !agendaRevealed && invitesHiddenAgenda(question);
@@ -666,34 +673,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     setIsTyping(true);
     setMessages(prev => [...prev, { role: "doc", text: question, ts: Date.now() }]);
 
-    const roleBlock = isDataStation
-      ? `You are roleplaying as a hospital WARD NURSE reporting results to the medical student on call. ${c.persona ? `YOUR MANNER: ${c.persona}` : ""}`
-      : `You are roleplaying as a patient in a clinical ${isCounselling ? "counselling" : "history-taking"} simulation for a medical student.
-${c.persona ? `PATIENT PERSONA (shape every reply around this): ${c.persona}` : ""}`;
-
-    const agendaBlock = c.hidden_agenda ? `
-HIDDEN DETAIL (held back — never volunteer it unprompted):
-- This role-player holds a detail they will only share if the student EXPLICITLY invites it — by asking about worries/fears/ideas/expectations or "anything else I should know?", OR by responding to their emotion with empathy.
-- ${agendaTrigger ? `THE STUDENT JUST INVITED IT — reveal it now, naturally, using this content (paraphrase, keep it human and first-person): "${c.hidden_agenda.reveal}"` : agendaRevealed ? "You have already revealed it — do not repeat it." : "The student has NOT invited it yet — do not reveal it in this reply."}` : "";
-
-    const systemPrompt = `${roleBlock}
-
-PATIENT/CASE PROFILE: ${c.demo}
-CHIEF COMPLAINT / PRESENTATION: "${c.cc}"
-
-HIDDEN CASE FACTS (use ONLY these; never invent contradicting facts${isCounselling ? "" : ", never reveal the diagnosis by name"}):
-${Object.entries(c.history).map(([k, v]) => `- ${k}: ${v}`).join("\n")}
-${agendaBlock}
-RULES:
-- Respond ONLY in first person${isDataStation ? ", as the nurse," : isCounselling ? ", as the patient receiving the news," : ", as the patient,"} in plain everyday language (not medical jargon).
-- Answer only what is asked, based strictly on the facts above. Do not volunteer unrelated information.
-- If asked about something not covered above, respond naturally and vaguely as a real ${isDataStation ? "nurse" : "patient"} would ("I'm not sure", "No, nothing like that"), without inventing new clinical facts that could contradict the real diagnosis.${isCounselling ? `
-- This is a counselling station: the student may try to break difficult news to you or explore your understanding. React authentically — if they are kind and clear, show trust and ask the questions a real patient would; if they use jargon or false reassurance, show confusion or press them ("what does that actually mean, doctor?").` : isDataStation ? `
-- You report facts and observations only. If the student asks you to interpret or diagnose, redirect: "That's your call, doctor — I can get you any observations or repeat results if you need."` : `
-- Never say the name of a diagnosis or medical condition.
-- If the student asks a broad or open-ended question (e.g. "tell me everything", "what's wrong with you", "describe all your symptoms"), respond the way a real patient would: lead with only the 1-2 things bothering you most right now, in your own words. Do not recite a full symptom checklist even if asked to "be thorough" or "list everything" — a real patient needs focused follow-up questions to draw out each detail, they don't self-report a structured list.
-- If the student's message bundles several distinct questions into one, answer only the first one and let them ask the rest separately, the way a patient who's in pain or distracted might.`}
-- Keep responses to 1-3 short sentences, conversational and a little anxious/human, unless the question needs more detail.`;
+    const systemPrompt = buildPatientPrompt({ c, agendaState: { trigger: agendaTrigger, revealed: agendaRevealed }, question });
 
     try {
       const text = await callAIChat({
@@ -1121,13 +1101,16 @@ Answer the student's follow-up questions about their performance and the underly
             <p className="vp-sub">Take a history, examine, order investigations, then commit to a diagnosis and a management plan. You'll be graded on all four — the way an OSCE examiner would.</p>
           </div>
 
-          {resumeSnapshot && (
+          {resumeSnapshot && (() => {
+            const rc = resumeSnapshot.caseIndex != null ? CASES[resumeSnapshot.caseIndex] : resumeSnapshot.customCase;
+            if (!rc) return null;
+            return (
             <div className="vp-glass vp-resume-card" style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "16px 20px" }}>
                 <div>
                   <div className="vp-eyebrow" style={{ color: "var(--vp-blue)" }}>Unfinished case</div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, marginTop: 4 }}>{CASES[resumeSnapshot.caseIndex].bed} · "{CASES[resumeSnapshot.caseIndex].cc}"</div>
-                  <div style={{ fontSize: 12, color: "var(--vp-text-faint)", marginTop: 2 }}>{CASES[resumeSnapshot.caseIndex].specialty} · {Math.max(0, Math.round((resumeSnapshot.elapsedMs || 0) / 60000))} min in · {(resumeSnapshot.messages || []).filter(m => m.role === "doc").length} questions asked</div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, marginTop: 4 }}>{rc.bed} · "{rc.cc}"</div>
+                  <div style={{ fontSize: 12, color: "var(--vp-text-faint)", marginTop: 2 }}>{rc.specialty} · {Math.max(0, Math.round((resumeSnapshot.elapsedMs || 0) / 60000))} min in · {(resumeSnapshot.messages || []).filter(m => m.role === "doc").length} questions asked</div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                   <div className="vp-chip" onClick={resumeCase} style={{ borderColor: "var(--vp-blue)", color: "var(--vp-blue)" }}>Resume</div>
@@ -1135,7 +1118,8 @@ Answer the student's follow-up questions about their performance and the underly
                 </div>
               </div>
             </div>
-          )}
+          );
+          })()}
 
           <div className="vp-glass vp-progress-card" style={{ marginBottom: 16 }}>
             <div className="vp-progress-top">
@@ -1212,6 +1196,33 @@ Answer the student's follow-up questions about their performance and the underly
             })}
           </div>
 
+          {customStations.filter(c => specialtyFilter === "All" || c.specialty === specialtyFilter).length > 0 && (
+            <>
+              <div className="vp-sec-title" style={{ marginTop: 18 }}>✎ My stations</div>
+              <div className="vp-case-grid">
+                {customStations
+                  .filter(c => specialtyFilter === "All" || c.specialty === specialtyFilter)
+                  .map((c) => (
+                    <div key={c.id} className="vp-glass vp-case-card vp-case-card-custom" onClick={() => startCase(c)}>
+                      <div className="vp-pulse-dot" />
+                      <div className="vp-bed">{c.bed || c.title || "CUSTOM"}</div>
+                      <div className="vp-spec-tag">{c.specialty}</div>
+                      {(c.station_type || "history") !== "history" && (
+                        <div className="vp-sttype-tag">{(STATION_TYPES[c.station_type] || {}).icon} {(STATION_TYPES[c.station_type] || {}).label}</div>
+                      )}
+                      <div className="vp-cc">{c.cc || c.title}</div>
+                      <div className="vp-demo">{c.demo}</div>
+                      <button
+                        className="vp-case-edit"
+                        title="Edit station"
+                        onClick={(e) => { e.stopPropagation(); setCreatorEdit(c); setCreatorOpen(true); }}
+                      >✎</button>
+                    </div>
+                  ))}
+              </div>
+            </>
+          )}
+
           <div className="vp-cta-bar">
             <button className="vp-cta-start" onClick={openOnboarding}>▶ Start patient case</button>
             <button
@@ -1221,7 +1232,24 @@ Answer the student's follow-up questions about their performance and the underly
             >⏱</button>
             <button className="vp-cta-dice" onClick={startRandomCase} title="Instant random case">🎲</button>
           </div>
+          <div className="vp-cta-bar vp-cta-bar2">
+            <button className="vp-cta-group" onClick={() => setGroupOpen(true)}>👥 Group practice</button>
+            <button className="vp-cta-group vp-cta-create" onClick={() => { setCreatorEdit(null); setCreatorOpen(true); }}>✎ Create a station</button>
+          </div>
         </div>
+      )}
+
+      {groupOpen && createPortal(
+        <OsceGroup aiConfig={aiConfig} onBack={() => setGroupOpen(false)} />,
+        document.body
+      )}
+      {creatorOpen && (
+        <StationCreator
+          station={creatorEdit}
+          aiConfig={aiConfig}
+          onSaved={() => setCustomStations(getCustomStations())}
+          onClose={() => { setCreatorOpen(false); setCreatorEdit(null); }}
+        />
       )}
 
       {/* SCREEN 2: CONSULT — portaled to body so it renders as a true
