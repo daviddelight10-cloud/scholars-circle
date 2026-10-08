@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { messagesApi } from "./messagesApi";
-import { Avatar } from "../feed/feedUi";
+import { Avatar, FdScreen } from "../feed/feedUi";
 import { linkify } from "../../lib/linkify.jsx";
 
 const POLL_MS = 4000;
@@ -93,65 +93,68 @@ export function ChatThread({ token, me, partner, onBack, onOpenProfile, onRead }
   let lastDay = null;
 
   return (
-    <div className="fd-thread">
-      <div className="fd-thread-head">
-        <button className="fd-backbtn" onClick={onBack} aria-label="Back to chats">←</button>
-        <button className="fd-thread-peer" onClick={() => onOpenProfile?.(partner.id)}>
+    <FdScreen
+      className="fd-thread-screen"
+      title={partner.name}
+      meta={partner.handle || partner.uni || ""}
+      onBack={onBack}
+      onBackLabel="Back to chats"
+      avatar={
+        <button className="fd-thread-peer" onClick={() => onOpenProfile?.(partner.id)} aria-label={`Open ${partner.name}'s profile`}>
           <Avatar user={partner} size={34} />
-          <span className="fd-thread-peer-info">
-            <span className="fd-thread-peer-name">{partner.name}</span>
-            <span className="fd-thread-peer-meta">{partner.handle || partner.uni || ""}</span>
-          </span>
         </button>
-      </div>
-
-      <div ref={scrollRef} className="fd-thread-scroll" onScroll={onScroll}>
-        {messages === null && !error && <div className="fd-comments-loading">Loading chat…</div>}
-        {error && <div className="fd-empty-sub" style={{ padding: 16 }}>{error}</div>}
-        {messages?.length === 0 && (
-          <div className="fd-empty" style={{ paddingTop: 40 }}>
-            <div className="fd-empty-title">Say hi to {partner.name?.split(" ")[0] || "them"} 👋</div>
-            <div className="fd-empty-sub">Plan a study session, share a resource, or just vibe.</div>
-          </div>
-        )}
-        {(messages || []).map((m, i) => {
-          const day = dayLabel(m.ts);
-          const showDay = day !== lastDay;
-          lastDay = day;
-          const prev = messages[i - 1];
-          const cont = !showDay && prev && prev.isMine === m.isMine;
-          return (
-            <div key={m.id}>
-              {showDay && <div className="fd-thread-day">{day}</div>}
-              <div className={`fd-msg-row ${m.isMine ? "me" : "them"} ${cont ? "cont" : "first"}`}>
-                {!m.isMine && (cont
-                  ? <span style={{ width: 26, flexShrink: 0 }} />
-                  : <Avatar user={partner} size={26} />)}
-                <div className={`fd-bubble ${m.isMine ? "me" : "them"} ${m.pending ? "pending" : ""}`}>
-                  <span className="fd-bubble-text">{linkify(m.text)}</span>
-                  <span className="fd-bubble-meta">
-                    {timeLabel(m.ts)}
-                    {m.isMine && !m.pending && (m.read ? " · read" : "")}
-                  </span>
+      }
+      footer={
+        <div className="fd-thread-input">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder={`Message ${partner.name?.split(" ")[0] || ""}…`}
+            maxLength={2000}
+          />
+          <button className="fd-send" disabled={!text.trim() || sending} onClick={send} aria-label="Send">
+            {sending ? "…" : "↑"}
+          </button>
+        </div>
+      }
+    >
+      <div className="fd-thread">
+        <div ref={scrollRef} className="fd-thread-scroll" onScroll={onScroll}>
+          {messages === null && !error && <div className="fd-comments-loading">Loading chat…</div>}
+          {error && <div className="fd-empty-sub" style={{ padding: 16 }}>{error}</div>}
+          {messages?.length === 0 && (
+            <div className="fd-empty" style={{ paddingTop: 40 }}>
+              <div className="fd-empty-title">Say hi to {partner.name?.split(" ")[0] || "them"} 👋</div>
+              <div className="fd-empty-sub">Plan a study session, share a resource, or just vibe.</div>
+            </div>
+          )}
+          {(messages || []).map((m, i) => {
+            const day = dayLabel(m.ts);
+            const showDay = day !== lastDay;
+            lastDay = day;
+            const prev = messages[i - 1];
+            const cont = !showDay && prev && prev.isMine === m.isMine;
+            return (
+              <div key={m.id}>
+                {showDay && <div className="fd-thread-day">{day}</div>}
+                <div className={`fd-msg-row ${m.isMine ? "me" : "them"} ${cont ? "cont" : "first"}`}>
+                  {!m.isMine && (cont
+                    ? <span style={{ width: 26, flexShrink: 0 }} />
+                    : <Avatar user={partner} size={26} />)}
+                  <div className={`fd-bubble ${m.isMine ? "me" : "them"} ${m.pending ? "pending" : ""}`}>
+                    <span className="fd-bubble-text">{linkify(m.text)}</span>
+                    <span className="fd-bubble-meta">
+                      {timeLabel(m.ts)}
+                      {m.isMine && !m.pending && (m.read ? " · read" : "")}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-
-      <div className="fd-thread-input">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder={`Message ${partner.name?.split(" ")[0] || ""}…`}
-          maxLength={2000}
-        />
-        <button className="fd-send" disabled={!text.trim() || sending} onClick={send} aria-label="Send">
-          {sending ? "…" : "↑"}
-        </button>
-      </div>
-    </div>
+    </FdScreen>
   );
 }

@@ -4,17 +4,14 @@ import { API_BASE } from "../../lib/constants";
 import GroupChat from "../study-group/GroupChat.jsx";
 import GroupMembers from "../study-group/GroupMembers.jsx";
 import GroupGoals from "../study-group/GroupGoals.jsx";
-import GroupBoard from "../study-group/GroupBoard.jsx";
-import StudyRooms from "../study-group/StudyRooms.jsx";
-import QuizBattles from "../study-group/QuizBattles.jsx";
+import GroupPlay from "../study-group/GroupPlay.jsx";
+import { FdScreen, FdSheet } from "../feed/feedUi.jsx";
 
 const SUB_TABS = [
   { id: "chat", icon: "💬", label: "Chat" },
-  { id: "battle", icon: "⚔️", label: "Battle" },
-  { id: "board", icon: "🏆", label: "Board" },
+  { id: "play", icon: "⚔️", label: "Play" },
   { id: "goals", icon: "🎯", label: "Goals" },
-  { id: "members", icon: "�", label: "Members" },
-  { id: "rooms", icon: "🚀", label: "Rooms" },
+  { id: "members", icon: "👥", label: "Members" },
 ];
 
 function initials(name) {
@@ -129,17 +126,14 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
   const memberCount = members.length || group.memberCount || 0;
 
   return (
-    <div className="fd-group">
-      <div className="fd-group-head">
-        {onBack && <button className="fd-backbtn" onClick={onBack} aria-label="Back to groups">←</button>}
-        <span className="gv-avatar" style={{ background: groupGradient(group.name) }}>{initials(group.name)}</span>
-        <div className="fd-group-title">
-          <div className="fd-group-name">{group.name}</div>
-          <div className="fd-group-meta">
-            {[group.subject, `${memberCount} member${memberCount === 1 ? "" : "s"}`, group.isPublic ? "Public" : "Private"]
-              .filter(Boolean).join(" · ")}
-          </div>
-        </div>
+    <FdScreen
+      className="fd-group-screen"
+      title={group.name}
+      meta={[group.subject, `${memberCount} member${memberCount === 1 ? "" : "s"}`, group.isPublic ? "Public" : "Private"].filter(Boolean).join(" · ")}
+      avatar={<span className="gv-avatar" style={{ background: groupGradient(group.name) }}>{initials(group.name)}</span>}
+      onBack={onBack}
+      onBackLabel="Back to groups"
+      actions={
         <div className="fd-action-menu-wrap">
           <button className="fd-icon-btn" onClick={() => setMenuOpen((v) => !v)} title="Group options">⋯</button>
           {menuOpen && (
@@ -157,13 +151,13 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
             </div>
           )}
         </div>
-      </div>
-
+      }
+    >
       {group.description && <div className="fd-group-desc">{group.description}</div>}
 
-      <div className="gv-signal">
+      <div className="fd-group-pulse gv-signal">
         <span className={`gv-signal-chip ${pulse?.streak > 0 ? "hot" : ""}`}>🔥 {pulse?.streak ?? "…"}d streak</span>
-        <span className={`gv-signal-chip ${pulse?.activeNow > 0 ? "live" : ""}`}>� {pulse?.activeNow ?? "…"} studying</span>
+        <span className={`gv-signal-chip ${pulse?.activeNow > 0 ? "live" : ""}`}>🟢 {pulse?.activeNow ?? "…"} studying</span>
         <span className={`gv-signal-chip ${pulse?.liveBattles > 0 ? "battle" : ""}`}>⚔️ {pulse?.liveBattles ?? "…"} live</span>
         {group.joinCode && (
           <button className="gv-invite-pill" onClick={() => copy("link")} title="Copy invite link">
@@ -192,41 +186,44 @@ export function GroupView({ group, token, currentUser, subjects = [], isFaculty 
             currentUser={currentUser}
             onOpenResource={onOpenResource}
             onJoinQuiz={onJoinQuiz}
+            onStartBattle={() => setSub("play")}
           />
         )}
-        {sub === "battle" && (
-          <QuizBattles
-            classroomId={group.id}
-            token={token}
-            currentUser={currentUser}
-            onJoinQuiz={onJoinQuiz}
-          />
+        {sub === "play" && (
+          <div className="fd-group-scroll">
+            <GroupPlay
+              classroomId={group.id}
+              token={token}
+              currentUser={currentUser}
+              onJoinQuiz={onJoinQuiz}
+            />
+          </div>
         )}
-        {sub === "board" && <GroupBoard classroomId={group.id} token={token} currentUser={currentUser} />}
-        {sub === "goals" && <GroupGoals classroomId={group.id} token={token} isTeacher={canManage} />}
-        {sub === "members" && <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} members={members} onOpenProfile={onOpenProfile} />}
-        {sub === "rooms" && <StudyRooms classroomId={group.id} token={token} currentUser={currentUser} />}
+        {sub === "goals" && (
+          <div className="fd-group-scroll">
+            <GroupGoals classroomId={group.id} token={token} isTeacher={canManage} />
+          </div>
+        )}
+        {sub === "members" && (
+          <div className="fd-group-scroll">
+            <GroupMembers classroomId={group.id} token={token} currentUser={currentUser} members={members} onOpenProfile={onOpenProfile} />
+          </div>
+        )}
       </div>
 
       {confirmDelete && (
-        <div className="fd-sheet-backdrop" onClick={() => setConfirmDelete(false)}>
-          <div className="fd-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="fd-sheet-head">
-              <b>Delete “{group.name}”?</b>
-              <button className="fd-icon-btn" onClick={() => setConfirmDelete(false)}>✕</button>
-            </div>
-            <div className="fd-sheet-sub">
-              This removes the group, its chat, goals and rooms for all {group.memberCount} member{group.memberCount === 1 ? "" : "s"}. This can't be undone.
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <button className="fd-follow-btn" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button className="fd-join-btn danger" style={{ flex: 1 }} disabled={busy} onClick={remove}>
-                {busy ? "Deleting…" : "Delete group"}
-              </button>
-            </div>
+        <FdSheet title={`Delete “${group.name}”?`} onClose={() => setConfirmDelete(false)}>
+          <div className="fd-sheet-sub">
+            This removes the group, its chat and goals for all {group.memberCount} member{group.memberCount === 1 ? "" : "s"}. This can't be undone.
           </div>
-        </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            <button className="fd-follow-btn" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>Cancel</button>
+            <button className="fd-join-btn danger" style={{ flex: 1 }} disabled={busy} onClick={remove}>
+              {busy ? "Deleting…" : "Delete group"}
+            </button>
+          </div>
+        </FdSheet>
       )}
-    </div>
+    </FdScreen>
   );
 }

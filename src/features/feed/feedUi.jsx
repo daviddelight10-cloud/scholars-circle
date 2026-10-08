@@ -1,4 +1,92 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
+/* ─── Portaled overlay primitives ─────────────────────────────────────
+   Feed overlays used to render inside .fd-root (isolation: isolate), so
+   they stacked UNDER the app topbar/mobile nav (z-100). FdPortal puts
+   them on document.body — above nav, below global modals/toasts. The
+   .fd-portal wrapper re-declares the fd-* palette so portaled content
+   keeps the feed's theme. */
+
+export function FdPortal({ children }) {
+  return createPortal(<div className="fd-portal">{children}</div>, document.body);
+}
+
+// Esc close + body scroll lock, shared by sheet & screen.
+// Stack so Esc only dismisses the TOPMOST overlay (e.g. a picker opened
+// from inside Go Live must not also close Go Live behind it).
+const overlayStack = [];
+function useOverlayChrome(onClose) {
+  useEffect(() => {
+    overlayStack.push(onClose);
+    const onKey = (e) => {
+      if (e.key === "Escape" && overlayStack[overlayStack.length - 1] === onClose) onClose?.();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      const i = overlayStack.lastIndexOf(onClose);
+      if (i >= 0) overlayStack.splice(i, 1);
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+}
+
+/** Bottom sheet: handle + pinned head + ONE scrollable body + optional pinned footer. */
+export function FdSheet({ title, onClose, children, footer, className = "" }) {
+  useOverlayChrome(onClose);
+  return (
+    <FdPortal>
+      <div className="fd-sheet-backdrop" onClick={onClose}>
+        <div
+          className={`fd-sheet ${className}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label={typeof title === "string" ? title : undefined}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="fd-sheet-grip" aria-hidden="true"><span className="fd-sheet-handle" /></div>
+          {title != null && (
+            <div className="fd-sheet-head">
+              <b>{title}</b>
+              <button className="fd-icon-btn" onClick={onClose} aria-label="Close">✕</button>
+            </div>
+          )}
+          <div className="fd-sheet-body">{children}</div>
+          {footer != null && <div className="fd-sheet-foot">{footer}</div>}
+        </div>
+      </div>
+    </FdPortal>
+  );
+}
+
+/** Full-screen layer (chat thread, group hub, live overlay).
+    Header is pinned, body scrolls (or hosts a flex chat), footer pins an input bar. */
+export function FdScreen({ title, meta, avatar, onBack, onBackLabel = "Back", actions, children, footer, className = "" }) {
+  useOverlayChrome(onBack);
+  return (
+    <FdPortal>
+      <div className={`fd-screen ${className}`} role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}>
+        <div className="fd-screen-head">
+          {onBack && (
+            <button className="fd-backbtn" onClick={onBack} aria-label={onBackLabel}>←</button>
+          )}
+          {avatar}
+          <div className="fd-screen-title-wrap">
+            <div className="fd-screen-title">{title}</div>
+            {meta != null && <div className="fd-screen-meta">{meta}</div>}
+          </div>
+          {actions}
+        </div>
+        <div className="fd-screen-body">{children}</div>
+        {footer != null && <div className="fd-screen-foot">{footer}</div>}
+      </div>
+    </FdPortal>
+  );
+}
+
 
 const AVATAR_COLORS = ["#3D5A80", "#5A3D80", "#3D8069", "#803D52", "#80693D", "#4A5568"];
 

@@ -7,7 +7,7 @@ import { Composer } from "./Composer";
 import { ProfileSheet } from "./ProfileSheet";
 import { MessagesTab } from "../messages/MessagesTab";
 import { GroupsTab } from "../groups/GroupsTab";
-import { Avatar, SectionHeader, displayTitle } from "./feedUi";
+import { Avatar, SectionHeader, displayTitle, FdScreen } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import ShareSheet from "../research-hub/ShareSheet.jsx";
 import SaveToSpaceSheet from "../research-hub/SaveToSpaceSheet.jsx";
@@ -39,6 +39,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
   const [quizzes, setQuizzes] = useState([]);
   const [sessions, setSessions] = useState({ live: [], upcoming: [] });
   const [liveOpen, setLiveOpen] = useState(false); // full-screen live rooms/quizzes overlay
+  const [chatSection, setChatSection] = useState("direct"); // "direct" | "groups" inside Chats
   const [fsrsStats, setFsrsStats] = useState(null);
   const [dailyReviews, setDailyReviews] = useState({});
   const [followBusy, setFollowBusy] = useState({});
@@ -522,26 +523,43 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
 
           {tab === "chats" && (
             <>
-              <MessagesTab
-                token={token}
-                me={me}
-                openChatWith={chatWith}
-                onChatOpened={() => setChatWith(null)}
-                onOpenProfile={setProfileUserId}
-                onUnreadChange={setUnread}
-              />
-              <DividerBlock label="Study groups" />
-              <GroupsTab
-                token={token}
-                me={me}
-                subjects={subjects}
-                isFaculty={isFaculty}
-                joinCode={joinCode}
-                onJoinHandled={() => setJoinCode(null)}
-                onOpenProfile={setProfileUserId}
-                onOpenResource={onOpenResource}
-                onJoinQuiz={handleJoinQuiz}
-              />
+              <div className="fd-chats-switch">
+                <button
+                  className={`fd-tab ${chatSection === "direct" ? "active" : ""}`}
+                  onClick={() => setChatSection("direct")}
+                >
+                  Direct
+                  {unread > 0 && <span className="fd-tab-badge">{unread > 9 ? "9+" : unread}</span>}
+                </button>
+                <button
+                  className={`fd-tab ${chatSection === "groups" ? "active" : ""}`}
+                  onClick={() => setChatSection("groups")}
+                >
+                  Groups
+                </button>
+              </div>
+              {chatSection === "direct" ? (
+                <MessagesTab
+                  token={token}
+                  me={me}
+                  openChatWith={chatWith}
+                  onChatOpened={() => setChatWith(null)}
+                  onOpenProfile={setProfileUserId}
+                  onUnreadChange={setUnread}
+                />
+              ) : (
+                <GroupsTab
+                  token={token}
+                  me={me}
+                  subjects={subjects}
+                  isFaculty={isFaculty}
+                  joinCode={joinCode}
+                  onJoinHandled={() => setJoinCode(null)}
+                  onOpenProfile={setProfileUserId}
+                  onOpenResource={onOpenResource}
+                  onJoinQuiz={handleJoinQuiz}
+                />
+              )}
             </>
           )}
 
@@ -666,11 +684,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       </div>
 
       {liveOpen && (
-        <div className="fd-live-overlay" role="dialog" aria-label="Live">
-          <div className="fd-live-overlay-bar">
-            <button className="fd-backbtn" onClick={() => setLiveOpen(false)} aria-label="Back">←</button>
-            <span className="fd-live-overlay-title">Live</span>
-          </div>
+        <FdScreen title="Live" onBack={() => setLiveOpen(false)}>
+          <div className="fd-screen-scroll">
           <LiveTab
             token={token}
             me={me}
@@ -686,7 +701,8 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             onOpenResource={onOpenResource}
             onRoomsChanged={() => feedApi.getPublicRooms({ token }).then(setRooms).catch(() => {})}
           />
-        </div>
+          </div>
+        </FdScreen>
       )}
 
       {profileUserId && (

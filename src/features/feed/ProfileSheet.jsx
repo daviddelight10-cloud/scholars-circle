@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { feedApi } from "./feedApi";
-import { Avatar, SectionHeader, displayTitle, relTime } from "./feedUi";
+import { Avatar, SectionHeader, displayTitle, relTime, FdSheet } from "./feedUi";
 
 export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowChanged, onMessage }) {
   const [data, setData] = useState(null);
@@ -48,10 +48,8 @@ export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowC
   const u = data?.user;
 
   return (
-    <div className="fd-sheet-backdrop" onClick={onClose}>
-      <div className="fd-sheet" onClick={(e) => e.stopPropagation()}>
-        <button className="fd-sheet-close" onClick={onClose}>✕</button>
-
+    <FdSheet title={u?.name || "Profile"} onClose={onClose}>
+      <>
         {!data && !error && <div className="fd-sheet-loading">Loading profile…</div>}
         {error && (
           <div className="fd-sheet-loading">
@@ -136,7 +134,7 @@ export function ProfileSheet({ token, userId, onClose, onOpenResource, onFollowC
             )}
           </>
         )}
-      </div>
-    </div>
+      </>
+    </FdSheet>
   );
 }

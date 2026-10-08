@@ -35,7 +35,7 @@ function nameColor(name = "") {
   return `hsl(${h} 70% 72%)`;
 }
 
-export default function GroupChat({ classroomId, token, currentUser, onOpenResource, onJoinQuiz }) {
+export default function GroupChat({ classroomId, token, currentUser, onOpenResource, onJoinQuiz, onStartBattle }) {
   const [messages, setMessages] = useState(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -215,6 +215,10 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
             <div className="fd-empty-icon">💬</div>
             <div className="fd-empty-title">No messages yet</div>
             <div className="fd-empty-sub">Say hi, share a material, or start a quiz battle — this is your group's home base.</div>
+            <div className="fd-quick-chips">
+              <button className="fd-quick-chip" onClick={() => setPickerOpen(true)}>📎 Share a material</button>
+              {onStartBattle && <button className="fd-quick-chip" onClick={onStartBattle}>⚔️ Start a battle</button>}
+            </div>
           </div>
         )}
 

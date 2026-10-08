@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { feedApi } from "./feedApi";
 import { createLiveRoom, mcqVariant, mcqQuestionCount } from "../live-quiz/liveQuizApi.js";
-import { Avatar, displayTitle } from "./feedUi";
+import { Avatar, displayTitle, FdSheet } from "./feedUi";
 
 export function Composer({ token, me, subjects = [], onPosted, onRoomsChanged, liveOnly }) {
   const [text, setText] = useState("");
@@ -148,12 +148,12 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
   );
 
   return (
-    <div className="fd-sheet-backdrop" onClick={onClose}>
-      <div className="fd-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="fd-sheet-head">
-          <b>{mcqOnly ? "Pick a quiz material" : "Pick a material"}</b>
-          <button className="fd-icon-btn" onClick={onClose}>✕</button>
-        </div>
+    <FdSheet
+      title={mcqOnly ? "Pick a quiz material" : "Pick a material"}
+      onClose={onClose}
+      className="fd-picker"
+    >
+      <div className="fd-picker-head">
         <input
           className="fd-sheet-search"
           placeholder="Search your library…"
@@ -161,33 +161,33 @@ export function MaterialPicker({ token, cache, setCache, onPick, onClose, mcqOnl
           onChange={(e) => setQ(e.target.value)}
           autoFocus
         />
-        <div className="fd-sheet-list">
-          {loading && <div className="fd-comments-loading">Loading…</div>}
-          {!loading && filtered.length === 0 && (
-            <div className="fd-empty-sub" style={{ padding: 16 }}>
-              {mcqOnly
-                ? "No Rapid Recall sets found — generate one on a material in My Space first."
-                : "No materials yet — upload or save resources in My Space first."}
-            </div>
-          )}
-          {filtered.slice(0, 30).map((r) => (
-            <button key={r.id} className="fd-sheet-item" onClick={() => onPick(r)}>
-              <span className="fd-attached-icon">{mcqOnly ? "⚡" : "📄"}</span>
-              <span className="fd-sheet-item-info">
-                <span className="fd-sheet-item-title">{displayTitle(r.title)}</span>
-                <span className="fd-sheet-item-meta">
-                  {[
-                    r.subject,
-                    mcqOnly ? `${mcqQuestionCount(r)} questions` : r.contentType,
-                    r.uploader?.fullName || r.uploader?.username ? `by ${r.uploader.fullName || r.uploader.username}` : null,
-                  ].filter(Boolean).join(" · ")}
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
       </div>
-    </div>
+      <div className="fd-sheet-list">
+        {loading && <div className="fd-comments-loading">Loading…</div>}
+        {!loading && filtered.length === 0 && (
+          <div className="fd-empty-sub" style={{ padding: 16 }}>
+            {mcqOnly
+              ? "No Rapid Recall sets found — generate one on a material in My Space first."
+              : "No materials yet — upload or save resources in My Space first."}
+          </div>
+        )}
+        {filtered.map((r) => (
+          <button key={r.id} className="fd-sheet-item" onClick={() => onPick(r)}>
+            <span className="fd-attached-icon">{mcqOnly ? "⚡" : "📄"}</span>
+            <span className="fd-sheet-item-info">
+              <span className="fd-sheet-item-title">{displayTitle(r.title)}</span>
+              <span className="fd-sheet-item-meta">
+                {[
+                  r.subject,
+                  mcqOnly ? `${mcqQuestionCount(r)} questions` : r.contentType,
+                  r.uploader?.fullName || r.uploader?.username ? `by ${r.uploader.fullName || r.uploader.username}` : null,
+                ].filter(Boolean).join(" · ")}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </FdSheet>
   );
 }
 
@@ -240,13 +240,20 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
   };
 
   return (
-    <div className="fd-sheet-backdrop" onClick={onClose}>
-      <div className="fd-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="fd-sheet-head">
-          <b>{mode === "quiz" ? "⚡ Go live — quiz battle" : "🟢 Quiet study room"}</b>
-          <button className="fd-icon-btn" onClick={onClose}>✕</button>
-        </div>
-
+    <>
+      <FdSheet
+        title={mode === "quiz" ? "⚡ Go live — quiz battle" : "🟢 Quiet study room"}
+        onClose={onClose}
+        footer={mode === "quiz" ? (
+          <button className="fd-go-btn" style={{ width: "100%", padding: 12, fontSize: 14 }} disabled={!mcq || busy} onClick={goQuiz}>
+            {busy ? "Opening lobby…" : mcq ? `Go live — ${qCount} questions` : "Pick a material to go live"}
+          </button>
+        ) : (
+          <button className="fd-go-btn" style={{ width: "100%", padding: 12, fontSize: 14 }} disabled={busy} onClick={createQuiet}>
+            {busy ? "Opening…" : "Open the room"}
+          </button>
+        )}
+      >
         <div className="fd-mode-tabs">
           <button
             className={`fd-mode-tab ${mode === "quiz" ? "active" : ""}`}
@@ -281,13 +288,6 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
                 ⚡ Pick from your library
               </button>
             )}
-            <button
-              className="fd-go-btn"
-              disabled={!mcq || busy}
-              onClick={goQuiz}
-            >
-              {busy ? "Opening lobby…" : mcq ? `Go live — ${qCount} questions` : "Pick a material to go live"}
-            </button>
             <div className="fd-sheet-sub" style={{ marginTop: 8 }}>
               Up to 8 friends can join your lobby.
             </div>
@@ -330,12 +330,9 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
               value={seats}
               onChange={(e) => setSeats(Math.min(Math.max(parseInt(e.target.value) || 8, 2), 50))}
             />
-            <button className="fd-go-btn" disabled={busy} onClick={createQuiet}>
-              {busy ? "Opening…" : "Open the room"}
-            </button>
           </>
         )}
-      </div>
+      </FdSheet>
       {pickerOpen && (
         <MaterialPicker
           token={token}
@@ -344,7 +341,7 @@ export function GoLiveSheet({ token, subjects, onClose, onRoomsChanged }) {
           onClose={() => setPickerOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }
 

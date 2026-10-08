@@ -1,6 +1,8 @@
 /* ============ Social Feed (fd-) ============ */
 
-.fd-root {
+/* Palette + base shared by the feed root AND portaled overlays (.fd-portal),
+   which render on document.body above the app topbar/nav. */
+.fd-root, .fd-portal {
   --fd-bg: #0a0a0a;
   --fd-card: rgba(255, 255, 255, 0.05);
   --fd-card-border: rgba(255, 255, 255, 0.06);
@@ -20,13 +22,16 @@
   --fd-faint: #5b5b66;
   --fd-display: "Syne", "Manrope", sans-serif;
   --fd-mono: "JetBrains Mono", monospace;
+  color: var(--fd-text);
+  font-family: "Manrope", -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.fd-root {
   background-color: var(--fd-bg);
   /* Contain the ::before glow's negative z-index inside this root */
   isolation: isolate;
-  color: var(--fd-text);
   min-height: 100dvh;
-  font-family: "Manrope", -apple-system, "Segoe UI", sans-serif;
-  -webkit-font-smoothing: antialiased;
 }
 
 /* Ambient glow pinned to the viewport — background-attachment:fixed is
@@ -42,14 +47,14 @@
     radial-gradient(400px 280px at -12% 18%, rgba(108, 158, 255, 0.07), transparent 70%);
 }
 
-.fd-root button {
+.fd-root button, .fd-portal button {
   font-family: inherit;
   cursor: pointer;
   transition: transform 0.12s ease, opacity 0.15s ease, background 0.15s ease;
 }
-.fd-root button:active { transform: scale(0.97); }
-.fd-root button:disabled { opacity: 0.45; cursor: default; }
-.fd-root input, .fd-root select {
+.fd-root button:active, .fd-portal button:active { transform: scale(0.97); }
+.fd-root button:disabled, .fd-portal button:disabled { opacity: 0.45; cursor: default; }
+.fd-root input, .fd-root select, .fd-portal input, .fd-portal select, .fd-portal textarea {
   font-family: inherit;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--fd-card-border);
@@ -57,8 +62,8 @@
   color: var(--fd-text);
   outline: none;
 }
-.fd-root input:focus { border-color: var(--fd-blue); }
-.fd-root select option { background: #1a1a1c; color: var(--fd-text); }
+.fd-root input:focus, .fd-portal input:focus { border-color: var(--fd-blue); }
+.fd-root select option, .fd-portal select option { background: #1a1a1c; color: var(--fd-text); }
 
 /* ─── Pull to refresh ─── */
 .fd-ptr {
@@ -769,33 +774,47 @@
 }
 .fd-go-btn:hover:not(:disabled) { filter: brightness(1.08); }
 
+/* ─── Portaled bottom sheet (FdSheet) ───
+   Rendered on document.body above topbar/mobile-nav. One scroller only:
+   the body region — header and footer stay pinned. */
 .fd-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  z-index: 1200;
+  background: rgba(4, 6, 10, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  animation: fd-fade-in 0.2s ease;
 }
-@media (min-width: 720px) {
-  .fd-sheet-backdrop { align-items: center; }
-}
+@keyframes fd-fade-in { from { opacity: 0; } }
 .fd-sheet {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 460px;
-  max-height: 80dvh;
-  overflow-y: auto;
+  max-width: 560px;
+  max-height: 88dvh;
+  overflow: hidden;
   background: #121212;
   border: 1px solid var(--fd-stroke);
+  border-bottom: 0;
   border-radius: 22px 22px 0 0;
-  padding: 18px;
+  animation: fd-sheet-up 0.24s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
-@media (min-width: 720px) {
-  .fd-sheet { border-radius: 22px; }
+.fd-sheet-grip {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+}
+.fd-sheet-handle {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
 }
 .fd-sheet-head {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -803,7 +822,28 @@
   font-size: 15.5px;
   font-weight: 700;
   letter-spacing: -0.2px;
-  margin-bottom: 6px;
+  padding: 8px 18px 10px;
+  border-bottom: 1px solid var(--fd-card-border);
+}
+.fd-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 18px;
+}
+.fd-sheet-foot {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--fd-card-border);
+  background: #121212;
+}
+@media (min-width: 720px) {
+  .fd-sheet-backdrop { align-items: center; padding: 24px; }
+  .fd-sheet { border-radius: 22px; border-bottom: 1px solid var(--fd-stroke); }
+  .fd-sheet-grip { display: none; }
 }
 .fd-sheet-sub { font-size: 12.5px; color: var(--fd-muted); margin-bottom: 14px; }
 .fd-sheet-search, .fd-sheet-input {
@@ -814,7 +854,7 @@
   margin-bottom: 10px;
 }
 .fd-label { display: block; font-family: var(--fd-mono); font-size: 9.5px; font-weight: 700; color: var(--fd-faint); margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 1px; }
-.fd-sheet-list { max-height: 320px; overflow-y: auto; }
+.fd-sheet-list { display: flex; flex-direction: column; }
 .fd-sheet-item {
   display: flex;
   align-items: center;
@@ -887,39 +927,74 @@
 .fd-digest { }
 .fd-live { padding-top: 12px; }
 
-/* ─── Live overlay (replaces the old Live tab) ─── */
-.fd-live-overlay {
+/* ─── Full-screen layer (FdScreen): chat thread, group hub, live overlay ───
+   Portaled to <body> — covers topbar AND bottom nav so nothing overlaps. */
+.fd-screen {
   position: fixed;
   inset: 0;
-  z-index: 60;
-  overflow-y: auto;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
   background: var(--fd-bg, #0a0a0a);
-  padding: 0 12px 90px;
-  animation: fd-card-in 0.18s ease;
+  animation: fd-screen-in 0.22s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
-.fd-live-overlay-bar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
+@keyframes fd-screen-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.fd-screen-head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 2px 10px;
-  margin: 0 -12px;
-  padding-left: 14px;
-  padding-right: 14px;
-  background: rgba(10,10,10, 0.78);
+  padding: 10px 14px;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  background: rgba(10, 10, 10, 0.82);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   border-bottom: 1px solid var(--fd-stroke);
 }
-.fd-live-overlay-title {
+.fd-screen-title-wrap { flex: 1; min-width: 0; }
+.fd-screen-title {
   font-family: var(--fd-display);
   font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.fd-live-overlay .fd-live { max-width: 640px; margin: 0 auto; }
+.fd-screen-meta {
+  font-size: 11.5px; color: var(--fd-muted); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fd-screen-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Non-chat screens scroll as a whole */
+.fd-screen-body > .fd-screen-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
+}
+.fd-screen-body > .fd-screen-scroll > * { max-width: 640px; margin-left: auto; margin-right: auto; }
+.fd-screen-foot {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--fd-stroke);
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fd-screen, .fd-sheet, .fd-sheet-backdrop { animation: none !important; }
+}
 
 /* ===== Phase 2: profiles, rooms, answers, trending ===== */
 .fd-who-btn, .fd-name-btn {
@@ -987,21 +1062,7 @@
 .fd-trending-saves { font-family: var(--fd-mono); font-size: 10.5px; color: var(--fd-muted); flex-shrink: 0; margin-left: 12px; }
 
 /* ===== Profile sheet ===== */
-.fd-sheet-backdrop {
-  position: fixed; inset: 0; z-index: 60; background: rgba(4, 6, 10, 0.7);
-  backdrop-filter: blur(4px); display: flex; align-items: flex-end; justify-content: center;
-}
-.fd-sheet {
-  background: #121212; border: 1px solid var(--fd-card-border); border-bottom: 0;
-  border-radius: 20px 20px 0 0; width: 100%; max-width: 560px;
-  max-height: 85vh; overflow-y: auto; padding: 20px; position: relative;
-  animation: fd-sheet-up 0.22s ease-out;
-}
 @keyframes fd-sheet-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-@media (min-width: 640px) {
-  .fd-sheet-backdrop { align-items: center; }
-  .fd-sheet { border-radius: 20px; border-bottom: 1px solid var(--fd-card-border); }
-}
 .fd-sheet-close {
   position: absolute; top: 14px; right: 14px; z-index: 2;
   background: var(--fd-card); border: 1px solid var(--fd-card-border); border-radius: 50%;
@@ -1118,12 +1179,8 @@
   box-shadow: 0 2px 10px rgba(108, 158, 255, 0.4);
 }
 
-/* ===== Chat thread ===== */
-.fd-thread { display: flex; flex-direction: column; height: calc(100dvh - 150px); min-height: 380px; }
-.fd-thread-head {
-  display: flex; align-items: center; gap: 8px; padding-bottom: 10px;
-  border-bottom: 1px solid var(--fd-card-border); flex-shrink: 0;
-}
+/* ===== Chat thread (inside FdScreen) ===== */
+.fd-thread { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .fd-backbtn {
   width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
   background: var(--fd-card); border: 1px solid var(--fd-card-border);
@@ -1145,7 +1202,9 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .fd-thread-scroll {
-  flex: 1; overflow-y: auto; padding: 14px 2px;
+  flex: 1; min-height: 0; overflow-y: auto; padding: 14px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   display: flex; flex-direction: column; gap: 4px;
 }
 .fd-thread-day {
@@ -1180,8 +1239,7 @@
 .fd-bubble-text { white-space: pre-wrap; }
 .fd-bubble-meta { font-family: var(--fd-mono); font-size: 9px; opacity: 0.7; align-self: flex-end; }
 .fd-thread-input {
-  display: flex; gap: 8px; padding-top: 10px; flex-shrink: 0;
-  border-top: 1px solid var(--fd-stroke);
+  display: flex; gap: 8px; flex-shrink: 0;
   align-items: center;
 }
 .fd-thread-input input {
@@ -1423,10 +1481,13 @@ button.fd-group-card:hover { background: rgba(255, 255, 255, 0.07); border-color
 .gv-material-chip:hover { background: rgba(108, 158, 255, 0.15); }
 .gv-material-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.gv-chat { flex: 1; min-height: 0; }
 .gv-chat-scroll {
   display: flex; flex-direction: column; gap: 2px;
-  max-height: 62vh; overflow-y: auto;
-  padding: 4px 2px;
+  flex: 1; min-height: 0; overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 12px;
 }
 .gv-msg { display: flex; gap: 8px; align-items: flex-end; }
 .gv-msg.me { flex-direction: row-reverse; }
@@ -1799,3 +1860,91 @@ button.fd-group-card:hover { background: rgba(255, 255, 255, 0.07); border-color
     animation: none !important;
   }
 }
+
+/* ===== Feed overhaul additions ===== */
+
+/* Group hub inside FdScreen: pinned tabs, scrolling body */
+.fd-group { display: flex; flex-direction: column; gap: 10px; }
+.fd-screen .fd-group { flex: 1; min-height: 0; gap: 0; }
+.fd-screen .fd-group-tabs {
+  flex-shrink: 0; margin: 10px 12px 0;
+  position: relative; z-index: 2;
+}
+.fd-group-body { min-height: 200px; animation: fd-card-in 0.22s ease; }
+.fd-screen .fd-group-body {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  animation: none;
+}
+/* Non-chat tabs scroll inside the screen body */
+.fd-group-scroll {
+  flex: 1; min-height: 0; overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 12px 24px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.fd-group-scroll > * { max-width: 640px; width: 100%; margin-left: auto; margin-right: auto; }
+
+/* Slim pulse strip under the group header — engagement at a glance */
+.fd-group-pulse {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 8px 14px 0;
+}
+.fd-group-desc {
+  font-size: 13px; color: var(--fd-muted); line-height: 1.45;
+  padding: 0 14px; margin-top: 8px;
+}
+
+/* Chats tab: Direct | Groups segmented switch */
+.fd-chats-switch {
+  display: flex; gap: 4px; padding: 4px; margin: 2px 0 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--fd-card-border);
+}
+.fd-chats-switch .fd-tab { flex: 1; text-align: center; }
+
+/* Search row for chats/groups list */
+.fd-chats-search {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  margin-bottom: 12px;
+}
+
+/* Quick-start chips on empty chats */
+.fd-quick-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+.fd-quick-chip {
+  font-size: 12px; font-weight: 700; color: var(--fd-text);
+  background: var(--fd-card); border: 1px solid var(--fd-card-border);
+  border-radius: 999px; padding: 8px 14px;
+}
+.fd-quick-chip:hover { border-color: var(--fd-stroke); background: rgba(255,255,255,0.07); }
+
+/* Composer inside screens stays comfortable */
+.fd-screen .fd-thread-input input { font-size: 15px; }
+
+/* Picker: search bar stays pinned at the top of the sheet's scroll body */
+.fd-picker-head {
+  position: sticky; top: -14px; z-index: 2;
+  margin: -14px -18px 12px;
+  padding: 14px 18px 12px;
+  background: #121212;
+  border-bottom: 1px solid var(--fd-card-border);
+}
+.fd-picker-head .fd-sheet-search { width: 100%; margin: 0; }
+
+/* Composer pinned inside a full-screen layer */
+.fd-screen .gv-composer {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--fd-card-border);
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+.fd-screen .gv-materials { flex-shrink: 0; }
+.fd-screen .gv-chat { flex: 1; min-height: 0; }
+.fd-screen .gv-chat-scroll { padding: 10px 14px; }

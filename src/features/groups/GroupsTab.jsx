@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { groupsApi } from "./groupsApi";
 import { GroupView } from "./GroupView";
-import { SectionHeader } from "../feed/feedUi";
+import { SectionHeader, FdSheet } from "../feed/feedUi";
 
 function initials(name) {
   if (!name) return "?";
@@ -126,7 +126,7 @@ export function GroupsTab({ token, me, subjects = [], isFaculty, joinCode, onJoi
           <div className="fd-empty-icon">👥</div>
           <div className="fd-empty-title">No study groups yet</div>
           <div className="fd-empty-sub">
-            Create a group for your course or cohort — chat, set goals, run quiz battles and study rooms together.
+            Create a group for your course or cohort — chat, set goals, run quiz battles and climb the leaderboard together.
           </div>
         </div>
       )}
@@ -273,14 +273,18 @@ function CreateGroupSheet({ token, subjects, onClose, onCreated }) {
   };
 
   return (
-    <div className="fd-sheet-backdrop" onClick={onClose}>
-      <div className="fd-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="fd-sheet-head">
-          <b>👥 Create a study group</b>
-          <button className="fd-icon-btn" onClick={onClose}>✕</button>
-        </div>
+    <FdSheet
+      title="👥 Create a study group"
+      onClose={onClose}
+      footer={
+        <button className="fd-go-btn" style={{ width: "100%", padding: 12 }} disabled={!name.trim() || busy} onClick={create}>
+          {busy ? "Creating…" : "Create group"}
+        </button>
+      }
+    >
+      <>
         <div className="fd-sheet-sub">
-          Your group gets a chat, leaderboard, shared goals, study rooms and quiz battles.
+          Your group gets a chat, leaderboard, shared goals and quiz battles.
         </div>
         <label className="fd-label">Group name</label>
         <input
@@ -310,11 +314,8 @@ function CreateGroupSheet({ token, subjects, onClose, onCreated }) {
           <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
           <span>List in Discover — anyone can join without a code</span>
         </label>
-        <button className="fd-go-btn" disabled={!name.trim() || busy} onClick={create}>
-          {busy ? "Creating…" : "Create group"}
-        </button>
-      </div>
-    </div>
+      </>
+    </FdSheet>
   );
 }
 
@@ -356,12 +357,16 @@ function JoinGroupSheet({ token, initialCode, onClose, onJoined }) {
   };
 
   return (
-    <div className="fd-sheet-backdrop" onClick={onClose}>
-      <div className="fd-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="fd-sheet-head">
-          <b>🔑 Join with code</b>
-          <button className="fd-icon-btn" onClick={onClose}>✕</button>
-        </div>
+    <FdSheet
+      title="🔑 Join with code"
+      onClose={onClose}
+      footer={!preview?.isMember ? (
+        <button className="fd-go-btn" style={{ width: "100%", padding: 12 }} disabled={!preview || busy} onClick={join}>
+          {busy ? "Joining…" : preview ? `Join ${preview.name}` : "Enter a code"}
+        </button>
+      ) : null}
+    >
+      <>
         <input
           className="fd-sheet-input fd-code-input"
           placeholder="6-CHARACTER CODE"
@@ -389,14 +394,10 @@ function JoinGroupSheet({ token, initialCode, onClose, onJoined }) {
             </span>
           </div>
         )}
-        {preview?.isMember ? (
+        {preview?.isMember && (
           <div className="fd-sheet-sub" style={{ marginTop: 10 }}>✓ You're already in this group.</div>
-        ) : (
-          <button className="fd-go-btn" style={{ marginTop: 10 }} disabled={!preview || busy} onClick={join}>
-            {busy ? "Joining…" : preview ? `Join ${preview.name}` : "Enter a code"}
-          </button>
         )}
-      </div>
-    </div>
+      </>
+    </FdSheet>
   );
 }
