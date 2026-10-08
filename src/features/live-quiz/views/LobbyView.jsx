@@ -1,8 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconClock, IconCopy, IconCrown, IconList, IconShare, IconSpinner, IconUserMinus, IconUsers } from "../icons.jsx";
 import { messagesApi } from "../../messages/messagesApi.js";
 
 const TIMES = [15, 20, 30, 45, 60];
+const HOLD_DELAY_MS = 350;   // pause before press-and-hold starts repeating
+const HOLD_REPEAT_MS = 120;  // repeat cadence while held
+const SEND_THROTTLE_MS = 250; // coalesce WS sends — stays under the server rate limit
+
+function buzz(ms) {
+  try { navigator.vibrate?.(ms); } catch {}
+}
 
 function initials(name) {
   return (name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -15,6 +22,75 @@ export default function LobbyView({ room, myId, actions }) {
   const [peerQ, setPeerQ] = useState("");
   const [peers, setPeers] = useState(null);
   const [sentTo, setSentTo] = useState(null);
+
+  // Question-count stepper — optimistic local value + press-and-hold repeat.
+  // Sends are throttled to one absolute value per 250ms (the server rate limit
+  // drops bursts); the lobby_state broadcast confirms and clears the override.
+  const [localNumQ, setLocalNumQ] = useState(null);
+  const numQRef = useRef(settings.numQuestions);
+  const lastTapRef = useRef(0);
+  const holdTimerRef = useRef(null);
+  const sendTimerRef = useRef(null);
+  const pendingNRef = useRef(null);
+  const settingsRef = useRef(settings);
+  const maxQ = room.maxQuestions || 20;
+  const displayNumQ = localNumQ ?? settings.numQuestions;
+
+  // Keep refs synced post-render (event handlers read these, never render).
+  useEffect(() => {
+    settingsRef.current = settings;
+    numQRef.current = displayNumQ;
+  });
+
+  // When the server catches up (or settings change elsewhere), drop the override.
+  useEffect(() => {
+    if (!holdTimerRef.current && !sendTimerRef.current) setLocalNumQ(null);
+  }, [settings.numQuestions]);
+
+  useEffect(() => () => {
+    clearTimeout(holdTimerRef.current);
+    clearInterval(holdTimerRef.current);
+    clearTimeout(sendTimerRef.current);
+  }, []);
+
+  const flushSettings = () => {
+    sendTimerRef.current = null;
+    const n = pendingNRef.current;
+    pendingNRef.current = null;
+    if (n != null) actions.updateSettings(settingsRef.current.timePerQuestion, n);
+  };
+
+  const stepQuestions = (delta) => {
+    const next = Math.min(Math.max(numQRef.current + delta, 1), maxQ);
+    if (next === numQRef.current) return;
+    numQRef.current = next;
+    lastTapRef.current = Date.now();
+    setLocalNumQ(next);
+    buzz(8);
+    pendingNRef.current = next;
+    if (!sendTimerRef.current) sendTimerRef.current = setTimeout(flushSettings, SEND_THROTTLE_MS);
+  };
+
+  const startHold = (e, delta) => {
+    e.preventDefault();
+    stepQuestions(delta);
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = setInterval(() => stepQuestions(delta), HOLD_REPEAT_MS);
+    }, HOLD_DELAY_MS);
+  };
+
+  const stopHold = () => {
+    if (!holdTimerRef.current) return;
+    clearTimeout(holdTimerRef.current);
+    clearInterval(holdTimerRef.current);
+    holdTimerRef.current = null;
+    if (sendTimerRef.current) { clearTimeout(sendTimerRef.current); flushSettings(); }
+  };
+
+  // Keyboard fallback — Enter/Space fires click without pointerdown.
+  const clickStep = (delta) => {
+    if (Date.now() - lastTapRef.current > 400) stepQuestions(delta);
+  };
 
   const me = participants.find((p) => p.userId === myId);
   const inviteUrl = `${window.location.origin}/live/${code}`;
@@ -151,14 +227,26 @@ export default function LobbyView({ room, myId, actions }) {
             <div className="lq-stepper">
               <button
                 className="lq-step-btn"
-                disabled={settings.numQuestions <= 1}
-                onClick={() => actions.updateSettings(settings.timePerQuestion, settings.numQuestions - 1)}
+                disabled={displayNumQ <= 1}
+                onPointerDown={(e) => startHold(e, -1)}
+                onPointerUp={stopHold}
+                onPointerLeave={stopHold}
+                onPointerCancel={stopHold}
+                onContextMenu={(e) => e.preventDefault()}
+                onClick={() => clickStep(-1)}
+                aria-label="Fewer questions"
               >−</button>
-              <span className="lq-step-value">{settings.numQuestions}</span>
+              <span className="lq-step-value">{displayNumQ}</span>
               <button
                 className="lq-step-btn"
-                disabled={settings.numQuestions >= (room.maxQuestions || 20)}
-                onClick={() => actions.updateSettings(settings.timePerQuestion, settings.numQuestions + 1)}
+                disabled={displayNumQ >= maxQ}
+                onPointerDown={(e) => startHold(e, 1)}
+                onPointerUp={stopHold}
+                onPointerLeave={stopHold}
+                onPointerCancel={stopHold}
+                onContextMenu={(e) => e.preventDefault()}
+                onClick={() => clickStep(1)}
+                aria-label="More questions"
               >+</button>
             </div>
           </div>

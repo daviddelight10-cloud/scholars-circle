@@ -253,7 +253,11 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } 
     setUnread,
     actions: {
       lobbyReady: (ready) => send({ type: "lobby_ready", ready }),
-      updateSettings: (timePerQuestion, numQuestions) => send({ type: "settings", timePerQuestion, numQuestions }),
+      updateSettings: (timePerQuestion, numQuestions) => {
+        // Optimistic — the lobby_state broadcast confirms/corrects (server clamps).
+        setState((s) => ({ ...s, settings: { ...s.settings, timePerQuestion, numQuestions } }));
+        send({ type: "settings", timePerQuestion, numQuestions });
+      },
       start: () => send({ type: "start" }),
       answer: (option, confidence) => {
         send({ type: "answer", option, confidence });
