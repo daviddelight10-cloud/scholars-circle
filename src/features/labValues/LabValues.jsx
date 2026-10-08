@@ -1,130 +1,440 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import ExitPill from "../../components/ExitPill.jsx";
+import { LABS, LAB_CATEGORIES, CATEGORY_MAP, parseRange, checkValue } from "./labData.js";
+import { getFavs, toggleFav, getRecents, pushRecent } from "../reference/refPrefs.js";
+import QuickQuiz, { labQuestions } from "../reference/QuickQuiz.jsx";
+import "../reference/clinicalRef.css";
 
-const LAB_CATEGORIES = [
-  { id: "cbc", label: "Complete Blood Count", icon: "🩸" },
-  { id: "lft", label: "Liver Function Tests", icon: "🫀" },
-  { id: "rft", label: "Renal Function Tests", icon: "🧪" },
-  { id: "electrolytes", label: "Electrolytes", icon: "⚡" },
-  { id: "lipid", label: "Lipid Profile", icon: "🫙" },
-  { id: "thyroid", label: "Thyroid Function", icon: "🦋" },
-  { id: "coag", label: "Coagulation", icon: "🩹" },
-  { id: "inflammatory", label: "Inflammatory Markers", icon: "🔥" },
-  { id: "csf", label: "CSF Analysis", icon: "💧" },
-  { id: "endocrine", label: "Endocrine", icon: "⚗️" },
-];
+const NS = "labs";
 
-const LAB_VALUES = [
-  { parameter: "Haemoglobin (Hb)", category: "cbc", unit: "g/dL", male: "13.0-17.0", female: "12.0-15.0", critical_low: "<7.0", critical_high: ">20.0", interpretation: "Low: anaemia. High: polycythaemia, dehydration, high altitude." },
-  { parameter: "White Blood Cell Count", category: "cbc", unit: "x10⁹/L", male: "4.0-11.0", female: "4.0-11.0", critical_low: "<1.5", critical_high: ">30.0", interpretation: "Low: leucopenia (viral, chemotherapy). High: infection, leukaemia, steroids." },
-  { parameter: "Platelet Count", category: "cbc", unit: "x10⁹/L", male: "150-400", female: "150-400", critical_low: "<50", critical_high: ">1000", interpretation: "Low: thrombocytopenia (ITP, DIC, sepsis). High: thrombocytosis (infection, iron deficiency)." },
-  { parameter: "MCV (Mean Corpuscular Volume)", category: "cbc", unit: "fL", male: "80-100", female: "80-100", critical_low: "<60", critical_high: ">120", interpretation: "Low: microcytic (iron deficiency, thalassaemia). High: macrocytic (B12/folate deficiency)." },
-  { parameter: "Neutrophils", category: "cbc", unit: "%", male: "40-75", female: "40-75", critical_low: "<0.5 (absolute)", critical_high: ">90%", interpretation: "Low: neutropenia. High: bacterial infection, inflammation." },
-  { parameter: "Lymphocytes", category: "cbc", unit: "%", male: "20-45", female: "20-45", critical_low: "—", critical_high: "—", interpretation: "High: viral infection, CLL. Low: HIV, immunosuppression." },
-  { parameter: "Eosinophils", category: "cbc", unit: "%", male: "1-6", female: "1-6", critical_low: "—", critical_high: ">20%", interpretation: "High: allergy, parasitic infection, asthma." },
+function usePrefs() {
+  const [favs, setFavs] = useState(() => getFavs(NS));
+  const [recents, setRecents] = useState(() => getRecents(NS));
+  const fav = (id) => setFavs(toggleFav(NS, id));
+  const visit = (id) => setRecents(pushRecent(NS, id));
+  return { favs, recents, fav, visit };
+}
 
-  { parameter: "ALT (Alanine Transaminase)", category: "lft", unit: "U/L", male: "10-40", female: "7-35", critical_low: "—", critical_high: ">1000", interpretation: "High: hepatocellular damage (hepatitis, drugs, alcohol)." },
-  { parameter: "AST (Aspartate Transaminase)", category: "lft", unit: "U/L", male: "10-40", female: "8-35", critical_low: "—", critical_high: ">1000", interpretation: "High: liver damage, muscle injury, MI. AST:ALT >2 suggests alcohol." },
-  { parameter: "Alkaline Phosphatase (ALP)", category: "lft", unit: "U/L", male: "40-130", female: "35-105", critical_low: "—", critical_high: ">400", interpretation: "High: cholestasis, bone disease, pregnancy. GGT helps differentiate." },
-  { parameter: "Bilirubin (Total)", category: "lft", unit: "μmol/L", male: "3-21", female: "3-21", critical_low: "—", critical_high: ">340", interpretation: "High: pre-hepatic (haemolysis), hepatic (hepatitis), post-hepatic (obstruction)." },
-  { parameter: "Albumin", category: "lft", unit: "g/L", male: "35-50", female: "35-50", critical_low: "<20", critical_high: "—", interpretation: "Low: liver disease, nephrotic syndrome, malnutrition, inflammation." },
-  { parameter: "Total Protein", category: "lft", unit: "g/L", male: "60-80", female: "60-80", critical_low: "—", critical_high: "—", interpretation: "High: multiple myeloma, dehydration. Low: malnutrition, liver disease." },
+function labId(l) {
+  return l.parameter;
+}
 
-  { parameter: "Urea", category: "rft", unit: "mmol/L", male: "2.5-7.0", female: "2.5-6.5", critical_low: "—", critical_high: ">30", interpretation: "High: dehydration, AKI, GI bleed, high protein diet. Low: liver failure, malnutrition." },
-  { parameter: "Creatinine", category: "rft", unit: "μmol/L", male: "60-120", female: "50-100", critical_low: "—", critical_high: ">500", interpretation: "High: renal impairment. Use eGFR for better assessment." },
-  { parameter: "eGFR", category: "rft", unit: "mL/min/1.73m²", male: ">90", female: ">90", critical_low: "<15", critical_high: "—", interpretation: "Stage 1: >90, Stage 2: 60-89, Stage 3: 30-59, Stage 4: 15-29, Stage 5: <15 (ESRD)." },
-  { parameter: "Sodium (Na⁺)", category: "electrolytes", unit: "mmol/L", male: "135-145", female: "135-145", critical_low: "<120", critical_high: ">155", interpretation: "Low: SIADH, diuretics, vomiting. High: dehydration, diabetes insipidus." },
-  { parameter: "Potassium (K⁺)", category: "electrolytes", unit: "mmol/L", male: "3.5-5.0", female: "3.5-5.0", critical_low: "<2.5", critical_high: ">6.5", interpretation: "Low: diuretics, vomiting, diarrhea. High: AKI, ACE inhibitors, Addison's." },
-  { parameter: "Chloride (Cl⁻)", category: "electrolytes", unit: "mmol/L", male: "98-107", female: "98-107", critical_low: "—", critical_high: "—", interpretation: "Follows sodium. Low: vomiting. High: diarrhea, renal tubular acidosis." },
-  { parameter: "Bicarbonate (HCO₃⁻)", category: "electrolytes", unit: "mmol/L", male: "22-29", female: "22-29", critical_low: "<10", critical_high: ">40", interpretation: "Low: metabolic acidosis (DKA, lactic acidosis, renal failure). High: metabolic alkalosis (vomiting)." },
-  { parameter: "Calcium (Corrected)", category: "electrolytes", unit: "mmol/L", male: "2.20-2.60", female: "2.20-2.60", critical_low: "<1.5", critical_high: ">3.0", interpretation: "Low: hypoparathyroidism, vitamin D deficiency, CKD. High: malignancy, hyperparathyroidism." },
-  { parameter: "Phosphate", category: "electrolytes", unit: "mmol/L", male: "0.8-1.5", female: "0.8-1.5", critical_low: "—", critical_high: "—", interpretation: "Low: refeeding syndrome, hyperparathyroidism. High: CKD, rhabdomyolysis." },
-  { parameter: "Magnesium", category: "electrolytes", unit: "mmol/L", male: "0.7-1.0", female: "0.7-1.0", critical_low: "<0.4", critical_high: ">2.0", interpretation: "Low: PPI use, alcoholism, diarrhea. High: renal failure, magnesium therapy." },
+function matches(l, q) {
+  const t = q.trim().toLowerCase();
+  if (!t) return true;
+  return (
+    l.parameter.toLowerCase().includes(t) ||
+    (l.aliases || []).some((a) => a.toLowerCase().includes(t)) ||
+    (l.low + " " + l.high).toLowerCase().includes(t)
+  );
+}
 
-  { parameter: "Total Cholesterol", category: "lipid", unit: "mmol/L", male: "<5.0", female: "<5.0", critical_low: "—", critical_high: ">7.5", interpretation: "High: cardiovascular risk. Target <4.0 in high-risk patients." },
-  { parameter: "LDL Cholesterol", category: "lipid", unit: "mmol/L", male: "<3.0", female: "<3.0", critical_low: "—", critical_high: "—", interpretation: "Target <2.0 in high-risk, <1.8 in very high-risk patients." },
-  { parameter: "HDL Cholesterol", category: "lipid", unit: "mmol/L", male: ">1.0", female: ">1.2", critical_low: "—", critical_high: "—", interpretation: "Higher is better. Low: cardiovascular risk, metabolic syndrome." },
-  { parameter: "Triglycerides", category: "lipid", unit: "mmol/L", male: "<1.7", female: "<1.7", critical_low: "—", critical_high: ">10.0", interpretation: "High: obesity, diabetes, alcohol. >10: pancreatitis risk." },
+function sameRange(l) {
+  return !l.female || l.female === l.male || l.female === "same" || l.female === "—";
+}
 
-  { parameter: "TSH", category: "thyroid", unit: "mIU/L", male: "0.4-4.0", female: "0.4-4.0", critical_low: "—", critical_high: ">100", interpretation: "High: hypothyroidism. Low: hyperthyroidism, pituitary disease." },
-  { parameter: "Free T4", category: "thyroid", unit: "pmol/L", male: "10-22", female: "10-22", critical_low: "—", critical_high: "—", interpretation: "High: hyperthyroidism. Low: hypothyroidism." },
-  { parameter: "Free T3", category: "thyroid", unit: "pmol/L", male: "3.5-6.5", female: "3.5-6.5", critical_low: "—", critical_high: "—", interpretation: "High: hyperthyroidism, T3 toxicosis. Low: hypothyroidism, severe illness." },
+function hasCritical(l) {
+  const ok = (s) => s && s !== "—";
+  return ok(l.critical_low) || ok(l.critical_high);
+}
 
-  { parameter: "PT (Prothrombin Time)", category: "coag", unit: "seconds", male: "11-14", female: "11-14", critical_low: "—", critical_high: ">30", interpretation: "High: warfarin, liver disease, vitamin K deficiency, DIC." },
-  { parameter: "INR", category: "coag", unit: "ratio", male: "0.8-1.2", female: "0.8-1.2", critical_low: "—", critical_high: ">5.0", interpretation: "Target 2.0-3.0 for most indications, 2.5-3.5 for mechanical valves." },
-  { parameter: "APTT", category: "coag", unit: "seconds", male: "25-35", female: "25-35", critical_low: "—", critical_high: ">80", interpretation: "High: heparin, haemophilia, DIC, lupus anticoagulant." },
-  { parameter: "Fibrinogen", category: "coag", unit: "g/L", male: "2.0-4.0", female: "2.0-4.0", critical_low: "<1.0", critical_high: "—", interpretation: "Low: DIC, massive transfusion, liver disease. High: inflammation, pregnancy." },
+/* ── Value checker bar ───────────────────────────────────── */
+function ValueChecker({ lab }) {
+  const [raw, setRaw] = useState("");
+  const [sex, setSex] = useState(sameRange(lab) ? null : "male");
+  const r = lab.numeric || parseRange(sex === "female" ? lab.female : lab.male) || parseRange(lab.male);
+  const res = raw.trim() ? checkValue(lab, raw, sex) : null;
 
-  { parameter: "CRP (C-Reactive Protein)", category: "inflammatory", unit: "mg/L", male: "<5", female: "<5", critical_low: "—", critical_high: ">200", interpretation: "High: bacterial infection, inflammation, tissue damage. More specific than ESR." },
-  { parameter: "ESR (Erythrocyte Sedimentation Rate)", category: "inflammatory", unit: "mm/hr", male: "<(age/2)", female: "<(age+10)/2", critical_low: "—", critical_high: ">100", interpretation: "High: infection, autoimmune disease, malignancy, multiple myeloma. Non-specific." },
+  // Domain for the bar: pad the range so the band sits centre-ish.
+  let d0 = 0;
+  let d1 = 1;
+  if (r) {
+    const lo = r.lo ?? 0;
+    const span = r.hi != null ? r.hi - lo : r.lo || 1;
+    d0 = Math.min(0, lo - span * 0.6);
+    d1 = (r.hi ?? lo + span * 2) + span * 0.6;
+    if (res) {
+      d0 = Math.min(d0, res.value - span * 0.15);
+      d1 = Math.max(d1, res.value + span * 0.15);
+    }
+  }
+  const pct = (v) => Math.max(0, Math.min(100, ((v - d0) / (d1 - d0)) * 100));
 
-  { parameter: "CSF Opening Pressure", category: "csf", unit: "cmH₂O", male: "10-20", female: "10-20", critical_low: "—", critical_high: ">25", interpretation: "High: meningitis, raised ICP, idiopathic intracranial hypertension." },
-  { parameter: "CSF Protein", category: "csf", unit: "g/L", male: "0.15-0.45", female: "0.15-0.45", critical_low: "—", critical_high: ">1.0", interpretation: "High: bacterial meningitis, Guillain-Barre, MS. Low: CSF leak." },
-  { parameter: "CSF Glucose", category: "csf", unit: "mmol/L", male: "2.2-4.4 (≈60% of serum)", female: "2.2-4.4", critical_low: "—", critical_high: "—", interpretation: "Low: bacterial meningitis, TB meningitis. Normal: viral meningitis." },
-  { parameter: "CSF Cell Count", category: "csf", unit: "cells/μL", male: "<5", female: "<5", critical_low: "—", critical_high: "—", interpretation: "High neutrophils: bacterial. High lymphocytes: viral/TB. RBC: subarachnoid haemorrhage." },
-
-  { parameter: "Fasting Blood Glucose", category: "endocrine", unit: "mmol/L", male: "3.9-6.1", female: "3.9-6.1", critical_low: "<2.5", critical_high: ">25", interpretation: "High: diabetes mellitus (>7.0), impaired fasting glucose (6.1-6.9). Low: hypoglycemia." },
-  { parameter: "HbA1c", category: "endocrine", unit: "%", male: "<5.7", female: "<5.7", critical_low: "—", critical_high: ">10", interpretation: "5.7-6.4: pre-diabetes. ≥6.5: diabetes. Target <7.0 for most diabetics." },
-  { parameter: "Cortisol (Morning)", category: "endocrine", unit: "nmol/L", male: "138-690", female: "138-690", critical_low: "<100 (9am)", critical_high: ">1500", interpretation: "Low: adrenal insufficiency. High: Cushing's syndrome." },
-  { parameter: "PTH (Parathyroid Hormone)", category: "endocrine", unit: "pg/mL", male: "15-65", female: "15-65", critical_low: "—", critical_high: "—", interpretation: "High with high Ca: primary hyperparathyroidism. High with low Ca: secondary hyperparathyroidism." },
-];
-
-export default function LabValues({ onBack }) {
-  const [search, setSearch] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-
-  const filteredValues = useMemo(() => {
-    return LAB_VALUES.filter((v) => {
-      const matchesSearch = !search || v.parameter.toLowerCase().includes(search.toLowerCase());
-      const matchesCat = !filterCategory || v.category === filterCategory;
-      return matchesSearch && matchesCat;
-    });
-  }, [search, filterCategory]);
+  const verdicts = {
+    "in-range": { cls: "ok", label: "✓ In range", sub: "Within the reference interval." },
+    low: { cls: "warn", label: "↓ Below range", sub: lab.low || "Below the reference interval." },
+    high: { cls: "warn", label: "↑ Above range", sub: lab.high || "Above the reference interval." },
+    "critical-low": { cls: "bad", label: "🚨 CRITICAL LOW", sub: `${lab.critical_low} — urgent clinical assessment.` },
+    "critical-high": { cls: "bad", label: "🚨 CRITICAL HIGH", sub: `${lab.critical_high} — urgent clinical assessment.` },
+  };
+  const v = res ? verdicts[res.verdict] : null;
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 16 }}>
-      <ExitPill title="🧪 Lab Values" onBack={onBack} />
-      <h2>🧪 Lab Values Reference</h2>
-      <p className="muted" style={{ marginBottom: 16 }}>
-        Normal ranges for common laboratory tests with clinical interpretation.
-      </p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <input value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search parameter..."
-          style={{ flex: 1, padding: "10px 14px", borderRadius: 8, background: "#111", color: "#fff", border: "1px solid #333" }} />
-        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-          style={{ padding: "10px 14px", borderRadius: 8, background: "#111", color: "#fff", border: "1px solid #333" }}>
-          <option value="">All Categories</option>
-          {LAB_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-        </select>
+    <div className="cr-checker">
+      <div className="cr-checker-title">Check a patient value</div>
+      <div className="cr-checker-row">
+        <input
+          inputMode="decimal"
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          placeholder="Result…"
+          aria-label={`Patient ${lab.parameter} result`}
+        />
+        {lab.unit && <span className="unit-lbl">{lab.unit}</span>}
+        {!sameRange(lab) && (
+          <span className="cr-seg">
+            <button type="button" className={sex === "male" ? "on" : ""} onClick={() => setSex("male")}>♂ M</button>
+            <button type="button" className={sex === "female" ? "on" : ""} onClick={() => setSex("female")}>♀ F</button>
+          </span>
+        )}
       </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #333" }}>
-              <th style={{ textAlign: "left", padding: "8px 12px", color: "#94a3b8" }}>Parameter</th>
-              <th style={{ textAlign: "left", padding: "8px 12px", color: "#94a3b8" }}>Unit</th>
-              <th style={{ textAlign: "left", padding: "8px 12px", color: "#94a3b8" }}>Male Range</th>
-              <th style={{ textAlign: "left", padding: "8px 12px", color: "#94a3b8" }}>Female Range</th>
-              <th style={{ textAlign: "left", padding: "8px 12px", color: "#94a3b8" }}>Interpretation</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredValues.map((v, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid #222" }}>
-                <td style={{ padding: "10px 12px", color: "#fff", fontWeight: 600 }}>{v.parameter}</td>
-                <td style={{ padding: "10px 12px", color: "#94a3b8" }}>{v.unit}</td>
-                <td style={{ padding: "10px 12px", color: "#22c55e" }}>{v.male}</td>
-                <td style={{ padding: "10px 12px", color: "#22c55e" }}>{v.female}</td>
-                <td style={{ padding: "10px 12px", color: "#cbd5e1", fontSize: 12 }}>{v.interpretation}</td>
-              </tr>
+
+      {r && (
+        <div className="cr-bar" aria-hidden="true">
+          {r.lo != null && r.hi != null && (
+            <div className="cr-bar-band" style={{ left: `${pct(r.lo)}%`, width: `${pct(r.hi) - pct(r.lo)}%` }} />
+          )}
+          {r.lo == null && r.hi != null && (
+            <div className="cr-bar-band" style={{ left: "0%", width: `${pct(r.hi)}%` }} />
+          )}
+          {r.lo != null && r.hi == null && (
+            <div className="cr-bar-band" style={{ left: `${pct(r.lo)}%`, width: `${100 - pct(r.lo)}%` }} />
+          )}
+          {res && (
+            <div
+              className={`cr-bar-dot ${res.verdict === "in-range" ? "ok" : res.verdict.startsWith("critical") ? "bad" : "warn"}`}
+              style={{ left: `${pct(res.value)}%` }}
+            />
+          )}
+        </div>
+      )}
+
+      {res && v && (
+        <div className={`cr-verdict ${v.cls}`}>
+          {v.label}
+          <span className="v-sub">{v.sub}</span>
+        </div>
+      )}
+      {!r && raw.trim() && (
+        <div className="cr-verdict warn">
+          Can't auto-check
+          <span className="v-sub">This range isn't numeric — compare manually: {sex === "female" ? lab.female : lab.male}.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Lab detail body (shared by card + table row) ────────── */
+function LabBody({ lab }) {
+  const cat = CATEGORY_MAP[lab.category];
+  return (
+    <>
+      <div className="cr-range-grid">
+        <div className="cr-range-cell">
+          <div className="lbl">{sameRange(lab) ? "Reference" : "♂ Male"}</div>
+          <div className="val">{lab.male} {lab.unit}</div>
+        </div>
+        <div className="cr-range-cell">
+          <div className="lbl">{sameRange(lab) ? "Category" : "♀ Female"}</div>
+          <div className="val" style={{ color: sameRange(lab) ? "#8b6cff" : "#4ade80" }}>
+            {sameRange(lab) ? `${cat?.icon || ""} ${cat?.label || lab.category}` : `${lab.female} ${lab.unit}`}
+          </div>
+        </div>
+      </div>
+
+      {hasCritical(lab) && (
+        <div className="cr-crit-row">
+          {lab.critical_low && lab.critical_low !== "—" && (
+            <span className="cr-badge crit">▼ Crit low {lab.critical_low}</span>
+          )}
+          {lab.critical_high && lab.critical_high !== "—" && (
+            <span className="cr-badge crit">▲ Crit high {lab.critical_high}</span>
+          )}
+        </div>
+      )}
+
+      {lab.conv && <div className="cr-conv">{lab.conv}</div>}
+
+      {(lab.low || lab.high) && (
+        <div className="cr-causes">
+          {lab.low ? (
+            <div className="cr-cause lo">
+              <div className="h">↓ Low {lab.parameter.split("(")[0].trim()}</div>
+              {lab.low}
+            </div>
+          ) : null}
+          {lab.high ? (
+            <div className="cr-cause hi">
+              <div className="h">↑ High {lab.parameter.split("(")[0].trim()}</div>
+              {lab.high}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {lab.note && (
+        <div className="cr-pearl">
+          <b>💡 Pearl</b> — {lab.note}
+        </div>
+      )}
+
+      <ValueChecker lab={lab} />
+    </>
+  );
+}
+
+/* ── Card list item (mobile) ─────────────────────────────── */
+function LabCard({ lab, open, onToggle, favs, onFav }) {
+  return (
+    <div className={`cr-lab-card ${open ? "open" : ""}`}>
+      <button type="button" className="cr-lab-head" onClick={onToggle} aria-expanded={open}>
+        <span className="cr-lab-name">
+          {lab.parameter}
+          {lab.unit && <span className="unit">{lab.unit}</span>}
+        </span>
+        {hasCritical(lab) && <span className="cr-badge crit">⚠</span>}
+        <span className="cr-lab-range">
+          {sameRange(lab) ? lab.male : `♂${lab.male} ♀${lab.female}`}
+        </span>
+        <span
+          className={`cr-fav ${favs.includes(labId(lab)) ? "on" : ""}`}
+          role="button"
+          tabIndex={0}
+          aria-label="Toggle favorite"
+          onClick={(e) => {
+            e.stopPropagation();
+            onFav(labId(lab));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+              e.preventDefault();
+              onFav(labId(lab));
+            }
+          }}
+        >
+          {favs.includes(labId(lab)) ? "★" : "☆"}
+        </span>
+        <span className="cr-lab-chev">▾</span>
+      </button>
+      {open && (
+        <div className="cr-lab-body">
+          <LabBody lab={lab} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Main ────────────────────────────────────────────────── */
+export default function LabValues({ onBack }) {
+  const [search, setSearch] = useState("");
+  const [cat, setCat] = useState("");
+  const [openId, setOpenId] = useState(null);
+  const [quiz, setQuiz] = useState(null);
+  const { favs, recents, fav, visit } = usePrefs();
+
+  const filtered = useMemo(
+    () => LABS.filter((l) => matches(l, search) && (!cat || l.category === cat)),
+    [search, cat]
+  );
+
+  const favLabs = favs.map((id) => LABS.find((l) => labId(l) === id)).filter(Boolean);
+  const recentLabs = recents.map((id) => LABS.find((l) => labId(l) === id)).filter(Boolean).slice(0, 8);
+
+  const toggle = (l) => {
+    const id = labId(l);
+    const opening = openId !== id;
+    setOpenId(opening ? id : null);
+    if (opening) visit(id);
+  };
+
+  const startQuiz = () => {
+    const pool = filtered.length >= 4 ? filtered : LABS;
+    const questions = labQuestions(pool);
+    if (questions.length) {
+      setQuiz({
+        title: "🧪 Lab Values Quiz",
+        subtitle: `${questions.length} questions — ranges, units & causes`,
+        questions,
+      });
+    }
+  };
+
+  return (
+    <div className="cr-page">
+      <ExitPill title="Lab Values" onBack={onBack} />
+
+      <header className="cr-hero">
+        <div className="cr-hero-kicker">Clinical Reference</div>
+        <h1 className="cr-hero-title">🧪 Lab Values</h1>
+        <p className="cr-hero-sub">
+          {LABS.length} analytes — reference ranges, critical thresholds, causes
+          and clinical pearls. Type a patient result to check it against the range.
+        </p>
+      </header>
+
+      <div className="cr-toolbar">
+        <div className="cr-search">
+          <span>🔍</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search — e.g. K+, Hb, troponin, GGT, ABG…"
+          />
+        </div>
+        <div className="cr-chips">
+          <button type="button" className={`cr-chip ${!cat ? "on" : ""}`} onClick={() => setCat("")}>
+            All
+          </button>
+          {LAB_CATEGORIES.map((c) => (
+            <button key={c.id} type="button" className={`cr-chip ${cat === c.id ? "on" : ""}`} onClick={() => setCat(cat === c.id ? "" : c.id)}>
+              {c.icon} {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!search && !cat && favLabs.length > 0 && (
+        <>
+          <div className="cr-rail-label">⭐ Favorites</div>
+          <div className="cr-rail">
+            {favLabs.map((l) => (
+              <button key={labId(l)} type="button" className="cr-rail-item" onClick={() => toggle(l)}>
+                <span className="r-name">{l.parameter}</span>
+                <span className="r-sub">{l.male} {l.unit}</span>
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </>
+      )}
+
+      {!search && !cat && recentLabs.length > 0 && (
+        <>
+          <div className="cr-rail-label">🕘 Recent</div>
+          <div className="cr-rail">
+            {recentLabs.map((l) => (
+              <button key={labId(l)} type="button" className="cr-rail-item" onClick={() => toggle(l)}>
+                <span className="r-name">{l.parameter}</span>
+                <span className="r-sub">{l.male} {l.unit}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="cr-count">
+        {filtered.length} result{filtered.length === 1 ? "" : "s"}
+        {cat ? ` in ${CATEGORY_MAP[cat]?.label}` : ""}
+        <button type="button" className="cr-btn-ghost" style={{ float: "right", padding: "5px 12px" }} onClick={startQuiz}>
+          ⚡ Quiz me
+        </button>
       </div>
-      <p style={{ marginTop: 16, fontSize: 12, color: "#666", textAlign: "center" }}>
-        Reference ranges may vary by laboratory. Always check your local lab's reference values.
-      </p>
+
+      {filtered.length === 0 ? (
+        <div className="cr-empty">
+          <div className="e-ico">🔍</div>
+          <div className="e-title">No matches for "{search}"</div>
+          <div className="e-sub">Try an abbreviation — K+, Hb, CRP, GGT…</div>
+        </div>
+      ) : (
+        <>
+          {/* Mobile: expandable cards */}
+          <div className="cr-lab-cards">
+            {filtered.map((l) => (
+              <LabCard
+                key={labId(l)}
+                lab={l}
+                open={openId === labId(l)}
+                onToggle={() => toggle(l)}
+                favs={favs}
+                onFav={fav}
+              />
+            ))}
+          </div>
+
+          {/* Desktop: table with expandable detail row */}
+          <div className="cr-labtable-wrap">
+            <table className="cr-labtable">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Reference</th>
+                  <th>Critical</th>
+                  <th>Category</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((l) => {
+                  const id = labId(l);
+                  const isOpen = openId === id;
+                  return [
+                    <tr
+                      key={id}
+                      className={isOpen ? "open-row" : ""}
+                      onClick={() => toggle(l)}
+                    >
+                      <td className="lbl">
+                        {l.parameter}
+                        {l.unit && <span className="unit"> · {l.unit}</span>}
+                      </td>
+                      <td className="mono">
+                        {sameRange(l) ? l.male : `♂${l.male} ♀${l.female}`}
+                      </td>
+                      <td>
+                        {hasCritical(l) ? (
+                          <span className="cr-badge crit">⚠</span>
+                        ) : (
+                          <span className="cr-faint">—</span>
+                        )}
+                      </td>
+                      <td className="cr-muted">{CATEGORY_MAP[l.category]?.icon} {CATEGORY_MAP[l.category]?.label}</td>
+                      <td>
+                        <span
+                          className={`cr-fav ${favs.includes(id) ? "on" : ""}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label="Toggle favorite"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fav(id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              fav(id);
+                            }
+                          }}
+                        >
+                          {favs.includes(id) ? "★" : "☆"}
+                        </span>
+                      </td>
+                    </tr>,
+                    isOpen && (
+                      <tr key={`${id}-detail`}>
+                        <td colSpan={5} className="cr-lab-detail-td">
+                          <LabBody lab={l} />
+                        </td>
+                      </tr>
+                    ),
+                  ];
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <div className="cr-disclaimer">
+        <b>Reference ranges vary.</b> Intervals differ by laboratory, assay, age,
+        pregnancy and clinical context — always defer to the reporting lab's own
+        ranges. Educational use only.
+      </div>
+
+      {quiz && <QuickQuiz {...quiz} onClose={() => setQuiz(null)} />}
     </div>
   );
 }
