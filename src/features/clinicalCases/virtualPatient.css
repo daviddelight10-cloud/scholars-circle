@@ -390,7 +390,6 @@
   position: sticky; bottom: 0; z-index: 40;
   display: flex; gap: 9px; align-items: center;
   padding: 18px 0 8px; margin-top: 22px;
-  background: linear-gradient(transparent, var(--vp-ink) 55%);
 }
 .vp-cta-start {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -1054,9 +1053,4 @@
   .vp-og-log { max-height: 44vh; }
 }
 
-/* Keep the sticky bar clear of the fixed mobile bottom-nav (~76px + safe area) */
-@media (max-width: 768px) {
-  .vp-cta-bar { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
-  .vp-root { padding-bottom: 170px; }
-}
 
