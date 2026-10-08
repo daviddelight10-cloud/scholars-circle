@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { IconCheck, IconClock, IconCopy, IconList, IconSpinner, IconUsers } from "../icons.jsx";
+import { useEffect, useState } from "react";
+import { IconCheck, IconClock, IconCopy, IconCrown, IconList, IconShare, IconSpinner, IconUserMinus, IconUsers } from "../icons.jsx";
+import { messagesApi } from "../../messages/messagesApi.js";
 
 const TIMES = [15, 20, 30, 45, 60];
 
@@ -10,9 +11,14 @@ function initials(name) {
 export default function LobbyView({ room, myId, actions }) {
   const { code, title, isHost, settings, participants } = room;
   const [copied, setCopied] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [peerQ, setPeerQ] = useState("");
+  const [peers, setPeers] = useState(null);
+  const [sentTo, setSentTo] = useState(null);
 
   const me = participants.find((p) => p.userId === myId);
   const inviteUrl = `${window.location.origin}/live/${code}`;
+  const inviteText = `Join my live quiz on Scholar's Circle — "${title}" ⚡\n${inviteUrl}`;
   const allReady = participants.every((p) => p.lobbyReady);
 
   const copyInvite = async () => {
@@ -28,6 +34,41 @@ export default function LobbyView({ room, myId, actions }) {
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareNative = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Live Quiz invite", text: inviteText });
+      } else {
+        copyInvite();
+      }
+    } catch { /* cancelled */ }
+  };
+
+  const shareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(inviteText)}`, "_blank");
+  };
+
+  // Peer search for in-app friend invites
+  useEffect(() => {
+    if (!inviteOpen) return;
+    const t = setTimeout(() => {
+      messagesApi.searchPeers({ q: peerQ }).then(setPeers).catch(() => setPeers([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [peerQ, inviteOpen]);
+
+  const inviteFriend = async (p) => {
+    try {
+      await messagesApi.send({ toUserId: p.id, content: inviteText });
+      setSentTo(p.id);
+      setTimeout(() => setSentTo(null), 2000);
+    } catch { /* best-effort */ }
+  };
+
+  const kick = (p) => {
+    if (window.confirm(`Remove ${p.username} from the session?`)) actions.kick(p.userId);
   };
 
   return (
@@ -48,9 +89,42 @@ export default function LobbyView({ room, myId, actions }) {
             {copied ? <IconCheck size={18} style={{ color: "#3DD68C" }} /> : <IconCopy size={18} />}
           </button>
         </div>
-        <p style={{ fontSize: 11, color: "#6B7280", marginTop: 8 }}>
-          {copied ? "Invite link copied!" : "Tap to copy the invite link, or share the code."}
-        </p>
+        <div className="lq-invite-btns">
+          <button className="lq-invite-btn" onClick={shareNative}>
+            <IconShare size={13} /> Share link
+          </button>
+          <button className="lq-invite-btn" onClick={shareWhatsApp}>💬 WhatsApp</button>
+          <button className={`lq-invite-btn${inviteOpen ? " on" : ""}`} onClick={() => setInviteOpen((v) => !v)}>
+            <IconUsers size={13} /> Invite friends
+          </button>
+        </div>
+        {inviteOpen && (
+          <div className="lq-invite-panel">
+            <input
+              className="lq-invite-search"
+              placeholder="Search people…"
+              value={peerQ}
+              onChange={(e) => setPeerQ(e.target.value)}
+              autoFocus
+            />
+            <div className="lq-invite-peers">
+              {peers === null && <p className="lq-invite-empty">Loading…</p>}
+              {peers?.length === 0 && <p className="lq-invite-empty">No one found{peerQ ? ` for "${peerQ}"` : ""}.</p>}
+              {(peers || []).map((p) => (
+                <button key={p.id} className="lq-peer-row" onClick={() => inviteFriend(p)} disabled={sentTo === p.id}>
+                  <span
+                    className="lq-peer-ava"
+                    style={p.avatar ? { backgroundImage: `url(${p.avatar})`, backgroundSize: "cover" } : { background: "#3B82F6" }}
+                  >
+                    {!p.avatar && (p.name || "?").slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="lq-peer-name">{p.name}</span>
+                  <span className="lq-peer-send">{sentTo === p.id ? "Sent ✓" : "Invite"}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {isHost ? (
@@ -112,9 +186,26 @@ export default function LobbyView({ room, myId, actions }) {
                 <p className="lq-invite-name">
                   {p.username}{p.userId === myId ? " (You)" : ""}{p.isHost ? " · Host" : ""}
                 </p>
-                <span className={`lq-invite-status ${ready ? "lq-status-ready" : "lq-status-waiting"}`}>
-                  {ready ? <><IconCheck size={12} /> Ready</> : <><IconSpinner size={12} /> Waiting…</>}
-                </span>
+                {isHost && p.userId !== myId ? (
+                  <span className="lq-host-tools">
+                    <button
+                      className="lq-mini-btn"
+                      title={`Make ${p.username} the host`}
+                      aria-label={`Make ${p.username} the host`}
+                      onClick={() => actions.transferHost(p.userId)}
+                    ><IconCrown size={13} /></button>
+                    <button
+                      className="lq-mini-btn danger"
+                      title={`Remove ${p.username}`}
+                      aria-label={`Remove ${p.username}`}
+                      onClick={() => kick(p)}
+                    ><IconUserMinus size={13} /></button>
+                  </span>
+                ) : (
+                  <span className={`lq-invite-status ${ready ? "lq-status-ready" : "lq-status-waiting"}`}>
+                    {ready ? <><IconCheck size={12} /> Ready</> : <><IconSpinner size={12} /> Waiting…</>}
+                  </span>
+                )}
               </div>
             );
           })}

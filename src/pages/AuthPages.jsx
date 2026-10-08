@@ -24,6 +24,11 @@ export default function AuthPages() {
   const [signupRole, setSignupRole] = useState('STUDENT');
   const [showCodes, setShowCodes] = useState(false);
 
+  // Contextual banner when the ?redirect= points at a live-quiz invite —
+  // tells a brand-new user why they're suddenly on the signup page.
+  const redirectDest = safeRedirect(new URLSearchParams(location.search).get('redirect'), null);
+  const liveInvite = redirectDest?.startsWith('/live/') || null;
+
   const signupEmailRef = useRef('');
   const signupUsernameRef = useRef('');
   const signupPasswordRef = useRef('');
@@ -507,6 +512,13 @@ export default function AuthPages() {
             <Link to="/?force_home=1" style={{ fontSize: '0.84rem', color: '#646E84', fontWeight: 600, display: 'inline-flex', gap: 6, marginBottom: 20, textDecoration: 'none' }}>
               ← Back to home
             </Link>
+
+            {liveInvite && (
+              <div className="auth-banner" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.3)', color: '#F5A623', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: '1rem' }}>⚡</span>
+                <span>You've been invited to a live quiz — {mode === 'signup' ? 'create your account to join the lobby' : 'sign in to join the lobby'}.</span>
+              </div>
+            )}
 
             {/* Mode tabs — kills sign-in vs sign-up ambiguity, especially on mobile */}
             <div className="auth-tabs" role="tablist" aria-label="Choose sign in or create account">

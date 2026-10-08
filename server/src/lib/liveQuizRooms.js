@@ -1,7 +1,8 @@
 import crypto from "crypto";
 import { WebSocket } from "ws";
 import { prisma } from "../db.js";
-import { addLeagueXP } from "./badges.js";
+import { addLeagueXP, awardBadge } from "./badges.js";
+import { updateUniversalStreak } from "./streak.js";
 
 // ── In-memory live-quiz room manager ─────────────────────────────────────────
 // Live room state is ephemeral (like voice sessions); a LiveQuizSession DB row
@@ -16,10 +17,21 @@ const READY_FALLBACK_MS = 25000;
 const TEACHBACK_MS = 45000;
 const GRACE_MS = 30000;
 const ROOM_TTL_MS = 5 * 60 * 1000; // keep finished rooms briefly for reconnects
-const LIFELINE_COST = 50;
+const HOST_TRANSFER_MS = 30000; // promote a new host if the host stays offline
 const XP_PER_CORRECT = 20;
 const XP_TEACHBACK = 50;
 const XP_WAGER = 30;
+// Leaderboard points — correctness + speed + confidence calibration.
+// Correct: 100 base + up to 50 by remaining time + 20 for High confidence.
+// Wrong on High confidence: −20. Running total never drops below 0.
+const PTS_CORRECT = 100;
+const PTS_SPEED_MAX = 50;
+const PTS_CONFIDENCE = 20;
+const CLUTCH_WINDOW_MS = 5000; // correct locks inside the final 5s count for "The Clutch"
+const MSG_RATE_LIMIT = 15;     // any message type
+const MSG_RATE_WINDOW_MS = 2000;
+const CHAT_RATE_LIMIT = 6;     // chat is stricter — it's stored + broadcast
+const CHAT_RATE_WINDOW_MS = 5000;
 
 const COLORS = ["#3B82F6", "#FF6B5E", "#F5C542", "#3DD68C", "#A78BFA", "#EC4899", "#14B8A6", "#F97316"];
 const EMOJI_ALLOWED = new Set(["💡", "🔥", "👏", "❤️", "😂", "🎉"]);
@@ -74,6 +86,7 @@ function publicParticipant(p) {
     connected: p.connected,
     lobbyReady: p.lobbyReady,
     score: p.score,
+    points: p.points || 0,
     isHost: false, // filled by caller
   };
 }
@@ -113,9 +126,13 @@ export function createRoom({ hostId, hostName, resourceId, mcqResourceId, title,
     lifelineUsed: new Set(),
     teachBack: null, // { teacherId, text }
     xp: new Map(), // userId -> session xp
+    pointsDelta: {}, // userId -> points earned this question (for reveal)
+    kicked: new Set(), // userIds removed by the host — cannot rejoin
+    micOpen: false, // false = mics auto-muted during question phase
     groupStreak: 0,
     talkedThrough: 0,
     timerId: null,
+    hostTimer: null, // pending host-transfer timeout
     phaseDeadline: null,
     chatLog: [],
     dbId: null,
@@ -131,6 +148,7 @@ export function deleteRoom(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
   if (room.timerId) clearTimeout(room.timerId);
+  if (room.hostTimer) clearTimeout(room.hostTimer);
   roomByCode.delete(room.code);
   rooms.delete(roomId);
 }
@@ -150,6 +168,7 @@ function currentQuestionPayload(room, forUserId) {
     timeLimit: room.settings.timePerQuestion,
     serverNow: Date.now(),
     lockedCount: room.answers.size,
+    lockedIds: [...room.answers.keys()],
     totalCount: connectedParticipants(room).length,
     wagerEligible: room.wagerEligible.has(forUserId),
     wagerActive: room.wagers.get(forUserId) === true,
@@ -174,6 +193,7 @@ function buildSnapshot(room, forUserId) {
     participants: publicParticipants(room),
     talkedThrough: room.talkedThrough,
     groupStreak: room.groupStreak,
+    micOpen: room.micOpen,
     chatLog: room.chatLog.slice(-50),
     serverNow: Date.now(),
   };
@@ -195,7 +215,16 @@ function buildSnapshot(room, forUserId) {
 
 // ── Lobby handlers ───────────────────────────────────────────────────────────
 
+function freshStats() {
+  return {
+    times: [], correct: 0, lucky: 0, clutch: 0, answered: 0,
+    // confidence calibration: [correct, wrong] per level — powers the end-of-session summary
+    conf: { High: [0, 0], Medium: [0, 0], Low: [0, 0] },
+  };
+}
+
 export function registerParticipant(room, userId, username) {
+  if (room.kicked.has(userId)) return { ok: false, error: "You were removed from this session" };
   let p = room.participants.get(userId);
   if (p) {
     if (username && p.username === "Scholar") p.username = username;
@@ -208,10 +237,13 @@ export function registerParticipant(room, userId, username) {
     color: pickColor(room),
     ws: null,
     connected: false,
+    connectedAt: 0,
     lobbyReady: userId === room.hostId,
     score: 0,
-    stats: { times: [], correct: 0, lucky: 0 },
+    points: 0,
+    stats: freshStats(),
     graceTimerId: null,
+    rl: null, // per-socket rate-limit buckets, filled on first message
   };
   room.participants.set(userId, p);
   broadcast(room, { type: "lobby_state", participants: publicParticipants(room) });
@@ -219,6 +251,7 @@ export function registerParticipant(room, userId, username) {
 }
 
 export function attachSocket(room, userId, username, ws) {
+  if (room.kicked.has(userId)) return { ok: false, error: "You were removed from this session" };
   let p = room.participants.get(userId);
   if (!p) {
     const reg = registerParticipant(room, userId, username);
@@ -231,7 +264,13 @@ export function attachSocket(room, userId, username, ws) {
   }
   p.ws = ws;
   p.connected = true;
+  p.connectedAt = Date.now();
   room.emptySince = null;
+  // Host came back before the transfer window closed — cancel the handover.
+  if (userId === room.hostId && room.hostTimer) {
+    clearTimeout(room.hostTimer);
+    room.hostTimer = null;
+  }
 
   send(ws, buildSnapshot(room, userId));
   broadcast(room, { type: "player_joined", participants: publicParticipants(room) }, userId);
@@ -251,15 +290,53 @@ export function detachSocket(room, userId) {
   if (connectedParticipants(room).length === 0) {
     room.emptySince = Date.now();
   }
+  // Host left mid-session: give them a grace window to reconnect, then hand
+  // the crown to the longest-connected participant so the room isn't stuck.
+  if (
+    userId === room.hostId &&
+    room.phase !== "ended" &&
+    room.phase !== "complete" &&
+    !room.hostTimer &&
+    connectedParticipants(room).length > 0
+  ) {
+    room.hostTimer = setTimeout(() => transferHost(room), HOST_TRANSFER_MS);
+  }
   // Don't let a disconnect stall the room
   checkQuestionDone(room);
   checkReadyDone(room);
+}
+
+function transferHost(room) {
+  room.hostTimer = null;
+  if (room.phase === "ended" || room.phase === "complete") return;
+  const oldHost = room.participants.get(room.hostId);
+  if (oldHost?.connected) return; // came back already
+  const candidates = connectedParticipants(room).filter((p) => p.userId !== room.hostId);
+  if (candidates.length === 0) return;
+  candidates.sort((a, b) => a.connectedAt - b.connectedAt);
+  const next = candidates[0];
+  room.hostId = next.userId;
+  next.lobbyReady = true;
+  broadcast(room, { type: "host_changed", hostId: next.userId, name: next.username });
+  broadcast(room, { type: "lobby_state", participants: publicParticipants(room) });
+}
+
+// Token-bucket throttle per participant — chat is stricter because messages
+// persist to chatLog and broadcast to every socket.
+function rateOk(p, kind) {
+  const now = Date.now();
+  if (!p.rl) p.rl = {};
+  const [limit, win] = kind === "chat" ? [CHAT_RATE_LIMIT, CHAT_RATE_WINDOW_MS] : [MSG_RATE_LIMIT, MSG_RATE_WINDOW_MS];
+  const b = p.rl[kind] || (p.rl[kind] = { t: now, n: 0 });
+  if (now - b.t > win) { b.t = now; b.n = 0; }
+  return ++b.n <= limit;
 }
 
 export function handleMessage(room, userId, msg) {
   const p = room.participants.get(userId);
   if (!p || !p.connected) return;
   const isHost = userId === room.hostId;
+  if (!rateOk(p, "any")) return;
 
   switch (msg.type) {
     case "ping":
@@ -305,6 +382,7 @@ export function handleMessage(room, userId, msg) {
       checkReadyDone(room);
       return;
     case "chat":
+      if (!rateOk(p, "chat")) return;
       handleChat(room, p, msg);
       return;
     case "reaction": {
@@ -313,6 +391,44 @@ export function handleMessage(room, userId, msg) {
       broadcast(room, { type: "reaction", userId, emoji });
       return;
     }
+    case "force_reveal":
+      if (!isHost || room.phase !== "question") return;
+      if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
+      revealQuestion(room);
+      return;
+    case "kick": {
+      if (!isHost || msg.userId === room.hostId) return;
+      const target = room.participants.get(msg.userId);
+      if (!target) return;
+      room.kicked.add(msg.userId);
+      send(target.ws, { type: "session_ended", reason: "kicked" });
+      try { target.ws?.close(); } catch {}
+      detachSocket(room, msg.userId);
+      // Free the seat — a kicked player shouldn't hold one of the 8 slots
+      // or linger as a greyed-out avatar.
+      room.participants.delete(msg.userId);
+      room.answers.delete(msg.userId);
+      room.readySet.delete(msg.userId);
+      broadcast(room, { type: "player_left", participants: publicParticipants(room) });
+      checkQuestionDone(room);
+      checkReadyDone(room);
+      return;
+    }
+    case "transfer_host": {
+      if (!isHost) return;
+      const target = room.participants.get(msg.userId);
+      if (!target || !target.connected || msg.userId === room.hostId) return;
+      room.hostId = msg.userId;
+      target.lobbyReady = true;
+      broadcast(room, { type: "host_changed", hostId: room.hostId, name: target.username });
+      broadcast(room, { type: "lobby_state", participants: publicParticipants(room) });
+      return;
+    }
+    case "mic_mode":
+      if (!isHost) return;
+      room.micOpen = !!msg.open;
+      broadcast(room, { type: "mic_mode", open: room.micOpen });
+      return;
     case "back_to_lobby":
       if (room.phase !== "complete") return;
       backToLobby(room);
@@ -360,6 +476,7 @@ function openQuestion(room) {
   room.wagers = new Map();
   room.wagerEligible = new Set(room.prevCorrect); // correct on previous q → eligible to wager
   room.teachBack = null;
+  room.pointsDelta = {};
   room.phaseDeadline = Date.now() + room.settings.timePerQuestion * 1000;
   room.talkedThrough = room.qIndex;
 
@@ -378,15 +495,30 @@ function handleAnswer(room, p, msg) {
   if (!confidence) return;
 
   const q = room.questions[room.qIndex];
-  const timeMs = Math.max(0, room.settings.timePerQuestion * 1000 - (room.phaseDeadline - Date.now()));
+  const limitMs = room.settings.timePerQuestion * 1000;
+  const timeMs = Math.max(0, limitMs - (room.phaseDeadline - Date.now()));
   const correct = option === q.correct;
   room.answers.set(p.userId, { option, confidence, timeMs, correct });
 
+  // Leaderboard points: correctness + speed bonus + confidence calibration.
+  const speedFrac = Math.max(0, Math.min(1, 1 - timeMs / limitMs));
+  let delta = 0;
+  if (correct) {
+    delta = PTS_CORRECT + Math.round(PTS_SPEED_MAX * speedFrac) + (confidence === "High" ? PTS_CONFIDENCE : 0);
+  } else if (confidence === "High") {
+    delta = -PTS_CONFIDENCE;
+  }
+  p.points = Math.max(0, (p.points || 0) + delta);
+  room.pointsDelta[p.userId] = delta;
+
   p.stats.times.push(timeMs / 1000);
+  p.stats.answered++;
+  p.stats.conf[confidence][correct ? 0 : 1]++;
   if (correct) {
     p.stats.correct++;
     addXp(room, p.userId, XP_PER_CORRECT);
     if (confidence === "Low") p.stats.lucky++;
+    if (timeMs >= limitMs - CLUTCH_WINDOW_MS) p.stats.clutch++;
     if (room.wagers.get(p.userId) === true) addXp(room, p.userId, XP_WAGER);
   } else if (room.wagers.get(p.userId) === true) {
     addXp(room, p.userId, -XP_WAGER);
@@ -397,6 +529,7 @@ function handleAnswer(room, p, msg) {
     type: "lock_update",
     locked: room.answers.size,
     total: connectedParticipants(room).length,
+    ids: [...room.answers.keys()],
   });
   checkQuestionDone(room);
 }
@@ -423,9 +556,11 @@ function buildRevealPayload(room) {
   }
   const scores = {};
   const xpEarned = {};
+  const points = {};
   for (const p of room.participants.values()) {
     scores[p.userId] = p.score;
     xpEarned[p.userId] = room.xp.get(p.userId) || 0;
+    points[p.userId] = p.points || 0;
   }
   const numCorrect = [...room.answers.values()].filter((a) => a.correct).length;
   const soleCorrect = numCorrect === 1
@@ -439,6 +574,8 @@ function buildRevealPayload(room) {
     picks,
     scores,
     xpEarned,
+    points,
+    pointsDelta: { ...room.pointsDelta },
     numCorrect,
     soleCorrectId: soleCorrect,
     groupStreak: room.groupStreak,
@@ -491,8 +628,22 @@ function resolveTeachBack(room, text) {
   room.teachBack.resolved = true;
   room.teachBack.text = text;
   const teacher = room.participants.get(room.teachBack.teacherId);
+  // Teach-back XP is a social reward — a solo host could otherwise farm +50
+  // XP per question by typing 5 characters to themselves.
+  const social = room.participants.size > 1;
   if (text) {
-    addXp(room, room.teachBack.teacherId, XP_TEACHBACK);
+    if (social) {
+      addXp(room, room.teachBack.teacherId, XP_TEACHBACK);
+      awardBadge(room.teachBack.teacherId, "live_teacher").catch(() => {});
+    }
+    broadcast(room, {
+      type: "teachback",
+      userId: room.teachBack.teacherId,
+      name: teacher?.username,
+      color: teacher?.color,
+      text,
+      xpBonus: social ? XP_TEACHBACK : 0,
+    });
     broadcast(room, {
       type: "teachback",
       userId: room.teachBack.teacherId,
@@ -544,27 +695,20 @@ function advance(room) {
 
 // ── Lifeline / chat ──────────────────────────────────────────────────────────
 
-async function handleLifeline(room, p) {
-  if (room.phase !== "question") return;
-  if (room.answers.has(p.userId)) return;
+// Cost is paid client-side in 💎 (survival gems) before this message is sent —
+// the server just guards the once-per-session cap and serves the poll.
+// Marking lifelineUsed FIRST is what closes the double-tap race (the old
+// async coin debit let two requests pass the check before either recorded it).
+function handleLifeline(room, p) {
+  if (room.phase !== "question" || room.answers.has(p.userId)) return;
   if (room.lifelineUsed.has(p.userId)) return;
+  room.lifelineUsed.add(p.userId);
 
-  try {
-    const progress = await prisma.userProgress.findUnique({ where: { userId: p.userId } });
-    if (!progress || progress.coins < LIFELINE_COST) {
-      send(p.ws, { type: "lifeline_denied", reason: "Not enough coins" });
-      return;
-    }
-    await prisma.userProgress.update({
-      where: { userId: p.userId },
-      data: { coins: { decrement: LIFELINE_COST } },
-    });
-  } catch {
-    send(p.ws, { type: "lifeline_denied", reason: "Could not use lifeline" });
+  if (room.answers.size === 0) {
+    room.lifelineUsed.delete(p.userId);
+    send(p.ws, { type: "lifeline_denied", reason: "No one has locked an answer yet — nothing to poll" });
     return;
   }
-
-  room.lifelineUsed.add(p.userId);
   // Reveal the distribution of already-locked answers (anonymized)
   const votes = { A: 0, B: 0, C: 0, D: 0 };
   for (const a of room.answers.values()) votes[a.option]++;
@@ -616,12 +760,22 @@ function computeAwards(room) {
   if (brainWinner && maxCorrect > 0) {
     awards.push({ key: "brain", title: "The Brain", subtitle: "Highest accuracy in the session", winnerId: brainWinner.userId, winnerName: brainWinner.username, color: brainWinner.color });
   }
+
+  let clutchWinner = null;
+  let maxClutch = 0;
+  for (const p of ps) {
+    if (p.stats.clutch > maxClutch) { maxClutch = p.stats.clutch; clutchWinner = p; }
+  }
+  if (clutchWinner) {
+    awards.push({ key: "clutch", title: "The Clutch", subtitle: "Most correct answers in the final 5 seconds", winnerId: clutchWinner.userId, winnerName: clutchWinner.username, color: clutchWinner.color });
+  }
   return awards;
 }
 
 async function completeSession(room) {
   room.phase = "complete";
   if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
+  if (room.hostTimer) { clearTimeout(room.hostTimer); room.hostTimer = null; }
 
   const leaderboard = [...room.participants.values()]
     .map((p) => ({
@@ -629,36 +783,60 @@ async function completeSession(room) {
       username: p.username,
       color: p.color,
       score: p.score,
+      points: p.points || 0,
+      totalTimeMs: Math.round(p.stats.times.reduce((a, b) => a + b, 0) * 1000),
       xp: room.xp.get(p.userId) || 0,
     }))
-    .sort((a, b) => b.score - a.score || b.xp - a.xp);
+    .sort((a, b) => b.points - a.points || b.score - a.score || a.totalTimeMs - b.totalTimeMs);
 
   const awards = computeAwards(room);
   const xpEarned = {};
   for (const [uid, xp] of room.xp) xpEarned[uid] = xp;
+  const calibration = {};
+  const participantIds = [];
+  for (const p of room.participants.values()) {
+    calibration[p.userId] = p.stats.conf;
+    participantIds.push(p.userId);
+  }
 
-  room.results = { leaderboard, awards, xpEarned, totalQuestions: room.questions.length };
+  room.results = { leaderboard, awards, xpEarned, calibration, participantIds, totalQuestions: room.questions.length };
   broadcast(room, { type: "complete", ...room.results });
 
   persistSession(room, "complete").catch(() => {});
 
-  // Award XP (fire-and-forget per participant)
-  for (const [userId, xp] of room.xp) {
-    if (xp <= 0) continue;
+  const winner = leaderboard[0];
+
+  // Per-participant side effects: XP, streak credit, live badges (fire-and-forget)
+  for (const p of room.participants.values()) {
+    const uid = p.userId;
+    const xp = room.xp.get(uid) || 0;
     (async () => {
       try {
-        await prisma.userProgress.upsert({
-          where: { userId },
-          update: { xp: { increment: xp } },
-          create: { userId, xp },
-        });
-        await prisma.user.update({
-          where: { id: userId },
-          data: { totalXp: { increment: xp } },
-        }).catch(() => {});
-        await addLeagueXP(userId, xp);
+        if (xp > 0) {
+          await prisma.userProgress.upsert({
+            where: { userId: uid },
+            update: { xp: { increment: xp } },
+            create: { userId: uid, xp },
+          });
+          await prisma.user.update({
+            where: { id: uid },
+            data: { totalXp: { increment: xp } },
+          }).catch(() => {});
+          await addLeagueXP(uid, xp);
+        }
+        // A live quiz IS studying — it counts toward the daily streak.
+        if (p.stats.answered > 0) {
+          await updateUniversalStreak(uid, prisma).catch(() => {});
+          await awardBadge(uid, "live_first").catch(() => {});
+          if (winner?.userId === uid && room.participants.size > 1) {
+            await awardBadge(uid, "live_win").catch(() => {});
+          }
+          // Well-calibrated: leaned on High confidence and was never wrong with it
+          const [hc, hw] = p.stats.conf.High;
+          if (hc >= 3 && hw === 0) await awardBadge(uid, "live_calibrated").catch(() => {});
+        }
       } catch (err) {
-        console.warn(`Live quiz XP award failed for ${userId}:`, err.message);
+        console.warn(`Live quiz completion side-effects failed for ${uid}:`, err.message);
       }
     })();
   }
@@ -692,7 +870,8 @@ function backToLobby(room) {
   for (const p of room.participants.values()) {
     p.lobbyReady = p.userId === room.hostId;
     p.score = 0;
-    p.stats = { times: [], correct: 0, lucky: 0 };
+    p.points = 0;
+    p.stats = freshStats();
     if (p.connected) send(p.ws, buildSnapshot(room, p.userId));
   }
 }
@@ -701,6 +880,7 @@ export function endRoom(room, reason = "ended_by_host") {
   if (room.phase === "ended") return;
   room.phase = "ended";
   if (room.timerId) { clearTimeout(room.timerId); room.timerId = null; }
+  if (room.hostTimer) { clearTimeout(room.hostTimer); room.hostTimer = null; }
   broadcast(room, { type: "session_ended", reason });
   persistSession(room, "ended").catch(() => {});
   for (const p of room.participants.values()) {

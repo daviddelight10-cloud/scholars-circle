@@ -25,3 +25,12 @@ export const IconUsers = (p) => <S {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4
 export const IconCopy = (p) => <S {...p}><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></S>;
 export const IconSpinner = (p) => <S {...p} style={{ animation: "lq-spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.2-8.6" /></S>;
 export const IconStop = (p) => <S {...p}><rect x="6" y="6" width="12" height="12" rx="2" /></S>;
+export const IconVolume = (p) => <S {...p}><path d="M11 5 6 9H2v6h4l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14" /></S>;
+export const IconVolumeOff = (p) => <S {...p}><path d="M11 5 6 9H2v6h4l5 4z" /><path d="M22 9l-6 6M16 9l6 6" /></S>;
+export const IconBroadcast = (p) => <S {...p}><circle cx="12" cy="12" r="2" /><path d="M4.9 19.1a10 10 0 0 1 0-14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2" /></S>;
+export const IconZap = (p) => <S {...p}><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" /></S>;
+export const IconShare = (p) => <S {...p}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></S>;
+export const IconRefresh = (p) => <S {...p}><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" /></S>;
+export const IconHistory = (p) => <S {...p}><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></S>;
+export const IconUserMinus = (p) => <S {...p}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M17 11h6" /></S>;
+export const IconCrown = (p) => <S {...p}><path d="m2 6 4 6 6-7 6 7 4-6-2 12H4z" /></S>;

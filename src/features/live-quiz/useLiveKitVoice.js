@@ -67,6 +67,17 @@ export function useLiveKitVoice(roomId, enabled) {
     };
   }, [roomId, enabled]);
 
+  const setMicMuted = useCallback(async (shouldMute) => {
+    const room = roomRef.current;
+    if (!room || !connected) return;
+    try {
+      await room.localParticipant.setMicrophoneEnabled(!shouldMute);
+      setMuted(shouldMute);
+    } catch (err) {
+      console.warn("Mic mute failed:", err.message);
+    }
+  }, [connected]);
+
   const toggleMic = useCallback(async () => {
     const room = roomRef.current;
     if (!room || !connected) return;
@@ -79,5 +90,5 @@ export function useLiveKitVoice(roomId, enabled) {
     }
   }, [connected, muted]);
 
-  return { voiceAvailable, connected, muted, speakingIds, toggleMic };
+  return { voiceAvailable, connected, muted, speakingIds, toggleMic, setMicMuted };
 }

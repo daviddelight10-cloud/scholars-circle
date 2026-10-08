@@ -59,9 +59,13 @@
   animation: modal-in 0.2s ease both;
 }
 
+/* Centered toasts must NOT put translateX(-50%) in the keyframe — Tailwind v4
+   renders -translate-x-1/2 as the `translate` property, which COMBINES with
+   `transform` and double-shifts the element off-screen. Horizontal centering
+   belongs to the element's own translate property; this keyframe only fades/rises. */
 @keyframes fade-up {
-  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fabslide {

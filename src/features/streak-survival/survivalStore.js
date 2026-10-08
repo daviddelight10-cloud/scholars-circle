@@ -151,6 +151,23 @@ export const THEMES = [
   { id: 'violet', name: 'Violet', color: '#B388FF', deep: '#7c5cd6', cost: 25 },
 ];
 
+// Spend gems if the balance covers it. Returns true on success — atomic
+// against the cache so a double-tap can't go negative.
+export function trySpendGems(amount) {
+  let ok = false;
+  mutate((s) => {
+    if ((s.gems || 0) < amount) return;
+    s.gems -= amount;
+    ok = true;
+  });
+  return ok;
+}
+
+// Refund / reward gems without touching lifetimeGems (refunds aren't earnings).
+export function addGems(amount) {
+  mutate((s) => { s.gems = (s.gems || 0) + amount; });
+}
+
 // kind: 'shield' | 'heartRefill' → true if purchased
 export function buyItem(kind) {
   const def = SHOP[kind];

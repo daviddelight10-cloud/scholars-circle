@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { AccessToken } from "livekit-server-sdk";
-import { requireAuth } from "../middleware/auth.js";
+import rateLimit from "express-rate-limit";
+import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import { prisma } from "../db.js";
 import { generateTicket, consumeTicket } from "./voiceSession.js";
 import {
@@ -17,8 +18,32 @@ import {
 
 const router = Router();
 
+// Each create announces to the feed + pushes to followers — cap it so it
+// can't be spammed. Keyed by user (falls back to IP pre-auth).
+const createLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 6,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.sub || req.ip,
+  message: { error: "Too many live sessions — try again in a bit" },
+});
+
 function userId(req) {
   return req.user.sub || req.user.id;
+}
+
+// Prefer the display name (what friends know them as) over the username handle.
+async function displayNameFor(id, fallback) {
+  try {
+    const u = await prisma.user.findUnique({
+      where: { id },
+      select: { username: true, fullName: true },
+    });
+    return u?.fullName || u?.username || fallback || "Scholar";
+  } catch {
+    return fallback || "Scholar";
+  }
 }
 
 function shuffle(arr) {
@@ -49,18 +74,37 @@ function normalizeMcqData(mcqData) {
 }
 
 // POST /api/live-quiz/create — create a room from an MCQ resource
-router.post("/create", requireAuth, async (req, res) => {
+router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
     const { mcqResourceId, timePerQuestion, numQuestions } = req.body || {};
     if (!mcqResourceId) return res.status(400).json({ error: "mcqResourceId is required" });
 
     const mcq = await prisma.resource.findUnique({
       where: { id: mcqResourceId },
-      select: { id: true, title: true, contentType: true, mcqData: true, sourceResourceId: true, status: true },
+      select: {
+        id: true, title: true, contentType: true, mcqData: true,
+        sourceResourceId: true, status: true, uploadedBy: true,
+        folder: { select: { deletedAt: true } },
+        sourceResource: { select: { status: true } },
+      },
     });
     if (!mcq) return res.status(404).json({ error: "MCQ resource not found" });
     if (mcq.contentType !== "mcq" || !mcq.mcqData) {
       return res.status(400).json({ error: "This resource has no MCQ questions" });
+    }
+    if (mcq.folder?.deletedAt) {
+      return res.status(410).json({ error: "This material was deleted" });
+    }
+    // Anyone could previously host a room (serving every question + explanation)
+    // from a resource id they shouldn't see. Hosting is allowed for the owner,
+    // public/approved material, or a set derived from one — nothing else.
+    const uid = userId(req);
+    const allowed =
+      mcq.uploadedBy === uid ||
+      mcq.status === "approved" ||
+      mcq.sourceResource?.status === "approved";
+    if (mcq.status === "rejected" || !allowed) {
+      return res.status(403).json({ error: "You can't go live with this material" });
     }
 
     const questions = normalizeMcqData(mcq.mcqData);
@@ -68,16 +112,17 @@ router.post("/create", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "This MCQ set is empty" });
     }
 
+    const hostName = await displayNameFor(uid, req.user.username);
     const room = createRoom({
-      hostId: userId(req),
-      hostName: req.user.username,
+      hostId: uid,
+      hostName,
       resourceId: mcq.sourceResourceId || null,
       mcqResourceId: mcq.id,
       title: mcq.title,
       questions: shuffle(questions),
       settings: { timePerQuestion, numQuestions },
     });
-    registerParticipant(room, userId(req), req.user.username);
+    registerParticipant(room, uid, hostName);
 
     const ticket = generateTicket(room.id, userId(req));
     res.json({
@@ -90,7 +135,6 @@ router.post("/create", requireAuth, async (req, res) => {
     });
 
     // Announce to the host's circle: feed post + follower push (best-effort)
-    const uid = userId(req);
     (async () => {
       try {
         const profile = await prisma.userProfile.findUnique({
@@ -173,8 +217,46 @@ router.get("/active", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/live-quiz/:code — public-ish room preview for invite landing
-router.get("/:code", requireAuth, async (req, res) => {
+// GET /api/live-quiz/history — the caller's recent completed sessions
+// NOTE: must be registered before /:code so "history" isn't treated as a code.
+router.get("/history", requireAuth, async (req, res) => {
+  try {
+    const uid = userId(req);
+    const rows = await prisma.liveQuizSession.findMany({
+      where: {
+        status: "complete",
+        OR: [
+          { hostId: uid },
+          { results: { path: ["participantIds"], array_contains: uid } },
+        ],
+      },
+      orderBy: { endedAt: "desc" },
+      take: 10,
+    });
+    res.json(rows.map((s) => {
+      const lb = Array.isArray(s.results?.leaderboard) ? s.results.leaderboard : [];
+      const myIdx = lb.findIndex((e) => e.userId === uid);
+      return {
+        code: s.code,
+        title: s.title,
+        endedAt: s.endedAt,
+        isHost: s.hostId === uid,
+        players: lb.length || (s.results?.participantIds?.length ?? 0),
+        winner: lb[0]?.username || null,
+        myRank: myIdx >= 0 ? myIdx + 1 : null,
+        myPoints: myIdx >= 0 ? lb[myIdx].points ?? null : null,
+        totalQuestions: s.results?.totalQuestions ?? null,
+      };
+    }));
+  } catch (err) {
+    console.error("Live quiz history error:", err);
+    res.status(500).json({ error: "Failed to load history" });
+  }
+});
+
+// GET /api/live-quiz/:code — room preview for the invite landing. Public so an
+// invitee without an account can see what they're joining before signing up.
+router.get("/:code", optionalAuth, async (req, res) => {
   try {
     const room = getRoomByCode(req.params.code);
     if (!room || room.phase === "ended") {
@@ -191,7 +273,7 @@ router.get("/:code", requireAuth, async (req, res) => {
       participantCount: [...room.participants.values()].filter((p) => p.connected).length,
       maxParticipants: 8,
       settings: room.settings,
-      isMember: room.participants.has(userId(req)),
+      isMember: req.user ? room.participants.has(userId(req)) : false,
     });
   } catch (err) {
     console.error("Live quiz preview error:", err);
@@ -209,13 +291,16 @@ router.post("/join", requireAuth, async (req, res) => {
     }
     const uid = userId(req);
     const already = room.participants.has(uid);
+    if (room.kicked.has(uid)) {
+      return res.status(403).json({ error: "You were removed from this session" });
+    }
     if (!already && room.phase !== "lobby" && room.phase !== "transition") {
       return res.status(409).json({ error: "Session already in progress", phase: room.phase });
     }
     if (!already && room.participants.size >= 8) {
       return res.status(409).json({ error: "Room is full" });
     }
-    const reg = registerParticipant(room, uid, req.user.username);
+    const reg = registerParticipant(room, uid, await displayNameFor(uid, req.user.username));
     if (!reg.ok) return res.status(409).json({ error: reg.error });
     const ticket = generateTicket(room.id, uid);
     res.json({ roomId: room.id, code: room.code, ticket, title: room.title });
@@ -288,6 +373,9 @@ export function attachLiveQuizSocket(request, ws) {
   if (!result.ok) return false;
 
   ws.on("message", (data) => {
+    // Messages here are tiny (answers, 300-char chat) — cap the frame so a
+    // hostile client can't make the server parse megabyte payloads.
+    if (data.length > 8192) return;
     let parsed;
     try { parsed = JSON.parse(data.toString()); } catch { return; }
     try {

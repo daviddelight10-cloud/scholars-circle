@@ -25,6 +25,11 @@ export const BADGE_DEFS = [
   // Social badges
   { key: "first_post", name: "Social Butterfly", description: "Make your first wall post", icon: "🦋", category: "social" },
   { key: "challenge_winner", name: "Challenge Champion", description: "Win a weekly challenge", icon: "🏅", category: "social" },
+  // Live quiz badges
+  { key: "live_first", name: "Live Wire", description: "Play your first live quiz", icon: "⚡", category: "social" },
+  { key: "live_win", name: "Giant Slayer", description: "Top the leaderboard in a live quiz", icon: "🏆", category: "social" },
+  { key: "live_calibrated", name: "Calibrated", description: "3+ high-confidence correct answers with zero overconfident misses in a live quiz", icon: "🎯", category: "social" },
+  { key: "live_teacher", name: "Teach Back", description: "Explain an answer to the group in a live quiz", icon: "🗣️", category: "social" },
 ];
 
 // Ensure all badges exist in DB

@@ -34,6 +34,10 @@ export function getLiveRoom(code) {
   return request(`/api/live-quiz/${encodeURIComponent(code)}`);
 }
 
+export function getLiveHistory() {
+  return request("/api/live-quiz/history");
+}
+
 export function joinLiveRoom(code) {
   return request("/api/live-quiz/join", {
     method: "POST",

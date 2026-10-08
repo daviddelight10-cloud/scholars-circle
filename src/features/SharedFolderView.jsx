@@ -490,7 +490,7 @@ export default function SharedFolderView() {
           style={{ background: "#141414", borderColor: "rgba(245,166,35,0.35)", color: "#F5A623", animation: "fade-up 0.2s ease both", maxWidth: "calc(100vw - 32px)" }}
           role="status"
         >
-          <span className="truncate">{toast}</span>
+          <span style={{ whiteSpace: "normal", textAlign: "center" }}>{toast}</span>
         </div>
       )}
     </div>

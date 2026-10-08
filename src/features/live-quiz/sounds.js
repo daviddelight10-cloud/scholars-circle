@@ -1,7 +1,10 @@
 // Lightweight WebAudio sound effects for the live quiz room.
 let audioCtx = null;
+let muted = false;
+try { muted = localStorage.getItem("sc_lq_muted") === "1"; } catch {}
 
 function play(frequency, duration, type = "sine") {
+  if (muted) return;
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = audioCtx.createOscillator();
@@ -18,6 +21,11 @@ function play(frequency, duration, type = "sine") {
 }
 
 export const sounds = {
+  get muted() { return muted; },
+  setMuted(v) {
+    muted = !!v;
+    try { localStorage.setItem("sc_lq_muted", v ? "1" : "0"); } catch {}
+  },
   lock() { play(523.25, 0.1); setTimeout(() => play(659.25, 0.15), 100); },
   reveal() { play(440, 0.1, "triangle"); setTimeout(() => play(554, 0.2, "triangle"), 100); },
   tick() { play(1000, 0.05, "square"); },

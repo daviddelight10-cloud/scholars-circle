@@ -28,11 +28,12 @@ const initialState = {
   complete: null,
   nextIndex: 0,
   endReason: null,
+  micOpen: false,
   error: null,
   serverOffset: 0, // serverNow - clientNow, for deadline countdowns
 };
 
-export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) {
+export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat, myId } = {}) {
   const [state, setState] = useState({ ...initialState, roomId });
   const stateRef = useRef(state);
   const wsRef = useRef(null);
@@ -41,6 +42,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) 
   const pingRef = useRef(null);
   const closedRef = useRef(false);
   const connectRef = useRef(null);
+  const myIdRef = useRef(myId);
   const callbacksRef = useRef({ onReaction, onChat });
 
   useEffect(() => {
@@ -80,6 +82,7 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) 
           ready: msg.ready || s.ready,
           teachBack: msg.teachBack || null,
           complete: msg.complete || null,
+          micOpen: !!msg.micOpen,
           poll: null,
           serverOffset: offset,
         }));
@@ -92,6 +95,16 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) 
       case "player_left":
         patch({ participants: msg.participants });
         break;
+      case "host_changed":
+        setState((s) => ({
+          ...s,
+          participants: s.participants.map((p) => ({ ...p, isHost: p.userId === msg.hostId })),
+          isHost: msg.hostId === myIdRef.current,
+        }));
+        break;
+      case "mic_mode":
+        patch({ micOpen: !!msg.open });
+        break;
       case "phase":
         if (msg.phase === "transition") {
           patch({ phase: "transition", nextIndex: msg.nextIndex, reveal: null, ready: { ready: [], needed: [] }, teachBack: null, poll: null });
@@ -101,11 +114,24 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) 
         patch({ phase: "question", question: msg, reveal: null, poll: null, teachBack: null, ready: { ready: [], needed: [] } });
         break;
       case "lock_update":
-        setState((s) => s.question ? { ...s, question: { ...s.question, lockedCount: msg.locked, totalCount: msg.total } } : s);
+        setState((s) => s.question
+          ? { ...s, question: { ...s.question, lockedCount: msg.locked, totalCount: msg.total, lockedIds: msg.ids || s.question.lockedIds } }
+          : s);
         break;
       case "reveal":
         sounds.reveal();
-        patch({ phase: "reveal", reveal: msg, talkedThrough: (msg.index ?? 0) + 1, groupStreak: msg.groupStreak });
+        // Carry points onto participants so avatar score badges persist
+        // through the next question phase (reveal is nulled between rounds).
+        setState((s) => ({
+          ...s,
+          phase: "reveal",
+          reveal: msg,
+          talkedThrough: (msg.index ?? 0) + 1,
+          groupStreak: msg.groupStreak,
+          participants: msg.points
+            ? s.participants.map((p) => msg.points[p.userId] != null ? { ...p, points: msg.points[p.userId] } : p)
+            : s.participants,
+        }));
         break;
       case "teachback_prompt":
         patch({ phase: "teachback", teachBack: { teacherId: msg.teacherId, teacherName: msg.teacherName, text: null } });
@@ -240,6 +266,10 @@ export function useLiveQuiz(roomId, initialTicket, { onReaction, onChat } = {}) 
       sendChat: (text) => send({ type: "chat", text }),
       react: (emoji) => send({ type: "reaction", emoji }),
       clearPoll: () => patch({ poll: null }),
+      forceReveal: () => send({ type: "force_reveal" }),
+      kick: (userId) => send({ type: "kick", userId }),
+      transferHost: (userId) => send({ type: "transfer_host", userId }),
+      setMicMode: (open) => send({ type: "mic_mode", open }),
       backToLobby: () => send({ type: "back_to_lobby" }),
       leave: () => send({ type: "leave" }),
       end: () => send({ type: "end" }),

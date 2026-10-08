@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getLiveRoom, joinLiveRoom } from "./liveQuizApi.js";
 import LiveQuizRoom from "./LiveQuizRoom.jsx";
-import { IconSpinner, IconUsers } from "./icons.jsx";
+import { IconSpinner, IconUsers, IconZap } from "./icons.jsx";
 import "./live-quiz.css";
 
-function getMyId() {
+function getAuth() {
   try {
-    return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authUser?.id || null;
+    return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
   } catch {
-    return null;
+    return {};
   }
 }
 
@@ -17,13 +17,16 @@ export default function LiveQuizPage() {
   const { code } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const myId = getMyId();
+  const myId = getAuth().authUser?.id || null;
+  const isAuthed = !!getAuth().authToken;
+  const wantJoin = new URLSearchParams(location.search).get("join") === "1";
 
   // Host arrives here right after create — ticket passed via router state
   const [joined, setJoined] = useState(location.state?.ticket ? { ticket: location.state.ticket, roomId: location.state.roomId } : null);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
   const [joining, setJoining] = useState(false);
+  const autoJoinRef = useRef(false);
 
   useEffect(() => {
     if (joined) return;
@@ -47,6 +50,17 @@ export default function LiveQuizPage() {
     }
   };
 
+  // ?join=1 is set by the invite flow — after signup/login the user returns
+  // here and drops straight into the lobby without a second tap.
+  useEffect(() => {
+    if (!wantJoin || autoJoinRef.current || !isAuthed || !preview || joined || joining) return;
+    if (!preview.joinable && !preview.isMember) return;
+    autoJoinRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    join();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantJoin, isAuthed, preview, joined, joining]);
+
   // Return to wherever the session was launched (shared landing, /app tab…),
   // never the bare /resources route that strands users outside the app shell.
   const exit = () => navigate(location.state?.returnTo || "/app", { replace: true });
@@ -58,6 +72,9 @@ export default function LiveQuizPage() {
       </div>
     );
   }
+
+  const signupRedirect = `/signup?redirect=${encodeURIComponent(`/live/${code}?join=1`)}`;
+  const loginRedirect = `/login?redirect=${encodeURIComponent(`/live/${code}?join=1`)}`;
 
   return (
     <div className="dark" style={{ minHeight: "100dvh", background: "#05070a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
@@ -88,23 +105,40 @@ export default function LiveQuizPage() {
 
             <div className="lq-settings-summary" style={{ marginBottom: 20 }}>
               <div className="lq-summary-item"><IconUsers size={16} /> {preview.participantCount}/{preview.maxParticipants} in the lobby</div>
+              <div className="lq-summary-item"><IconZap size={16} /> {preview.settings?.numQuestions || "—"} questions · {preview.settings?.timePerQuestion || 30}s each</div>
             </div>
 
             {error && <p style={{ fontSize: 13, color: "#FF6B5E", marginBottom: 12, textAlign: "center" }}>{error}</p>}
 
-            {preview.joinable || preview.isMember ? (
+            {!isAuthed ? (
+              <>
+                <button className="lq-btn-primary" onClick={() => navigate(signupRedirect)}>
+                  Sign up free to join
+                </button>
+                <button className="lq-btn-secondary" onClick={() => navigate(loginRedirect)}>
+                  I have an account — log in
+                </button>
+                <p style={{ fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 10, marginBottom: 0 }}>
+                  You'll land right back in this lobby after signing up.
+                </p>
+              </>
+            ) : preview.joinable || preview.isMember ? (
               <button className="lq-btn-primary" onClick={join} disabled={joining}>
                 {joining ? "Joining…" : preview.isMember ? "Rejoin Session" : "Join Session"}
               </button>
             ) : (
               <>
-                <button className="lq-btn-primary" disabled>Session already in progress</button>
+                <button className="lq-btn-primary" disabled>
+                  {preview.phase === "complete" ? "Session has finished" : "Session already in progress"}
+                </button>
                 <p style={{ fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 8 }}>
-                  This live quiz already started — ask the host to start a new one.
+                  {preview.phase === "complete"
+                    ? "This live quiz wrapped up — ask the host for a rematch."
+                    : "This live quiz already started — ask the host to start a new one."}
                 </p>
               </>
             )}
-            <button className="lq-btn-secondary" onClick={exit}>Back</button>
+            {isAuthed && <button className="lq-btn-secondary" onClick={exit}>Back</button>}
           </div>
         )}
       </div>

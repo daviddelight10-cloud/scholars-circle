@@ -81,8 +81,9 @@ export default function AppRouter() {
       {/* Shared folder route */}
       <Route path="/folders/:shareToken" element={<div className="app dark"><SharedFolderView /></div>} />
 
-      {/* Live quiz room — invite link target */}
-      <Route path="/live/:code" element={<RequireAuth><LiveQuizPage /></RequireAuth>} />
+      {/* Live quiz room — invite link target. Public: guests see the invite
+          card and get sent to signup; joining itself still requires auth. */}
+      <Route path="/live/:code" element={<LiveQuizPage />} />
 
       {/* Blog routes */}
       <Route path="/blog" element={<BlogList />} />

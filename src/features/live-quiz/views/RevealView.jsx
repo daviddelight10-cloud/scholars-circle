@@ -53,6 +53,13 @@ export default function RevealView({ room, myId, actions }) {
       </p>
       {q && <p className="lq-q-text" style={{ fontSize: 16, marginBottom: 20 }}>{q.question}</p>}
 
+      {r.pointsDelta?.[myId] != null && r.pointsDelta[myId] !== 0 && (
+        <p className={`lq-delta-line${r.pointsDelta[myId] > 0 ? " up" : " down"}`}>
+          {r.pointsDelta[myId] > 0 ? `+${r.pointsDelta[myId]}` : r.pointsDelta[myId]} pts this round
+          {r.points?.[myId] != null ? ` · ${r.points[myId]} total` : ""}
+        </p>
+      )}
+
       <div className="lq-reveal-options">
         {letters.map((letter) => {
           const isCorrect = letter === r.correct;

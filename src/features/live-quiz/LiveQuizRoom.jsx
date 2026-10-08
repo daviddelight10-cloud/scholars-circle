@@ -7,7 +7,7 @@ import LobbyView from "./views/LobbyView.jsx";
 import VotingView from "./views/VotingView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import CompleteView from "./views/CompleteView.jsx";
-import { IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconSend, IconStop, IconX } from "./icons.jsx";
+import { IconBroadcast, IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconSend, IconStop, IconVolume, IconVolumeOff, IconX } from "./icons.jsx";
 
 const EMOJIS = ["💡", "🔥", "👏", "❤️", "😂"];
 
@@ -16,13 +16,16 @@ function initials(name) {
 }
 
 function TransitionView({ room }) {
+  const [count, setCount] = useState(3);
+  useEffect(() => {
+    const iv = setInterval(() => setCount((c) => (c > 1 ? c - 1 : c)), 700);
+    return () => clearInterval(iv);
+  }, []);
   return (
     <div className="lq-view" style={{ justifyContent: "center", alignItems: "center" }}>
       <div style={{ textAlign: "center" }}>
         <p className="lq-q-label">GET READY</p>
-        <p style={{ fontFamily: "Georgia,serif", fontSize: 32, fontWeight: 700, color: "#F3F4F6", margin: "8px 0 0" }}>
-          Next question coming…
-        </p>
+        <p key={count} className="lq-countdown">{count}</p>
         <p style={{ fontSize: 13, color: "#6B7280", marginTop: 8 }}>
           Question {(room.nextIndex ?? 0) + 1} of {room.question?.total || room.settings.numQuestions}
         </p>
@@ -51,11 +54,30 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
     if (!chatOpenRef.current && msg.userId !== myId) roomRef.current?.setUnread((n) => n + 1);
   }, [myId]);
 
-  const room = useLiveQuiz(roomId, ticket, { onReaction, onChat });
+  const room = useLiveQuiz(roomId, ticket, { onReaction, onChat, myId });
   useEffect(() => { roomRef.current = room; });
+  const [soundOn, setSoundOn] = useState(() => !sounds.muted);
 
   // Voice connects once the session is live (and stays for lobby so friends can talk while waiting)
   const voice = useLiveKitVoice(roomId, room.phase !== "connecting" && room.phase !== "ended" && room.phase !== "error");
+
+  // Voice windows: mics auto-mute while answers are being cast (so nobody can
+  // call out the answer) unless the host opened the floor. Auto-restore after.
+  const autoMutedRef = useRef(false);
+  useEffect(() => {
+    if (!voice.connected || !voice.setMicMuted) return;
+    const quiet = room.phase === "question" && !room.micOpen;
+    if (quiet && !voice.muted && !autoMutedRef.current) {
+      autoMutedRef.current = true;
+      voice.setMicMuted(true);
+    } else if (!quiet && autoMutedRef.current) {
+      autoMutedRef.current = false;
+      voice.setMicMuted(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.phase, room.micOpen, voice.connected, voice.muted]);
+
+  const micLocked = room.phase === "question" && !room.micOpen;
 
   useEffect(() => {
     if (chatOpen && chatEndRef.current) {
@@ -123,24 +145,34 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
         </div>
       </div>
       <div className="lq-avatar-row">
-          {room.participants.map((p) => (
-            <div className="lq-avatar-wrap" key={p.userId} title={p.username}>
-              <div
-                className={`lq-avatar${voice.speakingIds.has(p.userId) ? " speaking" : ""}${p.connected ? "" : " offline"}`}
-                style={{ background: p.color }}
-              >
-                {initials(p.username)}
+          {room.participants.map((p) => {
+            const lockedIn = room.phase === "question" && (room.question?.lockedIds || []).includes(p.userId);
+            const pts = room.reveal?.points?.[p.userId] ?? p.points;
+            const delta = room.phase === "reveal" || room.phase === "teachback" ? room.reveal?.pointsDelta?.[p.userId] : null;
+            return (
+              <div className="lq-avatar-wrap" key={p.userId} title={p.username}>
+                <div
+                  className={`lq-avatar${voice.speakingIds.has(p.userId) ? " speaking" : ""}${p.connected ? "" : " offline"}${p.isHost ? " host" : ""}`}
+                  style={{ background: p.color }}
+                >
+                  {initials(p.username)}
+                </div>
+                {room.phase === "question" && p.userId === myId && room.timeLeft != null && !room.question?.answered && (
+                  <span className="lq-avatar-status" style={{ background: "#141414", color: room.timeLeft <= 5 ? "#FF6B5E" : "#F5C542" }}>
+                    {room.timeLeft}
+                  </span>
+                )}
+                {lockedIn && (
+                  <span className="lq-avatar-status" style={{ background: "#3DD68C", color: "#0A0C10" }}><IconCheck size={9} /></span>
+                )}
+                {(pts > 0 || delta != null) && room.phase !== "lobby" && (
+                  <span className={`lq-pts-badge${p.userId === myId ? " me" : ""}`}>
+                    {pts}{delta ? <em className={delta > 0 ? "up" : "down"}>{delta > 0 ? `+${delta}` : delta}</em> : null}
+                  </span>
+                )}
               </div>
-              {room.phase === "question" && p.userId === myId && room.timeLeft != null && !room.question?.answered && (
-                <span className="lq-avatar-status" style={{ background: "#141414", color: room.timeLeft <= 5 ? "#FF6B5E" : "#F5C542" }}>
-                  {room.timeLeft}
-                </span>
-              )}
-              {room.phase === "question" && room.reveal == null && room.question?.answered && p.userId === myId && (
-                <span className="lq-avatar-status" style={{ background: "#3DD68C", color: "#0A0C10" }}><IconCheck size={9} /></span>
-              )}
-            </div>
-          ))}
+            );
+          })}
       </div>
 
       <div className="lq-body">
@@ -152,15 +184,15 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
         )}
         {room.phase === "lobby" && <LobbyView room={room} myId={myId} actions={room.actions} />}
         {room.phase === "transition" && <TransitionView room={room} />}
-        {room.phase === "question" && <VotingView room={room} actions={room.actions} timeLeft={room.timeLeft} />}
+        {room.phase === "question" && <VotingView room={room} actions={room.actions} timeLeft={room.timeLeft} myId={myId} />}
         {(room.phase === "reveal" || room.phase === "teachback") && <RevealView room={room} myId={myId} actions={room.actions} />}
         {room.phase === "complete" && (
           <CompleteView room={room} myId={myId} onBackToLobby={room.actions.backToLobby} onExit={handleLeave} />
         )}
         {room.phase === "ended" && (
           <div className="lq-view"><div className="lq-center">
-            <p className="lq-title" style={{ fontSize: 20 }}>Session ended</p>
-            <p className="lq-subtitle">The host wrapped up this live session.</p>
+            <p className="lq-title" style={{ fontSize: 20 }}>{room.endReason === "kicked" ? "Removed from session" : "Session ended"}</p>
+            <p className="lq-subtitle">{room.endReason === "kicked" ? "The host removed you from this live quiz." : "The host wrapped up this live session."}</p>
             <button className="lq-btn-primary" style={{ maxWidth: 320 }} onClick={onExit}>Back to My Space</button>
           </div></div>
         )}
@@ -270,11 +302,29 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
           <button
             className={`lq-footer-btn${!voice.muted ? " mic-on" : " active-mic"}`}
             onClick={voice.toggleMic}
-            disabled={!voice.voiceAvailable || !voice.connected}
+            disabled={!voice.voiceAvailable || !voice.connected || micLocked}
             aria-label="Toggle microphone"
-            title={voice.voiceAvailable ? (voice.muted ? "Unmute mic" : "Mute mic") : "Voice not configured"}
+            title={micLocked ? "Mic opens when answers reveal" : voice.voiceAvailable ? (voice.muted ? "Unmute mic" : "Mute mic") : "Voice not configured"}
           >
             {voice.muted ? <IconMicOff size={20} /> : <IconMic size={20} />}
+          </button>
+          {room.isHost && (
+            <button
+              className={`lq-footer-btn${room.micOpen ? " mic-open" : ""}`}
+              onClick={() => room.actions.setMicMode(!room.micOpen)}
+              aria-label={room.micOpen ? "Restrict mics during questions" : "Open mics during questions"}
+              title={room.micOpen ? "Open floor — mics stay on during questions" : "Mics auto-mute while voting (tap to keep them open)"}
+            >
+              <IconBroadcast size={20} />
+            </button>
+          )}
+          <button
+            className="lq-footer-btn"
+            onClick={() => { sounds.setMuted(soundOn); setSoundOn(!soundOn); }}
+            aria-label={soundOn ? "Mute sounds" : "Unmute sounds"}
+            title={soundOn ? "Mute sounds" : "Unmute sounds"}
+          >
+            {soundOn ? <IconVolume size={20} /> : <IconVolumeOff size={20} />}
           </button>
           <button
             className={`lq-footer-btn${chatOpen ? " active-chat" : ""}${room.unread > 0 ? " has-unread" : ""}`}
