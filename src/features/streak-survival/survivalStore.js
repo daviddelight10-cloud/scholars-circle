@@ -85,25 +85,37 @@ function authToken() {
   } catch { return null; }
 }
 
-function pushGemsNow() {
+function pushGemsNow({ keepalive = false } = {}) {
   const s = loadSave();
   const token = authToken();
   if (!token || s.gems === lastSyncedGems) return;
   const gems = s.gems;
   lastSyncedGems = gems;
-  fetch(`${API_BASE}/api/user-data/gems`, {
+  // NOTE: userData is mounted at /user-data (no /api prefix on this router).
+  fetch(`${API_BASE}/user-data/gems`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     credentials: 'include',
+    keepalive,
     body: JSON.stringify({ gems }),
   }).then((res) => {
     if (!res.ok) throw new Error(`gems sync ${res.status}`);
     if (cache && cache.gems !== lastSyncedGems) scheduleGemSync(); // a mutation raced the push
-  }).catch(() => {
+  }).catch((e) => {
+    console.warn('[gems] sync failed:', e?.message);
     lastSyncedGems = null; // mark dirty so the next mutation retries
     if (!gemRetryTimer) {
       gemRetryTimer = setTimeout(() => { gemRetryTimer = null; pushGemsNow(); }, GEM_SYNC_RETRY_MS);
     }
+  });
+}
+
+// Flush the balance as the tab hides/closes — the 1.2s debounce alone could
+// lose an earn-then-leave race.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => pushGemsNow({ keepalive: true }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') pushGemsNow({ keepalive: true });
   });
 }
 
