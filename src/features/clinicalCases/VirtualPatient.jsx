@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { callAIChat, extractJSON } from "../../lib/aiClient";
 import { fsrsNewCard, fsrsRate, toFsrsCard } from "../../lib/fsrs.js";
-import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS, STATION_TYPES, DEFAULT_CLOSING_POINTS } from "./caseData";
+import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS, STATION_TYPES, DEFAULT_CLOSING_POINTS, voiceForCase } from "./caseData";
 import { analyzeCommunication, invitesHiddenAgenda } from "./commMetrics";
+import { useVoiceSession } from "../voice-tutor/useVoiceSession.js";
+import { VOICE_STATES } from "../voice-tutor/voiceConfig.js";
 import ExitPill from "../../components/ExitPill.jsx";
 import "./virtualPatient.css";
 
@@ -194,9 +196,27 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   const saveIndicatorTimerRef = useRef(null);
   const stationEndedRef = useRef(false);
 
+  // Voice consult (Gemini Live) — patient speaks; student talks back
+  const voice = useVoiceSession();
+  const voiceAutoHandsFreeRef = useRef(false);
+  const voiceAgendaScanRef = useRef(0);
+
+  const voiceLive = [VOICE_STATES.CONNECTING, VOICE_STATES.READY, VOICE_STATES.LISTENING, VOICE_STATES.SPEAKING, VOICE_STATES.THINKING].includes(voice.state);
+  const voiceStarting = voice.state === VOICE_STATES.CONNECTING;
+
+  // Unified consult transcript: tapped/typed messages + voice turns
+  // (voice "user" = the student, "tutor" = the patient role-player), merged
+  // chronologically so grading, comm-metrics and snapshots see one history.
+  const voiceFlushedRef = useRef(false);
+  const allMessages = useMemo(() => {
+    if (voiceFlushedRef.current || !voice.transcript.length) return messages;
+    const mapped = voice.transcript.map(t => ({ role: t.role === "user" ? "doc" : "pt", text: t.text, ts: t.ts }));
+    return [...messages, ...mapped].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  }, [messages, voice.transcript]);
+
   // Mirror of latest state for interval callbacks (avoids stale closures)
   const latest = useRef({});
-  latest.current = { screen, gameMode, paceSec, activeCase, messages, examinerMessages, invOrdered, examViewed, dx1, dx2, dx3, mgmt, ob, modal, stationMode, agendaRevealed };
+  latest.current = { screen, gameMode, paceSec, activeCase, messages, allMessages, examinerMessages, invOrdered, examViewed, dx1, dx2, dx3, mgmt, ob, modal, stationMode, agendaRevealed, voiceLive, endVoice: voice.endSession };
 
   const specialties = useMemo(() => ["All", ...Array.from(new Set(CASES.map(c => c.specialty)))], []);
   const filteredIndices = useMemo(() =>
@@ -245,7 +265,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   const totalExams = examKeys.length;
   const remainingExams = Math.max(0, totalExams - examViewed.length);
   const examsPct = totalExams ? Math.round((examViewed.length / totalExams) * 100) : 0;
-  const questionsAsked = messages.filter(m => m.role === "doc").length;
+  const questionsAsked = allMessages.filter(m => m.role === "doc" && !m.text.trim().startsWith("[")).length;
 
   // Load resume snapshot on mount; auto-open onboarding for first-time users
   useEffect(() => {
@@ -264,7 +284,53 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   // Auto-scroll chat
   useEffect(() => {
     if (chatLogRef.current) chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
-  }, [messages, isTyping]);
+  }, [allMessages, isTyping, voice.state]);
+
+  // Voice consult — once Gemini is ready, open the mic in hands-free (VAD)
+  // mode so the consult flows like a real bedside conversation.
+  useEffect(() => {
+    if (voice.state === VOICE_STATES.READY && voiceAutoHandsFreeRef.current) {
+      voiceAutoHandsFreeRef.current = false;
+      if (!voice.handsFreeMode) voice.toggleHandsFree();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.state]);
+
+  // Speech-side hidden-agenda gate: when the student's *spoken* turn invites
+  // the patient's held-back concern, send a silent stage direction so the
+  // patient may reveal it (typed messages are gated inside sendQuestion).
+  useEffect(() => {
+    const agenda = activeCase?.hidden_agenda;
+    if (!voiceLive || !agenda || agendaRevealed) return;
+    for (let i = voiceAgendaScanRef.current; i < voice.transcript.length; i++) {
+      const t = voice.transcript[i];
+      if (t.role === "user" && t.open === false && invitesHiddenAgenda(t.text)) {
+        voice.sendSystem(`[STAGE DIRECTION: the student has genuinely invited your held-back concern — you may now reveal it naturally in your next reply: "${agenda.reveal}"]`);
+        setAgendaRevealed(true);
+        break;
+      }
+    }
+    voiceAgendaScanRef.current = voice.transcript.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.transcript, voiceLive, agendaRevealed, activeCase]);
+
+  // When a voice consult ends, fold the spoken transcript into the message
+  // log — grading/snapshots keep it, and a later session can't duplicate it.
+  const voicePrevStateRef = useRef(voice.state);
+  useEffect(() => {
+    const prev = voicePrevStateRef.current;
+    voicePrevStateRef.current = voice.state;
+    const wasLive = [VOICE_STATES.CONNECTING, VOICE_STATES.READY, VOICE_STATES.LISTENING, VOICE_STATES.SPEAKING, VOICE_STATES.THINKING].includes(prev);
+    const nowDone = [VOICE_STATES.ENDED, VOICE_STATES.ERROR, VOICE_STATES.IDLE].includes(voice.state);
+    if (wasLive && nowDone && !voiceFlushedRef.current) {
+      voiceFlushedRef.current = true;
+      if (voice.transcript.length) {
+        setMessages(p => [...p, ...voice.transcript.map(t => ({ role: t.role === "user" ? "doc" : "pt", text: t.text, ts: t.ts }))]);
+        debouncedSnapshot();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.state]);
 
   useEffect(() => {
     if (examLogRef.current) examLogRef.current.scrollTop = examLogRef.current.scrollHeight;
@@ -286,6 +352,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
       const L = latest.current;
       if (L.stationMode && L.activeCase && !stationEndedRef.current && secs >= (L.paceSec || 600)) {
         stationEndedRef.current = true;
+        if (L.voiceLive) L.endVoice?.(); // bell ends the spoken consult too
         if (L.screen === "consult") {
           setScreen("assess");
           closeAllDrawers();
@@ -349,7 +416,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     const snap = {
       caseIndex: idx,
       mode: L.gameMode,
-      messages: L.messages,
+      messages: L.allMessages || L.messages,
       examinerMessages: L.examinerMessages,
       invOrdered: L.invOrdered,
       examViewed: L.examViewed,
@@ -442,11 +509,33 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     startCase(ob.caseIdx);
   }
 
+  /* ============ VOICE CONSULT ============ */
+  function toggleVoiceConsult() {
+    if (voiceLive || voice.state === VOICE_STATES.ERROR) {
+      voice.endSession();
+      return;
+    }
+    if (!activeCase) return;
+    voiceAutoHandsFreeRef.current = true;
+    voiceAgendaScanRef.current = 0;
+    voiceFlushedRef.current = false;
+    voice.startPatientSession({
+      station_type: activeCase.station_type,
+      demo: activeCase.demo,
+      cc: activeCase.cc,
+      persona: activeCase.persona,
+      history: activeCase.history,
+      hidden_agenda: activeCase.hidden_agenda,
+    }, voiceForCase(activeCase));
+  }
+
   /* ============ NAVIGATION ============ */
   function startCase(idx) {
     const c = CASES[idx];
+    if (voiceLive) voice.endSession();
+    voiceAgendaScanRef.current = 0;
     setActiveCase(c);
-    setMessages([{ role: "pt", text: c.cc }]);
+    setMessages([{ role: "pt", text: c.cc, ts: Date.now() }]);
     setExaminerMessages([]);
     setInvOrdered([]);
     setExamViewed([]);
@@ -481,7 +570,8 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     const c = CASES[snap.caseIndex];
     if (!c) return;
     setActiveCase(c);
-    setMessages(snap.messages || [{ role: "pt", text: c.cc }]);
+    if (voiceLive) voice.endSession();
+    setMessages(snap.messages || [{ role: "pt", text: c.cc, ts: Date.now() }]);
     setExaminerMessages(snap.examinerMessages || []);
     setInvOrdered(snap.invOrdered || []);
     setExamViewed(snap.examViewed || []);
@@ -512,6 +602,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   }
 
   function goToSelect() {
+    if (voiceLive) voice.endSession();
     setScreen("select");
     setToolsDrawerOpen(false);
     setVitalsDrawerOpen(false);
@@ -549,8 +640,6 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     const question = chatInput.trim();
     if (!question || isTyping) return;
     setChatInput("");
-    setIsTyping(true);
-    setMessages(prev => [...prev, { role: "doc", text: question }]);
 
     const c = activeCase;
     const isDataStation = c.station_type === "data";
@@ -559,6 +648,23 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     // message actively invites it (ICE/empathy/open "anything else").
     const agendaTrigger = c.hidden_agenda && !agendaRevealed && invitesHiddenAgenda(question);
     if (agendaTrigger) setAgendaRevealed(true);
+
+    // Voice consult live — typed lines reach the patient as text; the reply
+    // comes back as audio + live transcript. Stage direction unlocks the agenda.
+    if (voiceStarting) {
+      setChatInput(question); // keep the text — session isn't attached yet
+      return;
+    }
+    if (voiceLive) {
+      if (agendaTrigger) {
+        voice.sendSystem(`[STAGE DIRECTION: the student has genuinely invited your held-back concern — you may now reveal it naturally in this or your next reply: "${c.hidden_agenda.reveal}"]`);
+      }
+      voice.sendText(question);
+      return;
+    }
+
+    setIsTyping(true);
+    setMessages(prev => [...prev, { role: "doc", text: question, ts: Date.now() }]);
 
     const roleBlock = isDataStation
       ? `You are roleplaying as a hospital WARD NURSE reporting results to the medical student on call. ${c.persona ? `YOUR MANNER: ${c.persona}` : ""}`
@@ -596,10 +702,10 @@ RULES:
         provider: aiConfig?.provider,
         model: aiConfig?.model
       });
-      setMessages(prev => [...prev, { role: "pt", text: text || "…" }]);
+      setMessages(prev => [...prev, { role: "pt", text: text || "…", ts: Date.now() }]);
       debouncedSnapshot();
     } catch (e) {
-      setMessages(prev => [...prev, { role: "pt", text: "(connection trouble — try asking again)" }]);
+      setMessages(prev => [...prev, { role: "pt", text: "(connection trouble — try asking again)", ts: Date.now() }]);
     }
     setIsTyping(false);
   }
@@ -608,7 +714,7 @@ RULES:
   function doExam(key) {
     const finding = activeCase.exam[key] || "Nothing significant found on this examination.";
     setExamViewed(prev => [...prev, { key, finding }]);
-    setMessages(prev => [...prev, { role: "doc", text: `[Examines: ${EXAM_LABELS[key]}]` }, { role: "pt", text: finding }]);
+    setMessages(prev => [...prev, { role: "doc", text: `[Examines: ${EXAM_LABELS[key]}]`, ts: Date.now() }, { role: "pt", text: finding, ts: Date.now() + 1 }]);
     debouncedSnapshot();
   }
 
@@ -677,9 +783,11 @@ RULES:
     const dxList = [dx1, dx2, dx3].filter(Boolean).map(s => s.trim());
     setIsGrading(true);
     setGradeError(false);
+    if (voiceLive) voice.endSession();
 
     const c = activeCase;
-    const transcript = messages.map(m => `${m.role === "doc" ? "Student" : "Patient"}: ${m.text}`).join("\n") || "(no questions asked)";
+    const rpLabel = c.station_type === "data" ? "Nurse" : "Patient";
+    const transcript = allMessages.map(m => `${m.role === "doc" ? "Student" : rpLabel}: ${m.text}`).join("\n") || "(no questions asked)";
     const examLog = examViewed.map(e => `${EXAM_LABELS[e.key]}: ${e.finding}`).join("\n") || "(no examination performed)";
     const invLog = invOrdered.map(i => `${i.name}${i.relevant ? "" : " (low yield)"}: ${i.result}`).join("\n") || "(no investigations ordered)";
     const invStats = computeInvStats(invOrdered, c);
@@ -776,7 +884,7 @@ Rules:
       const historyScoreRaw = historyTotal ? Math.round((historyCovered / historyTotal) * 10) : 0;
 
       // Deterministic communication analysis — computed locally, not by the AI
-      const comm = analyzeCommunication(messages);
+      const comm = analyzeCommunication(allMessages);
 
       const closingPts = c.closing_points || DEFAULT_CLOSING_POINTS;
       const closingTotal = closingPts.length;
@@ -1180,22 +1288,48 @@ Answer the student's follow-up questions about their performance and the underly
 
             <div className="vp-chat-scroll">
               <div className="vp-chat-log" ref={chatLogRef}>
-                {messages.map((m, i) => (
+                {allMessages.map((m, i) => (
                   <div key={i} className={`vp-bubble ${m.role === "doc" ? "doc" : "pt"}`}>
-                    <span className="vp-who">{m.role === "doc" ? "YOU" : "PATIENT"}</span>
+                    <span className="vp-who">{m.role === "doc" ? "YOU" : activeCase.station_type === "data" ? "NURSE" : "PATIENT"}</span>
                     {m.text}
                   </div>
                 ))}
-                {isTyping && (
+                {(isTyping || voice.state === VOICE_STATES.THINKING) && (
                   <div className="vp-typing"><span></span><span></span><span></span></div>
                 )}
               </div>
             </div>
 
+            {voiceLive && (
+              <div className="vp-voice-bar">
+                <span className={`vp-voice-dot ${voice.state}`} />
+                <span className="vp-voice-state">
+                  {voiceStarting ? "Connecting…"
+                    : voice.state === VOICE_STATES.LISTENING ? "Listening — speak naturally"
+                    : voice.state === VOICE_STATES.SPEAKING ? `${activeCase.station_type === "data" ? "Nurse" : "Patient"} speaking…`
+                    : voice.state === VOICE_STATES.THINKING ? "…"
+                    : "Ready"}
+                </span>
+                <div className="vp-voice-level"><i style={{ width: `${Math.round((voice.micLevel || 0) * 100)}%` }} /></div>
+                <button className="vp-voice-ctl" onClick={() => voice.setMicMuted(voice.micOn)}>
+                  {voice.micOn ? "🔇 Mute" : "🎙 Unmute"}
+                </button>
+                <button className="vp-voice-ctl end" onClick={voice.endSession}>End voice</button>
+              </div>
+            )}
+            {voice.state === VOICE_STATES.ERROR && voice.error && (
+              <div className="vp-voice-err">⚠ {voice.error}</div>
+            )}
             <div className="vp-input-bar">
+              <button
+                className={`vp-mic-round ${voiceLive ? "live" : ""}`}
+                onClick={toggleVoiceConsult}
+                disabled={voiceStarting}
+                title={voiceLive ? "End voice consult" : "Talk to the patient aloud (voice consult)"}
+              >{voiceStarting ? "…" : voiceLive ? "⏹" : "🎙"}</button>
               <input
                 type="text"
-                placeholder="Type an assessment, question, or intervention…"
+                placeholder={voiceLive ? "Speak to the patient, or type…" : "Type an assessment, question, or intervention…"}
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendQuestion()}

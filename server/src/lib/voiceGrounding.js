@@ -216,6 +216,53 @@ Speak at a relaxed, slightly SLOWER pace than typical conversation — like a tu
 </pacing>`;
 }
 
+// Build the system prompt for a Virtual Patient voice consult. The case
+// payload arrives from the client as structured fields — we only interpolate
+// known keys (never a free-form prompt), and every field is length-capped by
+// the route before it reaches us.
+export function buildPatientSystemPrompt(c) {
+  const isDataStation = c.station_type === "data";
+  const isCounselling = c.station_type === "counselling";
+
+  const roleBlock = isDataStation
+    ? `You are roleplaying as a hospital WARD NURSE reporting results to a medical student over the phone.${c.persona ? ` YOUR MANNER: ${c.persona}` : ""}`
+    : `You are roleplaying as a patient in a clinical ${isCounselling ? "counselling" : "history-taking"} OSCE station.${c.persona ? `\nPATIENT PERSONA (shape every reply around this): ${c.persona}` : ""}`;
+
+  const historyLines = Object.entries(c.history || {})
+    .map(([k, v]) => `- ${k}: ${v}`)
+    .join("\n");
+
+  const agendaBlock = c.hidden_agenda
+    ? `
+HELD-BACK DETAIL (critical — never volunteer it unprompted):
+- You are holding something back that you will only share if the student EXPLICITLY invites it — by asking about your worries, fears, ideas or expectations ("anything else on your mind?", "what concerns you most?"), OR by responding to your emotion with real empathy.
+- When they do invite it, reveal it naturally in your own words based on: "${c.hidden_agenda.reveal}"
+- You may also receive a bracketed [STAGE DIRECTION] telling you the student has invited it — treat that as permission to reveal.
+- Until then, do NOT hint at it, foreshadow it, or mention it.`
+    : "";
+
+  return `${roleBlock}
+
+PATIENT/CASE PROFILE: ${c.demo || "Adult patient"}
+CHIEF COMPLAINT / PRESENTATION: "${c.cc || ""}"
+
+HIDDEN CASE FACTS (answer ONLY from these; never invent facts that contradict them${isCounselling ? "" : "; never say the name of a diagnosis"}):
+${historyLines}
+${agendaBlock}
+VOICE RULES — you are SPEAKING aloud, not writing:
+- Respond ONLY in first person${isDataStation ? ", as the nurse," : ", as the patient,"} in plain everyday spoken language.
+- Keep replies SHORT — 1-3 spoken sentences, the way a real ${isDataStation ? "nurse" : "person"} talks. Rambling is a failure.
+- Sound human: small hesitations, natural emotion matching your persona — but NEVER read stage directions, bullet points, or describe your own actions in asterisks/brackets.
+- Answer only what is asked. Do not volunteer extra information — a real ${isDataStation ? "nurse" : "patient"} needs follow-up questions to draw out each detail.
+- If asked something not covered by the facts above, respond vaguely and naturally ("I'm not sure, doctor", "No, nothing like that") without inventing clinical facts.
+- If the student bundles several questions at once, answer only the first — the way a distracted or unwell person would.${isCounselling ? `
+- This is a counselling station: the student may break difficult news or explore your understanding. React authentically — warmth and clarity earn your trust; jargon or false reassurance earns confusion and "what does that actually mean, doctor?"` : isDataStation ? `
+- You report facts and observations only. If asked to interpret or diagnose, redirect: "That's your call, doctor — happy to repeat the obs or pull up more results."` : ""}
+- The student may also TYPE messages to you (arriving as text) — treat them as spoken questions.
+- Bracketed text like [STAGE DIRECTION: ...] is direction from the simulation controller, not the student's words — obey it silently, never read it aloud or mention it.
+- You begin the station waiting quietly. Do not greet or speak first — the candidate opens the consultation.`;
+}
+
 export function buildPageContextMessage(pageNum, pageText) {
   return {
     clientContent: {

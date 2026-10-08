@@ -7,6 +7,7 @@ import {
   extractTextFromFile,
   chunkText,
   buildVoiceSystemPrompt,
+  buildPatientSystemPrompt,
   buildPageContextMessage,
   extractConceptsFromChunks,
   getGeminiLiveWsUrl,
@@ -288,6 +289,9 @@ export function sendSessionKickoff(session) {
 async function endSessionInDB(sessionId, status = "ended", transcript = null) {
   try {
     const session = activeSessions.get(sessionId);
+    // Ephemeral sessions (e.g. virtual-patient voice consults) are never
+    // written to the DB — VoiceSession.resourceId is a required FK.
+    if (session && session.persisted === false) return;
     const durationSec = session ? Math.round((Date.now() - session.startTime) / 1000) : 0;
     await prisma.voiceSession.update({
       where: { id: sessionId },
@@ -522,6 +526,136 @@ router.post("/start", requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error("Voice session start error:", error);
+    return res.status(500).json({ error: "Failed to start voice session" });
+  }
+});
+
+// ── Virtual Patient voice consults ──────────────────────────────────────────
+// The client ships the case script as structured fields; we only interpolate
+// known keys into a fixed patient prompt — no free-form system prompt is
+// honored. Sessions are in-memory only (no DB row) and share the same Gemini
+// Live relay as tutor sessions.
+const PATIENT_VOICES = new Set([
+  "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede", "Callirrhoe",
+  "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba", "Despina",
+  "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar", "Alnilam",
+  "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi",
+  "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat", "Zephyr",
+]);
+
+function cleanStr(v, max = 400) {
+  return typeof v === "string" ? v.slice(0, max).trim() : "";
+}
+
+function sanitizeCasePayload(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const c = {
+    station_type: ["history", "counselling", "data"].includes(raw.station_type) ? raw.station_type : "history",
+    demo: cleanStr(raw.demo, 200),
+    cc: cleanStr(raw.cc, 300),
+    persona: cleanStr(raw.persona, 600),
+  };
+  const history = {};
+  if (raw.history && typeof raw.history === "object") {
+    for (const [k, v] of Object.entries(raw.history).slice(0, 30)) {
+      const key = cleanStr(k, 60);
+      const val = cleanStr(v, 600);
+      if (key && val) history[key] = val;
+    }
+  }
+  c.history = history;
+  if (raw.hidden_agenda && typeof raw.hidden_agenda === "object") {
+    const reveal = cleanStr(raw.hidden_agenda.reveal, 600);
+    if (reveal) c.hidden_agenda = { reveal };
+  }
+  if (!c.cc && !Object.keys(history).length) return null;
+  return c;
+}
+
+// POST /api/voice-session/patient/start
+router.post("/patient/start", requireAuth, async (req, res) => {
+  try {
+    const casePayload = sanitizeCasePayload(req.body?.caseData);
+    if (!casePayload) {
+      return res.status(400).json({ error: "caseData with cc or history is required" });
+    }
+    let voiceName = cleanStr(req.body?.voiceName, 30) || "Kore";
+    if (!PATIENT_VOICES.has(voiceName)) voiceName = "Kore";
+
+    // One active voice session per user — end any existing one.
+    for (const [existingId, s] of activeSessions) {
+      if (s.userId === req.user.sub) {
+        if (s.clientWs && s.clientWs.readyState === WebSocket.OPEN) {
+          try {
+            s.clientWs.send(JSON.stringify({ type: "session_ended", message: "Another session was started" }));
+            s.clientWs.close();
+          } catch {}
+        }
+        await endSessionInDB(existingId, "ended", s.transcript);
+        deleteActiveSession(existingId);
+      }
+    }
+
+    const sessionId = crypto.randomUUID();
+    const session = {
+      id: sessionId,
+      userId: req.user.sub,
+      resourceId: null,
+      mode: "patient",
+      persisted: false,
+      geminiWs: null,
+      clientWs: null,
+      startTime: Date.now(),
+      lastActivityAt: Date.now(),
+      transcript: [],
+      timeoutId: null,
+      setupComplete: false,
+      systemPrompt: buildPatientSystemPrompt(casePayload),
+      voiceName,
+      resumeHandle: null,
+      resumeAttempts: 0,
+      geminiSetupError: null,
+      droppedAudioChunks: 0,
+      closed: false,
+      // The patient waits for the candidate to speak first — no greeting kickoff.
+      kickoffSent: true,
+      allowPageNav: false,
+    };
+    activeSessions.set(sessionId, session);
+    connectGeminiSession(session);
+
+    const waitForSetup = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        session.geminiSetupError = session.geminiSetupError || new Error("Gemini setup timeout (15s)");
+        reject(session.geminiSetupError);
+      }, 15000);
+      const checkInterval = setInterval(() => {
+        if (session.setupComplete) {
+          clearTimeout(timeout);
+          clearInterval(checkInterval);
+          resolve();
+        }
+        if (session.geminiSetupError) {
+          clearTimeout(timeout);
+          clearInterval(checkInterval);
+          reject(session.geminiSetupError);
+        }
+      }, 100);
+    });
+
+    try {
+      await waitForSetup;
+    } catch (setupErr) {
+      console.error(`Patient voice session ${sessionId} setup failed:`, setupErr.message);
+      deleteActiveSession(sessionId);
+      return res.status(502).json({ error: `Failed to establish voice session: ${setupErr.message}` });
+    }
+
+    logSecurityEvent(req.user.sub, "voice_session_start", { sessionId, mode: "patient" }, req);
+    const ticket = generateTicket(sessionId, req.user.sub);
+    return res.json({ sessionId, ticket, mode: "patient" });
+  } catch (error) {
+    console.error("Patient voice session start error:", error);
     return res.status(500).json({ error: "Failed to start voice session" });
   }
 });

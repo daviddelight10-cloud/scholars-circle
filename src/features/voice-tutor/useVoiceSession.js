@@ -35,6 +35,7 @@ export function useVoiceSession({ onGoToPage } = {}) {
   const [vadState, setVadState] = useState("idle");
   const [connectionQuality, setConnectionQuality] = useState("good");
   const [isBuffering, setIsBuffering] = useState(false);
+  const [micOn, setMicOn] = useState(false);
 
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -95,6 +96,7 @@ export function useVoiceSession({ onGoToPage } = {}) {
 
   const stopMic = useCallback(() => {
     isListeningRef.current = false;
+    setMicOn(false);
     speechStateRef.current = "idle";
     speechOnsetTimeRef.current = 0;
     speechSilenceTimeRef.current = 0;
@@ -250,6 +252,7 @@ export function useVoiceSession({ onGoToPage } = {}) {
       workletNode.connect(audioContext.destination);
 
       isListeningRef.current = true;
+      setMicOn(true);
       if (handsFreeRef.current) {
         setState(VOICE_STATES.READY);
       } else {
@@ -524,7 +527,7 @@ export function useVoiceSession({ onGoToPage } = {}) {
     endSessionRef.current = endSession;
   }, [endSession]);
 
-  const startSession = useCallback(async (resourceId, voiceName = "Achird", currentPage = null, pageText = "", opts = {}) => {
+  const startVoiceSession = useCallback(async (startFetch) => {
     setError(null);
     setTranscript([]);
     transcriptRef.current = [];
@@ -558,18 +561,7 @@ export function useVoiceSession({ onGoToPage } = {}) {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/voice-session/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          resourceId, voiceName, currentPage, pageText,
-          level: opts.level || "standard",
-          allowPageNav: !!opts.allowPageNav,
-        }),
-      });
+      const res = await startFetch(token);
 
       const data = await res.json();
 
@@ -578,8 +570,8 @@ export function useVoiceSession({ onGoToPage } = {}) {
       }
 
       setSessionId(data.sessionId);
-      setMaterials(data.materials);
-      setConcepts(data.concepts || []);
+      if (data.materials) setMaterials(data.materials);
+      if (data.concepts) setConcepts(data.concepts);
       startTimer();
 
       const wsBase = getWsBase();
@@ -826,6 +818,53 @@ export function useVoiceSession({ onGoToPage } = {}) {
     }
   }, [addToTranscript, appendTranscriptFragment, closeTranscriptTurn, enqueueAudioChunk, startMic, startTimer, stopMic, stopPlayback, stopTimer]);
 
+  const startSession = useCallback((resourceId, voiceName = "Achird", currentPage = null, pageText = "", opts = {}) =>
+    startVoiceSession((token) => fetch(`${API_BASE}/api/voice-session/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        resourceId, voiceName, currentPage, pageText,
+        level: opts.level || "standard",
+        allowPageNav: !!opts.allowPageNav,
+      }),
+    })), [startVoiceSession]);
+
+  // Virtual Patient consult — case script goes to the server, which builds the
+  // patient prompt. Same WS/audio pipeline as tutor mode from here on.
+  const startPatientSession = useCallback((caseData, voiceName = "Kore") =>
+    startVoiceSession((token) => fetch(`${API_BASE}/api/voice-session/patient/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ caseData, voiceName }),
+    })), [startVoiceSession]);
+
+  // Silent controller turn — reaches the model but never enters the client
+  // transcript (used for stage directions like hidden-agenda unlocks).
+  const sendSystem = useCallback((text) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: WS_MESSAGE_TYPES.TEXT, text }));
+    }
+  }, []);
+
+  // Explicit mic mute — works in both push-to-talk and hands-free modes
+  // (toggleListening can't stop the mic while VAD is armed).
+  const setMicMuted = useCallback((muted) => {
+    if (muted) {
+      stopMic();
+      if (stateRef.current !== VOICE_STATES.ENDED && stateRef.current !== VOICE_STATES.ERROR) {
+        setState(VOICE_STATES.READY);
+      }
+    } else {
+      startMic();
+    }
+  }, [startMic, stopMic]);
+
   const toggleListening = useCallback(() => {
     if (state === VOICE_STATES.LISTENING) {
       stopMic();
@@ -960,15 +999,19 @@ export function useVoiceSession({ onGoToPage } = {}) {
     elapsedSec,
     fallbackMode,
     micLevel,
+    micOn,
+    setMicMuted,
     handsFreeMode,
     vadState,
     connectionQuality,
     isBuffering,
     startSession,
+    startPatientSession,
     endSession,
     toggleListening,
     toggleHandsFree,
     sendText,
+    sendSystem,
     sendPageChange,
     setError,
     stopPlayback,

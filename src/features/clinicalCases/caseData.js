@@ -958,3 +958,27 @@ export const ACHIEVEMENT_LABELS = {
 };
 
 export const DEFAULT_PROFILE = { xp: 0, casesCompleted: 0, achievements: [], reviewDeck: [], skillStats: {} };
+
+/**
+ * Pick a Gemini Live voice that fits the case's patient. Cases may pin an
+ * exact voice via `voice`; otherwise derive from sex + age + persona keywords.
+ * (Names are Gemini prebuilt voices — kept in sync with the server allowlist.)
+ */
+export function voiceForCase(c) {
+  if (c.voice) return c.voice;
+  const demo = c.demo || "";
+  const isFemale = /female/i.test(demo);
+  const age = Number((demo.match(/(\d{1,3})/) || [])[1]) || 40;
+  const persona = (c.persona || "").toLowerCase();
+  if (c.station_type === "data") return "Sulafat"; // warm nurse voice
+  if (isFemale) {
+    if (age >= 65) return "Vindemiatrix";
+    if (age <= 28) return "Leda";
+    if (/anxious|tearful|distress|worried/.test(persona)) return "Sulafat";
+    return "Kore";
+  }
+  if (age >= 65) return "Charon";
+  if (age <= 28) return "Sadachbia";
+  if (/angry|gruff|stern|irritable/.test(persona)) return "Fenrir";
+  return "Iapetus";
+}
