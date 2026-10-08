@@ -18,8 +18,7 @@ import {
   CalendarDays, User, Settings, Gem, FileText, Laptop,
   Megaphone, KeyRound, Mail, Cog, GraduationCap, Building2,
   Download, Moon, Sun, Sparkles, ClipboardList, UserCircle,
-  ChevronLeft, ChevronRight, Gift, Stethoscope, Pill, FlaskConical,
-  Calculator,
+  ChevronLeft, Gift,
 } from "lucide-react";
 
 
@@ -85,6 +84,7 @@ import {
 } from "./lib/appUtils";
 
 import UpgradeGate from "./components/UpgradeGate";
+import MoreSheet from "./components/MoreSheet";
 import {
   ConfettiOverlay, CelebrationToast, StreakLossWarning,
   StudyHeatmap, LeagueProgress,
@@ -8111,144 +8111,14 @@ function App() {
 
       {showMobileMenu && !isLecturerRole && !BARE_TABS.includes(tab) && (
 
-        <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
-
-          <div className="mobile-menu mm-sheet" onClick={(e) => e.stopPropagation()}>
-
-            <div className="mm-handle" />
-
-            <div className="mm-head">
-              <h1>More</h1>
-              <button className="mm-close" type="button" aria-label="Close menu" onClick={() => setShowMobileMenu(false)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            {!isFaculty && (
-              <button className="mm-premium" type="button" onClick={() => { setTab("premium"); setShowMobileMenu(false); }}>
-                <span className="mm-premium-ic"><Gem size={22} /></span>
-                <span className="mm-premium-copy"><b>Go Premium</b><span>Unlock every study tool</span></span>
-                <ChevronRight size={18} />
-              </button>
-            )}
-
-            {/* Medical tools — 2-col tile grid */}
-            <section className="mm-group">
-              <div className="mm-label">Medical tools</div>
-              <div className="mm-grid">
-                <button className={`mm-tile${tab === "clinical-cases" ? " active" : ""}`} type="button" onClick={() => { setTab("clinical-cases"); setShowMobileMenu(false); }}>
-                  <span className="mm-tile-ic"><Stethoscope size={18} /></span>
-                  <span className="mm-tile-txt"><b>Clinical Cases</b><span>Case practice</span></span>
-                </button>
-                <button className={`mm-tile${tab === "drug-ref" ? " active" : ""}`} type="button" onClick={() => { setTab("drug-ref"); setShowMobileMenu(false); }}>
-                  <span className="mm-tile-ic"><Pill size={18} /></span>
-                  <span className="mm-tile-txt"><b>Drug Reference</b><span>Look up drugs</span></span>
-                </button>
-                <button className={`mm-tile${tab === "lab-values" ? " active" : ""}`} type="button" onClick={() => { setTab("lab-values"); setShowMobileMenu(false); }}>
-                  <span className="mm-tile-ic"><FlaskConical size={18} /></span>
-                  <span className="mm-tile-txt"><b>Lab Values</b><span>Normal ranges</span></span>
-                </button>
-                <button className={`mm-tile${tab === "medical-calculators" ? " active" : ""}`} type="button" onClick={() => { setTab("medical-calculators"); setShowMobileMenu(false); }}>
-                  <span className="mm-tile-ic"><Calculator size={18} /></span>
-                  <span className="mm-tile-txt"><b>Med Calculators</b><span>Dosing &amp; scores</span></span>
-                </button>
-              </div>
-            </section>
-
-            {/* Tools — list rows */}
-            <section className="mm-group">
-              <div className="mm-label">Tools</div>
-              <div className="mm-list">
-                <button className={`mm-row${["analytics", "leaderboard", "achievements", "gamification"].includes(tab) ? " active" : ""}`} type="button" onClick={() => { setTab("analytics"); setShowMobileMenu(false); }}>
-                  <BarChart3 size={20} /><span>Progress</span><ChevronRight className="mm-chev" size={16} />
-                </button>
-                <button className={`mm-row${tab === "timetable" ? " active" : ""}`} type="button" onClick={() => { setTab("timetable"); setShowMobileMenu(false); }}>
-                  <CalendarDays size={20} /><span>Schedule</span><ChevronRight className="mm-chev" size={16} />
-                </button>
-              </div>
-            </section>
-
-            {/* Account — list rows */}
-            <section className="mm-group">
-              <div className="mm-label">Account</div>
-              <div className="mm-list">
-                <button className={`mm-row${tab === "profile" ? " active" : ""}`} type="button" onClick={() => { setTab("profile"); setShowMobileMenu(false); }}>
-                  <User size={20} /><span>Profile</span><ChevronRight className="mm-chev" size={16} />
-                </button>
-                <button className={`mm-row${tab === "settings" ? " active" : ""}`} type="button" onClick={() => { setTab("settings"); setShowMobileMenu(false); }}>
-                  <Settings size={20} /><span>Settings</span><ChevronRight className="mm-chev" size={16} />
-                </button>
-                {!isFaculty && (
-                  <button className={`mm-row${tab === "refer" ? " active" : ""}`} type="button" onClick={() => { setTab("refer"); setShowMobileMenu(false); }}>
-                    <Gift size={20} /><span>Refer &amp; Earn</span><ChevronRight className="mm-chev" size={16} />
-                  </button>
-                )}
-              </div>
-            </section>
-
-            {/* Faculty-only sections — same list style */}
-            {isFaculty && (
-              <>
-                <section className="mm-group">
-                  <div className="mm-label">Study resources</div>
-                  <div className="mm-list">
-                    <button className={`mm-row${tab === "resources" ? " active" : ""}`} type="button" onClick={() => { setTab("resources"); setShowMobileMenu(false); }}>
-                      <BookOpen size={20} /><span>Resources</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                  </div>
-                </section>
-
-                <section className="mm-group">
-                  <div className="mm-label">Classroom &amp; community</div>
-                  <div className="mm-list">
-                    <button className={`mm-row${tab === "classroom" ? " active" : ""}`} type="button" onClick={() => { setTab("classroom"); setShowMobileMenu(false); }}>
-                      <School size={20} /><span>Classroom</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                    <button className={`mm-row${tab === "lecturers" ? " active" : ""}`} type="button" onClick={() => { setTab("lecturers"); setShowMobileMenu(false); }}>
-                      <GraduationCap size={20} /><span>Lecturers</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                  </div>
-                </section>
-
-                <section className="mm-group">
-                  <div className="mm-label">Faculty tools</div>
-                  <div className="mm-list">
-                    <button className={`mm-row${tab === "teacher-questions" ? " active" : ""}`} type="button" onClick={() => { setTab("teacher-questions"); setShowMobileMenu(false); }}>
-                      <FileText size={20} /><span>My Questions</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                    <button className={`mm-row${tab === "teacher-resources" ? " active" : ""}`} type="button" onClick={() => { setTab("teacher-resources"); setShowMobileMenu(false); }}>
-                      <Laptop size={20} /><span>Teacher Resources</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                    <button className={`mm-row${tab === "campus-comm" ? " active" : ""}`} type="button" onClick={() => { setTab("campus-comm"); setShowMobileMenu(false); }}>
-                      <Megaphone size={20} /><span>Announcements</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                    <button className={`mm-row${tab === "universities" ? " active" : ""}`} type="button" onClick={() => { setTab("universities"); setShowMobileMenu(false); }}>
-                      <Building2 size={20} /><span>Universities</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                    <button className={`mm-row${tab === "departments" ? " active" : ""}`} type="button" onClick={() => { setTab("departments"); setShowMobileMenu(false); }}>
-                      <Building2 size={20} /><span>Departments</span><ChevronRight className="mm-chev" size={16} />
-                    </button>
-                    {isTeacher && (
-                      <>
-                        <button className={`mm-row${tab === "keys" ? " active" : ""}`} type="button" onClick={() => { setTab("keys"); setShowMobileMenu(false); }}>
-                          <KeyRound size={20} /><span>Student Keys</span><ChevronRight className="mm-chev" size={16} />
-                        </button>
-                        <button className={`mm-row${tab === "invites" ? " active" : ""}`} type="button" onClick={() => { setTab("invites"); setShowMobileMenu(false); }}>
-                          <Mail size={20} /><span>Invites</span><ChevronRight className="mm-chev" size={16} />
-                        </button>
-                        <button className={`mm-row${tab === "admin" ? " active" : ""}`} type="button" onClick={() => { setTab("admin"); setShowMobileMenu(false); }}>
-                          <Cog size={20} /><span>Admin Panel</span><ChevronRight className="mm-chev" size={16} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </section>
-              </>
-            )}
-
-          </div>
-
-        </div>
+        <MoreSheet
+          tab={tab}
+          isFaculty={isFaculty}
+          isTeacher={isTeacher}
+          isActivated={isActivated}
+          onNavigate={setTab}
+          onClose={() => setShowMobileMenu(false)}
+        />
 
       )}
 
