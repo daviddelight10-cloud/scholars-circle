@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { callAIChat, extractJSON } from "../../lib/aiClient";
 import { fsrsNewCard, fsrsRate, toFsrsCard } from "../../lib/fsrs.js";
-import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS } from "./caseData";
+import { CASES, EXAM_LABELS, EXAM_ICONS, INV_QUICK, ACHIEVEMENT_LABELS, DEFAULT_PROFILE, SPECIALTY_META, PACE_OPTIONS, STATION_TYPES, DEFAULT_CLOSING_POINTS } from "./caseData";
+import { analyzeCommunication, invitesHiddenAgenda } from "./commMetrics";
 import ExitPill from "../../components/ExitPill.jsx";
 import "./virtualPatient.css";
 
@@ -11,6 +12,7 @@ const GAME_MODE_KEY = "scc_game_mode";
 const CLINICAL_PROFILE_KEY = "scc_clinical_profile";
 const PACE_KEY = "scc_pace_sec";
 const ONBOARD_KEY = "scc_onboarded_v1";
+const STATION_MODE_KEY = "scc_station_mode";
 const OB_STEPS = 4;
 
 function getStorageKey(base) {
@@ -43,6 +45,30 @@ function scoreColor(s) {
   return "var(--vp-coral)";
 }
 
+/** Global OSCE rating — clear pass / borderline / fail, with critical-item caps. */
+function computeRating({ isF, avg, criticalMisses, diagnosisCorrect }) {
+  const nCrit = criticalMisses.length;
+  if (isF) {
+    if (nCrit >= 2 || avg < 4) return "fail";
+    if (nCrit === 1 || avg < 6.5) return "borderline";
+    return "clear_pass";
+  }
+  if (nCrit >= 2 || avg < 4.5) return "fail";
+  if (nCrit === 1 || avg < 6.5 || diagnosisCorrect === false) return "borderline";
+  return "clear_pass";
+}
+
+const SKILL_LABELS = {
+  history: "History", comm: "Communication", inv: "Investigations",
+  dx: "Diagnosis", mgmt: "Management", closing: "Closing & safety-net",
+};
+
+const RATING_META = {
+  clear_pass: { label: "CLEAR PASS", icon: "🏆", desc: "Examiner would have passed this station." },
+  borderline: { label: "BORDERLINE", icon: "⚖️", desc: "Close — but a real examiner would hesitate. Tighten the flagged areas." },
+  fail: { label: "FAIL", icon: "⚠️", desc: "Below the pass mark — see the flagged critical items." },
+};
+
 function computeInvStats(invOrdered, caseObj) {
   const relevantKeys = Object.keys(caseObj.investigations).filter(k => caseObj.investigations[k].indicated);
   const orderedRelevant = new Set();
@@ -65,6 +91,11 @@ function evaluateAchievements(profile, grade, mode) {
   if (!has("first_case")) unlocked.push("first_case");
   if (grade.history_score === 10 && grade.efficiency_penalty === 0 && !has("efficient_historian")) unlocked.push("efficient_historian");
   if ((profile.casesCompleted + 1) >= 5 && !has("five_cases")) unlocked.push("five_cases");
+  if (grade.comm_score >= 9 && !has("comm_pro")) unlocked.push("comm_pro");
+  if (grade.closing_score === 10 && !has("safe_netter")) unlocked.push("safe_netter");
+  if (grade.agenda_caught && !has("cue_catcher")) unlocked.push("cue_catcher");
+  if (grade.global_rating === "clear_pass" && !has("clear_pass")) unlocked.push("clear_pass");
+  if (grade.station_mode && !has("station_survivor")) unlocked.push("station_survivor");
   if (mode !== "foundations") {
     if (grade.diagnosis_score >= 9 && !has("sharp_diagnosis")) unlocked.push("sharp_diagnosis");
     if (grade.inv_stats.totalRelevant > 0 && grade.inv_stats.irrelevantCount === 0 && grade.inv_stats.orderedRelevantCount === grade.inv_stats.totalRelevant && !has("good_steward")) unlocked.push("good_steward");
@@ -74,7 +105,12 @@ function evaluateAchievements(profile, grade, mode) {
 
 function seedReviewDeck(profile, grade, caseObj) {
   const now = new Date().toISOString();
-  const missed = [...(grade.history_missed || []), ...(grade.management_missed || [])];
+  const missed = [...(grade.history_missed || []), ...(grade.management_missed || []), ...(grade.closing_missed || [])];
+  // Low communication score → a habit-level review card, not a fact card
+  if (grade.comm_score != null && grade.comm_score < 6) {
+    const weakest = (grade.comm_metrics || []).find(m => !m.hit);
+    if (weakest) missed.push(`Communication habit: ${weakest.label.toLowerCase()} — ${weakest.tip}`);
+  }
   missed.forEach(text => {
     const exists = profile.reviewDeck.some(it => it.text === text && it.caseDx === caseObj.diagnosis);
     if (!exists) {
@@ -107,6 +143,9 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   const [resumeSnapshot, setResumeSnapshot] = useState(null);
   const [reviewQueue, setReviewQueue] = useState([]);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
+  const [stationMode, setStationMode] = useState(() => loadLocal(getStorageKey(STATION_MODE_KEY), false));
+  const [agendaRevealed, setAgendaRevealed] = useState(false);
+  const [vivaIdx, setVivaIdx] = useState(0);
 
   // Consult state
   const [activeCase, setActiveCase] = useState(null);
@@ -153,10 +192,11 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   const examLogRef = useRef(null);
   const snapshotTimerRef = useRef(null);
   const saveIndicatorTimerRef = useRef(null);
+  const stationEndedRef = useRef(false);
 
   // Mirror of latest state for interval callbacks (avoids stale closures)
   const latest = useRef({});
-  latest.current = { screen, gameMode, paceSec, activeCase, messages, examinerMessages, invOrdered, examViewed, dx1, dx2, dx3, mgmt, ob, modal };
+  latest.current = { screen, gameMode, paceSec, activeCase, messages, examinerMessages, invOrdered, examViewed, dx1, dx2, dx3, mgmt, ob, modal, stationMode, agendaRevealed };
 
   const specialties = useMemo(() => ["All", ...Array.from(new Set(CASES.map(c => c.specialty)))], []);
   const filteredIndices = useMemo(() =>
@@ -172,6 +212,35 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   const paceTarget = paceSec || 600;
   const paceFrac = Math.min(1, elapsedSec / paceTarget);
   const paceOver = elapsedSec > paceTarget;
+  const stationLeft = Math.max(0, paceTarget - elapsedSec);
+  const stationLM = String(Math.floor(stationLeft / 60)).padStart(2, "0");
+  const stationLS = String(stationLeft % 60).padStart(2, "0");
+  const stationWarn = stationMode && stationLeft <= 60 && stationLeft > 0;
+  const stationType = STATION_TYPES[activeCase?.station_type || "history"] || STATION_TYPES.history;
+
+  // Weakest tracked skill → targeted retry picks a case type that trains it
+  const weakestSkill = useMemo(() => {
+    const ss = profile.skillStats || {};
+    const entries = Object.entries(ss).filter(([, s]) => s.n > 0);
+    if (!entries.length) return null;
+    const w = entries.reduce((min, [k, s]) => (s.sum / s.n < min.avg ? { key: k, avg: s.sum / s.n } : min), { key: null, avg: 11 });
+    return w.key ? w : null;
+  }, [profile.skillStats]);
+
+  function practiceWeakest() {
+    if (!weakestSkill) return startRandomCase();
+    const pickPool = (pred) => CASES.map((c, i) => i).filter(i => pred(CASES[i]));
+    let pool;
+    if (weakestSkill.key === "comm" || weakestSkill.key === "closing") {
+      pool = pickPool(c => c.station_type === "counselling" || c.specialty === "Psychiatry");
+    } else if (weakestSkill.key === "inv" || weakestSkill.key === "dx") {
+      pool = pickPool(c => c.station_type === "data" || Object.values(c.investigations || {}).some(x => x.indicated));
+    } else {
+      pool = pickPool(c => (c.station_type || "history") === "history");
+    }
+    if (!pool || !pool.length) return startRandomCase();
+    startCase(pool[Math.floor(Math.random() * pool.length)]);
+  }
   const examKeys = activeCase ? Object.keys(EXAM_LABELS).filter(k => activeCase.exam[k]) : [];
   const totalExams = examKeys.length;
   const remainingExams = Math.max(0, totalExams - examViewed.length);
@@ -213,6 +282,15 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
       setElapsedSec(secs);
       updateVitals(secs);
       if (secs > 0 && secs % 15 === 0) doSnapshot();
+      // Station mode — bell rings at 0:00 and pushes the candidate to the assessment sheet
+      const L = latest.current;
+      if (L.stationMode && L.activeCase && !stationEndedRef.current && secs >= (L.paceSec || 600)) {
+        stationEndedRef.current = true;
+        if (L.screen === "consult") {
+          setScreen("assess");
+          closeAllDrawers();
+        }
+      }
     }, 1000);
     return () => { if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -278,6 +356,8 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
       elapsedMs: Date.now() - startTimeRef.current,
       stabilizedElapsedMs: stabilizedAtSecRef.current != null ? stabilizedAtSecRef.current * 1000 : null,
       dx1: L.dx1, dx2: L.dx2, dx3: L.dx3, mgmt: L.mgmt,
+      stationMode: L.stationMode,
+      agendaRevealed: L.agendaRevealed,
       savedAt: Date.now()
     };
     saveLocal(getStorageKey(ACTIVE_CONSULT_KEY), snap);
@@ -300,6 +380,11 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     saveLocal(getStorageKey(GAME_MODE_KEY), mode);
   }
 
+  function saveStationMode(on) {
+    setStationMode(on);
+    saveLocal(getStorageKey(STATION_MODE_KEY), on);
+  }
+
   function saveProfile(p) {
     setProfile(p);
     saveLocal(getStorageKey(CLINICAL_PROFILE_KEY), p);
@@ -315,7 +400,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   /* ============ ONBOARDING WIZARD ============ */
   function openOnboarding() {
     const found = PACE_OPTIONS.find(p => p.min * 60 === paceSec);
-    setOb({ open: true, step: 0, mode: gameMode, specialty: "Any", pace: found ? found.min : 15, caseIdx: null });
+    setOb({ open: true, step: 0, mode: gameMode, specialty: "Any", pace: found ? found.min : 15, station: stationMode, caseIdx: null });
   }
 
   function closeOnboarding() {
@@ -352,6 +437,7 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
   function obStart() {
     if (ob.caseIdx == null) return;
     saveGameMode(ob.mode);
+    saveStationMode(!!ob.station);
     closeOnboarding();
     startCase(ob.caseIdx);
   }
@@ -370,6 +456,9 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     setToolsDrawerOpen(false);
     setVitalsDrawerOpen(false);
     stabilizedAtSecRef.current = null;
+    stationEndedRef.current = false;
+    setAgendaRevealed(false);
+    setVivaIdx(0);
     startTimeRef.current = Date.now();
     setElapsedSec(0);
     setCurrentHr(88);
@@ -402,6 +491,10 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     setToolsDrawerOpen(false);
     setVitalsDrawerOpen(false);
     stabilizedAtSecRef.current = snap.stabilizedElapsedMs != null ? Math.floor(snap.stabilizedElapsedMs / 1000) : null;
+    stationEndedRef.current = false;
+    setAgendaRevealed(!!snap.agendaRevealed);
+    setVivaIdx(0);
+    if (snap.stationMode != null) setStationMode(!!snap.stationMode);
     startTimeRef.current = Date.now() - (snap.elapsedMs || 0);
     setElapsedSec(Math.floor((snap.elapsedMs || 0) / 1000));
     setResumeSnapshot(null);
@@ -460,21 +553,40 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     setMessages(prev => [...prev, { role: "doc", text: question }]);
 
     const c = activeCase;
-    const systemPrompt = `You are roleplaying as a patient in a clinical history-taking simulation for a medical student.
+    const isDataStation = c.station_type === "data";
+    const isCounselling = c.station_type === "counselling";
+    // Deterministic agenda gate: the reveal fires only when the student's
+    // message actively invites it (ICE/empathy/open "anything else").
+    const agendaTrigger = c.hidden_agenda && !agendaRevealed && invitesHiddenAgenda(question);
+    if (agendaTrigger) setAgendaRevealed(true);
 
-PATIENT PROFILE: ${c.demo}
-CHIEF COMPLAINT: "${c.cc}"
+    const roleBlock = isDataStation
+      ? `You are roleplaying as a hospital WARD NURSE reporting results to the medical student on call. ${c.persona ? `YOUR MANNER: ${c.persona}` : ""}`
+      : `You are roleplaying as a patient in a clinical ${isCounselling ? "counselling" : "history-taking"} simulation for a medical student.
+${c.persona ? `PATIENT PERSONA (shape every reply around this): ${c.persona}` : ""}`;
 
-HIDDEN CASE FACTS (use ONLY these; never invent contradicting facts, never reveal the diagnosis by name):
+    const agendaBlock = c.hidden_agenda ? `
+HIDDEN DETAIL (held back — never volunteer it unprompted):
+- This role-player holds a detail they will only share if the student EXPLICITLY invites it — by asking about worries/fears/ideas/expectations or "anything else I should know?", OR by responding to their emotion with empathy.
+- ${agendaTrigger ? `THE STUDENT JUST INVITED IT — reveal it now, naturally, using this content (paraphrase, keep it human and first-person): "${c.hidden_agenda.reveal}"` : agendaRevealed ? "You have already revealed it — do not repeat it." : "The student has NOT invited it yet — do not reveal it in this reply."}` : "";
+
+    const systemPrompt = `${roleBlock}
+
+PATIENT/CASE PROFILE: ${c.demo}
+CHIEF COMPLAINT / PRESENTATION: "${c.cc}"
+
+HIDDEN CASE FACTS (use ONLY these; never invent contradicting facts${isCounselling ? "" : ", never reveal the diagnosis by name"}):
 ${Object.entries(c.history).map(([k, v]) => `- ${k}: ${v}`).join("\n")}
-
+${agendaBlock}
 RULES:
-- Respond ONLY in first person, as the patient, in plain everyday language (not medical jargon).
+- Respond ONLY in first person${isDataStation ? ", as the nurse," : isCounselling ? ", as the patient receiving the news," : ", as the patient,"} in plain everyday language (not medical jargon).
 - Answer only what is asked, based strictly on the facts above. Do not volunteer unrelated information.
-- If asked about something not covered above, respond naturally and vaguely as a real patient would ("I'm not sure", "No, nothing like that"), without inventing new clinical facts that could contradict the real diagnosis.
+- If asked about something not covered above, respond naturally and vaguely as a real ${isDataStation ? "nurse" : "patient"} would ("I'm not sure", "No, nothing like that"), without inventing new clinical facts that could contradict the real diagnosis.${isCounselling ? `
+- This is a counselling station: the student may try to break difficult news to you or explore your understanding. React authentically — if they are kind and clear, show trust and ask the questions a real patient would; if they use jargon or false reassurance, show confusion or press them ("what does that actually mean, doctor?").` : isDataStation ? `
+- You report facts and observations only. If the student asks you to interpret or diagnose, redirect: "That's your call, doctor — I can get you any observations or repeat results if you need."` : `
 - Never say the name of a diagnosis or medical condition.
 - If the student asks a broad or open-ended question (e.g. "tell me everything", "what's wrong with you", "describe all your symptoms"), respond the way a real patient would: lead with only the 1-2 things bothering you most right now, in your own words. Do not recite a full symptom checklist even if asked to "be thorough" or "list everything" — a real patient needs focused follow-up questions to draw out each detail, they don't self-report a structured list.
-- If the student's message bundles several distinct questions into one, answer only the first one and let them ask the rest separately, the way a patient who's in pain or distracted might.
+- If the student's message bundles several distinct questions into one, answer only the first one and let them ask the rest separately, the way a patient who's in pain or distracted might.`}
 - Keep responses to 1-3 short sentences, conversational and a little anxious/human, unless the question needs more detail.`;
 
     try {
@@ -549,7 +661,7 @@ RULES:
     const exN = examViewed.length, ivN = invOrdered.length;
     const summary = isF
       ? `You asked ${questionsAsked} question${questionsAsked === 1 ? "" : "s"}. In Foundations mode only your history-taking is scored — diagnosis and management are optional practice and won't affect your grade.`
-      : `You asked ${questionsAsked} question${questionsAsked === 1 ? "" : "s"}, performed ${exN} examination${exN === 1 ? "" : "s"}, and ordered ${ivN} investigation${ivN === 1 ? "" : "s"}. Submitting ends the consult and grades all four OSCE domains — this can't be undone.`;
+      : `You asked ${questionsAsked} question${questionsAsked === 1 ? "" : "s"}, performed ${exN} examination${exN === 1 ? "" : "s"}, and ordered ${ivN} investigation${ivN === 1 ? "" : "s"}. Submitting ends the consult and grades all six domains — history, investigations, diagnosis, management, communication and closing — this can't be undone.`;
 
     showModal({
       title: isF ? "Finish history practice?" : "Submit for grading?",
@@ -572,10 +684,16 @@ RULES:
     const invLog = invOrdered.map(i => `${i.name}${i.relevant ? "" : " (low yield)"}: ${i.result}`).join("\n") || "(no investigations ordered)";
     const invStats = computeInvStats(invOrdered, c);
 
-    const gradingPrompt = isF ? `You are a supportive clinical tutor reviewing a PRE-CLINICAL medical student's history-taking practice with a virtual patient. This student has not started clinical rotations yet, so you are ONLY assessing their history-taking and examination questions — never their diagnosis or management.
+    const closingPts = c.closing_points || DEFAULT_CLOSING_POINTS;
+    const closingChecklist = `
+CLOSING THE CONSULT CHECKLIST — judge ONLY from things the student actually said to the patient in the transcript (not the management plan):
+${closingPts.map((p, i) => `${i + 1}. ${p}`).join("\n")}`;
+
+    const gradingPrompt = isF ? `You are a supportive clinical tutor reviewing a PRE-CLINICAL medical student's history-taking practice with a virtual patient. This student has not started clinical rotations yet, so you are ONLY assessing their history-taking, closing skills and examination questions — never their diagnosis or management.
 
 ESSENTIAL HISTORY/EXAM CHECKLIST — mark ONLY items genuinely covered by the student's questions or exam requests below, based on their content, not phrasing:
 ${c.essential_points.map((p, i) => `${i + 1}. ${p}`).join("\n")}
+${closingChecklist}
 
 WHAT THE STUDENT DID:
 --- History taken (chat transcript) ---
@@ -584,10 +702,11 @@ ${transcript}
 ${examLog}
 
 Respond with ONLY a raw JSON object, no markdown fences, no preamble, matching exactly this schema:
-{"history_points_covered": [string], "history_points_missed": [string], "history_feedback": string, "overall_feedback": string}
+{"history_points_covered": [string], "history_points_missed": [string], "history_feedback": string, "closing_points_covered": [string], "closing_points_missed": [string], "closing_feedback": string, "overall_feedback": string}
 
 Rules:
-- history_points_covered/missed must each be items copied verbatim from the checklist above — every checklist item appears in exactly one of the two lists.
+- history_points_covered/missed must each be items copied verbatim from the essential checklist above — every checklist item appears in exactly one of the two lists.
+- closing_points_covered/missed must each be items copied verbatim from the closing checklist above — every closing item appears in exactly one of the two lists.
 - Feedback should be warm, encouraging and specific (2-3 sentences each), addressed to the student as "you". Focus on the skill of asking clear, structured, curious questions — not on clinical knowledge they haven't been taught yet.` : `You are an OSCE clinical examiner grading a medical student's performance in a virtual patient case. Your job is to check what the student actually elicited and did, not to reward a confident-sounding write-up.
 
 CORRECT DIAGNOSIS (not shown to student): ${c.diagnosis}
@@ -597,6 +716,7 @@ ${c.essential_points.map((p, i) => `${i + 1}. ${p}`).join("\n")}
 
 EXPECTED MANAGEMENT CHECKLIST — mark ONLY items genuinely covered by the student's management plan:
 ${c.management_key.map((p, i) => `${i + 1}. ${p}`).join("\n")}
+${closingChecklist}
 
 WHAT THE STUDENT DID:
 --- History taken (chat transcript) ---
@@ -611,11 +731,12 @@ ${dxList.map((d, i) => `${i + 1}. ${d}`).join("\n")}
 ${mgmt}
 
 Respond with ONLY a raw JSON object, no markdown fences, no preamble, matching exactly this schema:
-{"history_points_covered": [string], "history_points_missed": [string], "history_feedback": string, "diagnosis_score": number, "diagnosis_correct": boolean, "diagnosis_rank_matched": number_or_null, "diagnosis_feedback": string, "management_points_covered": [string], "management_points_missed": [string], "management_feedback": string, "overall_feedback": string}
+{"history_points_covered": [string], "history_points_missed": [string], "history_feedback": string, "diagnosis_score": number, "diagnosis_correct": boolean, "diagnosis_rank_matched": number_or_null, "diagnosis_feedback": string, "management_points_covered": [string], "management_points_missed": [string], "management_feedback": string, "closing_points_covered": [string], "closing_points_missed": [string], "closing_feedback": string, "overall_feedback": string}
 
 Rules:
 - history_points_covered/missed must each be items copied verbatim from the essential history/exam checklist above — every checklist item appears in exactly one of the two lists.
 - management_points_covered/missed must each be items copied verbatim from the expected management checklist above — every checklist item appears in exactly one of the two lists.
+- closing_points_covered/missed must each be items copied verbatim from the closing checklist above — every closing item appears in exactly one of the two lists.
 - diagnosis_score (0-10) should reward correct clinical reasoning even if the exact wording differs from the answer key, and give partial credit for a reasonable differential that includes the correct diagnosis.
 - diagnosis_rank_matched is the 1-based position in the student's differential list where the correct diagnosis (or an unambiguous synonym) appears, or null if it doesn't appear anywhere in the list.
 - Feedback should be specific and short (2-3 sentences each), addressed to the student as "you".`;
@@ -654,6 +775,20 @@ Rules:
       const efficiencyPenalty = Math.min(3, Math.floor(overAsk / 2));
       const historyScoreRaw = historyTotal ? Math.round((historyCovered / historyTotal) * 10) : 0;
 
+      // Deterministic communication analysis — computed locally, not by the AI
+      const comm = analyzeCommunication(messages);
+
+      const closingPts = c.closing_points || DEFAULT_CLOSING_POINTS;
+      const closingTotal = closingPts.length;
+      const closingCovered = (raw.closing_points_covered || []).length;
+      const closingScore = closingTotal ? Math.round((closingCovered / closingTotal) * 10) : null;
+
+      // Critical-item check — flag any must-do item the student missed
+      const criticalIdx = c.critical || [];
+      const criticalTexts = criticalIdx.map(i => c.essential_points[i]).filter(Boolean);
+      const missedTexts = new Set(raw.history_points_missed || []);
+      const criticalMisses = criticalTexts.filter(t => missedTexts.has(t));
+
       const g = {
         mode: gameMode,
         history_score: Math.max(0, historyScoreRaw - efficiencyPenalty),
@@ -672,6 +807,16 @@ Rules:
         management_covered: [],
         management_missed: [],
         management_feedback: "",
+        comm_score: comm.score,
+        comm_metrics: comm.metrics,
+        closing_score: closingScore,
+        closing_covered: raw.closing_points_covered || [],
+        closing_missed: raw.closing_points_missed || [],
+        closing_feedback: raw.closing_feedback || "",
+        critical_misses: criticalMisses,
+        critical_set: new Set(criticalTexts),
+        agenda_caught: !!agendaRevealed,
+        station_mode: stationMode,
         overall_feedback: raw.overall_feedback || ""
       };
 
@@ -689,15 +834,30 @@ Rules:
         g.management_feedback = raw.management_feedback || "";
       }
 
+      // Global rating — checklist avg + global examiner call with critical caps
+      const domainScores = isF
+        ? [g.history_score, g.comm_score, g.closing_score].filter(s => s != null)
+        : [g.history_score, g.inv_score, g.diagnosis_score, g.management_score, g.comm_score, g.closing_score].filter(s => s != null);
+      g.avg = domainScores.length ? domainScores.reduce((a, b) => a + b, 0) / domainScores.length : 0;
+      g.global_rating = computeRating({
+        isF, avg: g.avg,
+        criticalMisses: g.critical_misses,
+        diagnosisCorrect: g.diagnosis_correct,
+      });
+
       setGrade(g);
+
+      // Seed viva — the examiner leads with the first oral question
+      if (!isF && (c.viva || []).length) {
+        setExaminerMessages(prev => [...prev, { role: "assistant", text: `🎤 Viva — question 1 of ${c.viva.length}: ${c.viva[0]}` }]);
+      }
 
       // Gamification
       const newProfile = JSON.parse(JSON.stringify(profile));
+      if (!newProfile.skillStats) newProfile.skillStats = {};
       const prevLevel = levelFor(newProfile.xp);
       const beforeDeckLen = newProfile.reviewDeck.length;
-      const xpGained = isF
-        ? Math.round(g.history_score * 10)
-        : Math.round(((g.history_score + g.inv_score + g.diagnosis_score + g.management_score) / 4) * 15);
+      const xpGained = Math.round(g.avg * 15);
       const unlocked = evaluateAchievements(newProfile, g, gameMode);
 
       newProfile.xp += xpGained;
@@ -705,6 +865,17 @@ Rules:
       newProfile.achievements = Array.from(new Set([...newProfile.achievements, ...unlocked]));
       seedReviewDeck(newProfile, g, c);
       const reviewAdded = newProfile.reviewDeck.length - beforeDeckLen;
+
+      // Track per-domain skill averages for the weak-skill heatmap
+      const statsMap = isF
+        ? { history: g.history_score, comm: g.comm_score, closing: g.closing_score }
+        : { history: g.history_score, inv: g.inv_score, dx: g.diagnosis_score, mgmt: g.management_score, comm: g.comm_score, closing: g.closing_score };
+      Object.entries(statsMap).forEach(([k, s]) => {
+        if (s == null) return;
+        const prev = newProfile.skillStats[k] || { sum: 0, n: 0 };
+        newProfile.skillStats[k] = { sum: prev.sum + s, n: prev.n + 1 };
+      });
+
       saveProfile(newProfile);
 
       // Add XP to app stats
@@ -718,6 +889,39 @@ Rules:
       setGradeError(true);
     }
     setIsGrading(false);
+  }
+
+  /* ============ POST-GRADE: VIVA + SHARE ============ */
+  function nextViva() {
+    const viva = activeCase?.viva || [];
+    const next = vivaIdx + 1;
+    if (next >= viva.length) return;
+    setVivaIdx(next);
+    setExaminerMessages(prev => [...prev, { role: "assistant", text: `🎤 Viva — question ${next + 1} of ${viva.length}: ${viva[next]}` }]);
+  }
+
+  const [shared, setShared] = useState(false);
+  async function shareResult() {
+    if (!grade || !activeCase) return;
+    const rating = RATING_META[grade.global_rating]?.label || "";
+    const lines = [
+      `🩺 ${activeCase.specialty} station — "${activeCase.cc}"`,
+      `${rating} · Overall ${grade.avg?.toFixed(1) ?? "–"}/10`,
+      `History ${grade.history_score}/10 · Comms ${grade.comm_score ?? "–"}/10` +
+        (grade.inv_score != null ? ` · Inv ${grade.inv_score}/10 · Dx ${grade.diagnosis_score}/10 · Mgmt ${grade.management_score}/10` : "") +
+        (grade.closing_score != null ? ` · Closing ${grade.closing_score}/10` : ""),
+      `#ScholarsCircle OSCE`,
+    ].join("\n");
+    try { await navigator.share({ title: "My OSCE score", text: lines }); }
+    catch {
+      try { await navigator.clipboard.writeText(lines); } catch {
+        const t = document.createElement("textarea");
+        t.value = lines; document.body.appendChild(t); t.select();
+        document.execCommand("copy"); t.remove();
+      }
+      setShared(true);
+      setTimeout(() => setShared(false), 1500);
+    }
   }
 
   /* ============ POST-GRADE EXAMINER CHAT (AI) ============ */
@@ -842,6 +1046,28 @@ Answer the student's follow-up questions about their performance and the underly
                 <div className="vp-chip" onClick={openReviewPanel}>Review due items</div>
               </div>
             )}
+            {Object.keys(profile.skillStats || {}).length > 0 && (
+              <div className="vp-skill-block">
+                <div className="vp-skill-head">
+                  <span className="vp-skill-title">Skill tracker</span>
+                  {weakestSkill && (
+                    <button className="vp-chip vp-weak-cta" onClick={practiceWeakest}>🎯 Train {SKILL_LABELS[weakestSkill.key]} ({weakestSkill.avg}/10)</button>
+                  )}
+                </div>
+                <div className="vp-skill-grid">
+                  {Object.entries(profile.skillStats).map(([k, s]) => {
+                    const avg = s.n ? s.sum / s.n : 0;
+                    return (
+                      <div key={k} className="vp-skill-row">
+                        <span className="vp-skill-lbl">{SKILL_LABELS[k] || k}</span>
+                        <div className="vp-skill-bar"><i style={{ width: `${avg * 10}%`, background: scoreColor(avg) }} /></div>
+                        <b className="vp-skill-val" style={{ color: scoreColor(avg) }}>{avg.toFixed(1)}</b>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {showReviewPanel && (
@@ -868,6 +1094,9 @@ Answer the student's follow-up questions about their performance and the underly
                   <div className="vp-pulse-dot" />
                   <div className="vp-bed">{c.bed}</div>
                   <div className="vp-spec-tag">{c.specialty}</div>
+                  {(c.station_type || "history") !== "history" && (
+                    <div className="vp-sttype-tag">{(STATION_TYPES[c.station_type] || {}).icon} {(STATION_TYPES[c.station_type] || {}).label}</div>
+                  )}
                   <div className="vp-cc">{c.cc}</div>
                   <div className="vp-demo">{c.demo}</div>
                 </div>
@@ -877,6 +1106,11 @@ Answer the student's follow-up questions about their performance and the underly
 
           <div className="vp-cta-bar">
             <button className="vp-cta-start" onClick={openOnboarding}>▶ Start patient case</button>
+            <button
+              className={`vp-cta-station ${stationMode ? "on" : ""}`}
+              onClick={() => saveStationMode(!stationMode)}
+              title="Station mode: countdown timer, 1-minute warning, auto-moves to assessment at 0:00"
+            >⏱</button>
             <button className="vp-cta-dice" onClick={startRandomCase} title="Instant random case">🎲</button>
           </div>
         </div>
@@ -901,6 +1135,8 @@ Answer the student's follow-up questions about their performance and the underly
                 </div>
                 <div className="vp-ct-right">
                   <span className={`vp-mode-badge ${isF ? "vp-mode-badge-f" : "vp-mode-badge-o"}`}>{isF ? "FOUNDATIONS" : "FULL OSCE"}</span>
+                  {stationMode && <span className="vp-mode-badge vp-mode-badge-s">⏱ STATION</span>}
+                  <span className="vp-mode-badge vp-mode-badge-t">{stationType.icon} {stationType.label}</span>
                   <span className={`vp-save-indicator ${saveIndicator ? "show" : ""}`}>✓ saved</span>
                 </div>
               </div>
@@ -912,14 +1148,19 @@ Answer the student's follow-up questions about their performance and the underly
                 <span className="vp-hr-mini"><b>{currentHr}</b> bpm</span>
               </div>
               <div className={`vp-vital-alert ${vitalAlert ? "show" : ""}`}>{vitalAlert}</div>
+              {stationMode && stationLeft <= 60 && (
+                <div className="vp-station-banner">
+                  {stationLeft <= 0 ? "🔔 Time's up — moved to your assessment sheet" : `⏰ ${stationLeft}s left — start closing the consult`}
+                </div>
+              )}
 
               <div className="vp-ct-meters">
                 <div className="vp-meter">
                   <div className="vp-meter-top">
-                    <span className="vp-m-lbl"><span className="vp-m-ic">⏱</span>{paceOver ? "Over target" : "On pace"}</span>
-                    <span className="vp-m-val">{timerM}:{timerS}</span>
+                    <span className="vp-m-lbl"><span className="vp-m-ic">⏱</span>{stationMode ? (stationLeft <= 0 ? "Time's up" : "Time left") : paceOver ? "Over target" : "On pace"}</span>
+                    <span className={`vp-m-val ${stationWarn ? "vp-station-warn" : ""}`}>{stationMode ? `${stationLM}:${stationLS}` : `${timerM}:${timerS}`}</span>
                   </div>
-                  <div className="vp-bar"><div className={`vp-bar-fill ${paceOver ? "over" : ""}`} style={{ width: `${paceFrac * 100}%` }} /></div>
+                  <div className="vp-bar"><div className={`vp-bar-fill ${stationMode ? (stationWarn ? "warn" : "") : paceOver ? "over" : ""}`} style={{ width: `${paceFrac * 100}%` }} /></div>
                 </div>
                 <div className="vp-meter">
                   <div className="vp-meter-top">
@@ -1216,6 +1457,11 @@ Answer the student's follow-up questions about their performance and the underly
               askExaminer={askExaminer}
               examLogRef={examLogRef}
               onNewCase={goToSelect}
+              onNextViva={nextViva}
+              vivaTotal={(activeCase.viva || []).length}
+              vivaIdx={vivaIdx}
+              onShare={shareResult}
+              shared={shared}
             />
           )}
         </div>
@@ -1291,6 +1537,14 @@ Answer the student's follow-up questions about their performance and the underly
                   </button>
                 ))}
               </div>
+              <button className={`vp-ob-station ${ob.station ? "on" : ""}`} onClick={() => setOb(o => ({ ...o, station: !o.station }))}>
+                <span className="vp-ob-st-ic">⏱</span>
+                <span>
+                  <b>Exam-station mode</b>
+                  <i>Countdown timer, 1-minute warning, auto-moves to the assessment sheet at 0:00 — like a real station bell.</i>
+                </span>
+                <span className={`vp-ob-tog ${ob.station ? "on" : ""}`}><i /></span>
+              </button>
             </div>
           )}
           {ob.step === 3 && briefCase && (
@@ -1309,7 +1563,8 @@ Answer the student's follow-up questions about their performance and the underly
                 <div className="vp-ob-chips">
                   {ob.mode === "foundations"
                     ? <><span className="vp-ob-chip g">🌱 History only</span><span className="vp-ob-chip">No penalties</span></>
-                    : <><span className="vp-ob-chip b">History</span><span className="vp-ob-chip b">Investigations</span><span className="vp-ob-chip b">Diagnosis</span><span className="vp-ob-chip b">Management</span></>}
+                    : <><span className="vp-ob-chip b">History</span><span className="vp-ob-chip b">Investigations</span><span className="vp-ob-chip b">Diagnosis</span><span className="vp-ob-chip b">Management</span><span className="vp-ob-chip b">Communication</span><span className="vp-ob-chip b">Closing</span></>}
+                  {ob.station && <span className="vp-ob-chip g">⏱ Station bell on</span>}
                 </div>
               </div>
             </div>
@@ -1374,7 +1629,7 @@ function ReviewPanel({ queue, onRate, onClose }) {
   );
 }
 
-function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, examinerMessages, isExamTyping, examInput, setExamInput, askExaminer, examLogRef, onNewCase }) {
+function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, examinerMessages, isExamTyping, examInput, setExamInput, askExaminer, examLogRef, onNewCase, onNextViva, vivaTotal, vivaIdx, onShare, shared }) {
   const isF = g.mode === "foundations";
   const idxRef = useRef(0);
   const barRefs = useRef([]);
@@ -1423,10 +1678,15 @@ function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, exa
 
   function checklistHtml(covered, missed) {
     if (!covered.length && !missed.length) return null;
+    const crit = g.critical_set || new Set();
     return (
       <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
         {covered.map((p, i) => <div key={`c${i}`} style={{ fontSize: 12.5, color: "var(--vp-green)" }}>✓ {p}</div>)}
-        {missed.map((p, i) => <div key={`m${i}`} style={{ fontSize: 12.5, color: "var(--vp-text-faint)" }}>✗ {p}</div>)}
+        {missed.map((p, i) => (
+          <div key={`m${i}`} style={{ fontSize: 12.5, color: crit.has(p) ? "var(--vp-coral)" : "var(--vp-text-faint)" }}>
+            {crit.has(p) ? "⚑ " : "✗ "}{p}{crit.has(p) ? " — critical item" : ""}
+          </div>
+        ))}
       </div>
     );
   }
@@ -1458,33 +1718,89 @@ function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, exa
 
   let headline, middle;
 
+  const rating = RATING_META[g.global_rating] || RATING_META.borderline;
+  const ratingBlock = (
+    <div className={`vp-rating-banner vp-rating-${g.global_rating}`} style={{ animationDelay: "0ms" }}>
+      <div className="vp-rating-icon">{rating.icon}</div>
+      <div className="vp-rating-main">
+        <div className="vp-rating-label">{rating.label}</div>
+        <div className="vp-rating-desc">
+          {rating.desc}
+          {g.critical_misses.length > 0 && (
+            <span className="vp-rating-crit"> {g.critical_misses.length} critical item{g.critical_misses.length > 1 ? "s" : ""} missed: {g.critical_misses.join("; ")}</span>
+          )}
+        </div>
+      </div>
+      <div className="vp-rating-avg">{g.avg?.toFixed(1)}<small>/10</small></div>
+    </div>
+  );
+
+  const commCard = g.comm_score != null && (() => {
+    const delay = nextDelay();
+    return (
+      <div className="vp-glass vp-score-card" style={{ animationDelay: `${delay}ms` }}>
+        <div className="vp-score-row">
+          <div className="vp-label">Communication & Rapport</div>
+          <div className="vp-val" style={{ color: scoreColor(g.comm_score) }}>{g.comm_score}/10</div>
+        </div>
+        <div className="vp-bar-track">
+          <div className="vp-bar-fill" data-target={g.comm_score * 10} style={{ background: scoreColor(g.comm_score) }} ref={el => barRefs.current.push(el)} />
+        </div>
+        <div className="vp-comm-pills">
+          {(g.comm_metrics || []).map((m) => (
+            <div key={m.key} className={`vp-comm-pill ${m.hit ? "hit" : "miss"}`} title={m.hit ? m.detail : `${m.detail} — ${m.tip}`}>
+              {m.hit ? "✓" : "✗"} {m.label}
+            </div>
+          ))}
+        </div>
+        {(g.comm_metrics || []).filter(m => !m.hit).slice(0, 3).map((m) => (
+          <div key={m.key} className="vp-comm-tip">💡 {m.label}: {m.tip}</div>
+        ))}
+        <div style={{ fontSize: 11, color: "var(--vp-text-faint)", marginTop: 8 }}>Measured from your actual messages — not the AI's impression.</div>
+      </div>
+    );
+  })();
+
+  const closingCard = g.closing_score != null && scoreBlock(
+    "Closing & Safety-netting", g.closing_score, g.closing_feedback,
+    checklistHtml(g.closing_covered, g.closing_missed)
+  );
+
   if (isF) {
     headline = (
-      <div className="vp-glass vp-overall-card" style={{ textAlign: "center", animationDelay: "0ms" }}>
-        <div className="vp-panel-title" style={{ padding: 0 }}>History Taking Score</div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 44, margin: "8px 0", color: scoreColor(g.history_score) }}>
-          {g.history_score}<span style={{ fontSize: 20, color: "var(--vp-text-faint)" }}> / 10</span>
+      <>
+        {ratingBlock}
+        <div className="vp-glass vp-overall-card" style={{ textAlign: "center", animationDelay: `${nextDelay()}ms` }}>
+          <div className="vp-panel-title" style={{ padding: 0 }}>History Taking Score</div>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 44, margin: "8px 0", color: scoreColor(g.history_score) }}>
+            {g.history_score}<span style={{ fontSize: 20, color: "var(--vp-text-faint)" }}> / 10</span>
+          </div>
+          <div className="vp-fb" style={{ textAlign: "left" }}>{g.overall_feedback}</div>
         </div>
-        <div className="vp-fb" style={{ textAlign: "left" }}>{g.overall_feedback}</div>
-      </div>
+      </>
     );
     middle = (
       <>
         {scoreBlock("History Taking", g.history_score, g.history_feedback, historyExtra())}
+        {commCard}
+        {closingCard}
         {infoBlock("Investigations ordered", invFeedback)}
         {infoBlock("Diagnosis & Management", `You'll be scored on these once your clinical rotations begin. For now they're just practice — check the reveal below to see how your instinct compared to the real answer.`)}
       </>
     );
   } else {
-    const avg = ((g.history_score + g.inv_score + g.diagnosis_score + g.management_score) / 4).toFixed(1);
     headline = (
-      <div className="vp-glass vp-overall-card" style={{ textAlign: "center", animationDelay: "0ms" }}>
-        <div className="vp-panel-title" style={{ padding: 0 }}>Overall Score</div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 44, margin: "8px 0", color: scoreColor(avg) }}>
-          {avg}<span style={{ fontSize: 20, color: "var(--vp-text-faint)" }}> / 10</span>
+      <>
+        {ratingBlock}
+        <div className="vp-glass vp-overall-card" style={{ textAlign: "center", animationDelay: `${nextDelay()}ms` }}>
+          <div className="vp-panel-title" style={{ padding: 0 }}>Overall Score</div>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 44, margin: "8px 0", color: scoreColor(g.avg) }}>
+            {g.avg?.toFixed(1)}<span style={{ fontSize: 20, color: "var(--vp-text-faint)" }}> / 10</span>
+          </div>
+          {g.agenda_caught && <div className="vp-agenda-badge">🧲 You drew out the patient's hidden concern</div>}
+          <div className="vp-fb" style={{ textAlign: "left" }}>{g.overall_feedback}</div>
         </div>
-        <div className="vp-fb" style={{ textAlign: "left" }}>{g.overall_feedback}</div>
-      </div>
+      </>
     );
     middle = (
       <>
@@ -1492,6 +1808,8 @@ function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, exa
         {scoreBlock("Investigation Stewardship", g.inv_score, invFeedback)}
         {scoreBlock("Diagnosis" + (g.diagnosis_correct ? " ✓" : ""), g.diagnosis_score, g.diagnosis_feedback, diagnosisRankNote())}
         {scoreBlock("Management", g.management_score, g.management_feedback, checklistHtml(g.management_covered, g.management_missed))}
+        {commCard}
+        {closingCard}
       </>
     );
   }
@@ -1525,7 +1843,12 @@ function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, exa
         </div>
       </div>
       <div className="vp-glass vp-exam-chat" style={{ animationDelay: `${nextDelay()}ms` }}>
-        <div className="vp-panel-title">Ask the Examiner</div>
+        <div className="vp-exam-head">
+          <div className="vp-panel-title">Viva & Examiner Debrief</div>
+          {vivaTotal > 0 && vivaIdx < vivaTotal - 1 && (
+            <button className="vp-viva-next" onClick={onNextViva}>🎤 Next viva question ({vivaIdx + 1}/{vivaTotal})</button>
+          )}
+        </div>
         <div className="vp-chat-log" ref={examLogRef}>
           {examinerMessages.map((m, i) => (
             <div key={i} className={`vp-bubble ${m.role === "user" ? "doc" : "pt"}`}>
@@ -1547,7 +1870,10 @@ function GradeScreen({ grade: g, activeCase, progressInfo, dxList, mgmtText, exa
           <button className="vp-send-btn" onClick={askExaminer} disabled={isExamTyping || !examInput.trim()}>Ask</button>
         </div>
       </div>
-      <button className="vp-again-btn" onClick={onNewCase}>Try another case</button>
+      <div className="vp-grade-actions">
+        <button className="vp-share-btn" onClick={onShare}>{shared ? "✓ Copied!" : "📤 Share score"}</button>
+        <button className="vp-again-btn" onClick={onNewCase}>Try another case</button>
+      </div>
     </div>
   );
 }

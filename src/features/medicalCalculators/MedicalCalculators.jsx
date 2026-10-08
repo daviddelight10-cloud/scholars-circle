@@ -193,6 +193,7 @@ export default function MedicalCalculators({ onBack }) {
 
   return (
     <div className="cr-page">
+      <ExitPill title="Medical Calculators" onBack={onBack} />
       <div className="cr-hero">
         <h2><span className="cr-ico">🧮</span>Medical Calculators</h2>
         <p>{CALCS.length} clinical scores & formulas — search, tap, calculate</p>
@@ -248,7 +249,6 @@ export default function MedicalCalculators({ onBack }) {
       )}
 
       <div className="cr-note">For educational purposes only. Always verify calculations in clinical practice.</div>
-      <ExitPill title="Medical Calculators" onBack={onBack} />
     </div>
   );
 }
