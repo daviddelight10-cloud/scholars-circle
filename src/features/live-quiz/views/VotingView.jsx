@@ -106,12 +106,6 @@ export default function VotingView({ room, actions, timeLeft, myId }) {
 
   return (
     <div className="lq-view">
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <span className={`lq-timer-pill${timeLeft != null && timeLeft <= 5 ? " danger" : ""}`}>
-          {timeLeft != null ? `${timeLeft}s` : "…"}
-        </span>
-      </div>
-
       <div className="lq-vote-info">
         <IconLock size={12} />
         <p style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, margin: 0 }}>Votes hidden until everyone locks in</p>

@@ -15,6 +15,39 @@ function initials(name) {
   return (name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
+// Participants strip — in-flow above the body (left rail on desktop).
+// Rendered only while playing: the lobby and results screens already list
+// everyone, and it never needs to overlap question text.
+const RAIL_PHASES = ["transition", "question", "reveal", "teachback"];
+function ParticipantRail({ room, myId, voice }) {
+  if (!RAIL_PHASES.includes(room.phase)) return null;
+  return (
+    <div className="lq-rail" aria-label="Participants">
+      {room.participants.map((p) => {
+        const lockedIn = room.phase === "question" && (room.question?.lockedIds || []).includes(p.userId);
+        const pts = p.points || 0;
+        const delta = room.phase === "reveal" || room.phase === "teachback" ? room.reveal?.pointsDelta?.[p.userId] : null;
+        return (
+          <div className="lq-pcell" key={p.userId} title={p.username}>
+            <div
+              className={`lq-pcell-ava${voice.speakingIds.has(p.userId) ? " speaking" : ""}${p.connected ? "" : " offline"}${p.isHost ? " host" : ""}`}
+              style={{ background: p.color }}
+            >
+              {initials(p.username)}
+              {lockedIn && <span className="lq-pcell-lock"><IconCheck size={8} /></span>}
+            </div>
+            {(pts > 0 || delta != null) && (
+              <span className={`lq-pcell-pts${p.userId === myId ? " me" : ""}`}>
+                {pts}{delta ? <em className={delta > 0 ? "up" : "down"}>{delta > 0 ? `+${delta}` : delta}</em> : null}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function TransitionView({ room }) {
   const [count, setCount] = useState(3);
   useEffect(() => {
@@ -122,10 +155,22 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
 
   const meConnected = room.participants.find((p) => p.userId === myId)?.connected !== false;
 
+  // Compact question counter + countdown, owned by the header bar
+  const qTotal = room.question?.total || (room.phase !== "lobby" ? room.settings.numQuestions : 0);
+  const showQChip = ["transition", "question", "reveal", "teachback"].includes(room.phase) && qTotal > 0;
+  const qNow = Math.min(
+    (room.phase === "reveal" || room.phase === "teachback"
+      ? (room.reveal?.index ?? Math.max(0, room.talkedThrough - 1))
+      : room.talkedThrough) + 1,
+    qTotal
+  );
+  const timeLimit = room.question?.timeLimit || room.settings.timePerQuestion || 30;
+  const inQuestion = room.phase === "question" && room.timeLeft != null;
+
   return (
     <div className="lq-app">
       <div className="lq-header">
-        <div className="lq-header-top">
+        <div className="lq-header-inner">
           <button className="lq-icon-btn exit" aria-label="Exit session" onClick={handleLeave}>
             <IconX size={18} />
           </button>
@@ -133,8 +178,12 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
             <p className="label">{headerLabel}</p>
             <p className="title">{room.title || "Live Quiz"}</p>
           </div>
+          {showQChip && <span className="lq-q-count">Q{qNow}/{qTotal}</span>}
           {room.phase !== "lobby" && room.phase !== "complete" && room.phase !== "ended" && (
             <span className="lq-live-badge"><span className="lq-live-dot" />LIVE</span>
+          )}
+          {inQuestion && (
+            <span className={`lq-timer-chip${room.timeLeft <= 5 ? " danger" : ""}`}>{room.timeLeft}s</span>
           )}
           {room.isHost && room.phase !== "complete" && room.phase !== "ended" && (
             <button className="lq-icon-btn" onClick={handleEnd} title="End session for everyone" aria-label="End session for everyone"
@@ -143,39 +192,19 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
             </button>
           )}
         </div>
-      </div>
-      <div className="lq-avatar-row">
-          {room.participants.map((p) => {
-            const lockedIn = room.phase === "question" && (room.question?.lockedIds || []).includes(p.userId);
-            const pts = room.reveal?.points?.[p.userId] ?? p.points;
-            const delta = room.phase === "reveal" || room.phase === "teachback" ? room.reveal?.pointsDelta?.[p.userId] : null;
-            return (
-              <div className="lq-avatar-wrap" key={p.userId} title={p.username}>
-                <div
-                  className={`lq-avatar${voice.speakingIds.has(p.userId) ? " speaking" : ""}${p.connected ? "" : " offline"}${p.isHost ? " host" : ""}`}
-                  style={{ background: p.color }}
-                >
-                  {initials(p.username)}
-                </div>
-                {room.phase === "question" && p.userId === myId && room.timeLeft != null && !room.question?.answered && (
-                  <span className="lq-avatar-status" style={{ background: "#141414", color: room.timeLeft <= 5 ? "#FF6B5E" : "#F5C542" }}>
-                    {room.timeLeft}
-                  </span>
-                )}
-                {lockedIn && (
-                  <span className="lq-avatar-status" style={{ background: "#3DD68C", color: "#0A0C10" }}><IconCheck size={9} /></span>
-                )}
-                {(pts > 0 || delta != null) && room.phase !== "lobby" && (
-                  <span className={`lq-pts-badge${p.userId === myId ? " me" : ""}`}>
-                    {pts}{delta ? <em className={delta > 0 ? "up" : "down"}>{delta > 0 ? `+${delta}` : delta}</em> : null}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+        {inQuestion && (
+          <div
+            className={`lq-header-progress${room.timeLeft <= 5 ? " danger" : ""}`}
+            style={{ width: `${Math.max(0, Math.min(100, (room.timeLeft / timeLimit) * 100))}%` }}
+            role="timer"
+            aria-label={`${room.timeLeft} seconds left`}
+          />
+        )}
       </div>
 
-      <div className="lq-body">
+      <div className="lq-stage">
+        <ParticipantRail room={room} myId={myId} voice={voice} />
+        <div className="lq-body">
         {room.phase === "connecting" && (
           <div className="lq-view"><div className="lq-center">
             <IconClock size={28} style={{ color: "#F5C542", marginBottom: 12 }} />
@@ -203,7 +232,7 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
             <button className="lq-btn-primary" style={{ maxWidth: 320 }} onClick={onExit}>Go back</button>
           </div></div>
         )}
-      </div>
+        </div>
 
       {/* Poll overlay (lifeline results) */}
       {room.poll && (
@@ -285,6 +314,7 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
       {floaters.map((f) => (
         <div key={f.id} className="lq-float-emoji" style={{ right: f.right }}>{f.emoji}</div>
       ))}
+      </div>
 
       <div className="lq-footer">
         <p className="lq-footer-text">
