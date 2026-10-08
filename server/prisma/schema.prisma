@@ -608,6 +608,8 @@ model UserProgress {
 
   coins        Int      @default(0)
 
+  gems         Int      @default(20)
+
   weeklyGoal   Int      @default(5)
 
   totalCorrect Int      @default(0)

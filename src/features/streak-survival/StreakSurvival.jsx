@@ -11,6 +11,7 @@ import {
   activeQuests, questEvent, claimQuest,
   ACHIEVEMENTS, checkAchievements,
   SHOP, THEMES, buyItem, equipTheme,
+  HINT_GEMS, trySpendGems,
 } from './survivalStore.js';
 import {
   getAuthHeaders, isAuthed,
@@ -778,11 +779,19 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
   function handleHint() {
     if (locked || !current) return;
+    const wrongKeys = qMode === 'mcq'
+      ? current.q.opts.map((_, i) => i).filter((i) => i !== current.q.a && !eliminated.has(i))
+      : [];
+    const canEliminate = wrongKeys.length > 1;
+    if ((!current.q.hint || hintUsed) && !canEliminate) return; // nothing new to give — don't charge
+    if (!trySpendGems(HINT_GEMS)) {
+      toast(`Not enough 💎 — a hint costs ${HINT_GEMS}`, '#FF5E7E');
+      return;
+    }
+    bump();
     setHintUsed(true);
     sound.click();
-    if (qMode !== 'mcq') return; // type/card: surface the hint text, nothing to eliminate
-    const wrongKeys = current.q.opts.map((_, i) => i).filter((i) => i !== current.q.a && !eliminated.has(i));
-    if (wrongKeys.length <= 1) return;
+    if (!canEliminate) return; // type/card (or options exhausted): surface hint text only
     setEliminated((prev) => new Set(prev).add(wrongKeys[Math.floor(Math.random() * wrongKeys.length)]));
   }
 
@@ -1658,7 +1667,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                     )
                   ) : (
                     <>
-                      {(qMode === 'mcq' || current.q.hint) && <button type="button" onClick={handleHint}>💡 Hint</button>}
+                      {(qMode === 'mcq' || current.q.hint) && <button type="button" onClick={handleHint}>💡 Hint · {HINT_GEMS}💎</button>}
                       {screen === 'game' && <button type="button" onClick={handleReveal}>👁 Reveal</button>}
                     </>
                   )}

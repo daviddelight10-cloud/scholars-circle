@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { updateUniversalStreak } from "../lib/streak.js";
 import express from "express";
 const router = express.Router();
 
@@ -8,6 +9,15 @@ router.get("/", requireAuth, async (req, res) => {
   try {
     const userId = req.user.sub;
     console.log("Loading user data for:", userId);
+
+    // Opening the app counts as the day's streak touch (idempotent — no-ops
+    // if already counted today; consumes freezes on a gap). Runs before the
+    // fetch so the response carries the fresh streak/lastStudied.
+    try {
+      await updateUniversalStreak(userId, prisma);
+    } catch (e) {
+      console.warn("[streak] login touch failed:", e?.message);
+    }
 
     const [progress, timetable, flashcards, reminders, chatHistory, notes, discussions, outlineProgress] = await Promise.all([
       prisma.userProgress.findUnique({ where: { userId } }),
@@ -97,6 +107,28 @@ router.post("/progress", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error saving user progress:", error);
     res.status(500).json({ error: "Failed to save user progress" });
+  }
+});
+
+// Sync 💎 balance — client reports its absolute balance (debounced after
+// every earn/spend); server stores it so gems persist across devices.
+// Same client-reported trust level as the XP sync above.
+router.post("/gems", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const gems = Number(req.body?.gems);
+    if (!Number.isFinite(gems) || gems < 0 || gems > 100000) {
+      return res.status(400).json({ error: "Invalid gems value" });
+    }
+    const progress = await prisma.userProgress.upsert({
+      where: { userId },
+      update: { gems: Math.round(gems) },
+      create: { userId, gems: Math.round(gems) },
+    });
+    res.json({ gems: progress.gems });
+  } catch (error) {
+    console.error("Error syncing gems:", error);
+    res.status(500).json({ error: "Failed to sync gems" });
   }
 });
 

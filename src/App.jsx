@@ -73,6 +73,7 @@ import {
   LECTURER_ALLOWED_TABS, LECTURER_HOME_TAB,
 } from "./lib/constants";
 import { PLANS, getPlan, naira, waPaymentProofLink } from "./lib/plans.js";
+import { adoptServerGems } from "./features/streak-survival/survivalStore.js";
 import {
   isFreeTier, freeTierPhase, trialDaysLeft, trialEndPending, markTrialEndNotified,
   enterFreeTier, exitFreeTier, canUse, consume, loadState,
@@ -1945,6 +1946,8 @@ function App() {
           setLastStudied(data.progress.lastStudied ? new Date(data.progress.lastStudied).toISOString().split('T')[0] : null);
 
           setLastActivity(data.progress.lastActivity ?? null);
+
+          adoptServerGems(data.progress.gems);
 
           if (data.progress.themePack) setThemePack(data.progress.themePack);
 
@@ -4413,6 +4416,8 @@ function App() {
         setLastStudied(data.progress.lastStudied || null);
 
         setLastActivity(data.progress.lastActivity ?? null);
+
+        adoptServerGems(data.progress.gems);
 
         if (data.progress.themePack) setThemePack(data.progress.themePack);
 

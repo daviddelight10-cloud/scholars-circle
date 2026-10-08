@@ -1,6 +1,10 @@
 // Local persistence for the Streak Survival experience.
 // FSRS scheduling lives server-side; this store holds game-only state:
 // game XP/level, gems, freezes, quests, achievements, per-resource best streak.
+// Gems are additionally mirrored to the server (UserProgress.gems) so the
+// balance persists across devices — server value is adopted on app load.
+
+import { API_BASE } from "../../lib/constants.js";
 
 export function getUid() {
   try {
@@ -21,6 +25,7 @@ function defaults() {
     bestByScope: {},
     xp: 0,                    // unified total XP — mirrors server UserProgress.xp; drives level + career titles
     gems: 20,
+    gemsMigrated: false,   // becomes true after first server-gem adoption
     lifetimeGems: 20,
     freezes: 0,
     warmupDate: '',
@@ -62,11 +67,73 @@ export function loadSave() {
   return cache;
 }
 
+// ---------- Server gem sync ----------
+// Server (UserProgress.gems) is authoritative once adopted via
+// adoptServerGems() on app load; local stays the live balance for instant
+// UX. Any mutation that changes `gems` schedules a debounced absolute push.
+
+const GEM_SYNC_DEBOUNCE_MS = 1200;
+const GEM_SYNC_RETRY_MS = 10000;
+let gemSyncReady = false; // only sync after the server balance has been adopted
+let gemSyncTimer = null;
+let gemRetryTimer = null;
+let lastSyncedGems = null;
+
+function authToken() {
+  try {
+    return JSON.parse(localStorage.getItem('scholars-circle-auth') || '{}')?.authToken || null;
+  } catch { return null; }
+}
+
+function pushGemsNow() {
+  const s = loadSave();
+  const token = authToken();
+  if (!token || s.gems === lastSyncedGems) return;
+  const gems = s.gems;
+  lastSyncedGems = gems;
+  fetch(`${API_BASE}/api/user-data/gems`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    credentials: 'include',
+    body: JSON.stringify({ gems }),
+  }).then((res) => {
+    if (!res.ok) throw new Error(`gems sync ${res.status}`);
+    if (cache && cache.gems !== lastSyncedGems) scheduleGemSync(); // a mutation raced the push
+  }).catch(() => {
+    lastSyncedGems = null; // mark dirty so the next mutation retries
+    if (!gemRetryTimer) {
+      gemRetryTimer = setTimeout(() => { gemRetryTimer = null; pushGemsNow(); }, GEM_SYNC_RETRY_MS);
+    }
+  });
+}
+
+function scheduleGemSync() {
+  if (!gemSyncReady || !cache || cache.gems === lastSyncedGems || gemSyncTimer) return;
+  gemSyncTimer = setTimeout(() => { gemSyncTimer = null; pushGemsNow(); }, GEM_SYNC_DEBOUNCE_MS);
+}
+
+// Adopt the server balance on app load. First contact keeps the richer of
+// local/server so gems earned before the column existed aren't wiped.
+export function adoptServerGems(serverGems) {
+  gemSyncReady = true;
+  if (serverGems == null) return; // old backend without the column — stay local
+  const s = loadSave();
+  if (!s.gemsMigrated) {
+    const merged = Math.max(s.gems || 0, serverGems);
+    mutate((st) => { st.gems = merged; st.gemsMigrated = true; });
+    // merged ≠ lastSyncedGems → persist() schedules the push
+  } else {
+    lastSyncedGems = serverGems;
+    mutate((st) => { st.gems = serverGems; });
+  }
+}
+
 export function persist() {
   if (!cache) return;
   const key = `sc_survival_v1::${getUid()}`;
   // setItem is quota-guarded globally via safeStorage.js
   try { localStorage.setItem(key, JSON.stringify(cache)); } catch { /* quota */ }
+  scheduleGemSync();
 }
 
 export function mutate(fn) {
@@ -137,6 +204,8 @@ export function titleForLevel(lv) {
 
 export const TIER_XP = { easy: 5, medium: 10, hard: 20 };
 export const TIER_GEMS = { easy: 1, medium: 2, hard: 3 };
+
+export const HINT_GEMS = 2; // cost of the 💡 hint in MCQ runners
 
 // ---------- Shop / consumables / themes ----------
 

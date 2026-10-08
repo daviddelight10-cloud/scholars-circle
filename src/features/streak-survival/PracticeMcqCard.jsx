@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { callAI } from '../../lib/aiClient.js';
 import { deriveRating, rateQuestion, masteryDots } from './fsrsBridge.js';
+import { HINT_GEMS, trySpendGems } from './survivalStore.js';
 import './streakSurvival.css';
 
 const GRADE_LABEL = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
@@ -18,6 +19,7 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
   const [selected, setSelected] = useState(null);
   const [revealed, setRevealed] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
+  const [hintDenied, setHintDenied] = useState(false);
   const [eliminated, setEliminated] = useState(new Set());
   const [fsrsNote, setFsrsNote] = useState(null); // { grade, intervalLabel }
   const [explain, setExplain] = useState({ show: false, text: '', loading: false });
@@ -26,12 +28,19 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
 
   const handleHint = useCallback(() => {
     if (locked) return;
-    setHintUsed(true);
     const wrongKeys = question.opts.map((_, i) => i).filter((i) => i !== question.a && !eliminated.has(i));
-    if (wrongKeys.length <= 1) return;
+    const canEliminate = wrongKeys.length > 1;
+    if ((!question.hint || hintUsed) && !canEliminate) return; // nothing new to give — don't charge
+    if (!trySpendGems(HINT_GEMS)) {
+      setHintDenied(true);
+      return;
+    }
+    setHintDenied(false);
+    setHintUsed(true);
+    if (!canEliminate) return;
     const target = wrongKeys[Math.floor(Math.random() * wrongKeys.length)];
     setEliminated((prev) => new Set(prev).add(target));
-  }, [locked, question, eliminated]);
+  }, [locked, hintUsed, question, eliminated]);
 
   const fireRating = useCallback((correct, rev) => {
     const grade = deriveRating({
@@ -172,9 +181,14 @@ export default function PracticeMcqCard({ question, cardState, onRated, onNext, 
 
         {!locked && (
           <div className="card-actions">
-            <button type="button" onClick={handleHint}>💡 Hint</button>
+            <button type="button" onClick={handleHint}>💡 Hint · {HINT_GEMS}💎</button>
             <button type="button" onClick={handleReveal}>👁 Reveal</button>
           </div>
+        )}
+        {hintDenied && !locked && (
+          <p style={{ fontSize: 12, color: '#FF5E7E', textAlign: 'center', margin: '8px 0 0' }}>
+            Not enough 💎 — a hint costs {HINT_GEMS}
+          </p>
         )}
 
         {explain.show && (
