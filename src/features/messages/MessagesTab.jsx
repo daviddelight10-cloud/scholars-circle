@@ -8,7 +8,7 @@ const INBOX_POLL_MS = 15000;
 
 // Chats tab: inbox of DM threads. `openChatWith` lets the parent deep-link
 // straight into a thread (profile "Message" button, push notification).
-export function MessagesTab({ token, me, openChatWith, onChatOpened, onOpenProfile, onUnreadChange }) {
+export function MessagesTab({ token, me, openChatWith, onChatOpened, onOpenProfile, onOpenResource, onUnreadChange }) {
   const [inbox, setInbox] = useState(null);
   const [error, setError] = useState(null);
   const [partner, setPartner] = useState(null); // {id, name, ...} when a thread is open
@@ -59,6 +59,7 @@ export function MessagesTab({ token, me, openChatWith, onChatOpened, onOpenProfi
         partner={partner}
         onBack={() => { setPartner(null); loadInbox(); }}
         onOpenProfile={onOpenProfile}
+        onOpenResource={onOpenResource}
         onRead={loadInbox}
       />
     );
@@ -103,10 +104,12 @@ export function MessagesTab({ token, me, openChatWith, onChatOpened, onOpenProfi
           <Avatar user={c.partner} size={46} />
           <span className="fd-chat-info">
             <span className="fd-chat-name">
+              {c.partner.online && <span className="fd-dot-online" aria-label="Online" />}
               {c.partner.name}
               {c.partner.role === "LECTURER" || c.partner.role === "TEACHER" ? (
                 <span className="fd-badge">Faculty</span>
               ) : null}
+              {c.request && <span className="fd-badge req">Request</span>}
             </span>
             <span className="fd-chat-preview">
               {c.lastMessage.isMine ? "You: " : ""}{c.lastMessage.text}

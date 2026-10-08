@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { callAIChat, extractJSON } from "../../lib/aiClient";
 import { fsrsNewCard, fsrsRate, toFsrsCard } from "../../lib/fsrs.js";
@@ -1170,6 +1170,23 @@ Answer the student's follow-up questions about their performance and the underly
             />
           )}
 
+          <div className="vp-tools-row">
+            <button className="vp-glass vp-tool-card" onClick={() => setGroupOpen(true)}>
+              <span className="vp-tool-ic">👥</span>
+              <span className="vp-tool-main">
+                <span className="vp-tool-t">Group practice</span>
+                <span className="vp-tool-s">Run a station with friends — examiner marks live</span>
+              </span>
+            </button>
+            <button className="vp-glass vp-tool-card gold" onClick={() => { setCreatorEdit(null); setCreatorOpen(true); }}>
+              <span className="vp-tool-ic">✎</span>
+              <span className="vp-tool-main">
+                <span className="vp-tool-t">Create a station</span>
+                <span className="vp-tool-s">Author your own case — solo or with a group</span>
+              </span>
+            </button>
+          </div>
+
           <div className="vp-specialty-row">
             {specialties.map(s => (
               <div key={s} className={`vp-chip vp-spec-chip ${s === specialtyFilter ? "active" : ""}`} onClick={() => setSpecialtyFilter(s)}>{s}</div>
@@ -1231,10 +1248,6 @@ Answer the student's follow-up questions about their performance and the underly
               title="Station mode: countdown timer, 1-minute warning, auto-moves to assessment at 0:00"
             >⏱</button>
             <button className="vp-cta-dice" onClick={startRandomCase} title="Instant random case">🎲</button>
-          </div>
-          <div className="vp-cta-bar vp-cta-bar2">
-            <button className="vp-cta-group" onClick={() => setGroupOpen(true)}>👥 Group practice</button>
-            <button className="vp-cta-group vp-cta-create" onClick={() => { setCreatorEdit(null); setCreatorOpen(true); }}>✎ Create a station</button>
           </div>
         </div>
       )}

@@ -5,8 +5,62 @@ import { AUTHOR_SELECT, publicUser } from "../lib/social.js";
 
 const router = express.Router();
 
+const RESOURCE_CARD_SELECT = { id: true, title: true, subject: true, contentType: true, shareToken: true };
+
+// Lightweight in-memory presence + typing — chat-scale only, no persistence needed.
+const lastSeen = new Map();   // userId -> ts
+const typingTo = new Map();   // `${typerId}|${readerId}` -> ts
+const TYPING_TTL = 4000;
+const ONLINE_TTL = 120000;    // "online" = hit a messages route in the last 2min
+
 function userId(req) {
-  return req.user.sub || req.user.id;
+  const uid = req.user.sub || req.user.id;
+  if (uid) lastSeen.set(uid, Date.now());
+  return uid;
+}
+function isOnline(uid) { return Date.now() - (lastSeen.get(uid) || 0) < ONLINE_TTL; }
+function isTyping(from, to) { return Date.now() - (typingTo.get(`${from}|${to}`) || 0) < TYPING_TTL; }
+
+// Resolve reply previews + resource cards for a batch of DirectMessages.
+async function decorate(messages, uid) {
+  const resourceIds = [...new Set(messages.map((m) => m.resourceId).filter(Boolean))];
+  const replyIds = [...new Set(messages.map((m) => m.replyToId).filter(Boolean))];
+  const [resources, replies] = await Promise.all([
+    resourceIds.length
+      ? prisma.resource.findMany({ where: { id: { in: resourceIds } }, select: RESOURCE_CARD_SELECT })
+      : [],
+    replyIds.length
+      ? prisma.directMessage.findMany({
+          where: { id: { in: replyIds } },
+          select: { id: true, content: true, fromId: true, from: { select: { fullName: true, username: true } } },
+        })
+      : [],
+  ]);
+  const resById = new Map(resources.map((r) => [r.id, r]));
+  const repById = new Map(replies.map((r) => [r.id, {
+    id: r.id,
+    text: r.content.slice(0, 140),
+    senderName: r.from?.fullName || r.from?.username || "Scholar",
+    isMine: r.fromId === uid,
+  }]));
+
+  const reactionCounts = (m) => {
+    const counts = {};
+    (m.reactions || []).forEach((r) => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+    return counts;
+  };
+
+  return messages.map((m) => ({
+    id: m.id,
+    text: m.content,
+    ts: m.createdAt,
+    isMine: m.fromId === uid,
+    read: m.read,
+    resource: m.resourceId ? resById.get(m.resourceId) || null : null,
+    replyTo: m.replyToId ? repById.get(m.replyToId) || { id: m.replyToId, deleted: true } : null,
+    reactions: reactionCounts(m),
+    myReactions: (m.reactions || []).filter((r) => r.userId === uid).map((r) => r.emoji),
+  }));
 }
 
 // Fire-and-forget DM push. Category "directMessages" respects NotificationPreference.directMessages.
@@ -62,10 +116,27 @@ router.get("/inbox", requireAuth, async (req, res) => {
     });
     const byId = new Map(partners.map((u) => [u.id, publicUser(u)]));
 
+    // "Request" = sender doesn't follow me AND I don't follow them → cold DM
+    const [iFollow, theyFollow] = await Promise.all([
+      prisma.userFollow.findMany({
+        where: { followerId: uid, followingId: { in: [...partnerMap.keys()] } },
+        select: { followingId: true },
+      }),
+      prisma.userFollow.findMany({
+        where: { followerId: { in: [...partnerMap.keys()] }, followingId: uid },
+        select: { followerId: true },
+      }),
+    ]);
+    const iFollowSet = new Set(iFollow.map((f) => f.followingId));
+    const theyFollowSet = new Set(theyFollow.map((f) => f.followerId));
+
     res.json(
       [...partnerMap.values()]
         .map((e) => ({
-          partner: byId.get(e.partnerId) || { id: e.partnerId, name: "Scholar" },
+          partner: {
+            ...(byId.get(e.partnerId) || { id: e.partnerId, name: "Scholar" }),
+            online: isOnline(e.partnerId),
+          },
           lastMessage: {
             id: e.lastMessage.id,
             text: e.lastMessage.content,
@@ -74,6 +145,7 @@ router.get("/inbox", requireAuth, async (req, res) => {
             read: e.lastMessage.read,
           },
           unreadCount: e.unreadCount,
+          request: !iFollowSet.has(e.partnerId) && !theyFollowSet.has(e.partnerId),
         }))
         .filter((e) => e.partner)
     );
@@ -170,8 +242,10 @@ router.get("/peers", requireAuth, async (req, res) => {
 
 // ============ THREADS ============
 
-// GET /api/messages/thread/:userId?before= — conversation with a user,
-// oldest→newest. Marks incoming messages as read.
+// GET /api/messages/thread/:userId?before= — conversation with a user.
+// Returns { messages, peerTyping, peerOnline }. `read` on incoming messages
+// reflects their pre-fetch state (this fetch marks them read after snapshot),
+// so the client can draw the "New messages" divider above the first one.
 router.get("/thread/:userId", requireAuth, async (req, res) => {
   try {
     const uid = userId(req);
@@ -188,57 +262,108 @@ router.get("/thread/:userId", requireAuth, async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
       take: 50,
+      include: { reactions: true },
     });
+
+    const decorated = await decorate(messages.reverse(), uid);
 
     await prisma.directMessage.updateMany({
       where: { toId: uid, fromId: otherId, read: false },
       data: { read: true },
     });
 
-    res.json(
-      messages.reverse().map((m) => ({
-        id: m.id,
-        text: m.content,
-        ts: m.createdAt,
-        isMine: m.fromId === uid,
-        read: m.read,
-      }))
-    );
+    res.json({
+      messages: decorated,
+      peerTyping: isTyping(otherId, uid),
+      peerOnline: isOnline(otherId),
+    });
   } catch (err) {
     console.error("Thread error:", err);
     res.status(500).json({ error: "Failed to fetch thread" });
   }
 });
 
-// POST /api/messages { toUserId, content } — send a DM.
+// POST /api/messages { toUserId, content, resourceId?, replyToId? } — send a DM.
 router.post("/", requireAuth, async (req, res) => {
   try {
     const uid = userId(req);
-    const { toUserId, content } = req.body || {};
+    const { toUserId, content, resourceId, replyToId } = req.body || {};
     const text = content?.trim();
-    if (!toUserId || !text) return res.status(400).json({ error: "Recipient and content required" });
+    if (!toUserId || (!text && !resourceId)) return res.status(400).json({ error: "Recipient and content required" });
     if (toUserId === uid) return res.status(400).json({ error: "Cannot message yourself" });
-    if (text.length > 2000) return res.status(400).json({ error: "Message too long" });
+    if (text && text.length > 2000) return res.status(400).json({ error: "Message too long" });
 
     const target = await prisma.user.findUnique({ where: { id: toUserId }, select: { id: true } });
     if (!target) return res.status(404).json({ error: "User not found" });
 
+    let resource = null;
+    if (resourceId) {
+      resource = await prisma.resource.findUnique({ where: { id: resourceId }, select: RESOURCE_CARD_SELECT });
+      if (!resource) return res.status(404).json({ error: "Material not found" });
+    }
+    if (replyToId) {
+      const orig = await prisma.directMessage.findFirst({
+        where: { id: replyToId, OR: [{ fromId: uid, toId: toUserId }, { fromId: toUserId, toId: uid }] },
+        select: { id: true },
+      });
+      if (!orig) return res.status(404).json({ error: "Reply target not found" });
+    }
+
     const dm = await prisma.directMessage.create({
-      data: { fromId: uid, toId: toUserId, content: text },
+      data: {
+        fromId: uid,
+        toId: toUserId,
+        content: text || (resource ? `Shared ${resource.title}` : ""),
+        resourceId: resource?.id || null,
+        replyToId: replyToId || null,
+      },
     });
 
-    res.status(201).json({
-      id: dm.id,
-      text: dm.content,
-      ts: dm.createdAt,
-      isMine: true,
-      read: dm.read,
-    });
+    const [decorated] = await decorate([{ ...dm, reactions: [] }], uid);
+    res.status(201).json(decorated);
 
-    dmPush(toUserId, uid, text);
+    dmPush(toUserId, uid, text || `Shared ${resource?.title || "a material"}`);
   } catch (err) {
     console.error("Send DM error:", err);
     res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// POST /api/messages/typing { toUserId } — heartbeat while composing.
+router.post("/typing", requireAuth, async (req, res) => {
+  const uid = userId(req);
+  const { toUserId } = req.body || {};
+  if (toUserId) typingTo.set(`${uid}|${toUserId}`, Date.now());
+  res.json({ ok: true });
+});
+
+// POST /api/messages/:id/reactions { emoji } — toggle a reaction on a DM.
+router.post("/:id/reactions", requireAuth, async (req, res) => {
+  try {
+    const uid = userId(req);
+    const { emoji } = req.body || {};
+    if (!emoji || String(emoji).length > 16) return res.status(400).json({ error: "Emoji required" });
+
+    const msg = await prisma.directMessage.findUnique({ where: { id: req.params.id } });
+    if (!msg || (msg.fromId !== uid && msg.toId !== uid)) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    const existing = await prisma.directMessageReaction.findUnique({
+      where: { messageId_userId_emoji: { messageId: msg.id, userId: uid, emoji } },
+    }).catch(() => null);
+
+    if (existing) {
+      await prisma.directMessageReaction.delete({ where: { id: existing.id } });
+      return res.json({ removed: true });
+    }
+    const reaction = await prisma.directMessageReaction.create({
+      data: { messageId: msg.id, userId: uid, emoji },
+    });
+    res.status(201).json(reaction);
+  } catch (err) {
+    console.error("DM reaction error:", err);
+    res.status(500).json({ error: "Failed to react" });
   }
 });
 

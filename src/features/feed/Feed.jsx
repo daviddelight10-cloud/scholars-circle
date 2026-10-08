@@ -545,6 +545,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                   openChatWith={chatWith}
                   onChatOpened={() => setChatWith(null)}
                   onOpenProfile={setProfileUserId}
+                  onOpenResource={onOpenResource}
                   onUnreadChange={setUnread}
                 />
               ) : (

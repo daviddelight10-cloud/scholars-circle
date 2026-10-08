@@ -14,6 +14,18 @@ function liveState(code) {
 
 const router = express.Router();
 
+// In-memory typing state per classroom — { classroomId: Map(userId -> {name, ts}) }
+const typingIn = new Map();
+const TYPING_TTL = 4000;
+function typingList(classroomId, excludeUserId) {
+  const m = typingIn.get(classroomId);
+  if (!m) return [];
+  const now = Date.now();
+  return [...m.entries()]
+    .filter(([uid, v]) => uid !== excludeUserId && now - v.ts < TYPING_TTL)
+    .map(([uid, v]) => ({ id: uid, name: v.name }));
+}
+
 // Helper: verify classroom membership
 async function verifyMembership(classroomId, userId) {
   const classroom = await prisma.classroom.findUnique({
@@ -50,24 +62,41 @@ router.get("/:classroomId/messages", requireAuth, async (req, res) => {
       take: 50,
     });
 
-    // Batch-attach shared-resource cards (no relation field — resolve by id)
+    // Batch-attach shared-resource cards + reply previews (resolve by id)
     const resourceIds = [...new Set(messages.map((m) => m.resourceId).filter(Boolean))];
-    const resources = resourceIds.length
-      ? await prisma.resource.findMany({
-          where: { id: { in: resourceIds } },
-          select: RESOURCE_CARD_SELECT,
-        })
-      : [];
+    const replyIds = [...new Set(messages.map((m) => m.replyToId).filter(Boolean))];
+    const [resources, replies] = await Promise.all([
+      resourceIds.length
+        ? await prisma.resource.findMany({
+            where: { id: { in: resourceIds } },
+            select: RESOURCE_CARD_SELECT,
+          })
+        : [],
+      replyIds.length
+        ? await prisma.classroomMessage.findMany({
+            where: { id: { in: replyIds } },
+            select: { id: true, text: true, userId: true, user: { select: { fullName: true, username: true } } },
+          })
+        : [],
+    ]);
     const resById = new Map(resources.map((r) => [r.id, r]));
+    const repById = new Map(replies.map((r) => [r.id, {
+      id: r.id,
+      text: r.text.slice(0, 140),
+      senderName: r.user?.fullName || r.user?.username || "Scholar",
+      isMine: r.userId === userId,
+    }]));
 
-    res.json(
-      messages.map(({ user, ...m }) => ({
+    res.json({
+      messages: messages.map(({ user, ...m }) => ({
         ...m,
         sender: publicUser(user),
         resource: m.resourceId ? resById.get(m.resourceId) || null : null,
+        replyTo: m.replyToId ? repById.get(m.replyToId) || { id: m.replyToId, deleted: true } : null,
         ...liveState(m.liveCode),
-      }))
-    );
+      })),
+      typing: typingList(classroomId, userId),
+    });
   } catch (error) {
     console.error("Error fetching messages:", error);
     res.status(500).json({ error: "Failed to fetch messages" });
@@ -79,19 +108,28 @@ router.post("/:classroomId/messages", requireAuth, async (req, res) => {
   try {
     const { classroomId } = req.params;
     const userId = req.user.sub;
-    const { text, resourceId, liveCode } = req.body;
-    if (!text?.trim()) return res.status(400).json({ error: "Message text required" });
+    const { text, resourceId, liveCode, replyToId } = req.body;
+    if (!text?.trim() && !resourceId) return res.status(400).json({ error: "Message text required" });
 
     const isMember = await verifyMembership(classroomId, userId);
     if (!isMember) return res.status(403).json({ error: "Not a member" });
+
+    if (replyToId) {
+      const orig = await prisma.classroomMessage.findFirst({
+        where: { id: replyToId, classroomId },
+        select: { id: true },
+      });
+      if (!orig) return res.status(404).json({ error: "Reply target not found" });
+    }
 
     const message = await prisma.classroomMessage.create({
       data: {
         classroomId,
         userId,
-        text: text.trim(),
+        text: text.trim() || "Shared a material",
         resourceId: resourceId || null,
         liveCode: liveCode || null,
+        replyToId: replyToId || null,
       },
       include: {
         user: { select: AUTHOR_SELECT },
@@ -99,15 +137,83 @@ router.post("/:classroomId/messages", requireAuth, async (req, res) => {
       },
     });
 
-    const resource = message.resourceId
-      ? await prisma.resource.findUnique({ where: { id: message.resourceId }, select: RESOURCE_CARD_SELECT })
-      : null;
+    const [resource, replyOrig] = await Promise.all([
+      message.resourceId
+        ? prisma.resource.findUnique({ where: { id: message.resourceId }, select: RESOURCE_CARD_SELECT })
+        : null,
+      message.replyToId
+        ? prisma.classroomMessage.findUnique({
+            where: { id: message.replyToId },
+            select: { id: true, text: true, userId: true, user: { select: { fullName: true, username: true } } },
+          })
+        : null,
+    ]);
+    const replyTo = replyOrig ? {
+      id: replyOrig.id,
+      text: replyOrig.text.slice(0, 140),
+      senderName: replyOrig.user?.fullName || replyOrig.user?.username || "Scholar",
+      isMine: replyOrig.userId === userId,
+    } : null;
 
     const { user, ...rest } = message;
-    res.status(201).json({ ...rest, sender: publicUser(user), resource, ...liveState(message.liveCode) });
+    res.status(201).json({ ...rest, sender: publicUser(user), resource, replyTo, ...liveState(message.liveCode) });
   } catch (error) {
     console.error("Error sending message:", error);
     res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// POST /api/study-group/:classroomId/typing { name } — heartbeat while composing.
+router.post("/:classroomId/typing", requireAuth, async (req, res) => {
+  const { classroomId } = req.params;
+  const userId = req.user.sub;
+  const name = req.body?.name?.trim() || "Someone";
+  if (!typingIn.has(classroomId)) typingIn.set(classroomId, new Map());
+  typingIn.get(classroomId).set(userId, { name, ts: Date.now() });
+  res.json({ ok: true });
+});
+
+// DELETE /api/study-group/messages/:messageId — author or classroom creator.
+router.delete("/messages/:messageId", requireAuth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.sub;
+    const msg = await prisma.classroomMessage.findUnique({
+      where: { id: messageId },
+      include: { classroom: { select: { createdById: true } } },
+    });
+    if (!msg) return res.status(404).json({ error: "Message not found" });
+    if (msg.userId !== userId && msg.classroom.createdById !== userId) {
+      return res.status(403).json({ error: "Not your message" });
+    }
+    await prisma.classroomMessageReaction.deleteMany({ where: { messageId } });
+    await prisma.classroomMessage.delete({ where: { id: messageId } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting message:", error);
+    res.status(500).json({ error: "Failed to delete" });
+  }
+});
+
+// POST /api/study-group/messages/:messageId/pin — any member can pin/unpin.
+router.post("/messages/:messageId/pin", requireAuth, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.sub;
+    const msg = await prisma.classroomMessage.findUnique({ where: { id: messageId } });
+    if (!msg) return res.status(404).json({ error: "Message not found" });
+    const isMember = await verifyMembership(msg.classroomId, userId);
+    if (!isMember) return res.status(403).json({ error: "Not a member" });
+
+    const pinned = !msg.pinnedAt;
+    const updated = await prisma.classroomMessage.update({
+      where: { id: messageId },
+      data: pinned ? { pinnedAt: new Date(), pinnedById: userId } : { pinnedAt: null, pinnedById: null },
+    });
+    res.json({ pinned, pinnedAt: updated.pinnedAt });
+  } catch (error) {
+    console.error("Error pinning message:", error);
+    res.status(500).json({ error: "Failed to pin" });
   }
 });
 

@@ -227,6 +227,7 @@ model User {
 
   classroomMessages     ClassroomMessage[]
   classroomReactions    ClassroomMessageReaction[]
+  dmReactions           DirectMessageReaction[]
   classroomGoalProgress ClassroomGoalProgress[]
   studyRoomParticipants ClassroomStudyRoomParticipant[]
   studyRoomsHosted        ClassroomStudyRoom[] @relation("StudyRoomHost")
@@ -1127,16 +1128,31 @@ model LecturerPost {
 }
 
 model DirectMessage {
-  id         String   @id @default(cuid())
+  id         String                  @id @default(cuid())
   fromId     String
-  from       User     @relation("DMFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  from       User                    @relation("DMFrom", fields: [fromId], references: [id], onDelete: Cascade)
   toId       String
-  to         User     @relation("DMTo", fields: [toId], references: [id], onDelete: Cascade)
+  to         User                    @relation("DMTo", fields: [toId], references: [id], onDelete: Cascade)
   content    String
-  read       Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  resourceId String?                 // optional shared material card
+  replyToId  String?                 // quoted reply — resolved by id like resourceId
+  read       Boolean                 @default(false)
+  createdAt  DateTime                @default(now())
+  reactions  DirectMessageReaction[]
   @@index([toId, read])
   @@index([fromId, toId])
+}
+
+model DirectMessageReaction {
+  id        String        @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String        // 👍 ❤️ 🔥 😂 🎉
+  createdAt DateTime      @default(now())
+  message   DirectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 // Live video sessions for distance learning
@@ -1937,6 +1953,12 @@ model ClassroomMessage {
   resourceId   String?  // optional shared resource
 
   liveCode     String?  // quiz-battle invite: live-quiz room code
+
+  replyToId    String?  // quoted reply to another message in this classroom
+
+  pinnedAt     DateTime?
+
+  pinnedById   String?
 
   createdAt    DateTime @default(now())
 
