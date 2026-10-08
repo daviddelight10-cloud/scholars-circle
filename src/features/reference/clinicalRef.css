@@ -813,3 +813,217 @@
   .cr-drug-card, .cr-rail-item, .cr-btn-primary, .cr-bar-dot { transition: none; }
   .cr-toast { animation: none; }
 }
+
+/* ── Medical calculators ─────────────────────────────────── */
+.cr-calc-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--cr-text);
+  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+}
+.cr-calc-card:hover {
+  border-color: rgba(245, 197, 66, 0.45);
+  background: var(--cr-card-2);
+  transform: translateY(-1px);
+}
+.cr-calc-ico {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  background: rgba(245, 197, 66, 0.1);
+  border: 1px solid rgba(245, 197, 66, 0.2);
+}
+.cr-calc-info { flex: 1; min-width: 0; }
+.cr-calc-name { font-weight: 800; font-size: 14px; line-height: 1.25; }
+.cr-calc-short { font-size: 11.5px; color: var(--cr-muted); margin-top: 3px; line-height: 1.4; }
+.cr-calc-cat {
+  flex: none;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--cr-faint);
+  max-width: 70px;
+  text-align: right;
+  line-height: 1.3;
+}
+
+.cr-field { display: block; margin-bottom: 14px; }
+.cr-field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--cr-muted);
+  margin-bottom: 6px;
+}
+.cr-field-label .hint { font-weight: 400; font-size: 10.5px; color: var(--cr-faint); }
+.cr-input-row { display: flex; gap: 8px; }
+.cr-num {
+  flex: 1;
+  min-width: 0;
+  background: var(--cr-card-2);
+  border: 1px solid var(--cr-line);
+  border-radius: 12px;
+  color: var(--cr-text);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 17px;
+  font-weight: 600;
+  padding: 11px 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.cr-num::-webkit-outer-spin-button, .cr-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.cr-num:focus { border-color: rgba(245, 197, 66, 0.5); }
+.cr-unit-sel {
+  flex: none;
+  background: var(--cr-card-2);
+  border: 1px solid var(--cr-line);
+  border-radius: 12px;
+  color: var(--cr-muted);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  padding: 0 10px;
+  outline: none;
+  cursor: pointer;
+}
+
+.cr-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  background: var(--cr-card);
+  border: 1px solid var(--cr-line);
+  border-radius: 12px;
+  padding: 11px 13px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--cr-text);
+  transition: all 0.15s;
+}
+.cr-check-item:hover { border-color: rgba(245, 197, 66, 0.35); }
+.cr-check-item.on { border-color: rgba(245, 197, 66, 0.55); background: rgba(245, 197, 66, 0.07); }
+.cr-check-box {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--cr-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  font-size: 12px;
+  color: #111;
+  transition: all 0.15s;
+}
+.cr-check-item.on .cr-check-box { background: var(--cr-gold); border-color: var(--cr-gold); }
+.cr-check-txt { flex: 1; font-size: 13px; line-height: 1.45; }
+.cr-check-pts { flex: none; font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--cr-faint); margin-top: 2px; }
+.cr-check-item.on .cr-check-pts { color: var(--cr-gold); font-weight: 700; }
+
+.cr-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--cr-card);
+  border: 1px solid var(--cr-line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--cr-muted);
+  font-size: 12.5px;
+  transition: all 0.15s;
+}
+.cr-radio-item:hover { border-color: rgba(245, 197, 66, 0.35); }
+.cr-radio-item.on { border-color: rgba(245, 197, 66, 0.55); background: rgba(245, 197, 66, 0.07); color: var(--cr-text); }
+.cr-radio-dot {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--cr-line);
+  position: relative;
+}
+.cr-radio-item.on .cr-radio-dot { border-color: var(--cr-gold); }
+.cr-radio-item.on .cr-radio-dot::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--cr-gold);
+}
+
+.cr-result {
+  border-radius: 16px;
+  padding: 18px;
+  margin-top: 16px;
+  text-align: center;
+  border: 1px solid var(--cr-line);
+}
+.cr-result.ok { background: rgba(74, 222, 128, 0.07); border-color: rgba(74, 222, 128, 0.35); }
+.cr-result.warn { background: rgba(251, 191, 36, 0.07); border-color: rgba(251, 191, 36, 0.35); }
+.cr-result.bad { background: rgba(248, 113, 113, 0.08); border-color: rgba(248, 113, 113, 0.4); }
+.cr-result.info { background: rgba(108, 158, 255, 0.07); border-color: rgba(108, 158, 255, 0.3); }
+.cr-result-value {
+  font-family: "Syne", sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.cr-result.ok .cr-result-value { color: var(--cr-green); }
+.cr-result.warn .cr-result-value { color: var(--cr-amber); }
+.cr-result.bad .cr-result-value { color: var(--cr-red); }
+.cr-result.info .cr-result-value { color: var(--cr-blue); }
+.cr-result-unit { font-size: 13px; color: var(--cr-muted); font-weight: 600; }
+.cr-result-label { font-size: 14px; font-weight: 800; margin-top: 8px; }
+.cr-result-sub { font-size: 12px; color: var(--cr-muted); margin-top: 5px; line-height: 1.55; }
+.cr-result-extra {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--cr-line);
+  font-size: 11.5px;
+  color: var(--cr-muted);
+  text-align: left;
+  line-height: 1.6;
+}
+
+.cr-formula {
+  margin-top: 16px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--cr-line);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--cr-muted);
+  overflow-x: auto;
+}
+.cr-cite { font-size: 10.5px; color: var(--cr-faint); margin-top: 8px; font-style: italic; }
+
+.cr-related { margin-top: 18px; }
+.cr-related-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
