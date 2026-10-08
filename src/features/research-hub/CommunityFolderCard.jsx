@@ -35,7 +35,7 @@ function CommunityFolderCard({
   onOpenProfile,
   onOpenActions,
 }) {
-  const itemCount = (folder._count?.resources ?? 0) + (folder._count?.bookmarks ?? 0);
+  const itemCount = folder._count?.resources ?? 0;
   const bookmarkCount = folder._count?.folderBookmarks ?? 0;
   const owner = folder.owner || {};
   const isLecturer = owner.role === "LECTURER" || owner.role === "TEACHER";

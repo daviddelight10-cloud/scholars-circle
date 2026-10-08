@@ -21,8 +21,8 @@ function SpaceCard({
   onToggleBookmark,
   onRequestDelete,
 }) {
-  // Materials inside = owned uploads + materials saved into this space
-  const itemCount = (folder._count?.resources ?? 0) + (folder._count?.bookmarks ?? 0);
+  // Count files only — bookmarked items saved into the space don't count
+  const itemCount = folder._count?.resources ?? 0;
   const pill = VISIBILITY_PILL[folder.visibility] || VISIBILITY_PILL.private;
   const tint = tileTintStyle(folder.id || folder.name);
 
