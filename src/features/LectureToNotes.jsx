@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { callAI, extractJSON as extractJSONShared } from "../lib/aiClient";
+import { loadPdfJs } from "../lib/pdfjs.js";
 
 const STORE_KEY = "sc_lecture_notes_v1";
 
@@ -33,29 +34,8 @@ export function LectureToNotes({ subjects, aiConfig, onImportQuestions }) {
     setError("");
     
     try {
-      // Load PDF.js from CDN dynamically
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.type = 'text/javascript';
-      
-      await new Promise((resolve, reject) => {
-        // Check if already loaded
-        if (window.pdfjsLib) {
-          resolve();
-          return;
-        }
-        script.onload = resolve;
-        script.onerror = () => reject(new Error("Failed to load PDF.js library"));
-        document.head.appendChild(script);
-      });
-      
-      // Set worker source
-      const pdfjsLib = window.pdfjsLib;
-      if (!pdfjsLib) {
-        throw new Error("PDF.js library not available");
-      }
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      
+      const pdfjsLib = await loadPdfJs();
+
       const arrayBuffer = await file.arrayBuffer();
       if (!arrayBuffer || arrayBuffer.byteLength === 0) {
         throw new Error("File is empty or could not be read");

@@ -4,9 +4,8 @@
  * Returns { text, pages?, images? }.
  */
 
-const PDFJS_VERSION = "3.11.174";
-const PDFJS_CDN = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`;
-const PDFJS_WORKER = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`;
+import pdfjsLib from "../../lib/pdfjs.js";
+
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 
 function loadScript(src, globalKey) {
@@ -45,9 +44,6 @@ export async function extractTextFromFile(file) {
 
   // PDF
   if (type === "application/pdf" || name.endsWith(".pdf")) {
-    const pdfjsLib = await loadScript(PDFJS_CDN, "pdfjsLib");
-    if (!pdfjsLib) throw new Error("PDF.js not available");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
     const arrayBuffer = await file.arrayBuffer();
     if (!arrayBuffer.byteLength) throw new Error("File is empty");
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;

@@ -23,7 +23,7 @@
     "jspdf": "^2.5.2",
     "livekit-client": "^2.22.3",
     "lucide-react": "^1.17.0",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^6.4.299",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

@@ -7,9 +7,8 @@
  */
 
 import { detectFileType } from "./detectMimeType";
+import pdfjsLib from "./pdfjs.js";
 
-const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 const JSZIP_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
 
@@ -61,10 +60,6 @@ export async function extractFileText(file, maxImagePages = 10) {
   }
 
   if (isPDF) {
-    await ensureScript(PDFJS_CDN, "pdfjsLib");
-    const pdfjsLib = window.pdfjsLib;
-    if (!pdfjsLib) throw new Error("PDF.js library not available");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
 
     const arrayBuffer = await file.arrayBuffer();
     if (!arrayBuffer || arrayBuffer.byteLength === 0) throw new Error("File is empty");

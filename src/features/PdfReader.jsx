@@ -19,12 +19,7 @@ import { rateQuestion } from "./streak-survival/fsrsBridge.js";
 import { questEvent } from "./streak-survival/survivalStore.js";
 import { API_BASE } from "../lib/constants";
 import { docKeyFromUrl } from "../lib/researchUtils.js";
-
-
-
-
-const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-const PDFJS_WORKER_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+import pdfjsLib, { loadPdfJs } from "../lib/pdfjs.js";
 
 // ── Theme palettes ────────────────────────────────────────────────────────────
 const THEMES = {
@@ -121,28 +116,7 @@ async function fetchProxiedPdf(fileUrl) {
   return new Uint8Array(buffer);
 }
 
-// Load pdf.js from CDN (avoids bundling issues with Vite + PWA)
-function loadPdfJs() {
-  if (typeof window !== "undefined" && window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${PDFJS_CDN}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
-        resolve(window.pdfjsLib);
-      });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = PDFJS_CDN;
-    script.onload = () => {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
-      resolve(window.pdfjsLib);
-    };
-    script.onerror = () => reject(new Error("Failed to load PDF library from CDN"));
-    document.head.appendChild(script);
-  });
-}
+// pdf.js is bundled via ../lib/pdfjs.js — no CDN script tags needed.
 
 const SMART_CHIPS = [
   { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
@@ -685,7 +659,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       const items = [];
       for (const item of textContent.items) {
         if (!item.str) continue;
-        const tx = window.pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
         const fontHeight = Math.hypot(tx[2], tx[3]);
         const style = {
           left: tx[4] + "px",
