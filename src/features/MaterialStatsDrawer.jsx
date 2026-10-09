@@ -3,8 +3,8 @@ import { api } from "../lib/appUtils";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
 
 const C = {
-  bg: "#0d0f20", card: "#11132a", line: "#1e2245",
-  text: "#e8eaf6", muted: "#8b92c4", hint: "#4a5080",
+  bg: "#0B0B0D", card: "#151518", line: "#26262B",
+  text: "#F2F0EA", muted: "#8A8F9C", hint: "#5B606C",
   gold: "#DAA520", goldBright: "#FFD700",
   green: "#34d399", red: "#f87171", orange: "#fb923c", purple: "#c084fc", teal: "#5eead4",
 };
@@ -26,7 +26,7 @@ function MiniChart({ days, data }) {
         const isToday = day === new Date().toDateString();
         return (
           <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }} title={`${d.getMonth() + 1}/${d.getDate()}: ${data[i]} views`}>
-            <div style={{ width: "100%", height: `${Math.max(3, (data[i] / max) * 48)}px`, background: isToday ? C.gold : "#3a3f7a", borderRadius: 2 }} />
+            <div style={{ width: "100%", height: `${Math.max(3, (data[i] / max) * 48)}px`, background: isToday ? C.gold : "#3A3A41", borderRadius: 2 }} />
             {i % 5 === 0 && <div style={{ fontSize: 7.5, color: C.hint }}>{d.getMonth() + 1}/{d.getDate()}</div>}
           </div>
         );

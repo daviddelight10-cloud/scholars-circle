@@ -3,15 +3,15 @@ import { api } from "../lib/appUtils";
 import { toast } from "../components/Toast";
 
 const D = {
-  bg: "#08090f",
-  card: "#0e1020",
-  faint: "#12142a",
-  line: "#1e2140",
+  bg: "#0B0B0D",
+  card: "#151518",
+  faint: "#1B1B20",
+  line: "#26262B",
   gold: "#DAA520",
   goldBright: "#FFD700",
-  text: "#e8eaf6",
-  muted: "#8b92c4",
-  hint: "#4a5080",
+  text: "#F2F0EA",
+  muted: "#8A8F9C",
+  hint: "#5B606C",
   green: "#34d399",
   red: "#f87171",
   orange: "#fb923c",
@@ -39,7 +39,7 @@ const CSS = `
   .ad-card { background:${D.card}; border:0.5px solid ${D.line}; border-radius:16px; padding:16px; margin-bottom:14px; }
   .ad-title { font-size:11px; font-weight:700; color:${D.gold}; letter-spacing:0.08em; text-transform:uppercase; font-family:'Syne',sans-serif; margin-bottom:12px; }
   .ad-row { animation:ad-in 0.25s ease forwards; transition:background 0.15s; }
-  .ad-row:hover { background:#161936 !important; }
+  .ad-row:hover { background:#1B1B20 !important; }
   .ad-row.clickable { cursor:pointer; }
   .ad-pill { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; border-radius:6px; padding:2.5px 8px; letter-spacing:0.04em; text-transform:uppercase; font-family:'Manrope',sans-serif; }
   .ad-btn { border:none; border-radius:9px; padding:8px 16px; font-size:11.5px; font-weight:700; font-family:'Syne',sans-serif; letter-spacing:0.04em; cursor:pointer; transition:all 0.15s; }
@@ -117,7 +117,7 @@ function DualChart({ days, a, b, labelA, labelB }) {
     <div>
       <div style={{ display: "flex", gap: 14, marginBottom: 12, fontSize: 10, color: D.muted }}>
         <span><span style={{ color: D.goldBright }}>■</span> {labelA}</span>
-        <span><span style={{ color: "#5c6bc0" }}>■</span> {labelB}</span>
+        <span><span style={{ color: "#8A8F9C" }}>■</span> {labelB}</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 90 }}>
         {days.map((day, i) => {
@@ -127,7 +127,7 @@ function DualChart({ days, a, b, labelA, labelB }) {
             <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }} title={`${d.getMonth() + 1}/${d.getDate()} — ${labelA}: ${a[i]}, ${labelB}: ${b[i]}`}>
               <div style={{ display: "flex", gap: 2, alignItems: "flex-end", width: "100%", justifyContent: "center", height: 64 }}>
                 <div style={{ width: "42%", height: `${Math.max(4, (a[i] / max) * 64)}px`, background: "linear-gradient(180deg,#DAA520,#8a6d0b)", borderRadius: 3 }} />
-                <div style={{ width: "42%", height: `${Math.max(4, (b[i] / max) * 64)}px`, background: isToday ? "#7c8ae0" : "#3a3f7a", borderRadius: 3 }} />
+                <div style={{ width: "42%", height: `${Math.max(4, (b[i] / max) * 64)}px`, background: isToday ? "#9A9EA8" : "#3A3A41", borderRadius: 3 }} />
               </div>
               {i % 2 === 0 && <div style={{ fontSize: 8, color: isToday ? D.gold : D.hint }}>{d.getMonth() + 1}/{d.getDate()}</div>}
             </div>

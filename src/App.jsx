@@ -9335,8 +9335,8 @@ function App() {
         <Suspense fallback={<TabSkeleton />}>
         <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
           <div style={{ marginBottom: 20 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#e8eaf6", marginBottom: 6 }}>📊 Your Impact</h1>
-            <p style={{ fontSize: 13, color: "#7b82b8" }}>How students are engaging with your materials</p>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#F2F0EA", marginBottom: 6 }}>📊 Your Impact</h1>
+            <p style={{ fontSize: 13, color: "#8A8F9C" }}>How students are engaging with your materials</p>
           </div>
           <LecturerInsights token={token} />
         </div>
