@@ -147,7 +147,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       fontSize: 10,
       color: T.muted,
     },
-    viewer: scrollMode === "single" ? {
+    viewer: scrollMode === "single" || scrollMode === "book" ? {
       flex: 1,
       overflow: "auto",
       display: "flex",
@@ -213,6 +213,16 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       gap: 2,
       alignItems: "center",
       flexShrink: 0,
+    },
+    // Two facing pages sharing a row in book mode
+    spreadRow: {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "stretch",
+      gap: 10,
+      flexShrink: 0,
+      margin: "0 auto",
+      lineHeight: 0,
     },
     scrollModeBtn: {
       width: isMobile ? 26 : 30,

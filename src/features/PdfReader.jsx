@@ -32,10 +32,14 @@ import { usePageText } from "./pdf-reader/usePageText.js";
 import { buildSearchResults } from "./pdf-reader/textSearch.js";
 import { buildNotesMarkdown, downloadTextFile } from "./pdf-reader/notesExport.js";
 import { NoteEditorModal, QuizDraftModal, NotesPanel, ShortcutsModal, StatsModal } from "./pdf-reader/panels.jsx";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
   const docKey = docKeyFromUrl(fileUrl || "unknown");
+
+  // Device/browser back exits the reader instead of leaving the app.
+  useOverlayBackClose(onBack, { open: !!onBack });
 
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -167,6 +171,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const pdfDocRef = useRef(null);
   const { getPageText, getPageIndexData } = usePageText(pdfDocRef);
   const canvasRef = useRef(null);
+  const canvas2Ref = useRef(null); // two-page spread: right-hand page
   const renderTaskRef = useRef(null);
   const viewerRef = useRef(null);
   const lassoSvgRef = useRef(null);
@@ -329,7 +334,9 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         // Persist page count so community PDF cards can show reading progress
         try { saveStored(`sc_pdf_meta_${docKey}`, { numPages: pdf.numPages }); } catch {}
         const startPage = initialPage ? Math.max(1, Math.min(initialPage, pdf.numPages)) : 1;
-        setCurrentPage(startPage);
+        // Book mode: land on the spread's left page so pairs stay (1,2),(3,4)…
+        const start = scrollMode === "book" ? startPage - ((startPage - 1) % 2) : startPage;
+        setCurrentPage(start);
         // Store first page dimensions for virtualization placeholders
         try {
           const p1 = await pdf.getPage(1);
@@ -354,13 +361,21 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         if (cancelled) return;
         const fittedScale = await fitToWidth();
-        await renderPage(startPage, fittedScale);
+        if (scrollMode === "book") {
+          await renderSpread(start, fittedScale);
+        } else {
+          await renderPage(startPage, fittedScale);
+        }
         setLoading(false);
         // Re-fit after loading spinner unmounts (container dimensions may shift)
         setTimeout(async () => {
           if (!cancelled) {
             const s = await fitToWidth();
-            await renderPage(startPage, s);
+            if (scrollMode === "book") {
+              await renderSpread(start, s);
+            } else {
+              await renderPage(startPage, s);
+            }
           }
         }, 150);
       } catch (err) {
@@ -392,9 +407,12 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (!container) return null;
     const isMob = window.innerWidth < 640;
     const readingMax = base.width > base.height ? 1100 : 900;
-    const available = isMob
-      ? container.clientWidth - 8
-      : Math.min(container.clientWidth - 40, readingMax);
+    // Book mode: two pages share the row — each gets half the container
+    const available = scrollMode === "book"
+      ? Math.max(200, (container.clientWidth - 48) / 2)
+      : isMob
+        ? container.clientWidth - 8
+        : Math.min(container.clientWidth - 40, readingMax);
     // Continuous modes show many pages at once — fit to the median measured
     // page width so mixed-size documents don't leave most pages oversized.
     let fitBasis = base.width;
@@ -452,9 +470,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     canvas.dataset.renderedScale = useScale;
   }, [scale]);
 
-  // Re-render on scale change (single mode only)
+  // Re-render on scale change (single + book modes)
   useEffect(() => {
-    if (scrollMode === "single") {
+    if (scrollMode === "single" || scrollMode === "book") {
+      if (scrollMode === "book") {
+        const c = canvasRef.current;
+        const rs = c ? parseFloat(c.dataset.renderedScale || "0") : 0;
+        if (pdfDocRef.current && !loading && (!rs || Math.abs(rs - scale) / scale > 0.35)) {
+          renderSpread(currentPage);
+        }
+        return;
+      }
       const c = canvasRef.current;
       const rs = c ? parseFloat(c.dataset.renderedScale || "0") : 0;
       // Zoom hysteresis: skip the re-render while the existing bitmap still has
@@ -488,7 +514,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Render visible pages in continuous scroll mode
   useEffect(() => {
-    if (scrollMode === "single" || !pdfDocRef.current || loading) return;
+    if (scrollMode === "single" || scrollMode === "book" || !pdfDocRef.current || loading) return;
     virtualPages.forEach((pg) => {
       const canvas = pageCanvasRefs.current[pg - 1];
       if (canvas && !canvas.dataset.rendered) {
@@ -502,7 +528,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // Watchdog: a page in the render window that never produced a bitmap (stuck
   // flag, dropped task) gets re-triggered instead of staying blank forever.
   useEffect(() => {
-    if (scrollMode === "single" || loading) return;
+    if (scrollMode === "single" || scrollMode === "book" || loading) return;
     const id = setInterval(() => {
       if (!pdfDocRef.current) return;
       virtualPages.forEach((pg) => {
@@ -522,7 +548,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   useEffect(() => {
     if (!pdfDocRef.current) return;
     setUserZoomed(false);
-    fitToWidth().then((s) => { if (s) renderPage(currentPage, s); });
+    fitToWidth().then((s) => { if (s) renderCurrent(s); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullscreen]);
 
@@ -532,7 +558,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const ro = new ResizeObserver(() => {
       if (pdfDocRef.current && !userZoomed && !loading) {
         fitToWidth().then((s) => {
-          if (s && scrollMode === "single") renderPage(currentPage, s);
+          if (s && (scrollMode === "single" || scrollMode === "book")) renderCurrent(s);
         });
       }
     });
@@ -635,6 +661,23 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       fail(err);
     }
   }, [scale, isMobile]);
+
+  // Book (two-page spread): render the left page into canvasRef and its
+  // facing page into canvas2Ref. Reuses renderPageToCanvas incl. text layers.
+  const renderSpread = useCallback(async (left, scaleOverride) => {
+    if (!pdfDocRef.current) return;
+    await renderPageToCanvas(left, canvasRef.current, scaleOverride);
+    const right = left + 1;
+    if (right <= pdfDocRef.current.numPages && canvas2Ref.current) {
+      await renderPageToCanvas(right, canvas2Ref.current, scaleOverride);
+    }
+  }, [renderPageToCanvas]);
+
+  // Render "the current view" after a fit/refit — single page or the spread.
+  const renderCurrent = useCallback((fitScale) => {
+    if (scrollMode === "book") return renderSpread(currentPage, fitScale);
+    return renderPage(currentPage, fitScale);
+  }, [scrollMode, currentPage, renderSpread, renderPage]);
 
   // Render a transparent text layer overlay for text selection + copy
   const renderTextLayer = async (pageNum, page, viewport, canvasEl) => {
@@ -758,7 +801,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     // In continuous mode, anchor on the actual page under the point
     if (scrollMode !== "single" && !anchor) anchor = capturePageAnchor(screenX, screenY);
     // Immediately resize all mounted canvases so layout is correct before paint
-    const canvases = scrollMode === "single" ? [canvasRef.current] : pageCanvasRefs.current;
+    const canvases = scrollMode === "single" ? [canvasRef.current] : scrollMode === "book" ? [canvasRef.current, canvas2Ref.current] : pageCanvasRefs.current;
     canvases.forEach((c) => {
       if (c) {
         const pg = scrollMode === "single" ? currentPage : parseInt(c.parentElement?.dataset?.page, 10);
@@ -815,13 +858,27 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (n === currentPage) return;
     // Record jump navigation for the Back button — sequential page turns and
     // Back-driven returns don't create history entries.
-    if (!opts.fromBack && Math.abs(n - currentPage) > 1) {
+    if (!opts.fromBack && Math.abs(n - currentPage) > (scrollMode === "book" ? 2 : 1)) {
       navStackRef.current.push(currentPage);
       if (navStackRef.current.length > 60) navStackRef.current.shift();
       setNavStackLen(navStackRef.current.length);
     }
     closeChat();
     resetPanZoom();
+
+    if (scrollMode === "book") {
+      // Book mode pairs pages (1,2),(3,4)… — normalize to the spread's left page
+      const left = n - ((n - 1) % 2);
+      if (left === currentPage) return;
+      const dir = left > currentPage ? "next" : "prev";
+      setTransitionDir(dir);
+      setTransitioning(true);
+      await new Promise((r) => setTimeout(r, 220));
+      setCurrentPage(left);
+      await renderSpread(left);
+      setTransitioning(false);
+      return;
+    }
 
     if (scrollMode !== "single") {
       const el = pageItemRefs.current[n - 1];
@@ -839,7 +896,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     await renderPage(n);
     // Enter animation
     setTransitioning(false);
-  }, [currentPage, renderPage, scrollMode]);
+  }, [currentPage, renderPage, renderSpread, scrollMode]);
 
   const navBack = useCallback(() => {
     const prev = navStackRef.current.pop();
@@ -847,6 +904,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setNavStackLen(navStackRef.current.length);
     goToPage(prev, { fromBack: true });
   }, [goToPage]);
+
+  // Sequential page turn — a spread counts as one step in book mode.
+  const stepPage = useCallback((dir) => {
+    goToPage(currentPage + dir * (scrollMode === "book" ? 2 : 1));
+  }, [goToPage, currentPage, scrollMode]);
 
   // ---- Per-page text index for search + selection highlight painting ----
   // Items are filtered identically to the text-layer builder, so index i in
@@ -1023,7 +1085,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const resetToFit = () => {
     setUserZoomed(false);
     resetPanZoom();
-    fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+    fitToWidth().then((s) => { if (s && (scrollMode === "single" || scrollMode === "book")) renderCurrent(s); });
   };
 
   // Keyboard nav + shortcuts
@@ -1032,8 +1094,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const handler = (e) => {
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.key === "ArrowRight") goToPage(currentPage + 1);
-      if (e.key === "ArrowLeft") goToPage(currentPage - 1);
+      if (e.key === "ArrowRight") stepPage(1);
+      if (e.key === "ArrowLeft") stepPage(-1);
       if (e.key === "?" || (e.shiftKey && e.key === "/")) { e.preventDefault(); setShowShortcuts((v) => !v); }
       if (e.key === "Escape") setShowShortcuts(false);
       // Ctrl/Cmd +/-/0 — intercept browser page zoom; only the material zooms
@@ -1044,7 +1106,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
           e.preventDefault();
           setUserZoomed(false);
           resetPanZoom();
-          fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+          fitToWidth().then((s) => { if (s && (scrollMode === "single" || scrollMode === "book")) renderCurrent(s); });
           return;
         }
       }
@@ -2168,8 +2230,8 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
       setPinchActive(true);
     } else if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      // Allow panning when zoomed in (single mode only; continuous mode uses native scroll)
-      if (panZoomRef.current.scale > 1 && tool === "none" && scrollMode === "single") {
+      // Allow panning when zoomed in (paged modes; continuous uses native scroll)
+      if (panZoomRef.current.scale > 1 && tool === "none" && (scrollMode === "single" || scrollMode === "book")) {
         panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         panStartOffsetRef.current = { x: panZoomRef.current.x, y: panZoomRef.current.y };
         setIsPanning(true);
@@ -2231,7 +2293,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
       if (fit && commitScale <= fit + 0.02) {
         // Pinched back out to fit width — restore the fitted layout
         setUserZoomed(false);
-        fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+        fitToWidth().then((s) => { if (s && (scrollMode === "single" || scrollMode === "book")) renderCurrent(s); });
       } else if (Math.abs(commitScale - scale) > 0.01) {
         if (mid) {
           commitZoomAtPoint(commitScale, mid.x, mid.y, anchor);
@@ -2260,7 +2322,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
           // Zoomed in — double-tap returns to fit
           setUserZoomed(false);
           resetPanZoom();
-          fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
+          fitToWidth().then((s) => { if (s && (scrollMode === "single" || scrollMode === "book")) renderCurrent(s); });
         } else {
           commitZoomAtPoint(Math.min(2.6, scale * 2), t.clientX, t.clientY);
         }
@@ -2268,11 +2330,11 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
         return;
       }
       lastTapRef.current = now;
-      // Swipe navigation (only in single page mode, and only when not zoomed —
+      // Swipe navigation (paged modes only, and only when not zoomed —
       // when zoomed the drag pans natively via the scroll container)
-      if (scrollMode === "single" && !userZoomed && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
-        if (dx > 0) goToPage(currentPage - 1);
-        else goToPage(currentPage + 1);
+      if ((scrollMode === "single" || scrollMode === "book") && !userZoomed && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) stepPage(-1);
+        else stepPage(1);
       }
     }
   };
@@ -2383,6 +2445,9 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
   const toggleTool = (t) => {
     setTool((prev) => {
       const next = prev === t ? "none" : t;
+      // Book mode is read-only — no per-page ink overlay on the spread.
+      // Activating a pen/highlight/lasso tool switches back to single page.
+      if (next !== "none" && scrollMode === "book") setScrollMode("single");
       if (next === "none") {
         setLassoPath("");
         setRenderStrokes("");
@@ -2437,9 +2502,9 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
     const x = ((e.clientX - (rect?.left || 0)) / w);
     const act = () => {
       if (x < 0.2) {
-        if (scrollMode !== "vertical") goToPage(currentPage - 1);
+        if (scrollMode !== "vertical") stepPage(-1);
       } else if (x > 0.8) {
-        if (scrollMode !== "vertical") goToPage(currentPage + 1);
+        if (scrollMode !== "vertical") stepPage(1);
       } else {
         setChromeHidden((v) => !v);
         closeAllMobileOverlays();
@@ -2571,8 +2636,15 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
   useEffect(() => {
     if (!pdfDocRef.current || loading) return;
     resetPanZoom();
-    if (scrollMode === "single") {
-      fitToWidth().then(() => renderPage(currentPage));
+    if (scrollMode === "single" || scrollMode === "book") {
+      if (scrollMode === "book") {
+        // Snap to the spread's left page before fitting/rendering
+        const left = currentPage - ((currentPage - 1) % 2);
+        if (left !== currentPage) setCurrentPage(left);
+        fitToWidth().then((s) => renderSpread(left, s));
+      } else {
+        fitToWidth().then((s) => renderPage(currentPage, s));
+      }
     } else {
       // Reset canvas render flags and seed visible pages with current page
       pageCanvasRefs.current.forEach((c) => { if (c) delete c.dataset.rendered; });
@@ -2583,7 +2655,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
 
   // ---- IntersectionObserver for continuous scroll mode ----
   useEffect(() => {
-    if (scrollMode === "single" || !pdfDocRef.current) {
+    if (scrollMode === "single" || scrollMode === "book" || !pdfDocRef.current) {
       if (observerRef.current) { observerRef.current.disconnect(); observerRef.current = null; }
       return;
     }
@@ -2658,14 +2730,18 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
     const saved = loadStored(`sc_pdf_lastpage_${docKey}`, null);
     if (!saved || saved <= 1 || !pdfDocRef.current) return;
     const clamped = Math.min(saved, pdfDocRef.current.numPages);
-    if (clamped === currentPage) return;
-    setCurrentPage(clamped);
+    // Book mode restores to the spread containing the saved page
+    const target = scrollMode === "book" ? clamped - ((clamped - 1) % 2) : clamped;
+    if (target === currentPage) return;
+    setCurrentPage(target);
     if (scrollMode === "single") {
-      renderPage(clamped);
+      renderPage(target);
+    } else if (scrollMode === "book") {
+      renderSpread(target);
     } else {
       // In continuous mode, wait for page placeholders to render, then scroll
       setTimeout(() => {
-        const el = pageItemRefs.current[clamped - 1];
+        const el = pageItemRefs.current[target - 1];
         if (el) el.scrollIntoView({ behavior: "auto", block: "start" });
       }, 300);
     }
@@ -3060,6 +3136,9 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                     <button style={{ ...s.scrollModeBtn, background: scrollMode === "vertical" ? T.accent : "none", color: scrollMode === "vertical" ? "white" : T.muted, borderColor: scrollMode === "vertical" ? T.accent : T.border }} onClick={() => { setScrollMode("vertical"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="7" rx="1"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M12 11v2"/></svg>
                     </button>
+                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "book" ? T.accent : "none", color: scrollMode === "book" ? "white" : T.muted, borderColor: scrollMode === "book" ? T.accent : T.border }} onClick={() => { setCurrentPage((p) => p - ((p - 1) % 2)); setScrollMode("book"); setShowOverflow(false); setOverflowBackdropOpen(false); }} title="Two-page spread">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2.5" y="4" width="8.5" height="16" rx="1"/><rect x="13" y="4" width="8.5" height="16" rx="1"/></svg>
+                    </button>
                     <button style={{ ...s.scrollModeBtn, background: scrollMode === "horizontal" ? T.accent : "none", color: scrollMode === "horizontal" ? "white" : T.muted, borderColor: scrollMode === "horizontal" ? T.accent : T.border }} onClick={() => { setScrollMode("horizontal"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="6" width="7" height="12" rx="1"/><rect x="14" y="6" width="7" height="12" rx="1"/><path d="M11 12h2"/></svg>
                     </button>
@@ -3225,10 +3304,16 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
         )}
 
         {/* Page nav */}
-        <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} title="Previous page" aria-label="Previous page">
+        <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => stepPage(-1)} disabled={currentPage === 1} title="Previous page" aria-label="Previous page">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <span style={s.pageIndicator}>{numPages ? `${currentPage} / ${numPages}` : "– / –"}</span>
+        <span style={s.pageIndicator}>
+          {numPages
+            ? scrollMode === "book" && currentPage + 1 <= numPages
+              ? `${currentPage}–${currentPage + 1} / ${numPages}`
+              : `${currentPage} / ${numPages}`
+            : "– / –"}
+        </span>
         <input
           style={s.pageInput}
           type="number"
@@ -3240,7 +3325,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
             if (!isNaN(v)) goToPage(v);
           }}
         />
-        <button style={{ ...s.iconBtn, opacity: currentPage === numPages ? 0.35 : 1 }} onClick={() => goToPage(currentPage + 1)} disabled={currentPage === numPages} title="Next page" aria-label="Next page">
+        <button style={{ ...s.iconBtn, opacity: currentPage === numPages ? 0.35 : 1 }} onClick={() => stepPage(1)} disabled={currentPage === numPages} title="Next page" aria-label="Next page">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6"/></svg>
         </button>
 
@@ -3272,6 +3357,13 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
             title="Vertical scroll"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="7" rx="1"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M12 11v2"/></svg>
+          </button>
+          <button
+            style={{ ...s.scrollModeBtn, background: scrollMode === "book" ? T.accent : "none", color: scrollMode === "book" ? "white" : T.muted, borderColor: scrollMode === "book" ? T.accent : T.border }}
+            onClick={() => { setCurrentPage((p) => p - ((p - 1) % 2)); setScrollMode("book"); }}
+            title="Two-page spread"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2.5" y="4" width="8.5" height="16" rx="1"/><rect x="13" y="4" width="8.5" height="16" rx="1"/></svg>
           </button>
           <button
             style={{ ...s.scrollModeBtn, background: scrollMode === "horizontal" ? T.accent : "none", color: scrollMode === "horizontal" ? "white" : T.muted, borderColor: scrollMode === "horizontal" ? T.accent : T.border }}
@@ -3953,11 +4045,11 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
           <div
             ref={panZoomContentRef}
             style={{
-              transform: (scrollMode === "single" || pinchActive) ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
+              transform: (scrollMode === "single" || scrollMode === "book" || pinchActive) ? `translate(${panZoom.x}px, ${panZoom.y}px) scale(${panZoom.scale})` : "none",
               transformOrigin: "0 0",
               transition: "none",
               willChange: pinchActive || isPanning ? "transform" : "auto",
-              ...(scrollMode === "single" ? {
+              ...(scrollMode === "single" || scrollMode === "book" ? {
                 flex: 1,
                 display: "flex",
                 justifyContent: "flex-start",
@@ -4079,6 +4171,68 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                 {/* Lasso path for circle-to-ask */}
                 {lassoPath && tool === "circle" && <path d={lassoPath} style={s.lassoPath} />}
               </svg>
+            </div>
+          ) : scrollMode === "book" ? (
+            // ── Two-page spread (book mode): facing pages side by side ──
+            <div
+              style={s.spreadRow}
+              className={
+                transitioning
+                  ? transitionDir === "next"
+                    ? "page-anim-exit-next"
+                    : "page-anim-exit-prev"
+                  : !transitioning && currentPage
+                    ? transitionDir === "next"
+                      ? "page-anim-enter-next"
+                      : "page-anim-enter-prev"
+                    : ""
+              }
+            >
+              {[currentPage, currentPage + 1].filter((pg) => pg <= numPages).map((pg) => (
+                <div key={pg} style={{ ...s.pageShadow, margin: 0, flexShrink: 0 }} data-page={pg}>
+                  <canvas
+                    ref={pg === currentPage ? canvasRef : canvas2Ref}
+                    style={{ display: "block", maxWidth: "none", filter: pageCssFilter() }}
+                  />
+                  {/* Text layer for selection/copy */}
+                  {tool === "none" && (
+                    <div
+                      data-text-layer={pg}
+                      ref={(el) => { textLayerRefs.current[pg] = el; }}
+                      style={{
+                        position: "absolute", top: 0, left: 0, overflow: "hidden",
+                        pointerEvents: "auto", userSelect: "text", zIndex: 5,
+                        mixBlendMode: theme === "dark" ? "difference" : "normal",
+                      }}
+                    />
+                  )}
+                  {/* Text-anchored highlights + notes */}
+                  {(textMarks[pg] || []).map((m) =>
+                    m.rects.map((r, ri) => (
+                      <div
+                        key={`${m.id}:${ri}`}
+                        data-mark={m.id}
+                        onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: m, x: e.clientX, y: e.clientY }); }}
+                        title={m.note || undefined}
+                        style={{
+                          position: "absolute",
+                          left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
+                          width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
+                          background: m.color,
+                          mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+                          borderRadius: 2,
+                          zIndex: 6,
+                          cursor: "pointer",
+                          borderBottom: m.note ? `2px solid ${T.accent}` : "none",
+                          boxShadow: flashMark === m.id ? "0 0 0 3px rgba(255,171,64,0.9)" : "none",
+                          transition: "box-shadow 0.3s ease",
+                        }}
+                      />
+                    ))
+                  )}
+                  <span style={s.pageLabel}>{pg}</span>
+                </div>
+              ))}
             </div>
           ) : (
             // Continuous scroll mode — virtualized: only render canvases for pages in virtual window
@@ -4440,7 +4594,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
               <div style={s.navPill}>
                 <button
                   style={{ ...s.navBtn, opacity: currentPage <= 1 ? 0.35 : 1 }}
-                  onClick={() => goToPage(currentPage - 1)}
+                  onClick={() => stepPage(-1)}
                   disabled={currentPage <= 1}
                   title="Previous page"
                 >
@@ -4452,11 +4606,11 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                   title="Jump to page"
                   aria-label="Jump to page"
                 >
-                  {currentPage} / {numPages}
+                  {scrollMode === "book" && currentPage + 1 <= numPages ? `${currentPage}–${currentPage + 1}` : currentPage} / {numPages}
                 </button>
                 <button
                   style={{ ...s.navBtn, opacity: currentPage >= numPages ? 0.35 : 1 }}
-                  onClick={() => goToPage(currentPage + 1)}
+                  onClick={() => stepPage(1)}
                   disabled={currentPage >= numPages}
                   title="Next page"
                 >
