@@ -22,6 +22,7 @@ import {
 import { sound, setSoundEnabled } from './survivalAudio.js';
 import { haptics } from '../../lib/haptics';
 import useConfetti from './useConfetti.js';
+import { useOverlayBackClose } from '../../hooks/useOverlayBackClose.js';
 import './streakSurvival.css';
 
 const MAX_LIVES = 3;
@@ -1188,6 +1189,14 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const el = explainThreadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [explain.thread, explain.loading]);
+
+  // Device/browser back mirrors Escape: dismiss a modal, cancel a pending
+  // quit confirm, else run the normal quit flow (confirm dialog if mid-run).
+  useOverlayBackClose(() => {
+    if (modal) { setModal(null); return; }
+    if (quitTarget) { setQuitTarget(null); return; }
+    requestQuit('home');
+  });
 
   // ── Keyboard ──
   useEffect(() => {

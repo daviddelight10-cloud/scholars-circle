@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { convertToPdf, imagesToPdf } from "../../lib/convertToPdf";
 import { detectFileType, typeToContentType } from "../../lib/detectMimeType";
 import { PRESET_SUBJECTS } from "./constants";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 // Two separate pickers: broad or media-mixed accept lists make many Android
 // builds (Transsion/MIUI) open a photos-only sheet with no file browser.
@@ -97,6 +98,12 @@ export default function UploadWizard({
   const [creatingSpace, setCreatingSpace] = useState(false);
   const [spacePickerOpen, setSpacePickerOpen] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Device/browser back: step 2 → back to step 1, else close the wizard.
+  useOverlayBackClose(() => {
+    if (step > 1) { setStep(1); return; }
+    onClose?.();
+  }, { open: show });
   const imgInputRef = useRef(null);
   const titleInputRef = useRef(null);
 

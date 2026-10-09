@@ -12,6 +12,7 @@ import { API_BASE, FREE_TIER_LIMITS } from "../lib/constants";
 import { canUse, consume } from "../lib/freeTier.js";
 import { listFolders, createFolder } from "../lib/foldersApi";
 import { toast } from "../components/Toast";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -1694,6 +1695,10 @@ function InputBar({ value, onChange, onSend, loading, onStop, placeholder = "Ask
 
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultView = "chat", studyTopic = "", studyMode = "input", studyAttachment = null, studyContext = null, onStartExam, onOpenResource }) {
+  // Device/browser back steps through the overlay's own layers (history →
+  // guided study → practice → exit) instead of leaving the app.
+  useOverlayBackClose(handleBack, { open: !!onExit });
+
   const [view, setView]             = useState(defaultView === "learn" ? "chat" : (defaultView || "chat"));
   const [messages, setMsgs]         = useState([]);
   const [input, setInput]           = useState("");

@@ -13,6 +13,7 @@ import RatingsAndComments from "../components/RatingsAndComments.jsx";
 import MarkdownText from "../components/MarkdownText.jsx";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
 import { useUI } from "../contexts/UIContext.jsx";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import "../research-hub.css";
 
 import { API_BASE } from "../lib/constants";
@@ -144,6 +145,11 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
     window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
     navigate("/app");
   };
+
+  // Device/browser back exits the viewer instead of leaving the app —
+  // only in the in-app mode; the standalone /resources/:token route gets
+  // natural router history back.
+  useOverlayBackClose(handleBack, { open: !!onBack });
 
   const openResource = useCallback((t) => {
     if (onOpenResource) { onOpenResource(t); return; }

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState, useRef, useCallback, Suspense } from "react";
 import { useModalA11y } from "./hooks/useModalA11y";
+import { useOverlayBackClose } from "./hooks/useOverlayBackClose.js";
 import { createPortal } from "react-dom";
 import { lazyWithRetry } from "./lib/lazyWithRetry.js";
 import { fsrsRate, toFsrsCard, gradeFromResult } from "./lib/fsrs.js";
@@ -549,6 +550,15 @@ function App() {
 
 
   const isFaculty = isTeacher || isLecturerRole; // any faculty (TEACHER or LECTURER)
+
+
+
+  // Device/browser back at the top level returns to the home tab first —
+  // the app only exits once the user is already home with nothing open.
+  // Overlays push their own stops above this one, so back steps down
+  // overlay → tab → home → exit.
+  const rootHomeTab = isLecturerRole ? LECTURER_HOME_TAB : "today";
+  useOverlayBackClose(() => setTab(rootHomeTab), { open: tab !== rootHomeTab });
 
 
 

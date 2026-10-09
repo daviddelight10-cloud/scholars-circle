@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 export default function BookmarkSpacePicker({
   show,
@@ -8,6 +9,9 @@ export default function BookmarkSpacePicker({
   onConfirm,
   onCreateFolder,
 }) {
+  // Device/browser back closes the picker instead of leaving the app.
+  useOverlayBackClose(onClose, { open: show });
+
   const [selectedFolderId, setSelectedFolderId] = useState("");
   const [busy, setBusy] = useState(false);
 

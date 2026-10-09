@@ -3,6 +3,7 @@ import { CALCS, CALC_CATEGORIES, CALC_MAP, calcReady, toComputeValues } from "./
 import { getFavs, getRecents, toggleFav, pushRecent } from "../reference/refPrefs";
 import "../reference/clinicalRef.css";
 import ExitPill from "../../components/ExitPill.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 function CalcField({ spec, value, unit, onVal, onUnit }) {
   if (spec.type === "check") {
@@ -173,6 +174,9 @@ export default function MedicalCalculators({ onBack }) {
 
   const open = (calc) => { setSel(calc); setRecents(pushRecent("calcs", calc.id)); window.scrollTo(0, 0); };
   const toggleF = (id) => setFavs(toggleFav("calcs", id));
+
+  // Device/browser back: calculator detail → list, list → leave the tool.
+  useOverlayBackClose(() => { if (sel) setSel(null); else onBack?.(); }, { open: !!onBack });
 
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();

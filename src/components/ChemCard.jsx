@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { MODES, MODE_LABELS, toStandaloneSvg } from "../lib/moleculeDraw.js";
 import { skinFor } from "./chemSkin.js";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 const viewBoxWidth = (markup) => {
   const m = /viewBox="[-\d.e]+ [-\d.e]+ ([\d.e]+) [-\d.e]+"/.exec(markup);
@@ -9,11 +10,12 @@ const viewBoxWidth = (markup) => {
 };
 
 export function ZoomModal({ markup, skin, onClose }) {
+  const { close: backClose, isTop } = useOverlayBackClose(onClose);
   useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
+    const onKey = (e) => e.key === "Escape" && isTop() && backClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [backClose, isTop]);
   const width = Math.min(Math.max(viewBoxWidth(markup) * 2.2, 320), 1100);
   return createPortal(
     <div

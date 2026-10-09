@@ -11,6 +11,7 @@ import {
 } from "../lib/studyHistory.js";
 import { API_BASE } from "../lib/constants";
 import { copyShareToken } from "../lib/researchUtils.js";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
@@ -102,6 +103,8 @@ const SMART_CHIPS = [
 ];
 
 export default function DocumentReader({ fileUrl, title, contentType, resourceId, folderId, onBack }) {
+  // Device/browser back exits the reader instead of leaving the app.
+  useOverlayBackClose(onBack, { open: !!onBack });
   const { setMobileNavHidden } = useUI();
   const [theme, setTheme] = useState(() => localStorage.getItem("sc_doc_theme") || "dark");
   const [loading, setLoading] = useState(true);

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 // These primitives are used outside the Feed too (roadmap topic page,
 // sheets) — the chunk must carry its own styles or portaled overlays
 // render as unstyled divs when feed.css hasn't loaded.
@@ -16,26 +17,28 @@ export function FdPortal({ children }) {
   return createPortal(<div className="fd-portal">{children}</div>, document.body);
 }
 
-// Esc close + body scroll lock, shared by sheet & screen.
-// Stack so Esc only dismisses the TOPMOST overlay (e.g. a picker opened
-// from inside Go Live must not also close Go Live behind it).
-const overlayStack = [];
+// Esc close + body scroll lock + hardware-back history entry, shared by
+// sheet & screen. Esc only dismisses the TOPMOST overlay (e.g. a picker
+// opened from inside Go Live must not also close Go Live behind it).
+// Back/close paths funnel through useOverlayBackClose, which keeps a
+// pushed history entry per open overlay so Android back pops the overlay
+// instead of exiting the app.
 function useOverlayChrome(onClose) {
+  const back = useOverlayBackClose(onClose, { open: !!onClose });
+  const backRef = useRef(back);
+  backRef.current = back;
   useEffect(() => {
-    overlayStack.push(onClose);
     const onKey = (e) => {
-      if (e.key === "Escape" && overlayStack[overlayStack.length - 1] === onClose) onClose?.();
+      if (e.key === "Escape" && backRef.current.isTop()) backRef.current.close();
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      const i = overlayStack.lastIndexOf(onClose);
-      if (i >= 0) overlayStack.splice(i, 1);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, []);
 }
 
 /** Bottom sheet: handle + pinned head + ONE scrollable body + optional pinned footer. */

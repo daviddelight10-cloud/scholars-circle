@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 import {
   X, Gem, Stethoscope, Pill, FlaskConical, Calculator, ChevronRight,
   BarChart3, CalendarDays, User, Settings, Gift,
@@ -26,6 +27,10 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
 
   const close = useCallback(() => setClosing(true), []);
 
+  // Device/browser back button dismisses the sheet (with exit animation)
+  // instead of leaving the app.
+  const { close: backClose, isTop } = useOverlayBackClose(close);
+
   // Let the exit animation finish before the parent unmounts us
   useEffect(() => {
     if (!closing) return;
@@ -35,7 +40,7 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
 
   // Esc to close, body scroll lock, focus the close button for a11y
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") close(); };
+    const onKey = (e) => { if (e.key === "Escape" && isTop()) backClose(); };
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -44,7 +49,7 @@ export default function MoreSheet({ tab, onNavigate, onClose, isFaculty, isTeach
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [close]);
+  }, [backClose, isTop]);
 
   const go = useCallback((next) => {
     onNavigate(next);

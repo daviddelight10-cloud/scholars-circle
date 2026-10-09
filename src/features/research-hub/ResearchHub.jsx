@@ -11,6 +11,7 @@ import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import ResourceViewer from "../ResourceViewer";
 import { useUserData } from "../../contexts/UserDataContext";
 import { useUI } from "../../contexts/UIContext.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 import { categorizeResources } from "./lib/categorize.js";
 import FolderDetailView from "./FolderDetailView";
@@ -109,6 +110,10 @@ function FilterPill({ label, value, options, onChange, allLabel }) {
 export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, activeSemester } = {}) {
   const { setLastActivity } = useUserData();
   const navigate = useNavigate();
+
+  // Device/browser back leaves the hub (in-app tab mode); the standalone
+  // /resources route keeps natural router history.
+  useOverlayBackClose(onBack, { open: !!onBack });
 
   const [resources, setResources] = useState(() => {
     try {

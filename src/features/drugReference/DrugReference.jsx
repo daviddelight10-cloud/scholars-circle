@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ExitPill from "../../components/ExitPill.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 import { DRUGS, DRUG_CLASSES, findInteractions } from "./drugData.js";
 import { getFavs, toggleFav, getRecents, pushRecent } from "../reference/refPrefs.js";
 import QuickQuiz, { drugQuestions } from "../reference/QuickQuiz.jsx";
@@ -227,6 +228,13 @@ export default function DrugReference({ onBack }) {
   const [quiz, setQuiz] = useState(null);
   const [toast, setToast] = useState("");
   const { favs, recents, fav, visit } = usePrefs();
+
+  // Device/browser back: dismiss quiz → drug detail → leave the tool.
+  useOverlayBackClose(() => {
+    if (quiz) setQuiz(null);
+    else if (sel) setSel(null);
+    else onBack?.();
+  }, { open: !!onBack });
 
   const filtered = useMemo(
     () => DRUGS.filter((d) => matches(d, search) && (!cls || d.class === cls)),

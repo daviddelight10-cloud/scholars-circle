@@ -6,6 +6,7 @@ import {
 } from "./examSchema";
 import { gradeWrittenAnswers, submitExamAttempt } from "./examApi";
 import ExamResults from "./ExamResults";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 import "./exam.css";
 
 function fmt(ms) {
@@ -24,6 +25,9 @@ function prepareItems(questions, config) {
 }
 
 export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, onStreakUpdate, onXpUpdate }) {
+  // Device/browser back exits the exam runner instead of leaving the app.
+  useOverlayBackClose(onBack, { open: !!onBack });
+
   const payload = useMemo(() => normalizeExamPayload(exam), [exam]);
   const config = payload?.config || {};
   const timed = (config.timeLimitMin || 0) > 0;

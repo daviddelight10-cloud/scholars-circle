@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import { useOverlayBackClose } from "./useOverlayBackClose.js";
 
 const FOCUSABLE = [
   "a[href]", "button:not([disabled])", "input:not([disabled])",
@@ -29,6 +30,12 @@ export function useModalA11y({ isOpen, onClose, labelledBy, label }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
+  // Hardware/browser back closes the modal (topmost-only) via a pushed
+  // history entry — without it, Android back exits the whole app.
+  const back = useOverlayBackClose(onClose, { open: isOpen });
+  const backRef = useRef(back);
+  backRef.current = back;
+
   const setPanelRef = useCallback((el) => { panelRef.current = el; }, []);
 
   useEffect(() => {
@@ -50,8 +57,10 @@ export function useModalA11y({ isOpen, onClose, labelledBy, label }) {
 
     const onKeyDown = (e) => {
       if (e.key === "Escape") {
-        e.stopPropagation();
-        onCloseRef.current?.();
+        if (backRef.current.isTop()) {
+          e.stopPropagation();
+          backRef.current.close();
+        }
         return;
       }
       if (e.key !== "Tab") return;

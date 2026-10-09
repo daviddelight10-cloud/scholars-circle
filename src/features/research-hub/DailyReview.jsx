@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { API_BASE } from "../../lib/constants";
 import PracticeMcqCard from "../streak-survival/PracticeMcqCard.jsx";
 import { normalizeQuestion } from "../streak-survival/fsrsBridge.js";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 
 function getAuthHeaders() {
@@ -23,6 +24,9 @@ const GRADE_LABELS = {
 const STATE_LABELS = { 0: "🆕 New", 1: "📖 Learning", 2: "🔄 Review", 3: "🔁 Relearning" };
 
 export default function DailyReview({ onBack, onComplete }) {
+  // Device/browser back exits the session instead of leaving the app.
+  useOverlayBackClose(onBack, { open: !!onBack });
+
   const [items, setItems] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);

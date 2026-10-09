@@ -4,6 +4,7 @@ import LoadingState from "./LoadingState";
 import EmbeddedRoadmapView from "../../components/home/EmbeddedRoadmapView";
 import SpaceFileCard from "./SpaceFileCard.jsx";
 import PracticeSheet from "./PracticeSheet.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 export default function FolderDetailView({
   folderDetail, folderLoading, folderDeleted, folderCategorized, activeFolderTab, setActiveFolderTab,
@@ -21,6 +22,15 @@ export default function FolderDetailView({
   const [menuOpen, setMenuOpen] = useState(false);
   const [fileSearch, setFileSearch] = useState("");
   const menuRef = useRef(null);
+
+  // Device/browser back: close an open practice sheet/menu first, else leave
+  // the folder view — the folder sits between the hub and its overlays in the
+  // history stack so back steps out one level at a time.
+  useOverlayBackClose(() => {
+    if (sheetFile) { setSheetFile(null); return; }
+    if (menuOpen) { setMenuOpen(false); return; }
+    onClose?.();
+  }, { open: !!onClose });
 
   useEffect(() => {
     if (!menuOpen) return;

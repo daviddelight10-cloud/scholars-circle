@@ -11,6 +11,7 @@ import OsceGroup from "./OsceGroup.jsx";
 import StationCreator from "./StationCreator.jsx";
 import { getCustomStations } from "./stationLibrary.js";
 import ExitPill from "../../components/ExitPill.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 import "./virtualPatient.css";
 
 const ACTIVE_CONSULT_KEY = "scc_active_consult";
@@ -384,6 +385,14 @@ export default function VirtualPatient({ aiConfig, stats, updateStats, onBack })
     return () => document.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Device/browser back mirrors Escape, then exits the surface.
+  useOverlayBackClose(() => {
+    if (latest.current.modal) setModal(null);
+    else if (latest.current.ob?.open) setOb(o => ({ ...o, open: false }));
+    else if (toolsDrawerOpen || vitalsDrawerOpen) closeAllDrawers();
+    else onBack?.();
+  });
 
   function updateVitals(secs) {
     const L = latest.current;

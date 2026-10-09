@@ -7,6 +7,7 @@ import { invitesHiddenAgenda } from "./commMetrics.js";
 import { CASES, EXAM_LABELS, INV_QUICK, STATION_TYPES } from "./caseData.js";
 import { getCustomStations } from "./stationLibrary.js";
 import ExitPill from "../../components/ExitPill.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 const ROLE_META = {
   candidate: { icon: "🩺", label: "Candidate", desc: "Takes the history & runs the station" },
@@ -30,6 +31,9 @@ function useNow() {
 }
 
 export default function OsceGroup({ onBack, aiConfig }) {
+  // Device/browser back exits group practice instead of leaving the app.
+  useOverlayBackClose(onBack, { open: !!onBack });
+
   const { room, connected, error, bellAt, createRoom, joinRoom, send, leave, setError } = useOsceRoom();
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);

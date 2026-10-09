@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import ExitPill from "../../components/ExitPill.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 import { LABS, LAB_CATEGORIES, CATEGORY_MAP, parseRange, checkValue } from "./labData.js";
 import { getFavs, toggleFav, getRecents, pushRecent } from "../reference/refPrefs.js";
 import QuickQuiz, { labQuestions } from "../reference/QuickQuiz.jsx";
@@ -234,6 +235,9 @@ export default function LabValues({ onBack }) {
   const [openId, setOpenId] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const { favs, recents, fav, visit } = usePrefs();
+
+  // Device/browser back: dismiss quiz → leave the tool.
+  useOverlayBackClose(() => { if (quiz) setQuiz(null); else onBack?.(); }, { open: !!onBack });
 
   const filtered = useMemo(
     () => LABS.filter((l) => matches(l, search) && (!cat || l.category === cat)),

@@ -104,6 +104,14 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
     setRecents(loadRecents());
   }
 
+  // Device/browser back (via CircleSheet's overlay entry): QR pane → hide it,
+  // a sub-pane → back to main, main → close the sheet.
+  const handleSheetClose = () => {
+    if (qrOpen) { setQrOpen(false); return; }
+    if (pane !== "main") { setPane("main"); return; }
+    onClose?.();
+  };
+
   useEffect(() => {
     if (pane !== "groups" || groups !== null || !authed) return;
     groupsApi.myGroups({}).then((g) => setGroups(Array.isArray(g) ? g : g?.groups || [])).catch(() => setGroups([]));
@@ -299,7 +307,7 @@ export default function ShareSheet({ open, onClose, target, notify, onEnableLink
   const previewIcon = target.type === "folder" ? "folder" : PREVIEW_ICON[target.contentType] || "filetext";
 
   return (
-    <CircleSheet open={open} onClose={onClose} title={pane === "main" ? "Share" : pane === "groups" ? "Send to a group" : pane === "friends" ? "Send to a friend" : "Shared"} kind={isResource ? "Material" : "Space"}>
+    <CircleSheet open={open} onClose={handleSheetClose} title={pane === "main" ? "Share" : pane === "groups" ? "Send to a group" : pane === "friends" ? "Send to a friend" : "Shared"} kind={isResource ? "Material" : "Space"}>
       {(pane === "groups" || pane === "friends") && (
         <button className="sh-back" onClick={() => setPane("main")}>
           <McIcon name="chev" style={{ transform: "rotate(90deg)" }} /> Back

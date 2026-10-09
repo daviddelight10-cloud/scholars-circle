@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import McIcon from "./McIcon.jsx";
+import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
 
 /**
  * Reusable bottom sheet (mobile) that becomes a centered modal on desktop (≥1024px).
@@ -9,12 +10,13 @@ import McIcon from "./McIcon.jsx";
  *   </CircleSheet>
  */
 export default function CircleSheet({ open, onClose, title, kind, children }) {
+  const { close: backClose, isTop } = useOverlayBackClose(onClose, { open });
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    const onKey = (e) => { if (e.key === "Escape" && isTop()) backClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, backClose, isTop]);
 
   return (
     <>

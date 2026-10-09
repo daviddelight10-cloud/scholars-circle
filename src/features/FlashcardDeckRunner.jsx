@@ -4,6 +4,7 @@ import { useComboStreak } from "../lib/useComboStreak.js";
 import { STREAK_BONUS } from "../data.js";
 import { getSubjectColor } from "./research-hub/subjectColors.js";
 import { API_BASE } from "../lib/constants";
+import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 
 const XP_PER_CORRECT = 20;
@@ -251,6 +252,13 @@ export default function FlashcardDeckRunner({ resource, onBack, onStreakUpdate, 
     ["pointerdown", "keydown", "touchstart"].forEach(evt => window.addEventListener(evt, init, { once: true, passive: true }));
     return () => ["pointerdown", "keydown", "touchstart"].forEach(evt => window.removeEventListener(evt, init, { once: true, passive: true }));
   }, []);
+
+  // Device/browser back: dismiss confirm sheets, else show exit confirm.
+  useOverlayBackClose(() => {
+    if (showStartOverConfirm) { setShowStartOverConfirm(false); return; }
+    if (showExitConfirm) { setShowExitConfirm(false); return; }
+    setShowExitConfirm(true);
+  });
 
   // Escape → exit confirm
   useEffect(() => {
