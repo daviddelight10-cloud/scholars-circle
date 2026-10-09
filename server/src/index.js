@@ -123,7 +123,9 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "Range"],
+  // pdf.js ranged reads need to see Content-Range/Accept-Ranges off the proxy
+  exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length"],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));

@@ -1,5 +1,6 @@
 import express from "express";
 import crypto from "crypto";
+import { Readable } from "stream";
 import { prisma } from "../db.js";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth.js";
 import { aiRateLimit } from "../middleware/aiRateLimit.js";
@@ -813,19 +814,38 @@ router.get("/proxy-pdf", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "URL domain not allowed" });
     }
 
-    const response = await fetch(url);
-    if (!response.ok) {
+    // Forward the client's Range header — pdf.js range-requests chunks so the
+    // first page paints without downloading the whole file. When storage
+    // honours it (206) we pass the range metadata straight through.
+    const range = req.headers.range;
+    const response = await fetch(url, range ? { headers: { Range: range } } : {});
+    if (!response.ok && response.status !== 206) {
       return res.status(response.status).json({ error: "Failed to fetch file from storage" });
     }
 
     const contentType = response.headers.get("content-type") || "application/octet-stream";
-    const buffer = Buffer.from(await response.arrayBuffer());
-
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Content-Length", buffer.length);
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.setHeader("Access-Control-Allow-Origin", "*");
-    return res.send(buffer);
+    // Only claim range support when upstream proved it (206) or advertises it —
+    // a false Accept-Ranges would send pdf.js into range mode on a server that
+    // can't serve ranges.
+    if (response.status === 206 || response.headers.get("accept-ranges")) {
+      res.setHeader("Accept-Ranges", "bytes");
+    }
+    for (const h of ["content-length", "content-range"]) {
+      const v = response.headers.get(h);
+      if (v) res.setHeader(h, v);
+    }
+    res.status(response.status === 206 ? 206 : 200);
+
+    // Stream the body — no buffering, so range reads stay cheap on the proxy.
+    if (response.body) {
+      const stream = Readable.fromWeb(response.body);
+      stream.on("error", () => { try { res.destroy(); } catch {} });
+      return stream.pipe(res);
+    }
+    return res.end();
   } catch (error) {
     console.error("File proxy error:", error);
     res.status(500).json({ error: "Failed to proxy file" });

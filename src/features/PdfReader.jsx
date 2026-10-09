@@ -300,22 +300,34 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         setLoadError("");
         const pdfjs = await loadPdfJs();
         if (cancelled) return;
-        let pdfData;
+        let pdf;
         try {
-          pdfData = await fetchProxiedPdf(fileUrl);
-          pdfBytesRef.current = pdfData;
-        } catch (netErr) {
-          // Offline fallback — open the IndexedDB copy if one was saved
-          const blob = await idbGetFile(docKey);
-          if (!blob) throw netErr;
-          pdfData = new Uint8Array(await blob.arrayBuffer());
-          setDeckToast({ type: "ok", text: "📴 Opened offline copy" });
-          setTimeout(() => setDeckToast(null), 3000);
-          setOfflineInfo({ size: pdfData.byteLength });
+          // Streamed/ranged load — pdf.js range-requests chunks through the
+          // proxy so page 1 paints before the whole file downloads.
+          const token = getAuthToken();
+          const loadingTask = pdfjs.getDocument({
+            url: getProxiedUrl(fileUrl),
+            httpHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+            rangeChunkSize: 262144, // 256KB chunks — fewer round-trips per page
+          });
+          pdf = await loadingTask.promise;
+        } catch (streamErr) {
+          // Fallback: whole-file fetch, then the IndexedDB offline copy.
+          let pdfData;
+          try {
+            pdfData = await fetchProxiedPdf(fileUrl);
+            pdfBytesRef.current = pdfData;
+          } catch (netErr) {
+            const blob = await idbGetFile(docKey);
+            if (!blob) throw streamErr;
+            pdfData = new Uint8Array(await blob.arrayBuffer());
+            setDeckToast({ type: "ok", text: "📴 Opened offline copy" });
+            setTimeout(() => setDeckToast(null), 3000);
+            setOfflineInfo({ size: pdfData.byteLength });
+          }
+          if (cancelled) return;
+          pdf = await pdfjs.getDocument({ data: pdfData }).promise;
         }
-        if (cancelled) return;
-        const loadingTask = pdfjs.getDocument({ data: pdfData });
-        const pdf = await loadingTask.promise;
         if (cancelled) return;
         pdfDocRef.current = pdf;
         setNumPages(pdf.numPages);
