@@ -133,6 +133,15 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [deckAddedKeys, setDeckAddedKeys] = useState({}); // "msgIdx:segIdx" → true
   const [deckHintSeen, setDeckHintSeen] = useState(() => loadStored("sc_pdf_deck_hint", false));
 
+  // ── Shared (community) annotations — highlights + page comments visible to
+  // everyone reading this document. Requires sign-in; local marks stay private.
+  const [sharedAnnots, setSharedAnnots] = useState([]);
+  const [showShared, setShowShared] = useState(() => loadStored(`sc_pdf_showshared_${docKey}`, true));
+  const [sharedMenu, setSharedMenu] = useState(null); // { annot, x, y }
+  const [commentsFor, setCommentsFor] = useState(null); // page number | null
+  const [commentDraft, setCommentDraft] = useState("");
+  const [shareBusy, setShareBusy] = useState(false);
+
   // TTS
   const [speaking, setSpeaking] = useState(false);
   const ttsUtterRef = useRef(null);
@@ -1077,6 +1086,165 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
     return out.sort((a, b) => a.page - b.page || a.createdAt - b.createdAt);
   }, [textMarks]);
+
+  // Shared annotations grouped by page → { highlights: [], comments: [] }
+  const sharedByPage = useMemo(() => {
+    const out = {};
+    for (const a of sharedAnnots) {
+      (out[a.page] ||= { highlights: [], comments: [] });
+      (a.kind === "highlight" ? out[a.page].highlights : out[a.page].comments).push(a);
+    }
+    return out;
+  }, [sharedAnnots]);
+
+  const sharedCount = useMemo(
+    () => sharedAnnots.reduce((n, a) => n + (a.kind === "comment" ? 1 : 0), 0),
+    [sharedAnnots]
+  );
+
+  const getAuthToken = () => {
+    try { return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || null; }
+    catch { return null; }
+  };
+
+  // Load the shared board once the document is ready (signed-in users only)
+  useEffect(() => {
+    if (loading || !fileUrl) return;
+    const token = getAuthToken();
+    if (!token) return;
+    let cancelled = false;
+    fetch(`${API_BASE}/api/resources/shared-annotations/${encodeURIComponent(docKey)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && Array.isArray(d?.annotations)) setSharedAnnots(d.annotations); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [loading, fileUrl, docKey]);
+
+  const toastDeck = (text, type = "ok") => {
+    setDeckToast({ type, text });
+    setTimeout(() => setDeckToast(null), 2800);
+  };
+
+  // Share the pending selection as a community highlight
+  const shareSelection = async () => {
+    const sel = pendingSelRef.current;
+    const token = getAuthToken();
+    if (!sel) return;
+    if (!token) { toastDeck("Sign in to share highlights", "error"); return; }
+    if (shareBusy) return;
+    setShareBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/resources/shared-annotations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          docKey, page: sel.page, kind: "highlight",
+          color: "rgba(255,211,77,0.35)", rects: sel.rects,
+          excerpt: sel.text.slice(0, 500),
+        }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !d?.annotation) throw new Error(d?.error || "Share failed");
+      setSharedAnnots((prev) => [...prev, d.annotation]);
+      window.getSelection()?.removeAllRanges?.();
+      pendingSelRef.current = null;
+      setSelPop(null);
+      toastDeck("Shared — everyone reading this PDF sees it");
+    } catch (e) {
+      toastDeck(e.message || "Couldn't share highlight", "error");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const postComment = async () => {
+    const txt = commentDraft.trim();
+    const token = getAuthToken();
+    if (!txt || commentsFor == null) return;
+    if (!token) { toastDeck("Sign in to comment", "error"); return; }
+    if (shareBusy) return;
+    setShareBusy(true);
+    try {
+      const r = await fetch(`${API_BASE}/api/resources/shared-annotations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ docKey, page: commentsFor, kind: "comment", body: txt.slice(0, 2000) }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !d?.annotation) throw new Error(d?.error || "Couldn't post comment");
+      setSharedAnnots((prev) => [...prev, d.annotation]);
+      setCommentDraft("");
+    } catch (e) {
+      toastDeck(e.message || "Couldn't post comment", "error");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const deleteShared = async (id) => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/resources/shared-annotations/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error();
+      setSharedAnnots((prev) => prev.filter((a) => a.id !== id));
+      setSharedMenu(null);
+    } catch {
+      toastDeck("Couldn't delete — try again", "error");
+    }
+  };
+
+  // Community highlights + a comment-count pin for one page.
+  // Renders inside the page wrapper (position:relative), percents vs page box.
+  const renderSharedMarks = (pg) => {
+    if (!showShared) return null;
+    const group = sharedByPage[pg];
+    if (!group) return null;
+    return (
+      <>
+        {group.highlights.map((a) =>
+          (a.rects || []).map((r, ri) => (
+            <div
+              key={`sh-${a.id}-${ri}`}
+              title={`${a.author}${a.excerpt ? ` — “${a.excerpt.slice(0, 80)}”` : ""}`}
+              onClick={(e) => { e.stopPropagation(); setSharedMenu({ annot: a, x: e.clientX, y: e.clientY }); }}
+              style={{
+                position: "absolute",
+                left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
+                width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
+                background: a.color || "rgba(80,200,255,0.3)",
+                border: `1px dashed ${T.accent}`,
+                borderRadius: 2,
+                zIndex: 5,
+                cursor: "pointer",
+                mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+              }}
+            />
+          ))
+        )}
+        {group.comments.length > 0 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setCommentsFor(pg); }}
+            title={`${group.comments.length} comment${group.comments.length > 1 ? "s" : ""} on this page`}
+            style={{
+              position: "absolute", top: 6, right: 6, zIndex: 9,
+              display: "flex", alignItems: "center", gap: 4,
+              background: T.toolbar, border: `1px solid ${T.border}`, borderRadius: 999,
+              color: T.text, fontSize: 11, fontWeight: 700, padding: "3px 8px",
+              cursor: "pointer", boxShadow: `0 4px 14px ${T.shadow}`,
+            }}
+          >
+            💬 {group.comments.length}
+          </button>
+        )}
+      </>
+    );
+  };
 
   const clearSearchMark = useCallback(() => {
     const m = activeMatchRef.current;
@@ -3190,6 +3358,17 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                   )}
                   {ocrScanning ? "Scanning text…" : "Scan scanned pages (OCR)"}
                 </button>
+                <button style={s.overflowItem} onClick={() => { setCommentsFor(currentPage); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                  Page comments{sharedCount ? ` (${sharedCount} in doc)` : ""}
+                </button>
+                <button
+                  style={{ ...s.overflowItem, color: showShared ? T.accent : undefined }}
+                  onClick={() => { const v = !showShared; setShowShared(v); saveStored(`sc_pdf_showshared_${docKey}`, v); setShowOverflow(false); setOverflowBackdropOpen(false); }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  {showShared ? "Community highlights: on" : "Community highlights: off"}
+                </button>
                 <button style={s.overflowItem} onClick={() => { setShowStats(true); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
                   Reading stats
@@ -3897,6 +4076,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
           <button style={s.selPopBtn} onClick={() => askAboutSelection("Explain this passage clearly and concisely — under 100 words:")}>✨ Explain</button>
           <button style={s.selPopBtn} onClick={() => askAboutSelection("Define this term precisely and simply, with one concrete example:")}>📖 Define</button>
           <button style={s.selPopBtn} onClick={genQuizFromSelection} disabled={quizGenBusy}>❓ Quiz</button>
+          <button style={s.selPopBtn} onClick={shareSelection} disabled={shareBusy} title="Share this highlight with everyone reading this PDF">📤 Share</button>
           <button style={s.selPopBtn} onClick={copySelection}>📋 Copy</button>
           <button style={s.selPopBtn} onClick={speakSelection} title="Read aloud" aria-label="Read aloud">🔊</button>
         </div>
@@ -3945,6 +4125,143 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
             <button style={{ ...s.selMenuItem, color: "#e35d6a" }} onClick={() => { removeMark(markMenu.mark.page, markMenu.mark.id); setMarkMenu(null); }}>
               🗑 Delete
             </button>
+          </div>
+        </>
+      )}
+
+      {/* ── Shared highlight card (tap a community mark) ── */}
+      {sharedMenu && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 299 }} onClick={() => setSharedMenu(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: Math.max(8, Math.min(window.innerWidth - 230, sharedMenu.x - 90)),
+              top: Math.max(8, sharedMenu.y - 8),
+              transform: "translateY(-100%)",
+              zIndex: 300,
+              background: T.toolbar,
+              border: `1px solid ${T.border}`,
+              borderRadius: 12,
+              boxShadow: `0 10px 32px ${T.shadow}`,
+              padding: "10px 12px",
+              minWidth: 190,
+              maxWidth: 240,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+              <span style={{
+                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                background: T.accent, color: "#0b0b0e", fontSize: 11, fontWeight: 800,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {(sharedMenu.annot.author || "S")[0].toUpperCase()}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{sharedMenu.annot.author}</span>
+            </div>
+            {sharedMenu.annot.excerpt && (
+              <div style={{ fontSize: 11.5, color: T.muted, maxHeight: 60, overflow: "hidden", marginBottom: 6 }}>
+                “{sharedMenu.annot.excerpt.slice(0, 120)}{sharedMenu.annot.excerpt.length > 120 ? "…" : ""}”
+              </div>
+            )}
+            {sharedMenu.annot.mine && (
+              <button
+                style={{ ...s.selMenuItem, color: "#e35d6a", width: "100%" }}
+                onClick={() => deleteShared(sharedMenu.annot.id)}
+              >
+                🗑 Remove shared highlight
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Page comments sheet ── */}
+      {commentsFor != null && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 340, background: "rgba(0,0,0,0.45)" }} onClick={() => setCommentsFor(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: isMobile ? 0 : "50%",
+              right: isMobile ? 0 : undefined,
+              bottom: 0,
+              ...(isMobile ? {} : { transform: "translateX(-50%)", width: 460 }),
+              zIndex: 341,
+              background: T.toolbar,
+              border: `1px solid ${T.border}`,
+              borderRadius: isMobile ? "16px 16px 0 0" : "16px 16px 0 0",
+              boxShadow: `0 -10px 40px ${T.shadow}`,
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "70vh",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${T.border}` }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: T.text }}>
+                💬 Comments · p.{commentsFor}
+              </span>
+              <button style={{ ...s.matchNavBtn, fontSize: 16 }} onClick={() => setCommentsFor(null)} aria-label="Close comments">✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {(sharedByPage[commentsFor]?.comments || []).length === 0 && (
+                <div style={{ padding: "18px 6px", fontSize: 12.5, color: T.muted, textAlign: "center" }}>
+                  No comments on this page yet — be the first.
+                </div>
+              )}
+              {(sharedByPage[commentsFor]?.comments || []).map((a) => (
+                <div key={a.id} style={{ display: "flex", gap: 9 }}>
+                  <span style={{
+                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0, marginTop: 2,
+                    background: T.accent, color: "#0b0b0e", fontSize: 12, fontWeight: 800,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {(a.author || "S")[0].toUpperCase()}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{a.author}</span>
+                      <span style={{ fontSize: 10, color: T.muted }}>
+                        {a.createdAt ? new Date(a.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""}
+                      </span>
+                      {a.mine && (
+                        <button
+                          style={{ marginLeft: "auto", background: "none", border: "none", color: "#e35d6a", fontSize: 11, cursor: "pointer", padding: 0 }}
+                          onClick={() => deleteShared(a.id)}
+                        >
+                          delete
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, color: T.text, whiteSpace: "pre-wrap", wordBreak: "break-word", marginTop: 1 }}>{a.body}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, padding: "10px 14px", borderTop: `1px solid ${T.border}`, paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))" }}>
+              <input
+                value={commentDraft}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") postComment(); }}
+                placeholder={getAuthToken() ? `Comment on page ${commentsFor}…` : "Sign in to comment"}
+                disabled={!getAuthToken()}
+                style={{
+                  flex: 1, background: T.hover, border: `1px solid ${T.border}`, borderRadius: 999,
+                  color: T.text, fontSize: 13, padding: "8px 14px", outline: "none",
+                }}
+              />
+              <button
+                onClick={postComment}
+                disabled={shareBusy || !commentDraft.trim() || !getAuthToken()}
+                style={{
+                  background: T.accent, border: "none", borderRadius: 999, color: "#0b0b0e",
+                  fontWeight: 800, fontSize: 13, padding: "8px 16px", cursor: "pointer",
+                  opacity: shareBusy || !commentDraft.trim() ? 0.5 : 1,
+                }}
+              >
+                Post
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -4258,6 +4575,8 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                   />
                 ))
               )}
+              {/* Community highlights + comment pin */}
+              {renderSharedMarks(currentPage)}
               <svg
                 ref={lassoSvgRef}
                 style={{ ...s.lassoOverlay, filter: pageCssFilter() }}
@@ -4352,6 +4671,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                       />
                     ))
                   )}
+                  {renderSharedMarks(pg)}
                   <span style={s.pageLabel}>{pg}</span>
                 </div>
               ))}
@@ -4424,6 +4744,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                           />
                         ))
                       )}
+                      {renderSharedMarks(pg)}
                       {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
                       {(
                         <svg

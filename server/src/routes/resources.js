@@ -1490,6 +1490,107 @@ router.put("/reader-state/:docKey", requireAuth, async (req, res) => {
   }
 });
 
+// ── Shared annotations: community highlights + page comments on a document ──
+// Same docKey convention as reader-state, but the board is shared across all
+// readers of the document — each row carries its author.
+
+const sharedAnnotDto = (r, userId) => ({
+  id: r.id,
+  page: r.page,
+  kind: r.kind,
+  color: r.color,
+  rects: r.rects,
+  excerpt: r.excerpt,
+  body: r.body,
+  createdAt: r.createdAt,
+  mine: r.userId === userId,
+  author: r.user?.fullName || r.user?.username || "Student",
+});
+
+// GET /api/resources/shared-annotations/:docKey — the doc's shared board
+router.get("/shared-annotations/:docKey", requireAuth, async (req, res) => {
+  try {
+    const docKey = String(req.params.docKey || "").slice(0, 200);
+    if (!docKey) return res.status(400).json({ error: "docKey required" });
+    const rows = await prisma.pdfSharedAnnotation.findMany({
+      where: { docKey },
+      orderBy: [{ page: "asc" }, { createdAt: "asc" }],
+      take: 3000,
+      include: { user: { select: { fullName: true, username: true } } },
+    });
+    res.json({ annotations: rows.map((r) => sharedAnnotDto(r, req.user.sub)) });
+  } catch (error) {
+    console.error("Error loading shared annotations:", error);
+    res.status(500).json({ error: "Failed to load shared annotations" });
+  }
+});
+
+// POST /api/resources/shared-annotations — share a highlight or page comment
+router.post("/shared-annotations", requireAuth, async (req, res) => {
+  try {
+    const { docKey, page, kind, color, rects, excerpt, body } = req.body || {};
+    const dk = String(docKey || "").slice(0, 200);
+    const pg = Math.round(Number(page));
+    if (!dk || !Number.isFinite(pg) || pg < 1 || pg > 100000) {
+      return res.status(400).json({ error: "docKey and valid page required" });
+    }
+    if (!["highlight", "comment"].includes(kind)) {
+      return res.status(400).json({ error: "kind must be highlight or comment" });
+    }
+
+    const data = { docKey: dk, userId: req.user.sub, page: pg, kind };
+    if (kind === "highlight") {
+      const clean = (Array.isArray(rects) ? rects : [])
+        .slice(0, 60)
+        .map((r) => (Array.isArray(r) ? r.slice(0, 4).map((n) => Math.max(0, Math.min(1, Number(n) || 0))) : null))
+        .filter((r) => r && r.length === 4 && r[2] > r[0] && r[3] > r[1]);
+      if (!clean.length) return res.status(400).json({ error: "rects required for highlights" });
+      data.rects = clean;
+      data.color = typeof color === "string" ? color.slice(0, 80) : null;
+      data.excerpt = typeof excerpt === "string" ? excerpt.slice(0, 500) : null;
+    } else {
+      const txt = String(body || "").trim();
+      if (!txt) return res.status(400).json({ error: "Comment text required" });
+      if (txt.length > 2000) return res.status(400).json({ error: "Comment too long (max 2000 chars)" });
+      data.body = txt;
+      data.excerpt = typeof excerpt === "string" ? excerpt.slice(0, 500) : null;
+    }
+
+    // Per-user cap on a document — guards against spam/unbounded growth.
+    const mineCount = await prisma.pdfSharedAnnotation.count({
+      where: { docKey: dk, userId: req.user.sub },
+    });
+    if (mineCount >= 500) {
+      return res.status(429).json({ error: "Annotation limit reached for this document" });
+    }
+
+    const row = await prisma.pdfSharedAnnotation.create({
+      data,
+      include: { user: { select: { fullName: true, username: true } } },
+    });
+    res.json({ annotation: sharedAnnotDto(row, req.user.sub) });
+  } catch (error) {
+    console.error("Error creating shared annotation:", error);
+    res.status(500).json({ error: "Failed to share annotation" });
+  }
+});
+
+// DELETE /api/resources/shared-annotations/:id — author removes their own mark
+router.delete("/shared-annotations/:id", requireAuth, async (req, res) => {
+  try {
+    const row = await prisma.pdfSharedAnnotation.findUnique({ where: { id: req.params.id } });
+    if (!row) return res.status(404).json({ error: "Annotation not found" });
+    if (row.userId !== req.user.sub) {
+      return res.status(403).json({ error: "You can only delete your own annotations" });
+    }
+    await prisma.pdfSharedAnnotation.delete({ where: { id: row.id } });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Error deleting shared annotation:", error);
+    res.status(500).json({ error: "Failed to delete annotation" });
+  }
+});
+
 // ── POST /api/resources/fsrs/rate — Rate any review item ──
 router.post("/fsrs/rate", requireAuth, async (req, res) => {
   try {

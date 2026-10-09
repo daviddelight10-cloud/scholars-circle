@@ -208,6 +208,7 @@ model User {
   pdfReviewItems    PdfReviewItem[]
   pdfFlashcards     PdfFlashcard[]
   pdfReaderStates   PdfReaderState[]
+  pdfSharedAnnotations PdfSharedAnnotation[]
   fsrsProfile       UserFsrsProfile?
 
   folders           Folder[] @relation("FolderOwner")
@@ -2312,4 +2313,24 @@ model PdfReaderState {
 
   @@unique([userId, docKey])
   @@index([userId, resourceId])
+}
+
+// Community marks on a PDF — shared highlights and page-pinned comments.
+// docKey hashes the file URL, so anyone who can open the document sees the
+// same board regardless of which resource/folder wrapped the file.
+model PdfSharedAnnotation {
+  id        String   @id @default(cuid())
+  docKey    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page      Int
+  kind      String   // "highlight" | "comment"
+  color     String?
+  rects     Json?    // highlight quads, normalized [0..1]: [[x0,y0,x1,y1],...]
+  excerpt   String?  // selected-text snapshot (max 500 chars)
+  body      String?  // comment text (max 2000 chars)
+  createdAt DateTime @default(now())
+
+  @@index([docKey, page])
+  @@index([userId])
 }
