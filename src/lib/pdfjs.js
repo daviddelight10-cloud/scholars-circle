@@ -1,7 +1,9 @@
 // Shared pdf.js loader — bundled through Vite (no CDN dependency, works
-// offline once the PWA has cached assets). pdfjs-dist 6.x ships pure ESM.
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// offline once the PWA has cached assets). The legacy build is used because
+// the modern build needs very recent JS APIs that many Android WebViews and
+// in-app browsers lack, which leaves pages blank on mobile.
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 

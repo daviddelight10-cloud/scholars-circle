@@ -735,6 +735,25 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [virtualPages, scrollMode, loading, scale]);
 
+  // Watchdog: a page in the render window that never produced a bitmap (stuck
+  // flag, dropped task) gets re-triggered instead of staying blank forever.
+  useEffect(() => {
+    if (scrollMode === "single" || loading) return;
+    const id = setInterval(() => {
+      if (!pdfDocRef.current) return;
+      virtualPages.forEach((pg) => {
+        const c = pageCanvasRefs.current[pg - 1];
+        if (!c || c.dataset.renderedScale) return;
+        if (c.dataset.rendered && !c.dataset.stuck) { c.dataset.stuck = "1"; return; }
+        delete c.dataset.stuck;
+        c.dataset.rendered = "true";
+        renderPageToCanvas(pg, c);
+      });
+    }, 2000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [virtualPages, scrollMode, loading, scale]);
+
   // Re-fit width when fullscreen toggles
   useEffect(() => {
     if (!pdfDocRef.current) return;
@@ -784,47 +803,74 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   const renderPageToCanvas = useCallback(async (n, canvasEl, scaleOverride) => {
     if (!pdfDocRef.current || !canvasEl) return;
-    const page = await pdfDocRef.current.getPage(n);
-    const useScale = scaleOverride ?? scale;
-    const viewport = page.getViewport({ scale: useScale });
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const w = Math.floor(viewport.width * dpr);
-    const h = Math.floor(viewport.height * dpr);
-    // Store base dimensions (at scale 1) for virtualization placeholders
-    if (!pageDimsRef.current[n]) {
-      const baseVp = page.getViewport({ scale: 1 });
-      pageDimsRef.current[n] = { width: baseVp.width, height: baseVp.height };
-    }
-    // Render to a detached canvas so the old bitmap stays on screen until the
-    // new pixels are ready — no blank flash during zoom re-renders.
-    const off = document.createElement("canvas");
-    off.width = w;
-    off.height = h;
-    // Cancel any previous render task for this page
-    if (renderTasksRef.current[n]) {
-      try { renderTasksRef.current[n].cancel(); } catch (e) {}
-    }
-    const task = page.render({ canvasContext: off.getContext("2d"), viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
-    renderTasksRef.current[n] = task;
-    try {
-      await task.promise;
-    } catch (err) {
-      if (!err || err.name !== "RenderingCancelledException") console.error(err);
+    const fail = (err, retry = true) => {
+      if (err && err.name !== "RenderingCancelledException") console.error("PDF page render failed:", n, err);
       delete canvasEl.dataset.rendered; // let the machinery retry later
-      return;
-    } finally {
-      if (renderTasksRef.current[n] === task) delete renderTasksRef.current[n];
+      if (retry && (!err || err.name !== "RenderingCancelledException")) {
+        const tries = Number(canvasEl.dataset.tries || 0) + 1;
+        canvasEl.dataset.tries = tries;
+        if (tries <= 3) {
+          setTimeout(() => {
+            if (canvasEl.isConnected && !canvasEl.dataset.rendered) {
+              canvasEl.dataset.rendered = "true";
+              renderPageToCanvas(n, canvasEl, scaleOverride);
+            }
+          }, 400 * tries);
+        }
+      }
+    };
+    try {
+      const page = await pdfDocRef.current.getPage(n);
+      const useScale = scaleOverride ?? scale;
+      const viewport = page.getViewport({ scale: useScale });
+      // Cap the bitmap area — mobile browsers refuse (or silently blank) large canvases
+      const maxPixels = isMobile ? 3_000_000 : 16_000_000;
+      let dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const area = viewport.width * viewport.height;
+      if (area * dpr * dpr > maxPixels) dpr = Math.max(1, Math.sqrt(maxPixels / area));
+      const w = Math.floor(viewport.width * dpr);
+      const h = Math.floor(viewport.height * dpr);
+      // Store base dimensions (at scale 1) for virtualization placeholders
+      if (!pageDimsRef.current[n]) {
+        const baseVp = page.getViewport({ scale: 1 });
+        pageDimsRef.current[n] = { width: baseVp.width, height: baseVp.height };
+      }
+      // Render to a detached canvas so the old bitmap stays on screen until the
+      // new pixels are ready — no blank flash during zoom re-renders.
+      const off = document.createElement("canvas");
+      off.width = w;
+      off.height = h;
+      const offCtx = off.getContext("2d");
+      if (!offCtx) throw new Error("Canvas unavailable");
+      // Cancel any previous render task for this page
+      if (renderTasksRef.current[n]) {
+        try { renderTasksRef.current[n].cancel(); } catch (e) {}
+      }
+      const task = page.render({ canvasContext: offCtx, viewport, transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined });
+      renderTasksRef.current[n] = task;
+      try {
+        await task.promise;
+      } finally {
+        if (renderTasksRef.current[n] === task) delete renderTasksRef.current[n];
+      }
+      if (!canvasEl.isConnected) { delete canvasEl.dataset.rendered; return; }
+      // Atomic swap: resize + blit in one synchronous step
+      canvasEl.width = w;
+      canvasEl.height = h;
+      const ctx = canvasEl.getContext("2d");
+      if (!ctx) throw new Error("Canvas unavailable");
+      ctx.drawImage(off, 0, 0);
+      off.width = off.height = 0; // release the detached bitmap immediately
+      canvasEl.style.width = viewport.width + "px";
+      canvasEl.style.height = viewport.height + "px";
+      canvasEl.dataset.renderedScale = useScale;
+      canvasEl.dataset.tries = 0;
+      // Render text layer for selection/copy
+      renderTextLayer(n, page, viewport, canvasEl);
+    } catch (err) {
+      fail(err);
     }
-    // Atomic swap: resize + blit in one synchronous step
-    canvasEl.width = w;
-    canvasEl.height = h;
-    canvasEl.getContext("2d").drawImage(off, 0, 0);
-    canvasEl.style.width = viewport.width + "px";
-    canvasEl.style.height = viewport.height + "px";
-    canvasEl.dataset.renderedScale = useScale;
-    // Render text layer for selection/copy
-    renderTextLayer(n, page, viewport, canvasEl);
-  }, [scale]);
+  }, [scale, isMobile]);
 
   // Render a transparent text layer overlay for text selection + copy
   const renderTextLayer = async (pageNum, page, viewport, canvasEl) => {
