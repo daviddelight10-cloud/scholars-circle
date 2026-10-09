@@ -28,6 +28,10 @@ import {
   getProxiedUrl, fetchProxiedPdf, idbGetFile, idbPutFile, idbDelFile,
 } from "./pdf-reader/storage.js";
 import { buildStyles } from "./pdf-reader/styles.js";
+import { usePageText } from "./pdf-reader/usePageText.js";
+import { buildSearchResults } from "./pdf-reader/textSearch.js";
+import { buildNotesMarkdown, downloadTextFile } from "./pdf-reader/notesExport.js";
+import { NoteEditorModal, QuizDraftModal, NotesPanel, ShortcutsModal, StatsModal } from "./pdf-reader/panels.jsx";
 
 
 export default function PdfReader({ fileUrl, title, initialFullscreen = false, onBack, resourceId: propResourceId, initialPage }) {
@@ -106,7 +110,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // span offsets so matches can be painted on the page itself.
   const [searchIdx, setSearchIdx] = useState(-1);
   const activeMatchRef = useRef(null); // {page, i0, i1} span index range
-  const pageIndexRef = useRef({}); // { page: { raw, itemStart[] } }
   const [pageJumpOpen, setPageJumpOpen] = useState(false); // mobile page-chip jump
 
   // ── Text-anchored marks (real highlights + margin notes) ──
@@ -162,11 +165,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Refs
   const pdfDocRef = useRef(null);
+  const { getPageText, getPageIndexData } = usePageText(pdfDocRef);
   const canvasRef = useRef(null);
   const renderTaskRef = useRef(null);
   const viewerRef = useRef(null);
   const lassoSvgRef = useRef(null);
-  const textCacheRef = useRef({});
   const pageTextRef = useRef("");
   const chatScrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -848,26 +851,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // ---- Per-page text index for search + selection highlight painting ----
   // Items are filtered identically to the text-layer builder, so index i in
   // `itemStart` maps to the i-th span in the page's text layer container.
-  const getPageIndexData = useCallback(async (n) => {
-    const cached = pageIndexRef.current[n];
-    if (cached) return cached;
-    if (!pdfDocRef.current) return null;
-    try {
-      const page = await pdfDocRef.current.getPage(n);
-      const tc = await page.getTextContent();
-      const itemStart = [];
-      let raw = "";
-      for (const it of tc.items) {
-        if (!it.str) continue;
-        itemStart.push(raw.length);
-        raw += (raw ? " " : "") + it.str;
-      }
-      const entry = { raw, itemStart };
-      pageIndexRef.current[n] = entry;
-      return entry;
-    } catch { return null; }
-  }, []);
-
   // Paint the active search match onto the text-layer spans. Called after a
   // jump AND from renderTextLayer so matches survive virtualization re-mounts.
   const paintSearchMark = useCallback((pageNum) => {
@@ -1043,27 +1026,6 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     fitToWidth().then((s) => { if (s && scrollMode === "single") renderPage(currentPage, s); });
   };
 
-  const getPageText = useCallback(async (n) => {
-    if (textCacheRef.current[n]) {
-      // LRU: move accessed key to end by re-inserting
-      const val = textCacheRef.current[n];
-      delete textCacheRef.current[n];
-      textCacheRef.current[n] = val;
-      return val;
-    }
-    if (!pdfDocRef.current) return "";
-    const page = await pdfDocRef.current.getPage(n);
-    const tc = await page.getTextContent();
-    const text = tc.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim();
-    // LRU eviction: cap at 50 cached pages
-    const keys = Object.keys(textCacheRef.current);
-    if (keys.length >= 50) {
-      delete textCacheRef.current[keys[0]];
-    }
-    textCacheRef.current[n] = text;
-    return text;
-  }, []);
-
   // Keyboard nav + shortcuts
   const [showShortcuts, setShowShortcuts] = useState(false);
   useEffect(() => {
@@ -1106,31 +1068,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setSearchIdx(-1);
     if (!q) { setSearchResults([]); return; }
     setSearching(true);
-    const results = [];
-    const ql = q.toLowerCase();
-    for (let n = 1; n <= (pdfDocRef.current?.numPages || 0); n++) {
-      const idx = await getPageIndexData(n);
-      if (!idx || !idx.raw) continue;
-      const text = idx.raw;
-      const lower = text.toLowerCase();
-      let pos = lower.indexOf(ql);
-      while (pos !== -1) {
-        const start = Math.max(0, pos - 38);
-        const end = Math.min(text.length, pos + ql.length + 38);
-        const before = (start > 0 ? "…" : "") + text.slice(start, pos);
-        const match = text.slice(pos, pos + ql.length);
-        const after = text.slice(pos + ql.length, end) + (end < text.length ? "…" : "");
-        // Map the char range to covered text-item (span) indices
-        let i0 = 0, i1 = 0;
-        const starts = idx.itemStart;
-        for (let k = 0; k < starts.length; k++) {
-          if (starts[k] <= pos) i0 = k;
-          if (starts[k] <= pos + ql.length - 1) i1 = k; else break;
-        }
-        results.push({ page: n, before, match, after, query: q, i0, i1 });
-        pos = lower.indexOf(ql, pos + ql.length);
-      }
-    }
+    const results = await buildSearchResults(q, getPageIndexData, pdfDocRef.current?.numPages || 0);
     setSearchResults(results);
     setSearching(false);
   }, [getPageIndexData, clearSearchMark]);
@@ -2144,41 +2082,8 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
 
   // ---- Notes export — real Markdown with highlight text + margin notes ----
   const exportAnnotations = () => {
-    const lines = [];
-    lines.push(`# Study Notes — ${title || "PDF Document"}`);
-    lines.push(`_Exported ${new Date().toLocaleString()}_`);
-    lines.push("");
-
-    const penPages = new Set(Object.keys(annotations).map(Number).filter((pg) => (annotations[pg] || []).length > 0));
-    const markPages = new Set(Object.keys(textMarks).map(Number).filter((pg) => (textMarks[pg] || []).length > 0));
-    const bmPages = new Set(bookmarks.map((b) => b.page));
-    const allPages = [...new Set([...bmPages, ...markPages, ...penPages])].sort((a, b) => a - b);
-
-    if (allPages.length === 0) {
-      lines.push("_No highlights, notes, or bookmarks yet. Select text on the page to create one._");
-    }
-
-    for (const pg of allPages) {
-      lines.push(`## Page ${pg}`);
-      const bm = bookmarks.find((b) => b.page === pg);
-      if (bm) lines.push(`- 🔖 **Bookmark**${bm.name ? `: ${bm.name}` : ""}`);
-      for (const m of textMarks[pg] || []) {
-        const colorName = HIGHLIGHT_COLORS.find((c) => c.value === m.color)?.name || "highlight";
-        lines.push(`- > ${m.text.replace(/\s+/g, " ").trim()}  _(${colorName})_`);
-        if (m.note) lines.push(`  - 📝 **Note:** ${m.note}`);
-      }
-      const strokes = (annotations[pg] || []).length;
-      if (strokes > 0) lines.push(`- ✏️ ${strokes} freehand ink stroke${strokes > 1 ? "s" : ""} on this page`);
-      lines.push("");
-    }
-
-    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(title || "pdf").replace(/[^a-z0-9]/gi, "_")}_notes.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const md = buildNotesMarkdown({ title, textMarks, bookmarks, annotations });
+    downloadTextFile(`${(title || "pdf").replace(/[^a-z0-9]/gi, "_")}_notes.md`, md);
   };
 
   // ---- Reading analytics ----
@@ -3846,110 +3751,22 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
       )}
 
       {/* ── Margin note editor ── */}
-      {noteEdit && (
-        <>
-          <div style={{ position: "fixed", inset: 0, zIndex: 299, background: "rgba(0,0,0,0.25)" }} onClick={() => setNoteEdit(null)} />
-          <div
-            style={{
-              position: "fixed",
-              left: "50%",
-              ...(isMobile ? { bottom: 90, transform: "translateX(-50%)" } : { top: "35%", transform: "translate(-50%,-50%)" }),
-              width: isMobile ? "92vw" : 340,
-              zIndex: 301,
-              background: T.toolbar,
-              border: `1px solid ${T.border}`,
-              borderRadius: 14,
-              boxShadow: `0 14px 44px ${T.shadow}`,
-              padding: 14,
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 8 }}>
-              📝 Note — page {noteEdit.page}
-            </div>
-            <textarea
-              autoFocus
-              rows={3}
-              defaultValue={(textMarks[noteEdit.page] || []).find((m) => m.id === noteEdit.id)?.note || ""}
-              placeholder="Add a margin note…"
-              style={{ width: "100%", boxSizing: "border-box", background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontSize: 13, padding: "8px 10px", fontFamily: "inherit", resize: "vertical" }}
-              onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { updateMark(noteEdit.page, noteEdit.id, { note: e.target.value.trim(), kind: e.target.value.trim() ? "note" : "highlight" }); setNoteEdit(null); } }}
-              id="sc-note-edit"
-            />
-            <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
-              <button style={s.selPopBtn} onClick={() => setNoteEdit(null)}>Cancel</button>
-              <button
-                style={{ ...s.selPopBtn, background: T.accent, color: "#fff", border: "none" }}
-                onClick={() => {
-                  const v = document.getElementById("sc-note-edit")?.value?.trim() || "";
-                  updateMark(noteEdit.page, noteEdit.id, { note: v, kind: v ? "note" : "highlight" });
-                  setNoteEdit(null);
-                }}
-              >
-                Save note
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <NoteEditorModal
+        noteEdit={noteEdit}
+        marks={textMarks}
+        onSave={(page, id, v) => updateMark(page, id, { note: v, kind: v ? "note" : "highlight" })}
+        onClose={() => setNoteEdit(null)}
+        T={T} s={s} isMobile={isMobile}
+      />
 
       {/* ── Quiz draft preview — review before adding to the deck ── */}
-      {quizDraft && (
-        <>
-          <div style={{ position: "fixed", inset: 0, zIndex: 299, background: "rgba(0,0,0,0.4)" }} onClick={() => setQuizDraft(null)} />
-          <div
-            style={{
-              position: "fixed",
-              left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-              width: isMobile ? "94vw" : 480,
-              maxHeight: "82vh",
-              overflowY: "auto",
-              zIndex: 301,
-              background: T.toolbar,
-              border: `1px solid ${T.border}`,
-              borderRadius: 16,
-              boxShadow: `0 18px 50px ${T.shadow}`,
-              padding: 18,
-            }}
-          >
-            <div style={{ fontSize: 15, fontWeight: 800, color: T.text }}>❓ Review questions</div>
-            <div style={{ fontSize: 11.5, color: T.muted, margin: "4px 0 12px", lineHeight: 1.5 }}>
-              From page {quizDraft.page} — “{quizDraft.sourceText.slice(0, 90)}{quizDraft.sourceText.length > 90 ? "…" : ""}”.
-              Keep the ones worth reviewing; they'll join your <b>Survival Quiz deck</b> with FSRS scheduling.
-            </div>
-            {quizDraft.questions.map((q, qi) => (
-              <label key={qi} style={{ display: "flex", gap: 10, padding: "10px", border: `1px solid ${T.border}`, borderRadius: 10, marginBottom: 8, cursor: "pointer", background: q._keep ? T.hover : "transparent", alignItems: "flex-start" }}>
-                <input
-                  type="checkbox"
-                  checked={q._keep}
-                  onChange={() => setQuizDraft((d) => ({ ...d, questions: d.questions.map((x, xi) => xi === qi ? { ...x, _keep: !x._keep } : x) }))}
-                  style={{ marginTop: 3 }}
-                />
-                <span style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>
-                  <b>{q.question}</b>
-                  <span style={{ display: "block", marginTop: 4, color: T.muted }}>
-                    {Object.entries(q.options).map(([k, v]) => (
-                      <span key={k} style={{ display: "block" }}>
-                        {k === q.correct ? "✅" : "▫️"} {k}. {v}
-                      </span>
-                    ))}
-                    {q.explanation && <span style={{ display: "block", marginTop: 3, fontStyle: "italic" }}>{q.explanation}</span>}
-                  </span>
-                </span>
-              </label>
-            ))}
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-              <button style={s.selPopBtn} onClick={() => setQuizDraft(null)}>Discard</button>
-              <button
-                style={{ ...s.selPopBtn, background: CHROME.gold, color: "#1a1300", border: "none", fontWeight: 700 }}
-                onClick={addDraftToDeck}
-                disabled={quizGenBusy || !quizDraft.questions.some((q) => q._keep)}
-              >
-                {quizGenBusy ? "Saving…" : `➕ Add ${quizDraft.questions.filter((q) => q._keep).length} to my deck`}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <QuizDraftModal
+        draft={quizDraft}
+        setDraft={setQuizDraft}
+        onAdd={addDraftToDeck}
+        busy={quizGenBusy}
+        T={T} s={s} isMobile={isMobile}
+      />
 
       {/* ── Deck toast ── */}
       {deckToast && (
@@ -3967,30 +3784,12 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
 
       {/* ── Notes panel (all marks across the document) ── */}
       {showNotes && (
-        <div style={{ position: "fixed", top: 110, ...(isMobile ? { left: 8, right: 8 } : { right: 16 }), width: isMobile ? "auto" : 320, maxHeight: "60vh", overflowY: "auto", zIndex: 200, background: T.toolbar, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: `0 10px 32px ${T.shadow}`, padding: 8 }}>
-          <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
-            <span>Highlights & notes ({flatMarks.length})</span>
-            <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10 }} onClick={() => setShowNotes(false)}>Close</button>
-          </div>
-          {flatMarks.length === 0 && (
-            <div style={{ padding: "16px 12px", fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
-              Select text on the page to highlight it, add a note, or turn it into a quiz question.
-            </div>
-          )}
-          {flatMarks.map((m) => (
-            <div key={m.id} style={{ ...s.searchItem, borderBottom: `1px solid ${T.border}` }} onClick={() => { jumpToMark(m.page, m.id); setShowNotes(false); }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: m.color.replace("0.4", "0.9"), flexShrink: 0 }} />
-                <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 10, color: T.accent }}>p.{m.page}</span>
-                {m.note && <span style={{ fontSize: 10, color: T.muted }}>📝</span>}
-              </span>
-              <span style={{ display: "block", fontSize: 12, color: T.text, lineHeight: 1.4 }}>
-                “{m.text.slice(0, 110)}{m.text.length > 110 ? "…" : ""}”
-              </span>
-              {m.note && <span style={{ display: "block", fontSize: 11.5, color: T.muted, marginTop: 2 }}>📝 {m.note}</span>}
-            </div>
-          ))}
-        </div>
+        <NotesPanel
+          marks={flatMarks}
+          onJump={jumpToMark}
+          onClose={() => setShowNotes(false)}
+          T={T} s={s} isMobile={isMobile}
+        />
       )}
 
       {/* Floating show-header hint when chrome hidden */}
@@ -5398,129 +5197,18 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
             </div>
           )}
 
-          {/* Keyboard shortcuts overlay */}
           {showShortcuts && (
-            <div
-              onClick={() => setShowShortcuts(false)}
-              style={{
-                position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  background: T.toolbar, borderRadius: 16, padding: 24, maxWidth: 380, width: "90%",
-                  boxShadow: `0 8px 32px ${T.shadow}`, border: `0.5px solid ${T.border}`,
-                }}
-              >
-                <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  Keyboard Shortcuts
-                  <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setShowShortcuts(false)}>✕</button>
-                </div>
-                {[
-                  { key: "← / →", action: "Previous / Next page" },
-                  { key: "+ / -", action: "Zoom in / out" },
-                  { key: "B", action: "Bookmark current page" },
-                  { key: "T", action: "Cycle theme (light → dark → sepia)" },
-                  { key: "F", action: "Toggle fullscreen" },
-                  { key: "H", action: "Toggle highlighter tool" },
-                  { key: "?", action: "Show this shortcuts overlay" },
-                  { key: "Esc", action: "Close overlays / exit fullscreen" },
-                ].map((sc) => (
-                  <div key={sc.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `0.5px solid ${T.border}` }}>
-                    <span style={{ fontSize: 13, color: T.text }}>{sc.action}</span>
-                    <kbd style={{
-                      background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 6,
-                      padding: "2px 10px", fontSize: 12, fontWeight: 600, color: T.muted,
-                      fontFamily: "monospace",
-                    }}>{sc.key}</kbd>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ShortcutsModal onClose={() => setShowShortcuts(false)} T={T} />
           )}
 
-          {/* Reading stats overlay */}
           {showStats && (
-            <div
-              onClick={() => setShowStats(false)}
-              style={{
-                position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  background: T.toolbar, borderRadius: 16, padding: 24, maxWidth: 420, width: "90%",
-                  boxShadow: `0 8px 32px ${T.shadow}`, border: `0.5px solid ${T.border}`,
-                }}
-              >
-                <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  Reading Analytics
-                  <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 18 }} onClick={() => setShowStats(false)}>✕</button>
-                </div>
-
-                {/* Summary stats */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
-                      {Math.floor(readingStats.totalSeconds / 60)}m {readingStats.totalSeconds % 60}s
-                    </div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Total reading time</div>
-                  </div>
-                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
-                      {readingStats.pagesRead.length}<span style={{ fontSize: 14, color: T.muted }}>/{numPages}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Pages read</div>
-                  </div>
-                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
-                      {numPages > 0 ? Math.round((readingStats.pagesRead.length / numPages) * 100) : 0}%
-                    </div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Progress</div>
-                  </div>
-                  <div style={{ background: T.inputBg, borderRadius: 12, padding: 14, textAlign: "center" }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>
-                      {Object.values(annotations).reduce((sum, strokes) => sum + (strokes?.length || 0), 0)}
-                    </div>
-                    <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>Highlights made</div>
-                  </div>
-                </div>
-
-                {/* Most-read pages */}
-                {Object.keys(readingStats.pageTimes).length > 0 && (
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 8 }}>Most time spent</div>
-                    {Object.entries(readingStats.pageTimes)
-                      .sort((a, b) => b[1] - a[1])
-                      .slice(0, 5)
-                      .map(([pg, secs]) => (
-                        <div key={pg} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                          <span style={{ fontSize: 12, color: T.text, width: 60 }}>Page {pg}</span>
-                          <div style={{ flex: 1, height: 8, background: T.inputBg, borderRadius: 4, overflow: "hidden" }}>
-                            <div style={{
-                              width: `${Math.min(100, (secs / Math.max(...Object.values(readingStats.pageTimes))) * 100)}%`,
-                              height: "100%", background: T.accent, borderRadius: 4,
-                            }} />
-                          </div>
-                          <span style={{ fontSize: 11, color: T.muted, width: 40, textAlign: "right" }}>
-                            {Math.floor(secs / 60)}m {secs % 60}s
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {readingStats.pagesRead.length === 0 && (
-                  <div style={{ fontSize: 13, color: T.muted, textAlign: "center", padding: 20 }}>
-                    Start reading to see your analytics here.
-                  </div>
-                )}
-              </div>
-            </div>
+            <StatsModal
+              stats={readingStats}
+              numPages={numPages}
+              strokeCount={Object.values(annotations).reduce((sum, strokes) => sum + (strokes?.length || 0), 0)}
+              onClose={() => setShowStats(false)}
+              T={T}
+            />
           )}
     </div>
   );
