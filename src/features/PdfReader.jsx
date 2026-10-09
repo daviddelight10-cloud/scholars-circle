@@ -59,8 +59,12 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const { setMobileNavHidden } = useUI();
 
   // Theme
-  const [theme, setTheme] = useState(() => loadStored("sc_pdf_theme", "light"));
-  const [readerBrightness, setReaderBrightness] = useState(() => loadStored("sc_pdf_bright", 1));
+  // Default: dim (image-safe night mode) at max brightness. Stored choices win.
+  const [theme, setTheme] = useState(() => {
+    const t = loadStored("sc_pdf_theme", "dim");
+    return THEMES[t] ? t : "dim";
+  });
+  const [readerBrightness, setReaderBrightness] = useState(() => loadStored("sc_pdf_bright", 1.1));
   const T = THEMES[theme];
 
   // Page-canvas filter: theme base + user brightness multiplier.
