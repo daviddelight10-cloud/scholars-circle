@@ -73,7 +73,8 @@ export default function OsceGroup({ onBack, aiConfig }) {
   /* ── HOME: create or join ─────────────────────────────────────────────── */
   if (!room) {
     return (
-      <div className="vp-root">
+      <div className="vp-consult-screen">
+      <div className="vp-consult-col" style={{ overflowY: "auto" }}>
         <ExitPill title="Group Practice" onBack={onBack} />
         <div className="vp-glass vp-og-home">
           <div className="vp-og-hero">
@@ -122,6 +123,7 @@ export default function OsceGroup({ onBack, aiConfig }) {
           />
         )}
       </div>
+      </div>
     );
   }
 
@@ -130,7 +132,8 @@ export default function OsceGroup({ onBack, aiConfig }) {
   const stationType = STATION_TYPES[st.station_type || "history"] || STATION_TYPES.history;
 
   return (
-    <div className="vp-root">
+    <div className="vp-consult-screen">
+    <div className="vp-consult-col" style={{ overflowY: "auto" }}>
       <div className="vp-glass vp-case-header">
         <div>
           <div className="vp-bed-tag">GROUP PRACTICE · PIN {room.code}</div>
@@ -174,6 +177,7 @@ export default function OsceGroup({ onBack, aiConfig }) {
         />
       )}
       {bellFlash && <div className="vp-og-bell">🔔</div>}
+    </div>
     </div>
   );
 }
