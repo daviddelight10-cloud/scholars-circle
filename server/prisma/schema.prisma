@@ -1891,6 +1891,8 @@ model CurriculumTopic {
   corroboratingUserIds String[] @default([])
   disputeUserIds       String[] @default([])
   avgConfidence        Float    @default(0)
+  doneSubs             String[] @default([])  // subtopic titles the user checked off
+  manuallyDone         Boolean  @default(false)
   createdBy            String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
@@ -1919,6 +1921,19 @@ model DocumentTopicMatch {
   @@unique([userId, resourceId, topicId])
   @@index([userId, topicId])
   @@index([resourceId])
+}
+
+// Per-user, per-course preferences (exam date drives roadmap pacing)
+model UserCoursePref {
+  id         String    @id @default(cuid())
+  userId     String
+  courseCode String
+  examDate   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, courseCode])
+  @@index([userId])
 }
 
 // ============ STUDY SESSION CACHE ============

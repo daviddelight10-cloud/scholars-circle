@@ -31,7 +31,7 @@ router.get("/:courseCode/topics", requireAuth, async (req, res) => {
 router.post("/:courseCode/topics", requireAuth, async (req, res) => {
   try {
     const { courseCode } = req.params;
-    const { topics, source = "ai_inferred", outlineText, courseName } = req.body;
+    const { topics, source = "ai_inferred", outlineText, courseName, merge } = req.body;
 
     // Path A: Server-side generation from outline/courseName
     if (outlineText || courseName) {
@@ -40,6 +40,7 @@ router.post("/:courseCode/topics", requireAuth, async (req, res) => {
         outlineText,
         courseName,
         userId: req.user.sub,
+        merge: !!merge,
       });
       return res.status(201).json(result.topics);
     }
@@ -80,8 +81,13 @@ router.post("/:courseCode/topics", requireAuth, async (req, res) => {
       created.push(topic);
     }
 
-    // Resolve prerequisite titles to IDs
-    const titleToId = new Map(created.map((t) => [t.title, t.id]));
+    // Resolve prerequisite titles to IDs — include pre-existing topics so an
+    // imported/merged roadmap can reference topics created earlier.
+    const allCourseTopics = await prisma.curriculumTopic.findMany({
+      where: { courseCode, createdBy: req.user.sub },
+      select: { id: true, title: true },
+    });
+    const titleToId = new Map(allCourseTopics.map((t) => [t.title, t.id]));
     for (let i = 0; i < topics.length; i++) {
       const t = topics[i];
       if (!t.prerequisiteTitles || t.prerequisiteTitles.length === 0) continue;
@@ -123,18 +129,28 @@ router.patch("/topics/:id", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Not authorized to modify this topic" });
     }
 
-    const { title, description, displayOrder, prerequisiteIds } = req.body;
+    const { title, description, displayOrder, prerequisiteIds, subtopics, doneSubs, manuallyDone } = req.body;
     const topic = await prisma.curriculumTopic.update({
       where: { id: req.params.id },
       data: {
-        ...(title && { title }),
+        ...(title && { title: title.trim() }),
         ...(description !== undefined && { description }),
         ...(displayOrder !== undefined && { displayOrder }),
         ...(prerequisiteIds !== undefined && { prerequisiteIds }),
+        ...(Array.isArray(subtopics) && {
+          subtopics: subtopics.map((s) => String(s).trim()).filter(Boolean).slice(0, 100),
+        }),
+        ...(Array.isArray(doneSubs) && {
+          doneSubs: doneSubs.map((s) => String(s)).slice(0, 200),
+        }),
+        ...(manuallyDone !== undefined && { manuallyDone: !!manuallyDone }),
       },
     });
     res.json(topic);
   } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "A topic with this title already exists in this course" });
+    }
     console.error("Error updating curriculum topic:", err.message);
     res.status(500).json({ error: "Failed to update topic" });
   }
@@ -153,6 +169,17 @@ router.delete("/topics/:id", requireAuth, async (req, res) => {
     }
 
     await prisma.curriculumTopic.delete({ where: { id: req.params.id } });
+    // Remove the deleted topic from other topics' prerequisites
+    const dependents = await prisma.curriculumTopic.findMany({
+      where: { createdBy: req.user.sub, prerequisiteIds: { has: req.params.id } },
+      select: { id: true, prerequisiteIds: true },
+    });
+    for (const dep of dependents) {
+      await prisma.curriculumTopic.update({
+        where: { id: dep.id },
+        data: { prerequisiteIds: dep.prerequisiteIds.filter((pid) => pid !== req.params.id) },
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error("Error deleting curriculum topic:", err.message);
@@ -227,6 +254,7 @@ router.get("/:courseCode/matches", requireAuth, async (req, res) => {
             fileUrl: true,
             shareToken: true,
             subject: true,
+            viewCount: true,
           },
         },
         topic: {
@@ -242,34 +270,61 @@ router.get("/:courseCode/matches", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/curriculum/matches — Create/update a document-topic match
-// Also triggers verification threshold check after insert
+// POST /api/curriculum/matches — Manually place a document under a topic.
+// Manual placements (matchSource "manual") beat AI matches and are never
+// overwritten or skipped by retroactive matching.
 router.post("/matches", requireAuth, async (req, res) => {
   try {
-    const { resourceId, topicId, confidence, matchSource } = req.body;
+    const { resourceId, topicId, matchSource } = req.body;
     if (!resourceId || !topicId) {
       return res.status(400).json({ error: "resourceId and topicId are required" });
     }
+    const userId = req.user.sub;
 
-    const match = await prisma.documentTopicMatch.upsert({
-      where: {
-        userId_resourceId_topicId: {
-          userId: req.user.sub,
-          resourceId,
-          topicId,
+    // Topic must belong to the caller's roadmap copy
+    const topic = await prisma.curriculumTopic.findUnique({
+      where: { id: topicId },
+      select: { createdBy: true },
+    });
+    if (!topic) return res.status(404).json({ error: "Topic not found" });
+    if (topic.createdBy !== userId) {
+      return res.status(403).json({ error: "Not authorized to edit this roadmap" });
+    }
+
+    // Resource must be accessible to the caller: uploaded by them, bookmarked
+    // by them, or inside a folder they own or have bookmarked.
+    const resource = await prisma.resource.findUnique({
+      where: { id: resourceId },
+      select: {
+        id: true,
+        uploadedBy: true,
+        bookmarks: { where: { userId }, select: { id: true }, take: 1 },
+        folder: {
+          select: {
+            ownerId: true,
+            folderBookmarks: { where: { userId }, select: { id: true }, take: 1 },
+          },
         },
       },
-      update: {
-        confidence: confidence ?? 0,
-        matchSource: matchSource || "ai",
+    });
+    if (!resource) return res.status(404).json({ error: "Document not found" });
+    const accessible =
+      resource.uploadedBy === userId ||
+      resource.bookmarks.length > 0 ||
+      resource.folder?.ownerId === userId ||
+      (resource.folder?.folderBookmarks?.length ?? 0) > 0;
+    if (!accessible) {
+      return res.status(403).json({ error: "You can't place a document you don't have access to" });
+    }
+
+    const source = matchSource === "ai" ? "ai" : "manual";
+    const confidence = source === "manual" ? 1 : (req.body.confidence ?? 0);
+    const match = await prisma.documentTopicMatch.upsert({
+      where: {
+        userId_resourceId_topicId: { userId, resourceId, topicId },
       },
-      create: {
-        userId: req.user.sub,
-        resourceId,
-        topicId,
-        confidence: confidence ?? 0,
-        matchSource: matchSource || "ai",
-      },
+      update: { confidence, matchSource: source },
+      create: { userId, resourceId, topicId, confidence, matchSource: source },
     });
 
     res.status(201).json(match);
@@ -295,6 +350,67 @@ router.delete("/matches/:id", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("Error deleting document-topic match:", err.message);
     res.status(500).json({ error: "Failed to delete match" });
+  }
+});
+
+// GET /api/curriculum/:courseCode/export — Roadmap as portable JSON (prereqs by title)
+router.get("/:courseCode/export", requireAuth, async (req, res) => {
+  try {
+    const { courseCode } = req.params;
+    const topics = await prisma.curriculumTopic.findMany({
+      where: { courseCode, createdBy: req.user.sub },
+      orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
+    });
+    const idToTitle = new Map(topics.map((t) => [t.id, t.title]));
+    res.json({
+      version: 1,
+      courseCode,
+      exportedAt: new Date().toISOString(),
+      topics: topics.map((t) => ({
+        title: t.title,
+        description: t.description || "",
+        subtopics: t.subtopics || [],
+        displayOrder: t.displayOrder,
+        prerequisiteTitles: (t.prerequisiteIds || []).map((id) => idToTitle.get(id)).filter(Boolean),
+      })),
+    });
+  } catch (err) {
+    console.error("Error exporting roadmap:", err.message);
+    res.status(500).json({ error: "Failed to export roadmap" });
+  }
+});
+
+// GET /api/curriculum/:courseCode/prefs — Per-course user preferences (exam date)
+router.get("/:courseCode/prefs", requireAuth, async (req, res) => {
+  try {
+    const pref = await prisma.userCoursePref.findUnique({
+      where: { userId_courseCode: { userId: req.user.sub, courseCode: req.params.courseCode } },
+    });
+    res.json({ examDate: pref?.examDate || null });
+  } catch (err) {
+    console.error("Error fetching course prefs:", err.message);
+    res.status(500).json({ error: "Failed to fetch course prefs" });
+  }
+});
+
+// PATCH /api/curriculum/:courseCode/prefs — Set/clear exam date { examDate: ISO|null }
+router.patch("/:courseCode/prefs", requireAuth, async (req, res) => {
+  try {
+    const { courseCode } = req.params;
+    const { examDate } = req.body;
+    const date = examDate ? new Date(examDate) : null;
+    if (examDate && isNaN(date.getTime())) {
+      return res.status(400).json({ error: "Invalid examDate" });
+    }
+    const pref = await prisma.userCoursePref.upsert({
+      where: { userId_courseCode: { userId: req.user.sub, courseCode } },
+      update: { examDate: date },
+      create: { userId: req.user.sub, courseCode, examDate: date },
+    });
+    res.json({ examDate: pref.examDate });
+  } catch (err) {
+    console.error("Error saving course prefs:", err.message);
+    res.status(500).json({ error: "Failed to save course prefs" });
   }
 });
 

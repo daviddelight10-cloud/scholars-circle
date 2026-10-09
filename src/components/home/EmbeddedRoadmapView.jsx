@@ -5,16 +5,25 @@ import {
   fetchTopicMatches,
   generateSkeleton,
   reorderTopics,
-  createTopic,
+  updateTopic,
+  deleteTopic,
+  unassignDocument,
+  exportRoadmap,
+  importRoadmap,
+  fetchCoursePrefs,
+  saveCoursePrefs,
 } from "../../lib/skeletonGenerator";
 import { retroactiveMatch } from "../../lib/topicMatcher";
 import { extractFileText } from "../../lib/extractFileText";
 import { FONTS } from "../../lib/theme";
+import { FdSheet } from "../../features/feed/feedUi.jsx";
 import {
-  D, findStartHereTopic, progressPct,
+  D, findStartHereTopic, effectiveLabel, effectivePct,
   OnboardingStep, DocRow,
 } from "./roadmapShared";
-import TopicSheet from "./TopicSheet";
+import TopicPage from "./TopicPage";
+import TopicEditSheet from "./TopicEditSheet";
+import PlaceDocumentSheet from "./PlaceDocumentSheet";
 
 const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
 
@@ -63,10 +72,20 @@ export default function EmbeddedRoadmapView({
   const [editMode, setEditMode] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const closeTopicSheet = useCallback(() => setDetailOpen(false), []);
-  const [addTopicOpen, setAddTopicOpen] = useState(false);
-  const [addTopicTitle, setAddTopicTitle] = useState("");
-  const [addingTopic, setAddingTopic] = useState(false);
   const [toast, setToast] = useState(null);
+  const [searchQ, setSearchQ] = useState("");
+  const [filterChip, setFilterChip] = useState("all");
+  const [menuTopic, setMenuTopic] = useState(null);      // topic with open row-menu sheet
+  const [editTopic, setEditTopic] = useState(null);      // topic being edited | "new"
+  const [placeState, setPlaceState] = useState(null);    // {mode:'doc',resource} | {mode:'topic',topic}
+  const [prefs, setPrefs] = useState(null);              // { examDate }
+  const [examOpen, setExamOpen] = useState(false);
+  const [examInput, setExamInput] = useState("");
+  const [toolsOpen, setToolsOpen] = useState(false);     // ⋯ roadmap tools sheet
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
   const [editingCode, setEditingCode] = useState(false);
   const [codeInput, setCodeInput] = useState("");
   const [savingCode, setSavingCode] = useState(false);
@@ -91,6 +110,7 @@ export default function EmbeddedRoadmapView({
     try {
       const t = await fetchSkeleton(courseCode);
       setTopics(t);
+      fetchCoursePrefs(courseCode).then(setPrefs).catch(() => {});
       if (t.length > 0) {
         const [prog, mtch] = await Promise.all([
           fetchTopicProgress(courseCode),
@@ -163,23 +183,63 @@ export default function EmbeddedRoadmapView({
     return map;
   }, [folderResources]);
 
+  // Manually-done topics read as "Done" — merge into the progress map once so
+  // every consumer (spine, stats, Start Here, TopicPage) sees the same label.
+  const effProgress = useMemo(() => {
+    if (!progress) return progress;
+    const merged = { ...progress };
+    for (const t of topics) {
+      if (t.manuallyDone) {
+        merged[t.id] = { ...(merged[t.id] || {}), label: "Done", avgRetrievability: 1 };
+      }
+    }
+    return merged;
+  }, [progress, topics]);
+
   const stats = useMemo(() => {
     if (topics.length === 0) return null;
-    if (!progress) return { total: topics.length, mastered: 0, learning: 0, notStarted: topics.length };
+    if (!effProgress) return { total: topics.length, mastered: 0, learning: 0, notStarted: topics.length };
     let mastered = 0, learning = 0, notStarted = 0;
     for (const t of topics) {
-      const p = progress[t.id];
-      if (!p || p.label === "Not started") notStarted++;
-      else if (p.label === "Mastered") mastered++;
+      const p = effProgress[t.id];
+      const lbl = effectiveLabel(t, p);
+      if (lbl === "Not started") notStarted++;
+      else if (lbl === "Mastered" || lbl === "Done") mastered++;
       else learning++;
     }
     return { total: topics.length, mastered, learning, notStarted };
-  }, [topics, progress]);
+  }, [topics, effProgress]);
 
   const startHereTopic = useMemo(() => {
     if (topics.length === 0) return null;
-    return findStartHereTopic(topics, progress, matchesByTopic);
-  }, [topics, progress, matchesByTopic]);
+    return findStartHereTopic(topics, effProgress, matchesByTopic);
+  }, [topics, effProgress, matchesByTopic]);
+
+  // Search + filter the topic list
+  const filteredTopics = useMemo(() => {
+    const q = searchQ.trim().toLowerCase();
+    return topics.filter((t) => {
+      if (q && !t.title.toLowerCase().includes(q)
+          && !(t.subtopics || []).some((s) => s.toLowerCase().includes(q))) return false;
+      const lbl = effectiveLabel(t, effProgress?.[t.id]);
+      const hasDocs = (matchesByTopic.get(t.id) || []).length > 0;
+      if (filterChip === "learning") return lbl !== "Not started" && lbl !== "Mastered" && lbl !== "Done";
+      if (filterChip === "new") return lbl === "Not started";
+      if (filterChip === "mastered") return lbl === "Mastered" || lbl === "Done";
+      if (filterChip === "nodocs") return !hasDocs;
+      return true;
+    });
+  }, [topics, searchQ, filterChip, effProgress, matchesByTopic]);
+
+  // Exam pacing: how many unfinished topics per week until examDate
+  const pacing = useMemo(() => {
+    if (!prefs?.examDate || !stats) return null;
+    const daysLeft = Math.ceil((new Date(prefs.examDate) - Date.now()) / 86400000);
+    const remaining = stats.total - stats.mastered;
+    if (daysLeft < 0) return { overdue: true, daysLeft };
+    const perWeek = remaining > 0 ? Math.max(1, Math.ceil(remaining / Math.max(1, daysLeft / 7))) : 0;
+    return { daysLeft, remaining, perWeek };
+  }, [prefs, stats]);
 
   const selectedTopic = useMemo(() => {
     if (!selectedTopicId) return null;
@@ -190,7 +250,7 @@ export default function EmbeddedRoadmapView({
   const handleStartStudying = useCallback((topic) => {
     if (!topic) return;
     const topicMatches = matchesByTopic.get(topic.id) || [];
-    const topicProgress = progress?.[topic.id] || null;
+    const topicProgress = effProgress?.[topic.id] || null;
     const prerequisiteTitles = (topic.prerequisiteIds || [])
       .map(pid => topics.find(t => t.id === pid))
       .filter(Boolean)
@@ -214,11 +274,11 @@ export default function EmbeddedRoadmapView({
       prerequisiteTitles,
     };
     onStartStudying(enriched);
-  }, [matchesByTopic, progress, topics, onStartStudying]);
+  }, [matchesByTopic, effProgress, topics, onStartStudying]);
 
   useEffect(() => {
     if (topics.length > 0 && !selectedTopicId) {
-      const start = findStartHereTopic(topics, progress, matchesByTopic);
+      const start = findStartHereTopic(topics, effProgress, matchesByTopic);
       if (start) {
         setSelectedTopicId(start.id);
       } else if (topics.length > 0) {
@@ -226,21 +286,25 @@ export default function EmbeddedRoadmapView({
       }
     }
     if (topics.length === 0) setSelectedTopicId(null);
-  }, [topics, progress, matchesByTopic, selectedTopicId]);
+  }, [topics, effProgress, matchesByTopic, selectedTopicId]);
 
-  async function handleGenerate(outlineText) {
+  async function handleGenerate(outlineText, merge = false) {
     if (!courseCode.trim()) return;
     setGenerating(true);
     setError("");
     const hasOutline = outlineText && outlineText.trim().length > 50;
-    setGenProgress(hasOutline ? "Extracting topics from syllabus…" : "Generating topic skeleton with AI…");
+    setGenProgress(hasOutline
+      ? (merge ? "Merging topics from syllabus…" : "Extracting topics from syllabus…")
+      : (merge ? "Adding missing topics with AI…" : "Generating topic skeleton with AI…"));
     try {
       const result = await generateSkeleton({
         courseName: courseCode,
         outlineText: hasOutline ? outlineText : undefined,
         onProgress: setGenProgress,
+        merge,
       });
       setTopics(result.topics);
+      invalidateCache();
       setGenProgress(`Generated ${result.topics.length} topics ✓`);
       const [prog, mtch] = await Promise.all([
         fetchTopicProgress(courseCode),
@@ -273,7 +337,7 @@ export default function EmbeddedRoadmapView({
         return;
       }
       setUploading(false);
-      await handleGenerate(text);
+      await handleGenerate(text, topics.length > 0);
     } catch (err) {
       setError(`Failed to extract text: ${err.message}`);
       setOutlineFileName("");
@@ -294,6 +358,7 @@ export default function EmbeddedRoadmapView({
       setMatchProgress({ current: result.resourceCount, total: result.resourceCount, label: `Done — ${result.matchCount} matches${result.errorCount ? ` (${result.errorCount} failed)` : ""}` });
       const mtch = await fetchTopicMatches(courseCode);
       setMatches(mtch);
+      invalidateCache();
       if (result.errorCount > 0 && result.matchCount > 0) {
         setError(`${result.errorCount} document(s) failed to match — the AI service may be slow. ${result.matchCount} were matched successfully.`);
       }
@@ -342,21 +407,146 @@ export default function EmbeddedRoadmapView({
     if (navigator.vibrate) navigator.vibrate(6);
   }
 
-  async function handleAddTopic() {
-    const title = addTopicTitle.trim();
-    if (!title || addingTopic || !courseCode) return;
-    setAddingTopic(true);
+  function invalidateCache() {
+    try { localStorage.removeItem(roadmapCacheKey(courseCode)); } catch {}
+  }
+
+  async function refreshMatches() {
+    invalidateCache();
+    try { setMatches(await fetchTopicMatches(courseCode)); } catch {}
+  }
+
+  // TopicEditSheet saved — returns full list on create, single topic on update
+  function handleTopicSaved(result, mode) {
+    if (Array.isArray(result)) setTopics(result);
+    else setTopics((prev) => prev.map((t) => (t.id === result.id ? result : t)));
+    invalidateCache();
+    showToast(mode === "created" ? "Topic added" : "Topic saved");
+  }
+
+  async function handleDeleteTopic(topic) {
+    if (!confirm(`Delete "${topic.title}"? Its document placements are removed too.`)) return;
+    try {
+      await deleteTopic(topic.id);
+      setTopics((prev) => prev.filter((t) => t.id !== topic.id));
+      if (selectedTopicId === topic.id) setDetailOpen(false);
+      invalidateCache();
+      showToast("Topic deleted");
+    } catch (err) {
+      setError(err.message || "Failed to delete topic");
+    }
+  }
+
+  async function handleToggleDone(topic) {
+    const next = !topic.manuallyDone;
+    setTopics((prev) => prev.map((t) => (t.id === topic.id ? { ...t, manuallyDone: next } : t)));
+    invalidateCache();
+    try {
+      const saved = await updateTopic(topic.id, { manuallyDone: next });
+      setTopics((prev) => prev.map((t) => (t.id === topic.id ? { ...t, ...saved } : t)));
+      showToast(next ? "Marked as done" : "Marked as not done");
+    } catch {
+      setTopics((prev) => prev.map((t) => (t.id === topic.id ? { ...t, manuallyDone: !next } : t)));
+      showToast("Couldn't save");
+    }
+  }
+
+  async function handleToggleSub(topic, sub) {
+    const cur = new Set(topic.doneSubs || []);
+    cur.has(sub) ? cur.delete(sub) : cur.add(sub);
+    const next = [...cur];
+    setTopics((prev) => prev.map((t) => (t.id === topic.id ? { ...t, doneSubs: next } : t)));
+    invalidateCache();
+    try { await updateTopic(topic.id, { doneSubs: next }); }
+    catch {
+      setTopics((prev) => prev.map((t) => (t.id === topic.id ? { ...t, doneSubs: topic.doneSubs || [] } : t)));
+    }
+  }
+
+  async function handleUnassign(match) {
+    try {
+      await unassignDocument(match.id);
+      setMatches((prev) => prev.filter((m) => m.id !== match.id));
+      invalidateCache();
+      showToast("Removed from topic");
+    } catch (err) {
+      setError(err.message || "Failed to remove document");
+    }
+  }
+
+  function handleNavigateTopic(topicId) {
+    setSelectedTopicId(topicId);
+    setDetailOpen(true);
+  }
+
+  async function handleExport() {
+    if (exportBusy) return;
+    setExportBusy(true);
+    try {
+      const data = await exportRoadmap(courseCode);
+      const json = JSON.stringify(data, null, 2);
+      try { await navigator.clipboard.writeText(json); showToast("Roadmap copied — share it anywhere"); }
+      catch {
+        const blob = new Blob([json], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${courseCode}-roadmap.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast("Roadmap downloaded");
+      }
+    } catch (err) {
+      setError(err.message || "Export failed");
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
+  async function handleImport(text) {
+    if (importBusy) return;
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      setError("That isn't valid JSON — paste the roadmap export text.");
+      return;
+    }
+    const topicsIn = payload?.topics;
+    if (!Array.isArray(topicsIn) || topicsIn.length === 0 || !topicsIn.every((t) => t && t.title)) {
+      setError("No topics found in that roadmap file.");
+      return;
+    }
+    setImportBusy(true);
     setError("");
     try {
-      const updated = await createTopic(courseCode, title, topics.length);
+      const cleaned = topicsIn.map((t, i) => ({
+        title: String(t.title).trim(),
+        description: t.description || "",
+        subtopics: Array.isArray(t.subtopics) ? t.subtopics.map(String) : [],
+        displayOrder: t.displayOrder ?? topics.length + i,
+        prerequisiteTitles: Array.isArray(t.prerequisiteTitles) ? t.prerequisiteTitles : [],
+      })).filter((t) => t.title);
+      const updated = await importRoadmap(courseCode, cleaned);
       setTopics(updated);
-      setAddTopicTitle("");
-      setAddTopicOpen(false);
-      showToast("Topic added");
+      invalidateCache();
+      setImportOpen(false);
+      setImportText("");
+      showToast(`Imported ${cleaned.length} topics`);
     } catch (err) {
-      setError(err.message || "Failed to add topic");
+      setError(err.message || "Import failed");
     } finally {
-      setAddingTopic(false);
+      setImportBusy(false);
+    }
+  }
+
+  async function handleExamSave() {
+    try {
+      const saved = await saveCoursePrefs(courseCode, examInput || null);
+      setPrefs(saved);
+      setExamOpen(false);
+      showToast(saved.examDate ? "Exam date saved" : "Exam date cleared");
+    } catch (err) {
+      setError(err.message || "Couldn't save exam date");
     }
   }
 
@@ -566,8 +756,32 @@ export default function EmbeddedRoadmapView({
           {editingCode ? (
             <div style={{ marginTop: 8 }}>{codeEditor}</div>
           ) : (
-            <p style={{ fontSize: 11, color: "#646E84", margin: "2px 0 0", fontFamily: "'Inter', sans-serif" }}>
-              {topics.length} topics · {stats?.mastered || 0} mastered
+            <p style={{ fontSize: 11, color: "#646E84", margin: "2px 0 0", fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span>{topics.length} topics · {stats?.mastered || 0} mastered</span>
+              <button
+                onClick={() => { setExamInput(prefs?.examDate ? prefs.examDate.slice(0, 10) : ""); setExamOpen(true); }}
+                title={prefs?.examDate ? "Change exam date" : "Set an exam date for pacing"}
+                style={{
+                  background: prefs?.examDate ? "rgba(245,166,35,0.10)" : "transparent",
+                  border: `0.5px solid ${prefs?.examDate ? "rgba(245,166,35,0.3)" : "rgba(255,255,255,0.10)"}`,
+                  borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: "'Inter', sans-serif",
+                  color: prefs?.examDate ? "#F5A623" : "#646E84", cursor: "pointer",
+                }}
+              >
+                📅 {prefs?.examDate
+                  ? `Exam ${new Date(prefs.examDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+                  : "Exam date"}
+              </button>
+            </p>
+          )}
+          {pacing && !pacing.overdue && pacing.remaining > 0 && (
+            <p style={{ fontSize: 10, color: "#646E84", margin: "3px 0 0", fontFamily: "'Inter', sans-serif" }}>
+              {pacing.daysLeft}d left · ~{pacing.perWeek} topic{pacing.perWeek === 1 ? "" : "s"}/wk to finish
+            </p>
+          )}
+          {pacing?.overdue && (
+            <p style={{ fontSize: 10, color: "#FF5470", margin: "3px 0 0", fontFamily: "'Inter', sans-serif" }}>
+              Exam date passed — time to review
             </p>
           )}
         </div>
@@ -583,6 +797,16 @@ export default function EmbeddedRoadmapView({
 
             <button className="sp-roadmap-btn" onClick={handleRetroactiveMatch} disabled={!!matchProgress}>
               {matchProgress ? `${matchProgress.label}` : "🔗 Match Docs"}
+            </button>
+
+            <button
+              className="sp-roadmap-btn"
+              onClick={() => setToolsOpen(true)}
+              aria-label="Roadmap tools"
+              title="Roadmap tools"
+              style={{ padding: "6px 10px" }}
+            >
+              ⋯
             </button>
           </div>
         )}
@@ -637,7 +861,7 @@ export default function EmbeddedRoadmapView({
               Regenerate Roadmap
             </div>
             <div style={{ fontSize: 12, color: D.textMid, fontFamily: FONTS.body, lineHeight: 1.5, marginBottom: 20 }}>
-              Upload your course outline for a more accurate roadmap, or regenerate from AI.
+              Add topics from a new syllabus, or let AI fill gaps. Your edits and document placements are preserved.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button onClick={() => { setShowRegenPrompt(false); fileInputRef.current?.click(); }} style={{
@@ -645,14 +869,26 @@ export default function EmbeddedRoadmapView({
                 padding: "12px 20px", fontSize: 13, fontWeight: 600, color: "#0a0a0a",
                 cursor: "pointer", fontFamily: FONTS.body,
               }}>
-                📎 Upload Course Outline
+                📎 Upload outline — merge new topics
               </button>
-              <button onClick={() => { setShowRegenPrompt(false); handleGenerate(); }} style={{
+              <button onClick={() => { setShowRegenPrompt(false); handleGenerate(undefined, true); }} style={{
                 background: D.panel, border: `0.5px solid ${D.border}`, borderRadius: 10,
                 padding: "12px 20px", fontSize: 13, fontWeight: 500, color: D.textMid,
                 cursor: "pointer", fontFamily: FONTS.body,
               }}>
-                ✨ Generate without outline
+                ✨ Add missing topics (AI)
+              </button>
+              <button onClick={() => {
+                setShowRegenPrompt(false);
+                if (confirm("Rebuild the roadmap from scratch? Topics, edits and manual placements will be replaced.")) {
+                  handleGenerate(undefined, false);
+                }
+              }} style={{
+                background: "rgba(255,84,112,0.08)", border: "0.5px solid rgba(255,84,112,0.25)", borderRadius: 10,
+                padding: "12px 20px", fontSize: 13, fontWeight: 500, color: "#FF8098",
+                cursor: "pointer", fontFamily: FONTS.body,
+              }}>
+                ♻️ Rebuild from scratch
               </button>
               <button onClick={() => setShowRegenPrompt(false)} style={{
                 background: "none", border: "none", color: D.textLow, cursor: "pointer",
@@ -733,24 +969,61 @@ export default function EmbeddedRoadmapView({
             </button>
           )}
 
+          {/* Search + status filters */}
+          {topics.length > 4 && (
+            <div style={{ marginTop: 14 }}>
+              <input
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                placeholder="Search topics…"
+                aria-label="Search topics"
+                className="rm-search"
+              />
+              <div style={{ display: "flex", gap: 6, marginTop: 8, overflowX: "auto" }}>
+                {[["all", "All"], ["learning", "Learning"], ["new", "New"], ["mastered", "Mastered"], ["nodocs", "No docs"]].map(([key, lbl]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilterChip(key)}
+                    style={{
+                      flexShrink: 0, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 600,
+                      fontFamily: "'Inter', sans-serif", cursor: "pointer",
+                      border: `0.5px solid ${filterChip === key ? "rgba(245,166,35,0.4)" : "rgba(255,255,255,0.08)"}`,
+                      background: filterChip === key ? "rgba(245,166,35,0.12)" : "rgba(255,255,255,0.02)",
+                      color: filterChip === key ? "#F5A623" : "#8A8F9C",
+                    }}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Topic spine — nodes connected by a continuous vertical line */}
           <div
             ref={listRef}
             className={`sp-topic-spine${editMode ? " editing" : ""}`}
             style={{ marginTop: 12 }}
           >
-            {topics.map((topic, idx) => {
-              const p = progress?.[topic.id];
-              const pct = progressPct(p);
-              const label = p?.label || "Not started";
+            {filteredTopics.length === 0 && (
+              <div style={{ padding: "20px 0", textAlign: "center", fontSize: 12, color: "#646E84", fontFamily: "'Inter', sans-serif" }}>
+                No topics match {searchQ.trim() ? `“${searchQ.trim()}”` : "this filter"}.
+              </div>
+            )}
+            {filteredTopics.map((topic, idx) => {
+              const p = effProgress?.[topic.id];
+              const pct = effectivePct(topic, p);
+              const label = effectiveLabel(topic, p);
               const docCount = (matchesByTopic.get(topic.id) || []).length;
-              const ringColor = label === "Mastered" ? "#3DD68C" : pct > 0 ? "#F5A623" : "#646E84";
+              const ringColor = label === "Mastered" ? "#3DD68C" : label === "Done" ? "#E0A526" : pct > 0 ? "#F5A623" : "#646E84";
               const badgeStyle = label === "Mastered"
                 ? { background: "rgba(61,214,140,0.12)", color: "#3DD68C", borderColor: "rgba(61,214,140,0.2)" }
-                : pct > 0
-                  ? { background: "rgba(245,166,35,0.12)", color: "#F5A623", borderColor: "rgba(245,166,35,0.2)" }
-                  : { background: "rgba(255,255,255,0.03)", color: "#646E84", borderColor: "rgba(255,255,255,0.07)" };
-              const isLast = idx === topics.length - 1;
+                : label === "Done"
+                  ? { background: "rgba(224,165,38,0.12)", color: "#E0A526", borderColor: "rgba(224,165,38,0.25)" }
+                  : pct > 0
+                    ? { background: "rgba(245,166,35,0.12)", color: "#F5A623", borderColor: "rgba(245,166,35,0.2)" }
+                    : { background: "rgba(255,255,255,0.03)", color: "#646E84", borderColor: "rgba(255,255,255,0.07)" };
+              const isLast = idx === filteredTopics.length - 1;
               const C = 2 * Math.PI * 16; // r=16 ring
               return (
                 <div
@@ -825,46 +1098,24 @@ export default function EmbeddedRoadmapView({
                     </p>
                   </div>
                   <span className="sp-topic-badge" style={badgeStyle}>{label}</span>
+                  {!editMode && (
+                    <button
+                      className="sp-topic-menu-btn"
+                      aria-label={`${topic.title} options`}
+                      onClick={(e) => { e.stopPropagation(); setMenuTopic(topic); }}
+                    >
+                      ⋯
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
 
-          {/* Add-topic inline form */}
-          {addTopicOpen && (
-            <div className="mt-3 flex items-center gap-2">
-              <input
-                type="text"
-                value={addTopicTitle}
-                onChange={(e) => setAddTopicTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleAddTopic(); if (e.key === "Escape") setAddTopicOpen(false); }}
-                placeholder="Topic title…"
-                autoFocus
-                className="sp-search"
-                style={{ borderRadius: 12, fontSize: 13 }}
-              />
-              <button
-                onClick={handleAddTopic}
-                disabled={addingTopic || !addTopicTitle.trim()}
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2.5 text-[11px] font-bold text-black transition-all active:scale-95"
-                style={{ background: "#F5A623", border: "none", opacity: addingTopic || !addTopicTitle.trim() ? 0.5 : 1 }}
-              >
-                {addingTopic ? "Adding…" : "Add"}
-              </button>
-              <button
-                onClick={() => { setAddTopicOpen(false); setAddTopicTitle(""); }}
-                className="sp-roadmap-btn"
-                style={{ padding: "8px 12px" }}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
           {/* Action buttons */}
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <button
-              onClick={() => setAddTopicOpen(true)}
+              onClick={() => setEditTopic("new")}
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 12,
                 border: "1px dashed rgba(255,255,255,0.15)", background: "transparent",
@@ -910,6 +1161,14 @@ export default function EmbeddedRoadmapView({
                     match={{ resource: file }}
                     variants={file.variants}
                     onTap={() => (onPracticeFile ? onPracticeFile(file) : file.shareToken && onOpenResource?.(file.shareToken))}
+                    trailing={
+                      <button
+                        className="rm-place-btn"
+                        onClick={(e) => { e.stopPropagation(); setPlaceState({ mode: "doc", resource: file }); }}
+                      >
+                        Place
+                      </button>
+                    }
                   />
                 ))}
               </div>
@@ -925,14 +1184,15 @@ export default function EmbeddedRoadmapView({
         </div>
       )}
 
-      {/* Topic detail sheet */}
+      {/* Full-screen topic page */}
       {detailOpen && selectedTopic && (
-        <TopicSheet
+        <TopicPage
           key={selectedTopic.id}
           topic={selectedTopic}
           topics={topics}
-          progress={progress?.[selectedTopic.id]}
+          progress={effProgress?.[selectedTopic.id]}
           matches={matchesByTopic.get(selectedTopic.id) || []}
+          courseCode={courseCode}
           isStartHere={startHereTopic?.id === selectedTopic.id}
           resourceVariantsMap={resourceVariantsMap}
           mcqProgress={mcqProgress}
@@ -946,8 +1206,148 @@ export default function EmbeddedRoadmapView({
             ...fileActions,
             resolveFile: (m) => resourceByIdMap.get(m.resourceId) || m.resource,
           }}
+          onEdit={(t) => setEditTopic(t)}
+          onToggleDone={handleToggleDone}
+          onToggleSub={handleToggleSub}
+          onUnassign={handleUnassign}
+          onAddDocs={(t) => setPlaceState({ mode: "topic", topic: t })}
+          onNavigate={handleNavigateTopic}
           onClose={closeTopicSheet}
         />
+      )}
+
+      {/* Per-topic manage menu */}
+      {menuTopic && (
+        <FdSheet title={menuTopic.title} onClose={() => setMenuTopic(null)}>
+          <div className="rm-menu">
+            <button className="rm-menu-item" onClick={() => { setSelectedTopicId(menuTopic.id); setDetailOpen(true); setMenuTopic(null); }}>
+              <span className="rm-menu-ico">📖</span> Open topic
+            </button>
+            <button className="rm-menu-item" onClick={() => { setEditTopic(menuTopic); setMenuTopic(null); }}>
+              <span className="rm-menu-ico">✏️</span> Edit topic
+            </button>
+            <button className="rm-menu-item" onClick={() => { setPlaceState({ mode: "topic", topic: menuTopic }); setMenuTopic(null); }}>
+              <span className="rm-menu-ico">📎</span> Add documents
+            </button>
+            <button className="rm-menu-item" onClick={() => { handleToggleDone(menuTopic); setMenuTopic(null); }}>
+              <span className="rm-menu-ico">{menuTopic.manuallyDone ? "↩️" : "✅"}</span>
+              {menuTopic.manuallyDone ? "Mark as not done" : "Mark as done"}
+            </button>
+            <button className="rm-menu-item" onClick={() => { moveTopic(menuTopic.id, -1); setMenuTopic(null); }}>
+              <span className="rm-menu-ico">⬆️</span> Move up
+            </button>
+            <button className="rm-menu-item" onClick={() => { moveTopic(menuTopic.id, 1); setMenuTopic(null); }}>
+              <span className="rm-menu-ico">⬇️</span> Move down
+            </button>
+            <button className="rm-menu-item danger" onClick={() => { handleDeleteTopic(menuTopic); setMenuTopic(null); }}>
+              <span className="rm-menu-ico">🗑️</span> Delete topic
+            </button>
+          </div>
+        </FdSheet>
+      )}
+
+      {/* Edit / add topic */}
+      {editTopic && (
+        <TopicEditSheet
+          topic={editTopic === "new" ? null : editTopic}
+          topics={topics}
+          courseCode={courseCode}
+          onSaved={handleTopicSaved}
+          onClose={() => setEditTopic(null)}
+        />
+      )}
+
+      {/* Manual document placement */}
+      {placeState && (
+        <PlaceDocumentSheet
+          mode={placeState.mode}
+          resource={placeState.resource}
+          topic={placeState.topic}
+          topics={topics}
+          matches={matches}
+          folderResources={folderResources}
+          onSaved={refreshMatches}
+          onClose={() => setPlaceState(null)}
+        />
+      )}
+
+      {/* Roadmap tools */}
+      {toolsOpen && (
+        <FdSheet title="Roadmap tools" onClose={() => setToolsOpen(false)}>
+          <div className="rm-menu">
+            <button className="rm-menu-item" onClick={() => { setToolsOpen(false); setShowRegenPrompt(true); }}>
+              <span className="rm-menu-ico">✨</span> Generate / merge topics
+            </button>
+            <button className="rm-menu-item" onClick={async () => {
+              setToolsOpen(false);
+              await handleExport();
+            }} disabled={exportBusy}>
+              <span className="rm-menu-ico">📤</span> {exportBusy ? "Exporting…" : "Export roadmap (JSON)"}
+            </button>
+            <button className="rm-menu-item" onClick={() => { setToolsOpen(false); setImportOpen(true); }}>
+              <span className="rm-menu-ico">📥</span> Import roadmap
+            </button>
+            <button className="rm-menu-item" onClick={() => {
+              setToolsOpen(false);
+              setExamInput(prefs?.examDate ? prefs.examDate.slice(0, 10) : "");
+              setExamOpen(true);
+            }}>
+              <span className="rm-menu-ico">📅</span> {prefs?.examDate ? "Change exam date" : "Set exam date"}
+            </button>
+          </div>
+        </FdSheet>
+      )}
+
+      {/* Exam date sheet */}
+      {examOpen && (
+        <FdSheet title="Exam date" onClose={() => setExamOpen(false)}
+          footer={<button className="tp-save" onClick={handleExamSave}>Save</button>}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ fontSize: 12, color: "#8A8F9C", fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.6 }}>
+              Set your {courseCode} exam date to see a weekly pace suggestion on the roadmap.
+            </p>
+            <input
+              type="date"
+              value={examInput}
+              onChange={(e) => setExamInput(e.target.value)}
+              className="tpe-input"
+              style={{ colorScheme: "dark" }}
+            />
+            {prefs?.examDate && (
+              <button
+                className="rm-menu-item danger"
+                onClick={() => { setExamInput(""); }}
+                style={{ alignSelf: "flex-start" }}
+              >
+                Clear exam date
+              </button>
+            )}
+          </div>
+        </FdSheet>
+      )}
+
+      {/* Import sheet */}
+      {importOpen && (
+        <FdSheet title="Import roadmap" onClose={() => { setImportOpen(false); setImportText(""); }}
+          footer={
+            <button className="tp-save" disabled={importBusy || !importText.trim()} onClick={() => handleImport(importText)}>
+              {importBusy ? "Importing…" : "Import topics"}
+            </button>
+          }>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ fontSize: 12, color: "#8A8F9C", fontFamily: "'Inter', sans-serif", margin: 0, lineHeight: 1.6 }}>
+              Paste an exported roadmap JSON. Topics are added after your existing ones.
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder='{"courseCode":"MED301","topics":[{"title":"…"}]}'
+              rows={8}
+              className="tpe-input"
+              style={{ resize: "vertical", fontFamily: "monospace", fontSize: 11 }}
+            />
+          </div>
+        </FdSheet>
       )}
 
       {toast && (

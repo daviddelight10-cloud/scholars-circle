@@ -223,7 +223,7 @@ RULES:
  * @param {string} params.userId - The requesting user's ID
  * @returns {Promise<{topics: Array, source: string}>}
  */
-export async function extractSkeletonFromOutline({ courseCode, outlineText, courseName, userId }) {
+export async function extractSkeletonFromOutline({ courseCode, outlineText, courseName, userId, merge = false }) {
   const effectiveCourseCode = (courseCode || courseName || "").trim();
   if (!effectiveCourseCode) {
     throw new Error("Course code or name is required");
@@ -276,12 +276,12 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
   const verified = source === "outline";
   const status = verified ? "verified" : "unverified";
 
-  // Delete existing topics for this courseCode + user so regeneration replaces instead of appending
   const existingTopics = await prisma.curriculumTopic.findMany({
     where: { courseCode: effectiveCourseCode, createdBy: userId },
-    select: { id: true },
+    select: { id: true, title: true, displayOrder: true },
   });
-  if (existingTopics.length > 0) {
+  if (existingTopics.length > 0 && !merge) {
+    // Rebuild mode: replace everything (topics, placements, manual edits)
     const existingTopicIds = existingTopics.map((t) => t.id);
     await prisma.documentTopicMatch.deleteMany({
       where: { topicId: { in: existingTopicIds } },
@@ -292,16 +292,22 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
     logInfo(`[topicExtractionService] Deleted ${existingTopics.length} old topics for ${effectiveCourseCode} (regeneration by user ${userId})`);
   }
 
+  // Merge mode: existing topics keep their order/matches/manual edits — only
+  // description & subtopics refresh. Newly-suggested titles append at the end.
+  const existingTitles = merge ? new Set(existingTopics.map((t) => t.title.toLowerCase().trim())) : new Set();
+  let nextOrder = merge ? existingTopics.reduce((m, t) => Math.max(m, t.displayOrder || 0), 0) + 1 : 0;
+
   const created = [];
 
   for (const t of topics) {
+    const isNew = merge && !existingTitles.has(t.title.toLowerCase().trim());
     const topic = await prisma.curriculumTopic.upsert({
       where: {
         createdBy_courseCode_title: { createdBy: userId, courseCode: effectiveCourseCode, title: t.title },
       },
       update: {
         description: t.description,
-        displayOrder: t.displayOrder,
+        ...(merge ? {} : { displayOrder: t.displayOrder }),
         subtopics: t.subtopics,
         ...(verified && { verified: true, source: "outline", status: "verified" }),
       },
@@ -309,7 +315,7 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
         courseCode: effectiveCourseCode,
         title: t.title,
         description: t.description,
-        displayOrder: t.displayOrder,
+        displayOrder: merge ? (isNew ? nextOrder++ : t.displayOrder) : t.displayOrder,
         subtopics: t.subtopics,
         source,
         verified,
@@ -320,8 +326,12 @@ export async function extractSkeletonFromOutline({ courseCode, outlineText, cour
     created.push(topic);
   }
 
-  // Resolve prerequisite titles to IDs
+  // Resolve prerequisite titles to IDs — merge mode also resolves against
+  // pre-existing topics (a new topic's prereq may be an older topic).
   const titleToId = new Map(created.map((t) => [t.title, t.id]));
+  if (merge) {
+    for (const t of existingTopics) titleToId.set(t.title, t.id);
+  }
   for (const t of topics) {
     if (!t.prerequisiteTitles || t.prerequisiteTitles.length === 0) continue;
     const topicId = titleToId.get(t.title);
@@ -397,6 +407,13 @@ export async function matchDocumentToSkeleton(resource, courseCode, userId) {
       topic = topics.find((t) => t.title.toLowerCase().trim() === titleLower);
     }
     if (!topic) continue;
+
+    // Never downgrade a manual placement to an AI one
+    const existing = await prisma.documentTopicMatch.findUnique({
+      where: { userId_resourceId_topicId: { userId, resourceId: resource.id, topicId: topic.id } },
+      select: { matchSource: true },
+    });
+    if (existing?.matchSource === "manual") continue;
 
     await prisma.documentTopicMatch.upsert({
       where: {
@@ -564,13 +581,25 @@ export async function retroactiveMatchDocuments(courseCode, userId, folderId, on
     return { matchCount: 0, resourceCount: 0 };
   }
 
+  // Documents the user placed manually are excluded — their placement is
+  // deliberate and AI must not move or add to it.
+  const manual = await prisma.documentTopicMatch.findMany({
+    where: { userId, matchSource: "manual", resourceId: { in: resources.map((r) => r.id) } },
+    select: { resourceId: true },
+  });
+  const manualIds = new Set(manual.map((m) => m.resourceId));
+  const candidates = resources.filter((r) => !manualIds.has(r.id));
+  if (candidates.length === 0) {
+    return { matchCount: 0, resourceCount: resources.length };
+  }
+
   let matchCount = 0;
   let errorCount = 0;
   let lastError = null;
 
-  for (let i = 0; i < resources.length; i++) {
-    const resource = resources[i];
-    onProgress?.(i, resources.length, resource.title);
+  for (let i = 0; i < candidates.length; i++) {
+    const resource = candidates[i];
+    onProgress?.(i, candidates.length, resource.title);
 
     try {
       const count = await matchDocumentToSkeleton(resource, courseCode, userId);
@@ -586,17 +615,18 @@ export async function retroactiveMatchDocuments(courseCode, userId, folderId, on
     }
   }
 
-  onProgress?.(resources.length, resources.length, "Done");
+  onProgress?.(candidates.length, candidates.length, "Done");
 
   logInfo(`[topicExtractionService] Retroactive match complete for ${courseCode}`, {
     userId,
     resourceCount: resources.length,
+    skippedManual: manualIds.size,
     matchCount,
     errorCount,
   });
 
-  // If ALL documents failed to match, surface the error
-  if (errorCount === resources.length && resources.length > 0) {
+  // If ALL candidate documents failed to match, surface the error
+  if (errorCount === candidates.length && candidates.length > 0) {
     throw new Error(lastError?.message || "All documents failed to match");
   }
 

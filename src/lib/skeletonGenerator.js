@@ -19,7 +19,7 @@ async function authFetch(url, opts = {}) {
  * @param {function} [params.onProgress] - Progress callback
  * @returns {Promise<{topics: Array, source: string, courseCode: string}>}
  */
-export async function generateSkeleton({ courseName, outlineText, courseCode, onProgress }) {
+export async function generateSkeleton({ courseName, outlineText, courseCode, onProgress, merge }) {
   const hasOutline = outlineText && outlineText.trim().length > 50;
   const source = hasOutline ? "outline" : "ai_inferred";
   const effectiveCourseCode = (courseCode || courseName || "").trim();
@@ -32,6 +32,7 @@ export async function generateSkeleton({ courseName, outlineText, courseCode, on
     body: JSON.stringify({
       outlineText: hasOutline ? outlineText : undefined,
       courseName: courseName || effectiveCourseCode,
+      merge: !!merge,
     }),
   });
 
@@ -87,10 +88,10 @@ export async function fetchTopicProgress(courseCode) {
  * @param {number} [displayOrder]
  * @returns {Promise<Array>} The full updated topic list for the course
  */
-export async function createTopic(courseCode, title, displayOrder) {
+export async function createTopic(courseCode, title, displayOrder, extra = {}) {
   const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/topics`, {
     method: "POST",
-    body: JSON.stringify({ topics: [{ title, displayOrder }], source: "ai_inferred" }),
+    body: JSON.stringify({ topics: [{ title, displayOrder, ...extra }], source: "manual" }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -113,3 +114,83 @@ export async function reorderTopics(courseCode, topicIds) {
   if (!res.ok) throw new Error("Failed to reorder topics");
   return res.json();
 }
+
+/** Update a topic (title, description, subtopics, prerequisites, doneSubs, manuallyDone). */
+export async function updateTopic(topicId, patch) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/topics/${encodeURIComponent(topicId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to update topic");
+  }
+  return res.json();
+}
+
+export async function deleteTopic(topicId) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/topics/${encodeURIComponent(topicId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete topic");
+  return res.json();
+}
+
+/** Manually place a document under a topic (matchSource "manual", confidence 1). */
+export async function assignDocument(resourceId, topicId) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/matches`, {
+    method: "POST",
+    body: JSON.stringify({ resourceId, topicId, matchSource: "manual" }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to place document");
+  }
+  return res.json();
+}
+
+/** Remove a document↔topic match by match id. */
+export async function unassignDocument(matchId) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/matches/${encodeURIComponent(matchId)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to remove document");
+  return res.json();
+}
+
+/** Export the roadmap as portable JSON (prereqs resolved to titles). */
+export async function exportRoadmap(courseCode) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/export`);
+  if (!res.ok) throw new Error("Failed to export roadmap");
+  return res.json();
+}
+
+/** Import a roadmap JSON payload { topics: [...] } — merges into the course. */
+export async function importRoadmap(courseCode, topics) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/topics`, {
+    method: "POST",
+    body: JSON.stringify({ topics, source: "import" }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to import roadmap");
+  }
+  return res.json();
+}
+
+export async function fetchCoursePrefs(courseCode) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/prefs`);
+  if (!res.ok) throw new Error("Failed to fetch course prefs");
+  return res.json();
+}
+
+export async function saveCoursePrefs(courseCode, examDate) {
+  const res = await authFetch(`${API_BASE}/api/curriculum/${encodeURIComponent(courseCode)}/prefs`, {
+    method: "PATCH",
+    body: JSON.stringify({ examDate }),
+  });
+  if (!res.ok) throw new Error("Failed to save course prefs");
+  return res.json();
+}
+
+

@@ -22,6 +22,7 @@ export const PROGRESS_COLORS = {
   "Learning": D.gold,
   "Reviewing": D.blue,
   "Mastered": D.green,
+  "Done": D.green,
 };
 
 export const PROGRESS_BG = {
@@ -30,7 +31,19 @@ export const PROGRESS_BG = {
   "Learning": "rgba(245,166,35,0.12)",
   "Reviewing": "rgba(79,142,247,0.12)",
   "Mastered": "rgba(61,214,140,0.12)",
+  "Done": "rgba(61,214,140,0.12)",
 };
+
+// Manually-marked topics read as "Done" everywhere regardless of FSRS data.
+export function effectiveLabel(topic, p) {
+  if (topic?.manuallyDone) return "Done";
+  return p?.label || "Not started";
+}
+
+export function effectivePct(topic, p) {
+  if (topic?.manuallyDone) return 100;
+  return progressPct(p);
+}
 
 export function progressPct(p) {
   if (!p || p.totalItems === 0) return 0;
@@ -89,7 +102,7 @@ const DOC_ICONS = {
 };
 
 // Tappable document row — opens the practice menu for that material.
-export function DocRow({ match, variants, onTap }) {
+export function DocRow({ match, variants, onTap, trailing }) {
   const [hover, setHover] = useState(false);
   const r = match.resource || {};
   const conf = match.confidence != null ? Math.round(match.confidence * 100) : null;
@@ -127,6 +140,7 @@ export function DocRow({ match, variants, onTap }) {
           {meta}
         </span>
       </span>
+      {trailing}
       <span style={{ color: hover ? D.gold : D.textLow, fontSize: 15, flexShrink: 0 }}>›</span>
     </button>
   );

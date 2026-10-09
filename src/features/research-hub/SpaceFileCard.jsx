@@ -18,6 +18,7 @@ export function FileMenu({
   onDelete,
   canDelete,
   onRename,
+  extraItems = [],
   kebabClass = "sp-row-kebab",
   menuClass = "sp-row-menu",
 }) {
@@ -61,6 +62,7 @@ export function FileMenu({
             onToggleBookmark, false, bookmarkBusy)}
           {item(IC.share, "Share", onShare)}
           {item(IC.pencil, "Rename", onRename)}
+          {extraItems.map((x) => item(x.icon || "", x.label, x.onClick, x.danger))}
           {canDelete && item(IC.trash, "Delete", onDelete, true)}
         </div>
       )}
