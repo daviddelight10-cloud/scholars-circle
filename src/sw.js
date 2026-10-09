@@ -39,6 +39,13 @@ registerRoute(
   }
 );
 
+// OCR engine files (worker/wasm/traineddata) — excluded from precache to keep
+// install light; CacheFirst so first OCR run makes them available offline.
+registerRoute(
+  ({ url }) => url.pathname.startsWith("/ocr/"),
+  new CacheFirst({ cacheName: "ocr-engine" })
+);
+
 // Cache Unsplash hero/cover images
 registerRoute(
   ({ url }) => url.origin === "https://images.unsplash.com",

@@ -52,6 +52,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [scannedPagesLikely, setScannedPagesLikely] = useState(false); // doc may need OCR
+  const [ocrScanning, setOcrScanning] = useState(false);
   const [searching, setSearching] = useState(false);
   const [fullscreen, setFullscreen] = useState(initialFullscreen);
   const { setMobileNavHidden } = useUI();
@@ -169,7 +171,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Refs
   const pdfDocRef = useRef(null);
-  const { getPageText, getPageIndexData } = usePageText(pdfDocRef);
+  const { getPageText, getPageIndexData, ocrDocument, ocrStatus, pageIndexRef } = usePageText(pdfDocRef, docKey);
   const canvasRef = useRef(null);
   const canvas2Ref = useRef(null); // two-page spread: right-hand page
   const renderTaskRef = useRef(null);
@@ -689,6 +691,35 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       container.style.height = viewport.height + "px";
       const textContent = await page.getTextContent();
       const items = [];
+      const ocrEntry = pageIndexRef.current[pageNum];
+      // Scanned page with OCR results — paint invisible word boxes so
+      // selection/search/highlights work like a text PDF.
+      if (!textContent.items.length && ocrEntry?.ocr && ocrEntry.words?.length) {
+        let ti = 0;
+        for (const w of ocrEntry.words) {
+          const h = (w.y1 - w.y0) * viewport.height;
+          const span = document.createElement("span");
+          Object.assign(span.style, {
+            position: "absolute",
+            left: w.x0 * viewport.width + "px",
+            top: w.y0 * viewport.height + "px",
+            width: (w.x1 - w.x0) * viewport.width + "px",
+            height: h + "px",
+            fontSize: h + "px",
+            color: "transparent",
+            whiteSpace: "pre",
+            cursor: "text",
+            overflow: "hidden",
+          });
+          span.textContent = w.t;
+          span.dataset.ti = ti++;
+          container.appendChild(span);
+          items.push(span);
+        }
+        textLayerRefs.current[pageNum] = container;
+        paintSearchMark(pageNum);
+        return;
+      }
       let ti = 0; // filtered-item index — matches getPageIndexData's itemStart order
       for (const item of textContent.items) {
         if (!item.str) continue;
@@ -1133,7 +1164,43 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const results = await buildSearchResults(q, getPageIndexData, pdfDocRef.current?.numPages || 0);
     setSearchResults(results);
     setSearching(false);
+    // If nothing matched and indexed pages carry little/no text, this is
+    // probably a scanned PDF — offer OCR.
+    if (!results.length) {
+      const idxs = pageIndexRef.current;
+      const keys = Object.keys(idxs);
+      const thin = keys.filter((k) => !idxs[k].ocr && (idxs[k].raw || "").length < 25).length;
+      setScannedPagesLikely(thin > 0);
+    } else {
+      setScannedPagesLikely(false);
+    }
   }, [getPageIndexData, clearSearchMark]);
+
+  // OCR the whole document (skips text pages + already-scanned pages), then
+  // refresh mounted empty text layers and re-run the open search.
+  const runOcrScan = useCallback(async () => {
+    if (ocrScanning || !pdfDocRef.current) return;
+    setOcrScanning(true);
+    try {
+      await ocrDocument();
+      setScannedPagesLikely(false);
+      // Rebuild text layers on pages that mounted before OCR finished.
+      for (const [n, container] of Object.entries(textLayerRefs.current)) {
+        const idx = pageIndexRef.current[+n];
+        if (!container || container.childElementCount || !idx?.ocr || !idx.words?.length) continue;
+        const wrapper = container.parentElement;
+        const canvas = wrapper?.querySelector("canvas");
+        if (!canvas || !pageDimsRef.current[+n]) continue;
+        const scale = canvas.getBoundingClientRect().width / pageDimsRef.current[+n].width;
+        if (!(scale > 0)) continue;
+        const page = await pdfDocRef.current.getPage(+n);
+        renderTextLayer(+n, page, page.getViewport({ scale }), canvas);
+      }
+      if (searchQuery.trim()) runSearch(searchQuery);
+    } finally {
+      setOcrScanning(false);
+    }
+  }, [ocrScanning, ocrDocument, searchQuery, runSearch]);
 
   // ---- Circle to Ask (lasso helpers) ----
   const getRelPoint = (e) => {
@@ -3111,6 +3178,18 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                       ? `Offline copy ✓ (${(offlineInfo.size / 1048576).toFixed(1)} MB) — tap to remove`
                       : "Save offline copy"}
                 </button>
+                <button
+                  style={{ ...s.overflowItem, color: ocrScanning ? T.accent : undefined }}
+                  onClick={() => { runOcrScan(); setShowOverflow(false); setOverflowBackdropOpen(false); }}
+                  disabled={ocrScanning}
+                >
+                  {ocrScanning ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+                  )}
+                  {ocrScanning ? "Scanning text…" : "Scan scanned pages (OCR)"}
+                </button>
                 <button style={s.overflowItem} onClick={() => { setShowStats(true); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
                   Reading stats
@@ -3549,7 +3628,21 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                 <div style={s.searchResults}>
                   {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
                   {!searching && searchResults.length === 0 && searchQuery.trim() && (
-                    <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>No matches found.</div>
+                    <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>
+                      No matches found.
+                      {scannedPagesLikely && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontSize: 11.5, color: T.muted, marginBottom: 6 }}>This looks like a scanned document — OCR can make its pages searchable.</div>
+                          <button
+                            style={{ ...s.askBtn, margin: 0 }}
+                            disabled={ocrScanning}
+                            onClick={runOcrScan}
+                          >
+                            {ocrScanning ? "Scanning…" : "Scan document for text"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {searchResults.map((r, i) => (
                     <div key={i} style={{ ...s.searchItem, ...(i === searchIdx ? { background: T.hover } : {}) }} onClick={() => { goToMatch(i); setShowSearch(false); }}>
@@ -3668,7 +3761,21 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
           <div style={s.searchResults}>
             {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
             {!searching && searchResults.length === 0 && searchQuery.trim() && (
-              <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>No matches found.</div>
+              <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>
+                No matches found.
+                {scannedPagesLikely && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 11.5, color: T.muted, marginBottom: 6 }}>This looks like a scanned document — OCR can make its pages searchable.</div>
+                    <button
+                      style={{ ...s.askBtn, margin: 0 }}
+                      disabled={ocrScanning}
+                      onClick={runOcrScan}
+                    >
+                      {ocrScanning ? "Scanning…" : "Scan document for text"}
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             {searchResults.map((r, i) => (
               <div key={i} style={{ ...s.searchItem, ...(i === searchIdx ? { background: T.hover } : {}) }} onClick={() => { goToMatch(i); setShowSearch(false); }}>
@@ -3871,6 +3978,21 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
           }}
         >
           {deckToast.text}
+        </div>
+      )}
+
+      {/* ── OCR status pill ── */}
+      {(ocrScanning || ocrStatus) && (
+        <div
+          style={{
+            position: "fixed", bottom: isMobile ? 160 : 80, left: "50%", transform: "translateX(-50%)",
+            zIndex: 400, background: "#123a24", color: "#fff", padding: "9px 16px", borderRadius: 999,
+            fontSize: 12, fontWeight: 600, boxShadow: "0 8px 26px rgba(0,0,0,0.4)",
+            display: "flex", alignItems: "center", gap: 8, maxWidth: "92vw",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite", flexShrink: 0 }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+          {ocrStatus?.message || "Scanning document for text…"}
         </div>
       )}
 

@@ -30,7 +30,8 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.16.0",
     "remark-gfm": "^4.0.1",
-    "smiles-drawer": "^2.1.7"
+    "smiles-drawer": "^2.1.7",
+    "tesseract.js": "^6.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
