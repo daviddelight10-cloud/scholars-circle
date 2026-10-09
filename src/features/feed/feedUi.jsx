@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+// These primitives are used outside the Feed too (roadmap topic page,
+// sheets) — the chunk must carry its own styles or portaled overlays
+// render as unstyled divs when feed.css hasn't loaded.
+import "../../feed.css";
 
 /* ─── Portaled overlay primitives ─────────────────────────────────────
    Feed overlays used to render inside .fd-root (isolation: isolate), so
