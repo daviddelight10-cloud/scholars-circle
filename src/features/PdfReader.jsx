@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
-import { callAIMultimodalStream } from "../lib/aiClient.js";
+import { callAIMultimodalStream, callAIChat, extractJSON } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import { CHEMISTRY_RULES } from "../lib/chemistryPrompt.js";
 import McqCard from "../components/McqCard.jsx";
@@ -215,9 +215,46 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const currentStrokes = useRef([]); // strokes being drawn in screen coords
   const [renderStrokes, setRenderStrokes] = useState(""); // SVG path string for current stroke
 
-  // Bookmarks
-  const [bookmarks, setBookmarks] = useState(() => loadStored(`sc_pdf_bookmarks_${docKey}`, []));
+  // Bookmarks — named entries { page, name }; legacy number[] data is
+  // upgraded on load so nothing is lost.
+  const [bookmarks, setBookmarks] = useState(() =>
+    (loadStored(`sc_pdf_bookmarks_${docKey}`, []) || [])
+      .map((b) => (typeof b === "number" ? { page: b, name: "" } : b))
+      .filter((b) => b && b.page > 0)
+  );
   const [showBookmarks, setShowBookmarks] = useState(false);
+  const [renamingPage, setRenamingPage] = useState(null); // page # being named
+
+  // Kindle-style "back to where you were" — every non-sequential jump pushes
+  // the page you left onto the stack; Back pops it.
+  const navStackRef = useRef([]);
+  const [navStackLen, setNavStackLen] = useState(0);
+
+  // PDF outline / table of contents (from getOutline)
+  const [outline, setOutline] = useState(null);
+  const [showOutline, setShowOutline] = useState(false);
+
+  // Search match navigation — active match index + per-page text index with
+  // span offsets so matches can be painted on the page itself.
+  const [searchIdx, setSearchIdx] = useState(-1);
+  const activeMatchRef = useRef(null); // {page, i0, i1} span index range
+  const pageIndexRef = useRef({}); // { page: { raw, itemStart[] } }
+  const [pageJumpOpen, setPageJumpOpen] = useState(false); // mobile page-chip jump
+
+  // ── Text-anchored marks (real highlights + margin notes) ──
+  // { [page]: [{ id, color, rects:[[x0,y0,x1,y1] 0–1 vs page box], text, note, createdAt }] }
+  const [textMarks, setTextMarks] = useState(() => loadStored(`sc_pdf_marks_${docKey}`, {}));
+  const [selPop, setSelPop] = useState(null); // { x, y, above }
+  const pendingSelRef = useRef(null); // { page, text, rects } — survives popover taps
+  const [markMenu, setMarkMenu] = useState(null); // { mark, x, y }
+  const [noteEdit, setNoteEdit] = useState(null); // { page, id }
+  const [flashMark, setFlashMark] = useState(null); // mark id pulsing after a jump
+  const [showNotes, setShowNotes] = useState(false);
+  const [quizDraft, setQuizDraft] = useState(null); // { questions, sourceText, page }
+  const [quizGenBusy, setQuizGenBusy] = useState(false);
+  const [deckToast, setDeckToast] = useState(null);
+  const [deckAddedKeys, setDeckAddedKeys] = useState({}); // "msgIdx:segIdx" → true
+  const [deckHintSeen, setDeckHintSeen] = useState(() => loadStored("sc_pdf_deck_hint", false));
 
   // TTS
   const [speaking, setSpeaking] = useState(false);
@@ -383,6 +420,29 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         if (cancelled) return;
         pdfDocRef.current = pdf;
         setNumPages(pdf.numPages);
+        // Table of contents from the document outline — destinations resolve
+        // to page numbers; entries without a dest are kept as dividers.
+        (async () => {
+          try {
+            const ol = await pdf.getOutline();
+            if (!ol?.length || cancelled) return;
+            const flat = [];
+            const walk = async (items, depth) => {
+              for (const it of items) {
+                let page = null;
+                try {
+                  let dest = it.dest;
+                  if (typeof dest === "string") dest = await pdf.getDestination(dest);
+                  if (Array.isArray(dest) && dest[0]) page = (await pdf.getPageIndex(dest[0])) + 1;
+                } catch {}
+                flat.push({ title: String(it.title || "Untitled").trim(), page, depth });
+                if (it.items?.length) await walk(it.items, depth + 1);
+              }
+            };
+            await walk(ol, 0);
+            if (!cancelled) setOutline(flat);
+          } catch {}
+        })();
         // Persist page count so community PDF cards can show reading progress
         try { saveStored(`sc_pdf_meta_${docKey}`, { numPages: pdf.numPages }); } catch {}
         const startPage = initialPage ? Math.max(1, Math.min(initialPage, pdf.numPages)) : 1;
@@ -657,6 +717,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       container.style.height = viewport.height + "px";
       const textContent = await page.getTextContent();
       const items = [];
+      let ti = 0; // filtered-item index — matches getPageIndexData's itemStart order
       for (const item of textContent.items) {
         if (!item.str) continue;
         const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
@@ -675,6 +736,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         const span = document.createElement("span");
         Object.assign(span.style, style);
         span.textContent = item.str;
+        span.dataset.ti = ti++;
         if (item.width > 0) {
           span.style.width = item.width * viewport.scale + "px";
         }
@@ -683,6 +745,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       }
       // Store text layer ref for copy operations
       textLayerRefs.current[pageNum] = container;
+      // Repaint an active search mark when a virtualized page remounts
+      paintSearchMark(pageNum);
     } catch (e) {
       // Non-critical — text layer is optional
     }
@@ -816,10 +880,17 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }));
   };
 
-  const goToPage = useCallback(async (n) => {
+  const goToPage = useCallback(async (n, opts = {}) => {
     if (!pdfDocRef.current) return;
     n = Math.max(1, Math.min(pdfDocRef.current.numPages, n));
     if (n === currentPage) return;
+    // Record jump navigation for the Back button — sequential page turns and
+    // Back-driven returns don't create history entries.
+    if (!opts.fromBack && Math.abs(n - currentPage) > 1) {
+      navStackRef.current.push(currentPage);
+      if (navStackRef.current.length > 60) navStackRef.current.shift();
+      setNavStackLen(navStackRef.current.length);
+    }
     closeChat();
     resetPanZoom();
 
@@ -840,6 +911,183 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     // Enter animation
     setTransitioning(false);
   }, [currentPage, renderPage, scrollMode]);
+
+  const navBack = useCallback(() => {
+    const prev = navStackRef.current.pop();
+    if (prev == null) return;
+    setNavStackLen(navStackRef.current.length);
+    goToPage(prev, { fromBack: true });
+  }, [goToPage]);
+
+  // ---- Per-page text index for search + selection highlight painting ----
+  // Items are filtered identically to the text-layer builder, so index i in
+  // `itemStart` maps to the i-th span in the page's text layer container.
+  const getPageIndexData = useCallback(async (n) => {
+    const cached = pageIndexRef.current[n];
+    if (cached) return cached;
+    if (!pdfDocRef.current) return null;
+    try {
+      const page = await pdfDocRef.current.getPage(n);
+      const tc = await page.getTextContent();
+      const itemStart = [];
+      let raw = "";
+      for (const it of tc.items) {
+        if (!it.str) continue;
+        itemStart.push(raw.length);
+        raw += (raw ? " " : "") + it.str;
+      }
+      const entry = { raw, itemStart };
+      pageIndexRef.current[n] = entry;
+      return entry;
+    } catch { return null; }
+  }, []);
+
+  // Paint the active search match onto the text-layer spans. Called after a
+  // jump AND from renderTextLayer so matches survive virtualization re-mounts.
+  const paintSearchMark = useCallback((pageNum) => {
+    const m = activeMatchRef.current;
+    const container = textLayerRefs.current[pageNum];
+    if (!container) return;
+    for (const span of container.children) {
+      const ti = Number(span.dataset.ti);
+      const hit = m && m.page === pageNum && ti >= m.i0 && ti <= m.i1;
+      span.style.background = hit ? "rgba(255,171,64,0.55)" : "";
+      span.style.borderRadius = hit ? "2px" : "";
+      span.style.boxShadow = hit ? "0 0 0 1px rgba(255,171,64,0.8)" : "";
+    }
+    // Center the first marked span within the page area for scroll modes
+    if (m && m.page === pageNum) {
+      const first = container.children[m.i0];
+      first?.scrollIntoView?.({ block: "center", behavior: "auto" });
+    }
+  }, []);
+
+  const goToMatch = useCallback(async (i) => {
+    const r = searchResults[i];
+    if (!r) return;
+    setSearchIdx(i);
+    activeMatchRef.current = { page: r.page, i0: r.i0, i1: r.i1 };
+    await goToPage(r.page);
+    // Text layer mounts async — poll briefly, then paint (also re-painted
+    // from renderTextLayer when a virtualized page mounts).
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (textLayerRefs.current[r.page]?.children.length) break;
+      await new Promise((res) => setTimeout(res, 120));
+    }
+    paintSearchMark(r.page);
+  }, [searchResults, goToPage, paintSearchMark]);
+
+  // ── Text selection → floating action popover ──
+  // Debounced on selectionchange so mid-drag updates don't flash the menu;
+  // covers mouse drag, touch selection handles, and shift+arrow selects.
+  useEffect(() => {
+    let debounce = null;
+    const capture = () => {
+      if (tool !== "none") { setSelPop(null); return; }
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) { setSelPop(null); return; }
+      const text = sel.toString().replace(/\s+/g, " ").trim();
+      if (!text) { setSelPop(null); return; }
+      const node = sel.anchorNode?.nodeType === 1 ? sel.anchorNode : sel.anchorNode?.parentElement;
+      const layer = node?.closest?.("[data-text-layer]");
+      if (!layer || !viewerRef.current?.contains(layer)) { setSelPop(null); return; }
+      const page = Number(layer.dataset.textLayer);
+      const lr = layer.getBoundingClientRect();
+      if (!lr.width || !lr.height) { setSelPop(null); return; }
+      const rects = [];
+      try {
+        for (const r of sel.getRangeAt(0).getClientRects()) {
+          const x0 = Math.max(0, (r.left - lr.left) / lr.width);
+          const y0 = Math.max(0, (r.top - lr.top) / lr.height);
+          const x1 = Math.min(1, (r.right - lr.left) / lr.width);
+          const y1 = Math.min(1, (r.bottom - lr.top) / lr.height);
+          if (x1 - x0 > 0.002 && y1 - y0 > 0.002) rects.push([x0, y0, x1, y1]);
+        }
+      } catch {}
+      if (!rects.length) { setSelPop(null); return; }
+      pendingSelRef.current = { page, text: text.slice(0, 2000), rects };
+      const first = rects[0];
+      const cx = lr.left + ((first[0] + first[2]) / 2) * lr.width;
+      const cyTop = lr.top + first[1] * lr.height;
+      const cyBot = lr.top + first[3] * lr.height;
+      const above = cyTop > 110;
+      setSelPop({
+        x: Math.max(100, Math.min(window.innerWidth - 100, cx)),
+        y: above ? cyTop - 10 : cyBot + 10,
+        above,
+      });
+    };
+    const onChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        pendingSelRef.current = null;
+        setSelPop(null);
+        return;
+      }
+      clearTimeout(debounce);
+      debounce = setTimeout(capture, 260);
+    };
+    document.addEventListener("selectionchange", onChange);
+    return () => { document.removeEventListener("selectionchange", onChange); clearTimeout(debounce); };
+  }, [tool]);
+
+  // Scrolling/zooming detaches the popover from its selection — dismiss it.
+  useEffect(() => {
+    const v = viewerRef.current;
+    if (!v) return;
+    const dismiss = () => setSelPop(null);
+    v.addEventListener("scroll", dismiss, { passive: true });
+    return () => v.removeEventListener("scroll", dismiss);
+  }, []);
+
+  // Persist marks (debounced)
+  useEffect(() => {
+    const t = setTimeout(() => saveStored(`sc_pdf_marks_${docKey}`, textMarks), 400);
+    return () => clearTimeout(t);
+  }, [textMarks, docKey]);
+
+  const addMark = (kind, color) => {
+    const sel = pendingSelRef.current;
+    if (!sel) return null;
+    const mark = {
+      id: `m${Date.now().toString(36)}${Math.floor(Math.random() * 1e5)}`,
+      kind, color, rects: sel.rects, text: sel.text, note: "", createdAt: Date.now(),
+    };
+    setTextMarks((prev) => ({ ...prev, [sel.page]: [...(prev[sel.page] || []), mark] }));
+    window.getSelection()?.removeAllRanges?.();
+    pendingSelRef.current = null;
+    setSelPop(null);
+    return { ...mark, page: sel.page };
+  };
+  const removeMark = (page, id) =>
+    setTextMarks((prev) => ({ ...prev, [page]: (prev[page] || []).filter((m) => m.id !== id) }));
+  const updateMark = (page, id, patch) =>
+    setTextMarks((prev) => ({ ...prev, [page]: (prev[page] || []).map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
+  const jumpToMark = (page, id) => {
+    goToPage(page);
+    setFlashMark(id);
+    setTimeout(() => setFlashMark(null), 1800);
+  };
+  const flatMarks = useMemo(() => {
+    const out = [];
+    for (const [pg, list] of Object.entries(textMarks)) {
+      for (const m of list) out.push({ ...m, page: Number(pg) });
+    }
+    return out.sort((a, b) => a.page - b.page || a.createdAt - b.createdAt);
+  }, [textMarks]);
+
+  const clearSearchMark = useCallback(() => {
+    const m = activeMatchRef.current;
+    activeMatchRef.current = null;
+    if (!m) return;
+    const container = textLayerRefs.current[m.page];
+    if (!container) return;
+    for (const span of container.children) {
+      span.style.background = "";
+      span.style.borderRadius = "";
+      span.style.boxShadow = "";
+    }
+  }, []);
 
   const zoomToCenter = (newScale) => {
     const container = viewerRef.current;
@@ -924,29 +1172,42 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   }, [currentPage, goToPage]);
 
   // ---- Search ----
+  // Results carry the span range [i0,i1] covering the match so the hit can be
+  // painted directly on the page's text layer, plus i/N match navigation.
   const runSearch = useCallback(async (query) => {
     const q = query.trim();
+    clearSearchMark();
+    setSearchIdx(-1);
     if (!q) { setSearchResults([]); return; }
     setSearching(true);
     const results = [];
     const ql = q.toLowerCase();
     for (let n = 1; n <= (pdfDocRef.current?.numPages || 0); n++) {
-      const text = await getPageText(n);
+      const idx = await getPageIndexData(n);
+      if (!idx || !idx.raw) continue;
+      const text = idx.raw;
       const lower = text.toLowerCase();
-      let idx = lower.indexOf(ql);
-      while (idx !== -1) {
-        const start = Math.max(0, idx - 38);
-        const end = Math.min(text.length, idx + ql.length + 38);
-        const before = (start > 0 ? "…" : "") + text.slice(start, idx);
-        const match = text.slice(idx, idx + ql.length);
-        const after = text.slice(idx + ql.length, end) + (end < text.length ? "…" : "");
-        results.push({ page: n, before, match, after, query: q });
-        idx = lower.indexOf(ql, idx + ql.length);
+      let pos = lower.indexOf(ql);
+      while (pos !== -1) {
+        const start = Math.max(0, pos - 38);
+        const end = Math.min(text.length, pos + ql.length + 38);
+        const before = (start > 0 ? "…" : "") + text.slice(start, pos);
+        const match = text.slice(pos, pos + ql.length);
+        const after = text.slice(pos + ql.length, end) + (end < text.length ? "…" : "");
+        // Map the char range to covered text-item (span) indices
+        let i0 = 0, i1 = 0;
+        const starts = idx.itemStart;
+        for (let k = 0; k < starts.length; k++) {
+          if (starts[k] <= pos) i0 = k;
+          if (starts[k] <= pos + ql.length - 1) i1 = k; else break;
+        }
+        results.push({ page: n, before, match, after, query: q, i0, i1 });
+        pos = lower.indexOf(ql, pos + ql.length);
       }
     }
     setSearchResults(results);
     setSearching(false);
-  }, [getPageText]);
+  }, [getPageIndexData, clearSearchMark]);
 
   // ---- Circle to Ask (lasso helpers) ----
   const getRelPoint = (e) => {
@@ -1530,6 +1791,179 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     }
   };
 
+  // ── Selection → AI actions ──
+  const askAboutSelection = async (instruction) => {
+    const sel = pendingSelRef.current;
+    if (!sel || chatLoading) return;
+    setSelPop(null);
+    window.getSelection()?.removeAllRanges?.();
+    const snippet = sel.text.length > 90 ? sel.text.slice(0, 90) + "…" : sel.text;
+    setChatMessages((prev) => [...prev, { role: "user", content: `📌 “${snippet}”`, page: sel.page }]);
+    setStudyToolsOpen(false);
+    closeAllMobileOverlays();
+    setChatOpen(true);
+    setChatLoading(true);
+    setChatError(null);
+    chatNearBottomRef.current = true;
+    let pageText = "";
+    try { pageText = await getPageText(sel.page); } catch {}
+    const prompt = `${instruction}\n"""${sel.text}"""\n\n[Selected on page ${sel.page}. Page text for context:\n"""${(pageText || "").slice(0, 1500)}"""\n]`;
+    try {
+      await streamChatAnswer(prompt, null, trimHistory(chatMessages, sel.page), { page: sel.page });
+    } catch (err) {
+      if (!err.stoppedByUser) setChatError(err.message || "Something went wrong reaching the AI.");
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const speakSelection = () => {
+    const sel = pendingSelRef.current;
+    if (!sel || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(sel.text);
+    utter.rate = 1.0;
+    utter.onend = () => setSpeaking(false);
+    utter.onerror = () => setSpeaking(false);
+    ttsUtterRef.current = utter;
+    window.speechSynthesis.speak(utter);
+    setSpeaking(true);
+    setSelPop(null);
+    window.getSelection()?.removeAllRanges?.();
+  };
+
+  const copySelection = async () => {
+    const sel = pendingSelRef.current;
+    if (!sel) return;
+    try { await navigator.clipboard.writeText(sel.text); } catch {}
+    setSelPop(null);
+    window.getSelection()?.removeAllRanges?.();
+  };
+
+  // ── Quiz generation from a selection / highlight ──
+  // Produces a preview set; the user reviews, then explicitly adds to the
+  // Survival Quiz deck (which schedules them into FSRS server-side).
+  const QUIZ_SYS = `You write precise, self-checking multiple-choice questions for spaced review.
+Return ONLY a JSON array — no prose, no fences. Each item:
+{"question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A","explanation":"one sentence why","hint":"one short nudge"}
+Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test understanding not trivia; no "all/none of the above"; keep questions answerable from the excerpt alone.`;
+
+  const genQuizFromText = async (text, page) => {
+    if (quizGenBusy || !text?.trim()) return;
+    setQuizGenBusy(true);
+    setSelPop(null);
+    setMarkMenu(null);
+    try {
+      const raw = await callAIChat({
+        system: QUIZ_SYS,
+        messages: [{ role: "user", content: `Write 1–3 review questions from this excerpt (page ${page} of a PDF the student is studying):\n"""\n${text.slice(0, 2500)}\n"""` }],
+      });
+      const parsed = extractJSON(typeof raw === "string" ? raw : raw?.content || raw?.text || "", "array");
+      const qs = (Array.isArray(parsed) ? parsed : [])
+        .map((q) => ({
+          question: String(q.question || "").trim(),
+          options: q.options && typeof q.options === "object" && !Array.isArray(q.options)
+            ? q.options
+            : Object.fromEntries((Array.isArray(q.options) ? q.options : []).slice(0, 4).map((o, i) => [QUIZ_LETTERS[i], String(o)])),
+          correct: String(q.correct ?? QUIZ_LETTERS[q.answer ?? 0] ?? "A").trim().toUpperCase().slice(0, 1),
+          explanation: String(q.explanation || ""),
+          hint: String(q.hint || ""),
+        }))
+        .filter((q) => q.question && Object.keys(q.options).length >= 2 && q.options[q.correct])
+        .map((q) => ({ ...q, _keep: true, _srcPage: page }));
+      if (!qs.length) throw new Error("No usable questions came back");
+      setQuizDraft({ questions: qs, sourceText: text.slice(0, 400), page });
+    } catch (e) {
+      setDeckToast({ type: "error", text: e.message || "Couldn't generate questions — try again." });
+      setTimeout(() => setDeckToast(null), 3200);
+    } finally {
+      setQuizGenBusy(false);
+    }
+  };
+  const genQuizFromSelection = () => {
+    const sel = pendingSelRef.current;
+    if (!sel) return;
+    window.getSelection()?.removeAllRanges?.();
+    genQuizFromText(sel.text, sel.page);
+  };
+
+  // Add checked draft questions to the Survival Quiz deck (server creates a
+  // per-source "Quiz · <title>" MCQ resource + FSRS items). Falls back to a
+  // clear message for guests — deck needs an account to sync.
+  const addDraftToDeck = async () => {
+    if (!quizDraft) return;
+    const qs = quizDraft.questions.filter((q) => q._keep);
+    if (!qs.length) { setQuizDraft(null); return; }
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    if (!authData.authToken) {
+      setDeckToast({ type: "error", text: "Sign in to save questions to your deck." });
+      setTimeout(() => setDeckToast(null), 3200);
+      return;
+    }
+    setQuizGenBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/deck/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authData.authToken}` },
+        body: JSON.stringify({
+          sourceResourceId: propResourceId || null,
+          sourceTitle: title || "PDF",
+          questions: qs.map((q) => ({
+            question: q.question, options: q.options, correct: q.correct,
+            explanation: q.explanation, hint: q.hint, sourcePage: q._srcPage, quote: quizDraft.sourceText.slice(0, 200),
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setQuizDraft(null);
+      window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
+      setDeckToast({ type: "ok", text: `✓ ${data.added} question${data.added === 1 ? "" : "s"} added to your deck — they'll come up in Survival Quiz & daily review.` });
+      setTimeout(() => setDeckToast(null), 4200);
+    } catch (e) {
+      setDeckToast({ type: "error", text: e.message || "Couldn't save to deck." });
+      setTimeout(() => setDeckToast(null), 3200);
+    } finally {
+      setQuizGenBusy(false);
+    }
+  };
+
+  // Add one answered chat-quiz question to the Survival Quiz deck.
+  // Chat mcq shape {question, options:[], answer:idx} → app shape {options:{A..}, correct:"A"}.
+  const addChatMcqToDeck = async (mcq, page, key) => {
+    if (deckAddedKeys[key]) return;
+    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    if (!authData.authToken) {
+      setDeckToast({ type: "error", text: "Sign in to save questions to your deck." });
+      setTimeout(() => setDeckToast(null), 3200);
+      return;
+    }
+    const options = Object.fromEntries((mcq.options || []).slice(0, 6).map((o, i) => [QUIZ_LETTERS[i], String(o)]));
+    const correct = QUIZ_LETTERS[mcq.answer] || "A";
+    try {
+      const res = await fetch(`${API_BASE}/api/resources/deck/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authData.authToken}` },
+        body: JSON.stringify({
+          sourceResourceId: propResourceId || null,
+          sourceTitle: title || "PDF",
+          questions: [{ question: mcq.question, options, correct, explanation: mcq.explanation || "", sourcePage: page ?? currentPage }],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+      setDeckAddedKeys((prev) => ({ ...prev, [key]: true }));
+      window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
+      setDeckToast({ type: "ok", text: data.added ? "✓ Added to your deck — it'll come up in Survival Quiz." : "Already in your deck." });
+      setTimeout(() => setDeckToast(null), 3600);
+      saveStored("sc_pdf_deck_hint", true);
+      setDeckHintSeen(true);
+    } catch (e) {
+      setDeckToast({ type: "error", text: e.message || "Couldn't save to deck." });
+      setTimeout(() => setDeckToast(null), 3200);
+    }
+  };
+
   // ---- Thumbnails (lazy via IntersectionObserver) ----
   const [thumbs, setThumbs] = useState([]);
   const thumbItemRefs = useRef([]);
@@ -1728,47 +2162,57 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     setSpeaking(true);
   };
 
-  // ---- Bookmarks ----
+  // ---- Bookmarks (named: { page, name }) ----
   const toggleBookmark = () => {
     setBookmarks((prev) =>
-      prev.includes(currentPage)
-        ? prev.filter((p) => p !== currentPage)
-        : [...prev, currentPage].sort((a, b) => a - b)
+      prev.some((b) => b.page === currentPage)
+        ? prev.filter((b) => b.page !== currentPage)
+        : [...prev, { page: currentPage, name: "" }].sort((a, b) => a.page - b.page)
     );
   };
+  const renameBookmark = (page, name) => {
+    setBookmarks((prev) => prev.map((b) => (b.page === page ? { ...b, name } : b)));
+    setRenamingPage(null);
+  };
+  const removeBookmark = (page) => {
+    setBookmarks((prev) => prev.filter((b) => b.page !== page));
+  };
 
-  // ---- Annotation export ----
+  // ---- Notes export — real Markdown with highlight text + margin notes ----
   const exportAnnotations = () => {
     const lines = [];
-    lines.push(`Study Notes — ${title || "PDF Document"}`);
-    lines.push(`Exported: ${new Date().toLocaleString()}`);
+    lines.push(`# Study Notes — ${title || "PDF Document"}`);
+    lines.push(`_Exported ${new Date().toLocaleString()}_`);
     lines.push("");
-    if (bookmarks.length > 0) {
-      lines.push("=== BOOKMARKS ===");
-      bookmarks.forEach((pg) => lines.push(`  • Page ${pg}`));
+
+    const penPages = new Set(Object.keys(annotations).map(Number).filter((pg) => (annotations[pg] || []).length > 0));
+    const markPages = new Set(Object.keys(textMarks).map(Number).filter((pg) => (textMarks[pg] || []).length > 0));
+    const bmPages = new Set(bookmarks.map((b) => b.page));
+    const allPages = [...new Set([...bmPages, ...markPages, ...penPages])].sort((a, b) => a - b);
+
+    if (allPages.length === 0) {
+      lines.push("_No highlights, notes, or bookmarks yet. Select text on the page to create one._");
+    }
+
+    for (const pg of allPages) {
+      lines.push(`## Page ${pg}`);
+      const bm = bookmarks.find((b) => b.page === pg);
+      if (bm) lines.push(`- 🔖 **Bookmark**${bm.name ? `: ${bm.name}` : ""}`);
+      for (const m of textMarks[pg] || []) {
+        const colorName = HIGHLIGHT_COLORS.find((c) => c.value === m.color)?.name || "highlight";
+        lines.push(`- > ${m.text.replace(/\s+/g, " ").trim()}  _(${colorName})_`);
+        if (m.note) lines.push(`  - 📝 **Note:** ${m.note}`);
+      }
+      const strokes = (annotations[pg] || []).length;
+      if (strokes > 0) lines.push(`- ✏️ ${strokes} freehand ink stroke${strokes > 1 ? "s" : ""} on this page`);
       lines.push("");
     }
-    const annotatedPages = Object.keys(annotations).map(Number).sort((a, b) => a - b);
-    if (annotatedPages.length > 0) {
-      lines.push("=== HIGHLIGHTS ===");
-      annotatedPages.forEach((pg) => {
-        const strokes = annotations[pg] || [];
-        if (strokes.length > 0) {
-          lines.push(`\n  Page ${pg} (${strokes.length} highlight${strokes.length > 1 ? "s" : ""}):`);
-          strokes.forEach((s, i) => {
-            lines.push(`    ${i + 1}. [${s.color}]`);
-          });
-        }
-      });
-    }
-    if (bookmarks.length === 0 && annotatedPages.length === 0) {
-      lines.push("No bookmarks or highlights to export.");
-    }
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(title || "pdf").replace(/[^a-z0-9]/gi, "_")}_notes.txt`;
+    a.download = `${(title || "pdf").replace(/[^a-z0-9]/gi, "_")}_notes.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -2543,6 +2987,16 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       border: "none",
       cursor: "pointer",
     },
+    matchNavBtn: {
+      background: "none",
+      border: "none",
+      color: T.muted,
+      cursor: "pointer",
+      fontSize: 15,
+      padding: "2px 6px",
+      borderRadius: 4,
+      lineHeight: 1,
+    },
     searchPage: {
       display: "inline-block",
       fontFamily: "ui-monospace, monospace",
@@ -3009,6 +3463,56 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       width: "100%",
       textAlign: "left",
     },
+    bookmarkMiniBtn: {
+      background: "none",
+      border: "none",
+      color: T.muted,
+      cursor: "pointer",
+      fontSize: 11,
+      padding: "2px 4px",
+      borderRadius: 4,
+      flexShrink: 0,
+    },
+    bookmarkRename: {
+      flex: 1,
+      minWidth: 0,
+      background: T.inputBg,
+      border: `1px solid ${T.border}`,
+      borderRadius: 6,
+      color: T.text,
+      fontSize: 12,
+      padding: "4px 6px",
+      fontFamily: "inherit",
+    },
+    selPopBtn: {
+      background: "none",
+      border: "none",
+      color: T.text,
+      cursor: "pointer",
+      fontSize: 12,
+      fontWeight: 600,
+      padding: "5px 8px",
+      borderRadius: 8,
+      fontFamily: "inherit",
+      whiteSpace: "nowrap",
+      flexShrink: 0,
+    },
+    selMenuItem: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      width: "100%",
+      textAlign: "left",
+      background: "none",
+      border: "none",
+      color: T.text,
+      cursor: "pointer",
+      fontSize: 12.5,
+      fontWeight: 500,
+      padding: "7px 8px",
+      borderRadius: 7,
+      fontFamily: "inherit",
+    },
     // Overflow menu (mobile)
     overflowMenu: {
       position: "fixed",
@@ -3432,7 +3936,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   const filteredThumbs = thumbs.filter((t) => {
     if (pageFilter === "all") return true;
-    if (pageFilter === "bookmarked") return bookmarks.includes(t.page);
+    if (pageFilter === "bookmarked") return bookmarks.some((b) => b.page === t.page);
     if (pageFilter === "highlighted") return annotations[t.page]?.length > 0;
     return true;
   });
@@ -3476,17 +3980,15 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const showChips = chipsToShow.length > 0 &&
     (chatMessages.length === 0 || chatMessages[chatMessages.length - 1]?.role === "assistant") && !chatLoading;
 
-  const saveAsFlashcard = (msg, key) => {
-    const text = plainTextOf(msg).slice(0, 500);
+  // Turns an AI answer into review questions — user previews them, then opts
+  // into the Survival Quiz deck (FSRS). Replaces the old localStorage
+  // flashcard save, which stranded cards outside spaced review.
+  const saveAsQuiz = (msg, key) => {
+    const text = plainTextOf(msg).slice(0, 1200);
     if (!text) return;
-    const front = `Page ${msg.page ?? currentPage} — ${title || "PDF notes"}`;
-    const card = { front, back: text, subject: title || "PDF Notes" };
-    try {
-      const existing = JSON.parse(localStorage.getItem("customFlashcards") || "[]");
-      localStorage.setItem("customFlashcards", JSON.stringify([...existing, card]));
-      setSavedFlashIdx(key);
-      setTimeout(() => setSavedFlashIdx((v) => (v === key ? null : v)), 2500);
-    } catch (e) {}
+    setSavedFlashIdx(key);
+    setTimeout(() => setSavedFlashIdx((v) => (v === key ? null : v)), 2500);
+    genQuizFromText(text, msg.page ?? currentPage);
   };
 
   const reader = (
@@ -3713,8 +4215,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
             {showOverflow && (
               <div style={s.overflowMenu}>
                 <button style={s.overflowItem} onClick={() => { toggleBookmark(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.includes(currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                  {bookmarks.includes(currentPage) ? "Bookmarked" : "Bookmark"}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.some((b) => b.page === currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  {bookmarks.some((b) => b.page === currentPage) ? "Bookmarked" : "Bookmark"}
                 </button>
                 {bookmarks.length > 0 && (
                   <button style={s.overflowItem} onClick={() => { setShowBookmarks((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
@@ -3722,6 +4224,22 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                     Bookmarks ({bookmarks.length})
                   </button>
                 )}
+                {navStackLen > 0 && (
+                  <button style={s.overflowItem} onClick={() => { navBack(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+                    Back to where I was
+                  </button>
+                )}
+                {outline?.length > 0 && (
+                  <button style={s.overflowItem} onClick={() => { setShowOutline((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
+                    Contents
+                  </button>
+                )}
+                <button style={s.overflowItem} onClick={() => { setShowNotes((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  Highlights & notes{flatMarks.length ? ` (${flatMarks.length})` : ""}
+                </button>
                 <button style={s.overflowItem} onClick={() => { toggleTTS(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
                   {speaking ? "Stop reading" : "Read aloud"}
@@ -3871,6 +4389,18 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
         <div style={s.sep} />
 
+        {/* Back to previous location (jump history) */}
+        {navStackLen > 0 && (
+          <button
+            style={{ ...s.iconBtn, color: T.accent }}
+            onClick={navBack}
+            title="Back to where you were"
+            aria-label="Back to previous location"
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+          </button>
+        )}
+
         {/* Page nav */}
         <button style={{ ...s.iconBtn, opacity: currentPage === 1 ? 0.35 : 1 }} onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} title="Previous page" aria-label="Previous page">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6"/></svg>
@@ -3935,11 +4465,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
             {/* Bookmark */}
             <div style={{ position: "relative" }}>
               <button
-                style={{ ...s.iconBtn, color: bookmarks.includes(currentPage) ? T.accent : T.muted }}
+                style={{ ...s.iconBtn, color: bookmarks.some((b) => b.page === currentPage) ? T.accent : T.muted }}
                 onClick={() => { toggleBookmark(); setShowBookmarks((v) => !v); }}
                 title="Bookmark page"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill={bookmarks.includes(currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={bookmarks.some((b) => b.page === currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
               </button>
               {showBookmarks && bookmarks.length > 0 && (
                 <div style={s.bookmarkPanel}>
@@ -3947,17 +4477,87 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                     <span>Bookmarks ({bookmarks.length})</span>
                     <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10, padding: 0 }} onClick={() => { setBookmarks([]); saveStored(`sc_pdf_bookmarks_${docKey}`, []); }}>Clear all</button>
                   </div>
-                  {bookmarks.map((pg) => (
-                    <button key={pg} style={{ ...s.bookmarkItem, flexDirection: "column", alignItems: "flex-start", gap: 2 }} onClick={() => { goToPage(pg); setShowBookmarks(false); }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                        Page {pg}
-                      </div>
-                    </button>
+                  {bookmarks.map((b) => (
+                    <div key={b.page} style={s.bookmarkItem}>
+                      {renamingPage === b.page ? (
+                        <input
+                          autoFocus
+                          defaultValue={b.name}
+                          placeholder={`Page ${b.page}`}
+                          style={s.bookmarkRename}
+                          onKeyDown={(e) => { if (e.key === "Enter") renameBookmark(b.page, e.target.value.trim()); if (e.key === "Escape") setRenamingPage(null); }}
+                          onBlur={(e) => renameBookmark(b.page, e.target.value.trim())}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <button
+                          style={{ flex: 1, background: "none", border: "none", color: "inherit", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 6, padding: 0, fontFamily: "inherit", fontSize: "inherit" }}
+                          onClick={() => { goToPage(b.page); setShowBookmarks(false); }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                          {b.name || `Page ${b.page}`}
+                        </button>
+                      )}
+                      <button style={{ ...s.bookmarkMiniBtn }} title="Rename" onClick={(e) => { e.stopPropagation(); setRenamingPage(b.page); }}>✎</button>
+                      <button style={{ ...s.bookmarkMiniBtn }} title="Remove" onClick={(e) => { e.stopPropagation(); removeBookmark(b.page); }}>✕</button>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Table of contents — only when the PDF ships an outline */}
+            {outline?.length > 0 && (
+              <div style={{ position: "relative" }}>
+                <button
+                  style={{ ...s.iconBtn, color: showOutline ? T.accent : T.muted, background: showOutline ? T.hover : "none" }}
+                  onClick={() => setShowOutline((v) => !v)}
+                  title="Table of contents"
+                  aria-label="Table of contents"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
+                </button>
+                {showOutline && (
+                  <div style={{ ...s.bookmarkPanel, width: 300, maxHeight: "55vh" }}>
+                    <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4 }}>Contents</div>
+                    {outline.map((it, i) => (
+                      <button
+                        key={i}
+                        disabled={it.page == null}
+                        onClick={() => { goToPage(it.page); setShowOutline(false); }}
+                        style={{
+                          ...s.bookmarkItem,
+                          padding: `7px 8px 7px ${8 + it.depth * 14}px`,
+                          fontSize: it.depth === 0 ? 12.5 : 12,
+                          fontWeight: it.depth === 0 ? 600 : 400,
+                          color: it.page == null ? T.muted : T.text,
+                          cursor: it.page == null ? "default" : "pointer",
+                          display: "flex", justifyContent: "space-between", gap: 8,
+                        }}
+                      >
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.title}</span>
+                        {it.page != null && <span style={{ color: T.muted, fontSize: 11, flexShrink: 0 }}>p.{it.page}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Highlights & notes panel */}
+            <button
+              style={{ ...s.iconBtn, color: showNotes ? T.accent : T.muted, background: showNotes ? T.hover : "none", position: "relative" }}
+              onClick={() => setShowNotes((v) => !v)}
+              title="Highlights & notes"
+              aria-label="Highlights and notes"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              {flatMarks.length > 0 && (
+                <span style={{ position: "absolute", top: -2, right: -2, minWidth: 14, height: 14, borderRadius: 7, background: T.accent, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
+                  {flatMarks.length}
+                </span>
+              )}
+            </button>
 
             {/* TTS */}
             <button
@@ -4013,9 +4613,21 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                     placeholder="Search this document…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") runSearch(searchQuery); }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter") return;
+                      if (searchResults.length) goToMatch(searchIdx < 0 ? 0 : (searchIdx + 1) % searchResults.length);
+                      else runSearch(searchQuery);
+                    }}
                   />
-                  <span style={s.searchCount}>{searchResults.length ? `${searchResults.length} ${searchResults.length > 1 ? "matches" : "match"}` : ""}</span>
+                  {searchResults.length > 0 && (
+                    <span style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                      <button style={s.matchNavBtn} title="Previous match" aria-label="Previous match"
+                        onClick={() => goToMatch(searchIdx <= 0 ? searchResults.length - 1 : searchIdx - 1)}>‹</button>
+                      <span style={s.searchCount}>{searchIdx >= 0 ? `${searchIdx + 1}/` : ""}{searchResults.length}</span>
+                      <button style={s.matchNavBtn} title="Next match" aria-label="Next match"
+                        onClick={() => goToMatch((searchIdx + 1) % searchResults.length)}>›</button>
+                    </span>
+                  )}
                 </div>
                 <div style={s.searchResults}>
                   {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
@@ -4023,7 +4635,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                     <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>No matches found.</div>
                   )}
                   {searchResults.map((r, i) => (
-                    <div key={i} style={s.searchItem} onClick={() => { goToPage(r.page); setShowSearch(false); }}>
+                    <div key={i} style={{ ...s.searchItem, ...(i === searchIdx ? { background: T.hover } : {}) }} onClick={() => { goToMatch(i); setShowSearch(false); }}>
                       <span style={s.searchPage}>p.{r.page}</span>
                       <span style={s.searchSnip}>
                         {r.before}<mark style={{ background: T.hover, color: T.accent, fontWeight: 600, borderRadius: "2px" }}>{r.match}</mark>{r.after}
@@ -4096,9 +4708,21 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
               placeholder="Search this document…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") runSearch(searchQuery); }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                if (searchResults.length) goToMatch(searchIdx < 0 ? 0 : (searchIdx + 1) % searchResults.length);
+                else runSearch(searchQuery);
+              }}
             />
-            <span style={s.searchCount}>{searchResults.length ? `${searchResults.length}` : ""}</span>
+            {searchResults.length > 0 && (
+              <span style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                <button style={s.matchNavBtn} title="Previous match" aria-label="Previous match"
+                  onClick={() => goToMatch(searchIdx <= 0 ? searchResults.length - 1 : searchIdx - 1)}>‹</button>
+                <span style={s.searchCount}>{searchIdx >= 0 ? `${searchIdx + 1}/` : ""}{searchResults.length}</span>
+                <button style={s.matchNavBtn} title="Next match" aria-label="Next match"
+                  onClick={() => goToMatch((searchIdx + 1) % searchResults.length)}>›</button>
+              </span>
+            )}
           </div>
           <div style={s.searchResults}>
             {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
@@ -4106,7 +4730,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
               <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>No matches found.</div>
             )}
             {searchResults.map((r, i) => (
-              <div key={i} style={s.searchItem} onClick={() => { goToPage(r.page); setShowSearch(false); }}>
+              <div key={i} style={{ ...s.searchItem, ...(i === searchIdx ? { background: T.hover } : {}) }} onClick={() => { goToMatch(i); setShowSearch(false); }}>
                 <span style={s.searchPage}>p.{r.page}</span>
                 <span style={s.searchSnip}>
                   {r.before}<mark style={{ background: T.hover, color: T.accent, fontWeight: 600 }}>{r.match}</mark>{r.after}
@@ -4119,13 +4743,308 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
       {/* Mobile bookmarks panel */}
       {isMobile && showBookmarks && bookmarks.length > 0 && (
-        <div style={{ position: "absolute", top: 100, right: 8, ...s.bookmarkPanel, width: 180 }}>
+        <div style={{ position: "absolute", top: 100, right: 8, ...s.bookmarkPanel, width: 220 }}>
           <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4 }}>Bookmarks</div>
-          {bookmarks.map((pg) => (
-            <button key={pg} style={s.bookmarkItem} onClick={() => { goToPage(pg); setShowBookmarks(false); }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-              Page {pg}
+          {bookmarks.map((b) => (
+            <div key={b.page} style={s.bookmarkItem}>
+              {renamingPage === b.page ? (
+                <input
+                  autoFocus
+                  defaultValue={b.name}
+                  placeholder={`Page ${b.page}`}
+                  style={s.bookmarkRename}
+                  onKeyDown={(e) => { if (e.key === "Enter") renameBookmark(b.page, e.target.value.trim()); if (e.key === "Escape") setRenamingPage(null); }}
+                  onBlur={(e) => renameBookmark(b.page, e.target.value.trim())}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <button
+                  style={{ flex: 1, background: "none", border: "none", color: "inherit", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 6, padding: 0, fontFamily: "inherit", fontSize: "inherit" }}
+                  onClick={() => { goToPage(b.page); setShowBookmarks(false); }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  {b.name || `Page ${b.page}`}
+                </button>
+              )}
+              <button style={{ ...s.bookmarkMiniBtn }} title="Rename" onClick={(e) => { e.stopPropagation(); setRenamingPage(b.page); }}>✎</button>
+              <button style={{ ...s.bookmarkMiniBtn }} title="Remove" onClick={(e) => { e.stopPropagation(); removeBookmark(b.page); }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile outline / TOC panel */}
+      {isMobile && showOutline && outline?.length > 0 && (
+        <div style={{ position: "absolute", top: 100, left: 8, right: 8, maxHeight: "50vh", overflowY: "auto", zIndex: 55, background: T.toolbar, border: `1px solid ${T.border}`, borderRadius: 10, boxShadow: `0 8px 28px ${T.shadow}`, padding: 6 }}>
+          <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4 }}>Contents</div>
+          {outline.map((it, i) => (
+            <button key={i} disabled={it.page == null} onClick={() => { goToPage(it.page); setShowOutline(false); }}
+              style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: it.page == null ? T.muted : T.text, cursor: it.page == null ? "default" : "pointer", padding: `7px 8px 7px ${8 + it.depth * 14}px`, fontSize: it.depth === 0 ? 12.5 : 12, fontWeight: it.depth === 0 ? 600 : 400, fontFamily: "inherit", borderRadius: 6 }}>
+              {it.title}
+              {it.page != null && <span style={{ float: "right", color: T.muted, fontSize: 11 }}>p.{it.page}</span>}
             </button>
+          ))}
+        </div>
+      )}
+
+      {/* Mobile page-jump sheet — tap the page chip in the nav pill */}
+      {isMobile && pageJumpOpen && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 69, background: "rgba(0,0,0,0.35)" }} onClick={() => setPageJumpOpen(false)} />
+          <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", zIndex: 70, background: T.toolbar, border: `1px solid ${T.border}`, borderRadius: 14, padding: 14, display: "flex", alignItems: "center", gap: 8, boxShadow: `0 8px 28px ${T.shadow}` }}>
+            <span style={{ fontSize: 12, color: T.muted }}>Go to page</span>
+            <input
+              autoFocus
+              type="number" min="1" max={numPages}
+              style={{ ...s.pageInput, width: 64, fontSize: 15, padding: "6px 8px" }}
+              placeholder={String(currentPage)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v)) goToPage(v);
+                setPageJumpOpen(false);
+              }}
+            />
+            <span style={{ fontSize: 12, color: T.muted }}>/ {numPages}</span>
+          </div>
+        </>
+      )}
+
+      {/* ── Text selection popover ── */}
+      {selPop && tool === "none" && (
+        <div
+          style={{
+            position: "fixed",
+            left: selPop.x,
+            ...(selPop.above ? { bottom: window.innerHeight - selPop.y } : { top: selPop.y }),
+            transform: "translateX(-50%)",
+            zIndex: 300,
+            background: T.toolbar,
+            border: `1px solid ${T.border}`,
+            borderRadius: 12,
+            boxShadow: `0 10px 32px ${T.shadow}`,
+            padding: "6px 8px",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            maxWidth: "94vw",
+            flexWrap: "wrap",
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {HIGHLIGHT_COLORS.map((c) => (
+            <button
+              key={c.name}
+              title={`Highlight ${c.name}`}
+              aria-label={`Highlight ${c.name}`}
+              onClick={() => addMark("highlight", c.value)}
+              style={{ width: 22, height: 22, borderRadius: "50%", background: c.value.replace("0.4", "0.85"), border: "1px solid rgba(0,0,0,0.2)", cursor: "pointer", flexShrink: 0 }}
+            />
+          ))}
+          <span style={{ width: 1, height: 18, background: T.border, margin: "0 3px" }} />
+          <button style={s.selPopBtn} onClick={() => { const m = addMark("note", "rgba(255,211,77,0.4)"); if (m) setNoteEdit({ page: m.page, id: m.id }); }}>
+            📝 Note
+          </button>
+          <button style={s.selPopBtn} onClick={() => askAboutSelection("Explain this passage clearly and concisely — under 100 words:")}>✨ Explain</button>
+          <button style={s.selPopBtn} onClick={() => askAboutSelection("Define this term precisely and simply, with one concrete example:")}>📖 Define</button>
+          <button style={s.selPopBtn} onClick={genQuizFromSelection} disabled={quizGenBusy}>❓ Quiz</button>
+          <button style={s.selPopBtn} onClick={copySelection}>📋 Copy</button>
+          <button style={s.selPopBtn} onClick={speakSelection} title="Read aloud" aria-label="Read aloud">🔊</button>
+        </div>
+      )}
+
+      {/* ── Mark context menu (tap an existing highlight) ── */}
+      {markMenu && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 299 }} onClick={() => setMarkMenu(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: Math.max(8, Math.min(window.innerWidth - 200, markMenu.x - 80)),
+              top: Math.max(8, markMenu.y - 8),
+              transform: "translateY(-100%)",
+              zIndex: 300,
+              background: T.toolbar,
+              border: `1px solid ${T.border}`,
+              borderRadius: 12,
+              boxShadow: `0 10px 32px ${T.shadow}`,
+              padding: 6,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              minWidth: 170,
+            }}
+          >
+            <div style={{ fontSize: 11, color: T.muted, padding: "2px 8px 6px", maxHeight: 48, overflow: "hidden" }}>
+              “{markMenu.mark.text.slice(0, 80)}{markMenu.mark.text.length > 80 ? "…" : ""}”
+            </div>
+            <div style={{ display: "flex", gap: 4, padding: "0 4px 4px" }}>
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  title={c.name}
+                  onClick={() => { updateMark(markMenu.mark.page, markMenu.mark.id, { color: c.value }); setMarkMenu(null); }}
+                  style={{ width: 20, height: 20, borderRadius: "50%", background: c.value.replace("0.4", "0.85"), border: markMenu.mark.color === c.value ? "2px solid " + T.text : "1px solid rgba(0,0,0,0.2)", cursor: "pointer" }}
+                />
+              ))}
+            </div>
+            <button style={s.selMenuItem} onClick={() => { setNoteEdit({ page: markMenu.mark.page, id: markMenu.mark.id }); setMarkMenu(null); }}>
+              📝 {markMenu.mark.note ? "Edit note" : "Add note"}
+            </button>
+            <button style={s.selMenuItem} onClick={() => { genQuizFromText(markMenu.mark.text, markMenu.mark.page); }}>❓ Make quiz question</button>
+            <button style={s.selMenuItem} onClick={() => { pendingSelRef.current = { page: markMenu.mark.page, text: markMenu.mark.text, rects: markMenu.mark.rects }; askAboutSelection("Explain this passage clearly and concisely — under 100 words:"); setMarkMenu(null); }}>✨ Ask AI</button>
+            <button style={{ ...s.selMenuItem, color: "#e35d6a" }} onClick={() => { removeMark(markMenu.mark.page, markMenu.mark.id); setMarkMenu(null); }}>
+              🗑 Delete
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ── Margin note editor ── */}
+      {noteEdit && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 299, background: "rgba(0,0,0,0.25)" }} onClick={() => setNoteEdit(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: "50%",
+              ...(isMobile ? { bottom: 90, transform: "translateX(-50%)" } : { top: "35%", transform: "translate(-50%,-50%)" }),
+              width: isMobile ? "92vw" : 340,
+              zIndex: 301,
+              background: T.toolbar,
+              border: `1px solid ${T.border}`,
+              borderRadius: 14,
+              boxShadow: `0 14px 44px ${T.shadow}`,
+              padding: 14,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 8 }}>
+              📝 Note — page {noteEdit.page}
+            </div>
+            <textarea
+              autoFocus
+              rows={3}
+              defaultValue={(textMarks[noteEdit.page] || []).find((m) => m.id === noteEdit.id)?.note || ""}
+              placeholder="Add a margin note…"
+              style={{ width: "100%", boxSizing: "border-box", background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontSize: 13, padding: "8px 10px", fontFamily: "inherit", resize: "vertical" }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { updateMark(noteEdit.page, noteEdit.id, { note: e.target.value.trim(), kind: e.target.value.trim() ? "note" : "highlight" }); setNoteEdit(null); } }}
+              id="sc-note-edit"
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "flex-end" }}>
+              <button style={s.selPopBtn} onClick={() => setNoteEdit(null)}>Cancel</button>
+              <button
+                style={{ ...s.selPopBtn, background: T.accent, color: "#fff", border: "none" }}
+                onClick={() => {
+                  const v = document.getElementById("sc-note-edit")?.value?.trim() || "";
+                  updateMark(noteEdit.page, noteEdit.id, { note: v, kind: v ? "note" : "highlight" });
+                  setNoteEdit(null);
+                }}
+              >
+                Save note
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Quiz draft preview — review before adding to the deck ── */}
+      {quizDraft && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 299, background: "rgba(0,0,0,0.4)" }} onClick={() => setQuizDraft(null)} />
+          <div
+            style={{
+              position: "fixed",
+              left: "50%", top: "50%", transform: "translate(-50%,-50%)",
+              width: isMobile ? "94vw" : 480,
+              maxHeight: "82vh",
+              overflowY: "auto",
+              zIndex: 301,
+              background: T.toolbar,
+              border: `1px solid ${T.border}`,
+              borderRadius: 16,
+              boxShadow: `0 18px 50px ${T.shadow}`,
+              padding: 18,
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 800, color: T.text }}>❓ Review questions</div>
+            <div style={{ fontSize: 11.5, color: T.muted, margin: "4px 0 12px", lineHeight: 1.5 }}>
+              From page {quizDraft.page} — “{quizDraft.sourceText.slice(0, 90)}{quizDraft.sourceText.length > 90 ? "…" : ""}”.
+              Keep the ones worth reviewing; they'll join your <b>Survival Quiz deck</b> with FSRS scheduling.
+            </div>
+            {quizDraft.questions.map((q, qi) => (
+              <label key={qi} style={{ display: "flex", gap: 10, padding: "10px", border: `1px solid ${T.border}`, borderRadius: 10, marginBottom: 8, cursor: "pointer", background: q._keep ? T.hover : "transparent", alignItems: "flex-start" }}>
+                <input
+                  type="checkbox"
+                  checked={q._keep}
+                  onChange={() => setQuizDraft((d) => ({ ...d, questions: d.questions.map((x, xi) => xi === qi ? { ...x, _keep: !x._keep } : x) }))}
+                  style={{ marginTop: 3 }}
+                />
+                <span style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>
+                  <b>{q.question}</b>
+                  <span style={{ display: "block", marginTop: 4, color: T.muted }}>
+                    {Object.entries(q.options).map(([k, v]) => (
+                      <span key={k} style={{ display: "block" }}>
+                        {k === q.correct ? "✅" : "▫️"} {k}. {v}
+                      </span>
+                    ))}
+                    {q.explanation && <span style={{ display: "block", marginTop: 3, fontStyle: "italic" }}>{q.explanation}</span>}
+                  </span>
+                </span>
+              </label>
+            ))}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+              <button style={s.selPopBtn} onClick={() => setQuizDraft(null)}>Discard</button>
+              <button
+                style={{ ...s.selPopBtn, background: CHROME.gold, color: "#1a1300", border: "none", fontWeight: 700 }}
+                onClick={addDraftToDeck}
+                disabled={quizGenBusy || !quizDraft.questions.some((q) => q._keep)}
+              >
+                {quizGenBusy ? "Saving…" : `➕ Add ${quizDraft.questions.filter((q) => q._keep).length} to my deck`}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Deck toast ── */}
+      {deckToast && (
+        <div
+          style={{
+            position: "fixed", bottom: isMobile ? 100 : 30, left: "50%", transform: "translateX(-50%)",
+            zIndex: 400, background: deckToast.type === "error" ? "#5a1f28" : "#123a24",
+            color: "#fff", padding: "10px 18px", borderRadius: 999, fontSize: 12.5, fontWeight: 600,
+            boxShadow: "0 8px 26px rgba(0,0,0,0.4)", maxWidth: "92vw", textAlign: "center",
+          }}
+        >
+          {deckToast.text}
+        </div>
+      )}
+
+      {/* ── Notes panel (all marks across the document) ── */}
+      {showNotes && (
+        <div style={{ position: "fixed", top: 110, ...(isMobile ? { left: 8, right: 8 } : { right: 16 }), width: isMobile ? "auto" : 320, maxHeight: "60vh", overflowY: "auto", zIndex: 200, background: T.toolbar, border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: `0 10px 32px ${T.shadow}`, padding: 8 }}>
+          <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+            <span>Highlights & notes ({flatMarks.length})</span>
+            <button style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10 }} onClick={() => setShowNotes(false)}>Close</button>
+          </div>
+          {flatMarks.length === 0 && (
+            <div style={{ padding: "16px 12px", fontSize: 12, color: T.muted, lineHeight: 1.5 }}>
+              Select text on the page to highlight it, add a note, or turn it into a quiz question.
+            </div>
+          )}
+          {flatMarks.map((m) => (
+            <div key={m.id} style={{ ...s.searchItem, borderBottom: `1px solid ${T.border}` }} onClick={() => { jumpToMark(m.page, m.id); setShowNotes(false); }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: m.color.replace("0.4", "0.9"), flexShrink: 0 }} />
+                <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 10, color: T.accent }}>p.{m.page}</span>
+                {m.note && <span style={{ fontSize: 10, color: T.muted }}>📝</span>}
+              </span>
+              <span style={{ display: "block", fontSize: 12, color: T.text, lineHeight: 1.4 }}>
+                “{m.text.slice(0, 110)}{m.text.length > 110 ? "…" : ""}”
+              </span>
+              {m.note && <span style={{ display: "block", fontSize: 11.5, color: T.muted, marginTop: 2 }}>📝 {m.note}</span>}
+            </div>
           ))}
         </div>
       )}
@@ -4356,6 +5275,30 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                   }}
                 />
               )}
+              {/* Text-anchored highlights + notes (normalized rect overlays) */}
+              {(textMarks[currentPage] || []).map((m) =>
+                m.rects.map((r, ri) => (
+                  <div
+                    key={`${m.id}:${ri}`}
+                    data-mark={m.id}
+                    onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: m, x: e.clientX, y: e.clientY }); }}
+                    title={m.note || undefined}
+                    style={{
+                      position: "absolute",
+                      left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
+                      width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
+                      background: m.color,
+                      mixBlendMode: theme === "dark" ? "screen" : "multiply",
+                      borderRadius: 2,
+                      zIndex: 6,
+                      cursor: "pointer",
+                      borderBottom: m.note ? `2px solid ${T.accent}` : "none",
+                      boxShadow: flashMark === m.id ? "0 0 0 3px rgba(255,171,64,0.9)" : "none",
+                      transition: "box-shadow 0.3s ease",
+                    }}
+                  />
+                ))
+              )}
               <svg
                 ref={lassoSvgRef}
                 style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none" }}
@@ -4435,6 +5378,30 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                             mixBlendMode: theme === "dark" ? "difference" : "normal",
                           }}
                         />
+                      )}
+                      {/* Text-anchored highlights + notes */}
+                      {(textMarks[pg] || []).map((m) =>
+                        m.rects.map((r, ri) => (
+                          <div
+                            key={`${m.id}:${ri}`}
+                            data-mark={m.id}
+                            onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: m, x: e.clientX, y: e.clientY }); }}
+                            title={m.note || undefined}
+                            style={{
+                              position: "absolute",
+                              left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
+                              width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
+                              background: m.color,
+                              mixBlendMode: theme === "dark" ? "screen" : "multiply",
+                              borderRadius: 2,
+                              zIndex: 6,
+                              cursor: "pointer",
+                              borderBottom: m.note ? `2px solid ${T.accent}` : "none",
+                              boxShadow: flashMark === m.id ? "0 0 0 3px rgba(255,171,64,0.9)" : "none",
+                              transition: "box-shadow 0.3s ease",
+                            }}
+                          />
+                        ))
                       )}
                       {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
                       {(
@@ -4568,22 +5535,44 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                               const key = `${i}:${j}`;
                               const res = quizResults[key];
                               return (
-                                <McqCard
-                                  key={j}
-                                  mcq={seg.mcq}
-                                  T={T}
-                                  qNum={qNum}
-                                  stats={quizStats}
-                                  picked={res?.picked ?? null}
-                                  onPick={(orig) => {
-                                    setQuizResults((prev) => ({
-                                      ...prev,
-                                      [key]: { picked: orig, correct: orig === seg.mcq.answer },
-                                    }));
-                                    handleChatQuizPick(seg.mcq, orig);
-                                  }}
-                                  onNext={() => requestNextQuestion(res)}
-                                />
+                                <div key={j}>
+                                  <McqCard
+                                    mcq={seg.mcq}
+                                    T={T}
+                                    qNum={qNum}
+                                    stats={quizStats}
+                                    picked={res?.picked ?? null}
+                                    onPick={(orig) => {
+                                      setQuizResults((prev) => ({
+                                        ...prev,
+                                        [key]: { picked: orig, correct: orig === seg.mcq.answer },
+                                      }));
+                                      handleChatQuizPick(seg.mcq, orig);
+                                    }}
+                                    onNext={() => requestNextQuestion(res)}
+                                  />
+                                  {res && (
+                                    <div style={{ marginTop: -4, marginBottom: 8, marginLeft: 2 }}>
+                                      {!deckHintSeen && !deckAddedKeys[key] && (
+                                        <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 2 }}>
+                                          Your deck powers Survival Quiz & daily review — keep questions worth remembering.
+                                        </div>
+                                      )}
+                                      <button
+                                        style={{
+                                          background: "none", border: "none", cursor: deckAddedKeys[key] ? "default" : "pointer",
+                                          color: deckAddedKeys[key] ? "#3d9970" : T.accent,
+                                          fontSize: 11.5, fontWeight: 600, padding: "2px 4px", fontFamily: "inherit",
+                                        }}
+                                        onClick={() => addChatMcqToDeck(seg.mcq, msg.page, key)}
+                                        disabled={!!deckAddedKeys[key]}
+                                        title="Save this question to your Survival Quiz deck (FSRS-scheduled)"
+                                      >
+                                        {deckAddedKeys[key] ? "✓ In your deck" : "＋ Add to deck"}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               );
                             }
                             if (seg.type === "mcq_error") {
@@ -4620,11 +5609,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                               </button>
                               <button
                                 style={s.msgActionBtn}
-                                onClick={() => saveAsFlashcard(msg, i)}
-                                disabled={savedFlashIdx === i}
-                                aria-label="Save answer as flashcard"
+                                onClick={() => saveAsQuiz(msg, i)}
+                                disabled={savedFlashIdx === i || quizGenBusy}
+                                aria-label="Turn this answer into deck questions"
                               >
-                                {savedFlashIdx === i ? "✓ Saved" : "🔖 Save"}
+                                {savedFlashIdx === i ? "✓ Queued" : "❓ Quiz"}
                               </button>
                               {i === chatMessages.length - 1 && (
                                 <button style={s.msgActionBtn} onClick={retryLastMessage} aria-label="Regenerate answer">
@@ -4712,7 +5701,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
                 </button>
-                <span style={s.pageChip}>{currentPage} / {numPages}</span>
+                <button
+                  style={{ ...s.pageChip, background: "none", border: "none", cursor: "pointer" }}
+                  onClick={() => setPageJumpOpen(true)}
+                  title="Jump to page"
+                  aria-label="Jump to page"
+                >
+                  {currentPage} / {numPages}
+                </button>
                 <button
                   style={{ ...s.navBtn, opacity: currentPage >= numPages ? 0.35 : 1 }}
                   onClick={() => goToPage(currentPage + 1)}

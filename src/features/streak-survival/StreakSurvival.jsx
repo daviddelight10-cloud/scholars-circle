@@ -1502,6 +1502,17 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
                 </span>
               </div>
 
+              {shownQ._srcToken && (
+                <button
+                  type="button"
+                  className="src-chip"
+                  title={`From ${shownQ._srcTitle || "a PDF"}${shownQ._srcPage ? `, page ${shownQ._srcPage}` : ""} — tap to open the source`}
+                  onClick={() => window.open(`/resources/${shownQ._srcToken}${shownQ._srcPage ? `?page=${shownQ._srcPage}` : ""}`, "_blank", "noopener")}
+                >
+                  📄 {shownQ._srcTitle || "Source PDF"}{shownQ._srcPage ? ` · p.${shownQ._srcPage}` : ""} ↗
+                </button>
+              )}
+
               <div className="qtext">{shownQ.q}</div>
 
               {/* Speed timer — only once the answer surface is visible: never

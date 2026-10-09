@@ -60,6 +60,11 @@ export function normalizeQuestion(mcq, idx = 0, resourceId = null, itemType = 'm
     _resourceId: resourceId,
     _pageIndex: idx,
     _itemType: itemType,
+    // Provenance for PDF-generated questions (set by /deck/add)
+    _src: mcq._src || null,
+    _srcTitle: mcq._srcTitle || null,
+    _srcPage: mcq._srcPage || null,
+    _srcToken: mcq._srcToken || null,
   };
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { getSubjectBadgeColor, getContentTypeIcon, getContentTypeIconClass } from "../lib/researchUtils";
 import { recordRecentDoc } from "../lib/homeUtils.js";
 import PdfReader from "./PdfReader.jsx";
@@ -25,7 +25,10 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplete, onStreakUpdate, onXpUpdate, onOpenResource, initialPage } = {}) {
   const params = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const token = tokenProp || params.token;
+  // Deep links like /resources/<token>?page=14 open straight at that page
+  const effectiveInitialPage = initialPage ?? (searchParams.get("page") ? parseInt(searchParams.get("page"), 10) : null);
 
   // Fallback: dispatch global XP event when onXpUpdate prop is not provided (standalone route)
   const handleXpUpdate = useCallback((xpGained) => {
@@ -293,7 +296,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
             initialFullscreen={true}
             resourceId={resource.id}
             folderId={resource.folderId}
-            initialPage={initialPage}
+            initialPage={effectiveInitialPage}
             onBack={onBack || (() => {
               window.dispatchEvent(new CustomEvent("sc-open-research-hub"));
               navigate("/app");

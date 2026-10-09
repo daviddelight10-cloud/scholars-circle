@@ -491,6 +491,19 @@ export default function DailyReview({ onBack, onComplete }) {
           </div>
         )}
 
+        {/* Source link — PDF-generated questions carry _src* provenance */}
+        {currentItem.mcq?._srcToken && (
+          <div className="mb-3 text-center">
+            <button
+              type="button"
+              className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
+              onClick={() => window.open(`/resources/${currentItem.mcq._srcToken}${currentItem.mcq._srcPage ? `?page=${currentItem.mcq._srcPage}` : ""}`, "_blank", "noopener")}
+            >
+              📄 {currentItem.mcq._srcTitle || "Source PDF"}{currentItem.mcq._srcPage ? ` · p.${currentItem.mcq._srcPage}` : ""} ↗
+            </button>
+          </div>
+        )}
+
         {/* MCQ items use the Streak Survival practice card (auto-graded via FSRS-6) */}
         {isMcqItem(currentItem) && currentItem.mcq ? (
           <div className="w-full">

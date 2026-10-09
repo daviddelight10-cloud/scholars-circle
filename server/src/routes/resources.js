@@ -1302,6 +1302,132 @@ router.post("/fsrs/init", requireAuth, async (req, res) => {
   }
 });
 
+// ── POST /api/resources/deck/add — Save PDF-generated questions into the
+// user's per-source "Survival Quiz deck" (a private MCQ resource), then seed
+// FSRS review items so the questions enter spaced repetition. ──
+router.post("/deck/add", requireAuth, async (req, res) => {
+  try {
+    const { sourceResourceId, sourceTitle, questions } = req.body;
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ error: "questions must be a non-empty array" });
+    }
+    if (questions.length > 20) {
+      return res.status(400).json({ error: "Too many questions at once (max 20)" });
+    }
+
+    // Validate + normalize each question into the app MCQ shape
+    const LETTERS = "ABCDEF";
+    const clean = [];
+    for (const q of questions) {
+      const question = String(q.question || "").trim().slice(0, 1000);
+      const rawOpts = q.options;
+      const opts = rawOpts && typeof rawOpts === "object" && !Array.isArray(rawOpts)
+        ? Object.fromEntries(Object.entries(rawOpts).slice(0, 6).map(([k, v]) => [String(k).trim().toUpperCase().slice(0, 1), String(v).slice(0, 500)]))
+        : Object.fromEntries((Array.isArray(rawOpts) ? rawOpts : []).slice(0, 6).map((o, i) => [LETTERS[i], String(o).slice(0, 500)]));
+      const correct = String(q.correct ?? "").trim().toUpperCase().slice(0, 1);
+      if (!question || Object.keys(opts).length < 2 || !opts[correct]) continue;
+      const entry = { question, options: opts, correct, explanation: String(q.explanation || "").slice(0, 600) };
+      if (q.hint) entry.hint = String(q.hint).slice(0, 300);
+      if (q.sourcePage != null) entry._srcPage = Math.max(1, Math.round(Number(q.sourcePage) || 0)) || null;
+      if (q.quote) entry._quote = String(q.quote).slice(0, 300);
+      clean.push(entry);
+    }
+    if (!clean.length) return res.status(400).json({ error: "No valid questions provided" });
+
+    // Resolve the source resource for deck naming, filing and provenance
+    let source = null;
+    if (sourceResourceId) {
+      source = await prisma.resource.findUnique({
+        where: { id: sourceResourceId },
+        select: { id: true, title: true, subject: true, folderId: true, shareToken: true },
+      }).catch(() => null);
+    }
+    const deckTitle = source ? `Quiz · ${source.title}`.slice(0, 120) : "My PDF Quizzes";
+
+    // Find-or-create deck. fileName="__quiz_deck__" is a stable identity
+    // marker so a user rename can't orphan the deck.
+    let deck = await prisma.resource.findFirst({
+      where: {
+        uploadedBy: req.user.sub,
+        contentType: "mcq",
+        fileName: "__quiz_deck__",
+        sourceResourceId: source?.id || null,
+      },
+    });
+    if (!deck) {
+      deck = await prisma.resource.create({
+        data: {
+          title: deckTitle,
+          subject: source?.subject || "",
+          contentType: "mcq",
+          fileName: "__quiz_deck__",
+          mcqData: [],
+          uploadedBy: req.user.sub,
+          isPremium: false,
+          status: "private",
+          folderId: source?.folderId || null,
+          sourceResourceId: source?.id || null,
+          shareToken: await generateShareToken(),
+        },
+      });
+      await prisma.resourceBookmark.upsert({
+        where: { resourceId_userId: { resourceId: deck.id, userId: req.user.sub } },
+        create: { resourceId: deck.id, userId: req.user.sub },
+        update: {},
+      }).catch(() => {});
+    }
+
+    // mcqData is position-indexed by PdfReviewItem.pageIndex — APPEND ONLY.
+    const existing = Array.isArray(deck.mcqData)
+      ? deck.mcqData
+      : typeof deck.mcqData === "string" ? JSON.parse(deck.mcqData) : [];
+    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const seen = new Set(existing.map((m) => norm(m.question)));
+    const toAdd = clean.filter((q) => {
+      const k = norm(q.question);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    const skipped = clean.length - toAdd.length;
+    if (!toAdd.length) {
+      return res.json({ deckId: deck.id, deckToken: deck.shareToken, added: 0, skipped, total: existing.length });
+    }
+    const merged = [...existing, ...toAdd.map((q) => ({
+      ...q,
+      _gen: "pdf",
+      _src: source?.id || null,
+      _srcTitle: source?.title || (sourceTitle ? String(sourceTitle).slice(0, 120) : null),
+      _srcToken: source?.shareToken || null,
+    }))];
+    if (merged.length > 400) {
+      return res.status(400).json({ error: "This deck is full (400 questions) — trim it first." });
+    }
+    await prisma.resource.update({ where: { id: deck.id }, data: { mcqData: merged } });
+
+    // Seed FSRS items for the appended indexes — they arrive "new" and due now
+    const startIdx = existing.length;
+    for (let i = 0; i < toAdd.length; i++) {
+      await prisma.pdfReviewItem.create({
+        data: {
+          userId: req.user.sub,
+          resourceId: deck.id,
+          itemType: "mcq",
+          pageIndex: startIdx + i,
+          flashcardId: "none",
+          topic: source?.title || deckTitle,
+          subject: source?.subject || null,
+        },
+      }).catch(() => {});
+    }
+
+    res.json({ deckId: deck.id, deckToken: deck.shareToken, added: toAdd.length, skipped, total: merged.length });
+  } catch (error) {
+    console.error("Error adding to deck:", error);
+    res.status(500).json({ error: "Failed to add to deck" });
+  }
+});
+
 // ── POST /api/resources/fsrs/rate — Rate any review item ──
 router.post("/fsrs/rate", requireAuth, async (req, res) => {
   try {
