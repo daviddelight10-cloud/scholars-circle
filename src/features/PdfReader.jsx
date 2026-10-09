@@ -2703,6 +2703,57 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
     if (voiceActive) setVoiceMinimized(true);
   };
 
+  // ── Kindle-style tap zones ── center tap toggles chrome, edge taps turn
+  // pages in the paged modes. Ignores drags, selections, mark taps and any
+  // active tool/zoom state. Touch taps defer 280ms so the existing
+  // double-tap-to-zoom gesture always wins.
+  const tapStartRef = useRef(null);
+  const tapActionRef = useRef(null);
+  const onViewerPointerDown = (e) => {
+    tapStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+  };
+  const onViewerTap = (e) => {
+    if (e.detail > 1) { clearTimeout(tapActionRef.current); return; } // double-click — the zoom gesture owns it
+    if (tool !== "none" || pinchActive || panZoom.scale !== 1) return;
+    if (e.target.closest("[data-mark], button, a, input, textarea, select, [role='button']")) return;
+    if (window.getSelection && !window.getSelection().isCollapsed) return;
+    const st = tapStartRef.current;
+    tapStartRef.current = null;
+    if (st && (Math.abs(e.clientX - st.x) > 10 || Math.abs(e.clientY - st.y) > 10 || Date.now() - st.t > 600)) return;
+    const rect = viewerRef.current?.getBoundingClientRect();
+    const w = rect?.width || window.innerWidth;
+    const x = ((e.clientX - (rect?.left || 0)) / w);
+    const act = () => {
+      if (x < 0.2) {
+        if (scrollMode !== "vertical") goToPage(currentPage - 1);
+      } else if (x > 0.8) {
+        if (scrollMode !== "vertical") goToPage(currentPage + 1);
+      } else {
+        setChromeHidden((v) => !v);
+        closeAllMobileOverlays();
+      }
+    };
+    clearTimeout(tapActionRef.current);
+    tapActionRef.current = setTimeout(act, e.pointerType === "touch" ? 280 : 0);
+  };
+
+  // ── Presentation mode ── fullscreen + single page + hidden chrome; edge
+  // taps/arrow keys advance. Esc (existing fullscreen exit) restores chrome.
+  const presentationRef = useRef(false);
+  const enterPresentation = () => {
+    presentationRef.current = true;
+    setScrollMode("single");
+    setChromeHidden(true);
+    closeAllMobileOverlays();
+    setFullscreen(true);
+  };
+  useEffect(() => {
+    if (!fullscreen && presentationRef.current) {
+      presentationRef.current = false;
+      setChromeHidden(false);
+    }
+  }, [fullscreen]);
+
   // ---- Theme persistence ----
   useEffect(() => { saveStored("sc_pdf_theme", theme); }, [theme]);
   useEffect(() => { saveStored("sc_pdf_bright", readerBrightness); }, [readerBrightness]);
@@ -2889,8 +2940,9 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
   }, []);
 
   // ---- Resume reading — auto-navigate to last page ----
+  // Explicit initialPage deep links (?page=N, provenance chips) always win.
   useEffect(() => {
-    if (loading) return;
+    if (loading || initialPage) return;
     const saved = loadStored(`sc_pdf_lastpage_${docKey}`, null);
     if (!saved || saved <= 1 || !pdfDocRef.current) return;
     const clamped = Math.min(saved, pdfDocRef.current.numPages);
@@ -4522,6 +4574,10 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
                   Fullscreen
                 </button>
+                <button style={s.overflowItem} onClick={() => { enterPresentation(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                  Present (slides mode)
+                </button>
                 <div style={{ ...s.overflowItem, cursor: "default", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
                   <span style={{ fontSize: 11, color: T.muted }}>View mode</span>
                   <div style={{ display: "flex", gap: 6 }}>
@@ -4999,6 +5055,16 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
               ) : (
                 <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
               )}
+            </button>
+
+            {/* Presentation mode */}
+            <button
+              style={s.iconBtn}
+              onClick={enterPresentation}
+              title="Present — fullscreen slides (Esc exits)"
+              aria-label="Presentation mode"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
             </button>
         </div>
       )}
@@ -5501,6 +5567,8 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
           style={s.viewer}
           onTouchStart={onTouchStartViewer}
           onTouchEnd={onTouchEndViewer}
+          onPointerDown={onViewerPointerDown}
+          onClick={onViewerTap}
         >
           {/* Zoom indicator badge */}
           {showZoomIndicator && (
