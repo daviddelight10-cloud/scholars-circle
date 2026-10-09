@@ -1428,6 +1428,68 @@ router.post("/deck/add", requireAuth, async (req, res) => {
   }
 });
 
+// ── GET /api/resources/reader-state/:docKey — hydrate per-doc reader state ──
+// docKey = the client's hash of the file URL (same key the reader uses for
+// localStorage), so a user's annotations follow the document across devices.
+router.get("/reader-state/:docKey", requireAuth, async (req, res) => {
+  try {
+    const docKey = String(req.params.docKey || "").slice(0, 200);
+    if (!docKey) return res.status(400).json({ error: "docKey required" });
+    const row = await prisma.pdfReaderState.findUnique({
+      where: { userId_docKey: { userId: req.user.sub, docKey } },
+    });
+    res.json({ state: row || null });
+  } catch (error) {
+    console.error("Error loading reader state:", error);
+    res.status(500).json({ error: "Failed to load reader state" });
+  }
+});
+
+// ── PUT /api/resources/reader-state/:docKey — upsert reader state ──
+// Client sends only the fields that changed; each replaces wholesale.
+// Size-guarded so a huge doc can't blow up the row.
+const READER_STATE_FIELDS = ["lastPage", "scrollMode", "annotations", "marks", "bookmarks", "stats", "chat", "resourceId"];
+const READER_STATE_MAX_BYTES = 600_000;
+router.put("/reader-state/:docKey", requireAuth, async (req, res) => {
+  try {
+    const docKey = String(req.params.docKey || "").slice(0, 200);
+    if (!docKey) return res.status(400).json({ error: "docKey required" });
+
+    const patch = {};
+    for (const k of READER_STATE_FIELDS) {
+      if (!(k in (req.body || {}))) continue;
+      const v = req.body[k];
+      if (v === undefined) continue;
+      patch[k] = v;
+    }
+    if (patch.lastPage != null) {
+      const n = Math.round(Number(patch.lastPage));
+      patch.lastPage = Number.isFinite(n) && n > 0 ? Math.min(n, 100000) : null;
+    }
+    if (patch.scrollMode != null && !["vertical", "horizontal", "single"].includes(patch.scrollMode)) {
+      delete patch.scrollMode;
+    }
+    if (patch.resourceId != null && typeof patch.resourceId !== "string") delete patch.resourceId;
+    if (Array.isArray(patch.chat)) patch.chat = patch.chat.slice(-60); // cap history
+    if (!Object.keys(patch).length) return res.status(400).json({ error: "No state fields provided" });
+
+    const serialized = JSON.stringify(patch);
+    if (serialized.length > READER_STATE_MAX_BYTES) {
+      return res.status(413).json({ error: "Reader state too large" });
+    }
+
+    const row = await prisma.pdfReaderState.upsert({
+      where: { userId_docKey: { userId: req.user.sub, docKey } },
+      create: { userId: req.user.sub, docKey, ...patch },
+      update: patch,
+    });
+    res.json({ ok: true, updatedAt: row.updatedAt });
+  } catch (error) {
+    console.error("Error saving reader state:", error);
+    res.status(500).json({ error: "Failed to save reader state" });
+  }
+});
+
 // ── POST /api/resources/fsrs/rate — Rate any review item ──
 router.post("/fsrs/rate", requireAuth, async (req, res) => {
   try {

@@ -35,6 +35,14 @@ const THEMES = {
     inputBg: "#0f1626", chatBot: "#16213e", thumbBg: "#16213e",
     shadow: "rgba(0,0,0,0.40)", chipBg: "#1a1a2e",
   },
+  // "dim" — image-safe night reading: the page is dimmed, not inverted, so
+  // diagrams, photos and scans keep their true colors.
+  dim: {
+    bg: "#101014", toolbar: "#17171c", border: "#2a2a33", text: "#d8d8dc",
+    muted: "#8f8f9a", accent: "#f0a500", hover: "rgba(240,165,0,0.14)",
+    inputBg: "#1d1d24", chatBot: "#1d1d24", thumbBg: "#17171c",
+    shadow: "rgba(0,0,0,0.45)", chipBg: "#1d1d24",
+  },
   sepia: {
     bg: "#F5EFDD", toolbar: "#EFE8D3", border: "#DED2B0", text: "#3A3A3A",
     muted: "#6E6656", accent: "#8B5E34", hover: "rgba(139,94,52,0.10)",
@@ -99,6 +107,49 @@ function saveStored(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
+// ── Reader-state merge helpers (server ↔ local hydration) ────────────────
+// Union-merge page-keyed arrays. Dedupe by id when present, else by content.
+function mergePageArrays(serverMap, localMap) {
+  const out = {};
+  for (const [pg, arr] of Object.entries(serverMap || {})) {
+    if (Array.isArray(arr) && arr.length) out[pg] = [...arr];
+  }
+  for (const [pg, arr] of Object.entries(localMap || {})) {
+    const s = out[pg] || [];
+    const seen = new Set(s.map((x) => (x && x.id) || JSON.stringify(x)));
+    const extra = (Array.isArray(arr) ? arr : []).filter((x) => !seen.has((x && x.id) || JSON.stringify(x)));
+    const merged = [...s, ...extra];
+    if (merged.length) out[pg] = merged;
+  }
+  return out;
+}
+
+function mergeBookmarkList(serverList, localList) {
+  const norm = (b) => (typeof b === "number" ? { page: b, name: "" } : b);
+  const byPage = new Map();
+  for (const b of (localList || []).map(norm).filter((b) => b && b.page > 0)) byPage.set(b.page, b);
+  for (const b of (serverList || []).map(norm).filter((b) => b && b.page > 0)) {
+    const cur = byPage.get(b.page);
+    // Prefer the entry that has a name; otherwise keep local (most recent)
+    if (!cur || (!cur.name && b.name)) byPage.set(b.page, b);
+  }
+  return [...byPage.values()].sort((a, b) => a.page - b.page);
+}
+
+function mergeReaderStats(server, local) {
+  const pageTimes = { ...(server?.pageTimes || {}) };
+  for (const [pg, sec] of Object.entries(local?.pageTimes || {})) {
+    pageTimes[pg] = Math.max(pageTimes[pg] || 0, sec);
+  }
+  const pagesRead = [...new Set([...(server?.pagesRead || []), ...(local?.pagesRead || [])])].sort((a, b) => a - b);
+  return {
+    pageTimes,
+    pagesRead,
+    sessionStart: Date.now(),
+    totalSeconds: Math.max(server?.totalSeconds || 0, local?.totalSeconds || 0),
+  };
+}
+
 // Route through backend proxy to avoid CORS issues with R2
 function getProxiedUrl(fileUrl) {
   if (!fileUrl) return null;
@@ -114,6 +165,49 @@ async function fetchProxiedPdf(fileUrl) {
   if (!res.ok) throw new Error(`Failed to fetch PDF (${res.status})`);
   const buffer = await res.arrayBuffer();
   return new Uint8Array(buffer);
+}
+
+// ── Offline copies (IndexedDB) ───────────────────────────────────────────
+// Stores the raw PDF bytes keyed by docKey so the reader can open the
+// document with no network at all (PWA shell + bundled pdf.js are already
+// precached by the service worker).
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("sc_pdf_offline", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("files");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGetFile(key) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((resolve) => {
+      const req = db.transaction("files", "readonly").objectStore("files").get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch { return null; }
+}
+async function idbPutFile(key, blob) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    tx.objectStore("files").put(blob, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDelFile(key) {
+  try {
+    const db = await idbOpen();
+    await new Promise((resolve) => {
+      const tx = db.transaction("files", "readwrite");
+      tx.objectStore("files").delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {}
 }
 
 // pdf.js is bundled via ../lib/pdfjs.js — no CDN script tags needed.
@@ -195,7 +289,20 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
 
   // Theme
   const [theme, setTheme] = useState(() => loadStored("sc_pdf_theme", "light"));
+  const [readerBrightness, setReaderBrightness] = useState(() => loadStored("sc_pdf_bright", 1));
   const T = THEMES[theme];
+
+  // Page-canvas filter: theme base + user brightness multiplier.
+  // "dark" inverts (classic night reader); "dim" only dims — the image-safe
+  // mode where figures/scans keep true colors.
+  const pageCssFilter = () => {
+    const base = theme === "dark" ? "invert(1) hue-rotate(180deg)"
+      : theme === "dim" ? "brightness(0.72)"
+      : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)"
+      : "";
+    const b = readerBrightness !== 1 ? ` brightness(${readerBrightness.toFixed(2)})` : "";
+    return (base + b) || "none";
+  };
 
   // Tool mode: "none" | "highlight" | "erase" | "circle" | "pen"
   const [tool, setTool] = useState("none");
@@ -413,7 +520,19 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         setLoadError("");
         const pdfjs = await loadPdfJs();
         if (cancelled) return;
-        const pdfData = await fetchProxiedPdf(fileUrl);
+        let pdfData;
+        try {
+          pdfData = await fetchProxiedPdf(fileUrl);
+          pdfBytesRef.current = pdfData;
+        } catch (netErr) {
+          // Offline fallback — open the IndexedDB copy if one was saved
+          const blob = await idbGetFile(docKey);
+          if (!blob) throw netErr;
+          pdfData = new Uint8Array(await blob.arrayBuffer());
+          setDeckToast({ type: "ok", text: "📴 Opened offline copy" });
+          setTimeout(() => setDeckToast(null), 3000);
+          setOfflineInfo({ size: pdfData.byteLength });
+        }
         if (cancelled) return;
         const loadingTask = pdfjs.getDocument({ data: pdfData });
         const pdf = await loadingTask.promise;
@@ -1163,7 +1282,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       if (e.key === "+" || e.key === "=") { handleZoomIn(); }
       if (e.key === "-" || e.key === "_") { handleZoomOut(); }
       if (e.key === "b") toggleBookmark();
-      if (e.key === "t") setTheme((t) => t === "light" ? "dark" : t === "dark" ? "sepia" : "light");
+      if (e.key === "t") setTheme((t) => t === "light" ? "dim" : t === "dim" ? "dark" : t === "dark" ? "sepia" : "light");
       if (e.key === "f") setFullscreen((v) => !v);
       if (e.key === "h") toggleTool("highlight");
     };
@@ -1964,6 +2083,44 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
     }
   };
 
+  // ── Offline copy ── keep the fetched bytes so "Save offline" doesn't
+  // re-download; IndexedDB fallback opens the doc with no network.
+  const pdfBytesRef = useRef(null);
+  const [offlineInfo, setOfflineInfo] = useState(null); // null | { size } | "saving"
+
+  useEffect(() => {
+    if (!docKey) return;
+    let live = true;
+    idbGetFile(docKey).then((blob) => {
+      if (live && blob) setOfflineInfo({ size: blob.size || blob.byteLength || 0 });
+    });
+    return () => { live = false; };
+  }, [docKey]);
+
+  const toggleOfflineCopy = async () => {
+    if (offlineInfo === "saving") return;
+    if (offlineInfo) {
+      await idbDelFile(docKey);
+      setOfflineInfo(null);
+      setDeckToast({ type: "ok", text: "Offline copy removed." });
+      setTimeout(() => setDeckToast(null), 2600);
+      return;
+    }
+    setOfflineInfo("saving");
+    try {
+      let bytes = pdfBytesRef.current;
+      if (!bytes) bytes = await fetchProxiedPdf(fileUrl);
+      await idbPutFile(docKey, new Blob([bytes], { type: "application/pdf" }));
+      setOfflineInfo({ size: bytes.byteLength });
+      setDeckToast({ type: "ok", text: `✓ Saved offline (${(bytes.byteLength / 1048576).toFixed(1)} MB) — opens without internet.` });
+      setTimeout(() => setDeckToast(null), 3200);
+    } catch {
+      setOfflineInfo(null);
+      setDeckToast({ type: "error", text: "Couldn't save offline copy." });
+      setTimeout(() => setDeckToast(null), 3000);
+    }
+  };
+
   // ---- Thumbnails (lazy via IntersectionObserver) ----
   const [thumbs, setThumbs] = useState([]);
   const thumbItemRefs = useRef([]);
@@ -2548,6 +2705,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
 
   // ---- Theme persistence ----
   useEffect(() => { saveStored("sc_pdf_theme", theme); }, [theme]);
+  useEffect(() => { saveStored("sc_pdf_bright", readerBrightness); }, [readerBrightness]);
 
   // ---- Annotation persistence (debounced) ----
   useEffect(() => {
@@ -2560,6 +2718,91 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
 
   // ---- Scroll mode persistence ----
   useEffect(() => { saveStored(`sc_pdf_scrollmode_${docKey}`, scrollMode); }, [scrollMode, docKey]);
+
+  // ── Server sync ─────────────────────────────────────────────────────────
+  // Hydrate once per document (union-merge so offline edits never get lost),
+  // then debounce-push local changes. localStorage stays the instant cache;
+  // the server row makes the state follow the account across devices.
+  const syncHydratedRef = useRef(false);
+  const syncTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (syncHydratedRef.current || loading || !fileUrl) return;
+    let authData;
+    try { authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}"); } catch { authData = {}; }
+    if (!authData.authToken) { syncHydratedRef.current = true; return; }
+    let cancelled = false;
+    fetch(`${API_BASE}/api/resources/reader-state/${encodeURIComponent(docKey)}`, {
+      headers: { Authorization: `Bearer ${authData.authToken}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const st = data?.state;
+        if (st) {
+          if (st.annotations) setAnnotations((local) => mergePageArrays(st.annotations, local));
+          if (st.marks) setTextMarks((local) => mergePageArrays(st.marks, local));
+          if (Array.isArray(st.bookmarks) && st.bookmarks.length) setBookmarks((local) => mergeBookmarkList(st.bookmarks, local));
+          if (st.stats) setReadingStats((local) => mergeReaderStats(st.stats, local));
+          if (Array.isArray(st.chat) && st.chat.length) {
+            setChatMessages((local) => (local.length >= st.chat.length ? local : st.chat));
+          }
+          // Resume point: server wins only when it's ahead of local, and an
+          // explicit initialPage deep link always beats the stored position.
+          if (st.lastPage && !initialPage) {
+            const localLast = loadStored(`sc_pdf_lastpage_${docKey}`, null) || 0;
+            if (st.lastPage > localLast) {
+              saveStored(`sc_pdf_lastpage_${docKey}`, st.lastPage);
+              goToPage(st.lastPage);
+            }
+          }
+          // Scroll mode is a device preference — inherit only while untouched
+          if (st.scrollMode && st.scrollMode !== "vertical") {
+            setScrollMode((local) => (local === "vertical" ? st.scrollMode : local));
+          }
+        }
+        syncHydratedRef.current = true;
+      })
+      .catch(() => { syncHydratedRef.current = true; });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, docKey, fileUrl]);
+
+  // Push local changes — whole-state upsert, debounced. Skips until the
+  // hydrate completes so a cold cache can't clobber the server copy.
+  useEffect(() => {
+    if (!syncHydratedRef.current || loading || !fileUrl) return;
+    let authData;
+    try { authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}"); } catch { authData = {}; }
+    if (!authData.authToken) return;
+    clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      const chat = chatMessages
+        .filter((m) => !m.streaming)
+        .slice(-60)
+        .map((m) => ({ role: m.role, content: m.content, page: m.page }));
+      fetch(`${API_BASE}/api/resources/reader-state/${encodeURIComponent(docKey)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authData.authToken}` },
+        body: JSON.stringify({
+          resourceId: propResourceId || null,
+          lastPage: currentPage,
+          scrollMode,
+          annotations,
+          marks: textMarks,
+          bookmarks,
+          stats: {
+            pageTimes: readingStats.pageTimes,
+            pagesRead: readingStats.pagesRead,
+            totalSeconds: readingStats.totalSeconds,
+          },
+          chat,
+        }),
+      }).catch(() => {});
+    }, 2500);
+    return () => clearTimeout(syncTimerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annotations, textMarks, bookmarks, scrollMode, readingStats, chatMessages, currentPage, docKey, loading, fileUrl]);
 
   // ---- Re-render when scrollMode changes ----
   useEffect(() => {
@@ -2868,7 +3111,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
     },
     pageShadow: {
       position: "relative",
-      background: theme === "dark" ? "#2a2a3e" : "white",
+      background: (theme === "dark" || theme === "dim") ? "#2a2a3e" : "white",
       boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
       flexShrink: 0,
@@ -2878,7 +3121,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
     },
     continuousPageItem: {
       position: "relative",
-      background: theme === "dark" ? "#2a2a3e" : "white",
+      background: (theme === "dark" || theme === "dim") ? "#2a2a3e" : "white",
       boxShadow: `0 2px 10px ${T.shadow}, 0 14px 34px ${T.shadow}`,
       lineHeight: 0,
       flexShrink: 0,
@@ -4252,6 +4495,21 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                   Export notes
                 </button>
+                <button
+                  style={{ ...s.overflowItem, color: offlineInfo && offlineInfo !== "saving" ? "#3d9970" : undefined }}
+                  onClick={() => { toggleOfflineCopy(); setShowOverflow(false); setOverflowBackdropOpen(false); }}
+                >
+                  {offlineInfo === "saving" ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l7 7 7-7"/><path d="M12 19V5"/><path d="M5 21h14" strokeLinecap="round"/></svg>
+                  )}
+                  {offlineInfo === "saving"
+                    ? "Saving offline…"
+                    : offlineInfo
+                      ? `Offline copy ✓ (${(offlineInfo.size / 1048576).toFixed(1)} MB) — tap to remove`
+                      : "Save offline copy"}
+                </button>
                 <button style={s.overflowItem} onClick={() => { setShowStats(true); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
                   Reading stats
@@ -4299,12 +4557,26 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                     <button
                       style={{
                         ...s.themeSwatch,
+                        background: THEMES.dim.bg,
+                        color: THEMES.dim.text,
+                        borderColor: theme === "dim" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        boxShadow: theme === "dim" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                      }}
+                      onClick={() => { setTheme("dim"); }}
+                      title="Dim — image-safe night mode (figures keep true colors)"
+                    >
+                      Aa
+                    </button>
+                    <button
+                      style={{
+                        ...s.themeSwatch,
                         background: THEMES.dark.bg,
                         color: THEMES.dark.text,
                         borderColor: theme === "dark" ? CHROME.blue : "rgba(255,255,255,0.08)",
                         boxShadow: theme === "dark" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
                       }}
                       onClick={() => { setTheme("dark"); }}
+                      title="Dark — full invert"
                     >
                       Aa
                     </button>
@@ -4320,6 +4592,28 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                     >
                       Aa
                     </button>
+                  </div>
+                  {/* Page brightness — stacks on top of the theme */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 0" }}>
+                    <span style={{ fontSize: 12, color: T.muted }}>🔆</span>
+                    <input
+                      type="range"
+                      min={0.4}
+                      max={1.1}
+                      step={0.05}
+                      value={readerBrightness}
+                      onChange={(e) => setReaderBrightness(parseFloat(e.target.value))}
+                      style={{ flex: 1, accentColor: T.accent, height: 20 }}
+                      aria-label="Page brightness"
+                    />
+                    {readerBrightness !== 1 && (
+                      <button
+                        style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10 }}
+                        onClick={() => setReaderBrightness(1)}
+                      >
+                        Reset
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4572,16 +4866,18 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
               )}
             </button>
 
-            {/* Theme toggle — cycles light → dark → sepia */}
+            {/* Theme toggle — cycles light → dim → dark → sepia */}
             <button
               style={s.iconBtn}
-              onClick={() => setTheme((t) => t === "light" ? "dark" : t === "dark" ? "sepia" : "light")}
-              title={theme === "light" ? "Dark mode" : theme === "dark" ? "Sepia mode" : "Light mode"}
+              onClick={() => setTheme((t) => t === "light" ? "dim" : t === "dim" ? "dark" : t === "dark" ? "sepia" : "light")}
+              title={theme === "light" ? "Dim mode (image-safe)" : theme === "dim" ? "Dark mode (inverted)" : theme === "dark" ? "Sepia mode" : "Light mode"}
             >
               {theme === "light" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v1M12 20v1M4.22 4.22l.71.71M19.07 19.07l.71.71M3 12H2M22 12h-1M4.22 19.78l.71-.71M19.07 4.93l.71-.71"/><circle cx="12" cy="12" r="4"/></svg>
+              ) : theme === "dim" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>
               ) : theme === "dark" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2C8 2 5 5 5 9c0 2 1 4 3 5l-1 4h10l-1-4c2-1 3-3 3-5 0-4-3-7-7-7z"/><path d="M9 22h6"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
               ) : (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
               )}
@@ -4657,6 +4953,20 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
               aria-label="Export notes"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </button>
+
+            {/* Offline copy */}
+            <button
+              style={{ ...s.iconBtn, color: offlineInfo && offlineInfo !== "saving" ? "#3d9970" : T.muted }}
+              onClick={toggleOfflineCopy}
+              title={offlineInfo === "saving" ? "Saving offline copy…" : offlineInfo ? `Offline copy saved (${(offlineInfo.size / 1048576).toFixed(1)} MB) — click to remove` : "Save a copy for offline reading"}
+              aria-label="Save offline copy"
+            >
+              {offlineInfo === "saving" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l7 7 7-7"/><path d="M12 19V5"/><path d="M5 21h14" strokeLinecap="round"/></svg>
+              )}
             </button>
 
             {/* Reading stats */}
@@ -5260,7 +5570,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                   // Global `canvas { max-width:100%; height:auto }` would clamp the
                   // width while the inline pixel height stays → stretched page.
                   maxWidth: "none",
-                  filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
+                  filter: pageCssFilter(),
                 }}
               />
               {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -5288,7 +5598,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                       left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
                       width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
                       background: m.color,
-                      mixBlendMode: theme === "dark" ? "screen" : "multiply",
+                      mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
                       borderRadius: 2,
                       zIndex: 6,
                       cursor: "pointer",
@@ -5301,7 +5611,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
               )}
               <svg
                 ref={lassoSvgRef}
-                style={{ ...s.lassoOverlay, filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none" }}
+                style={{ ...s.lassoOverlay, filter: pageCssFilter() }}
                 onPointerDown={onOverlayDown}
                 onPointerMove={onOverlayMove}
                 onPointerUp={onOverlayUp}
@@ -5364,7 +5674,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                         style={{
                           display: "block",
                           maxWidth: "none",
-                          filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
+                          filter: pageCssFilter(),
                         }}
                       />
                       {/* Text layer for selection/copy (only when no drawing tool active) */}
@@ -5392,7 +5702,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                               left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
                               width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
                               background: m.color,
-                              mixBlendMode: theme === "dark" ? "screen" : "multiply",
+                              mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
                               borderRadius: 2,
                               zIndex: 6,
                               cursor: "pointer",
@@ -5409,7 +5719,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                           ref={(el) => { if (pg === currentPage) lassoSvgRef.current = el; }}
                           style={{
                             ...s.lassoOverlay,
-                            filter: theme === "dark" ? "invert(1) hue-rotate(180deg)" : theme === "sepia" ? "sepia(0.6) brightness(0.95) contrast(0.92)" : "none",
+                            filter: pageCssFilter(),
                             pointerEvents: tool !== "none" ? "auto" : "none",
                           }}
                           onPointerDown={(e) => onOverlayDown(e, pg)}
@@ -5445,7 +5755,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                     </>
                   ) : (
                     // Placeholder for off-screen page — maintains scroll dimensions
-                    <div style={{ width: dims.width || "100%", height: dims.height || 200, background: theme === "dark" ? "#1e1e28" : "#f0f0f0" }} />
+                    <div style={{ width: dims.width || "100%", height: dims.height || 200, background: (theme === "dark" || theme === "dim") ? "#1e1e28" : "#f0f0f0" }} />
                   )}
                   <span style={s.pageLabel}>{pg}</span>
                 </div>

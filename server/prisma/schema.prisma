@@ -207,6 +207,7 @@ model User {
 
   pdfReviewItems    PdfReviewItem[]
   pdfFlashcards     PdfFlashcard[]
+  pdfReaderStates   PdfReaderState[]
   fsrsProfile       UserFsrsProfile?
 
   folders           Folder[] @relation("FolderOwner")
@@ -2287,4 +2288,28 @@ model FeedCommentLike {
 
   @@unique([commentId, userId])
 
+}
+
+// Per-user, per-document PDF reader state — syncs the reader across devices.
+// One row per (userId, docKey); docKey is the client-side hash of the file
+// URL (same key the reader uses for its localStorage namespace), so the row
+// follows the document rather than any single device.
+model PdfReaderState {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  docKey      String
+  resourceId  String?  // resolved share-token resource when known
+  lastPage    Int?
+  scrollMode  String?
+  annotations Json?    // pen strokes: { [page]: stroke[] }
+  marks       Json?    // text-anchored highlights/notes: { [page]: mark[] }
+  bookmarks   Json?    // [{ page, name }]
+  stats       Json?    // reading stats { pageTimes, pagesRead, totalSeconds }
+  chat        Json?    // capped chat history
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, docKey])
+  @@index([userId, resourceId])
 }
