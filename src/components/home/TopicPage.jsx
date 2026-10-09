@@ -158,14 +158,6 @@ export default function TopicPage({
       onBackLabel="Back to roadmap"
       actions={
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {prevTopic && (
-            <button className="fd-icon-btn" aria-label={`Previous: ${prevTopic.title}`} title={prevTopic.title}
-              onClick={() => onNavigate(prevTopic.id)}>‹</button>
-          )}
-          {nextTopic && (
-            <button className="fd-icon-btn" aria-label={`Next: ${nextTopic.title}`} title={nextTopic.title}
-              onClick={() => onNavigate(nextTopic.id)}>›</button>
-          )}
           <button className="fd-icon-btn" aria-label="Edit topic" onClick={() => onEdit?.(topic)}>✎</button>
           <button className="fd-icon-btn" aria-label="Topic menu" onClick={() => setMenuOpen(true)}>⋯</button>
         </div>
@@ -178,6 +170,7 @@ export default function TopicPage({
         )
       }
     >
+      <div className="fd-screen-scroll">
       {/* Hero */}
       <div className="tp-hero">
         <BigRing pct={pct} done={done} />
@@ -196,10 +189,10 @@ export default function TopicPage({
       </div>
 
       {/* Tabs */}
-      <div className="fd-segbar tp-seg" role="tablist" aria-label="Topic sections">
+      <div className="tp-seg fd-seg" role="tablist" aria-label="Topic sections">
         {[["learn", "Learn"], ["docs", `Docs${docs.length ? ` ${docs.length}` : ""}`], ["progress", "Progress"]].map(([id, t]) => (
           <button key={id} role="tab" aria-selected={tab === id}
-            className={`fd-seg${tab === id ? " on" : ""}`} onClick={() => setTab(id)}>{t}</button>
+            className={`fd-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>{t}</button>
         ))}
       </div>
 
@@ -382,6 +375,25 @@ export default function TopicPage({
           </p>
         </div>
       )}
+
+      {/* Prev / next topic — bottom of page, thumb-reachable */}
+      {(prevTopic || nextTopic) && (
+        <div className="tp-prevnext">
+          {prevTopic ? (
+            <button className="tp-pn" onClick={() => onNavigate?.(prevTopic.id)} aria-label={`Previous topic: ${prevTopic.title}`}>
+              <span className="ar" aria-hidden="true">‹</span>
+              <span className="t">{prevTopic.title}</span>
+            </button>
+          ) : <span aria-hidden="true" />}
+          {nextTopic ? (
+            <button className="tp-pn next" onClick={() => onNavigate?.(nextTopic.id)} aria-label={`Next topic: ${nextTopic.title}`}>
+              <span className="t">{nextTopic.title}</span>
+              <span className="ar" aria-hidden="true">›</span>
+            </button>
+          ) : <span aria-hidden="true" />}
+        </div>
+      )}
+      </div>
 
       {menuSheet}
       {docActionSheet}

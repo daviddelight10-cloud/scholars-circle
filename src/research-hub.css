@@ -1091,7 +1091,10 @@
 .cs-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  /* Above fd-screen (1000) so the practice sheet opens over the full-screen
+     roadmap topic page; below fd-sheet/side sheets (1200) and resource
+     viewer (9999). */
+  z-index: 1010;
   background: rgba(0,0,0,0.6);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -2857,10 +2860,19 @@ button.ts-stat:hover .l, button.ts-stat[aria-expanded="true"] .l { color: #EDEFF
 .rm-place-btn:hover { background: rgba(245,166,35,0.18); }
 
 /* ── Topic page (tp-*) ────────────────────────────────────────────── */
-.tp-screen .fd-screen-body > .fd-screen-scroll { max-width: 720px; }
-.tp-screen .fd-screen-body > .fd-screen-scroll > * { max-width: 720px; }
+.tp-screen .fd-screen-body > .fd-screen-scroll {
+  max-width: 720px;
+  padding: 12px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.tp-screen .fd-screen-body > .fd-screen-scroll > * { max-width: 720px; margin-left: auto; margin-right: auto; }
 
-.tp-hero { display: flex; align-items: center; gap: 16px; padding: 18px 0 14px; }
+.tp-hero {
+  display: flex; align-items: center; gap: 16px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px; padding: 16px;
+}
 .tp-hero-main { flex: 1; min-width: 0; }
 .tp-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .tp-hero-meta { font-size: 12px; color: #8A8F9C; font-family: 'Inter', sans-serif; }
@@ -2879,7 +2891,8 @@ button.ts-stat:hover .l, button.ts-stat[aria-expanded="true"] .l { color: #EDEFF
   font-size: 15px; font-weight: 800; color: #EDEFF5; font-family: 'Inter', sans-serif;
 }
 
-.tp-seg { margin: 4px 0 2px; }
+.tp-seg { width: 100%; margin: 0; }
+.tp-seg .fd-tab { flex: 1 1 0; min-width: 0; text-align: center; }
 .tp-tabbody { padding: 14px 0 24px; display: flex; flex-direction: column; gap: 12px; }
 .tp-lede { font-size: 14px; line-height: 1.65; color: #B8BEC9; font-family: 'Inter', sans-serif; margin: 0; }
 
@@ -3014,6 +3027,46 @@ textarea.tpe-input { resize: vertical; line-height: 1.5; }
   background: rgba(255,84,112,0.10); border: 0.5px solid rgba(255,84,112,0.25);
   color: #FF8098; font-size: 12px; font-family: 'Inter', sans-serif;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-bigring .arc { transition: none; }
+}
+
+/* Prev/next topic row at the bottom of the topic page */
+.tp-prevnext { display: flex; gap: 10px; margin-top: 16px; }
+.tp-pn {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.09);
+  border-radius: 12px; padding: 11px 12px; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: #B8BEC9; font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s, color 0.15s;
+}
+.tp-pn:hover { border-color: rgba(245,166,35,0.35); color: #F5A623; }
+.tp-pn .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-pn .ar { flex-shrink: 0; font-size: 15px; color: #646E84; }
+.tp-pn:hover .ar { color: #F5A623; }
+.tp-pn:only-child { flex: 1; }
+
+/* Progress stats: 2x2 grid on narrow phones instead of a squeezed row */
+@media (max-width: 480px) {
+  .ts-stats { flex-wrap: wrap; gap: 10px; border-top: none; border-bottom: none; }
+  .ts-stat {
+    flex: 1 1 46%; border: none; padding: 14px 12px; border-radius: 12px;
+    background: rgba(255,255,255,0.02); flex-direction: column; align-items: flex-start; gap: 4px;
+  }
+  .ts-stat + .ts-stat { border-left: none; }
+  .ts-stat:first-child { padding-left: 12px; }
+}
+
+/* Roadmap header — stacked rows so nothing overflows the page on mobile */
+.rm-head { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; min-width: 0; }
+.rm-head-title { min-width: 0; }
+.rm-head-actions {
+  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.rm-head-actions::-webkit-scrollbar { display: none; }
+.rm-head-actions .sp-roadmap-btn { flex-shrink: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .tp-bigring .arc { transition: none; }

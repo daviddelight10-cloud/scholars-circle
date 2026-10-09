@@ -727,12 +727,9 @@ export default function EmbeddedRoadmapView({
         onChange={handleOutlineUpload}
       />
 
-      {/* Roadmap header — section title + actions */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginTop: 8, marginBottom: 12, gap: 10,
-      }}>
-        <div>
+      {/* Roadmap header — stacked so nothing overflows the page on mobile */}
+      <div className="rm-head">
+        <div className="rm-head-title">
           <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "'Lora', Georgia, serif", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             Roadmap
             {courseCode && !editingCode && (
@@ -787,7 +784,7 @@ export default function EmbeddedRoadmapView({
         </div>
 
         {topics.length > 0 && (
-          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <div className="rm-head-actions">
             <button
               className={`sp-roadmap-btn${editMode ? " active" : ""}`}
               onClick={() => setEditMode(!editMode)}
