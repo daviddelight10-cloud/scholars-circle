@@ -2,7 +2,7 @@ import { CHEMISTRY_RULES } from "../../lib/chemistryPrompt.js";
 
 export const SMART_CHIPS = [
   { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
-  { label: "Give an example", prompt: "Give a concrete worked example of this." },
+  { label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points in this." },
   { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
 ];
 
