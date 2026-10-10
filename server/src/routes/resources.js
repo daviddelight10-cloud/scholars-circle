@@ -226,7 +226,8 @@ router.get("/teacher/insights", requireAuth, requireRole("LECTURER"), async (req
 });
 
 // GET /api/resources/:id/analytics — per-material analytics (uploader or staff)
-router.get("/:id/analytics", requireAuth, async (req, res) => {
+router.get("/:id/analytics", requireAuth, async (req, res, next) => {
+  if (req.params.id === "fsrs") return next();
   try {
     const resource = await prisma.resource.findUnique({
       where: { id: req.params.id },
@@ -1730,7 +1731,6 @@ router.get("/fsrs/due", requireAuth, async (req, res) => {
     const where = {
       userId: req.user.sub,
       dueAt: { lte: now },
-      resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
       itemType: { notIn: ["page", "whole_pdf", "flashcard", "chat_mcq"] },
     };
     if (subjectFilter) where.subject = subjectFilter;
@@ -1840,7 +1840,6 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
     const items = await prisma.pdfReviewItem.findMany({
       where: {
         userId: req.user.sub,
-        resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
         itemType: { notIn: ["page", "whole_pdf", "flashcard"] },
       },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
@@ -1924,7 +1923,6 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
     const items = await prisma.pdfReviewItem.findMany({
       where: {
         userId: req.user.sub,
-        resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
         itemType: { notIn: ["page", "whole_pdf", "flashcard"] },
       },
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true },
@@ -2667,7 +2665,6 @@ router.get("/fsrs/due-mcqs", requireAuth, async (req, res) => {
       userId: req.user.sub,
       itemType: { in: ["mcq", "legacy_mcq"] },
       dueAt: { lte: now },
-      resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
     };
 
     if (subject) {
@@ -2727,7 +2724,6 @@ router.get("/fsrs/weak-topics", requireAuth, async (req, res) => {
     const where = {
       userId: req.user.sub,
       itemType: { in: ["mcq", "legacy_mcq"] },
-      resource: { OR: [{ uploadedBy: req.user.sub }, { bookmarks: { some: { userId: req.user.sub } } }] },
     };
 
     if (subject) {

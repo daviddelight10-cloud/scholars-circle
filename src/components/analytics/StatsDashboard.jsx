@@ -37,6 +37,8 @@ export default function StatsDashboard({ stats, history, subjects }) {
   const [save] = useState(() => ({ ...loadSave() }));
   const [community, setCommunity] = useState({ saved: 0, uploads: 0 });
   const [goalSaving, setGoalSaving] = useState(false);
+  const [statsSettled, setStatsSettled] = useState(false);
+  const [analyticsSettled, setAnalyticsSettled] = useState(false);
 
   // Saved-resource + upload counts for community badges (cheap counts, same
   // endpoints the Home dashboard uses)
@@ -77,7 +79,8 @@ export default function StatsDashboard({ stats, history, subjects }) {
           try { localStorage.setItem("sc_fsrs_stats", JSON.stringify({ data: d, ts: Date.now() })); } catch {}
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (live) setStatsSettled(true); });
     return () => { live = false; };
   }, []);
 
@@ -91,7 +94,8 @@ export default function StatsDashboard({ stats, history, subjects }) {
           if (days === 30) { try { localStorage.setItem("sc_fsrs_analytics", JSON.stringify({ data: d, ts: Date.now() })); } catch {} }
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => { if (live) setAnalyticsSettled(true); });
     return () => { live = false; };
   }, [days]);
 
@@ -172,7 +176,12 @@ export default function StatsDashboard({ stats, history, subjects }) {
   }), [stats, history, subjects, save, s, a, community, vpCases]);
 
   if (!s && !a) {
-    return <div className="sd-root"><p className="sd-loading">Loading your stats…</p></div>;
+    const failed = statsSettled && analyticsSettled;
+    return (
+      <div className="sd-root">
+        <p className="sd-loading">{failed ? "Couldn't load your stats — check your connection and reopen this tab." : "Loading your stats…"}</p>
+      </div>
+    );
   }
 
   return (
