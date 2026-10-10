@@ -1,5 +1,3 @@
-import { CHROME } from "./constants.js";
-
 // ── Note editor modal (margin note on a highlight) ──────────────────────────
 export function NoteEditorModal({ noteEdit, marks, onSave, onClose, T, s, isMobile }) {
   if (!noteEdit) return null;
@@ -43,68 +41,6 @@ export function NoteEditorModal({ noteEdit, marks, onSave, onClose, T, s, isMobi
             }}
           >
             Save note
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ── Quiz draft preview — review before adding to the deck ───────────────────
-export function QuizDraftModal({ draft, setDraft, onAdd, busy, T, s, isMobile }) {
-  if (!draft) return null;
-  return (
-    <>
-      <div style={{ position: "fixed", inset: 0, zIndex: 299, background: "rgba(0,0,0,0.4)" }} onClick={() => setDraft(null)} />
-      <div
-        style={{
-          position: "fixed",
-          left: "50%", top: "50%", transform: "translate(-50%,-50%)",
-          width: isMobile ? "94vw" : 480,
-          maxHeight: "82vh",
-          overflowY: "auto",
-          zIndex: 301,
-          background: T.toolbar,
-          border: `1px solid ${T.border}`,
-          borderRadius: 16,
-          boxShadow: `0 18px 50px ${T.shadow}`,
-          padding: 18,
-        }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 800, color: T.text }}>❓ Review questions</div>
-        <div style={{ fontSize: 11.5, color: T.muted, margin: "4px 0 12px", lineHeight: 1.5 }}>
-          From page {draft.page} — “{draft.sourceText.slice(0, 90)}{draft.sourceText.length > 90 ? "…" : ""}”.
-          Keep the ones worth reviewing; they'll join your <b>Survival Quiz deck</b> with FSRS scheduling.
-        </div>
-        {draft.questions.map((q, qi) => (
-          <label key={qi} style={{ display: "flex", gap: 10, padding: "10px", border: `1px solid ${T.border}`, borderRadius: 10, marginBottom: 8, cursor: "pointer", background: q._keep ? T.hover : "transparent", alignItems: "flex-start" }}>
-            <input
-              type="checkbox"
-              checked={q._keep}
-              onChange={() => setDraft((d) => ({ ...d, questions: d.questions.map((x, xi) => xi === qi ? { ...x, _keep: !x._keep } : x) }))}
-              style={{ marginTop: 3 }}
-            />
-            <span style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>
-              <b>{q.question}</b>
-              <span style={{ display: "block", marginTop: 4, color: T.muted }}>
-                {Object.entries(q.options).map(([k, v]) => (
-                  <span key={k} style={{ display: "block" }}>
-                    {k === q.correct ? "✅" : "▫️"} {k}. {v}
-                  </span>
-                ))}
-                {q.explanation && <span style={{ display: "block", marginTop: 3, fontStyle: "italic" }}>{q.explanation}</span>}
-              </span>
-            </span>
-          </label>
-        ))}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-          <button style={s.selPopBtn} onClick={() => setDraft(null)}>Discard</button>
-          <button
-            style={{ ...s.selPopBtn, background: CHROME.gold, color: "#1a1300", border: "none", fontWeight: 700 }}
-            onClick={onAdd}
-            disabled={busy || !draft.questions.some((q) => q._keep)}
-          >
-            {busy ? "Saving…" : `➕ Add ${draft.questions.filter((q) => q._keep).length} to my deck`}
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useUI } from "../contexts/UIContext.jsx";
-import { callAIMultimodalStream, callAIChat, extractJSON } from "../lib/aiClient.js";
+import { callAIMultimodalStream } from "../lib/aiClient.js";
 import MarkdownText from "../components/MarkdownText.jsx";
 import McqCard from "../components/McqCard.jsx";
 import { parseMcqSegments } from "../lib/mcqBlocks.js";
@@ -31,7 +31,7 @@ import { buildStyles } from "./pdf-reader/styles.js";
 import { usePageText } from "./pdf-reader/usePageText.js";
 import { buildSearchResults } from "./pdf-reader/textSearch.js";
 import { buildNotesMarkdown, downloadTextFile } from "./pdf-reader/notesExport.js";
-import { NoteEditorModal, QuizDraftModal, NotesPanel, ShortcutsModal, StatsModal } from "./pdf-reader/panels.jsx";
+import { NoteEditorModal, NotesPanel, ShortcutsModal, StatsModal } from "./pdf-reader/panels.jsx";
 import { useOverlayBackClose } from "../hooks/useOverlayBackClose.js";
 
 
@@ -127,12 +127,14 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [textMarks, setTextMarks] = useState(() => loadStored(`sc_pdf_marks_${docKey}`, {}));
   const [selPop, setSelPop] = useState(null); // { x, y, above }
   const pendingSelRef = useRef(null); // { page, text, rects } — survives popover taps
+  // On touch devices we collapse the DOM selection after capture (hides the OS
+  // Copy/Share menu that would stack on our popover). That collapse fires a
+  // selectionchange — this flag keeps our popover alive through it.
+  const suppressSelClearRef = useRef(false);
   const [markMenu, setMarkMenu] = useState(null); // { mark, x, y }
   const [noteEdit, setNoteEdit] = useState(null); // { page, id }
   const [flashMark, setFlashMark] = useState(null); // mark id pulsing after a jump
   const [showNotes, setShowNotes] = useState(false);
-  const [quizDraft, setQuizDraft] = useState(null); // { questions, sourceText, page }
-  const [quizGenBusy, setQuizGenBusy] = useState(false);
   const [deckToast, setDeckToast] = useState(null);
   const [deckAddedKeys, setDeckAddedKeys] = useState({}); // "msgIdx:segIdx" → true
   const [deckHintSeen, setDeckHintSeen] = useState(() => loadStored("sc_pdf_deck_hint", false));
@@ -1038,19 +1040,34 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       const cyTop = lr.top + first[1] * lr.height;
       const cyBot = lr.top + first[3] * lr.height;
       const above = cyTop > 110;
+      // Touch devices draw their own Copy/Share menu anchored to the DOM
+      // selection — it stacks on top of our popover. Every action here runs
+      // off pendingSelRef (copy uses the clipboard API), so we can drop the
+      // selection and keep only our bar. Desktop keeps native selection so
+      // mouse users can still drag the handles. `pend` repaints the range as
+      // an overlay since collapsing erases the native highlight.
+      const coarse = !!window.matchMedia?.("(pointer: coarse)")?.matches;
       setSelPop({
         x: Math.max(100, Math.min(window.innerWidth - 100, cx)),
         y: above ? cyTop - 10 : cyBot + 10,
         above,
+        pend: coarse ? { page, rects } : null,
       });
+      if (coarse) {
+        suppressSelClearRef.current = true;
+        sel.removeAllRanges();
+      }
     };
     const onChange = () => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-        pendingSelRef.current = null;
-        setSelPop(null);
+        if (!suppressSelClearRef.current) {
+          pendingSelRef.current = null;
+          setSelPop(null);
+        }
         return;
       }
+      suppressSelClearRef.current = false;
       clearTimeout(debounce);
       debounce = setTimeout(capture, 260);
     };
@@ -1260,6 +1277,29 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         )}
       </>
     );
+  };
+
+  // While the selection popover is open on touch devices, the DOM selection is
+  // collapsed (hides the OS menu) — paint the captured range so the user still
+  // sees what they picked. Desktop keeps its native selection highlight.
+  const renderPendingSel = (pg) => {
+    const pend = selPop?.pend;
+    if (!pend || pend.page !== pg) return null;
+    return pend.rects.map((r, ri) => (
+      <div
+        key={`pend-${ri}`}
+        style={{
+          position: "absolute",
+          left: `${r[0] * 100}%`, top: `${r[1] * 100}%`,
+          width: `${(r[2] - r[0]) * 100}%`, height: `${(r[3] - r[1]) * 100}%`,
+          background: "rgba(79,142,247,0.3)",
+          mixBlendMode: (theme === "dark" || theme === "dim") ? "screen" : "multiply",
+          borderRadius: 2,
+          zIndex: 6,
+          pointerEvents: "none",
+        }}
+      />
+    ));
   };
 
   const clearSearchMark = useCallback(() => {
@@ -2017,92 +2057,44 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     window.getSelection()?.removeAllRanges?.();
   };
 
-  // ── Quiz generation from a selection / highlight ──
-  // Produces a preview set; the user reviews, then explicitly adds to the
-  // Survival Quiz deck (which schedules them into FSRS server-side).
-  const QUIZ_SYS = `You write precise, self-checking multiple-choice questions for spaced review.
-Return ONLY a JSON array — no prose, no fences. Each item:
-{"question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A","explanation":"one sentence why","hint":"one short nudge"}
-Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test understanding not trivia; no "all/none of the above"; keep questions answerable from the excerpt alone.`;
-
-  const genQuizFromText = async (text, page) => {
-    if (quizGenBusy || !text?.trim()) return;
-    setQuizGenBusy(true);
+  // ── Quiz from a selection / highlight / answer ──
+  // Routes through the chat's mcq pipeline (same as "Quiz me"): the reply is a
+  // batch of interactive cards the student answers in place — score, FSRS
+  // recording, and a per-question "add to deck" button are all already there.
+  const quizFromText = async (text, page) => {
+    const t = (text || "").trim();
+    if (!t || chatLoading) return;
+    const pg = page ?? currentPage;
+    const snippet = t.length > 90 ? t.slice(0, 90) + "…" : t;
+    setChatMessages((prev) => [...prev, { role: "user", content: `❓ Quiz me on: “${snippet}”`, page: pg }]);
     setSelPop(null);
     setMarkMenu(null);
+    window.getSelection()?.removeAllRanges?.();
+    pendingSelRef.current = null;
+    setStudyToolsOpen(false);
+    closeAllMobileOverlays();
+    setChatOpen(true);
+    setChatLoading(true);
+    setChatError(null);
+    chatNearBottomRef.current = true;
+    const prompt = `Quiz the student on this passage they selected on page ${pg} of their PDF.
+
+IMPORTANT: answer with a one-line lead-in PLUS 3–5 separate \`\`\`mcq quiz blocks in THIS ONE reply — override the one-question-per-reply rule; do not drip them out one at a time.
+
+Passage:
+"""${t.slice(0, 2500)}"""`;
     try {
-      const raw = await callAIChat({
-        system: QUIZ_SYS,
-        messages: [{ role: "user", content: `Write 1–3 review questions from this excerpt (page ${page} of a PDF the student is studying):\n"""\n${text.slice(0, 2500)}\n"""` }],
-      });
-      const parsed = extractJSON(typeof raw === "string" ? raw : raw?.content || raw?.text || "", "array");
-      const qs = (Array.isArray(parsed) ? parsed : [])
-        .map((q) => ({
-          question: String(q.question || "").trim(),
-          options: q.options && typeof q.options === "object" && !Array.isArray(q.options)
-            ? q.options
-            : Object.fromEntries((Array.isArray(q.options) ? q.options : []).slice(0, 4).map((o, i) => [QUIZ_LETTERS[i], String(o)])),
-          correct: String(q.correct ?? QUIZ_LETTERS[q.answer ?? 0] ?? "A").trim().toUpperCase().slice(0, 1),
-          explanation: String(q.explanation || ""),
-          hint: String(q.hint || ""),
-        }))
-        .filter((q) => q.question && Object.keys(q.options).length >= 2 && q.options[q.correct])
-        .map((q) => ({ ...q, _keep: true, _srcPage: page }));
-      if (!qs.length) throw new Error("No usable questions came back");
-      setQuizDraft({ questions: qs, sourceText: text.slice(0, 400), page });
-    } catch (e) {
-      setDeckToast({ type: "error", text: e.message || "Couldn't generate questions — try again." });
-      setTimeout(() => setDeckToast(null), 3200);
+      await streamChatAnswer(`${TUTOR_SYSTEM}\n\n---\n\n${prompt}`, null, trimHistory(chatMessages, pg), { page: pg });
+    } catch (err) {
+      if (!err.stoppedByUser) setChatError(err.message || "Something went wrong reaching the AI.");
     } finally {
-      setQuizGenBusy(false);
+      setChatLoading(false);
     }
   };
   const genQuizFromSelection = () => {
     const sel = pendingSelRef.current;
     if (!sel) return;
-    window.getSelection()?.removeAllRanges?.();
-    genQuizFromText(sel.text, sel.page);
-  };
-
-  // Add checked draft questions to the Survival Quiz deck (server creates a
-  // per-source "Quiz · <title>" MCQ resource + FSRS items). Falls back to a
-  // clear message for guests — deck needs an account to sync.
-  const addDraftToDeck = async () => {
-    if (!quizDraft) return;
-    const qs = quizDraft.questions.filter((q) => q._keep);
-    if (!qs.length) { setQuizDraft(null); return; }
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    if (!authData.authToken) {
-      setDeckToast({ type: "error", text: "Sign in to save questions to your deck." });
-      setTimeout(() => setDeckToast(null), 3200);
-      return;
-    }
-    setQuizGenBusy(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/resources/deck/add`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authData.authToken}` },
-        body: JSON.stringify({
-          sourceResourceId: propResourceId || null,
-          sourceTitle: title || "PDF",
-          questions: qs.map((q) => ({
-            question: q.question, options: q.options, correct: q.correct,
-            explanation: q.explanation, hint: q.hint, sourcePage: q._srcPage, quote: quizDraft.sourceText.slice(0, 200),
-          })),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
-      setQuizDraft(null);
-      window.dispatchEvent(new CustomEvent("sc-fsrs-rated"));
-      setDeckToast({ type: "ok", text: `✓ ${data.added} question${data.added === 1 ? "" : "s"} added to your deck — they'll come up in Survival Quiz & daily review.` });
-      setTimeout(() => setDeckToast(null), 4200);
-    } catch (e) {
-      setDeckToast({ type: "error", text: e.message || "Couldn't save to deck." });
-      setTimeout(() => setDeckToast(null), 3200);
-    } finally {
-      setQuizGenBusy(false);
-    }
+    quizFromText(sel.text, sel.page);
   };
 
   // Add one answered chat-quiz question to the Survival Quiz deck.
@@ -2745,6 +2737,9 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
     if (tool !== "none" || pinchActive || panZoom.scale !== 1) return;
     if (e.target.closest("[data-mark], button, a, input, textarea, select, [role='button']")) return;
     if (window.getSelection && !window.getSelection().isCollapsed) return;
+    // No DOM selection to collapse on touch (we cleared it) — a tap dismisses
+    // the action popover instead of toggling chrome.
+    if (selPop) { setSelPop(null); pendingSelRef.current = null; suppressSelClearRef.current = false; return; }
     const st = tapStartRef.current;
     tapStartRef.current = null;
     if (st && (Math.abs(e.clientX - st.x) > 10 || Math.abs(e.clientY - st.y) > 10 || Date.now() - st.t > 600)) return;
@@ -3075,15 +3070,14 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
   const showChips = chipsToShow.length > 0 &&
     (chatMessages.length === 0 || chatMessages[chatMessages.length - 1]?.role === "assistant") && !chatLoading;
 
-  // Turns an AI answer into review questions — user previews them, then opts
-  // into the Survival Quiz deck (FSRS). Replaces the old localStorage
-  // flashcard save, which stranded cards outside spaced review.
+  // Turns an AI answer into an interactive quiz — same chat mcq cards as the
+  // selection quiz. (FSRS + optional deck add live on the cards themselves.)
   const saveAsQuiz = (msg, key) => {
     const text = plainTextOf(msg).slice(0, 1200);
     if (!text) return;
     setSavedFlashIdx(key);
     setTimeout(() => setSavedFlashIdx((v) => (v === key ? null : v)), 2500);
-    genQuizFromText(text, msg.page ?? currentPage);
+    quizFromText(text, msg.page ?? currentPage);
   };
 
   const reader = (
@@ -4091,7 +4085,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
           </button>
           <button style={s.selPopBtn} onClick={() => askAboutSelection("Explain this passage clearly and concisely — under 100 words:")}>✨ Explain</button>
           <button style={s.selPopBtn} onClick={() => askAboutSelection("Define this term precisely and simply, with one concrete example:")}>📖 Define</button>
-          <button style={s.selPopBtn} onClick={genQuizFromSelection} disabled={quizGenBusy}>❓ Quiz</button>
+          <button style={s.selPopBtn} onClick={genQuizFromSelection} disabled={chatLoading}>❓ Quiz</button>
           <button style={s.selPopBtn} onClick={shareSelection} disabled={shareBusy} title="Share this highlight with everyone reading this PDF">📤 Share</button>
           <button style={s.selPopBtn} onClick={copySelection}>📋 Copy</button>
           <button style={s.selPopBtn} onClick={speakSelection} title="Read aloud" aria-label="Read aloud">🔊</button>
@@ -4136,7 +4130,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
             <button style={s.selMenuItem} onClick={() => { setNoteEdit({ page: markMenu.mark.page, id: markMenu.mark.id }); setMarkMenu(null); }}>
               📝 {markMenu.mark.note ? "Edit note" : "Add note"}
             </button>
-            <button style={s.selMenuItem} onClick={() => { genQuizFromText(markMenu.mark.text, markMenu.mark.page); }}>❓ Make quiz question</button>
+            <button style={s.selMenuItem} onClick={() => { quizFromText(markMenu.mark.text, markMenu.mark.page); }}>❓ Make quiz question</button>
             <button style={s.selMenuItem} onClick={() => { pendingSelRef.current = { page: markMenu.mark.page, text: markMenu.mark.text, rects: markMenu.mark.rects }; askAboutSelection("Explain this passage clearly and concisely — under 100 words:"); setMarkMenu(null); }}>✨ Ask AI</button>
             <button style={{ ...s.selMenuItem, color: "#e35d6a" }} onClick={() => { removeMark(markMenu.mark.page, markMenu.mark.id); setMarkMenu(null); }}>
               🗑 Delete
@@ -4288,15 +4282,6 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
         marks={textMarks}
         onSave={(page, id, v) => updateMark(page, id, { note: v, kind: v ? "note" : "highlight" })}
         onClose={() => setNoteEdit(null)}
-        T={T} s={s} isMobile={isMobile}
-      />
-
-      {/* ── Quiz draft preview — review before adding to the deck ── */}
-      <QuizDraftModal
-        draft={quizDraft}
-        setDraft={setQuizDraft}
-        onAdd={addDraftToDeck}
-        busy={quizGenBusy}
         T={T} s={s} isMobile={isMobile}
       />
 
@@ -4593,6 +4578,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
               )}
               {/* Community highlights + comment pin */}
               {renderSharedMarks(currentPage)}
+              {renderPendingSel(currentPage)}
               <svg
                 ref={lassoSvgRef}
                 style={{ ...s.lassoOverlay, filter: pageCssFilter() }}
@@ -4688,6 +4674,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                     ))
                   )}
                   {renderSharedMarks(pg)}
+                  {renderPendingSel(pg)}
                   <span style={s.pageLabel}>{pg}</span>
                 </div>
               ))}
@@ -4761,6 +4748,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                         ))
                       )}
                       {renderSharedMarks(pg)}
+                      {renderPendingSel(pg)}
                       {/* Unified SVG overlay per page — handles annotations + drawing + lasso */}
                       {(
                         <svg
@@ -4968,7 +4956,7 @@ Rules: 2–4 options is fine but give 4 when possible; exactly one correct; test
                               <button
                                 style={s.msgActionBtn}
                                 onClick={() => saveAsQuiz(msg, i)}
-                                disabled={savedFlashIdx === i || quizGenBusy}
+                                disabled={savedFlashIdx === i || chatLoading}
                                 aria-label="Turn this answer into deck questions"
                               >
                                 {savedFlashIdx === i ? "✓ Queued" : "❓ Quiz"}
