@@ -67,6 +67,9 @@ export function safeRedirect(param, fallback = "/app") {
 
 export async function api(path, { token, method = "GET", body } = {}) {  const res = await fetch(`${API_BASE}${path}`, {
     method,
+    // Dead-network guard: navigator.onLine lies on broken WiFi/captive
+    // portals — without a timeout a fetch can hang ~2min at TCP level.
+    ...(AbortSignal.timeout ? { signal: AbortSignal.timeout(15000) } : {}),
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

@@ -1430,11 +1430,17 @@ function App() {
 
 
     // Step 1: Restore auth from Supabase session (replaces localStorage-based restore)
+    // Dead-network guard: navigator.onLine lies on broken WiFi/captive
+    // portals — a hung await here keeps the loading overlay up forever.
+    // Timing out falls into the existing localStorage-fallback catch.
+    const netTimeout = (p, ms = 6000) =>
+      Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("network timeout")), ms))]);
+
     async function restoreSession() {
 
       try {
 
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await netTimeout(supabase.auth.getSession());
 
         if (session) {
 
@@ -1443,7 +1449,7 @@ function App() {
           // Fetch app profile from backend
           try {
 
-            const profile = await api("/auth/refresh", { token: session.access_token });
+            const profile = await netTimeout(api("/auth/refresh", { token: session.access_token }));
 
             if (profile?.user) {
 
@@ -1462,17 +1468,17 @@ function App() {
             // If profile not found, try to create it (e.g. partial signup)
             if (profileErr.message?.includes("profile") || profileErr.message?.includes("not found") || profileErr.message?.includes("403")) {
               try {
-                const user = (await supabase.auth.getUser()).data?.user;
+                const user = (await netTimeout(supabase.auth.getUser())).data?.user;
                 const fullName = user?.user_metadata?.fullName || user?.user_metadata?.full_name || user?.user_metadata?.name || "";
                 const role = user?.user_metadata?.role || "STUDENT";
                 const userEmail = user?.email || "";
                 let pendingReferral = "";
                 try { pendingReferral = localStorage.getItem("sc_pending_referral") || ""; } catch {}
-                const profile = await api("/auth/profile", {
+                const profile = await netTimeout(api("/auth/profile", {
                   token: session.access_token,
                   method: "POST",
                   body: { email: userEmail, username: fullName, role, referralCode: pendingReferral || undefined },
-                });
+                }));
                 try { localStorage.removeItem("sc_pending_referral"); } catch {}
                 if (profile) {
                   setAuth((a) => ({ ...a, user: profile, error: "", info: "" }));

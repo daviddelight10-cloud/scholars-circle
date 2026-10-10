@@ -3,6 +3,7 @@ import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
+import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { initializeApp } from "firebase/app";
 import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
 
@@ -46,6 +47,19 @@ registerRoute(
   new CacheFirst({ cacheName: "ocr-engine" })
 );
 
+// Avatars, covers, resource thumbs — CacheFirst so seen images survive
+// offline. Opaque (no-cors) responses included; capped so it can't bloat.
+registerRoute(
+  ({ request }) => request.destination === "image",
+  new CacheFirst({
+    cacheName: "images",
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 }),
+    ],
+  })
+);
+
 // Cache Unsplash hero/cover images
 registerRoute(
   ({ url }) => url.origin === "https://images.unsplash.com",
@@ -64,18 +78,28 @@ registerRoute(
     url.pathname.includes("/subjects"),
   new StaleWhileRevalidate({
     cacheName: "subjects-cache",
-    plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 })],
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [200] }),
+      new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 }),
+    ],
   })
 );
 
 // Network-first for all other API calls (port 4000 in dev, /api in prod)
 // Only intercept GET requests — POST/PUT/DELETE (e.g. file uploads) must go
 // directly to the network without a timeout that could abort large uploads.
+// Range-bearing requests (pdf.js chunk reads) bypass the cache entirely:
+// 206 partials aren't cacheable and a cached partial would poison the file.
 registerRoute(
   ({ url, request }) =>
     request.method === "GET" &&
-    (url.port === "4000" || url.pathname.startsWith("/api/")),
-  new NetworkFirst({ cacheName: "api-cache", networkTimeoutSeconds: 6 })
+    (url.port === "4000" || url.pathname.startsWith("/api/")) &&
+    !request.headers.get("range"),
+  new NetworkFirst({
+    cacheName: "api-cache",
+    networkTimeoutSeconds: 6,
+    plugins: [new CacheableResponsePlugin({ statuses: [200] })],
+  })
 );
 
 // ============ FCM PUSH NOTIFICATION SUPPORT ============
