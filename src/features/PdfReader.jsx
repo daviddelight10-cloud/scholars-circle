@@ -2765,6 +2765,10 @@ Passage:
   const presentationRef = useRef(false);
   const enterPresentation = () => {
     presentationRef.current = true;
+    // resetPanZoom must run explicitly: if the user is already in single mode,
+    // setScrollMode no-ops, the scrollMode effect never fires, and a stale
+    // pinch-zoom/translate would shrink the page into the corner.
+    resetPanZoom();
     setScrollMode("single");
     setChromeHidden(true);
     closeAllMobileOverlays();
@@ -4518,7 +4522,13 @@ Passage:
           >
           {scrollMode === "single" ? (
             <div
-              style={s.pageShadow}
+              style={{
+                ...s.pageShadow,
+                // Auto margins center a short page (present mode, landscape
+                // scans) and collapse to start-alignment when it overflows —
+                // same trick as continuous mode, keeps overflow scrollable.
+                margin: "auto",
+              }}
               className={
                 transitioning
                   ? transitionDir === "next"
@@ -4619,7 +4629,9 @@ Passage:
           ) : scrollMode === "book" ? (
             // ── Two-page spread (book mode): facing pages side by side ──
             <div
-              style={s.spreadRow}
+              // margin:auto centers a short spread and collapses to start
+              // alignment when it overflows — same trick as continuous mode.
+              style={{ ...s.spreadRow, margin: "auto" }}
               className={
                 transitioning
                   ? transitionDir === "next"
@@ -5116,8 +5128,8 @@ Passage:
               <button
                 style={{
                   ...s.aiFab,
-                  opacity: studyToolsOpen ? 0 : 1,
-                  pointerEvents: studyToolsOpen ? "none" : "auto",
+                  opacity: studyToolsOpen || showOverflow ? 0 : 1,
+                  pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
                 }}
                 onClick={openStudyTools}
                 onTouchStart={(e) => e.stopPropagation()}
@@ -5132,8 +5144,8 @@ Passage:
               <button
                 style={{
                   ...s.studyFab,
-                  opacity: studyToolsOpen ? 0 : 1,
-                  pointerEvents: studyToolsOpen ? "none" : "auto",
+                  opacity: studyToolsOpen || showOverflow ? 0 : 1,
+                  pointerEvents: studyToolsOpen || showOverflow ? "none" : "auto",
                 }}
                 onClick={openStudyTools}
                 onTouchStart={(e) => e.stopPropagation()}

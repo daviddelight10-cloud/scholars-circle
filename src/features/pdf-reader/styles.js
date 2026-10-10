@@ -683,6 +683,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       flexShrink: 0,
     },
     chip: {
+      flexShrink: 0, // chips keep full width so the mobile row scrolls, not squeezes
       fontSize: isMobile ? 12 : 12.5,
       fontWeight: 500,
       color: T.text,
@@ -847,7 +848,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       border: `1px solid ${T.border}`,
       borderRadius: 10,
       boxShadow: `0 6px 18px ${T.shadow}`,
-      zIndex: 200,
+      zIndex: 260,
       padding: "4px",
       display: "flex",
       flexDirection: "column",
@@ -983,11 +984,13 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
     },
     // ── Overflow backdrop (mobile) ─────────────────────────────────────────────
     overflowBackdrop: {
+      // 250/260 keep the ⋯ menu layer above FABs & bars that live in other
+      // stacking contexts, but under the chat sheet (100+) and selection pop.
+      zIndex: 250,
       position: "fixed",
       inset: 0,
       background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(2px)",
-      zIndex: 80,
     },
     // ── Theme swatches in overflow ─────────────────────────────────────────────
     themeSwatchRow: {
