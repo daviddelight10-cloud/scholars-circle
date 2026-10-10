@@ -1837,26 +1837,23 @@ function App() {
 
     if (!freeTierMode || !booted) return;
 
-    const earned = FREE_TIER_ACHIEVEMENTS.filter(a => 
-
-      a.check(freeTierUsage.freeTierProgress, freeTierUsage, freeTierUsage.freeTierProgress.achievements)
-
-    );
-
+    const earned = FREE_TIER_ACHIEVEMENTS.filter(a => a.check(
+      freeTierUsage.freeTierProgress,
+      freeTierUsage,
+      freeTierUsage.freeTierProgress.achievements
+    )).map(a => a.id);
+    const current = freeTierUsage.freeTierProgress.achievements || [];
+    // Skip the write when the earned list is unchanged — writing a fresh
+    // object here re-triggers this effect forever and pegs the main thread.
+    const changed = earned.length !== current.length || earned.some((id, i) => id !== current[i]);
+    if (!changed) return;
     setFreeTierUsage(prev => ({
-
       ...prev,
-
       freeTierProgress: {
-
         ...prev.freeTierProgress,
-
-        achievements: earned.map(a => a.id),
-
+        achievements: earned,
       },
-
     }));
-
   }, [freeTierUsage, freeTierMode, booted]);
 
 
