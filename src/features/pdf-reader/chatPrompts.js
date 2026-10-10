@@ -3,14 +3,15 @@ import { CHEMISTRY_RULES } from "../../lib/chemistryPrompt.js";
 export const SMART_CHIPS = [
   { label: "Explain simpler", prompt: "Re-explain this in simpler words a beginner would understand." },
   { label: "Give an example", prompt: "Give a concrete worked example of this." },
-  { label: "Quiz me", prompt: "Quiz me on this material — ask me one multiple-choice question at a time using the mcq format." },
+  { label: "Test my knowledge", prompt: "Test my knowledge of this material — ask me one multiple-choice question at a time using the mcq format." },
 ];
 
 // Shown on an empty chat thread — page-scoped by definition.
 export const STARTER_CHIPS = [
-  { label: "Explain this page", prompt: "Explain the key points on this page — keep it clear and concise." },
-  { label: "Summarize this page", prompt: "Summarize this page in a few bullet points." },
-  { label: "Quiz me", prompt: "Quiz me on this page — ask me one multiple-choice question at a time using the mcq format." },
+  { label: "Explain the page simply", prompt: "Explain the key points on this page — keep it clear and simple." },
+  { label: "Key points", prompt: "Summarize the key points on this page in a few bullet points." },
+  { label: "Test my knowledge", prompt: "Test my knowledge of this page — ask me one multiple-choice question at a time using the mcq format." },
+  { label: "Make a mnemonic", prompt: "Create a memorable mnemonic for the key points on this page." },
 ];
 
 // Shown after a quiz card is answered — keeps the drill going.

@@ -3099,6 +3099,7 @@ Passage:
         @keyframes sc-ring-fill { from { stroke-dashoffset: var(--ring-circ, 283); } to { stroke-dashoffset: var(--ring-offset, 0); } }
         .sc-fade-in-up { animation: sc-fade-in-up 0.35s cubic-bezier(0.4,0,0.2,1) forwards; }
         .sc-card-enter { animation: sc-card-enter 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .sc-chips-row::-webkit-scrollbar { display: none; }
         .sc-shimmer-bar::after {
           content: ""; position: absolute; inset: 0;
           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
@@ -4953,14 +4954,16 @@ Passage:
                               >
                                 {copiedIdx === i ? "✓ Copied" : "📋 Copy"}
                               </button>
-                              <button
-                                style={s.msgActionBtn}
-                                onClick={() => saveAsQuiz(msg, i)}
-                                disabled={savedFlashIdx === i || chatLoading}
-                                aria-label="Turn this answer into deck questions"
-                              >
-                                {savedFlashIdx === i ? "✓ Queued" : "❓ Quiz"}
-                              </button>
+                              {!(chatSegs[i] || []).some((sg) => sg.type === "mcq") && (
+                                <button
+                                  style={s.msgActionBtn}
+                                  onClick={() => saveAsQuiz(msg, i)}
+                                  disabled={savedFlashIdx === i || chatLoading}
+                                  aria-label="Turn this answer into deck questions"
+                                >
+                                  {savedFlashIdx === i ? "✓ Queued" : "❓ Quiz"}
+                                </button>
+                              )}
                               {i === chatMessages.length - 1 && (
                                 <button style={s.msgActionBtn} onClick={retryLastMessage} aria-label="Regenerate answer">
                                   ↻ Retry
@@ -4997,7 +5000,7 @@ Passage:
               )}
 
               {showChips && (
-                <div style={s.chipsRow}>
+                <div style={s.chipsRow} className="sc-chips-row">
                   {chipsToShow.map((chip) => (
                     <button key={chip.label} style={s.chip} onClick={() => sendFollowUp(chip.prompt)}>
                       {chip.label}

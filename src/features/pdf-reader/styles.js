@@ -674,7 +674,12 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       display: "flex",
       gap: 6,
       padding: isMobile ? "8px 12px" : "8px 14px",
-      flexWrap: "wrap",
+      // Small screens: one scrollable row (scrollbar hidden via .sc-chips-row)
+      // so 4+ chips never wrap into a tall stack; larger screens keep wrapping.
+      flexWrap: isMobile ? "nowrap" : "wrap",
+      overflowX: isMobile ? "auto" : "visible",
+      WebkitOverflowScrolling: "touch",
+      scrollbarWidth: "none",
       flexShrink: 0,
     },
     chip: {
