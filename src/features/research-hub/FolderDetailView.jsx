@@ -277,7 +277,7 @@ export default function FolderDetailView({
                   onDelete={onDeleteResource}
                   canDelete={canDeleteFile?.(file)}
                   onRename={onRenameResource}
-                  onPractice={setSheetFile}
+                  onPractice={(f) => f?.contentType === "exam" ? onOpen?.(f.shareToken) : setSheetFile(f)}
                   mcqProgress={mcqProgress}
                   index={i}
                 />
@@ -312,7 +312,7 @@ export default function FolderDetailView({
                 folderResources={allFiles}
                 onOpenResource={onOpen}
                 onStartStudying={onStartStudying}
-                onPracticeFile={setSheetFile}
+                onPracticeFile={(f) => f?.contentType === "exam" ? onOpen?.(f.shareToken) : setSheetFile(f)}
                 onSetCourseCode={onSetCourseCode}
                 codeEditable={codeEditable}
                 mcqProgress={mcqProgress}

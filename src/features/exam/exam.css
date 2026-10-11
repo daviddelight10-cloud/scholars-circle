@@ -352,6 +352,62 @@
 }
 .exb-note.warn { color: #f87171; background: rgba(244, 67, 54, 0.08); border-color: rgba(239, 68, 68, 0.3); }
 
+/* ── Exam Hub ─────────────────────────────────────────────────────────────── */
+.exh-meta { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; font-size: 12px; color: #888888; margin-top: 6px; }
+.exh-resume {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 0 10px; padding: 12px 14px;
+  background: rgba(255, 215, 0, 0.06); border: 0.5px solid rgba(255, 215, 0, 0.25);
+  border-radius: 12px; text-align: left;
+}
+.exh-resume > span { font-size: 20px; }
+.exh-resume-info { display: flex; flex-direction: column; gap: 2px; }
+.exh-resume-info b { font-size: 13px; color: #FFD700; }
+.exh-resume-info span { font-size: 11.5px; color: #888888; }
+.exh-regen {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  margin-top: 10px; padding: 14px;
+  background: #141414; border: 0.5px solid #2a2a2a; border-radius: 12px;
+  cursor: pointer; text-align: left; font-family: inherit;
+  transition: border-color 0.15s ease, transform 0.12s ease;
+}
+.exh-regen:hover { border-color: rgba(255, 215, 0, 0.35); transform: translateY(-1px); }
+.exh-regen-ic {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 17px;
+  background: rgba(255, 215, 0, 0.10);
+}
+.exh-regen-info { display: flex; flex-direction: column; gap: 2px; }
+.exh-regen-info b { font-size: 13.5px; color: #f0f0f0; }
+.exh-regen-info span { font-size: 11px; color: #555555; }
+.exh-section {
+  margin: 22px 0 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #555555;
+}
+.exh-loading, .exh-none { font-size: 12.5px; color: #555555; padding: 14px; text-align: center; }
+.exh-empty { text-align: center; padding: 28px 18px; }
+.exh-empty .exr-resume-sub { margin: 6px 0 16px; }
+.exh-attempts { display: flex; flex-direction: column; gap: 8px; }
+.exh-attempt {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; background: #141414;
+  border: 0.5px solid #232323; border-radius: 12px;
+}
+.exh-attempt-date { font-size: 11.5px; color: #888888; min-width: 96px; flex-shrink: 0; }
+.exh-attempt-score { flex: 1; display: flex; align-items: baseline; gap: 6px; }
+.exh-attempt-score b { font-size: 14px; color: #f0f0f0; }
+.exh-attempt-score span { font-size: 12px; color: #FFD700; font-weight: 700; }
+.exh-attempt-tags { display: flex; gap: 5px; flex-shrink: 0; }
+.exh-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 6px;
+  background: rgba(144, 202, 249, 0.10); color: #90caf9;
+  border: 0.5px solid rgba(144, 202, 249, 0.25);
+}
+.exh-tag.practice { background: rgba(128, 203, 196, 0.10); color: #80cbc4; border-color: rgba(128, 203, 196, 0.25); }
+.exh-tag.best { background: rgba(255, 215, 0, 0.10); color: #FFD700; border-color: rgba(255, 215, 0, 0.30); }
+.exh-tag.latest { background: rgba(102, 187, 106, 0.10); color: #66bb6a; border-color: rgba(102, 187, 106, 0.25); }
+
 @media (max-width: 640px) {
   .exr-body { padding: 12px; }
   .exr-top { padding: 10px 12px; }

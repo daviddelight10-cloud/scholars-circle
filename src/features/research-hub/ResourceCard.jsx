@@ -156,7 +156,7 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
 
       <div className="flex gap-2">
         <button onClick={() => onOpen(resource.shareToken)} className={`rounded-lg border border-gold-border bg-gold-dim px-2 py-1.5 text-[10px] font-semibold text-gold transition-all active:scale-95 ${showBookmark ? "flex-1" : "flex-1"}`}>
-          {isExam ? "Start exam" : "Open"}
+          {isExam ? "Open exam" : "Open"}
         </button>
         {isExam && onExamRegenerate && (
           <button

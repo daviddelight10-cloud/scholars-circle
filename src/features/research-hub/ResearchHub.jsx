@@ -24,6 +24,7 @@ import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
 import StreakSurvival from "../streak-survival/StreakSurvival.jsx";
 import ExamBuilder from "../exam/ExamBuilder.jsx";
+import ExamHub from "../exam/ExamHub.jsx";
 import McIcon from "./McIcon.jsx";
 import CircleSheet from "./CircleSheet.jsx";
 import CardActionSheet from "./CardActionSheet.jsx";
@@ -1044,6 +1045,15 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     setSessionMode({ type: "examRun", examResource });
   }, [guardPremiumFeature]);
 
+  // Exam hub — the landing page for a saved exam (retake / attempts / regenerate).
+  const startExamHub = useCallback((examResource, sourceFile) => {
+    if (!guardPremiumFeature("exam")) return;
+    const source = sourceFile || (examResource?.sourceResourceId
+      ? resources.find((r) => r.id === examResource.sourceResourceId)
+      : null);
+    setSessionMode({ type: "examHub", examResource, sourceFile: source || null });
+  }, [guardPremiumFeature, resources]);
+
   const startExamRegenerate = useCallback((examResource) => {
     if (!guardPremiumFeature("exam")) return;
     const source = examResource?.sourceResourceId
@@ -1095,12 +1105,12 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     if (res) {
       setLastActivity({ resourceId: res.id, resourceTitle: res.title, subjectId: res.subject });
       if (res.contentType === "exam") {
-        startExamRun(res);
+        startExamHub(res);
         return;
       }
     }
     setViewerToken(token);
-  }, [resources, setLastActivity, startExamRun]);
+  }, [resources, setLastActivity, startExamHub]);
 
   const toggleBookmark = useCallback((resource) => {
     const isBookmarked = bookmarkedIds.has(resource.id);
@@ -1764,6 +1774,18 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         />
       );
     }
+    if (sessionMode.type === "examHub") {
+      return (
+        <ExamHub
+          exam={sessionMode.examResource}
+          source={sessionMode.sourceFile}
+          onBack={handleSessionComplete}
+          onStart={() => startExamRun(sessionMode.examResource)}
+          onRegenerate={() => startExamRegenerate(sessionMode.examResource)}
+          onBuild={sessionMode.sourceFile ? () => startExamBuild(sessionMode.sourceFile) : null}
+        />
+      );
+    }
     if (sessionMode.type === "examRegenerate") {
       return (
         <ExamBuilder
@@ -1900,7 +1922,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         onAdaptiveDrill={(resourceIds) => startAdaptiveDrill(null, resourceIds)}
         onExamSimulation={(fileOrSources) => {
           if (Array.isArray(fileOrSources)) startExamBuild(null, fileOrSources);
-          else if (fileOrSources?.contentType === "exam") startExamRun(fileOrSources);
+          else if (fileOrSources?.contentType === "exam") startExamHub(fileOrSources);
           else startExamBuild(fileOrSources);
         }}
         onExamRegenerate={startExamRegenerate}
