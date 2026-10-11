@@ -23,6 +23,7 @@ import { sound, setSoundEnabled } from './survivalAudio.js';
 import { haptics } from '../../lib/haptics';
 import useConfetti from './useConfetti.js';
 import { useOverlayBackClose } from '../../hooks/useOverlayBackClose.js';
+import { localDayKey } from '../../lib/dayKey.js';
 import './streakSurvival.css';
 
 const MAX_LIVES = 3;
@@ -916,8 +917,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       toast(`💔 Out of hearts — recharging`, '#FF5E7E', 2400);
       return;
     }
-    // Daily warmup bonus once per day
-    const today = new Date().toISOString().slice(0, 10);
+    // Daily warmup bonus once per LOCAL day (matches server streak day)
+    const today = localDayKey();
     if (save.warmupDate !== today) {
       editSave((s) => { s.warmupDate = today; s.gems += 5; s.lifetimeGems += 5; });
       setPendingChest('warmup');

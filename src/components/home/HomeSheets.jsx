@@ -3,6 +3,7 @@ import { useUI } from "../../contexts/UIContext.jsx";
 import HIcon from "./HIcon.jsx";
 import { lapsedSubjects } from "../../lib/homeUtils.js";
 import { levelProgress } from "../../features/streak-survival/survivalStore.js";
+import { localDayKey } from "../../lib/dayKey.js";
 
 const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -192,7 +193,7 @@ export function StatsSheet({ open, onClose, fsrsStats, save, fetchAnalytics, onV
   const dayList = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = localDayKey(d);
     dayList.push({ label: DAY_LABELS[d.getDay()], count: daily[key] || 0, today: i === 0 });
   }
   const max = Math.max(1, ...dayList.map((d) => d.count));

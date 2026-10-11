@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { API_BASE } from "../../lib/constants";
 import BadgesSection from "./BadgesSection";
 import { loadSave, levelProgress } from "../../features/streak-survival/survivalStore.js";
+import { localDayKey } from "../../lib/dayKey.js";
 import "./stats.css";
 
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -24,7 +25,7 @@ function dayList(dailyReviews, days) {
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = localDayKey(d);
     out.push({ label: DAY_LABELS[d.getDay()], count: dailyReviews?.[key] || 0, today: i === 0 });
   }
   return out;

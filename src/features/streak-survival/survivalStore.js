@@ -5,6 +5,7 @@
 // balance persists across devices — server value is adopted on app load.
 
 import { API_BASE } from "../../lib/constants.js";
+import { localDayKey } from "../../lib/dayKey.js";
 
 export function getUid() {
   try {
@@ -17,7 +18,9 @@ export function getUid() {
   return localStorage.getItem('scholars-circle-current-user') || 'guest';
 }
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
+// Quests/warmups rotate at LOCAL midnight — matches the server's per-user
+// streak day (UserProgress.tzOffsetMinutes), not the UTC day.
+const todayKey = () => localDayKey();
 
 function defaults() {
   return {

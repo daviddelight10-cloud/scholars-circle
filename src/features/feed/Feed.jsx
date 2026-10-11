@@ -9,6 +9,7 @@ import { MessagesTab } from "../messages/MessagesTab";
 import { GroupsTab } from "../groups/GroupsTab";
 import { Avatar, SectionHeader, displayTitle, FdScreen } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
+import { localDayKey } from "../../lib/dayKey.js";
 import ShareSheet from "../research-hub/ShareSheet.jsx";
 import SaveToSpaceSheet from "../research-hub/SaveToSpaceSheet.jsx";
 import "../../feed.css";
@@ -311,7 +312,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     for (let i = 20; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = localDayKey(d);
       days.push({ key, active: (dailyReviews[key] || 0) > 0, today: i === 0 });
     }
     return days;

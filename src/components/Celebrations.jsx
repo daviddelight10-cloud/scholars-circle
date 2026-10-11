@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getLeague, getNextLeague } from "../lib/appUtils";
+import { localDayKey } from "../lib/dayKey.js";
 
 export function ConfettiOverlay() {
   const [particles, setParticles] = useState([]);
@@ -126,7 +127,7 @@ export function StudyHeatmap({ heatmap }) {
     for (let i = 89; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const key = date.toISOString().split('T')[0];
+      const key = localDayKey(date);
       const count = heatmap[key] || 0;
       days.push({ date: key, count, day: date.getDay() });
     }

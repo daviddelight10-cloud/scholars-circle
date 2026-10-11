@@ -13,8 +13,11 @@ router.get("/", requireAuth, async (req, res) => {
     // Opening the app counts as the day's streak touch (idempotent — no-ops
     // if already counted today; consumes freezes on a gap). Runs before the
     // fetch so the response carries the fresh streak/lastStudied.
+    // ?tz=<minutes east of UTC> carries the device's current offset so the
+    // streak day uses the user's local calendar, not UTC.
     try {
-      await updateUniversalStreak(userId, prisma);
+      const tz = req.query.tz !== undefined ? Number(req.query.tz) : undefined;
+      await updateUniversalStreak(userId, prisma, Number.isFinite(tz) ? tz : undefined);
     } catch (e) {
       console.warn("[streak] login touch failed:", e?.message);
     }
@@ -43,6 +46,27 @@ router.get("/", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Error fetching user data:", error);
     res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
+
+// Store the device's timezone offset (minutes EAST of UTC, e.g. +60 Lagos).
+// The streak logic and reminder job read this to use the user's local day.
+router.post("/timezone", requireAuth, async (req, res) => {
+  try {
+    const tz = Number(req.body?.tzOffsetMinutes);
+    if (!Number.isFinite(tz) || Math.abs(tz) > 840) {
+      return res.status(400).json({ error: "Invalid tzOffsetMinutes" });
+    }
+    const offset = Math.round(tz);
+    await prisma.userProgress.upsert({
+      where: { userId: req.user.sub },
+      update: { tzOffsetMinutes: offset },
+      create: { userId: req.user.sub, tzOffsetMinutes: offset },
+    });
+    res.json({ tzOffsetMinutes: offset });
+  } catch (error) {
+    console.error("Error storing timezone:", error);
+    res.status(500).json({ error: "Failed to store timezone" });
   }
 });
 
@@ -365,23 +389,29 @@ router.post("/sync", requireAuth, async (req, res) => {
     const userId = req.user.sub;
     const data = req.body;
 
+    // Device timezone offset rides along on syncs so the stored offset stays
+    // fresh even for sessions that never hit GET /user-data.
+    const tz = Number(data.tzOffsetMinutes);
+    const tzValid = Number.isFinite(tz) && Math.abs(tz) <= 840;
+
     // Upsert user progress
-    if (data.stats) {
+    if (data.stats || tzValid) {
       // Read existing XP so we don't clobber XP awarded by quiz-attempts endpoint
       const existing = await prisma.userProgress.findUnique({ where: { userId } });
-      const maxXp = Math.max(existing?.xp ?? 0, data.stats.xp ?? 0);
+      const maxXp = Math.max(existing?.xp ?? 0, data.stats?.xp ?? 0);
 
       await prisma.userProgress.upsert({
         where: { userId },
         update: {
           xp: maxXp,
-          sessions: data.stats.sessions,
+          sessions: data.stats?.sessions,
           // streak + lastStudied are server-owned (updateUniversalStreak /
           // freeze consumption) — a stale client streak would clobber a
           // freeze-preserved streak otherwise.
-          coins: data.stats.coins,
-          weeklyGoal: data.stats.weeklyGoal,
-          totalCorrect: data.stats.totalCorrect,
+          ...(tzValid ? { tzOffsetMinutes: Math.round(tz) } : {}),
+          coins: data.stats?.coins,
+          weeklyGoal: data.stats?.weeklyGoal,
+          totalCorrect: data.stats?.totalCorrect,
           mastery: data.mastery,
           wrongCounts: data.wrongCounts,
           srData: data.srData,
@@ -389,12 +419,13 @@ router.post("/sync", requireAuth, async (req, res) => {
         },
         create: {
           userId,
-          xp: data.stats.xp || 0,
-          sessions: data.stats.sessions || 0,
-          streak: data.stats.streak || 0,
-          coins: data.stats.coins || 0,
-          weeklyGoal: data.stats.weeklyGoal || 5,
-          totalCorrect: data.stats.totalCorrect || 0,
+          xp: data.stats?.xp || 0,
+          sessions: data.stats?.sessions || 0,
+          streak: data.stats?.streak || 0,
+          ...(tzValid ? { tzOffsetMinutes: Math.round(tz) } : {}),
+          coins: data.stats?.coins || 0,
+          weeklyGoal: data.stats?.weeklyGoal || 5,
+          totalCorrect: data.stats?.totalCorrect || 0,
           mastery: data.mastery || {},
           wrongCounts: data.wrongCounts || {},
           srData: data.srData || {},

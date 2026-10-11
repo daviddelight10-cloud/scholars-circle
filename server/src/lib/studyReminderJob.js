@@ -1,8 +1,10 @@
 // Daily study reminder + motivation push job.
-// - Morning motivation push (06:00 UTC ≈ 7am Lagos / 6am UK summer)
-// - Evening "have you studied?" reminder (18:00 UTC ≈ 7pm Lagos / 7pm UK summer)
+// - Morning motivation push ~7am local
+// - Evening "have you studied?" reminder ~6pm local
+// Slots fire in each user's OWN local time (UserProgress.tzOffsetMinutes),
+// so a Lagos evening reminder isn't sent an hour early.
 // Respects each user's NotificationPreference.studyReminders flag.
-// Runs hourly; if the current UTC hour matches a slot, sends to all eligible users.
+// Runs every 30 min; each user gets each slot once per local day.
 
 import { prisma } from "../db.js";
 import { sendPushToUsers, sendPushToUser } from "./pushSender.js";
@@ -52,147 +54,120 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/**
- * Send the morning motivation to every user who has opted in.
- */
-async function sendMorningMotivation() {
-  const subs = await prisma.pushSubscription.findMany({ select: { userId: true }, distinct: ["userId"] });
-  const userIds = [...new Set(subs.map((s) => s.userId))];
-  if (userIds.length === 0) return { sent: 0, reason: "no_subscribers" };
-
-  const m = pick(MORNING_MOTIVATIONS);
-  const tip = Math.random() < 0.5 ? "\n\n" + pick(STUDY_TIPS) : "";
-
-  const result = await sendPushToUsers(
-    userIds,
-    {
-      title: m.title,
-      body: m.body + tip,
-      tag: "daily-motivation",
-      data: { tab: "today", kind: "motivation" }
-    },
-    { category: "studyReminders" }
-  );
-  console.log(`[reminder] morning motivation -> ${result.sent}/${result.users}`);
-  return result;
+// Per-user local time. UserProgress.tzOffsetMinutes = minutes EAST of UTC
+// (reported by the client; 0 = UTC default). Shifted-UTC trick: add the
+// offset, then read UTC fields — that IS the user's local calendar.
+function localParts(nowMs, offsetMin) {
+  const off = Math.max(-840, Math.min(840, Number(offsetMin) || 0));
+  const shifted = new Date(nowMs + off * 60000);
+  return {
+    hour: shifted.getUTCHours(),
+    day: shifted.toISOString().slice(0, 10),
+    // Instant at which the user's local "today" began (UTC ms).
+    dayStartUtcMs: Math.floor((nowMs + off * 60000) / 86400000) * 86400000 - off * 60000,
+  };
 }
 
+// Dedup: `${kind}:${userId}:${localDay}` — each user gets each slot once
+// per their own day. Cleared on UTC rollover to bound memory.
+const sentKeys = new Set();
+let lastUtcDay = null;
+
 /**
- * Send evening study reminder to users who haven't recorded a session today.
- * Falls back to all opted-in users if no session-tracking is wired.
+ * Local-time slots, evaluated per user every tick:
+ *   local hour 7  → morning motivation
+ *   local hour 18 → evening reminder (streak-risk if they haven't studied
+ *                   their local today, generic otherwise)
  */
-async function sendEveningReminder() {
+async function sendSlotReminders(nowMs) {
   const subs = await prisma.pushSubscription.findMany({ select: { userId: true }, distinct: ["userId"] });
   const allUserIds = [...new Set(subs.map((s) => s.userId))];
   if (allUserIds.length === 0) return { sent: 0, reason: "no_subscribers" };
 
-  // Streak-at-risk: streak > 0 but lastStudied is before today (UTC —
-  // updateUniversalStreak uses UTC day boundaries, so we match that here).
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-  let atRisk = [];
-  try {
-    atRisk = await prisma.userProgress.findMany({
-      where: {
-        userId: { in: allUserIds },
-        streak: { gt: 0 },
-        OR: [{ lastStudied: null }, { lastStudied: { lt: todayStart } }]
-      },
-      select: { userId: true, streak: true }
-    });
-  } catch {
-    // model missing — fall back to the generic reminder for everyone
-  }
-  const atRiskIds = new Set(atRisk.map((u) => u.userId));
+  const progressRows = await prisma.userProgress.findMany({
+    where: { userId: { in: allUserIds } },
+    select: { userId: true, streak: true, lastStudied: true, tzOffsetMinutes: true },
+  }).catch(() => []);
+  const prog = new Map(progressRows.map((p) => [p.userId, p]));
 
-  // Best-effort: skip users who already have a study activity in the last 12h.
-  // The schema may or may not have an "Activity" model — we silently skip if not.
-  let inactiveUserIds = allUserIds;
-  try {
-    const since = new Date(Date.now() - 12 * 60 * 60 * 1000);
-    if (prisma.studySession?.findMany) {
-      const recent = await prisma.studySession.findMany({
-        where: { createdAt: { gte: since } },
-        select: { userId: true },
-        distinct: ["userId"]
-      });
-      const activeIds = new Set(recent.map((r) => r.userId));
-      inactiveUserIds = allUserIds.filter((id) => !activeIds.has(id));
+  const morningIds = [];
+  const streakRisk = []; // { userId, streak }
+  const genericIds = [];
+
+  for (const userId of allUserIds) {
+    const p = prog.get(userId);
+    const { hour, day, dayStartUtcMs } = localParts(nowMs, p?.tzOffsetMinutes);
+
+    if (hour === 7 && !sentKeys.has(`m:${userId}:${day}`)) {
+      sentKeys.add(`m:${userId}:${day}`);
+      morningIds.push(userId);
     }
-  } catch {
-    // ignore — model may not exist
+
+    if (hour === 18 && !sentKeys.has(`e:${userId}:${day}`)) {
+      sentKeys.add(`e:${userId}:${day}`);
+      const studiedToday = p?.lastStudied && new Date(p.lastStudied).getTime() >= dayStartUtcMs;
+      if (!studiedToday && (p?.streak || 0) > 0) streakRisk.push({ userId, streak: p.streak });
+      else if (!studiedToday) genericIds.push(userId);
+    }
   }
 
-  // Personalized streak-risk pushes (streak number in the title — hooks the
-  // motivation the user already has, Duolingo-style).
-  let streakSent = 0;
-  await Promise.all(
-    atRisk.map(async (u) => {
-      const r = await sendPushToUser(
-        u.userId,
-        {
-          title: `🔥 Your ${u.streak}-day streak ends tonight!`,
-          body: pick(STREAK_RISK_BODIES),
-          tag: "streak-risk",
-          data: { tab: "today", kind: "streak_risk" }
-        },
-        { category: "studyReminders" }
-      ).catch(() => ({ sent: 0 }));
-      streakSent += r.sent || 0;
-    })
-  );
+  let sent = 0;
 
-  const genericIds = inactiveUserIds.filter((id) => !atRiskIds.has(id));
-  let generic = { sent: 0 };
-  if (genericIds.length) {
-    const m = pick(EVENING_REMINDERS);
-    generic = await sendPushToUsers(
-      genericIds,
-      {
-        title: m.title,
-        body: m.body,
-        tag: "daily-reminder",
-        data: { tab: "today", kind: "study_reminder" }
-      },
+  if (morningIds.length) {
+    const m = pick(MORNING_MOTIVATIONS);
+    const tip = Math.random() < 0.5 ? "\n\n" + pick(STUDY_TIPS) : "";
+    const r = await sendPushToUsers(
+      morningIds,
+      { title: m.title, body: m.body + tip, tag: "daily-motivation", data: { tab: "today", kind: "motivation" } },
       { category: "studyReminders" }
+    );
+    sent += r.sent || 0;
+    console.log(`[reminder] morning motivation -> ${r.sent}/${morningIds.length}`);
+  }
+
+  if (streakRisk.length) {
+    await Promise.all(
+      streakRisk.map(async (u) => {
+        const r = await sendPushToUser(
+          u.userId,
+          {
+            title: `🔥 Your ${u.streak}-day streak ends tonight!`,
+            body: pick(STREAK_RISK_BODIES),
+            tag: "streak-risk",
+            data: { tab: "today", kind: "streak_risk" }
+          },
+          { category: "studyReminders" }
+        ).catch(() => ({ sent: 0 }));
+        sent += r.sent || 0;
+      })
     );
   }
 
-  if (streakSent === 0 && generic.sent === 0 && !atRisk.length && !genericIds.length) {
-    return { sent: 0, reason: "everyone_studied_today" };
+  if (genericIds.length) {
+    const m = pick(EVENING_REMINDERS);
+    const r = await sendPushToUsers(
+      genericIds,
+      { title: m.title, body: m.body, tag: "daily-reminder", data: { tab: "today", kind: "study_reminder" } },
+      { category: "studyReminders" }
+    );
+    sent += r.sent || 0;
   }
-  console.log(`[reminder] evening -> streak-risk ${streakSent}/${atRisk.length}, generic ${generic.sent}/${genericIds.length}`);
-  return { sent: streakSent + generic.sent, users: atRisk.length + genericIds.length };
+
+  if (streakRisk.length || genericIds.length) {
+    console.log(`[reminder] evening -> streak-risk ${streakRisk.length}, generic ${genericIds.length}`);
+  }
+  return { sent, users: morningIds.length + streakRisk.length + genericIds.length };
 }
 
-// Track which slots we've already fired today to avoid duplicates if the loop fires twice in one hour.
-const firedToday = new Set();
-let lastDayKey = null;
-
-/**
- * Hourly tick. Fires the appropriate slot based on current UTC hour.
- * Slots:
- *   06:00 UTC → morning motivation
- *   18:00 UTC → evening study reminder
- */
 async function tick() {
-  const now = new Date();
-  const dayKey = now.toISOString().slice(0, 10); // YYYY-MM-DD
-  if (dayKey !== lastDayKey) {
-    firedToday.clear();
-    lastDayKey = dayKey;
+  const nowMs = Date.now();
+  const utcDay = new Date(nowMs).toISOString().slice(0, 10);
+  if (utcDay !== lastUtcDay) {
+    sentKeys.clear();
+    lastUtcDay = utcDay;
   }
-
-  const hourUtc = now.getUTCHours();
   try {
-    if (hourUtc === 6 && !firedToday.has("morning")) {
-      firedToday.add("morning");
-      await sendMorningMotivation();
-    }
-    if (hourUtc === 18 && !firedToday.has("evening")) {
-      firedToday.add("evening");
-      await sendEveningReminder();
-    }
+    await sendSlotReminders(nowMs);
   } catch (err) {
     console.error("[reminder] tick failed:", err.message);
   }
@@ -206,7 +181,7 @@ export function startStudyReminderJob() {
   setInterval(tick, 30 * 60 * 1000);
   // Also run shortly after server start so missed slots aren't lost on a deploy.
   setTimeout(tick, 30 * 1000);
-  console.log("[reminder] Study reminder job started (06:00 + 18:00 UTC daily)");
+  console.log("[reminder] Study reminder job started (07:00 + 18:00 local time daily)");
 }
 
 // Exposed for the manual test endpoint.

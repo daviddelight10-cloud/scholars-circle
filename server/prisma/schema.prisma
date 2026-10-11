@@ -625,6 +625,11 @@ model UserProgress {
 
   lastStudied   DateTime?
 
+  // Minutes EAST of UTC (e.g. +60 Lagos) reported by the client —
+  // drives local-day boundaries in updateUniversalStreak + reminders.
+  // 0 = UTC, also the fallback for clients that never report.
+  tzOffsetMinutes Int     @default(0)
+
   lastActivity  DateTime?
 
   darkMode     Boolean  @default(true)

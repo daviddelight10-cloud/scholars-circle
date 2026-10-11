@@ -1,4 +1,5 @@
 import { LEAGUES, API_BASE } from "./constants";
+import { tzOffsetMinutes } from "./dayKey.js";
 
 export function shuffle(arr) {
   const copy = [...arr];
@@ -88,6 +89,7 @@ export async function syncUserDataToBackend(token, data) {
       token,
       method: "POST",
       body: {
+        tzOffsetMinutes: tzOffsetMinutes(),
         stats: data.progress,
         mastery: data.progress?.mastery,
         wrongCounts: data.progress?.wrongCounts,
@@ -106,7 +108,9 @@ export async function syncUserDataToBackend(token, data) {
 export async function loadUserDataFromBackend(token) {
   if (!token) return null;
   try {
-    const data = await api("/user-data", { token });
+    // ?tz= reports the device's current offset so the server streak touch
+    // uses the user's local day boundary (and stores it for next time).
+    const data = await api(`/user-data?tz=${tzOffsetMinutes()}`, { token });
     return data;
   } catch (e) {
     console.error("Failed to load from backend:", e);

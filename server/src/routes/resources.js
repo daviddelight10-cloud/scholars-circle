@@ -1862,10 +1862,17 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true },
     });
 
+    // Progress row: streak numbers + the stored tz offset for local-day math
+    const up = await prisma.userProgress.findUnique({
+      where: { userId: req.user.sub },
+      select: { streak: true, longestStreak: true, lastStudied: true, freezes: true, tzOffsetMinutes: true },
+    }).catch(() => null);
+    const offsetMin = up?.tzOffsetMinutes || 0;
+    // Instant at which the user's local "today" began (UTC ms)
+    const todayStartMs = Math.floor((now.getTime() + offsetMin * 60000) / 86400000) * 86400000 - offsetMin * 60000;
+
     const dueCount = items.filter((i) => new Date(i.dueAt) <= now).length;
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const reviewedToday = items.filter((i) => i.lastReviewAt && new Date(i.lastReviewAt) >= todayStart).length;
+    const reviewedToday = items.filter((i) => i.lastReviewAt && new Date(i.lastReviewAt).getTime() >= todayStartMs).length;
     const learningCount = items.filter((i) => i.state === 1 || i.state === 3).length;
     const masteredCount = items.filter((i) => isMastered(i)).length;
     const newCount = items.filter((i) => i.state === 0).length;
@@ -1897,11 +1904,6 @@ router.get("/fsrs/stats", requireAuth, async (req, res) => {
     const nextDue = items.length > 0
       ? items.sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))[0].dueAt
       : null;
-
-    const up = await prisma.userProgress.findUnique({
-      where: { userId: req.user.sub },
-      select: { streak: true, longestStreak: true, lastStudied: true, freezes: true },
-    }).catch(() => null);
 
     const { dailyGoal, totalReviews } = await getUserFsrsWeights(req.user.sub);
 
@@ -1945,17 +1947,24 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
       select: { state: true, stability: true, difficulty: true, dueAt: true, itemType: true, reps: true, lapses: true, subject: true, lastReviewAt: true, createdAt: true },
     });
 
+    // Day buckets are in the user's LOCAL calendar — same notion of "day" as
+    // updateUniversalStreak (UserProgress.tzOffsetMinutes).
+    const tzRow = await prisma.userProgress.findUnique({
+      where: { userId: req.user.sub },
+      select: { tzOffsetMinutes: true },
+    }).catch(() => null);
+    const offsetMin = tzRow?.tzOffsetMinutes || 0;
+    const localKey = (ms) => new Date(ms + offsetMin * 60000).toISOString().slice(0, 10);
+
     // Daily review counts for heatmap
     const dailyReviews = {};
+    const nowMs = now.getTime();
     for (let d = 0; d < days; d++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - d);
-      const key = date.toISOString().slice(0, 10);
-      dailyReviews[key] = 0;
+      dailyReviews[localKey(nowMs - d * 86400000)] = 0;
     }
     for (const i of items) {
       if (i.lastReviewAt && new Date(i.lastReviewAt) >= since) {
-        const key = new Date(i.lastReviewAt).toISOString().slice(0, 10);
+        const key = localKey(new Date(i.lastReviewAt).getTime());
         if (dailyReviews[key] !== undefined) dailyReviews[key]++;
       }
     }
@@ -1987,15 +1996,13 @@ router.get("/fsrs/analytics", requireAuth, async (req, res) => {
       if (i.lapses > 0) lapseBySubject[s].lapsed++;
     }
 
-    // Due forecast: items scheduled per day over the next 7 days
+    // Due forecast: items scheduled per day over the next 7 days (local days)
     const dueForecast = {};
     for (let d = 0; d < 7; d++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() + d);
-      dueForecast[date.toISOString().slice(0, 10)] = 0;
+      dueForecast[localKey(nowMs + d * 86400000)] = 0;
     }
     for (const i of items) {
-      const key = new Date(i.dueAt).toISOString().slice(0, 10);
+      const key = localKey(new Date(i.dueAt).getTime());
       if (dueForecast[key] !== undefined) dueForecast[key]++;
     }
 

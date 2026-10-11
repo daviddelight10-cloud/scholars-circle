@@ -13,6 +13,7 @@
 //   vpCases    — Virtual Patient casesCompleted count
 
 import { levelProgress } from "../features/streak-survival/survivalStore.js";
+import { localDayKey } from "./dayKey.js";
 
 export const BADGE_GROUPS = [
   { id: "review", label: "Daily Review", icon: "📚" },
@@ -33,7 +34,7 @@ function daysReviewed(analytics, n) {
   let hit = 0;
   for (let i = 0; i < n; i++) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    if ((map[d.toISOString().slice(0, 10)] || 0) > 0) hit++;
+    if ((map[localDayKey(d)] || 0) > 0) hit++;
   }
   return hit;
 }

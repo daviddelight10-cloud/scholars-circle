@@ -75,6 +75,7 @@ import {
 } from "./lib/constants";
 import { PLANS, getPlan, naira, waPaymentProofLink } from "./lib/plans.js";
 import { adoptServerGems } from "./features/streak-survival/survivalStore.js";
+import { localDayKey, tzOffsetMinutes } from "./lib/dayKey.js";
 import {
   isFreeTier, freeTierPhase, trialDaysLeft, trialEndPending, markTrialEndNotified,
   enterFreeTier, exitFreeTier, canUse, consume, loadState,
@@ -1905,12 +1906,12 @@ function App() {
           let validatedStreak = data.progress.streak ?? 0;
 
           const backendLastStudied = data.progress.lastStudied
-            ? new Date(data.progress.lastStudied).toISOString().split('T')[0]
+            ? localDayKey(new Date(data.progress.lastStudied))
             : null;
 
           if (backendLastStudied && validatedStreak > 0) {
 
-            const todayStr = new Date().toISOString().split('T')[0];
+            const todayStr = localDayKey();
 
             if (backendLastStudied !== todayStr) {
 
@@ -1956,7 +1957,7 @@ function App() {
 
           setSrData(data.progress.srData || {});
 
-          setLastStudied(data.progress.lastStudied ? new Date(data.progress.lastStudied).toISOString().split('T')[0] : null);
+          setLastStudied(data.progress.lastStudied ? localDayKey(new Date(data.progress.lastStudied)) : null);
 
           setLastActivity(data.progress.lastActivity ?? null);
 
@@ -2130,7 +2131,7 @@ function App() {
 
 
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDayKey();
 
     if (lastStudied === todayStr) return; // Already studied today, streak is valid
 
@@ -3394,7 +3395,7 @@ function App() {
 
   function handleStreakUpdate(newStreak, longestStreak) {
     setStats((s) => ({ ...s, streak: newStreak }));
-    setLastStudied(new Date().toISOString().split('T')[0]);
+    setLastStudied(localDayKey());
     setLastActivity(new Date().toISOString());
   }
 
@@ -3419,7 +3420,7 @@ function App() {
 
     const now = new Date();
 
-    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const todayStr = localDayKey(now); // YYYY-MM-DD in the user's local calendar
 
 
 
@@ -3539,9 +3540,8 @@ function App() {
 
 
 
-    // Update study heatmap
-
-    const today = new Date().toISOString().split('T')[0];
+    // Update study heatmap — bucketed by the user's local day
+    const today = localDayKey();
 
     setStudyHeatmap(prev => {
 
@@ -4396,7 +4396,7 @@ function App() {
 
     try {
 
-      const data = await api("/user-data", { token: tok });
+      const data = await api(`/user-data?tz=${tzOffsetMinutes()}`, { token: tok });
 
       if (data.progress) {
 
@@ -4426,7 +4426,7 @@ function App() {
 
         setSrData(data.progress.srData || {});
 
-        setLastStudied(data.progress.lastStudied || null);
+        setLastStudied(data.progress.lastStudied ? localDayKey(new Date(data.progress.lastStudied)) : null);
 
         setLastActivity(data.progress.lastActivity ?? null);
 
@@ -4974,7 +4974,7 @@ function App() {
 
     const now = new Date();
 
-    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const todayStr = localDayKey(now); // YYYY-MM-DD in the user's local calendar
 
 
 
