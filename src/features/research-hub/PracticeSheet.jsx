@@ -165,6 +165,7 @@ export default function PracticeSheet({
   const [livePeople, setLivePeople] = useState([]);
   const [activeQuizzes, setActiveQuizzes] = useState([]);
   const [examAttempts, setExamAttempts] = useState(null);
+  const [examMenuOpen, setExamMenuOpen] = useState(false);
   // Session prefs (answer style + extras) — persisted to the survival save so
   // StreakSurvival picks them up the moment the runner mounts.
   const [prefs, setPrefs] = useState(() => loadSave()?.quizPrefs || { style: "smart", recallFirst: true, speedRound: false });
@@ -528,31 +529,49 @@ export default function PracticeSheet({
               disabled={generating}
               onClick={act(() => (summary ? onOpen(summary.shareToken) : onGenerate?.(file, "summary")))}
             />
-            <PmTile
-              delay={170}
-              tint="tint-green"
-              icon={<IcoClipboard size={17} />}
-              name="Exam sim"
-              badge={exam ? (examAttemptsCount > 0 ? `${examAttemptsCount}` : null) : null}
-              sub={
-                exam
-                  ? `${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}`
-                  : canExtract
-                    ? "AI builds a custom exam"
-                    : "No extractable text"
-              }
-              disabled={!canExtract || generating || (exam ? false : !canExtract)}
-              onClick={act(() => onExamSimulation?.(exam || file))}
-            />
-            {exam && onExamRegenerate && (
+            {exam ? (
+              <div className="pm-tile-wrap" key="exam-sim" style={{ position: "relative" }}>
+                <PmTile
+                  delay={170}
+                  tint="tint-green"
+                  icon={<IcoClipboard size={17} />}
+                  name="Exam sim"
+                  badge={examAttemptsCount > 0 ? `${examAttemptsCount}` : null}
+                  sub={`${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}`}
+                  disabled={generating}
+                  onClick={() => setExamMenuOpen(true)}
+                />
+                {examMenuOpen && (
+                  <div className="pm-exam-menu" role="menu" aria-label="Exam options">
+                    <button
+                      className="pm-exam-menu-btn"
+                      onClick={act(() => onExamSimulation?.(exam))}
+                      role="menuitem"
+                    >
+                      Start exam
+                    </button>
+                    {onExamRegenerate && (
+                      <button
+                        className="pm-exam-menu-btn alt"
+                        onClick={act(() => onExamRegenerate?.(exam))}
+                        role="menuitem"
+                      >
+                        New version
+                      </button>
+                    )}
+                    <button className="pm-exam-menu-close" onClick={() => setExamMenuOpen(false)}>Cancel</button>
+                  </div>
+                )}
+              </div>
+            ) : (
               <PmTile
-                delay={190}
+                delay={170}
                 tint="tint-green"
                 icon={<IcoClipboard size={17} />}
-                name="Regenerate"
-                sub={`New questions from ${file.title}`}
-                disabled={generating}
-                onClick={act(() => onExamRegenerate?.(exam))}
+                name="Exam sim"
+                sub={canExtract ? "AI builds a custom exam" : "No extractable text"}
+                disabled={!canExtract || generating}
+                onClick={act(() => onExamSimulation?.(file))}
               />
             )}
             <PmTile
