@@ -196,6 +196,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const chatScrollRef = useRef(null);
   const inputRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
+  const drawingGestureRef = useRef(false); // a lasso/pen stroke owned this touch — touchend must not swipe/zoom
   const pageDimsRef = useRef({}); // { pageNum: { width, height } } for virtualization placeholders
   const dimsMeasuringRef = useRef(new Set()); // pages with an in-flight dims measurement
   const renderTasksRef = useRef({}); // { pageNum: renderTask } for per-canvas cancellation
@@ -2229,7 +2230,11 @@ Passage:
   const onOverlayDown = (e, pg = currentPage) => {
     if (tool === "none") return;
     e.preventDefault();
-    e.target.setPointerCapture(e.pointerId);
+    // iOS Safari: setPointerCapture can throw InvalidPointerId on SVG elements,
+    // and e.target may be a child <path> — capture on the SVG that owns the
+    // handlers, and never let a capture failure abort the gesture.
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch {}
+    drawingGestureRef.current = true;
     drawPageRef.current = pg;
     setDrawPage(pg);
     const p = getRelPoint(e);
@@ -2276,24 +2281,45 @@ Passage:
 
   const onOverlayMove = (e) => {
     if (!isDrawing) return;
-    const p = getRelPoint(e);
+    // iOS Safari delivers fewer pointermove samples than Android — drain the
+    // coalesced queue so fast/small circles still get enough fidelity points.
+    const evts = e.nativeEvent?.getCoalescedEvents?.() || [e];
 
     if (tool === "circle") {
-      const last = lassoPoints.current[lassoPoints.current.length - 1];
-      if (last && Math.hypot(p.x - last.x, p.y - last.y) < 3) return;
-      lassoPoints.current.push(p);
+      for (const ev of evts) {
+        const p = getRelPoint(ev);
+        const last = lassoPoints.current[lassoPoints.current.length - 1];
+        if (last && Math.hypot(p.x - last.x, p.y - last.y) < 3) continue;
+        lassoPoints.current.push(p);
+      }
       const d = "M " + lassoPoints.current.map((p) => `${p.x},${p.y}`).join(" L ");
       setLassoPath(d);
       return;
     }
 
     if (tool === "highlight" || tool === "pen") {
-      const last = currentStrokes.current[currentStrokes.current.length - 1];
-      if (last && Math.hypot(p.x - last.x, p.y - last.y) < 2) return;
-      currentStrokes.current.push(p);
+      for (const ev of evts) {
+        const p = getRelPoint(ev);
+        const last = currentStrokes.current[currentStrokes.current.length - 1];
+        if (last && Math.hypot(p.x - last.x, p.y - last.y) < 2) continue;
+        currentStrokes.current.push(p);
+      }
       const d = "M " + currentStrokes.current.map((p) => `${p.x},${p.y}`).join(" L ");
       setRenderStrokes(d);
     }
+  };
+
+  const finishLasso = async (poly, pg) => {
+    lassoPoints.current = [];
+    setLassoPath("");
+    setTool("none");
+    setAnnotateTab("none");
+    if (poly.length < 3) return;
+    // Reject accidental taps — a real circle encloses a real area.
+    const xs = poly.map((p) => p.x);
+    const ys = poly.map((p) => p.y);
+    if (Math.max(...xs) - Math.min(...xs) < 24 && Math.max(...ys) - Math.min(...ys) < 24) return;
+    await analyzeLasso(poly, pg);
   };
 
   const onOverlayUp = async () => {
@@ -2304,13 +2330,7 @@ Passage:
     setIsDrawing(false);
 
     if (tool === "circle") {
-      const poly = lassoPoints.current;
-      lassoPoints.current = [];
-      setLassoPath("");
-      setTool("none");
-      setAnnotateTab("none");
-      if (poly.length < 4) return;
-      await analyzeLasso(poly, pg);
+      await finishLasso(lassoPoints.current, pg);
       return;
     }
 
@@ -2328,6 +2348,23 @@ Passage:
         [pg]: [...(prev[pg] || []), { color: strokeColor, width: strokeWidth, points: pdfPts, type: tool }],
       }));
     }
+  };
+
+  // iOS fires pointercancel aggressively — a resting palm, a second finger, or
+  // the OS taking the gesture for scroll/callout. Commit whatever the user
+  // managed to draw instead of silently dropping it.
+  const onOverlayCancel = async () => {
+    const pg = drawPageRef.current || currentPage;
+    drawPageRef.current = null;
+    setDrawPage(null);
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    if (tool === "circle") {
+      await finishLasso(lassoPoints.current, pg);
+      return;
+    }
+    currentStrokes.current = [];
+    setRenderStrokes("");
   };
 
   const clearPageAnnotations = () => {
@@ -2447,6 +2484,9 @@ Passage:
   };
 
   const onTouchStartViewer = (e) => {
+    // A lasso/pen stroke is in progress — ignore extra touches (resting palm,
+    // second finger) so they can't start pinch tracking or corrupt the path.
+    if (lassoPoints.current.length || currentStrokes.current.length) return;
     if (e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -2473,6 +2513,9 @@ Passage:
       setPinchActive(true);
     } else if (e.touches.length === 1) {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      // Fresh touch — clear any stale flag from an interrupted prior gesture;
+      // onOverlayDown re-arms it if this touch becomes a draw gesture.
+      drawingGestureRef.current = false;
       // Allow panning when zoomed in (paged modes; continuous uses native scroll)
       if (panZoomRef.current.scale > 1 && tool === "none" && (scrollMode === "single" || scrollMode === "book")) {
         panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -2483,6 +2526,12 @@ Passage:
   };
 
   const onTouchMoveViewer = (e) => {
+    // Draw/lasso in progress — block native scroll so iOS Safari can't steal
+    // the gesture (its touch-action support inside scrollers is unreliable).
+    if (lassoPoints.current.length || currentStrokes.current.length) {
+      e.preventDefault();
+      return;
+    }
     if (e.touches.length === 2 && pinchActiveRef.current && pinchStartDistRef.current > 0) {
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -2553,6 +2602,12 @@ Passage:
       return;
     }
     if (e.changedTouches.length === 1) {
+      // This touch was a draw/lasso gesture — it already completed via the
+      // pointerup path; a second swipe/double-tap must not fire on release.
+      // The flag is cleared on the NEXT touchstart so every finger that
+      // lifted within this gesture (drawing finger, palm, second finger)
+      // bails — a palm touchend can't un-swallow the drawing finger's.
+      if (drawingGestureRef.current || tool !== "none") return;
       const t = e.changedTouches[0];
       const dx = t.clientX - touchStartRef.current.x;
       const dy = t.clientY - touchStartRef.current.y;
@@ -4596,6 +4651,8 @@ Passage:
                 onPointerDown={onOverlayDown}
                 onPointerMove={onOverlayMove}
                 onPointerUp={onOverlayUp}
+                onPointerCancel={onOverlayCancel}
+                onLostPointerCapture={onOverlayCancel}
               >
                 {/* Saved annotations */}
                 {savedAnnotationPaths.map((sp) => (
@@ -4774,6 +4831,8 @@ Passage:
                           onPointerDown={(e) => onOverlayDown(e, pg)}
                           onPointerMove={onOverlayMove}
                           onPointerUp={onOverlayUp}
+                          onPointerCancel={onOverlayCancel}
+                          onLostPointerCapture={onOverlayCancel}
                         >
                           {/* Saved annotations */}
                           {(annotations[pg] || []).map((stroke, si) => {

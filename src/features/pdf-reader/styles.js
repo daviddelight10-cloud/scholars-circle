@@ -350,6 +350,11 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       height: "100%",
       pointerEvents: tool !== "none" ? "auto" : "none",
       touchAction: "none",
+      // iOS: stop the long-press callout and text selection from stealing the
+      // gesture mid-lasso (Safari fires pointercancel when the callout appears)
+      WebkitTouchCallout: "none",
+      WebkitUserSelect: "none",
+      userSelect: "none",
       cursor: tool === "highlight" || tool === "pen" ? "crosshair" : tool === "erase" ? "pointer" : tool === "circle" ? "crosshair" : "default",
     },
     lassoPath: {
