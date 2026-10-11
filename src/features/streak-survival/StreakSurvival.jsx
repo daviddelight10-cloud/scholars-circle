@@ -1158,17 +1158,22 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     else { const t = THEMES.find((x) => x.id === id); toast(`Not enough gems (${t?.cost} 💎)`, '#FF5E7E'); }
   }
 
-  function buyFreeze() {
+  async function buyFreeze() {
     if (save.gems < 15) { toast('Not enough gems (15 💎)', '#FF5E7E'); return; }
-    editSave((s) => { s.gems -= 15; s.freezes += 1; });
-    // Sync freeze inventory to the server (fire-and-forget; stats resync reconciles)
+    // Server charges UserProgress.gems + enforces the cap; the local save just
+    // mirrors the returned balances (never optimistic — offline buys would
+    // silently lose gems otherwise).
     try {
-      fetch(`${API_BASE}/api/resources/fsrs/freeze`, { method: 'POST', headers: getAuthHeaders() })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (d && typeof d.freezes === 'number') editSave((s) => { s.freezes = d.freezes; }); })
-        .catch(() => {});
-    } catch {}
-    toast('🧊 Streak freeze purchased', '#00E5FF');
+      const res = await fetch(`${API_BASE}/api/resources/fsrs/freeze`, { method: 'POST', headers: getAuthHeaders() });
+      const d = await res.json().catch(() => ({}));
+      if (res.status === 402) { editSave((s) => { s.gems = d.gems ?? s.gems; }); toast('Not enough gems (15 💎)', '#FF5E7E'); return; }
+      if (res.status === 409) { toast('Already holding the max (3 🧊)', '#FF7A9E'); return; }
+      if (!res.ok || typeof d.freezes !== 'number') { toast('Couldn\'t buy freeze — check connection', '#FF5E7E'); return; }
+      editSave((s) => { s.gems = d.gems; s.freezes = d.freezes; });
+      toast('🧊 Streak freeze purchased', '#00E5FF');
+    } catch {
+      toast('Couldn\'t buy freeze — check connection', '#FF5E7E');
+    }
   }
 
   function resetSave() {

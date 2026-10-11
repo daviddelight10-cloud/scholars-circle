@@ -6,6 +6,7 @@ import { levelProgress } from "../../features/streak-survival/survivalStore.js";
 import { localDayKey } from "../../lib/dayKey.js";
 
 const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
+const FREEZE_CAP = 3; // server cap — keeps the streak meaningful
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 const AV_COLORS = ["#FFC55C", "#9DB8E8", "#6EE7A0", "#C0B2FF", "#F9A8D4", "#7CC7FF"];
@@ -61,7 +62,7 @@ function SheetHead({ title, right, onClose }) {
 export function ShopSheet({ open, onClose, save, onBuyFreeze }) {
   const gems = save?.gems || 0;
   const freezes = save?.freezes || 0;
-  const canAfford = gems >= FREEZE_COST;
+  const canAfford = gems >= FREEZE_COST && freezes < FREEZE_CAP;
   return (
     <Sheet open={open} onClose={onClose}>
       <SheetHead
@@ -76,13 +77,13 @@ export function ShopSheet({ open, onClose, save, onBuyFreeze }) {
           <HIcon name="freeze" size={18} />
         </div>
         <div className="hm-sh-info">
-          <h4>Streak Freeze {freezes > 0 && <span className="hm-own-tag">owns {freezes}</span>}</h4>
+          <h4>Streak Freeze {freezes > 0 && <span className="hm-own-tag">owns {freezes}/{FREEZE_CAP}</span>}</h4>
           <p>Miss a day without losing your streak. Auto-used when needed.</p>
         </div>
         <button
           className={`hm-sh-buy${canAfford ? "" : " cant"}`}
           onClick={canAfford ? onBuyFreeze : undefined}
-          title={canAfford ? `Buy for ${FREEZE_COST} gems` : "Not enough gems"}
+          title={freezes >= FREEZE_CAP ? `Max ${FREEZE_CAP} freezes` : canAfford ? `Buy for ${FREEZE_COST} gems` : "Not enough gems"}
         >
           <HIcon name="gem" size={12} />{FREEZE_COST}
         </button>

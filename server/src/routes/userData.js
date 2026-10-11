@@ -15,9 +15,12 @@ router.get("/", requireAuth, async (req, res) => {
     // fetch so the response carries the fresh streak/lastStudied.
     // ?tz=<minutes east of UTC> carries the device's current offset so the
     // streak day uses the user's local calendar, not UTC.
+    // streakInfo tells the client what this open did (new day / freeze used /
+    // streak broken) — drives the daily streak-moment sheet.
+    let streakInfo = null;
     try {
       const tz = req.query.tz !== undefined ? Number(req.query.tz) : undefined;
-      await updateUniversalStreak(userId, prisma, Number.isFinite(tz) ? tz : undefined);
+      streakInfo = await updateUniversalStreak(userId, prisma, Number.isFinite(tz) ? tz : undefined);
     } catch (e) {
       console.warn("[streak] login touch failed:", e?.message);
     }
@@ -42,6 +45,7 @@ router.get("/", requireAuth, async (req, res) => {
       notes,
       discussions,
       outlineProgress,
+      streakInfo,
     });
   } catch (error) {
     console.error("Error fetching user data:", error);

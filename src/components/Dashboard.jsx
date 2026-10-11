@@ -11,15 +11,14 @@ import { CASES } from "../features/clinicalCases/caseData.js";
 import { getPdfReadingProgress, tileTintStyle } from "../lib/researchUtils.js";
 import GameBar from "./home/GameBar.jsx";
 import HomeHero from "./home/HomeHero.jsx";
-import WelcomeSheet from "./home/WelcomeSheet.jsx";
+import StreakMoment from "./home/StreakMoment.jsx";
+import StreakSheet from "./home/StreakSheet.jsx";
 import { ShopSheet, BoardSheet, StatsSheet, GoalSheet } from "./home/HomeSheets.jsx";
 import HIcon from "./home/HIcon.jsx";
-import { useDailyWelcome } from "../hooks/useDailyWelcome.js";
+import { useStreakMoment } from "../hooks/useStreakMoment.js";
 import { useUI } from "../contexts/UIContext.jsx";
 import { API_BASE } from "../lib/constants";
 import "../home.css";
-
-const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 
 function getAuthHeaders() {
   try {
@@ -50,6 +49,13 @@ function initials(name) {
   return (p.length >= 2 ? p[0][0] + p[1][0] : name.slice(0, 2)).toUpperCase();
 }
 
+function greetingWord() {
+  const h = new Date().getHours();
+  if (h < 12) return "morning";
+  if (h < 17) return "afternoon";
+  return "evening";
+}
+
 export default function Dashboard({
   userName, stats, subjects, mastery, dueCards, history,
   onStartSubject, onOpenTab, onOpenLeaderboard, onOpenStats,
@@ -61,11 +67,12 @@ export default function Dashboard({
   });
   const [showDailyReview, setShowDailyReview] = useState(false);
   const [save, setSave] = useState(() => ({ ...loadSave() }));
-  const [openSheet, setOpenSheet] = useState(null); // 'shop' | 'board' | 'stats' | 'goal'
+  const [openSheet, setOpenSheet] = useState(null); // 'shop' | 'board' | 'stats' | 'goal' | 'streak'
   const [toast, setToast] = useState(null);
   const [recents, setRecents] = useState(() => listRecentDocs());
   const [guidedProg, setGuidedProg] = useState({});
   const [preparingGuided, setPreparingGuided] = useState(null);
+  const [hasExam, setHasExam] = useState(false);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -245,6 +252,7 @@ export default function Dashboard({
       };
       const deptResources = resources.filter((r) => r.status !== "rejected" && matchesDept(r));
 
+      if (!cancelled) setHasExam(resources.some((r) => r.contentType === "exam" && r.status !== "rejected"));
       setUserProfile(profile);
       setResourceCounts({ dept: deptResources.length, saved, uploads });
       setCommunityFolders(Array.isArray(folders) ? folders : []);
@@ -308,20 +316,25 @@ export default function Dashboard({
   }, []);
 
   const handleBuyFreeze = useCallback(async () => {
-    if ((save.gems || 0) < FREEZE_COST) { showToast("Not enough gems"); return; }
+    // Server is authoritative: it charges UserProgress.gems and enforces the
+    // cap, then returns the real balances.
     try {
       const res = await fetch(`${API_BASE}/api/resources/fsrs/freeze`, {
         method: "POST", headers: getAuthHeaders(),
       });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      mutate((s) => { s.gems -= FREEZE_COST; s.freezes = data.freezes; });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 402) { mutate((s) => { s.gems = data.gems ?? s.gems; }); refreshSave(); showToast("Not enough gems"); return; }
+        if (res.status === 409) { showToast(`Max ${3} freezes held`); return; }
+        throw new Error();
+      }
+      mutate((s) => { s.gems = data.gems; s.freezes = data.freezes; });
       refreshSave();
       showToast("Streak Freeze added");
     } catch {
       showToast("Couldn't buy freeze — check your connection");
     }
-  }, [save.gems, refreshSave, showToast]);
+  }, [refreshSave, showToast]);
 
   const handleClaimQuest = useCallback((id) => {
     const reward = claimQuest(id);
@@ -374,33 +387,13 @@ export default function Dashboard({
   const level = levelFromXP(save.xp || 0);
   // null until fsrsStats resolves — never claim "0 items due" before data loads
   const dueCount = fsrsStats ? (fsrsStats.dueCount || 0) + bankDueCount : null;
-  const lastActiveDaysAgo = useMemo(() => {
-    let last = null;
-    try {
-      const uid = authUser?.id || authUser?.username || "guest";
-      const raw = localStorage.getItem(`scholars-circle-state::${uid}`);
-      const iso = raw ? JSON.parse(raw)?.lastStudied : null;
-      if (iso) {
-        const t = new Date(`${iso}T00:00:00`).getTime();
-        if (!Number.isNaN(t)) last = t;
-      }
-    } catch {}
-    for (const h of history || []) {
-      const t = h?.ts ? new Date(h.ts).getTime() : null;
-      if (t && !Number.isNaN(t) && (last == null || t > last)) last = t;
-    }
-    if (last == null) return null;
-    return Math.max(0, Math.round((Date.now() - last) / 86400000));
-  }, [authUser, history]);
 
-  const { message: welcome, dismiss: dismissWelcome } = useDailyWelcome({
+  const { moment, dismiss: dismissMoment } = useStreakMoment({
     userId: authUser?.id || authUser?.username,
-    dataReady: fsrsStats != null,
     streak,
+    longestStreak: fsrsStats?.longestStreak,
+    freezes: fsrsStats?.freezes ?? save?.freezes,
     level,
-    dueCount,
-    name: displayName,
-    lastActiveDaysAgo,
   });
 
 
@@ -426,6 +419,7 @@ export default function Dashboard({
             onOpenShop={() => { refreshSave(); setOpenSheet("shop"); }}
             onOpenBoard={() => setOpenSheet("board")}
             onOpenStats={() => setOpenSheet("stats")}
+            onOpenStreak={() => setOpenSheet("streak")}
           />
         </div>
 
@@ -439,6 +433,16 @@ export default function Dashboard({
         {firstRun && (
           <div className="hm-xp-hint">Review cards and finish cases to earn XP and gems.</div>
         )}
+
+        {/* Greeting line — name + tappable streak */}
+        <div className="hm-greet">
+          <span>Good {greetingWord()}, <b>{displayName}</b></span>
+          {streak > 0 && (
+            <button className="hm-greet-streak" onClick={() => setOpenSheet("streak")}>
+              <HIcon name="flame" size={12} color="#FF8A3D" /><b>{streak}</b>
+            </button>
+          )}
+        </div>
 
         <div className="hm-content">
           {/* ── Hero ── */}
@@ -660,11 +664,28 @@ export default function Dashboard({
       />
       <GoalSheet open={openSheet === "goal"} onClose={() => setOpenSheet(null)} dailyGoal={fsrsStats?.dailyGoal || 20} onSelect={handleSetGoal} />
 
-      {/* ── Daily welcome popup (once per day per user) ── */}
-      <WelcomeSheet
-        message={welcome}
-        onClose={dismissWelcome}
+      {/* ── Streak detail sheet (GameBar flame chip / greeting) ── */}
+      <StreakSheet
+        open={openSheet === "streak"}
+        onClose={() => setOpenSheet(null)}
+        streak={streak}
+        longestStreak={fsrsStats?.longestStreak}
+        freezes={fsrsStats?.freezes ?? save?.freezes}
+        save={save}
+        onBuyFreeze={handleBuyFreeze}
+      />
+
+      {/* ── Daily streak moment (once per day per user) ── */}
+      <StreakMoment
+        moment={moment}
+        name={displayName}
+        dueCount={dueCount}
+        recentDoc={recents[0] || null}
+        hasExam={hasExam}
+        onClose={dismissMoment}
         onStartDaily={() => setShowDailyReview(true)}
+        onOpenDoc={(shareToken) => onOpenResource?.(shareToken)}
+        onOpenExams={() => openResearchHub("library")}
       />
 
       {toast && <div className="hm-toast">{toast}</div>}

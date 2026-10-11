@@ -111,6 +111,11 @@ export async function loadUserDataFromBackend(token) {
     // ?tz= reports the device's current offset so the server streak touch
     // uses the user's local day boundary (and stores it for next time).
     const data = await api(`/user-data?tz=${tzOffsetMinutes()}`, { token });
+    // streakInfo powers the once-a-day streak moment on Home — cache it so
+    // the sheet can derive its state even across remounts.
+    if (data?.streakInfo) {
+      try { localStorage.setItem("sc_streak_info", JSON.stringify({ info: data.streakInfo, ts: Date.now() })); } catch {}
+    }
     return data;
   } catch (e) {
     console.error("Failed to load from backend:", e);

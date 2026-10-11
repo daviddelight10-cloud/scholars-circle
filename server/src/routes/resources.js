@@ -2184,19 +2184,94 @@ router.put("/fsrs/daily-goal", requireAuth, async (req, res) => {
 });
 
 // ── POST /api/resources/fsrs/freeze — Buy a streak freeze ──
-// Gems live client-side (localStorage), so the server only tracks the freeze
-// inventory itself. Consumption happens in updateUniversalStreak() when the
-// user studies again after missing day(s) — one freeze per missed day.
+// The server charges UserProgress.gems itself — the client balance is a
+// mirror, never the authority. Consumption happens in updateUniversalStreak()
+// when the user studies again after missing day(s) — one freeze per missed
+// day. FREEZE_CAP keeps the streak meaningful (no stacking to unbreakable).
+const FREEZE_GEM_COST = 15;
+const FREEZE_CAP = 3;
+
 router.post("/fsrs/freeze", requireAuth, async (req, res) => {
   try {
-    const up = await prisma.userProgress.upsert({
-      where: { userId: req.user.sub },
-      create: { userId: req.user.sub, freezes: 1 },
-      update: { freezes: { increment: 1 } },
+    const result = await prisma.$transaction(async (tx) => {
+      const up = await tx.userProgress.findUnique({ where: { userId: req.user.sub } });
+      if (!up) return { code: "no_progress" };
+      if ((up.freezes || 0) >= FREEZE_CAP) return { code: "cap", freezes: up.freezes, gems: up.gems };
+      if ((up.gems || 0) < FREEZE_GEM_COST) return { code: "gems", gems: up.gems || 0 };
+      const updated = await tx.userProgress.update({
+        where: { userId: req.user.sub },
+        data: { freezes: { increment: 1 }, gems: { decrement: FREEZE_GEM_COST } },
+        select: { freezes: true, gems: true },
+      });
+      return { code: "ok", ...updated };
     });
-    res.json({ freezes: up.freezes });
+    if (result.code === "cap") return res.status(409).json({ error: "freeze_cap", message: `You can hold at most ${FREEZE_CAP} freezes`, freezes: result.freezes, gems: result.gems });
+    if (result.code === "gems") return res.status(402).json({ error: "not_enough_gems", needed: FREEZE_GEM_COST, gems: result.gems });
+    if (result.code === "no_progress") return res.status(404).json({ error: "no progress" });
+    res.json({ freezes: result.freezes, gems: result.gems });
   } catch (error) {
     res.status(500).json({ error: "Failed to buy streak freeze" });
+  }
+});
+
+// ── GET /api/resources/fsrs/warmup-question — One recall question for the ──
+// daily streak-moment sheet. Prefers due, previously-missed MCQs the user has
+// reviewed in the last 14 days; excludes anything already reviewed today in
+// the user's local day. { item: null } for users with no practice history.
+router.get("/fsrs/warmup-question", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const nowMs = Date.now();
+    const since = new Date(nowMs - 14 * 86400000);
+
+    const up = await prisma.userProgress.findUnique({
+      where: { userId },
+      select: { tzOffsetMinutes: true },
+    }).catch(() => null);
+    const off = up?.tzOffsetMinutes || 0;
+    const localDayStartMs = Math.floor((nowMs + off * 60000) / 86400000) * 86400000 - off * 60000;
+
+    const items = await prisma.pdfReviewItem.findMany({
+      where: {
+        userId,
+        itemType: { in: ["mcq", "legacy_mcq"] },
+        lastReviewAt: { gte: since, lt: new Date(localDayStartMs) },
+      },
+      include: { resource: { select: { id: true, title: true, subject: true, mcqData: true } } },
+      orderBy: [{ lapses: "desc" }, { dueAt: "asc" }],
+      take: 25,
+    });
+
+    const due = items.filter((i) => new Date(i.dueAt).getTime() <= nowMs);
+    const pool = due.length ? due : items;
+
+    // Attach the question data; skip items whose mcq is missing or needs media.
+    let picked = null;
+    for (const i of pool) {
+      try {
+        const mcqData = typeof i.resource?.mcqData === "string" ? JSON.parse(i.resource.mcqData) : i.resource?.mcqData;
+        const mcq = Array.isArray(mcqData) ? mcqData[i.pageIndex] : null;
+        if (!mcq || !mcq.question) continue;
+        const optVals = Object.values(mcq.options || {});
+        if (optVals.length < 2) continue;
+        if (mcq.image || optVals.some((o) => typeof o === "string" && o.startsWith("data:"))) continue;
+        picked = {
+          id: i.id,
+          resourceId: i.resourceId,
+          pageIndex: i.pageIndex,
+          topic: i.topic || null,
+          subject: i.subject || i.resource?.subject || null,
+          resourceTitle: i.resource?.title || null,
+          mcq,
+        };
+        break;
+      } catch { /* malformed mcqData — try the next item */ }
+    }
+
+    res.json({ item: picked });
+  } catch (error) {
+    console.error("Error fetching warmup question:", error);
+    res.status(500).json({ error: "Failed to fetch warmup question" });
   }
 });
 

@@ -2,15 +2,15 @@ import { memo } from "react";
 import HIcon from "./HIcon.jsx";
 import { freeTierPhase, trialDaysLeft } from "../../lib/freeTier.js";
 
-function GameBar({ streak, save, onOpenShop, onOpenBoard, onOpenStats }) {
+function GameBar({ streak, save, onOpenShop, onOpenBoard, onOpenStats, onOpenStreak }) {
   const phase = freeTierPhase(); // 'trial' | 'free' | null (paid)
   const daysLeft = phase === "trial" ? trialDaysLeft() : 0;
   return (
     <div className="hm-gamebar">
       <div className="hm-gb-row">
-        <span className="hm-chip" title="Day streak">
+        <button className="hm-chip hm-chip-btn" title="Streak details" onClick={onOpenStreak}>
           <HIcon name="flame" size={12} color="#FF8A3D" /><b>{streak || 0}</b>
-        </span>
+        </button>
         {save.freezes > 0 && (
           <span className="hm-chip hm-freeze" title="Streak freezes">
             <HIcon name="freeze" size={11} /><b>{save.freezes}</b>

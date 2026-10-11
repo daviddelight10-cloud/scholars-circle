@@ -48,16 +48,22 @@ export async function updateUniversalStreak(userId, prisma, tzOffsetMinutes) {
 
   if (!up) {
     // Create progress record if it doesn't exist
-    await prisma.userProgress.create({
-      data: {
-        userId,
-        streak: 1,
-        longestStreak: 1,
-        lastStudied: new Date(),
-        tzOffsetMinutes: offsetMin,
-      },
-    });
-    return { streak: 1, longestStreak: 1, isNewDay: true };
+    try {
+      await prisma.userProgress.create({
+        data: {
+          userId,
+          streak: 1,
+          longestStreak: 1,
+          lastStudied: new Date(),
+          tzOffsetMinutes: offsetMin,
+        },
+      });
+      return { streak: 1, longestStreak: 1, isNewDay: true, freezesUsed: 0, freezes: 0 };
+    } catch {
+      // Concurrent touch created the row first — report what it wrote.
+      const fresh = await prisma.userProgress.findUnique({ where: { userId } }).catch(() => null);
+      return { streak: fresh?.streak ?? 1, longestStreak: fresh?.longestStreak ?? 1, isNewDay: false, freezesUsed: 0, freezes: fresh?.freezes ?? 0 };
+    }
   }
 
   const lastDay = up.lastStudied ? localDayKey(new Date(up.lastStudied).getTime(), offsetMin) : null;
@@ -75,6 +81,8 @@ export async function updateUniversalStreak(userId, prisma, tzOffsetMinutes) {
       streak: up.streak,
       longestStreak: up.longestStreak,
       isNewDay: false,
+      freezesUsed: 0,
+      freezes: up.freezes || 0,
     };
   }
 
@@ -98,8 +106,11 @@ export async function updateUniversalStreak(userId, prisma, tzOffsetMinutes) {
 
   const newLongest = Math.max(up.longestStreak || 0, newStreak);
 
-  await prisma.userProgress.update({
-    where: { userId },
+  // Compare-and-set on lastStudied: if a concurrent touch already advanced
+  // the day, this writes nothing (count 0) and we return that touch's result
+  // instead of double-decrementing freezes or double-posting the milestone.
+  const wrote = await prisma.userProgress.updateMany({
+    where: { userId, lastStudied: up.lastStudied },
     data: {
       streak: newStreak,
       longestStreak: newLongest,
@@ -108,6 +119,16 @@ export async function updateUniversalStreak(userId, prisma, tzOffsetMinutes) {
       ...(freezesUsed > 0 ? { freezes: { decrement: freezesUsed } } : {}),
     },
   });
+  if (wrote.count === 0) {
+    const fresh = await prisma.userProgress.findUnique({ where: { userId } }).catch(() => null);
+    return {
+      streak: fresh?.streak ?? newStreak,
+      longestStreak: fresh?.longestStreak ?? newLongest,
+      isNewDay: false,
+      freezesUsed: 0,
+      freezes: fresh?.freezes ?? Math.max(0, (up.freezes || 0) - freezesUsed),
+    };
+  }
 
   // Streak milestones → activity post in the social feed
   const MILESTONES = [7, 14, 30, 50, 100, 200, 365];
@@ -134,6 +155,7 @@ export async function updateUniversalStreak(userId, prisma, tzOffsetMinutes) {
     streak: newStreak,
     longestStreak: newLongest,
     isNewDay: true,
+    prevStreak: up.streak,
     freezesUsed,
     freezes: (up.freezes || 0) - freezesUsed,
   };
