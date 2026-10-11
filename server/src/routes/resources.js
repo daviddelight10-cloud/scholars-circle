@@ -90,25 +90,19 @@ router.get("/", requireAuth, async (req, res) => {
       where: {
         AND: [
           where,
-          // Own library (mine=1) includes private/pending materials
-          ...(mine === "1"
-            ? []
-            : [
-                {
-                  OR: [
-                    { status: "approved" },
-                    { uploadedBy: req.user.sub, status: "rejected" },
-                  ],
-                },
-                // Materials with link sharing off 404 for non-owners — keep
-                // them out of community listings so they aren't dead cards.
-                {
-                  OR: [
-                    { linkShared: true },
-                    { uploadedBy: req.user.sub },
-                  ],
-                },
-              ]),
+          {
+            // Users always see their own resources (including private/pending
+            // AI-generated exams). Others only see approved, link-shared items.
+            OR: [
+              { uploadedBy: req.user.sub },
+              {
+                AND: [
+                  { status: "approved" },
+                  { linkShared: true },
+                ],
+              },
+            ],
+          },
         ],
       },
       include: {
@@ -785,6 +779,29 @@ router.get("/quiz-attempts/:resourceId/stats", requireAuth, async (req, res) => 
   } catch (error) {
     console.error("Error fetching quiz stats:", error);
     res.status(500).json({ error: "Failed to fetch quiz stats" });
+  }
+});
+
+// GET /api/quiz-attempts/:resourceId/mine - Get current user's attempts for a resource
+router.get("/quiz-attempts/:resourceId/mine", requireAuth, async (req, res) => {
+  try {
+    const { resourceId } = req.params;
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { resourceId, userId: req.user.sub },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        score: true,
+        total: true,
+        mode: true,
+        createdAt: true,
+        details: true,
+      },
+    });
+    res.json({ attempts });
+  } catch (error) {
+    console.error("Error fetching user quiz attempts:", error);
+    res.status(500).json({ error: "Failed to fetch attempts" });
   }
 });
 

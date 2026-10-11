@@ -10,7 +10,7 @@ const TYPE_FILTERS = [
   { key: "note", label: "Notes", icon: "📝" },
 ];
 
-export default function SubjectDetailView({ subject, level, resources, fsrsSubjectStats, onBack, onOpen, onToggleBookmark, onShare, bookmarkedIds, bookmarkBusyId, mcqProgress, onStudySubject, onAdaptiveDrill, onExamSimulation, backLabel = "Library" }) {
+export default function SubjectDetailView({ subject, level, resources, fsrsSubjectStats, onBack, onOpen, onToggleBookmark, onShare, bookmarkedIds, bookmarkBusyId, mcqProgress, onStudySubject, onAdaptiveDrill, onExamSimulation, onExamRegenerate, backLabel = "Library" }) {
   const [typeFilter, setTypeFilter] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -127,6 +127,7 @@ export default function SubjectDetailView({ subject, level, resources, fsrsSubje
               onOpen={onOpen}
               onToggleBookmark={onToggleBookmark}
               onShare={onShare}
+              onExamRegenerate={onExamRegenerate}
               mcqProgress={mcqProgress}
               index={i}
             />

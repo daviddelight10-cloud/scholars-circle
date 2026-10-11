@@ -1,7 +1,8 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { getSubjectColor } from "./subjectColors";
 import { getContentTypeIcon, formatViewCount, mcqRingPct } from "../../lib/researchUtils";
 import { contentTypeConfig, formatRelativeDate } from "./constants";
+import { getExamAttempts } from "../exam/examApi";
 
 function McqProgressRing({ practiced, pct, progress }) {
   const size = 28;
@@ -40,9 +41,11 @@ const FAB_ACTIONS = [
   { id: "voice", icon: "🎙️", label: "Study with Voice Tutor" },
 ];
 
-const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookmarkBusy, onOpen, onToggleBookmark, onShare, mcqProgress, index = 0, onGenerate, onStudyWithVoice, generatingId, genProgress, genErrorId, genError, onRetry, onDismissGenError, showBookmark = true, relevanceTier = null }) {
+const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookmarkBusy, onOpen, onToggleBookmark, onShare, mcqProgress, index = 0, onGenerate, onStudyWithVoice, onExamRegenerate, generatingId, genProgress, genErrorId, genError, onRetry, onDismissGenError, showBookmark = true, relevanceTier = null }) {
   const [hovered, setHovered] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const [examAttempts, setExamAttempts] = useState(null);
+  const [examAttemptsError, setExamAttemptsError] = useState(false);
   const isGeneratable = GENERATABLE_TYPES.includes(resource.contentType);
   const isGenerating = generatingId === resource.id;
   const hasGenError = genErrorId === resource.id && !!genError;
@@ -53,6 +56,7 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
   const saveCount = resource._count?.bookmarks ?? 0;
   const rating = resource.avgRating ? resource.avgRating.toFixed(1) : null;
   const isMcq = resource.contentType === "mcq";
+  const isExam = resource.contentType === "exam";
   const progress = isMcq && mcqProgress ? mcqProgress[resource.id] : null;
   const pct = mcqRingPct(progress);
   const practiced = progress != null;
@@ -60,6 +64,30 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
   const typeConfig = contentTypeConfig[resource.contentType] || contentTypeConfig.note;
   const sourceName = resource.fileName || resource.sourcePdf || null;
   const delay = `${Math.min(index * 40, 400)}ms`;
+
+  let examQCount = 0;
+  let examBestPct = null;
+  let examAttemptsCount = 0;
+  if (isExam) {
+    try {
+      const data = typeof resource.mcqData === "string" ? JSON.parse(resource.mcqData) : resource.mcqData;
+      examQCount = Array.isArray(data?.questions) ? data.questions.length : 0;
+    } catch {}
+    if (examAttempts?.attempts?.length) {
+      examAttemptsCount = examAttempts.attempts.length;
+      const best = examAttempts.attempts.reduce((max, a) => (a.total > 0 ? Math.max(max, a.score / a.total) : max), 0);
+      examBestPct = Math.round(best * 100);
+    }
+  }
+
+  useEffect(() => {
+    if (!isExam) return;
+    let cancelled = false;
+    getExamAttempts(resource.id)
+      .then((data) => { if (!cancelled) setExamAttempts(data); })
+      .catch(() => { if (!cancelled) setExamAttemptsError(true); });
+    return () => { cancelled = true; };
+  }, [isExam, resource.id]);
 
   return (
     <div
@@ -115,17 +143,29 @@ const ResourceCard = memo(function ResourceCard({ resource, isBookmarked, bookma
         >
           {typeConfig.label}
         </span>
-        <span>👁 {formatViewCount(resource.viewCount)}</span>
-        {rating && <span>⭐ {rating}</span>}
-        {saveCount > 0 && <span>· 🔖 {saveCount}</span>}
+        {isExam && examQCount > 0 && <span>🎓 {examQCount} questions</span>}
+        {isExam && examAttemptsCount > 0 && <span>· 🏆 {examBestPct}% best</span>}
+        {isExam && examAttemptsCount > 0 && <span>· {examAttemptsCount} attempt{examAttemptsCount > 1 ? "s" : ""}</span>}
+        {!isExam && <span>👁 {formatViewCount(resource.viewCount)}</span>}
+        {!isExam && rating && <span>⭐ {rating}</span>}
+        {!isExam && saveCount > 0 && <span>· 🔖 {saveCount}</span>}
         {relDate && <span>· {relDate}</span>}
-        {resource.flagCount > 0 && <span className="text-coral-400">· ⚑ {resource.flagCount}</span>}
+        {!isExam && resource.flagCount > 0 && <span className="text-coral-400">· ⚑ {resource.flagCount}</span>}
+        {isExam && examAttemptsError && <span className="text-coral-400">· ⚠️ attempts unavailable</span>}
       </div>
 
       <div className="flex gap-2">
         <button onClick={() => onOpen(resource.shareToken)} className={`rounded-lg border border-gold-border bg-gold-dim px-2 py-1.5 text-[10px] font-semibold text-gold transition-all active:scale-95 ${showBookmark ? "flex-1" : "flex-1"}`}>
-          Open
+          {isExam ? "Start exam" : "Open"}
         </button>
+        {isExam && onExamRegenerate && (
+          <button
+            onClick={() => onExamRegenerate(resource)}
+            className="rounded-lg border border-hub-border bg-hub-bg px-2 py-1.5 text-[10px] font-semibold text-hub-text transition-all active:scale-95"
+          >
+            New version
+          </button>
+        )}
         {showBookmark && (
           <button
             onClick={() => onToggleBookmark(resource)}

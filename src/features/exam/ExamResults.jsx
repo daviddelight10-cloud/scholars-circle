@@ -1,13 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { gradeObjectiveAnswer, isWrittenType, countByType, totalMarks, QUESTION_TYPES } from "./examSchema";
+import { getExamAttempts } from "./examApi";
 
 function fmtTime(ms) {
   const s = Math.floor(ms / 1000);
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-export default function ExamResults({ result, exam, sourceTitle, onBack, onRetake }) {
+export default function ExamResults({ result, exam, sourceTitle, examResourceId, onBack, onRetake }) {
   const [filter, setFilter] = useState("all"); // all | wrong | written
+  const [showAttempts, setShowAttempts] = useState(false);
+  const [attempts, setAttempts] = useState(null);
+  const [attemptsError, setAttemptsError] = useState(false);
+
+  useEffect(() => {
+    if (!examResourceId) return;
+    let cancelled = false;
+    getExamAttempts(examResourceId)
+      .then((data) => { if (!cancelled) setAttempts(data); })
+      .catch(() => { if (!cancelled) setAttemptsError(true); });
+    return () => { cancelled = true; };
+  }, [examResourceId]);
   const { items, answers, objective, aiGrading, gradingFailed, score, total, timeMs } = result;
   const pct = total > 0 ? Math.round((score / total) * 100) : 0;
   const passMark = exam?.config?.passMarkPct ?? 50;
@@ -68,10 +81,34 @@ export default function ExamResults({ result, exam, sourceTitle, onBack, onRetak
           )}
 
           <div className="exr-modal-row" style={{ marginTop: 14 }}>
-            <button className="exr-btn ghost" onClick={onBack}>← Back</button>
+            <button className="exr-btn ghost" onClick={onBack}>← My Space</button>
+            {attempts?.attempts?.length > 1 && (
+              <button className="exr-btn ghost" onClick={() => setShowAttempts((v) => !v)}>
+                {showAttempts ? "Hide attempts" : `Attempts (${attempts.attempts.length})`}
+              </button>
+            )}
             <button className="exr-btn primary" onClick={onRetake}>↻ Retake</button>
           </div>
         </div>
+
+        {/* Attempts history */}
+        {showAttempts && attempts?.attempts && (
+          <div className="exr-score-card" style={{ marginTop: 12 }}>
+            <div className="exr-score-title">Your attempts</div>
+            {attemptsError && <div className="exr-warn">⚠️ Couldn't load attempt history.</div>}
+            <div className="exr-filter" style={{ marginTop: 10 }}>
+              {attempts.attempts.map((a, i) => {
+                const pct = a.total > 0 ? Math.round((a.score / a.total) * 100) : 0;
+                const date = new Date(a.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                return (
+                  <div key={a.id || i} className="exr-fchip">
+                    {date} · {a.score}/{a.total} · {pct}% · {a.mode === "exam" ? "Exam" : "Practice"}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Filter row */}
         <div className="exr-filter">

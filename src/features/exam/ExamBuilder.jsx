@@ -50,45 +50,66 @@ function Toggle({ label, hint, checked, onChange }) {
  * `sources`: candidate list when `file` is null (folder/subject scope).
  * `existingExam`: a saved "exam" resource — jumps straight into the runner.
  */
-export default function ExamBuilder({ file, sources = [], existingExam = null, onExit, onSaved, onStreakUpdate, onXpUpdate }) {
-  const [phase, setPhase] = useState(existingExam ? "run" : file ? "analyzing" : "pick");
+export default function ExamBuilder({ file, sources = [], existingExam = null, regenerateFrom = null, onExit, onSaved, onStreakUpdate, onXpUpdate }) {
+  const savedPayload = regenerateFrom || existingExam ? examFromResource(regenerateFrom || existingExam) : null;
+  const savedConfig = savedPayload?.config || {};
+
+  const [phase, setPhase] = useState(
+    regenerateFrom ? "config" : existingExam ? "run" : file ? "analyzing" : "pick"
+  );
   const [source, setSource] = useState(file || null);
-  const [runResource, setRunResource] = useState(existingExam || null); // saved exam resource
-  const [runPayload, setRunPayload] = useState(existingExam ? examFromResource(existingExam) : null);
+  const [runResource, setRunResource] = useState(existingExam && !regenerateFrom ? existingExam : null); // saved exam resource
+  const [runPayload, setRunPayload] = useState(existingExam && !regenerateFrom ? savedPayload : null);
   const [text, setText] = useState("");
   const [images, setImages] = useState([]);
-  const [analysis, setAnalysis] = useState(null);
+  const [analysis, setAnalysis] = useState(savedPayload?.analysis || null);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState([]);
   const [started, setStarted] = useState(false);
+  const [regenLoading, setRegenLoading] = useState(false);
 
   // Config
-  const [name, setName] = useState("");
-  const [count, setCount] = useState(DEFAULT_COUNT);
-  const [timeLimitMin, setTimeLimitMin] = useState(30);
-  const [untimed, setUntimed] = useState(false);
-  const [mode, setMode] = useState("exam");
-  const [selTypes, setSelTypes] = useState(ALL_TYPES);
-  const [shuffleQ, setShuffleQ] = useState(true);
-  const [shuffleO, setShuffleO] = useState(true);
-  const [passMark, setPassMark] = useState(50);
+  const [name, setName] = useState(
+    regenerateFrom
+      ? `${savedConfig.name || file?.title || "Exam"} (new version)`
+      : savedConfig.name || ""
+  );
+  const [count, setCount] = useState(
+    regenerateFrom
+      ? savedPayload?.questions?.length || DEFAULT_COUNT
+      : savedConfig.questionCount || DEFAULT_COUNT
+  );
+  const [timeLimitMin, setTimeLimitMin] = useState(
+    savedConfig.timeLimitMin > 0 ? savedConfig.timeLimitMin : 30
+  );
+  const [untimed, setUntimed] = useState(savedConfig.timeLimitMin === 0);
+  const [mode, setMode] = useState(savedConfig.mode === "practice" ? "practice" : "exam");
+  const [selTypes, setSelTypes] = useState(savedConfig.types?.length ? savedConfig.types : ALL_TYPES);
+  const [shuffleQ, setShuffleQ] = useState(savedConfig.shuffleQuestions !== false);
+  const [shuffleO, setShuffleO] = useState(savedConfig.shuffleOptions !== false);
+  const [passMark, setPassMark] = useState(savedConfig.passMarkPct ?? 50);
 
   const candidates = useMemo(
     () => sources.filter((r) => r && (r.fileUrl || r.description) && !r.sourceResourceId && r.contentType !== "exam"),
     [sources]
   );
 
+  const extractSource = async (f) => {
+    setProgress("Extracting text from the document…");
+    const { text: t, images: imgs } = await extractResourceText(f);
+    if (!t?.trim() && !imgs?.length) throw new Error("Couldn't extract any text from this file.");
+    setText(t || "");
+    setImages(imgs || []);
+    return { t: t || "", imgs: imgs || [] };
+  };
+
   const pickSource = async (f) => {
     setSource(f);
     setPhase("analyzing");
     setError("");
     try {
-      setProgress("Extracting text from the document…");
-      const { text: t, images: imgs } = await extractResourceText(f);
-      if (!t?.trim() && !imgs?.length) throw new Error("Couldn't extract any text from this file.");
-      setText(t || "");
-      setImages(imgs || []);
+      const { t, imgs } = await extractSource(f);
       setProgress("AI is analyzing the document…");
       const a = await analyzeDocument(t || "", imgs || []);
       setAnalysis(a);
@@ -116,6 +137,26 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, o
       pickSource(source);
     }
   }, [phase, source, started]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Regenerate: re-extract source text but reuse the saved analysis/config.
+  useEffect(() => {
+    if (!regenerateFrom || !source) return;
+    let cancelled = false;
+    setRegenLoading(true);
+    setError("");
+    (async () => {
+      try {
+        await extractSource(source);
+        if (!cancelled) setRegenLoading(false);
+      } catch (err) {
+        if (!cancelled) {
+          setError(friendlyError(err) || "Failed to re-read the source material.");
+          setRegenLoading(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [regenerateFrom, source]);
 
   const build = async () => {
     setPhase("building");
@@ -219,7 +260,7 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, o
   }
 
   // ── Config ────────────────────────────────────────────────────────────────
-  const savedExam = source?.variants?.exam || null;
+  const savedExam = regenerateFrom ? null : source?.variants?.exam || null;
   const detected = analysis?.detectedTypes || [];
   const isBank = analysis?.docType === "question_bank" || analysis?.docType === "mixed";
   const maxCount = isBank && analysis?.estimatedQuestions ? Math.min(Math.max(analysis.estimatedQuestions, 10), 200) : 100;
@@ -335,11 +376,21 @@ export default function ExamBuilder({ file, sources = [], existingExam = null, o
         {selectedObjective === 0 && selectedWritten === 0 && (
           <div className="exb-note warn">Pick at least one question type.</div>
         )}
+        {regenerateFrom && !source && (
+          <div className="exr-warn">⚠️ The original source file couldn't be found — save a copy, but a new version needs the source.</div>
+        )}
+        {regenerateFrom && source && regenLoading && (
+          <div className="exb-note">📖 Re-reading the source material…</div>
+        )}
         {error && <div className="exr-warn">{error}</div>}
         {warnings.map((w, i) => <div key={i} className="exr-warn">{w}</div>)}
 
-        <button className="exr-btn primary big" disabled={selTypes.length === 0} onClick={build}>
-          {error ? "Try again" : savedExam ? "Build a new version" : "Build my exam"} ✨
+        <button
+          className="exr-btn primary big"
+          disabled={selTypes.length === 0 || (regenerateFrom && (regenLoading || !source || (!text && !images.length)))}
+          onClick={build}
+        >
+          {regenerateFrom ? (regenLoading ? "Loading source…" : "Generate new version") : error ? "Try again" : savedExam ? "Build a new version" : "Build my exam"} ✨
         </button>
       </div>
     </div>

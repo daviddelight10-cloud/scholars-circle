@@ -65,6 +65,7 @@ export default function LibraryView({
   onStudySubject,
   onAdaptiveDrill,
   onExamSimulation,
+  onExamRegenerate,
 }) {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [sortOpen, setSortOpen] = useState(false);
@@ -149,6 +150,7 @@ export default function LibraryView({
         onStudySubject={onStudySubject}
         onAdaptiveDrill={onAdaptiveDrill}
         onExamSimulation={onExamSimulation}
+        onExamRegenerate={onExamRegenerate}
       />
     );
   }

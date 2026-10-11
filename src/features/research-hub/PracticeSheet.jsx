@@ -5,6 +5,7 @@ import { feedApi } from "../feed/feedApi";
 import { loadSave, mutate } from "../streak-survival/survivalStore.js";
 import { loadHistory } from "../../lib/studyHistory.js";
 import { mcqRingPct } from "../../lib/researchUtils";
+import { getExamAttempts } from "../exam/examApi";
 
 // Answer-style options — same ids as StreakSurvival's Session setup
 const STYLE_OPTIONS = [
@@ -144,6 +145,7 @@ export default function PracticeSheet({
   onGenerate,
   onGuidedStudy,
   onExamSimulation,
+  onExamRegenerate,
   onGoLive,
   goingLive,
   generating,
@@ -162,6 +164,7 @@ export default function PracticeSheet({
   const dragRef = useRef(null);
   const [livePeople, setLivePeople] = useState([]);
   const [activeQuizzes, setActiveQuizzes] = useState([]);
+  const [examAttempts, setExamAttempts] = useState(null);
   // Session prefs (answer style + extras) — persisted to the survival save so
   // StreakSurvival picks them up the moment the runner mounts.
   const [prefs, setPrefs] = useState(() => loadSave()?.quizPrefs || { style: "smart", recallFirst: true, speedRound: false });
@@ -206,6 +209,18 @@ export default function PracticeSheet({
       setLivePeople(people.slice(0, 5));
       setActiveQuizzes(quizzes || []);
     })();
+    return () => { dead = true; };
+  }, [file]);
+
+  // Load attempt history for the saved exam, if any.
+  useEffect(() => {
+    if (!file) return;
+    const examRes = file.contentType === "exam" ? file : file.variants?.exam;
+    if (!examRes?.id) return;
+    let dead = false;
+    getExamAttempts(examRes.id)
+      .then((data) => { if (!dead) setExamAttempts(data); })
+      .catch(() => {});
     return () => { dead = true; };
   }, [file]);
 
@@ -259,6 +274,12 @@ export default function PracticeSheet({
   const summary = file.variants?.summary || null;
   const exam = file.variants?.exam || null;
   const examCount = getVariantCount(exam);
+  const examBestPct = examAttempts?.attempts?.length
+    ? Math.round(
+        examAttempts.attempts.reduce((max, a) => (a.total > 0 ? Math.max(max, a.score / a.total) : max), 0) * 100
+      )
+    : null;
+  const examAttemptsCount = examAttempts?.attempts?.length || 0;
   const mcqCount = getVariantCount(mcq);
   const prog = mcq && mcqProgress ? mcqProgress[mcq.id] : null;
   const mcqPct = prog ? mcqRingPct(prog) : null;
@@ -292,7 +313,11 @@ export default function PracticeSheet({
               <p className="cs-sheet-title" id="sp-sheet-title">{file.title}</p>
               <p className="pm-header-meta">
                 <IcoClipboard size={11} />
-                <span>Saved exam{qCount ? ` · ${qCount} questions` : ""}</span>
+                <span>
+                  Saved exam{qCount ? ` · ${qCount} questions` : ""}
+                  {examAttemptsCount > 0 && ` · ${examAttemptsCount} attempt${examAttemptsCount > 1 ? "s" : ""}`}
+                  {examBestPct != null && ` · best ${examBestPct}%`}
+                </span>
               </p>
             </div>
             <button className="cs-sheet-close" onClick={onClose} aria-label="Close menu">
@@ -315,12 +340,23 @@ export default function PracticeSheet({
                   </div>
                 </div>
               </div>
-              <button
-                className="pm-hero-btn"
-                onClick={act(() => onExamSimulation?.(file))}
-              >
-                Start exam <IcoArrowRight size={15} />
-              </button>
+              <div className="pm-hero-actions" style={{ display: "flex", gap: 10 }}>
+                <button
+                  className="pm-hero-btn"
+                  onClick={act(() => onExamSimulation?.(file))}
+                >
+                  Start exam <IcoArrowRight size={15} />
+                </button>
+                {onExamRegenerate && (
+                  <button
+                    className="pm-hero-btn"
+                    style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.15)" }}
+                    onClick={act(() => onExamRegenerate?.(file))}
+                  >
+                    New version
+                  </button>
+                )}
+              </div>
             </section>
           </div>
         </div>
@@ -497,16 +533,28 @@ export default function PracticeSheet({
               tint="tint-green"
               icon={<IcoClipboard size={17} />}
               name="Exam sim"
+              badge={exam ? (examAttemptsCount > 0 ? `${examAttemptsCount}` : null) : null}
               sub={
                 exam
-                  ? `${examCount || "Saved"} questions — take exam`
+                  ? `${examCount || "Saved"} questions${examBestPct != null ? ` · best ${examBestPct}%` : ""}`
                   : canExtract
                     ? "AI builds a custom exam"
                     : "No extractable text"
               }
-              disabled={!canExtract || generating}
+              disabled={!canExtract || generating || (exam ? false : !canExtract)}
               onClick={act(() => onExamSimulation?.(exam || file))}
             />
+            {exam && onExamRegenerate && (
+              <PmTile
+                delay={190}
+                tint="tint-green"
+                icon={<IcoClipboard size={17} />}
+                name="Regenerate"
+                sub={`New questions from ${file.title}`}
+                disabled={generating}
+                onClick={act(() => onExamRegenerate?.(exam))}
+              />
+            )}
             <PmTile
               delay={210}
               tint="tint-rose"

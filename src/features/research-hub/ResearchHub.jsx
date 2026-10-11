@@ -1044,6 +1044,14 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     setSessionMode({ type: "examRun", examResource });
   }, [guardPremiumFeature]);
 
+  const startExamRegenerate = useCallback((examResource) => {
+    if (!guardPremiumFeature("exam")) return;
+    const source = examResource?.sourceResourceId
+      ? resources.find((r) => r.id === examResource.sourceResourceId)
+      : null;
+    setSessionMode({ type: "examRegenerate", examResource, sourceFile: source });
+  }, [guardPremiumFeature, resources]);
+
   // Practice-all: flatten every folder MCQ into StreakSurvival's item shape
   // ({mcq, pageIndex, resourceId}) — the engine fetches card states itself.
   const startFolderPractice = useCallback((folder, mcqResources) => {
@@ -1756,6 +1764,19 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         />
       );
     }
+    if (sessionMode.type === "examRegenerate") {
+      return (
+        <ExamBuilder
+          file={sessionMode.sourceFile}
+          existingExam={sessionMode.examResource}
+          regenerateFrom={sessionMode.examResource}
+          onExit={handleSessionComplete}
+          onSaved={() => { try { localStorage.removeItem("sc_resources_list"); } catch {} fetchResources(); }}
+          onStreakUpdate={handleStreakUpdate}
+          onXpUpdate={handleXpUpdate}
+        />
+      );
+    }
   }
 
   // Live summary stream — mounts above whichever view is active while a
@@ -1882,6 +1903,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           else if (fileOrSources?.contentType === "exam") startExamRun(fileOrSources);
           else startExamBuild(fileOrSources);
         }}
+        onExamRegenerate={startExamRegenerate}
         onPracticeAll={() => startFolderPractice(folderDetail, folderCategorized.allMcqResources)}
         onGenerate={handleGenerateFromMaterial}
         onStudyWithVoice={handleStudyWithVoice}
@@ -2004,6 +2026,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
           onStudySubject={(subject) => startSpacedReview(subject)}
           onAdaptiveDrill={(subject) => startAdaptiveDrill(subject)}
           onExamSimulation={(sources) => startExamBuild(null, sources || [])}
+          onExamRegenerate={startExamRegenerate}
         />
       ) : (
         <div className="mc-root">

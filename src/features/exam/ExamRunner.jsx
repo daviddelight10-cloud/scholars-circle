@@ -261,6 +261,7 @@ export default function ExamRunner({ exam, examResourceId, sourceTitle, onBack, 
         result={result}
         exam={payload}
         sourceTitle={sourceTitle}
+        examResourceId={examResourceId}
         onBack={onBack}
         onRetake={startFresh}
       />

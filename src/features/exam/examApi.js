@@ -154,3 +154,15 @@ export async function submitExamAttempt(examResourceId, { score, total, details 
   }
   return res.json();
 }
+
+/** Fetch the current user's attempts for a given exam resource. */
+export async function getExamAttempts(examResourceId) {
+  const res = await fetch(`${API_BASE}/api/resources/quiz-attempts/${examResourceId}/mine`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to load attempts");
+  }
+  return res.json();
+}
