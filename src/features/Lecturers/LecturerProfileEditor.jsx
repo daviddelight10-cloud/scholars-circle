@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { lecturersApi } from "./api.js";
+import { haptics } from "../../lib/haptics.js";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -27,8 +28,22 @@ export function LecturerProfileEditor({ token, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [qualInput, setQualInput] = useState("");
   const [researchInput, setResearchInput] = useState("");
+
+  // App-feel chrome: large title collapses into the sticky header on scroll
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = (e) => {
+      const y = e.target === document
+        ? (document.documentElement.scrollTop || document.body.scrollTop)
+        : e.target.scrollTop;
+      setScrolled(y > 24);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => window.removeEventListener("scroll", onScroll, { capture: true });
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -42,11 +57,23 @@ export function LecturerProfileEditor({ token, onSaved }) {
   function set(field, value) {
     setDraft((d) => ({ ...d, [field]: value }));
     setSaved(false);
+    setDirty(true);
   }
 
   function setOfficeHour(day, time) {
     setDraft((d) => ({ ...d, officeHours: { ...(d.officeHours || {}), [day]: time } }));
     setSaved(false);
+    setDirty(true);
+  }
+
+  // Chip fields share one add path — Enter key AND the visible "+ Add" button
+  // (on-screen keyboards often hide Enter, so the button is the mobile path).
+  function addChip(field, value, setValue) {
+    const v = value.trim();
+    if (!v) return;
+    set(field, [...(draft[field] || []), v]);
+    setValue("");
+    haptics.light();
   }
 
   async function save() {
@@ -60,6 +87,8 @@ export function LecturerProfileEditor({ token, onSaved }) {
       const result = await lecturersApi.saveMine(payload, token);
       setDraft({ ...EMPTY, ...result, officeHours: result.officeHours || {} });
       setSaved(true);
+      setDirty(false);
+      haptics.success();
       setTimeout(() => setSaved(false), 2500);
       onSaved?.(result);
     } catch (e) {
@@ -76,44 +105,34 @@ export function LecturerProfileEditor({ token, onSaved }) {
   const displayTitle = [draft.title, draft.fullName].filter(Boolean).join(" ") || "Your name";
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", paddingBottom: 100 }}>
-      {/* Header preview card */}
-      <div style={{
-        background: "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(218,165,32,0.15))",
-        border: "1px solid rgba(255,215,0,0.3)",
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 16,
-        display: "flex",
-        gap: 16,
-        alignItems: "center",
-        flexWrap: "wrap"
-      }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: "50%",
-          background: "linear-gradient(135deg, #FFD700, #DAA520)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 28, fontWeight: 700, color: "#fff",
-          flexShrink: 0
-        }}>
-          {initials || "👨\u200d🏫"}
+    <div className={`lp-root${scrolled ? " scrolled" : ""}`}>
+      <div className="lp-head">
+        <div className={`lp-title${scrolled ? " gone" : ""}`}>
+          <span className="lp-title-txt">My Profile</span>
+          <span className="lp-title-sub">what students see</span>
         </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <h2 style={{ margin: 0, fontSize: 22 }}>{displayTitle}</h2>
-          <div style={{ color: "#FFD700", fontSize: 13, marginTop: 4 }}>
+      </div>
+
+      {/* Hero card */}
+      <div className="lp-hero">
+        <div className="lp-avatar">{initials || "👨‍🏫"}</div>
+        <div className="lp-hero-info">
+          <div className="lp-hero-name">{displayTitle}</div>
+          <div className="lp-hero-sub">
             {[draft.department, draft.institution].filter(Boolean).join(" • ") || "Build your profile so students can find you"}
           </div>
-          <div style={{ marginTop: 6, fontSize: 12, color: draft.isPublic ? "#10b981" : "#f59e0b" }}>
-            {draft.isPublic ? "● Public — visible to all students" : "○ Private — hidden from directory"}
+          <div className={`lp-status-pill ${draft.isPublic ? "on" : "off"}`}>
+            <span className="lp-status-dot" />
+            {draft.isPublic ? "Public — visible to all students" : "Private — hidden from directory"}
           </div>
         </div>
       </div>
 
       {/* SECTION 1: Identity */}
-      <Section icon="🪪" title="Identity" subtitle="How students will see you in the directory">
-        <Row>
-          <Field label="Title" cols={1}>
-            <select value={draft.title || ""} onChange={(e) => set("title", e.target.value)} style={inputStyle}>
+      <Section num="01" title="Identity" subtitle="How students will see you in the directory">
+        <div className="lp-grid">
+          <Field label="Title" span={1}>
+            <select className="lp-input" value={draft.title || ""} onChange={(e) => set("title", e.target.value)}>
               <option value="">— None —</option>
               <option>Prof.</option>
               <option>Dr.</option>
@@ -122,61 +141,57 @@ export function LecturerProfileEditor({ token, onSaved }) {
               <option>Ms.</option>
             </select>
           </Field>
-          <Field label="Full Name *" cols={2}>
-            <input value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} style={inputStyle} placeholder="e.g., Adebayo Williams" />
+          <Field label="Full Name *" span={2}>
+            <input className="lp-input" value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} placeholder="e.g., Adebayo Williams" />
           </Field>
-        </Row>
-        <Row>
           <Field label="Department">
-            <input value={draft.department} onChange={(e) => set("department", e.target.value)} style={inputStyle} placeholder="e.g., Computer Science" />
+            <input className="lp-input" value={draft.department} onChange={(e) => set("department", e.target.value)} placeholder="e.g., Computer Science" />
           </Field>
           <Field label="Institution">
-            <input value={draft.institution} onChange={(e) => set("institution", e.target.value)} style={inputStyle} placeholder="e.g., University of Lagos" />
+            <input className="lp-input" value={draft.institution} onChange={(e) => set("institution", e.target.value)} placeholder="e.g., University of Lagos" />
           </Field>
-        </Row>
-        <Field label="Years of Experience">
-          <input type="number" min="0" max="60" value={draft.yearsExperience || ""} onChange={(e) => set("yearsExperience", e.target.value)} style={{ ...inputStyle, maxWidth: 160 }} placeholder="e.g., 8" />
-        </Field>
+          <Field label="Years of Experience">
+            <input className="lp-input" type="number" min="0" max="60" value={draft.yearsExperience || ""} onChange={(e) => set("yearsExperience", e.target.value)} placeholder="e.g., 8" style={{ maxWidth: 160 }} />
+          </Field>
+        </div>
       </Section>
 
       {/* SECTION 2: About */}
-      <Section icon="📝" title="About You" subtitle="Help students understand your expertise">
+      <Section num="02" title="About You" subtitle="Help students understand your expertise">
         <Field label="Bio" hint="A short description of who you are and what you teach">
-          <textarea value={draft.bio} onChange={(e) => set("bio", e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical" }} placeholder="e.g., Senior Lecturer specializing in machine learning and data structures..." />
+          <textarea className="lp-input" value={draft.bio} onChange={(e) => set("bio", e.target.value)} rows={4} style={{ resize: "vertical" }} placeholder="e.g., Senior Lecturer specializing in machine learning and data structures..." />
         </Field>
-        <Field label="Qualifications" hint="Press Enter to add each one (e.g., PhD, MSc, BSc)">
-          <input
-            value={qualInput}
-            onChange={(e) => setQualInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && qualInput.trim()) {
-                e.preventDefault();
-                set("qualifications", [...(draft.qualifications || []), qualInput.trim()]);
-                setQualInput("");
-              }
-            }}
-            placeholder="e.g., PhD Computer Science (Oxford, 2018) — press Enter"
-            style={inputStyle}
-          />
+        <Field label="Qualifications" hint="Press Enter or tap Add for each one (e.g., PhD, MSc, BSc)">
+          <div className="lp-chipfield">
+            <input
+              className="lp-input"
+              value={qualInput}
+              onChange={(e) => setQualInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); addChip("qualifications", qualInput, setQualInput); }
+              }}
+              placeholder="e.g., PhD Computer Science (Oxford, 2018)"
+            />
+            <button type="button" className="lp-addbtn" onClick={() => addChip("qualifications", qualInput, setQualInput)}>+ Add</button>
+          </div>
           <ChipList
             items={draft.qualifications}
             onRemove={(i) => set("qualifications", draft.qualifications.filter((_, j) => j !== i))}
           />
         </Field>
-        <Field label="Research Areas" hint="Press Enter to add each one">
-          <input
-            value={researchInput}
-            onChange={(e) => setResearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && researchInput.trim()) {
-                e.preventDefault();
-                set("researchAreas", [...(draft.researchAreas || []), researchInput.trim()]);
-                setResearchInput("");
-              }
-            }}
-            placeholder="e.g., Machine Learning, NLP, Computer Vision"
-            style={inputStyle}
-          />
+        <Field label="Research Areas" hint="Press Enter or tap Add for each one">
+          <div className="lp-chipfield">
+            <input
+              className="lp-input"
+              value={researchInput}
+              onChange={(e) => setResearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); addChip("researchAreas", researchInput, setResearchInput); }
+              }}
+              placeholder="e.g., Machine Learning, NLP, Computer Vision"
+            />
+            <button type="button" className="lp-addbtn" onClick={() => addChip("researchAreas", researchInput, setResearchInput)}>+ Add</button>
+          </div>
           <ChipList
             items={draft.researchAreas}
             onRemove={(i) => set("researchAreas", draft.researchAreas.filter((_, j) => j !== i))}
@@ -185,20 +200,20 @@ export function LecturerProfileEditor({ token, onSaved }) {
       </Section>
 
       {/* SECTION 3: Office & Availability */}
-      <Section icon="🏢" title="Office & Availability" subtitle="When and where students can meet you">
+      <Section num="03" title="Office & Availability" subtitle="When and where students can meet you">
         <Field label="Office Location">
-          <input value={draft.officeLocation} onChange={(e) => set("officeLocation", e.target.value)} placeholder="e.g., Block C, Room 204" style={inputStyle} />
+          <input className="lp-input" value={draft.officeLocation} onChange={(e) => set("officeLocation", e.target.value)} placeholder="e.g., Block C, Room 204" />
         </Field>
         <Field label="Office Hours" hint="Leave a day blank if you're not available">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
+          <div className="lp-days">
             {DAYS.map((day) => (
-              <div key={day} style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, background: "rgba(10,10,10,0.5)", borderRadius: 8 }}>
-                <div style={{ width: 70, textTransform: "capitalize", color: "#FFD700", fontSize: 12, fontWeight: 600 }}>{day.slice(0, 3)}</div>
+              <div key={day} className="lp-day">
+                <span className="lp-day-name">{day.slice(0, 3)}</span>
                 <input
+                  className="lp-input lp-day-input"
                   value={(draft.officeHours || {})[day] || ""}
                   onChange={(e) => setOfficeHour(day, e.target.value)}
-                  placeholder="10:00-12:00"
-                  style={{ ...inputStyle, padding: 6, fontSize: 13, flex: 1 }}
+                  placeholder="10:00–12:00"
                 />
               </div>
             ))}
@@ -207,59 +222,50 @@ export function LecturerProfileEditor({ token, onSaved }) {
       </Section>
 
       {/* SECTION 4: Contact */}
-      <Section icon="📞" title="Contact Information" subtitle="How students can reach you outside the platform">
-        <Row>
+      <Section num="04" title="Contact Information" subtitle="How students can reach you outside the platform">
+        <div className="lp-grid">
           <Field label="Contact Email">
-            <input type="email" value={draft.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="lecturer@uni.edu" style={inputStyle} />
+            <input className="lp-input" type="email" value={draft.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="lecturer@uni.edu" />
           </Field>
           <Field label="Phone">
-            <input value={draft.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+234..." style={inputStyle} />
+            <input className="lp-input" value={draft.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+234..." />
           </Field>
-        </Row>
-        <Row>
           <Field label="Website">
-            <input value={draft.websiteUrl} onChange={(e) => set("websiteUrl", e.target.value)} placeholder="https://..." style={inputStyle} />
+            <input className="lp-input" value={draft.websiteUrl} onChange={(e) => set("websiteUrl", e.target.value)} placeholder="https://..." />
           </Field>
           <Field label="LinkedIn">
-            <input value={draft.linkedinUrl} onChange={(e) => set("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/in/..." style={inputStyle} />
+            <input className="lp-input" value={draft.linkedinUrl} onChange={(e) => set("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/in/..." />
           </Field>
-        </Row>
+        </div>
       </Section>
 
       {/* SECTION 5: Visibility */}
-      <Section icon="👁️" title="Visibility" subtitle="Control who can see your profile">
-        <label style={{
-          display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer",
-          padding: 12, background: "rgba(10,10,10,0.5)", borderRadius: 8
-        }}>
-          <input type="checkbox" checked={draft.isPublic} onChange={(e) => set("isPublic", e.target.checked)} style={{ marginTop: 4 }} />
-          <div>
-            <div style={{ fontWeight: 600, color: "#FFD700" }}>Show my profile publicly to students</div>
-            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
-              When enabled, students can find you in the directory and message you directly.
-            </div>
+      <Section num="05" title="Visibility" subtitle="Control who can see your profile">
+        <div className="lp-visrow" onClick={() => { haptics.selection(); set("isPublic", !draft.isPublic); }}>
+          <div className="lp-vis-txt">
+            <div className="lp-vis-t">Show my profile publicly to students</div>
+            <div className="lp-vis-s">When enabled, students can find you in the directory and message you directly.</div>
           </div>
-        </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={draft.isPublic}
+            className={`lp-switch${draft.isPublic ? " on" : ""}`}
+            aria-label="Public profile"
+          />
+        </div>
       </Section>
 
-      {error && <div style={{ padding: 12, marginTop: 12, background: "rgba(239,68,68,0.1)", color: "#f87171", borderRadius: 8 }}>{error}</div>}
+      {error && <div className="lp-error">{error}</div>}
 
-      <div style={{
-        position: "sticky", bottom: 12, padding: 14, marginTop: 16,
-        borderRadius: 12, background: "rgba(10,10,10,0.96)",
-        backdropFilter: "blur(8px)",
-        border: "1px solid rgba(255,215,0,0.4)",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        gap: 12, flexWrap: "wrap"
-      }}>
-        <div style={{ fontSize: 12, color: "#9ca3af" }}>
-          {!draft.fullName?.trim() ? <span style={{ color: "#f87171" }}>⚠ Full name is required</span> : "All changes are saved to your account"}
-        </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          {saved && <span style={{ color: "#10b981", fontWeight: 600 }}>✓ Saved!</span>}
-          <button onClick={save} disabled={saving || !draft.fullName?.trim()} style={{ padding: "12px 24px", borderRadius: 10, border: "none", background: draft.fullName?.trim() ? "linear-gradient(135deg, #FFD700, #DAA520)" : "rgba(255,215,0,0.3)", color: "#fff", fontWeight: 700, cursor: saving ? "wait" : "pointer", fontSize: 14 }}>
-            {saving ? "Saving..." : "💾 Save Profile"}
+      {/* Floating save pill — slides up only when there are unsaved changes */}
+      <div className={`lp-savewrap${dirty ? " show" : ""}`}>
+        <div className="lp-save">
+          <span className="lp-save-note">
+            {!draft.fullName?.trim() ? <span className="lp-warn">⚠ Full name is required</span> : saved ? <span className="lp-ok">✓ Saved</span> : "Unsaved changes"}
+          </span>
+          <button className="lp-save-btn" onClick={save} disabled={saving || !draft.fullName?.trim()}>
+            {saving ? "Saving…" : saved ? "✓ Saved" : "Save profile"}
           </button>
         </div>
       </div>
@@ -267,34 +273,26 @@ export function LecturerProfileEditor({ token, onSaved }) {
   );
 }
 
-function Section({ icon, title, subtitle, children }) {
+function Section({ num, title, subtitle, children }) {
   return (
-    <div className="card" style={{ marginBottom: 14 }}>
-      <div style={{ marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid rgba(255,215,0,0.15)" }}>
-        <h3 style={{ margin: 0, fontSize: 16, color: "#FFD700" }}>
-          <span style={{ marginRight: 8 }}>{icon}</span>{title}
-        </h3>
-        {subtitle && <p style={{ margin: "4px 0 0 0", fontSize: 12, color: "#9ca3af" }}>{subtitle}</p>}
+    <div className="lp-section">
+      <div className="lp-section-head">
+        <span className="lp-section-num">{num}</span>
+        <div>
+          <h3 className="lp-section-title">{title}</h3>
+          {subtitle && <p className="lp-section-sub">{subtitle}</p>}
+        </div>
       </div>
       {children}
     </div>
   );
 }
 
-function Row({ children }) {
+function Field({ label, hint, span, children }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, hint, cols, children }) {
-  const span = cols === 2 ? { gridColumn: "span 2" } : cols === 1 ? {} : {};
-  return (
-    <div style={{ marginBottom: 14, ...span }}>
-      <label style={{ display: "block", fontWeight: 600, fontSize: 12, color: "#cbd5e1", marginBottom: 4, letterSpacing: 0.2 }}>{label}</label>
-      {hint && <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6 }}>{hint}</div>}
+    <div className="lp-field" style={span ? { gridColumn: `span ${span}` } : undefined}>
+      <label className="lp-label">{label}</label>
+      {hint && <div className="lp-hint">{hint}</div>}
       {children}
     </div>
   );
@@ -303,24 +301,13 @@ function Field({ label, hint, cols, children }) {
 function ChipList({ items, onRemove }) {
   if (!items?.length) return null;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+    <div className="lp-chips">
       {items.map((item, i) => (
-        <span key={i} style={{ padding: "4px 10px 4px 12px", background: "rgba(255,215,0,0.2)", color: "#FFD700", borderRadius: 99, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span key={i} className="lp-chip">
           {item}
-          <button onClick={() => onRemove(i)} style={{ background: "transparent", border: "none", color: "#f87171", cursor: "pointer", padding: 0, fontSize: 14 }}>×</button>
+          <button type="button" onClick={() => { haptics.light(); onRemove(i); }} aria-label={`Remove ${item}`}>×</button>
         </span>
       ))}
     </div>
   );
 }
-
-const inputStyle = {
-  width: "100%",
-  padding: 10,
-  borderRadius: 8,
-  border: "1px solid rgba(255,215,0,0.3)",
-  background: "rgba(20,20,20,0.8)",
-  color: "#fff",
-  fontSize: 14,
-  boxSizing: "border-box"
-};

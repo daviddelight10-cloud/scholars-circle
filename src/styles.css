@@ -2437,6 +2437,209 @@ body {
 }
 .pg-content { padding-top: 14px; }
 
+/* ── Lecturer profile editor — modern app surface ─────────────────────── */
+.lp-root { padding-bottom: 110px; max-width: 760px; margin: 0 auto; }
+
+.lp-head {
+  position: sticky; top: 0; z-index: 20;
+  margin: 0 -16px; padding: 6px 16px 10px;
+  background: linear-gradient(180deg, rgba(10,10,10,0.97), rgba(10,10,10,0.9));
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 215, 0, 0.12);
+  transition: padding 0.25s ease;
+}
+.lp-root.scrolled .lp-head { padding-top: 2px; padding-bottom: 6px; }
+.lp-title {
+  display: flex; align-items: baseline; gap: 10px; overflow: hidden;
+  max-height: 44px; opacity: 1; transform: translateY(0);
+  transition: max-height .26s ease, opacity .18s ease, transform .26s ease;
+}
+.lp-title.gone { max-height: 0; opacity: 0; transform: translateY(-8px); }
+.lp-title-txt {
+  font-size: 25px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;
+  padding: 4px 0 6px; color: #f2f2f2;
+}
+.lp-title-sub { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.5); }
+@media (max-width: 480px) { .lp-title-txt { font-size: 21px; } }
+
+/* Hero card */
+.lp-hero {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px; margin: 16px 0;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 179, 0, 0.22);
+  background: linear-gradient(150deg, rgba(255,179,0,0.1), rgba(18,18,20,0.55) 55%);
+}
+.lp-avatar {
+  width: 68px; height: 68px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #FFC933, #F09000);
+  color: #151005; font-size: 26px; font-weight: 800;
+  display: grid; place-items: center;
+  box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.18), 0 8px 20px rgba(255, 179, 0, 0.15);
+}
+.lp-hero-info { flex: 1; min-width: 0; }
+.lp-hero-name { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; color: #f2f2f2; }
+.lp-hero-sub { font-size: 12.5px; color: #c9b273; margin-top: 3px; }
+.lp-status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 8px; font-size: 11px; font-weight: 700;
+  padding: 4px 10px; border-radius: 999px;
+}
+.lp-status-pill .lp-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.lp-status-pill.on { background: rgba(74, 222, 128, 0.12); color: #4ade80; }
+.lp-status-pill.off { background: rgba(255, 179, 0, 0.12); color: #FFB300; }
+
+/* Sections */
+.lp-section {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px; padding: 18px; margin-bottom: 14px;
+}
+.lp-section-head {
+  display: flex; gap: 12px; align-items: baseline;
+  margin-bottom: 14px; padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.lp-section-num {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px; font-weight: 700; color: #FFB300; flex-shrink: 0;
+}
+.lp-section-title { margin: 0; font-size: 15px; font-weight: 800; color: #f2f2f2; }
+.lp-section-sub { margin: 2px 0 0; font-size: 12px; color: #9ca3af; }
+
+/* Fields + inputs */
+.lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 12px; }
+.lp-field { margin-bottom: 14px; }
+.lp-label { display: block; font-weight: 600; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+.lp-hint { font-size: 11px; color: #9ca3af; margin-bottom: 6px; }
+.lp-input {
+  width: 100%; padding: 11px 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff; font-size: 14px; font-family: inherit;
+  outline: none; box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lp-input:focus {
+  border-color: rgba(255, 179, 0, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.14);
+}
+.lp-input::placeholder { color: #575c66; }
+select.lp-input { appearance: none; }
+@media (pointer: coarse) { .lp-input { font-size: 16px; } } /* no iOS zoom-on-focus */
+
+/* Chip fields — input + visible Add button (mobile-friendly) */
+.lp-chipfield { display: flex; gap: 8px; }
+.lp-addbtn {
+  flex-shrink: 0; padding: 0 16px; border-radius: 10px;
+  border: 1px solid rgba(255, 179, 0, 0.3);
+  background: rgba(255, 179, 0, 0.1); color: #FFB300;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: transform 0.12s ease;
+}
+.lp-addbtn:active { transform: scale(0.95); }
+.lp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.lp-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 8px 5px 12px; border-radius: 999px;
+  background: rgba(255, 179, 0, 0.12); border: 1px solid rgba(255, 179, 0, 0.22);
+  color: #FFB300; font-size: 12px; font-weight: 600;
+}
+.lp-chip button {
+  background: none; border: none; padding: 0 2px;
+  color: rgba(255, 120, 120, 0.9); font-size: 14px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center;
+}
+
+/* Office hours day pills */
+.lp-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.lp-day {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.lp-day-name {
+  width: 34px; flex-shrink: 0;
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  color: #FFB300; letter-spacing: 0.04em;
+}
+.lp-day-input { padding: 7px 10px; font-size: 13px; }
+
+/* Visibility row + toggle switch */
+.lp-visrow {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px; border-radius: 12px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: border-color 0.15s ease;
+}
+.lp-visrow:hover { border-color: rgba(255, 179, 0, 0.25); }
+.lp-vis-txt { flex: 1; min-width: 0; }
+.lp-vis-t { font-size: 14px; font-weight: 700; color: #f2f2f2; }
+.lp-vis-s { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.lp-switch {
+  width: 46px; height: 27px; border: none; padding: 0;
+  border-radius: 999px; position: relative; flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer; transition: background 0.18s ease;
+}
+.lp-switch::after {
+  content: ''; position: absolute; top: 3.5px; left: 4px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #fff;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.lp-switch.on { background: #F5A623; }
+.lp-switch.on::after { transform: translateX(18px); background: #151005; }
+
+.lp-error {
+  padding: 12px 14px; margin-top: 12px; border-radius: 10px;
+  background: rgba(239, 68, 68, 0.1); color: #f87171; font-size: 13px;
+}
+.lp-warn { color: #f87171; }
+.lp-ok { color: #4ade80; font-weight: 700; }
+
+/* Floating save pill — slides up only when there are unsaved changes */
+.lp-savewrap {
+  position: fixed; left: 50%; z-index: 90;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100% - 32px));
+  transform: translate(-50%, 90px); opacity: 0; pointer-events: none;
+  transition: transform 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.15), opacity 0.2s ease;
+}
+.lp-savewrap.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+@media (min-width: 768px) { .lp-savewrap { bottom: 26px; } }
+.lp-save {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 10px 10px 18px; border-radius: 999px;
+  background: rgba(15, 15, 18, 0.92);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 179, 0, 0.3);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+}
+.lp-save-note { font-size: 12px; color: #9ca3af; }
+.lp-save-btn {
+  padding: 10px 22px; border: none; border-radius: 999px;
+  background: linear-gradient(135deg, #FFC933, #F09000);
+  color: #151005; font-size: 13.5px; font-weight: 800;
+  cursor: pointer; font-family: inherit;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.lp-save-btn:active { transform: scale(0.95); }
+.lp-save-btn:disabled { filter: grayscale(0.5) brightness(0.6); cursor: default; }
+
+/* Entrance stagger — hero then sections cascade */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes lp-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .lp-root > .lp-hero, .lp-root > .lp-section { animation: lp-in 0.3s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+  .lp-root > .lp-section:nth-child(3) { animation-delay: 0.03s; }
+  .lp-root > .lp-section:nth-child(4) { animation-delay: 0.07s; }
+  .lp-root > .lp-section:nth-child(5) { animation-delay: 0.11s; }
+  .lp-root > .lp-section:nth-child(6) { animation-delay: 0.15s; }
+  .lp-root > .lp-section:nth-child(7) { animation-delay: 0.19s; }
+}
+
 
 
 .hero-banner {
