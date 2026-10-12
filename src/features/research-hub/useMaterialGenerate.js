@@ -88,6 +88,14 @@ function summaryToPdfBuffer(title, subject, summaryText) {
  *      onSave: (payload) => void  — called with the study-tool-save payload
  *      existingMcqData: array of existing MCQ rows (for reuse), optional
  */
+function ensureNotAbortedLocal(signal) {
+  if (signal?.aborted) {
+    const err = new Error("Generation stopped.");
+    err.stoppedByUser = true;
+    throw err;
+  }
+}
+
 export function useMaterialGenerate() {
   const [generatingId, setGeneratingId] = useState(null);
   const [genProgress, setGenProgress] = useState("");
@@ -97,6 +105,10 @@ export function useMaterialGenerate() {
   const [streamText, setStreamText] = useState(null);
   const [streamTitle, setStreamTitle] = useState("");
   const [streamDone, setStreamDone] = useState(false);
+  // Live-streamed MCQ draft rows (null = no Rapid Recall run in flight)
+  const [draftRows, setDraftRows] = useState(null);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftDone, setDraftDone] = useState(false); // generation finished, final set
   const activeRef = useRef(null);
   const abortRef = useRef(null);
   const lastResourceRef = useRef(null);
@@ -116,10 +128,13 @@ export function useMaterialGenerate() {
     setGenErrorId(null);
     setStreamText(null);
     setStreamDone(false);
+    setDraftRows(null);
+    setDraftDone(false);
 
     try {
       const baseTitle = resource.title || "Material";
       const baseSubject = resource.subject || "";
+      let finalMcqRows = null; // hoisted so the success path can swap the draft
 
       if (kind === "mcqs") {
         let mcqRows = null;
@@ -128,12 +143,21 @@ export function useMaterialGenerate() {
           mcqRows = existingMcqData;
           setGenProgress(`Using ${mcqRows.length} existing questions…`);
         } else {
+          // Open the draft deck instantly — question cards stream in as the AI
+          // writes them, and the user can preview-run the partial bank.
+          setDraftTitle(`${baseTitle} — Rapid Recall`);
+          setDraftRows([]);
           setGenProgress("Extracting text from material…");
           const { text, images } = await extractResourceText(resource);
+          ensureNotAbortedLocal(abortRef.current?.signal);
           setGenProgress("Generating Rapid Recall…");
-          const { rows } = await generateMcqs(text, images, setGenProgress);
+          const { rows } = await generateMcqs(text, images, setGenProgress, {
+            signal: abortRef.current?.signal,
+            onRows: (rows) => setDraftRows((prev) => (prev == null ? prev : [...prev, ...rows])),
+          });
           mcqRows = rows;
         }
+        finalMcqRows = mcqRows;
 
         setGenProgress(`Generated ${mcqRows.length} questions ✓ — saving…`);
 
@@ -175,9 +199,16 @@ export function useMaterialGenerate() {
       consume(kind === "mcqs" ? "mcqGen" : "summary");
       setGenProgress("");
       setStreamDone(true);
+      if (kind === "mcqs") {
+        // Swap the draft preview for the authoritative deduped set — the deck
+        // overlay stays open and its bar enables the real deck's recall/live.
+        setDraftRows((prev) => (prev == null ? prev : finalMcqRows || []));
+        setDraftDone(true);
+      }
     } catch (err) {
       if (err.stoppedByUser) {
         setStreamText(null); // cancelled — close the stream view quietly
+        setDraftRows(null); // same for the draft deck
       } else {
         setGenError(err.message || "AI generation failed. Try again.");
         setGenErrorId(resource.id);
@@ -194,12 +225,20 @@ export function useMaterialGenerate() {
   const cancel = useCallback(() => {
     abortRef.current?.abort(new DOMException("Stopped", "AbortError"));
     setStreamText(null);
+    setDraftRows(null);
+    setDraftDone(false);
   }, []);
 
   // Dismiss the finished streaming view
   const closeStream = useCallback(() => {
     setStreamText(null);
     setStreamDone(false);
+  }, []);
+
+  // Dismiss the finished Rapid Recall draft deck (stop mid-run uses cancel()).
+  const closeDraft = useCallback(() => {
+    setDraftRows(null);
+    setDraftDone(false);
   }, []);
 
   const retry = useCallback(() => {
@@ -216,5 +255,5 @@ export function useMaterialGenerate() {
     setGenErrorId(null);
   }, []);
 
-  return { generatingId, genProgress, genError, genErrorId, streamText, streamTitle, streamDone, generate, retry, cancel, closeStream, clearError };
+  return { generatingId, genProgress, genError, genErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate, retry, cancel, closeStream, closeDraft, clearError };
 }

@@ -24,6 +24,7 @@ import { haptics } from '../../lib/haptics';
 import useConfetti from './useConfetti.js';
 import { useOverlayBackClose } from '../../hooks/useOverlayBackClose.js';
 import { localDayKey } from '../../lib/dayKey.js';
+import DeckView from './DeckView.jsx';
 import './streakSurvival.css';
 
 const MAX_LIVES = 3;
@@ -137,11 +138,13 @@ function isTypeable(text) {
   return !/\bof the above\b|^(both|neither|all|none)\b|^[a-d]\s*(and|or)\s*[a-d]\b/i.test(t);
 }
 
-export default function StreakSurvival({ resource, items, mode: forcedMode, onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
+export default function StreakSurvival({ resource, items, mode: forcedMode, snapshot = false, onBack, onQuizComplete, onStreakUpdate, onXpUpdate }) {
   // ── Save ──
   const [save, setSave] = useState(() => { tickDay(); return { ...loadSave() }; });
   const bump = useCallback(() => setSave({ ...loadSave() }), []);
-  const editSave = useCallback((fn) => { mutate(fn); bump(); }, [bump]);
+  // Snapshot (preview) runs are ephemeral: nothing persists — no runs counter,
+  // no gems/XP awards, no bests, no achievements. Combo/XP still display in-run.
+  const editSave = useCallback((fn) => { if (snapshot) return; mutate(fn); bump(); }, [bump, snapshot]);
 
   // Session-setup preferences (persisted in the save blob)
   const prefs = save.quizPrefs || { style: 'smart', recallFirst: true, speedRound: false };
@@ -166,7 +169,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   const [stats, setStats] = useState(null); // {streak, reviewedToday, dailyGoal, dueCount, masteredCount}
 
   // ── Screens ──
-  const [screen, setScreen] = useState(bank.length === 0 ? 'home' : 'game');
+  // A material deck lands on the 'deck' screen (cards + Start recall/Live bar);
+  // daily mixes, folder practice and snapshot previews drop into the run.
+  const deckEntry = !isDaily && !forcedMode && !snapshot;
+  const [screen, setScreen] = useState(bank.length === 0 ? 'home' : deckEntry ? 'deck' : 'game');
   const [runMode, setRunMode] = useState(isDaily || forcedMode === 'practice' ? 'practice' : 'survival');
 
   // ── Run state ──
@@ -311,15 +317,15 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-start: daily items → practice; material → survival is the default mode
+  // Auto-start: daily/folder mixes drop into practice; material decks wait on
+  // the deck screen — the user picks Start recall (Survival is the default).
   const startedRef = useRef(false);
   useEffect(() => {
     if (startedRef.current || bank.length === 0) return;
     startedRef.current = true;
-    if (survivalCooldownRemaining() > 0) { setScreen('home'); return; }
     if (isDaily) {
       serveIdx(0, 'practice');
-    } else {
+    } else if (!deckEntry) {
       startRun('survival');
     }
   }, [isDaily, bank]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -569,8 +575,9 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
     const nl = lives - 1;
     setLives(nl);
     sound.heart();
-    // Free-tier pacing: N lost hearts → cooldown on new sessions (this run continues)
-    if (recordSurvivalHeartLoss()) {
+    // Free-tier pacing: N lost hearts → cooldown on new sessions (this run
+    // continues). Preview runs don't count toward the cooldown counter.
+    if (!snapshot && recordSurvivalHeartLoss()) {
       toast(`💔 Hearts depleted — ${FREE_TIER_LIMITS.survivalCooldownMinutes} min recharge`, '#FF5E7E', 2800);
     }
     if (nl <= 0) setTimeout(() => triggerGameOver(), 650);
@@ -1025,6 +1032,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }
 
   function checkAchievementsNow(extra = {}) {
+    if (snapshot) return; // preview runs never unlock achievements
     const s = loadSave();
     const unlocked = checkAchievements({
       bestStreak: extra.bestStreak ?? runBest,
@@ -1040,6 +1048,7 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
   }
 
   function fireServerCompletion() {
+    if (snapshot) return; // preview runs post nothing server-side
     if (!isAuthed()) return;
     // Server badges — runs for both material and daily sessions
     try {
@@ -1098,7 +1107,8 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       if (runBest > best) editSave((s) => { s.bestByScope = { ...(s.bestByScope || {}), [scope]: runBest }; });
       checkAchievementsNow({ bestStreak: Math.max(runBest, best), combo: runBest });
       fireServerCompletion();
-      onBack?.();
+      if (deckEntry && !snapshot) setScreen('deck'); // back to the cards, not out
+      else onBack?.();
       return;
     }
     finishToEnd();
@@ -1339,8 +1349,10 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
       <canvas ref={canvasRef} className="confetti-canvas" />
       <div ref={appRef} className={`ss-app${shake ? ' shake' : ''}`}>
 
-        {/* HUD — slim prototype-style bar: hearts+combo while running, streak otherwise. Hidden on the end screen — its stats are already in the results chips. */}
-        {screen !== 'end' && (
+        {/* HUD — slim prototype-style bar: hearts+combo while running, streak
+            otherwise. Hidden on the end screen and the deck (both carry their
+            own chrome). */}
+        {screen !== 'end' && screen !== 'deck' && (
         <header className="hud">
           <div className="hud-left">
             {runMode === 'survival' && (screen === 'game' || screen === 'review') ? (
@@ -1464,6 +1476,21 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
 
             {questsCard({ marginTop: 10 })}
           </div>
+        )}
+
+        {/* ═══ DECK (material Rapid Recall — cards + floating bar) ═══ */}
+        {screen === 'deck' && (
+          <DeckView
+            title={resource?.title || 'Rapid Recall'}
+            meta={`${bank.length} QUESTIONS · ${dueHere} DUE · BEST ${best}`}
+            rows={bank}
+            states={cardStates}
+            canStart={cooldownMs <= 0}
+            cooldownNote={cooldownMs > 0 ? `💔 Hearts recharging — ${Math.floor(cooldownMs / 60000)}:${String(Math.floor((cooldownMs % 60000) / 1000)).padStart(2, '0')} until you can play` : null}
+            onStartRecall={() => startRun('survival')}
+            liveResourceId={resource?.id && isAuthed() ? resource.id : null}
+            onBack={onBack}
+          />
         )}
 
         {/* ═══ GAME / REVIEW ═══ */}
@@ -1754,7 +1781,11 @@ export default function StreakSurvival({ resource, items, mode: forcedMode, onBa
               {endInfo.allMastered ? (runMode === 'survival' ? 'Run it back' : 'Practice again') : 'Continue practice'}
             </button>
             <div className="secondary-row">
-              <button onClick={onBack}>{isDaily ? 'Done' : 'Exit'}</button>
+              {deckEntry && !snapshot ? (
+                <button onClick={() => setScreen('deck')}>Back to deck</button>
+              ) : (
+                <button onClick={onBack}>{isDaily ? 'Done' : 'Exit'}</button>
+              )}
             </div>
           </div>
         )}

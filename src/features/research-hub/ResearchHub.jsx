@@ -23,6 +23,8 @@ import EmptyState from "./EmptyState.jsx";
 import LoadingState from "./LoadingState.jsx";
 import ErrorState from "./ErrorState.jsx";
 import StreakSurvival from "../streak-survival/StreakSurvival.jsx";
+import DeckView from "../streak-survival/DeckView.jsx";
+import { normalizeQuestion } from "../streak-survival/fsrsBridge.js";
 import ExamBuilder from "../exam/ExamBuilder.jsx";
 import ExamHub from "../exam/ExamHub.jsx";
 import McIcon from "./McIcon.jsx";
@@ -252,7 +254,10 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return () => setMobileNavHidden(false);
   }, [viewerToken, sessionMode, activeFolder, setMobileNavHidden]);
 
-  const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, streamText, streamTitle, streamDone, generate: generateFromMaterial, retry: retryMaterialGenerate, cancel: cancelMaterialGenerate, closeStream, clearError: clearMaterialGenError } = useMaterialGenerate();
+  const { generatingId, genProgress, genError: materialGenError, genErrorId: materialGenErrorId, streamText, streamTitle, streamDone, draftRows, draftTitle, draftDone, generate: generateFromMaterial, retry: retryMaterialGenerate, cancel: cancelMaterialGenerate, closeStream, closeDraft, clearError: clearMaterialGenError } = useMaterialGenerate();
+  // Streaming Rapid Recall deck: saved resource + active preview run
+  const [savedMcqDeck, setSavedMcqDeck] = useState(null);
+  const [previewRun, setPreviewRun] = useState(null); // { title, rows }
 
   useEffect(() => {
     fetchResources();
@@ -1357,6 +1362,9 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         if (data.contentType === "pdf" && (resource?.fileName || "").startsWith("[AI] Summary")) {
           setGeneratedSummary(resource); // stream overlay offers "Open summary"
         }
+        if (data.contentType === "mcq") {
+          setSavedMcqDeck(resource); // draft deck overlay enables real recall/live
+        }
         if (data.folderId) { fetchFolderDetail(data.folderId); }
         else { fetchResources(); fetchFolders(); }
         setUploading(false);
@@ -1527,6 +1535,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       } catch {}
     }
     setGeneratedSummary(null);
+    setSavedMcqDeck(null);
+    setPreviewRun(null);
     generateFromMaterial(resource, kind, handleWizardStudyToolSave, existingMcqData);
   }, [generateFromMaterial, handleWizardStudyToolSave]);
 
@@ -1745,6 +1755,13 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     />
   );
 
+  // Streaming Rapid Recall draft cards — normalized once; must run before the
+  // sessionMode early-returns below (hook order).
+  const draftCards = useMemo(
+    () => (draftRows ? draftRows.map((r, i) => normalizeQuestion(r, i, null)) : null),
+    [draftRows]
+  );
+
   if (sessionMode) {
     if (sessionMode.type === "dueItems") {
       return <DueItemsSession subject={sessionMode.subject} resourceIds={sessionMode.resourceIds} weakFirst={sessionMode.weakFirst} onBack={handleSessionComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />;
@@ -1800,6 +1817,54 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
       );
     }
   }
+
+  // Streaming Rapid Recall deck — mounts above whichever view is active while
+  // an MCQ run is generating. Cards appear as the AI writes them; Start recall
+  // runs a snapshot of the arrived rows (no FSRS credit until the deck saves).
+  const deckOverlay = (draftRows !== null || previewRun) && (
+    <>
+      {draftRows !== null && !previewRun && (
+        <DeckView
+          title={draftTitle || "Rapid Recall"}
+          meta=""
+          rows={draftCards}
+          generating={!draftDone}
+          progressText={genProgress}
+          previewBadge={!draftDone}
+          error={materialGenError}
+          onRetry={retryMaterialGenerate}
+          onStop={cancelMaterialGenerate}
+          canStart={draftDone ? !!savedMcqDeck : draftCards.length >= 5}
+          startNote={!draftDone && draftCards.length >= 5
+            ? "Preview run — progress is scheduled once the deck is saved."
+            : null}
+          onStartRecall={() => {
+            if (draftDone && savedMcqDeck) {
+              closeDraft();
+              handleOpen(savedMcqDeck.shareToken);
+            } else {
+              setPreviewRun({ title: draftTitle, rows: draftRows });
+            }
+          }}
+          liveResourceId={draftDone && savedMcqDeck?.id ? savedMcqDeck.id : null}
+          onBack={draftDone ? closeDraft : cancelMaterialGenerate}
+        />
+      )}
+      {previewRun && (
+        <StreakSurvival
+          snapshot
+          resource={{ title: previewRun.title, contentType: "mcq", mcqData: JSON.stringify(previewRun.rows), id: null }}
+          onBack={() => {
+            setPreviewRun(null);
+            // If the deck finished saving meanwhile, drop straight into it.
+            if (savedMcqDeck) { closeDraft(); handleOpen(savedMcqDeck.shareToken); }
+          }}
+          onStreakUpdate={handleStreakUpdate}
+          onXpUpdate={handleXpUpdate}
+        />
+      )}
+    </>
+  );
 
   // Live summary stream — mounts above whichever view is active while a
   // summary is being generated (fixed inset overlay, markdown writes in live).
@@ -1889,6 +1954,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return (<>
       <ResourceViewer token={viewerToken} initialPage={viewerInitialPage} onBack={() => { setViewerToken(null); setViewerInitialPage(null); }} onOpenResource={(t) => { setViewerToken(t); setViewerInitialPage(null); }} onQuizComplete={handleQuizComplete} onStreakUpdate={handleStreakUpdate} onXpUpdate={handleXpUpdate} />
       {streamOverlay}
+      {deckOverlay}
       {shareSheet}
     </>);
   }
@@ -1959,6 +2025,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         }}
       />
       {streamOverlay}
+      {deckOverlay}
       {shareSheet}
       {fileActionSheets}
     </>);
@@ -1967,6 +2034,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
   return (
     <div ref={ptr.ref} className="ptr-container mc-root mx-auto max-w-[1200px] p-4 sm:p-6">
       {streamOverlay}
+      {deckOverlay}
       <div style={ptr.indicatorStyle} className="ptr-indicator">
         {ptr.showSpinner ? (
           <div className="ptr-spinner" />

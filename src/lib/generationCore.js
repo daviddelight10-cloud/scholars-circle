@@ -1,5 +1,16 @@
-import { callAI, callAITutor, callAIMultimodal, extractJSON } from "./aiClient";
+import { callAI, callAIStream, callAITutor, callAIMultimodal, extractJSON } from "./aiClient";
 import { chunkText } from "./extractFileText";
+import { createArrayStreamParser } from "./streamJsonArray.js";
+
+// Abort helper — carries the same stoppedByUser flag callAIStream throws, so
+// useMaterialGenerate's catch closes the overlay quietly on Stop.
+function ensureNotAborted(signal) {
+  if (signal?.aborted) {
+    const err = new Error("Generation stopped.");
+    err.stoppedByUser = true;
+    throw err;
+  }
+}
 
 export const MAX_QUESTIONS = 1000;
 export const QUESTIONS_PER_CHUNK = 25;
@@ -248,11 +259,16 @@ export function mapAiFlashcards(parsed) {
  * @param {object} [options] - Optional configuration
  * @param {number|null} [options.customCount] - User-specified question count
  * @param {function} [options.onWarning] - Warning callback
+ * @param {function} [options.onRows] - Streams rows in as they're written:
+ *   called per question while the AI streams (per chunk on non-streaming
+ *   servers). The final returned set stays authoritative — onRows previews.
+ * @param {AbortSignal} [options.signal] - Abort in-flight generation.
  * @returns {Promise<{rows: Array, warnings: string[]}>}
  */
 export async function generateMcqs(text, images, onProgress, options = {}) {
-  const { customCount = null, onWarning } = options;
+  const { customCount = null, onWarning, onRows, signal } = options;
   const warnings = [];
+  ensureNotAborted(signal);
 
   // Image-based: send images to multimodal AI
   if (images.length > 0 && text.length < 50) {
@@ -311,9 +327,49 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
     onWarning?.(w);
   }
 
+  // Streamed chunk call — feeds each completed question object to onRows while
+  // the AI writes it; the buffered raw text stays the authoritative source.
+  const runChunk = (prompt) => {
+    const cfg = { provider: "openrouter", model: "z-ai/glm-5.3-flash" };
+    if (!onRows) {
+      return callAI(prompt, cfg)
+        .then((raw) => {
+          try {
+            return { raw, rows: mapAiMcqsToRows(extractJSON(raw, "array")), error: null };
+          } catch (e) {
+            return { raw, rows: [], error: e.message };
+          }
+        })
+        .catch((err) => ({ raw: "", rows: [], error: err.message }));
+    }
+    const emitted = [];
+    const parser = createArrayStreamParser((obj) => {
+      const rows = mapAiMcqsToRows([obj]);
+      if (rows.length > 0) {
+        emitted.push(...rows);
+        onRows(rows);
+      }
+    });
+    return callAIStream(prompt, cfg, { onToken: (acc) => parser.push(acc), signal })
+      .then((raw) => {
+        try {
+          const rows = mapAiMcqsToRows(extractJSON(raw, "array"));
+          // Buffered fallback (no token events): emit the whole chunk at once
+          // so the preview still fills in per-chunk on non-streaming servers.
+          if (emitted.length === 0 && rows.length > 0) onRows(rows);
+          return { raw, rows, error: null };
+        } catch (e) {
+          // Streamed objects beat nothing — salvage what arrived.
+          return { raw, rows: emitted, error: emitted.length ? null : e.message };
+        }
+      })
+      .catch((err) => ({ raw: "", rows: [], error: err.message }));
+  };
+
   // Process chunks in concurrency-limited batches to avoid rate-limit (429) errors
   const chunkResults = [];
   for (let batchStart = 0; batchStart < chunks.length; batchStart += CONCURRENCY_LIMIT) {
+    ensureNotAborted(signal);
     const batchEnd = Math.min(batchStart + CONCURRENCY_LIMIT, chunks.length);
     const batchPromises = [];
     for (let idx = batchStart; idx < batchEnd; idx++) {
@@ -328,21 +384,14 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
         prompt = buildMcqPrompt(chunks[idx], requested);
       }
       batchPromises.push(
-        callAI(prompt, { provider: "openrouter", model: "z-ai/glm-5.3-flash" })
-          .then((raw) => {
-            try {
-              const rows = mapAiMcqsToRows(extractJSON(raw, "array"));
-              return { rows, requested, error: null };
-            } catch (e) {
-              return { rows: [], requested, error: e.message };
-            }
-          })
-          .catch((err) => ({ rows: [], requested, error: err.message }))
+        runChunk(prompt)
+          .then(({ rows, error }) => ({ rows, requested, error }))
       );
     }
     const batchResults = await Promise.all(batchPromises);
     chunkResults.push(...batchResults);
   }
+  ensureNotAborted(signal);
 
   let allRows = chunkResults.flatMap((r) => r.rows);
 
@@ -365,6 +414,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       onProgress?.(`Retrying ${underproducing.length} section${underproducing.length > 1 ? "s" : ""} with fewer questions…`);
       const retryRows = [];
       for (let rStart = 0; rStart < underproducing.length; rStart += CONCURRENCY_LIMIT) {
+        ensureNotAborted(signal);
         const rEnd = Math.min(rStart + CONCURRENCY_LIMIT, underproducing.length);
         const retryBatchPromises = [];
         for (let ri = rStart; ri < rEnd; ri++) {
@@ -394,6 +444,7 @@ export async function generateMcqs(text, images, onProgress, options = {}) {
       .filter((d) => d.produced < d.expected);
 
     for (let round = 0, pending = deficits(); pending.length > 0 && round < EXTRACT_RETRY_ROUNDS && allRows.length < existingCount; round++) {
+      ensureNotAborted(signal);
       onProgress?.(`Re-checking ${pending.length} section${pending.length > 1 ? "s" : ""} that may still have questions…`);
       for (let rStart = 0; rStart < pending.length; rStart += CONCURRENCY_LIMIT) {
         const rEnd = Math.min(rStart + CONCURRENCY_LIMIT, pending.length);

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { LEAGUES, API_BASE, EMPTY_STATS, FREE_TIER_LIMITS } from "../constants";
 import { BADGES, BADGE_GROUPS, resolveBadges } from "../badges";
+import { localDayKey } from "../dayKey";
 
 const baseCtx = (over = {}) => ({
   stats: {},
@@ -70,11 +71,11 @@ describe("BADGES", () => {
     const dailyReviews = {};
     for (let i = 0; i < 7; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      dailyReviews[d.toISOString().slice(0, 10)] = 2;
+      dailyReviews[localDayKey(d)] = 2; // production buckets by local day
     }
     expect(earned("week_clean", { analytics: { dailyReviews } })).toBe(true);
     const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-    dailyReviews[yesterday.toISOString().slice(0, 10)] = 0;
+    dailyReviews[localDayKey(yesterday)] = 0;
     expect(earned("week_clean", { analytics: { dailyReviews } })).toBe(false);
     expect(prog("week_clean", { analytics: { dailyReviews } })).toEqual({ cur: 6, max: 7 });
   });

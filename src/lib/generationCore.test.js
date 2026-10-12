@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("./aiClient", async (importOriginal) => {
   const orig = await importOriginal();
-  return { ...orig, callAI: vi.fn(), callAIMultimodal: vi.fn() };
+  return { ...orig, callAI: vi.fn(), callAIMultimodal: vi.fn(), callAIStream: vi.fn() };
 });
 
-import { callAI } from "./aiClient";
+import { callAI, callAIStream } from "./aiClient";
 import { generateMcqs, countExistingMcqs } from "./generationCore";
 
 function makeMcqDoc(n) {
@@ -36,6 +36,66 @@ function questionsInPrompt(prompt) {
 
 beforeEach(() => {
   callAI.mockReset();
+  callAIStream.mockReset();
+});
+
+const mcqRowsJson = (n) => JSON.stringify(
+  Array.from({ length: n }, (_, i) => ({
+    question: `Streamed q${i}?`,
+    options: { A: "a", B: "b", C: "c", D: "d" },
+    correct: "A",
+    explanation: "why",
+  }))
+);
+
+describe("streaming onRows", () => {
+  const doc = "Some study content about renal physiology. ".repeat(90);
+
+  it("emits each question as it is written (per-question streaming)", async () => {
+    const full = mcqRowsJson(10);
+    callAIStream.mockImplementation(async (_p, _cfg, { onToken }) => {
+      // Simulate a token stream — push the text in slices.
+      let acc = "";
+      for (let i = 0; i < full.length; i += 40) {
+        acc += full.slice(i, i + 40);
+        onToken?.(acc);
+      }
+      return full;
+    });
+
+    const arrivals = [];
+    const { rows } = await generateMcqs(doc, [], () => {}, {
+      onRows: (r) => arrivals.push(...r),
+    });
+
+    expect(rows.length).toBe(10);
+    expect(arrivals.length).toBe(10);
+    expect(arrivals.map((r) => r.question)).toEqual(rows.map((r) => r.question));
+  });
+
+  it("falls back to per-chunk rows when no token events fire", async () => {
+    callAIStream.mockImplementation(async () => mcqRowsJson(7)); // buffered
+    const arrivals = [];
+    const { rows } = await generateMcqs(doc, [], () => {}, { onRows: (r) => arrivals.push(...r) });
+    expect(rows.length).toBe(7);
+    expect(arrivals.length).toBe(7); // emitted once at chunk completion
+  });
+
+  it("an aborted signal stops generation before chunks run", async () => {
+    const ctl = new AbortController();
+    ctl.abort();
+    callAIStream.mockImplementation(async () => mcqRowsJson(10));
+    await expect(generateMcqs(doc, [], () => {}, { signal: ctl.signal, onRows: () => {} }))
+      .rejects.toMatchObject({ stoppedByUser: true });
+    expect(callAIStream).not.toHaveBeenCalled();
+  });
+
+  it("non-streaming callers keep using callAI exactly as before", async () => {
+    callAI.mockImplementation(async () => mcqRowsJson(4));
+    await generateMcqs(doc, [], () => {});
+    expect(callAI).toHaveBeenCalled();
+    expect(callAIStream).not.toHaveBeenCalled();
+  });
 });
 
 describe("extraction mode (MCQ-bank document)", () => {
