@@ -234,22 +234,26 @@ router.get("/:id/analytics", requireAuth, async (req, res, next) => {
     }
 
     const since = new Date(); since.setDate(since.getDate() - 30);
-    const [views, bookmarks, likes, ratings, comments, attempts] = await Promise.all([
+    const [views, viewsAllTime, bookmarks, likes, ratings, comments, attempts, reviewItems, masteredItems] = await Promise.all([
       prisma.resourceView.findMany({ where: { resourceId: resource.id, viewedAt: { gte: since } }, select: { userId: true, viewedAt: true } }),
-      prisma.resourceBookmark.count({ where: { resourceId: resource.id } }),
-      prisma.resourceLike.count({ where: { resourceId: resource.id } }),
-      prisma.resourceRating.findMany({ where: { resourceId: resource.id }, select: { stars: true, createdAt: true } }),
+      prisma.resourceView.groupBy({ by: ["userId"], where: { resourceId: resource.id, userId: { not: null } }, _count: { _all: true } }),
+      prisma.resourceBookmark.findMany({ where: { resourceId: resource.id }, select: { userId: true } }),
+      prisma.resourceLike.findMany({ where: { resourceId: resource.id }, select: { userId: true } }),
+      prisma.resourceRating.findMany({ where: { resourceId: resource.id }, select: { userId: true, stars: true, createdAt: true } }),
       prisma.resourceComment.findMany({
         where: { resourceId: resource.id },
         orderBy: { createdAt: "desc" },
         take: 20,
-        select: { id: true, text: true, createdAt: true, flagged: true, user: { select: { username: true } } },
+        select: { id: true, text: true, createdAt: true, flagged: true, userId: true, user: { select: { username: true } } },
       }),
       prisma.quizAttempt.findMany({
         where: { resourceId: resource.id },
         select: { userId: true, score: true, total: true, mode: true, details: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       }),
+      // FSRS work on this material — items touched + mastered per student
+      prisma.pdfReviewItem.groupBy({ by: ["userId"], where: { resourceId: resource.id }, _count: { _all: true }, _sum: { reps: true }, _max: { lastReviewAt: true } }),
+      prisma.pdfReviewItem.groupBy({ by: ["userId"], where: { resourceId: resource.id, state: 2 }, _count: { _all: true } }),
     ]);
 
     const days = Array.from({ length: 30 }, (_, i) => {
@@ -268,11 +272,16 @@ router.get("/:id/analytics", requireAuth, async (req, res, next) => {
       latestByUser[v.userId].count++;
     });
     const viewerIds = Object.keys(latestByUser);
+    const USER_DETAIL_SELECT = {
+      id: true, username: true, email: true, fullName: true,
+      userProfile: { select: { avatar: true, institution: true, schoolName: true, department: true, level: true, programme: true, university: { select: { name: true } } } },
+      userDepartment: { select: { yearLevel: true, department: { select: { name: true } }, university: { select: { name: true } } } },
+    };
     const viewers = viewerIds.length
-      ? await prisma.user.findMany({ where: { id: { in: viewerIds } }, select: { id: true, username: true, email: true } })
+      ? await prisma.user.findMany({ where: { id: { in: viewerIds } }, select: USER_DETAIL_SELECT })
       : [];
     const viewerList = viewers
-      .map((u) => ({ ...u, lastViewed: latestByUser[u.id].viewedAt, viewCount: latestByUser[u.id].count }))
+      .map((u) => ({ id: u.id, username: u.username, email: u.email, lastViewed: latestByUser[u.id].viewedAt, viewCount: latestByUser[u.id].count }))
       .sort((a, b) => new Date(b.lastViewed) - new Date(a.lastViewed));
 
     // Quiz analytics — per-question miss rate from attempt details
@@ -311,7 +320,7 @@ router.get("/:id/analytics", requireAuth, async (req, res, next) => {
         .filter(([, s]) => s.total > 0 && s.score / s.total < 0.5)
         .map(([id]) => id);
       const strugglingUsers = strugglingIds.length
-        ? await prisma.user.findMany({ where: { id: { in: strugglingIds } }, select: { id: true, username: true, email: true } })
+        ? await prisma.user.findMany({ where: { id: { in: strugglingIds } }, select: { id: true, username: true, email: true, fullName: true } })
         : [];
       const struggling = strugglingIds.map((id) => ({
         ...(strugglingUsers.find((u) => u.id === id) || { id, username: "?" }),
@@ -324,11 +333,89 @@ router.get("/:id/analytics", requireAuth, async (req, res, next) => {
 
     const avgRating = ratings.length ? ratings.reduce((s, r) => s + r.stars, 0) / ratings.length : 0;
 
+    // ── Per-student rollup — powers the clickable student detail panel.
+    // Union of everyone who touched this material: viewed, attempted,
+    // bookmarked, liked, rated, commented or has FSRS items on it.
+    const allTimeViews = Object.fromEntries(viewsAllTime.map((v) => [v.userId, v._count._all]));
+    const reviewedByUser = Object.fromEntries(reviewItems.map((r) => [r.userId, r]));
+    const masteredByUser = Object.fromEntries(masteredItems.map((r) => [r.userId, r._count._all]));
+    const bookmarkedIds = new Set(bookmarks.map((b) => b.userId));
+    const likedIds = new Set(likes.map((l) => l.userId));
+    const ratedByUser = Object.fromEntries(ratings.map((r) => [r.userId, r.stars]));
+    const commentedByUser = comments.reduce((m, c) => { if (c.userId) m[c.userId] = (m[c.userId] || 0) + 1; return m; }, {});
+
+    const attemptsByUser = {};
+    attempts.forEach((a) => {
+      (attemptsByUser[a.userId] = attemptsByUser[a.userId] || []).push(a);
+    });
+
+    const studentIds = new Set([
+      ...viewerIds,
+      ...Object.keys(allTimeViews),
+      ...Object.keys(attemptsByUser),
+      ...bookmarkedIds, ...likedIds, ...Object.keys(ratedByUser), ...Object.keys(commentedByUser),
+      ...reviewItems.map((r) => r.userId),
+    ]);
+    // Viewers were already fetched with profiles; fetch anyone else (people who
+    // only practiced/bookmarked without a 30d view, etc.).
+    const missingIds = [...studentIds].filter((id) => !latestByUser[id]);
+    const extraUsers = missingIds.length
+      ? await prisma.user.findMany({ where: { id: { in: missingIds } }, select: USER_DETAIL_SELECT })
+      : [];
+    const userById = new Map([...viewers, ...extraUsers].map((u) => [u.id, u]));
+
+    const students = {};
+    for (const uid of studentIds) {
+      const u = userById.get(uid);
+      if (!u) continue;
+      const p = u.userProfile || {};
+      const d = u.userDepartment || {};
+      const ua = attemptsByUser[uid] || [];
+      const totalQ = ua.reduce((s, a) => s + a.total, 0);
+      const scoreQ = ua.reduce((s, a) => s + a.score, 0);
+      const best = ua.reduce((m, a) => Math.max(m, a.total ? a.score / a.total : 0), 0);
+      const rev = reviewedByUser[uid];
+      students[uid] = {
+        name: u.fullName || u.username || (u.email ? u.email.split("@")[0] : "Student"),
+        username: u.username || null,
+        avatar: p.avatar || null,
+        university: p.university?.name || p.institution || p.schoolName || d.university?.name || null,
+        department: p.department || d.department?.name || null,
+        level: p.level || (d.yearLevel ? `Year ${d.yearLevel}` : null),
+        programme: p.programme || null,
+        views: {
+          total: allTimeViews[uid] || 0,
+          d30: latestByUser[uid]?.count || 0,
+          last: latestByUser[uid]?.viewedAt || null,
+        },
+        practice: {
+          attempts: ua.length,
+          avgPct: totalQ > 0 ? Math.round((scoreQ / totalQ) * 100) : null,
+          bestPct: totalQ > 0 ? Math.round(best * 100) : null,
+          lastAt: ua[0]?.createdAt || null, // attempts are newest-first
+          recent: ua.slice(0, 5).map((a) => ({ score: a.score, total: a.total, mode: a.mode, at: a.createdAt })),
+        },
+        cards: {
+          reviewed: rev?._count?._all || 0,
+          mastered: masteredByUser[uid] || 0,
+          reviews: rev?._sum?.reps || 0,
+          lastAt: rev?._max?.lastReviewAt || null,
+        },
+        engagement: {
+          bookmarked: bookmarkedIds.has(uid),
+          liked: likedIds.has(uid),
+          stars: ratedByUser[uid] || null,
+          comments: commentedByUser[uid] || 0,
+        },
+      };
+    }
+
     res.json({
       resource: { id: resource.id, title: resource.title, contentType: resource.contentType, shareToken: resource.shareToken, createdAt: resource.createdAt },
       views: { total: resource.viewCount, unique30d: viewerIds.length, perDay: viewsPerDay, days },
-      engagement: { bookmarks, likes, comments: comments.length, avgRating: Math.round(avgRating * 10) / 10, ratingCount: ratings.length },
+      engagement: { bookmarks: bookmarks.length, likes: likes.length, comments: comments.length, avgRating: Math.round(avgRating * 10) / 10, ratingCount: ratings.length },
       viewers: viewerList.slice(0, 50),
+      students,
       comments,
       quiz,
     });

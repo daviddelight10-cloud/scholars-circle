@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../lib/appUtils";
-import { getContentTypeIcon } from "../lib/researchUtils";
-import MaterialStatsDrawer from "./MaterialStatsDrawer";
+import MaterialStatsDrawer, { typeIcon } from "./MaterialStatsDrawer";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
+import McIcon from "./research-hub/McIcon.jsx";
 
 const C = {
   bg: "#0B0B0D", card: "#151518", line: "#26262B",
@@ -41,7 +41,7 @@ function Kpi({ icon, label, value, color = C.goldBright }) {
   return (
     <div style={{ background: C.card, border: `0.5px solid ${C.line}`, borderRadius: 12, padding: "12px 14px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-        <span style={{ fontSize: 14 }}>{icon}</span>
+        <McIcon name={icon} size={14} style={{ color }} />
         <span style={{ fontSize: 9, color: C.hint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
       </div>
       <div style={{ fontSize: 20, fontWeight: 800, color, fontFamily: "Syne,sans-serif", lineHeight: 1 }}>{value}</div>
@@ -49,10 +49,13 @@ function Kpi({ icon, label, value, color = C.goldBright }) {
   );
 }
 
-function Card({ title, children }) {
+function Card({ title, icon, children }) {
   return (
     <div style={{ background: C.card, border: `0.5px solid ${C.line}`, borderRadius: 14, padding: 14, marginBottom: 12 }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.gold, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "Syne,sans-serif", marginBottom: 10 }}>{title}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.gold, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "Syne,sans-serif", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+        {icon && <McIcon name={icon} size={13} />}
+        {title}
+      </div>
       {children}
     </div>
   );
@@ -61,6 +64,7 @@ function Card({ title, children }) {
 const btn = {
   background: "rgba(218,165,32,0.12)", border: `0.5px solid ${C.gold}44`, color: C.goldBright,
   borderRadius: 7, padding: "5px 10px", fontSize: 10.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+  display: "inline-flex", alignItems: "center", gap: 4,
 };
 
 export default function LecturerInsights({ token }) {
@@ -77,10 +81,11 @@ export default function LecturerInsights({ token }) {
   useEffect(() => { load(); }, [load]);
 
   if (error) return <div style={{ padding: 32, textAlign: "center", color: C.red, fontSize: 12 }}>{error}</div>;
-  if (!data) return <div style={{ padding: 32, textAlign: "center", color: C.hint, fontSize: 12 }}>⏳ Loading your impact…</div>;
+  if (!data) return <div style={{ padding: 32, textAlign: "center", color: C.hint, fontSize: 12 }}>Loading your impact…</div>;
   if (data.empty) return (
     <div style={{ padding: 32, textAlign: "center", color: C.hint, fontSize: 12 }}>
-      📭 No materials yet — upload your first resource and your impact dashboard comes alive here.
+      <McIcon name="inbox" size={26} style={{ color: C.hint, marginBottom: 8 }} />
+      <div>No materials yet — upload your first resource and your impact dashboard comes alive here.</div>
     </div>
   );
 
@@ -90,26 +95,26 @@ export default function LecturerInsights({ token }) {
     <div>
       {/* KPI grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 12 }}>
-        <Kpi icon="📄" label="Materials" value={t.materials} />
-        <Kpi icon="👀" label="Total views" value={t.views} />
-        <Kpi icon="🎓" label="Students reached" value={t.students} color={C.teal} />
-        <Kpi icon="✍️" label="Quiz attempts" value={t.attempts} color={C.purple} />
-        <Kpi icon="🔖" label="Bookmarks" value={t.bookmarks} color={C.pink} />
-        <Kpi icon="❤️" label="Likes" value={t.likes} color={C.pink} />
-        <Kpi icon="⭐" label="Avg rating" value={t.avgRating || "—"} color={C.gold} />
-        <Kpi icon="💬" label="Comments" value={t.comments} color={C.muted} />
+        <Kpi icon="filetext" label="Materials" value={t.materials} />
+        <Kpi icon="eye" label="Total views" value={t.views} />
+        <Kpi icon="users" label="Students reached" value={t.students} color={C.teal} />
+        <Kpi icon="pen" label="Quiz attempts" value={t.attempts} color={C.purple} />
+        <Kpi icon="bookmark" label="Bookmarks" value={t.bookmarks} color={C.pink} />
+        <Kpi icon="heart" label="Likes" value={t.likes} color={C.pink} />
+        <Kpi icon="star" label="Avg rating" value={t.avgRating || "—"} color={C.gold} />
+        <Kpi icon="chat" label="Comments" value={t.comments} color={C.muted} />
       </div>
 
       <style>{`@media (max-width:640px){ .li-kpis{grid-template-columns:repeat(2,1fr)!important} }`}</style>
 
       {/* Views trend */}
-      <Card title="Views across all your materials — 30 days">
+      <Card title="Views across all your materials — 30 days" icon="chart">
         <BigChart days={data.days} data={data.viewsPerDay} />
       </Card>
 
       {/* Struggling students */}
       {data.struggling.length > 0 && (
-        <Card title="⚠️ Students struggling on your materials">
+        <Card title="Students struggling on your materials" icon="alert">
           <div style={{ fontSize: 11, color: C.hint, marginBottom: 8 }}>
             Averaging under 50% on your quizzes — worth reaching out or posting a review session.
           </div>
@@ -123,24 +128,24 @@ export default function LecturerInsights({ token }) {
       )}
 
       {/* Top materials */}
-      <Card title="🏆 Your top materials">
+      <Card title="Your top materials" icon="trophy">
         {data.topMaterials.map((r, i) => (
           <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < data.topMaterials.length - 1 ? `0.5px solid ${C.line}` : "none" }}>
-            <span style={{ fontSize: 16 }}>{getContentTypeIcon(r.contentType)}</span>
+            <McIcon name={typeIcon(r.contentType)} size={16} style={{ color: C.gold, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
               <div style={{ fontSize: 10, color: C.hint }}>
                 {r.viewCount} views{r.views30d ? ` · ${r.views30d} this month` : ""}{r.ratingCount ? ` · ${r.avgRating}★` : ""}
               </div>
             </div>
-            <button style={btn} onClick={() => setStatsId(r.id)}>📊 Stats</button>
-            <button style={btn} onClick={() => setShareTarget({ type: "resource", id: r.id, shareToken: r.shareToken, title: r.title, contentType: r.contentType, linkShared: r.linkShared, isOwner: true })}>🔗 Share</button>
+            <button style={btn} onClick={() => setStatsId(r.id)}><McIcon name="chart" size={11} /> Stats</button>
+            <button style={btn} onClick={() => setShareTarget({ type: "resource", id: r.id, shareToken: r.shareToken, title: r.title, contentType: r.contentType, linkShared: r.linkShared, isOwner: true })}><McIcon name="share" size={11} /> Share</button>
           </div>
         ))}
       </Card>
 
       {/* Comments inbox */}
-      <Card title="💬 Latest comments on your materials">
+      <Card title="Latest comments on your materials" icon="chat">
         {data.comments.length === 0 ? (
           <div style={{ fontSize: 11.5, color: C.hint }}>No comments yet.</div>
         ) : (
