@@ -350,7 +350,9 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       inset: 0,
       width: "100%",
       height: "100%",
-      pointerEvents: tool !== "none" ? "auto" : "none",
+      // "highlight" passes through: MARK is a text highlighter — drags must
+      // reach the text layer to make a native selection.
+      pointerEvents: tool === "none" || tool === "highlight" ? "none" : "auto",
       touchAction: "none",
       // iOS: stop the long-press callout and text selection from stealing the
       // gesture mid-lasso (Safari fires pointercancel when the callout appears)

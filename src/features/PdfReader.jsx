@@ -1013,7 +1013,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   useEffect(() => {
     let debounce = null;
     const capture = () => {
-      if (tool !== "none") { setSelPop(null); return; }
+      if (tool !== "none" && tool !== "highlight") { setSelPop(null); return; }
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) { setSelPop(null); return; }
       const text = sel.toString().replace(/\s+/g, " ").trim();
@@ -1036,6 +1036,13 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
       } catch {}
       if (!rects.length) { setSelPop(null); return; }
       pendingSelRef.current = { page, text: text.slice(0, 2000), rects };
+      // MARK armed → convert the selection straight into a text highlight
+      // (lands in Highlights & notes) instead of showing the action popover.
+      if (tool === "highlight") {
+        addMark("highlight", highlightColor);
+        setAnnotatePopOpen(false);
+        return;
+      }
       const first = rects[0];
       const cx = lr.left + ((first[0] + first[2]) / 2) * lr.width;
       const cyTop = lr.top + first[1] * lr.height;
@@ -1074,7 +1081,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     };
     document.addEventListener("selectionchange", onChange);
     return () => { document.removeEventListener("selectionchange", onChange); clearTimeout(debounce); };
-  }, [tool]);
+  }, [tool, highlightColor]);
 
   // Scrolling/zooming detaches the popover from its selection — dismiss it.
   useEffect(() => {
@@ -3550,7 +3557,7 @@ Passage:
               {/* Highlight options */}
               {annotateTab === "highlight" && (
                 <>
-                  <div style={s.popRowLabel}>Marker colour</div>
+                  <div style={s.popRowLabel}>Highlight colour</div>
                   <div style={s.swatchRow}>
                     {HIGHLIGHT_COLORS.map((c) => (
                       <button
@@ -3565,17 +3572,8 @@ Passage:
                       />
                     ))}
                   </div>
-                  <div style={s.popRowLabel}>Stroke</div>
-                  <div style={s.widthRow}>
-                    {HIGHLIGHT_WIDTHS.map((w) => (
-                      <button
-                        key={w}
-                        style={{ ...s.widthChip, ...(highlightWidth === w ? { ...s.widthChipActive, background: "rgba(245,166,35,0.16)", borderColor: "rgba(245,166,35,0.45)" } : {}) }}
-                        onClick={() => setHighlightWidth(w)}
-                      >
-                        <div style={{ width: 20, height: Math.min(w / 2, 12), borderRadius: 3, background: highlightWidth === w ? CHROME.gold : T.muted }} />
-                      </button>
-                    ))}
+                  <div style={{ fontSize: 12, color: T.muted, padding: "10px 0 2px" }}>
+                    Drag across text to highlight — saves to Highlights &amp; notes.
                   </div>
                 </>
               )}
@@ -4667,7 +4665,7 @@ Passage:
                           style={{
                             ...s.lassoOverlay,
                             filter: pageCssFilter(),
-                            pointerEvents: tool !== "none" ? "auto" : "none",
+                            pointerEvents: tool === "none" || tool === "highlight" ? "none" : "auto",
                           }}
                           onPointerDown={(e) => onOverlayDown(e, pg)}
                           onPointerMove={onOverlayMove}
