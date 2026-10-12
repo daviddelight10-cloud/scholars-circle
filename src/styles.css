@@ -2355,6 +2355,11 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 215, 0, 0.12);
+  transition: padding 0.25s ease;
+}
+.mc-sticky-header.scrolled {
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 .mc-sticky-header::after {
   content: '';
@@ -2364,7 +2369,10 @@ body {
   right: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.4), transparent);
+  opacity: 0.45;
+  transition: opacity 0.25s ease;
 }
+.mc-sticky-header.scrolled::after { opacity: 1; }
 
 
 

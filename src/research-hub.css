@@ -2035,6 +2035,53 @@ button.ts-stat:hover .l, button.ts-stat[aria-expanded="true"] .l { color: #EDEFF
 }
 .mc-s-clear:hover { color: var(--mc-text); background: rgba(255,255,255,.12); }
 
+/* ── iOS-style large title — collapses into the compact tab bar on scroll ── */
+.mc-title {
+  display: flex; align-items: center; gap: 10px;
+  width: calc(100% - 32px); max-width: 688px; margin: 0 auto;
+  max-height: 44px; opacity: 1; transform: translateY(0);
+  overflow: hidden;
+  transition: max-height .26s ease, opacity .18s ease, transform .26s ease;
+}
+.mc-title.gone { max-height: 0; opacity: 0; transform: translateY(-8px); }
+.mc-title-txt {
+  font-size: 25px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
+  padding: 4px 0 8px; color: var(--mc-text);
+}
+.mc-title-chip {
+  font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+  background: rgba(229,72,77,.16); color: #FF8A8A; flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .mc-title-txt { font-size: 21px; }
+}
+
+/* ── FAB shrinks while scrolling (Material speed-dial behavior) ── */
+.mc-fab.mini { transform: scale(.84); }
+.mc-fab.mini:hover { transform: scale(.84); }
+
+/* ── Staggered card entrance — covers the first viewport of a grid ── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes mc-card-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .mc-folders-grid > *, .mc-pdfs-grid > *, .mc-rows > * {
+    animation: mc-card-in .34s cubic-bezier(.2,.7,.3,1) both;
+  }
+  .mc-folders-grid > *:nth-child(1), .mc-pdfs-grid > *:nth-child(1), .mc-rows > *:nth-child(1) { animation-delay: 0s; }
+  .mc-folders-grid > *:nth-child(2), .mc-pdfs-grid > *:nth-child(2), .mc-rows > *:nth-child(2) { animation-delay: .035s; }
+  .mc-folders-grid > *:nth-child(3), .mc-pdfs-grid > *:nth-child(3), .mc-rows > *:nth-child(3) { animation-delay: .07s; }
+  .mc-folders-grid > *:nth-child(4), .mc-pdfs-grid > *:nth-child(4), .mc-rows > *:nth-child(4) { animation-delay: .105s; }
+  .mc-folders-grid > *:nth-child(5), .mc-pdfs-grid > *:nth-child(5), .mc-rows > *:nth-child(5) { animation-delay: .14s; }
+  .mc-folders-grid > *:nth-child(6), .mc-pdfs-grid > *:nth-child(6), .mc-rows > *:nth-child(6) { animation-delay: .175s; }
+  .mc-folders-grid > *:nth-child(7), .mc-pdfs-grid > *:nth-child(7), .mc-rows > *:nth-child(7) { animation-delay: .21s; }
+  .mc-folders-grid > *:nth-child(8), .mc-pdfs-grid > *:nth-child(8), .mc-rows > *:nth-child(8) { animation-delay: .245s; }
+  .mc-folders-grid > *:nth-child(9), .mc-pdfs-grid > *:nth-child(9), .mc-rows > *:nth-child(9) { animation-delay: .28s; }
+  .mc-folders-grid > *:nth-child(10), .mc-pdfs-grid > *:nth-child(10), .mc-rows > *:nth-child(10) { animation-delay: .315s; }
+  .mc-folders-grid > *:nth-child(n+11), .mc-pdfs-grid > *:nth-child(n+11), .mc-rows > *:nth-child(n+11) { animation-delay: .35s; }
+}
+
 /* ── Sort row ───────────────────────────────────────────────────────── */
 .mc-sort-row {
   display: flex; align-items: center; gap: 8px; flex-shrink: 0;

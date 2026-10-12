@@ -307,6 +307,26 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
 
   const ptr = usePullToRefresh(refreshAll);
 
+  // App-feel chrome: large title collapses on scroll, the sticky bar tightens,
+  // and the FAB shrinks while scrolling (Material speed-dial behavior).
+  const [scrolled, setScrolled] = useState(false);
+  const [fabMini, setFabMini] = useState(false);
+  useEffect(() => {
+    let idle;
+    const onScroll = (e) => {
+      const y = e.target === document
+        ? (document.documentElement.scrollTop || document.body.scrollTop)
+        : e.target.scrollTop;
+      setScrolled(y > 24);
+      setFabMini(true);
+      clearTimeout(idle);
+      idle = setTimeout(() => setFabMini(false), 160);
+    };
+    // capture: true catches inner scroll containers too, not just window
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => { window.removeEventListener("scroll", onScroll, { capture: true }); clearTimeout(idle); };
+  }, []);
+
   useEffect(() => {
     const handler = (e) => {
       const tab = e.detail?.tab;
@@ -2043,16 +2063,23 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         )}
         <span>{ptr.isRefreshing ? "Refreshing…" : "Pull to refresh"}</span>
       </div>
-      <div className="mc-sticky-header -mx-4 mb-4 px-4 sm:-mx-6 sm:px-6">
+      <div className={`mc-sticky-header${scrolled ? " scrolled" : ""} -mx-4 mb-4 px-4 sm:-mx-6 sm:px-6`}>
+        {/* iOS-style large title — collapses into the compact tab bar on scroll */}
+        <div className={`mc-title${scrolled ? " gone" : ""}`}>
+          <div className="mc-title-txt">{activeTab === "library" ? "My Space" : "Community"}</div>
+          {activeTab === "library" && fsrsStats?.dueCount > 0 && (
+            <div className="mc-title-chip">{fsrsStats.dueCount} due</div>
+          )}
+        </div>
         <div className="mc-toprow">
           <div className="mc-tabs">
-            <button className={activeTab === "library" ? "active" : ""} onClick={() => setActiveTab("library")}>
+            <button className={activeTab === "library" ? "active" : ""} onClick={() => { haptics.selection(); setActiveTab("library"); }}>
               My Space
               {fsrsStats && fsrsStats.dueCount > 0 && (
                 <span className="mc-count">{fsrsStats.dueCount}</span>
               )}
             </button>
-            <button className={activeTab === "community" ? "active" : ""} onClick={() => setActiveTab("community")}>
+            <button className={activeTab === "community" ? "active" : ""} onClick={() => { haptics.selection(); setActiveTab("community"); }}>
               Community
             </button>
           </div>
@@ -2376,8 +2403,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         )}
         {activeTab === "library" && (
           <button
-            onClick={() => setShowFab((v) => !v)}
-            className={`mc-fab${showFab ? " open" : ""}`}
+            onClick={() => { haptics.selection(); setShowFab((v) => !v); }}
+            className={`mc-fab${showFab ? " open" : ""}${fabMini && !showFab ? " mini" : ""}`}
             title="Quick actions"
           >
             <span className="mc-fab-plus"><McIcon name="plus" /></span>
