@@ -2830,7 +2830,7 @@ Passage:
       const t = v.scrollTop;
       const dy = t - last;
       last = t;
-      if (dy > 6 && t > 80) setChromeHidden(true);
+      if (dy > 6 && t > 80) { setChromeHidden(true); closeAllMobileOverlays(); }
       else if (dy < -6) setChromeHidden(false);
     };
     v.addEventListener("scroll", onScroll, { passive: true });
@@ -5048,7 +5048,18 @@ Passage:
 
           {/* Floating nav pill — page nav + zoom + circle-to-ask (mobile & desktop) */}
           {!chromeHidden && !loading && !loadError && (
-            <div style={{ ...s.navDock, right: chatOpen && dockMode ? dockW : 0 }} onTouchStart={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                ...s.navDock,
+                right: chatOpen && dockMode ? dockW : 0,
+                // Sheets own the bottom of the screen — fade the pill out
+                // instead of letting it poke through under the panel.
+                opacity: isMobile && (showOverflow || studyToolsOpen) ? 0 : 1,
+                pointerEvents: isMobile && (showOverflow || studyToolsOpen) ? "none" : "auto",
+                transition: "opacity 0.18s ease",
+              }}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
               <div style={s.navPill}>
                 {isMobile && (
                   <>
@@ -5123,7 +5134,7 @@ Passage:
 
           {/* AI Study Tools floating button — hidden only under the mobile sheet; the
               desktop dock leaves the document usable so the FAB stays visible */}
-          {(!chatOpen || dockMode) && !loading && !loadError && !(voiceActive && !voiceMinimized) && (
+          {(!chatOpen || dockMode) && !loading && !loadError && !chromeHidden && !(voiceActive && !voiceMinimized) && (
             isMobile ? (
               <button
                 style={{
