@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import McIcon from "../features/research-hub/McIcon.jsx";
 
 /**
  * Modern university/school autocomplete select.
@@ -91,7 +92,7 @@ export default function UniversitySelect({
   }, [highlight]);
 
   const icon = (type) =>
-    type === "school" ? "🏫" : type === "polytechnic" ? "🏛️" : type === "college" ? "�" : "�🎓";
+    type === "school" ? "books" : type === "polytechnic" ? "landmark" : type === "college" ? "landmark" : "grad";
   const label = (type) =>
     type === "school"
       ? "Secondary School"
@@ -209,9 +210,10 @@ export default function UniversitySelect({
                       justifyContent: "center",
                       borderRadius: 8,
                       background: "rgba(255,215,0,0.06)",
+                      color: "#FFD700",
                     }}
                   >
-                    {icon(u.type)}
+                    <McIcon name={icon(u.type)} size={17} />
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
@@ -276,9 +278,10 @@ export default function UniversitySelect({
                       justifyContent: "center",
                       borderRadius: 8,
                       background: "rgba(255,215,0,0.1)",
+                      color: "#FFD700",
                     }}
                   >
-                    ✏️
+                    <McIcon name="pen" size={15} />
                   </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>

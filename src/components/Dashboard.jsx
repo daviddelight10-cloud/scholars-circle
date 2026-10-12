@@ -49,12 +49,6 @@ function initials(name) {
   return (p.length >= 2 ? p[0][0] + p[1][0] : name.slice(0, 2)).toUpperCase();
 }
 
-function greetingWord() {
-  const h = new Date().getHours();
-  if (h < 12) return "morning";
-  if (h < 17) return "afternoon";
-  return "evening";
-}
 
 export default function Dashboard({
   userName, stats, subjects, mastery, dueCards, history,
@@ -434,16 +428,6 @@ export default function Dashboard({
           <div className="hm-xp-hint">Review cards and finish cases to earn XP and gems.</div>
         )}
 
-        {/* Greeting line — name + tappable streak */}
-        <div className="hm-greet">
-          <span>Good {greetingWord()}, <b>{displayName}</b></span>
-          {streak > 0 && (
-            <button className="hm-greet-streak" onClick={() => setOpenSheet("streak")}>
-              <HIcon name="flame" size={12} color="#FF8A3D" /><b>{streak}</b>
-            </button>
-          )}
-        </div>
-
         <div className="hm-content">
           {/* ── Hero ── */}
           <div className="hm-sec-hero">
@@ -664,7 +648,7 @@ export default function Dashboard({
       />
       <GoalSheet open={openSheet === "goal"} onClose={() => setOpenSheet(null)} dailyGoal={fsrsStats?.dailyGoal || 20} onSelect={handleSetGoal} />
 
-      {/* ── Streak detail sheet (GameBar flame chip / greeting) ── */}
+      {/* ── Streak detail sheet (GameBar flame chip) ── */}
       <StreakSheet
         open={openSheet === "streak"}
         onClose={() => setOpenSheet(null)}

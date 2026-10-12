@@ -42,11 +42,6 @@
   position: sticky; top: calc(6px + env(safe-area-inset-top)); z-index: 45;
 }
 .hm-head { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
-.hm-greet small {
-  display: block; font-family: var(--hm-font-mono); font-size: 10px;
-  letter-spacing: 1.2px; color: var(--hm-faint); text-transform: uppercase;
-}
-.hm-greet h1 { font-family: var(--hm-font-display); font-size: 21px; font-weight: 800; margin: 1px 0 0; letter-spacing: -.4px; }
 .hm-head-right { display: flex; gap: 8px; align-items: center; }
 .hm-icon-btn {
   width: 36px; height: 36px; border-radius: 12px; background: var(--hm-card);
@@ -542,7 +537,6 @@
   .hm-doc { flex-basis: 46%; width: auto; }
   .hm-folder { flex-basis: 44%; width: 44%; }
   .hm-due .hm-num { font-size: 42px; }
-  .hm-greet h1 { font-size: 23px; }
   .hm-sec-head h2 { font-size: 18px; }
 }
 
@@ -551,7 +545,6 @@
   .hm-inner { max-width: 1080px; margin: 0 auto; padding: 0 36px; }
   .hm-topbar { flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 32px; padding-top: 30px; }
   .hm-head { margin-top: 0; }
-  .hm-greet h1 { font-size: 25px; }
   .hm-gamebar { margin-top: 2px; flex: 1; min-width: 0; }
 
   .hm-content {
@@ -707,20 +700,6 @@
   .hm-sheet { transform: translate(-50%,-50%) scale(1); }
 }
 
-/* ── Greeting line (name + streak) ── */
-.hm-greet {
-  display: flex; align-items: center; justify-content: space-between;
-  margin: 12px 2px 2px; font-size: 14.5px; color: var(--hm-muted);
-  font-family: var(--hm-font-display);
-}
-.hm-greet b { color: var(--hm-text); font-weight: 700; }
-.hm-greet-streak {
-  display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px;
-  border-radius: 99px; border: 1px solid var(--hm-stroke); cursor: pointer;
-  background: var(--hm-card); color: var(--hm-text);
-  font-family: var(--hm-font-mono); font-size: 12px; font-weight: 700;
-}
-.hm-greet-streak:active { transform: scale(.95); }
 .hm-chip-btn { cursor: pointer; border: 1px solid var(--hm-stroke); font-family: var(--hm-font-mono); }
 .hm-chip-btn:active { transform: scale(.95); }
 
