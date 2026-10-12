@@ -846,8 +846,8 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
     // Overflow menu (mobile)
     overflowMenu: {
       position: "fixed",
-      top: isMobile ? 56 : "auto",
-      bottom: isMobile ? "auto" : 60,
+      top: 56,
+      bottom: "auto",
       right: 8,
       background: T.toolbar,
       border: `1px solid ${T.border}`,

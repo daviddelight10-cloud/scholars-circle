@@ -3210,20 +3210,6 @@ Passage:
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
               </button>
-              {/* Circle AI */}
-              <button
-                style={{
-                  ...s.iconBtn,
-                  color: tool === "circle" ? CHROME.blue : T.muted,
-                  background: tool === "circle" ? "rgba(79,142,247,0.16)" : "none",
-                  border: tool === "circle" ? "1px solid rgba(79,142,247,0.4)" : "1px solid transparent",
-                }}
-                onClick={() => { toggleTool("circle"); setAnnotatePopOpen(false); }}
-                title="Circle to Ask AI"
-                aria-label="Circle to Ask AI"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
-              </button>
               {/* Overflow */}
               <button
                 style={{
@@ -3356,204 +3342,6 @@ Passage:
             </div>
 
             {/* Overflow backdrop */}
-            {showOverflow && overflowBackdropOpen && (
-              <div style={s.overflowBackdrop} onClick={() => { setShowOverflow(false); setOverflowBackdropOpen(false); }} />
-            )}
-
-            {/* Overflow menu */}
-            {showOverflow && (
-              <div style={s.overflowMenu}>
-                <button style={s.overflowItem} onClick={() => { toggleBookmark(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.some((b) => b.page === currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                  {bookmarks.some((b) => b.page === currentPage) ? "Bookmarked" : "Bookmark"}
-                </button>
-                {bookmarks.length > 0 && (
-                  <button style={s.overflowItem} onClick={() => { setShowBookmarks((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-                    Bookmarks ({bookmarks.length})
-                  </button>
-                )}
-                {navStackLen > 0 && (
-                  <button style={s.overflowItem} onClick={() => { navBack(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
-                    Back to where I was
-                  </button>
-                )}
-                {outline?.length > 0 && (
-                  <button style={s.overflowItem} onClick={() => { setShowOutline((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
-                    Contents
-                  </button>
-                )}
-                <button style={s.overflowItem} onClick={() => { setShowNotes((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                  Highlights & notes{flatMarks.length ? ` (${flatMarks.length})` : ""}
-                </button>
-                <button style={s.overflowItem} onClick={() => { toggleTTS(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                  {speaking ? "Stop reading" : "Read aloud"}
-                </button>
-                <button style={s.overflowItem} onClick={() => { setShowSearch((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-                  Search
-                </button>
-                <button style={s.overflowItem} onClick={() => { exportAnnotations(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                  Export notes
-                </button>
-                <button
-                  style={{ ...s.overflowItem, color: offlineInfo && offlineInfo !== "saving" ? "#3d9970" : undefined }}
-                  onClick={() => { toggleOfflineCopy(); setShowOverflow(false); setOverflowBackdropOpen(false); }}
-                >
-                  {offlineInfo === "saving" ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l7 7 7-7"/><path d="M12 19V5"/><path d="M5 21h14" strokeLinecap="round"/></svg>
-                  )}
-                  {offlineInfo === "saving"
-                    ? "Saving offline…"
-                    : offlineInfo
-                      ? `Offline copy ✓ (${(offlineInfo.size / 1048576).toFixed(1)} MB) — tap to remove`
-                      : "Save offline copy"}
-                </button>
-                <button
-                  style={{ ...s.overflowItem, color: ocrScanning ? T.accent : undefined }}
-                  onClick={() => { runOcrScan(); setShowOverflow(false); setOverflowBackdropOpen(false); }}
-                  disabled={ocrScanning}
-                >
-                  {ocrScanning ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-                  )}
-                  {ocrScanning ? "Scanning text…" : "Scan scanned pages (OCR)"}
-                </button>
-                <button style={s.overflowItem} onClick={() => { setCommentsFor(currentPage); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                  Page comments{sharedCount ? ` (${sharedCount} in doc)` : ""}
-                </button>
-                <button
-                  style={{ ...s.overflowItem, color: showShared ? T.accent : undefined }}
-                  onClick={() => { const v = !showShared; setShowShared(v); saveStored(`sc_pdf_showshared_${docKey}`, v); setShowOverflow(false); setOverflowBackdropOpen(false); }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  {showShared ? "Community highlights: on" : "Community highlights: off"}
-                </button>
-                <button style={s.overflowItem} onClick={() => { setShowStats(true); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
-                  Reading stats
-                </button>
-                <button style={s.overflowItem} onClick={() => { setShowThumbs((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
-                  Pages
-                </button>
-                <button style={s.overflowItem} onClick={() => { setFullscreen((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
-                  Fullscreen
-                </button>
-                <button style={s.overflowItem} onClick={() => { enterPresentation(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                  Present (slides mode)
-                </button>
-                <div style={{ ...s.overflowItem, cursor: "default", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: T.muted }}>View mode</span>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "single" ? T.accent : "none", color: scrollMode === "single" ? "white" : T.muted, borderColor: scrollMode === "single" ? T.accent : T.border }} onClick={() => { setScrollMode("single"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg>
-                    </button>
-                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "vertical" ? T.accent : "none", color: scrollMode === "vertical" ? "white" : T.muted, borderColor: scrollMode === "vertical" ? T.accent : T.border }} onClick={() => { setScrollMode("vertical"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="7" rx="1"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M12 11v2"/></svg>
-                    </button>
-                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "book" ? T.accent : "none", color: scrollMode === "book" ? "white" : T.muted, borderColor: scrollMode === "book" ? T.accent : T.border }} onClick={() => { setCurrentPage((p) => p - ((p - 1) % 2)); setScrollMode("book"); setShowOverflow(false); setOverflowBackdropOpen(false); }} title="Two-page spread">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2.5" y="4" width="8.5" height="16" rx="1"/><rect x="13" y="4" width="8.5" height="16" rx="1"/></svg>
-                    </button>
-                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "horizontal" ? T.accent : "none", color: scrollMode === "horizontal" ? "white" : T.muted, borderColor: scrollMode === "horizontal" ? T.accent : T.border }} onClick={() => { setScrollMode("horizontal"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="6" width="7" height="12" rx="1"/><rect x="14" y="6" width="7" height="12" rx="1"/><path d="M11 12h2"/></svg>
-                    </button>
-                  </div>
-                </div>
-                {/* Separator */}
-                <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
-                {/* Theme swatches */}
-                <div style={{ ...s.overflowItem, cursor: "default", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: T.muted, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: "0.04em" }}>READING THEME</span>
-                  <div style={s.themeSwatchRow}>
-                    <button
-                      style={{
-                        ...s.themeSwatch,
-                        background: THEMES.light.bg,
-                        color: THEMES.light.text,
-                        borderColor: theme === "light" ? CHROME.blue : "rgba(255,255,255,0.08)",
-                        boxShadow: theme === "light" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
-                      }}
-                      onClick={() => { setTheme("light"); }}
-                    >
-                      Aa
-                    </button>
-                    <button
-                      style={{
-                        ...s.themeSwatch,
-                        background: THEMES.dim.bg,
-                        color: THEMES.dim.text,
-                        borderColor: theme === "dim" ? CHROME.blue : "rgba(255,255,255,0.08)",
-                        boxShadow: theme === "dim" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
-                      }}
-                      onClick={() => { setTheme("dim"); }}
-                      title="Dim — image-safe night mode (figures keep true colors)"
-                    >
-                      Aa
-                    </button>
-                    <button
-                      style={{
-                        ...s.themeSwatch,
-                        background: THEMES.dark.bg,
-                        color: THEMES.dark.text,
-                        borderColor: theme === "dark" ? CHROME.blue : "rgba(255,255,255,0.08)",
-                        boxShadow: theme === "dark" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
-                      }}
-                      onClick={() => { setTheme("dark"); }}
-                      title="Dark — full invert"
-                    >
-                      Aa
-                    </button>
-                    <button
-                      style={{
-                        ...s.themeSwatch,
-                        background: THEMES.sepia.bg,
-                        color: THEMES.sepia.text,
-                        borderColor: theme === "sepia" ? CHROME.blue : "rgba(255,255,255,0.08)",
-                        boxShadow: theme === "sepia" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
-                      }}
-                      onClick={() => { setTheme("sepia"); }}
-                    >
-                      Aa
-                    </button>
-                  </div>
-                  {/* Page brightness — stacks on top of the theme */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 0" }}>
-                    <span style={{ fontSize: 12, color: T.muted }}>🔆</span>
-                    <input
-                      type="range"
-                      min={0.4}
-                      max={1.1}
-                      step={0.05}
-                      value={readerBrightness}
-                      onChange={(e) => setReaderBrightness(parseFloat(e.target.value))}
-                      style={{ flex: 1, accentColor: T.accent, height: 20 }}
-                      aria-label="Page brightness"
-                    />
-                    {readerBrightness !== 1 && (
-                      <button
-                        style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10 }}
-                        onClick={() => setReaderBrightness(1)}
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         ) : (
           /* Desktop: single row */
@@ -3606,15 +3394,6 @@ Passage:
           aria-label="Eraser"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/><path d="M18 13L8 3"/></svg>
-        </button>
-
-        {/* Circle-to-Ask tool */}
-        <button
-          style={{ ...s.iconBtn, color: tool === "circle" ? T.accent : T.muted, background: tool === "circle" ? T.hover : "none" }}
-          onClick={() => toggleTool("circle")}
-          title="Circle to Ask AI"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="7" strokeDasharray="3.2 3.2"/></svg>
         </button>
 
         <div style={s.sep} />
@@ -3704,15 +3483,20 @@ Passage:
 
         <div style={s.spacer} />
 
-        {/* Secondary actions */}
-            {/* Bookmark */}
-            <div style={{ position: "relative" }}>
+            {/* ⋮ More + bookmark/TOC panels — order:1 keeps the button right of Search */}
+            <div style={{ position: "relative", order: 1, display: "flex", alignItems: "center" }}>
               <button
-                style={{ ...s.iconBtn, color: bookmarks.some((b) => b.page === currentPage) ? T.accent : T.muted }}
-                onClick={() => { toggleBookmark(); setShowBookmarks((v) => !v); }}
-                title="Bookmark page"
+                style={{
+                  ...s.iconBtn,
+                  color: showOverflow ? CHROME.blue : T.muted,
+                  background: showOverflow ? "rgba(79,142,247,0.16)" : "none",
+                  border: showOverflow ? "1px solid rgba(79,142,247,0.4)" : "1px solid transparent",
+                }}
+                onClick={() => { setShowOverflow((v) => !v); setAnnotatePopOpen(false); }}
+                title="More"
+                aria-label="More options"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill={bookmarks.some((b) => b.page === currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
               </button>
               {showBookmarks && bookmarks.length > 0 && (
                 <div style={s.bookmarkPanel}>
@@ -3747,20 +3531,9 @@ Passage:
                   ))}
                 </div>
               )}
-            </div>
 
             {/* Table of contents — only when the PDF ships an outline */}
-            {outline?.length > 0 && (
-              <div style={{ position: "relative" }}>
-                <button
-                  style={{ ...s.iconBtn, color: showOutline ? T.accent : T.muted, background: showOutline ? T.hover : "none" }}
-                  onClick={() => setShowOutline((v) => !v)}
-                  title="Table of contents"
-                  aria-label="Table of contents"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
-                </button>
-                {showOutline && (
+            {outline?.length > 0 && showOutline && (
                   <div style={{ ...s.bookmarkPanel, width: 300, maxHeight: "55vh" }}>
                     <div style={{ fontSize: 11, color: T.muted, padding: "4px 8px", marginBottom: 4 }}>Contents</div>
                     {outline.map((it, i) => (
@@ -3785,61 +3558,6 @@ Passage:
                   </div>
                 )}
               </div>
-            )}
-
-            {/* Highlights & notes panel */}
-            <button
-              style={{ ...s.iconBtn, color: showNotes ? T.accent : T.muted, background: showNotes ? T.hover : "none", position: "relative" }}
-              onClick={() => setShowNotes((v) => !v)}
-              title="Highlights & notes"
-              aria-label="Highlights and notes"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              {flatMarks.length > 0 && (
-                <span style={{ position: "absolute", top: -2, right: -2, minWidth: 14, height: 14, borderRadius: 7, background: T.accent, color: "#fff", fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
-                  {flatMarks.length}
-                </span>
-              )}
-            </button>
-
-            {/* TTS */}
-            <button
-              style={{ ...s.iconBtn, color: speaking ? T.accent : T.muted }}
-              onClick={toggleTTS}
-              title={speaking ? "Stop reading" : "Read aloud"}
-            >
-              {speaking ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-              )}
-            </button>
-
-            {/* Theme toggle — cycles light → dim → dark → sepia */}
-            <button
-              style={s.iconBtn}
-              onClick={() => setTheme((t) => t === "light" ? "dim" : t === "dim" ? "dark" : t === "dark" ? "sepia" : "light")}
-              title={theme === "light" ? "Dim mode (image-safe)" : theme === "dim" ? "Dark mode (inverted)" : theme === "dark" ? "Sepia mode" : "Light mode"}
-            >
-              {theme === "light" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v1M12 20v1M4.22 4.22l.71.71M19.07 19.07l.71.71M3 12H2M22 12h-1M4.22 19.78l.71-.71M19.07 4.93l.71-.71"/><circle cx="12" cy="12" r="4"/></svg>
-              ) : theme === "dim" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>
-              ) : theme === "dark" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-              )}
-            </button>
-
-            {/* Thumbnails */}
-            <button
-              style={{ ...s.iconBtn, color: showThumbs ? T.accent : T.muted, background: showThumbs ? T.hover : "none" }}
-              onClick={() => setShowThumbs((v) => !v)}
-              title="Pages"
-            >
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
-            </button>
 
             {/* Search */}
             <div style={s.searchWrap}>
@@ -3908,73 +3626,217 @@ Passage:
               </div>
             </div>
 
-            {/* Export notes */}
-            <button
-              style={s.iconBtn}
-              onClick={exportAnnotations}
-              title="Export notes (highlights + bookmarks)"
-              aria-label="Export notes"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            </button>
-
-            {/* Offline copy */}
-            <button
-              style={{ ...s.iconBtn, color: offlineInfo && offlineInfo !== "saving" ? "#3d9970" : T.muted }}
-              onClick={toggleOfflineCopy}
-              title={offlineInfo === "saving" ? "Saving offline copy…" : offlineInfo ? `Offline copy saved (${(offlineInfo.size / 1048576).toFixed(1)} MB) — click to remove` : "Save a copy for offline reading"}
-              aria-label="Save offline copy"
-            >
-              {offlineInfo === "saving" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l7 7 7-7"/><path d="M12 19V5"/><path d="M5 21h14" strokeLinecap="round"/></svg>
-              )}
-            </button>
-
-            {/* Reading stats */}
-            <button
-              style={s.iconBtn}
-              onClick={() => setShowStats(true)}
-              title="Reading stats"
-              aria-label="Reading stats"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
-            </button>
-
-            {/* Keyboard shortcuts */}
-            <button
-              style={s.iconBtn}
-              onClick={() => setShowShortcuts(true)}
-              title="Keyboard shortcuts (?)"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
-            </button>
-
-            {/* Fullscreen */}
-            <button
-              style={{ ...s.iconBtn, color: fullscreen ? T.accent : T.muted }}
-              onClick={() => setFullscreen((v) => !v)}
-              title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
-            >
-              {fullscreen ? (
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v4a1 1 0 0 1-1 1H3M21 8h-4a1 1 0 0 1-1-1V3M3 16h4a1 1 0 0 1 1 1v4M16 21v-4a1 1 0 0 1 1-1h4"/></svg>
-              ) : (
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
-              )}
-            </button>
-
-            {/* Presentation mode */}
-            <button
-              style={s.iconBtn}
-              onClick={enterPresentation}
-              title="Present — fullscreen slides (Esc exits)"
-              aria-label="Presentation mode"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-            </button>
         </div>
       )}
+            {showOverflow && overflowBackdropOpen && isMobile && (
+              <div style={s.overflowBackdrop} onClick={() => { setShowOverflow(false); setOverflowBackdropOpen(false); }} />
+            )}
+            {showOverflow && !isMobile && (
+              <div style={{ position: "fixed", inset: 0, zIndex: 250 }} onClick={() => setShowOverflow(false)} />
+            )}
+
+            {/* Overflow menu */}
+            {showOverflow && (
+              <div style={s.overflowMenu}>
+                <button style={s.overflowItem} onClick={() => { toggleBookmark(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.some((b) => b.page === currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                  {bookmarks.some((b) => b.page === currentPage) ? "Bookmarked" : "Bookmark"}
+                </button>
+                {bookmarks.length > 0 && (
+                  <button style={s.overflowItem} onClick={() => { setShowBookmarks((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                    Bookmarks ({bookmarks.length})
+                  </button>
+                )}
+                {navStackLen > 0 && (
+                  <button style={s.overflowItem} onClick={() => { navBack(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+                    Back to where I was
+                  </button>
+                )}
+                {outline?.length > 0 && (
+                  <button style={s.overflowItem} onClick={() => { setShowOutline((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
+                    Contents
+                  </button>
+                )}
+                <button style={s.overflowItem} onClick={() => { setShowNotes((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  Highlights & notes{flatMarks.length ? ` (${flatMarks.length})` : ""}
+                </button>
+                <button style={s.overflowItem} onClick={() => { toggleTTS(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  {speaking ? "Stop reading" : "Read aloud"}
+                </button>
+                <button style={s.overflowItem} onClick={() => { setShowSearch((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                  Search
+                </button>
+                <button style={s.overflowItem} onClick={() => { exportAnnotations(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                  Export notes
+                </button>
+                <button
+                  style={{ ...s.overflowItem, color: offlineInfo && offlineInfo !== "saving" ? "#3d9970" : undefined }}
+                  onClick={() => { toggleOfflineCopy(); setShowOverflow(false); setOverflowBackdropOpen(false); }}
+                >
+                  {offlineInfo === "saving" ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l7 7 7-7"/><path d="M12 19V5"/><path d="M5 21h14" strokeLinecap="round"/></svg>
+                  )}
+                  {offlineInfo === "saving"
+                    ? "Saving offline…"
+                    : offlineInfo
+                      ? `Offline copy ✓ (${(offlineInfo.size / 1048576).toFixed(1)} MB) — tap to remove`
+                      : "Save offline copy"}
+                </button>
+                <button
+                  style={{ ...s.overflowItem, color: ocrScanning ? T.accent : undefined }}
+                  onClick={() => { runOcrScan(); setShowOverflow(false); setOverflowBackdropOpen(false); }}
+                  disabled={ocrScanning}
+                >
+                  {ocrScanning ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+                  )}
+                  {ocrScanning ? "Scanning text…" : "Scan scanned pages (OCR)"}
+                </button>
+                <button style={s.overflowItem} onClick={() => { setCommentsFor(currentPage); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                  Page comments{sharedCount ? ` (${sharedCount} in doc)` : ""}
+                </button>
+                <button
+                  style={{ ...s.overflowItem, color: showShared ? T.accent : undefined }}
+                  onClick={() => { const v = !showShared; setShowShared(v); saveStored(`sc_pdf_showshared_${docKey}`, v); setShowOverflow(false); setOverflowBackdropOpen(false); }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  {showShared ? "Community highlights: on" : "Community highlights: off"}
+                </button>
+                <button style={s.overflowItem} onClick={() => { setShowStats(true); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3v18h18M7 16l4-4 3 3 5-5"/></svg>
+                  Reading stats
+                </button>
+                {!isMobile && (
+                  <button style={s.overflowItem} onClick={() => { setShowShortcuts(true); setShowOverflow(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg>
+                    Keyboard shortcuts
+                  </button>
+                )}
+                <button style={s.overflowItem} onClick={() => { setShowThumbs((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="9" rx="1"/></svg>
+                  Pages
+                </button>
+                <button style={s.overflowItem} onClick={() => { setFullscreen((v) => !v); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 0 1 2-2h3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+                  Fullscreen
+                </button>
+                <button style={s.overflowItem} onClick={() => { enterPresentation(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                  Present (slides mode)
+                </button>
+                {isMobile && (
+                <div style={{ ...s.overflowItem, cursor: "default", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: T.muted }}>View mode</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "single" ? T.accent : "none", color: scrollMode === "single" ? "white" : T.muted, borderColor: scrollMode === "single" ? T.accent : T.border }} onClick={() => { setScrollMode("single"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="18" rx="1"/></svg>
+                    </button>
+                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "vertical" ? T.accent : "none", color: scrollMode === "vertical" ? "white" : T.muted, borderColor: scrollMode === "vertical" ? T.accent : T.border }} onClick={() => { setScrollMode("vertical"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="3" width="12" height="7" rx="1"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M12 11v2"/></svg>
+                    </button>
+                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "book" ? T.accent : "none", color: scrollMode === "book" ? "white" : T.muted, borderColor: scrollMode === "book" ? T.accent : T.border }} onClick={() => { setCurrentPage((p) => p - ((p - 1) % 2)); setScrollMode("book"); setShowOverflow(false); setOverflowBackdropOpen(false); }} title="Two-page spread">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2.5" y="4" width="8.5" height="16" rx="1"/><rect x="13" y="4" width="8.5" height="16" rx="1"/></svg>
+                    </button>
+                    <button style={{ ...s.scrollModeBtn, background: scrollMode === "horizontal" ? T.accent : "none", color: scrollMode === "horizontal" ? "white" : T.muted, borderColor: scrollMode === "horizontal" ? T.accent : T.border }} onClick={() => { setScrollMode("horizontal"); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="6" width="7" height="12" rx="1"/><rect x="14" y="6" width="7" height="12" rx="1"/><path d="M11 12h2"/></svg>
+                    </button>
+                  </div>
+                </div>
+                )}
+                {/* Separator */}
+                <div style={{ height: 1, background: T.border, margin: "4px 0" }} />
+                {/* Theme swatches */}
+                <div style={{ ...s.overflowItem, cursor: "default", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                  <span style={{ fontSize: 11, color: T.muted, fontFamily: "'JetBrains Mono', ui-monospace, monospace", letterSpacing: "0.04em" }}>READING THEME</span>
+                  <div style={s.themeSwatchRow}>
+                    <button
+                      style={{
+                        ...s.themeSwatch,
+                        background: THEMES.light.bg,
+                        color: THEMES.light.text,
+                        borderColor: theme === "light" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        boxShadow: theme === "light" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                      }}
+                      onClick={() => { setTheme("light"); }}
+                    >
+                      Aa
+                    </button>
+                    <button
+                      style={{
+                        ...s.themeSwatch,
+                        background: THEMES.dim.bg,
+                        color: THEMES.dim.text,
+                        borderColor: theme === "dim" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        boxShadow: theme === "dim" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                      }}
+                      onClick={() => { setTheme("dim"); }}
+                      title="Dim — image-safe night mode (figures keep true colors)"
+                    >
+                      Aa
+                    </button>
+                    <button
+                      style={{
+                        ...s.themeSwatch,
+                        background: THEMES.dark.bg,
+                        color: THEMES.dark.text,
+                        borderColor: theme === "dark" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        boxShadow: theme === "dark" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                      }}
+                      onClick={() => { setTheme("dark"); }}
+                      title="Dark — full invert"
+                    >
+                      Aa
+                    </button>
+                    <button
+                      style={{
+                        ...s.themeSwatch,
+                        background: THEMES.sepia.bg,
+                        color: THEMES.sepia.text,
+                        borderColor: theme === "sepia" ? CHROME.blue : "rgba(255,255,255,0.08)",
+                        boxShadow: theme === "sepia" ? "0 0 8px rgba(79,142,247,0.4)" : "none",
+                      }}
+                      onClick={() => { setTheme("sepia"); }}
+                    >
+                      Aa
+                    </button>
+                  </div>
+                  {/* Page brightness — stacks on top of the theme */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 2px 0" }}>
+                    <span style={{ fontSize: 12, color: T.muted }}>🔆</span>
+                    <input
+                      type="range"
+                      min={0.4}
+                      max={1.1}
+                      step={0.05}
+                      value={readerBrightness}
+                      onChange={(e) => setReaderBrightness(parseFloat(e.target.value))}
+                      style={{ flex: 1, accentColor: T.accent, height: 20 }}
+                      aria-label="Page brightness"
+                    />
+                    {readerBrightness !== 1 && (
+                      <button
+                        style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 10 }}
+                        onClick={() => setReaderBrightness(1)}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
     </div>
         <div style={s.progressBar}>
           <div style={{ ...s.progressFill, width: numPages ? `${(currentPage / numPages) * 100}%` : "0%" }} />
@@ -5113,46 +4975,50 @@ Passage:
           {!chromeHidden && !loading && !loadError && (
             <div style={{ ...s.navDock, right: chatOpen && dockMode ? dockW : 0 }} onTouchStart={(e) => e.stopPropagation()}>
               <div style={s.navPill}>
-                <button
-                  style={{ ...s.navBtn, opacity: currentPage <= 1 ? 0.35 : 1 }}
-                  onClick={() => stepPage(-1)}
-                  disabled={currentPage <= 1}
-                  title="Previous page"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-                </button>
-                <button
-                  style={{ ...s.pageChip, background: "none", border: "none", cursor: "pointer" }}
-                  onClick={() => setPageJumpOpen(true)}
-                  title="Jump to page"
-                  aria-label="Jump to page"
-                >
-                  {scrollMode === "book" && currentPage + 1 <= numPages ? `${currentPage}–${currentPage + 1}` : currentPage} / {numPages}
-                </button>
-                <button
-                  style={{ ...s.navBtn, opacity: currentPage >= numPages ? 0.35 : 1 }}
-                  onClick={() => stepPage(1)}
-                  disabled={currentPage >= numPages}
-                  title="Next page"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
-                </button>
-                <span style={s.navDivider} />
-                <button style={s.navBtn} onClick={handleZoomOut} title="Zoom out" aria-label="Zoom out">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
-                </button>
-                <button
-                  style={{ ...s.zoomChip, background: "none", border: "none", cursor: "pointer", fontFamily: s.zoomChip.fontFamily }}
-                  onClick={resetToFit}
-                  title="Reset to fit width"
-                  aria-label="Reset zoom to fit width"
-                >
-                  {Math.round(scale * 100)}%
-                </button>
-                <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in" aria-label="Zoom in">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
-                </button>
-                <span style={s.navDivider} />
+                {isMobile && (
+                  <>
+                    <button
+                      style={{ ...s.navBtn, opacity: currentPage <= 1 ? 0.35 : 1 }}
+                      onClick={() => stepPage(-1)}
+                      disabled={currentPage <= 1}
+                      title="Previous page"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <button
+                      style={{ ...s.pageChip, background: "none", border: "none", cursor: "pointer" }}
+                      onClick={() => setPageJumpOpen(true)}
+                      title="Jump to page"
+                      aria-label="Jump to page"
+                    >
+                      {scrollMode === "book" && currentPage + 1 <= numPages ? `${currentPage}–${currentPage + 1}` : currentPage} / {numPages}
+                    </button>
+                    <button
+                      style={{ ...s.navBtn, opacity: currentPage >= numPages ? 0.35 : 1 }}
+                      onClick={() => stepPage(1)}
+                      disabled={currentPage >= numPages}
+                      title="Next page"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                    <span style={s.navDivider} />
+                    <button style={s.navBtn} onClick={handleZoomOut} title="Zoom out" aria-label="Zoom out">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/></svg>
+                    </button>
+                    <button
+                      style={{ ...s.zoomChip, background: "none", border: "none", cursor: "pointer", fontFamily: s.zoomChip.fontFamily }}
+                      onClick={resetToFit}
+                      title="Reset to fit width"
+                      aria-label="Reset zoom to fit width"
+                    >
+                      {Math.round(scale * 100)}%
+                    </button>
+                    <button style={s.navBtn} onClick={handleZoomIn} title="Zoom in" aria-label="Zoom in">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    </button>
+                    <span style={s.navDivider} />
+                  </>
+                )}
                 <button
                   style={{
                     display: "flex",
