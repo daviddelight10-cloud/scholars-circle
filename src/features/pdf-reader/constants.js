@@ -1,10 +1,12 @@
 // ── Theme palettes ────────────────────────────────────────────────────────────
 export const THEMES = {
+  // "light" — default. Warm paper + the app's ink/gold palette (the old
+  // red accent was a leftover prototype color).
   light: {
-    bg: "#EFEEE8", toolbar: "#fff", border: "#C9C5B8", text: "#2D2823",
-    muted: "#6B665C", accent: "#C23B3B", hover: "rgba(194,59,59,0.10)",
-    inputBg: "#F2F0EA", chatBot: "#EEEAE2", thumbBg: "#FBFAF6",
-    shadow: "rgba(0,0,0,0.14)", chipBg: "#E8E5DD",
+    bg: "#F5F3EC", toolbar: "#FFFFFF", border: "#E2DED2", text: "#1B212D",
+    muted: "#70767F", accent: "#B8770E", hover: "rgba(245,166,35,0.12)",
+    inputBg: "#F3F1E9", chatBot: "#F0EDE4", thumbBg: "#FBFAF4",
+    shadow: "rgba(27,33,45,0.14)", chipBg: "#EBE8DE",
   },
   dark: {
     bg: "#1a1a2e", toolbar: "#16213e", border: "#0f3460", text: "#e0e0e0",
