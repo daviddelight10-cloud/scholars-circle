@@ -21,7 +21,7 @@ import { docKeyFromUrl } from "../lib/researchUtils.js";
 import pdfjsLib, { loadPdfJs } from "../lib/pdfjs.js";
 
 // ── Split modules (styles, palettes, prompts, persistence) ──────────────────
-import { THEMES, PEN_COLORS, CHROME, INK_COLORS, HIGHLIGHT_COLORS, PEN_WIDTHS, HIGHLIGHT_WIDTHS } from "./pdf-reader/constants.js";
+import { THEMES, CHROME, INK_COLORS, HIGHLIGHT_COLORS, PEN_WIDTHS, HIGHLIGHT_WIDTHS } from "./pdf-reader/constants.js";
 import { SMART_CHIPS, STARTER_CHIPS, QUIZ_NEXT_CHIPS, GROUNDING_STOPWORDS, TUTOR_SYSTEM } from "./pdf-reader/chatPrompts.js";
 import {
   loadStored, saveStored, mergePageArrays, mergeBookmarkList, mergeReaderStats,
@@ -82,7 +82,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   // Tool mode: "none" | "highlight" | "erase" | "circle" | "pen"
   const [tool, setTool] = useState("none");
   const [penColor, setPenColor] = useState(INK_COLORS[0].value);
-  const [showColorPicker, setShowColorPicker] = useState(false);
+
 
   // Annotate popover state (mobile)
   const [annotatePopOpen, setAnnotatePopOpen] = useState(false);
@@ -2755,7 +2755,6 @@ Passage:
         currentStrokes.current = [];
         if (prev === "circle" && !dockMode) hideChat(); // docked chat persists — dismiss via ✕
       }
-      if (next !== "highlight") setShowColorPicker(false);
       setAnnotateTab(next === "pen" || next === "highlight" || next === "erase" ? next : "none");
       return next;
     });
@@ -3227,123 +3226,6 @@ Passage:
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
               </button>
             </div>
-
-            {/* Annotate popover */}
-            <div style={s.annotatePop}>
-              {/* Tool tabs */}
-              <div style={s.toolTabs}>
-                <button
-                  style={{ ...s.toolTab, ...(annotateTab === "pen" ? { ...s.toolTabActive, color: CHROME.blue } : {}) }}
-                  onClick={() => selectAnnotateTab("pen")}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-                  PEN
-                </button>
-                <button
-                  style={{ ...s.toolTab, ...(annotateTab === "highlight" ? { ...s.toolTabActive, color: CHROME.gold } : {}) }}
-                  onClick={() => selectAnnotateTab("highlight")}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18h6l-3 3z" fill="currentColor"/><path d="M9.5 14.5l5-5m-7 7l7-7L17 12l-7 7-2.5-2.5z"/></svg>
-                  MARK
-                </button>
-                <button
-                  style={{ ...s.toolTab, ...(annotateTab === "erase" ? { ...s.toolTabActive, color: CHROME.coral } : {}) }}
-                  onClick={() => selectAnnotateTab("erase")}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/></svg>
-                  ERASE
-                </button>
-              </div>
-
-              {/* Pen options */}
-              {annotateTab === "pen" && (
-                <>
-                  <div style={s.popRowLabel}>Ink colour</div>
-                  <div style={s.swatchRow}>
-                    {INK_COLORS.map((c) => (
-                      <button
-                        key={c.name}
-                        style={{
-                          ...s.swatchDot,
-                          background: c.value,
-                          boxShadow: penColor === c.value ? `0 0 0 2px ${T.toolbar}, 0 0 0 4px ${CHROME.blue}` : "none",
-                        }}
-                        onClick={() => setPenColor(c.value)}
-                        title={c.name} aria-label={c.name} />
-                    ))}
-                  </div>
-                  <div style={s.popRowLabel}>Stroke</div>
-                  <div style={s.widthRow}>
-                    {PEN_WIDTHS.map((w) => (
-                      <button
-                        key={w}
-                        style={{ ...s.widthChip, ...(penWidth === w ? s.widthChipActive : {}) }}
-                        onClick={() => setPenWidth(w)}
-                      >
-                        <div style={{ width: 20, height: w, borderRadius: w, background: penWidth === w ? CHROME.blue : T.muted }} />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Highlight options */}
-              {annotateTab === "highlight" && (
-                <>
-                  <div style={s.popRowLabel}>Marker colour</div>
-                  <div style={s.swatchRow}>
-                    {HIGHLIGHT_COLORS.map((c) => (
-                      <button
-                        key={c.name}
-                        style={{
-                          ...s.swatchDot,
-                          background: c.value,
-                          boxShadow: highlightColor === c.value ? `0 0 0 2px ${T.toolbar}, 0 0 0 4px ${CHROME.gold}` : "none",
-                        }}
-                        onClick={() => setHighlightColor(c.value)}
-                        title={c.name}
-                      />
-                    ))}
-                  </div>
-                  <div style={s.popRowLabel}>Stroke</div>
-                  <div style={s.widthRow}>
-                    {HIGHLIGHT_WIDTHS.map((w) => (
-                      <button
-                        key={w}
-                        style={{ ...s.widthChip, ...(highlightWidth === w ? { ...s.widthChipActive, background: "rgba(245,166,35,0.16)", borderColor: "rgba(245,166,35,0.45)" } : {}) }}
-                        onClick={() => setHighlightWidth(w)}
-                      >
-                        <div style={{ width: 20, height: Math.min(w / 2, 12), borderRadius: 3, background: highlightWidth === w ? CHROME.gold : T.muted }} />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Erase hint */}
-              {annotateTab === "erase" && (
-                <div style={{ fontSize: 12, color: T.muted, textAlign: "center", padding: "12px 0" }}>
-                  Tap on a highlight or pen stroke to erase it.
-                </div>
-              )}
-
-              {/* No tool selected hint */}
-              {annotateTab === "none" && (
-                <div style={{ fontSize: 12, color: T.muted, textAlign: "center", padding: "12px 0" }}>
-                  Pick a tool above to start annotating this page.
-                </div>
-              )}
-
-              {/* Clear button */}
-              {annotations[currentPage]?.length > 0 && (
-                <button style={s.clearBtn} onClick={clearPageAnnotations}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                  Clear this page
-                </button>
-              )}
-            </div>
-
-            {/* Overflow backdrop */}
           </>
         ) : (
           /* Desktop: single row */
@@ -3355,47 +3237,18 @@ Passage:
             )}
         <span style={s.docTitle}>{title || "PDF"}</span>
 
-        {/* Highlighter tool */}
-        <div style={{ position: "relative" }}>
-          <button
-            style={{ ...s.iconBtn, color: tool === "highlight" ? T.accent : T.muted, background: tool === "highlight" ? T.hover : "none" }}
-            onClick={() => { toggleTool("highlight"); setShowColorPicker((v) => !v); }}
-            title="Highlight"
-            aria-label="Highlight"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4M9 11l3 3"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/><path d="M3 18h6l-3 3z" fill="currentColor"/></svg>
-          </button>
-          {showColorPicker && tool === "highlight" && (
-            <div style={s.colorPicker}>
-              {PEN_COLORS.map((c) => (
-                <button
-                  key={c.name}
-                  style={{ ...s.colorDot, background: c.value.replace("0.35", "0.7"), borderColor: penColor === c.value ? T.accent : "transparent" }}
-                  onClick={() => setPenColor(c.value)}
-                  title={c.name}
-                />
-              ))}
-              <div style={{ width: 1, height: 20, background: T.border }} />
-              <button
-                style={{ ...s.iconBtn, width: 28, height: 28, color: T.muted }}
-                onClick={clearPageAnnotations}
-                title="Clear page highlights"
-                aria-label="Clear page highlights"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Eraser tool */}
+        {/* Annotate — same popover as mobile: pen / marker / erase */}
         <button
-          style={{ ...s.iconBtn, color: tool === "erase" ? T.accent : T.muted, background: tool === "erase" ? T.hover : "none" }}
-          onClick={() => toggleTool("erase")}
-          title="Eraser"
-          aria-label="Eraser"
+          style={{
+            ...s.iconBtn,
+            color: (tool === "highlight" || tool === "pen" || tool === "erase") ? T.accent : T.muted,
+            background: (tool === "highlight" || tool === "pen" || tool === "erase") ? T.hover : "none",
+          }}
+          onClick={() => { setAnnotatePopOpen((v) => !v); setShowOverflow(false); }}
+          title="Annotate"
+          aria-label="Annotate"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/><path d="M18 13L8 3"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
         </button>
 
         <div style={s.sep} />
@@ -3635,6 +3488,120 @@ Passage:
 
         </div>
       )}
+            {/* Annotate popover — shared: same picker for desktop & mobile */}
+            <div style={s.annotatePop}>
+              {/* Tool tabs */}
+              <div style={s.toolTabs}>
+                <button
+                  style={{ ...s.toolTab, ...(annotateTab === "pen" ? { ...s.toolTabActive, color: CHROME.blue } : {}) }}
+                  onClick={() => selectAnnotateTab("pen")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                  PEN
+                </button>
+                <button
+                  style={{ ...s.toolTab, ...(annotateTab === "highlight" ? { ...s.toolTabActive, color: CHROME.gold } : {}) }}
+                  onClick={() => selectAnnotateTab("highlight")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18h6l-3 3z" fill="currentColor"/><path d="M9.5 14.5l5-5m-7 7l7-7L17 12l-7 7-2.5-2.5z"/></svg>
+                  MARK
+                </button>
+                <button
+                  style={{ ...s.toolTab, ...(annotateTab === "erase" ? { ...s.toolTabActive, color: CHROME.coral } : {}) }}
+                  onClick={() => selectAnnotateTab("erase")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8L13.2 3a2 2 0 0 1 2.8 0l5 5a2 2 0 0 1 0 2.8L11 20"/></svg>
+                  ERASE
+                </button>
+              </div>
+
+              {/* Pen options */}
+              {annotateTab === "pen" && (
+                <>
+                  <div style={s.popRowLabel}>Ink colour</div>
+                  <div style={s.swatchRow}>
+                    {INK_COLORS.map((c) => (
+                      <button
+                        key={c.name}
+                        style={{
+                          ...s.swatchDot,
+                          background: c.value,
+                          boxShadow: penColor === c.value ? `0 0 0 2px ${T.toolbar}, 0 0 0 4px ${CHROME.blue}` : "none",
+                        }}
+                        onClick={() => setPenColor(c.value)}
+                        title={c.name} aria-label={c.name} />
+                    ))}
+                  </div>
+                  <div style={s.popRowLabel}>Stroke</div>
+                  <div style={s.widthRow}>
+                    {PEN_WIDTHS.map((w) => (
+                      <button
+                        key={w}
+                        style={{ ...s.widthChip, ...(penWidth === w ? s.widthChipActive : {}) }}
+                        onClick={() => setPenWidth(w)}
+                      >
+                        <div style={{ width: 20, height: w, borderRadius: w, background: penWidth === w ? CHROME.blue : T.muted }} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Highlight options */}
+              {annotateTab === "highlight" && (
+                <>
+                  <div style={s.popRowLabel}>Marker colour</div>
+                  <div style={s.swatchRow}>
+                    {HIGHLIGHT_COLORS.map((c) => (
+                      <button
+                        key={c.name}
+                        style={{
+                          ...s.swatchDot,
+                          background: c.value,
+                          boxShadow: highlightColor === c.value ? `0 0 0 2px ${T.toolbar}, 0 0 0 4px ${CHROME.gold}` : "none",
+                        }}
+                        onClick={() => setHighlightColor(c.value)}
+                        title={c.name}
+                      />
+                    ))}
+                  </div>
+                  <div style={s.popRowLabel}>Stroke</div>
+                  <div style={s.widthRow}>
+                    {HIGHLIGHT_WIDTHS.map((w) => (
+                      <button
+                        key={w}
+                        style={{ ...s.widthChip, ...(highlightWidth === w ? { ...s.widthChipActive, background: "rgba(245,166,35,0.16)", borderColor: "rgba(245,166,35,0.45)" } : {}) }}
+                        onClick={() => setHighlightWidth(w)}
+                      >
+                        <div style={{ width: 20, height: Math.min(w / 2, 12), borderRadius: 3, background: highlightWidth === w ? CHROME.gold : T.muted }} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Erase hint */}
+              {annotateTab === "erase" && (
+                <div style={{ fontSize: 12, color: T.muted, textAlign: "center", padding: "12px 0" }}>
+                  Tap on a highlight or pen stroke to erase it.
+                </div>
+              )}
+
+              {/* No tool selected hint */}
+              {annotateTab === "none" && (
+                <div style={{ fontSize: 12, color: T.muted, textAlign: "center", padding: "12px 0" }}>
+                  Pick a tool above to start annotating this page.
+                </div>
+              )}
+
+              {/* Clear button */}
+              {annotations[currentPage]?.length > 0 && (
+                <button style={s.clearBtn} onClick={clearPageAnnotations}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                  Clear this page
+                </button>
+              )}
+            </div>
             {showOverflow && overflowBackdropOpen && isMobile && (
               <div style={s.overflowBackdrop} onClick={() => { setShowOverflow(false); setOverflowBackdropOpen(false); }} />
             )}

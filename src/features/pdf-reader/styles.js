@@ -741,23 +741,6 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       transition: "opacity 0.15s ease",
     },
 
-    // Color picker popup
-    colorPicker: {
-      position: "fixed",
-      top: "auto",
-      left: isMobile ? 8 : "auto",
-      right: isMobile ? 8 : "auto",
-      display: "flex",
-      gap: 6,
-      padding: "10px 12px",
-      background: T.toolbar,
-      border: `1px solid ${T.border}`,
-      borderRadius: 10,
-      boxShadow: `0 6px 18px ${T.shadow}`,
-      zIndex: 200,
-      flexWrap: "wrap",
-      maxWidth: "calc(100vw - 16px)",
-    },
     colorDot: {
       width: 24,
       height: 24,
