@@ -353,6 +353,9 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       // Per-page override happens at render (overlayEventsFor): MARK passes
       // through on pages with a text layer, captures on scanned pages.
       pointerEvents: tool !== "none" ? "auto" : "none",
+      // Above text layer (5) and marks (6) — armed tools must win the
+      // hit-test or drags become text selections ("everything highlights").
+      zIndex: 8,
       touchAction: "none",
       // iOS: stop the long-press callout and text selection from stealing the
       // gesture mid-lasso (Safari fires pointercancel when the callout appears)

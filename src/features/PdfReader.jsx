@@ -2782,6 +2782,7 @@ Passage:
 
   // ---- Tool toggle helper ----
   const toggleTool = (t) => {
+    setSelPop(null); // arming a tool clears any open selection popover/pending paint
     setTool((prev) => {
       const next = prev === t ? "none" : t;
       // Book mode is read-only — no per-page ink overlay on the spread.
