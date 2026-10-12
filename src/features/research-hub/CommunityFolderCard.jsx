@@ -3,14 +3,6 @@ import McIcon from "./McIcon.jsx";
 import AvatarMark from "../../components/AvatarMark.jsx";
 import { tileTintStyle } from "../../lib/researchUtils.js";
 
-const ACCENTS = ["", "acc-green", "acc-pink", "acc-blue"];
-
-function stableHash(str) {
-  let h = 0;
-  for (let i = 0; i < (str || "").length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
 function freshnessTag(folder) {
   const updated = new Date(folder.updatedAt || folder.createdAt || 0).getTime();
   if (!updated) return null;
@@ -35,13 +27,15 @@ function CommunityFolderCard({
   onToggleBookmark,
   onOpenProfile,
   onOpenActions,
+  isUserUni,
 }) {
   const itemCount = folder._count?.resources ?? 0;
   const bookmarkCount = folder._count?.folderBookmarks ?? 0;
   const owner = folder.owner || {};
   const isLecturer = owner.role === "LECTURER" || owner.role === "TEACHER";
   const isVerified = isLecturer && (owner.lecturerProfile?.isVerified !== false);
-  const accent = ACCENTS[stableHash(folder.id || folder.name) % ACCENTS.length];
+  // Meaningful edge: blue = verified lecturer, gold = from your university
+  const accent = isLecturer ? "acc-lec" : isUserUni ? "acc-uni" : "";
   const fresh = freshnessTag(folder);
   const displayName = owner.lecturerProfile?.fullName || owner.userProfile?.fullName || owner.username || "Unknown";
 
@@ -55,13 +49,16 @@ function CommunityFolderCard({
         </div>
         <div className="mc-c-main">
           <div className="mc-c-titleline">
+            {folder.visibility === "private" && (
+              <McIcon name="lock" className="mc-c-lock" />
+            )}
             <h3>{folder.name}</h3>
             {isVerified && (
               <span className="mc-vbadge" title="Verified lecturer">
                 <McIcon name="verify" />
               </span>
             )}
-            <span className="mc-count-badge">{itemCount}</span>
+            <span className="mc-c-count" title={`${itemCount} items`}>{itemCount}</span>
           </div>
           {folder.courseCode && <span className="mc-c-sub">{folder.courseCode}</span>}
         </div>
@@ -76,18 +73,16 @@ function CommunityFolderCard({
         )}
       </div>
 
-      <div className="mc-c-tags">
-        {isLecturer && (
-          <span className="mc-tag lec"><McIcon name="verify" />Verified lecturer</span>
-        )}
-        {folder.level && <span className="mc-tag level">{folder.level}</span>}
-        {folder.semester && <span className="mc-tag sem">{folder.semester}</span>}
-        {fresh && <span className={`mc-tag ${fresh.cls}`}>{fresh.label}</span>}
-        <span className={`mc-pill ${folder.visibility === "private" ? "private" : "link"}`}>
-          <McIcon name={folder.visibility === "private" ? "lock" : "link"} />
-          {folder.visibility === "private" ? "Private" : "Link"}
-        </span>
-      </div>
+      {(isLecturer || folder.level || folder.semester || fresh) && (
+        <div className="mc-c-tags">
+          {isLecturer && (
+            <span className="mc-tag lec"><McIcon name="verify" />Verified lecturer</span>
+          )}
+          {folder.level && <span className="mc-tag level">{folder.level}</span>}
+          {folder.semester && <span className="mc-tag sem">{folder.semester}</span>}
+          {fresh && <span className={`mc-tag ${fresh.cls}`}>{fresh.label}</span>}
+        </div>
+      )}
 
       <div className="mc-c-foot">
         {onOpenProfile ? (

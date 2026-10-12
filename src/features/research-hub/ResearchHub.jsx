@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
 
@@ -45,7 +46,8 @@ import "../../research-hub.css";
 
 const CACHE_TTL = 5 * 60 * 1000;
 
-const TYPE_OPTIONS = [
+const TYPE_SEGMENTS = [
+  { value: "all", label: "All" },
   { value: "folders", label: "Folders" },
   { value: "pdf", label: "PDFs" },
 ];
@@ -71,40 +73,81 @@ const ownerMatchesSearch = (f, q) => {
 function FilterPill({ label, value, options, onChange, allLabel }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  // Mobile (≤767px) presents the picker as a bottom sheet; desktop keeps the dropdown
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 767px)").matches);
 
   useEffect(() => {
-    if (!open) return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const fn = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+
+  useEffect(() => {
+    if (!open || isMobile) return;
     const onDoc = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("pointerdown", onDoc);
     return () => document.removeEventListener("pointerdown", onDoc);
-  }, [open]);
+  }, [open, isMobile]);
 
   const active = value !== "all";
   const current = options.find((o) => o.value === value)?.label;
+  const pick = (v) => { haptics.selection(); onChange(v); setOpen(false); };
 
   return (
     <div ref={ref} className="mc-fpill-wrap">
-      <button className={`mc-fpill${active ? " active" : ""}`} onClick={() => setOpen((v) => !v)}>
+      <button
+        className={`mc-fpill${active ? " active" : ""}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => { haptics.selection(); setOpen((v) => !v); }}
+      >
         {active ? current : label}
         <McIcon name="chev" size={11} />
       </button>
-      {open && (
-        <div className="mc-fmenu">
-          <button className={!active ? "active" : ""} onClick={() => { onChange("all"); setOpen(false); }}>
+      {open && !isMobile && (
+        <div className="mc-fmenu" role="listbox">
+          <button className={!active ? "active" : ""} onClick={() => pick("all")}>
             {allLabel || `All ${label.toLowerCase()}`}
           </button>
           {options.map((o) => (
             <button
               key={o.value}
               className={value === o.value ? "active" : ""}
-              onClick={() => { onChange(o.value); setOpen(false); }}
+              onClick={() => pick(o.value)}
             >
               {o.label}
             </button>
           ))}
         </div>
+      )}
+      {open && isMobile && createPortal(
+        <div className="mc-fsheet-back" onClick={() => setOpen(false)}>
+          <div className="mc-fsheet" role="dialog" aria-label={label} onClick={(e) => e.stopPropagation()}>
+            <div className="mc-sheet-grab" />
+            <div className="mc-fsheet-head">
+              <b>{label}</b>
+              <button className="mc-sheet-x" aria-label="Close" onClick={() => setOpen(false)}>
+                <McIcon name="x" />
+              </button>
+            </div>
+            <div className="mc-fsheet-list">
+              <button className={!active ? "active" : ""} onClick={() => pick("all")}>
+                <span>{allLabel || `All ${label.toLowerCase()}`}</span>
+                {!active && <McIcon name="check" />}
+              </button>
+              {options.map((o) => (
+                <button key={o.value} className={value === o.value ? "active" : ""} onClick={() => pick(o.value)}>
+                  <span>{o.label}</span>
+                  {value === o.value && <McIcon name="check" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -1570,6 +1613,18 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     return [];
   }, [activeTab, resources]);
 
+  const userUniId = userProfile?.universityId || userProfile?.university?.id;
+
+  // Count of non-type filters currently narrowing the community list
+  const activeFilterCount = useMemo(() =>
+    ["university", "department", "level", "semester", "subject"].filter((k) => filters[k] && filters[k] !== "all").length,
+    [filters]
+  );
+  const clearFilters = useCallback(() => {
+    haptics.selection();
+    setFilters({ university: "all", department: "all", level: "all", semester: "all", subject: "all" });
+  }, []);
+
   const visibleResources = useMemo(() => {
     let list = (tabResources || []).filter((r) => {
       const matchesSearch = search === "" || r.title.toLowerCase().includes(search.toLowerCase()) || r.subject.toLowerCase().includes(search.toLowerCase());
@@ -2147,15 +2202,21 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
         />
       ) : (
         <div className="mc-root">
-          {/* Filter pills */}
+          {/* Type segmented control + filter pills */}
           <div className="mc-fpills">
-            <FilterPill
-              label="Type"
-              value={communityType}
-              onChange={setCommunityType}
-              options={TYPE_OPTIONS}
-              allLabel="All types"
-            />
+            <div className="mc-seg" role="tablist" aria-label="Content type">
+              {TYPE_SEGMENTS.map((s) => (
+                <button
+                  key={s.value}
+                  role="tab"
+                  aria-selected={communityType === s.value}
+                  className={communityType === s.value ? "on" : ""}
+                  onClick={() => { haptics.selection(); setCommunityType(s.value); }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
             {levelOptions.length > 0 && (
               <FilterPill
                 label="Level"
@@ -2183,10 +2244,17 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                 allLabel="All schools"
               />
             )}
+            {activeFilterCount > 0 && (
+              <button className="mc-clearbtn" onClick={clearFilters}>
+                <McIcon name="x" size={11} />
+                {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
+              </button>
+            )}
           </div>
 
-          {/* University banner */}
-          {!search && communityType !== "pdf" && userProfile?.university?.name && (
+          {/* University banner — only when the "From Your University" section actually has content */}
+          {!search && communityType !== "pdf" && userProfile?.university?.name &&
+            communityFolderSections.some((s) => s.label === "From Your University" && s.folders.length > 0) && (
             <div className="mc-uni-banner">
               <McIcon name="flame" />
               <span>Popular at <b>{userProfile.university.name}</b></span>
@@ -2216,6 +2284,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                               onToggleBookmark={handleToggleFolderBookmark}
                               onOpenProfile={openProfile}
                               onOpenActions={openCardActions}
+                              isUserUni={!!(userUniId && String(folder.university?.id) === String(userUniId))}
                             />
                           ))}
                         </div>
@@ -2236,6 +2305,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                               onToggleBookmark={handleToggleFolderBookmark}
                               onOpenProfile={openProfile}
                               onOpenActions={openCardActions}
+                              isUserUni={!!(userUniId && String(folder.university?.id) === String(userUniId))}
                             />
                           ))}
                         </div>
@@ -2299,6 +2369,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                                     onToggleBookmark={handleToggleFolderBookmark}
                                     onOpenProfile={openProfile}
                                     onOpenActions={openCardActions}
+                                    isUserUni={!!(userUniId && String(folder.university?.id) === String(userUniId))}
                                   />
                                 ))}
                               </div>
@@ -2325,6 +2396,7 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
                                   onToggleBookmark={handleToggleFolderBookmark}
                                   onOpenProfile={openProfile}
                                   onOpenActions={openCardActions}
+                                  isUserUni={!!(userUniId && String(folder.university?.id) === String(userUniId))}
                                 />
                               ))}
                             </div>

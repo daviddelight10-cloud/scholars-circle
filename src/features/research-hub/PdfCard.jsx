@@ -38,10 +38,6 @@ function PdfCard({
   const saveCount = resource._count?.bookmarks ?? 0;
   const dateLabel = formatDate(resource.createdAt);
 
-  let openBtn = { cls: "", icon: "filetext", label: "Open" };
-  if (progress?.done) openBtn = { cls: "done", icon: "check", label: "Read again" };
-  else if (progress) openBtn = { cls: "resume", icon: "play", label: `Resume · ${progress.pct}%` };
-
   return (
     <div className="mc-p-card" onClick={() => onOpen(resource)}>
       <div className="mc-p-top">
@@ -56,6 +52,17 @@ function PdfCard({
             {fresh && <span className={`mc-tag ${fresh.cls}`}>{fresh.label}</span>}
           </div>
         </div>
+        {onToggleBookmark && (
+          <button
+            className={`mc-bmk icon${isBookmarked ? " on" : ""}`}
+            disabled={bookmarkBusy}
+            title={isBookmarked ? "Remove bookmark" : "Bookmark"}
+            onClick={(e) => { e.stopPropagation(); if (!bookmarkBusy) onToggleBookmark(resource); }}
+          >
+            <McIcon name="bookmark" filled={isBookmarked} />
+            <span>{Math.max(saveCount, isBookmarked ? 1 : 0)}</span>
+          </button>
+        )}
         {onOpenActions && (
           <button
             className="mc-c-more"
@@ -96,23 +103,6 @@ function PdfCard({
           </span>
         </div>
       )}
-
-      <div className="mc-p-foot">
-        <button className={`mc-open-btn ${openBtn.cls}`} onClick={(e) => { e.stopPropagation(); onOpen(resource); }}>
-          <McIcon name={openBtn.icon} />{openBtn.label}
-        </button>
-        {onToggleBookmark && (
-          <button
-            className={`mc-bmk${isBookmarked ? " on" : ""}`}
-            disabled={bookmarkBusy}
-            title={isBookmarked ? "Remove bookmark" : "Bookmark"}
-            onClick={(e) => { e.stopPropagation(); if (!bookmarkBusy) onToggleBookmark(resource); }}
-          >
-            <McIcon name="bookmark" filled={isBookmarked} />
-            <span>{Math.max(saveCount, isBookmarked ? 1 : 0)}</span>
-          </button>
-        )}
-      </div>
     </div>
   );
 }

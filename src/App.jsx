@@ -8164,7 +8164,7 @@ function App() {
 
             {[
 
-              ["research-hub", "My Circle", Folder],
+              ["research-hub", "Space", Folder],
 
               ["aitutor", "AI Tutor", Bot],
 
@@ -8210,7 +8210,7 @@ function App() {
 
               ["today", "Home", HomeIcon],
 
-              ["research-hub", "My Circle", Folder],
+              ["research-hub", "Space", Folder],
 
               ["analytics", "Progress", BarChart3],
 
