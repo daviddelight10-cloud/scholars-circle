@@ -4481,25 +4481,24 @@ Passage:
                   filter: pageCssFilter(),
                 }}
               />
-              {/* Text layer for selection/copy (only when no drawing tool active) */}
-              {tool === "none" && (
-                <div
-                  data-text-layer={currentPage}
-                  ref={(el) => { textLayerRefs.current[currentPage] = el; }}
-                  style={{
-                    position: "absolute", top: 0, left: 0, overflow: "hidden",
-                    pointerEvents: "auto", userSelect: "text", zIndex: 5,
-                    mixBlendMode: theme === "dark" ? "difference" : "normal",
-                  }}
-                />
-              )}
+              {/* Text layer — always mounted: MARK needs it alive to select,
+                  and unmounting wipes its spans (breaks selection/search marks) */}
+              <div
+                data-text-layer={currentPage}
+                ref={(el) => { textLayerRefs.current[currentPage] = el; }}
+                style={{
+                  position: "absolute", top: 0, left: 0, overflow: "hidden",
+                  pointerEvents: "auto", userSelect: "text", zIndex: 5,
+                  mixBlendMode: theme === "dark" ? "difference" : "normal",
+                }}
+              />
               {/* Text-anchored highlights + notes (normalized rect overlays) */}
               {(textMarks[currentPage] || []).map((m) =>
                 m.rects.map((r, ri) => (
                   <div
                     key={`${m.id}:${ri}`}
                     data-mark={m.id}
-                    onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: m, x: e.clientX, y: e.clientY }); }}
+                    onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: { ...m, page: currentPage }, x: e.clientX, y: e.clientY }); }}
                     title={m.note || undefined}
                     style={{
                       position: "absolute",
@@ -4582,25 +4581,23 @@ Passage:
                     ref={pg === currentPage ? canvasRef : canvas2Ref}
                     style={{ display: "block", maxWidth: "none", filter: pageCssFilter() }}
                   />
-                  {/* Text layer for selection/copy */}
-                  {tool === "none" && (
-                    <div
-                      data-text-layer={pg}
-                      ref={(el) => { textLayerRefs.current[pg] = el; }}
-                      style={{
-                        position: "absolute", top: 0, left: 0, overflow: "hidden",
-                        pointerEvents: "auto", userSelect: "text", zIndex: 5,
-                        mixBlendMode: theme === "dark" ? "difference" : "normal",
-                      }}
-                    />
-                  )}
+                  {/* Text layer for selection/copy — always mounted */}
+                  <div
+                    data-text-layer={pg}
+                    ref={(el) => { textLayerRefs.current[pg] = el; }}
+                    style={{
+                      position: "absolute", top: 0, left: 0, overflow: "hidden",
+                      pointerEvents: "auto", userSelect: "text", zIndex: 5,
+                      mixBlendMode: theme === "dark" ? "difference" : "normal",
+                    }}
+                  />
                   {/* Text-anchored highlights + notes */}
                   {(textMarks[pg] || []).map((m) =>
                     m.rects.map((r, ri) => (
                       <div
                         key={`${m.id}:${ri}`}
                         data-mark={m.id}
-                        onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: m, x: e.clientX, y: e.clientY }); }}
+                        onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: { ...m, page: pg }, x: e.clientX, y: e.clientY }); }}
                         title={m.note || undefined}
                         style={{
                           position: "absolute",
@@ -4656,25 +4653,23 @@ Passage:
                           filter: pageCssFilter(),
                         }}
                       />
-                      {/* Text layer for selection/copy (only when no drawing tool active) */}
-                      {tool === "none" && (
-                        <div
-                          data-text-layer={pg}
-                          ref={(el) => { textLayerRefs.current[pg] = el; }}
-                          style={{
-                            position: "absolute", top: 0, left: 0, overflow: "hidden",
-                            pointerEvents: "auto", userSelect: "text", zIndex: 5,
-                            mixBlendMode: theme === "dark" ? "difference" : "normal",
-                          }}
-                        />
-                      )}
+                      {/* Text layer for selection/copy — always mounted */}
+                      <div
+                        data-text-layer={pg}
+                        ref={(el) => { textLayerRefs.current[pg] = el; }}
+                        style={{
+                          position: "absolute", top: 0, left: 0, overflow: "hidden",
+                          pointerEvents: "auto", userSelect: "text", zIndex: 5,
+                          mixBlendMode: theme === "dark" ? "difference" : "normal",
+                        }}
+                      />
                       {/* Text-anchored highlights + notes */}
                       {(textMarks[pg] || []).map((m) =>
                         m.rects.map((r, ri) => (
                           <div
                             key={`${m.id}:${ri}`}
                             data-mark={m.id}
-                            onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: m, x: e.clientX, y: e.clientY }); }}
+                            onClick={(e) => { e.stopPropagation(); setMarkMenu({ mark: { ...m, page: pg }, x: e.clientX, y: e.clientY }); }}
                             title={m.note || undefined}
                             style={{
                               position: "absolute",
