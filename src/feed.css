@@ -80,6 +80,7 @@
   top: 0;
   z-index: 30;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 10px 14px;
@@ -87,6 +88,29 @@
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
   border-bottom: 1px solid var(--fd-stroke);
+  transition: padding 0.25s ease;
+}
+.fd-segbar.scrolled { padding-top: 5px; padding-bottom: 5px; }
+
+/* iOS-style large title — collapses into the segbar on scroll */
+.fd-title {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; max-width: 640px; margin: 0 auto;
+  overflow: hidden;
+  max-height: 42px; opacity: 1; transform: translateY(0);
+  transition: max-height .26s ease, opacity .18s ease, transform .26s ease;
+}
+.fd-title.gone { max-height: 0; opacity: 0; transform: translateY(-8px); }
+.fd-title-txt {
+  font-size: 25px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
+  padding: 2px 0 8px; color: var(--fd-text);
+}
+.fd-title-chip {
+  font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+  background: rgba(255, 107, 94, 0.14); color: var(--fd-coral); flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .fd-title-txt { font-size: 21px; }
 }
 .fd-backbtn {
   width: 34px; height: 34px; flex-shrink: 0;
@@ -2075,4 +2099,20 @@ button.fd-group-card:hover { background: rgba(255, 255, 255, 0.07); border-color
 .fd-bubble { position: relative; }
 .fd-bubble, .gv-bubble, .fd-msg-row, .gv-msg {
   -webkit-touch-callout: none;
+}
+
+/* ─── Feed entrance stagger — chips/stories/composer then cards cascade in ─── */
+@media (prefers-reduced-motion: no-preference) {
+  .fd-main > * { animation: fd-card-in .3s cubic-bezier(.2,.7,.3,1) both; }
+  .fd-main > *:nth-child(1) { animation-delay: 0s; }
+  .fd-main > *:nth-child(2) { animation-delay: .04s; }
+  .fd-main > *:nth-child(3) { animation-delay: .08s; }
+  .fd-main > *:nth-child(4) { animation-delay: .12s; }
+  .fd-main > *:nth-child(5) { animation-delay: .16s; }
+  .fd-main > *:nth-child(6) { animation-delay: .2s; }
+  .fd-main > *:nth-child(7) { animation-delay: .24s; }
+  .fd-main > *:nth-child(8) { animation-delay: .28s; }
+  .fd-main > *:nth-child(9) { animation-delay: .31s; }
+  .fd-main > *:nth-child(10) { animation-delay: .34s; }
+  .fd-main > *:nth-child(n+11) { animation-delay: .36s; }
 }

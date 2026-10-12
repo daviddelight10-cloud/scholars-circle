@@ -1,16 +1,17 @@
-import React, { memo, Suspense } from "react";
+import React, { memo, Suspense, useEffect, useState } from "react";
 import { lazyWithRetry } from "../lib/lazyWithRetry.js";
 import { Leaderboard } from "../components/Leaderboard";
 import { StatsGridSkeleton, CardSkeleton } from "../components/LoadingSkeleton";
 import { useAuth } from "../contexts/AuthContext";
 import { useUI } from "../contexts/UIContext";
 import { useUserData } from "../contexts/UserDataContext";
+import { haptics } from "../lib/haptics";
 
 const StatsDashboard = lazyWithRetry(() => import("../components/analytics/StatsDashboard"));
 
 const SUB_TABS = [
-  { id: "leaderboard", label: "🏆 Leaderboard" },
-  { id: "stats", label: "📊 Stats" },
+  { id: "leaderboard", label: "🏆 Leaderboard", short: "Leaderboard" },
+  { id: "stats", label: "📊 Stats", short: "Stats" },
 ];
 
 function Progress({
@@ -35,6 +36,20 @@ function Progress({
   // Guard against stale sub-tab values (e.g. removed "badges"/"arena") persisted in UI context
   const progressSubTab = SUB_TABS.some((t) => t.id === progressSubTabProp_) ? progressSubTabProp_ : "leaderboard";
 
+  // App-feel chrome: large title collapses into the sticky sub-tab bar on scroll
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = (e) => {
+      const y = e.target === document
+        ? (document.documentElement.scrollTop || document.body.scrollTop)
+        : e.target.scrollTop;
+      setScrolled(y > 24);
+    };
+    // capture: true catches inner scroll containers too, not just window
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => window.removeEventListener("scroll", onScroll, { capture: true });
+  }, []);
+
   if (loading) {
     return (
       <>
@@ -45,37 +60,41 @@ function Progress({
     );
   }
   return (
-    <>
-      {/* Progress Hub sub-tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {SUB_TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setProgressSubTab(id)}
-            style={{
-              padding: "9px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 600,
-              border: progressSubTab === id ? "2px solid #FFD700" : "1px solid rgba(255,215,0,0.25)",
-              background: progressSubTab === id ? "linear-gradient(135deg,#FFD700,#DAA520)" : "rgba(20,20,20,0.6)",
-              color: progressSubTab === id ? "#fff" : "#FFD700",
-            }}
-          >{label}</button>
-        ))}
+    <div className={`pg-root${scrolled ? " scrolled" : ""}`}>
+      <div className="pg-head">
+        {/* iOS-style large title — collapses into the sticky sub-tab bar */}
+        <div className={`pg-title${scrolled ? " gone" : ""}`}>
+          <span className="pg-title-txt">Progress</span>
+          <span className="pg-title-sub">{SUB_TABS.find((t) => t.id === progressSubTab)?.short}</span>
+        </div>
+        <div className="pg-seg">
+          {SUB_TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              className={`pg-tab${progressSubTab === id ? " active" : ""}`}
+              onClick={() => { haptics.selection(); setProgressSubTab(id); }}
+            >{label}</button>
+          ))}
+        </div>
       </div>
 
-      {progressSubTab === "leaderboard" && (
-        <Leaderboard token={token} />
-      )}
+      {/* Keyed remount → the switch animates like a native page turn */}
+      <div className="pg-content" key={progressSubTab}>
+        {progressSubTab === "leaderboard" && (
+          <Leaderboard token={token} />
+        )}
 
-      {progressSubTab === "stats" && (
-        <Suspense fallback={<div className="card"><p className="muted">Loading stats...</p></div>}>
-          <StatsDashboard
-            stats={stats}
-            history={history}
-            subjects={subjects}
-          />
-        </Suspense>
-      )}
-    </>
+        {progressSubTab === "stats" && (
+          <Suspense fallback={<div className="card"><p className="muted">Loading stats...</p></div>}>
+            <StatsDashboard
+              stats={stats}
+              history={history}
+              subjects={subjects}
+            />
+          </Suspense>
+        )}
+      </div>
+    </div>
   );
 }
 

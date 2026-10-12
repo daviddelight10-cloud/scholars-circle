@@ -13,6 +13,7 @@ import { localDayKey } from "../../lib/dayKey.js";
 import { loadProfile } from "../StudentProfile.jsx";
 import ShareSheet from "../research-hub/ShareSheet.jsx";
 import SaveToSpaceSheet from "../research-hub/SaveToSpaceSheet.jsx";
+import { haptics } from "../../lib/haptics.js";
 import "../../feed.css";
 
 const TABS = [
@@ -229,6 +230,20 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
     await Promise.all([loadFeed({ quiet: true }), loadAux()]);
   });
 
+  // App-feel chrome: large title collapses into the segbar as you scroll.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = (e) => {
+      const y = e.target === document
+        ? (document.documentElement.scrollTop || document.body.scrollTop)
+        : e.target.scrollTop;
+      setScrolled(y > 24);
+    };
+    // capture: true catches inner scroll containers too, not just window
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    return () => window.removeEventListener("scroll", onScroll, { capture: true });
+  }, []);
+
   const loadMore = () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
@@ -424,13 +439,20 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
         {ptr.showSpinner ? "Refreshing…" : "↓ Pull to refresh"}
       </div>
 
-      <header className="fd-segbar">
+      <header className={`fd-segbar${scrolled ? " scrolled" : ""}`}>
+        {/* iOS-style large title — collapses into the compact segbar on scroll */}
+        <div className={`fd-title${scrolled ? " gone" : ""}`}>
+          <span className="fd-title-txt">{tab === "feed" ? "Feed" : "Chats"}</span>
+          {tab === "chats" && unread > 0 && (
+            <span className="fd-title-chip">{unread > 9 ? "9+" : unread} unread</span>
+          )}
+        </div>
         <div className="fd-seg">
           {TABS.map((t) => (
             <button
               key={t.key}
               className={`fd-tab ${tab === t.key ? "active" : ""}`}
-              onClick={() => setTab(t.key)}
+              onClick={() => { haptics.selection(); setTab(t.key); }}
             >
               {t.label}
               {t.key === "chats" && unread > 0 && <span className="fd-tab-badge">{unread > 9 ? "9+" : unread}</span>}
@@ -446,13 +468,13 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
               <div className="fd-chips">
                 <button
                   className={`fd-chip ${!subject && !circleOnly ? "active" : ""}`}
-                  onClick={() => { setSubject(null); setCircleOnly(false); }}
+                  onClick={() => { haptics.selection(); setSubject(null); setCircleOnly(false); }}
                 >
                   All
                 </button>
                 <button
                   className={`fd-chip ${circleOnly ? "active" : ""}`}
-                  onClick={() => { setCircleOnly(true); setSubject(null); }}
+                  onClick={() => { haptics.selection(); setCircleOnly(true); setSubject(null); }}
                 >
                   My Circle
                 </button>
@@ -460,7 +482,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
                   <button
                     key={s}
                     className={`fd-chip ${subject === s && !circleOnly ? "active" : ""}`}
-                    onClick={() => { setSubject(s); setCircleOnly(false); }}
+                    onClick={() => { haptics.selection(); setSubject(s); setCircleOnly(false); }}
                   >
                     {s}
                   </button>
@@ -570,6 +592,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
             <button
               className="fd-new-pill"
               onClick={() => {
+                haptics.medium();
                 setNewPosts(false);
                 loadFeed({ quiet: true });
               }}
