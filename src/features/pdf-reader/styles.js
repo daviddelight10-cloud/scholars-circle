@@ -169,7 +169,9 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       display: "flex",
       justifyContent: "flex-start",
       alignItems: "flex-start",
-      padding: isMobile ? "8px 4px 40px" : "24px 32px 40px",
+      // Generous top inset — the chrome bar floats over this area like a
+      // native app's contentInset, so the first page never sits under it
+      padding: isMobile ? "64px 4px 40px" : "80px 32px 40px",
       position: "relative",
       // "auto" when zoomed so one finger pans natively; "none" at fit so swipe
       // gestures are ours. Pinch is always handled by the non-passive listener.
@@ -179,6 +181,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       overflowY: "auto",
       overflowX: "auto",
       position: "relative",
+      paddingTop: 60,
       // "auto" — horizontal pan is only possible when content overflows
       // (wider-than-median pages at fit, zoomed pages), and native pinch is
       // blocked by user-scalable=no + our non-passive pinch handlers.
@@ -188,6 +191,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       overflowX: "auto",
       overflowY: "auto",
       position: "relative",
+      paddingTop: 60,
       scrollSnapType: pinchActive ? "none" : "x mandatory",
       touchAction: "auto",
     },
@@ -200,6 +204,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       // Centers the page when it fits; aligns start when it overflows so the
       // left edge stays reachable via scroll (justify-content:center would clip it)
       margin: "0 auto",
+      scrollMarginTop: 64, // keep scroll-into-view targets clear of the floating bar
     },
     continuousPageItem: {
       position: "relative",
@@ -211,6 +216,7 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
       // being clamped to the column width
       width: "max-content",
       scrollSnapAlign: scrollMode === "horizontal" ? "center" : "unset",
+      scrollMarginTop: 64,
     },
     pageLabel: {
       position: "absolute",

@@ -3253,15 +3253,15 @@ Passage:
         [data-text-layer] span { line-height: 1; }
       `}</style>
 
-      {/* Toolbar + Progress wrapper — in flow, collapses with negative margin so viewer never shifts */}
+      {/* Toolbar + Progress — absolute overlay that slides off; the viewer
+          underneath never reflows, so there's no content jump. transform is
+          "none" while visible so fixed-position children keep viewport anchoring. */}
       <div style={{
-        overflow: "hidden",
-        maxHeight: chromeHidden ? "0px" : "200px",
-        marginBottom: chromeHidden ? "-200px" : "0px",
-        transition: "max-height 0.25s ease, margin-bottom 0.25s ease",
-        flexShrink: 0,
-        position: "relative",
+        position: "absolute",
+        top: 0, left: 0, right: 0,
         zIndex: 50,
+        transform: chromeHidden ? "translateY(-105%)" : "none",
+        transition: "transform 0.24s ease",
       }}>
       <div style={s.toolbar}>
         {isMobile ? (
