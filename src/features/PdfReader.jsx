@@ -159,6 +159,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   const [dockW, setDockW] = useState(0); // 0 = not dockable
   const dockMode = dockW > 0;
   const [showOverflow, setShowOverflow] = useState(false);
+  const [sheetDrag, setSheetDrag] = useState(0);
+  const menuDragRef = useRef(null);
 
   // Circle-to-Ask state (now part of tool modes)
   const circleMode = tool === "circle";
@@ -965,7 +967,11 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
   }, [goToPage]);
 
   // Sequential page turn — a spread counts as one step in book mode.
+  // Tiny haptic tick for native-app feel — no-ops where unsupported.
+  const buzz = (ms = 10) => { try { navigator.vibrate?.(ms); } catch {} };
+
   const stepPage = useCallback((dir) => {
+    buzz(8);
     goToPage(currentPage + dir * (scrollMode === "book" ? 2 : 1));
   }, [goToPage, currentPage, scrollMode]);
 
@@ -1109,6 +1115,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     window.getSelection()?.removeAllRanges?.();
     pendingSelRef.current = null;
     setSelPop(null);
+    buzz(12);
     return { ...mark, page: sel.page };
   };
   const removeMark = (page, id) =>
@@ -2449,6 +2456,7 @@ Passage:
 
   // ---- Bookmarks (named: { page, name }) ----
   const toggleBookmark = () => {
+    buzz(10);
     setBookmarks((prev) =>
       prev.some((b) => b.page === currentPage)
         ? prev.filter((b) => b.page !== currentPage)
@@ -2783,6 +2791,7 @@ Passage:
   // ---- Tool toggle helper ----
   const toggleTool = (t) => {
     setSelPop(null); // arming a tool clears any open selection popover/pending paint
+    buzz(10);
     setTool((prev) => {
       const next = prev === t ? "none" : t;
       // Book mode is read-only — no per-page ink overlay on the spread.
@@ -2809,6 +2818,24 @@ Passage:
       toggleTool(tab);
     }
   };
+
+  // ---- Immersive read: chrome auto-hides on scroll-down, returns on
+  // scroll-up (or the existing center-tap). Only fires while scrolling —
+  // single/book modes don't scroll vertically so they're unaffected.
+  useEffect(() => {
+    const v = viewerRef.current;
+    if (!v) return;
+    let last = v.scrollTop;
+    const onScroll = () => {
+      const t = v.scrollTop;
+      const dy = t - last;
+      last = t;
+      if (dy > 6 && t > 80) setChromeHidden(true);
+      else if (dy < -6) setChromeHidden(false);
+    };
+    v.addEventListener("scroll", onScroll, { passive: true });
+    return () => v.removeEventListener("scroll", onScroll);
+  }, [loading]);
 
   // ---- Close all mobile overlays (mutual exclusion) ----
   const closeAllMobileOverlays = () => {
@@ -3180,11 +3207,22 @@ Passage:
     quizFromText(text, msg.page ?? currentPage);
   };
 
+  // Kindle-style progress line under the title — plus a real ETA once the
+  // reader has enough session data (avg seconds/page from readingStats).
+  const progressPct = numPages ? Math.min(100, Math.round((currentPage / numPages) * 100)) : 0;
+  const readPages = readingStats.pagesRead?.length || 0;
+  const avgSecPerPage = readPages >= 3 ? readingStats.totalSeconds / readPages : 0;
+  const etaMin = avgSecPerPage > 5 ? Math.max(1, Math.round(((numPages - currentPage) * avgSecPerPage) / 60)) : null;
+  const progressLine = numPages
+    ? `Page ${currentPage} of ${numPages} · ${progressPct}%${etaMin ? ` · ~${etaMin} min left` : ""}`
+    : "";
+
   const reader = (
     <div style={s.container}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes slideUp { from { transform: translate3d(0, 100%, 0); } to { transform: translate3d(0, 0, 0); } }
+        @keyframes sheetUp { from { transform: translate3d(0, 32px, 0); opacity: 0.4; } to { transform: translate3d(0, 0, 0); opacity: 1; } }
         @keyframes slideExitLeft { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-60px); opacity: 0; } }
         @keyframes slideExitRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(60px); opacity: 0; } }
         @keyframes slideEnterRight { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -3235,8 +3273,10 @@ Passage:
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
                 </button>
               )}
-              <span style={s.docTitle}>{title || "PDF"}</span>
-              <div style={s.spacer} />
+              <div style={s.docTitleBlock}>
+                <span style={s.docTitle}>{title || "PDF"}</span>
+                <span style={s.docSubtitle}>{progressLine}</span>
+              </div>
               {/* Annotate button */}
               <button
                 style={{
@@ -3275,7 +3315,10 @@ Passage:
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
               </button>
             )}
-        <span style={s.docTitle}>{title || "PDF"}</span>
+        <div style={s.docTitleBlock}>
+          <span style={s.docTitle}>{title || "PDF"}</span>
+          <span style={s.docSubtitle}>{progressLine}</span>
+        </div>
 
         {/* Annotate — same popover as mobile: pen / marker / erase */}
         <button
@@ -3640,9 +3683,32 @@ Passage:
               <div style={{ position: "fixed", inset: 0, zIndex: 250 }} onClick={() => setShowOverflow(false)} />
             )}
 
-            {/* Overflow menu */}
+            {/* Overflow menu — dropdown on desktop, bottom sheet on mobile */}
             {showOverflow && (
-              <div style={s.overflowMenu}>
+              <div
+                style={isMobile
+                  ? { ...s.sheet, transform: `translateY(${sheetDrag}px)`, transition: sheetDrag ? "none" : "transform 0.18s ease" }
+                  : s.overflowMenu}
+              >
+                {isMobile && (
+                  <div
+                    style={s.sheetHandle}
+                    onPointerDown={(e) => { menuDragRef.current = { start: e.clientY, dy: 0 }; e.currentTarget.setPointerCapture(e.pointerId); }}
+                    onPointerMove={(e) => {
+                      const d = menuDragRef.current;
+                      if (!d) return;
+                      d.dy = Math.max(0, e.clientY - d.start);
+                      setSheetDrag(d.dy);
+                    }}
+                    onPointerUp={() => {
+                      const dy = menuDragRef.current?.dy || 0;
+                      menuDragRef.current = null;
+                      setSheetDrag(0);
+                      if (dy > 80) { setShowOverflow(false); setOverflowBackdropOpen(false); }
+                    }}
+                    onPointerCancel={() => { menuDragRef.current = null; setSheetDrag(0); }}
+                  />
+                )}
                 <button style={s.overflowItem} onClick={() => { toggleBookmark(); setShowOverflow(false); setOverflowBackdropOpen(false); }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill={bookmarks.some((b) => b.page === currentPage) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                   {bookmarks.some((b) => b.page === currentPage) ? "Bookmarked" : "Bookmark"}
