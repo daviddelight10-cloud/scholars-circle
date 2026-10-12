@@ -259,10 +259,12 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
     // Search panel
     searchWrap: { position: "relative" },
     searchPanel: {
-      position: isMobile ? "fixed" : "absolute",
-      top: isMobile ? 96 : "44px",
+      // fixed: the toolbar wrapper is overflow:hidden and would clip an
+      // absolutely-positioned dropdown — always escape it.
+      position: "fixed",
+      top: isMobile ? 96 : 52,
       left: isMobile ? 8 : "auto",
-      right: isMobile ? 8 : 0,
+      right: isMobile ? 8 : 14,
       width: isMobile ? "auto" : "280px",
       maxHeight: "320px",
       background: T.toolbar,
@@ -878,7 +880,9 @@ export function buildStyles({ T, isMobile, theme, scrollMode, showThumbs, tool, 
     },
     // ── Annotate popover (mobile) ──────────────────────────────────────────────
     annotatePop: {
-      position: "absolute",
+      // fixed: same overflow:hidden clipping — an absolute popover inside the
+      // 48px-tall chrome wrapper rendered completely invisible.
+      position: "fixed",
       top: 56,
       left: "50%",
       transform: annotatePopOpen ? "translateX(-50%) translateY(0) scale(1)" : "translateX(-50%) translateY(-6px) scale(0.97)",

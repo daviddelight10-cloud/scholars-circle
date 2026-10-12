@@ -2230,6 +2230,8 @@ Passage:
   const onOverlayDown = (e, pg = currentPage) => {
     if (tool === "none") return;
     e.preventDefault();
+    // Dismiss the tool picker as soon as ink lands so it never covers the page.
+    setAnnotatePopOpen(false);
     // iOS Safari: setPointerCapture can throw InvalidPointerId on SVG elements,
     // and e.target may be a child <path> — capture on the SVG that owns the
     // handlers, and never let a capture failure abort the gesture.
@@ -3591,6 +3593,11 @@ Passage:
                         onClick={() => goToMatch((searchIdx + 1) % searchResults.length)}>›</button>
                     </span>
                   )}
+                  <button
+                    style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 14, padding: "0 2px", flexShrink: 0 }}
+                    onClick={() => setShowSearch(false)}
+                    aria-label="Close search"
+                  >✕</button>
                 </div>
                 <div style={s.searchResults}>
                   {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
@@ -3868,6 +3875,11 @@ Passage:
                   onClick={() => goToMatch((searchIdx + 1) % searchResults.length)}>›</button>
               </span>
             )}
+            <button
+              style={{ background: "none", border: "none", color: T.muted, cursor: "pointer", fontSize: 15, padding: "0 2px", flexShrink: 0 }}
+              onClick={() => setShowSearch(false)}
+              aria-label="Close search"
+            >✕</button>
           </div>
           <div style={s.searchResults}>
             {searching && <div style={{ padding: "14px 12px", fontSize: "12.5px", color: T.muted }}>Searching…</div>}
