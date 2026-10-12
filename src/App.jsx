@@ -7989,7 +7989,7 @@ function App() {
 
           className={["today", "dashboard"].includes(tab) ? "active" : ""}
 
-          onClick={() => setTab("today")}
+          onClick={() => { haptics.selection(); setTab("today"); }}
 
           title="Home"
 
@@ -8006,7 +8006,7 @@ function App() {
 
           className={["research-hub", "resources"].includes(tab) ? "active" : ""}
 
-          onClick={() => setTab("research-hub")}
+          onClick={() => { haptics.selection(); setTab("research-hub"); }}
 
           title="My Space"
 
@@ -8022,7 +8022,7 @@ function App() {
 
           className={tab === "aitutor" ? "active" : ""}
 
-          onClick={() => setTab("aitutor")}
+          onClick={() => { haptics.selection(); setTab("aitutor"); }}
 
           title="AI Tutor"
 
@@ -8039,7 +8039,7 @@ function App() {
 
           className={tab === "insights" ? "active" : ""}
 
-          onClick={() => setTab("insights")}
+          onClick={() => { haptics.selection(); setTab("insights"); }}
 
           title="Insights"
 
@@ -8055,7 +8055,7 @@ function App() {
 
           className={tab === "discuss" ? "active" : ""}
 
-          onClick={() => setTab("discuss")}
+          onClick={() => { haptics.selection(); setTab("discuss"); }}
 
           title="Feed"
 
@@ -8074,7 +8074,7 @@ function App() {
 
           className={tab === "profile" ? "active" : ""}
 
-          onClick={() => setTab("profile")}
+          onClick={() => { haptics.selection(); setTab("profile"); }}
 
           title="Profile"
 
@@ -8090,7 +8090,7 @@ function App() {
 
           className={tab === "settings" ? "active" : ""}
 
-          onClick={() => setTab("settings")}
+          onClick={() => { haptics.selection(); setTab("settings"); }}
 
           title="Settings"
 
@@ -8110,7 +8110,7 @@ function App() {
 
           className={`more-btn ${["settings", "flashcards", "notes", "timetable", "cheatsheet", "outline", "profile", "premium", "voice-tutor", "analytics", "leaderboard", "achievements", "gamification", "departments", "universities", ...(isFaculty ? ["classroom", "lecturers", "resources", "teacher-questions", "campus-comm"] : []), ...(isTeacher ? ["keys", "invites", "admin"] : [])].includes(tab) ? "has-active" : ""}`}
 
-          onClick={() => { setShowMobileMenu(!showMobileMenu); }}
+          onClick={() => { haptics.selection(); setShowMobileMenu(!showMobileMenu); }}
 
           title="More"
 

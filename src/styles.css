@@ -4095,31 +4095,36 @@ textarea {
 @media (max-width: 768px) {
 
   .app {
-    padding: 10px 10px calc(80px + env(safe-area-inset-bottom));
+    padding: 10px 10px calc(92px + env(safe-area-inset-bottom));
     min-height: 100dvh;
   }
 
+  /* Floating tab-bar pill — native-app chrome instead of an edge strip */
   .mobile-nav {
     display: flex;
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     z-index: 100;
-    background: #0a0a0a;
-    border-top: 1px solid rgba(255,255,255,0.09);
-    padding: 13px 0 20px;
-    padding-bottom: calc(13px + env(safe-area-inset-bottom, 0px));
+    background: rgba(13, 13, 16, 0.82);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    padding: 6px;
     gap: 4px;
     justify-content: space-around;
     align-items: center;
     overscroll-behavior: contain;
     touch-action: manipulation;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 
   .light .mobile-nav {
-    background: #f7f7fb;
-    border-top-color: #cdd0d6;
+    background: rgba(247, 247, 251, 0.88);
+    border-color: rgba(15, 20, 30, 0.1);
+    box-shadow: 0 12px 32px rgba(15, 20, 30, 0.16), 0 2px 8px rgba(15, 20, 30, 0.1);
   }
 
   .mobile-nav button {
@@ -4135,30 +4140,52 @@ textarea {
     border: none;
     color: #565E6E;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 16px;
     -webkit-tap-highlight-color: transparent;
     position: relative;
     font-size: 9.5px;
     font-weight: 600;
+    transition: transform 0.15s ease, color 0.15s ease;
+  }
+
+  .mobile-nav button:active {
+    transform: scale(0.92);
   }
 
   .mobile-nav button.active {
-    color: #F5F7FB;
+    color: #F5A623;
   }
 
+  /* Material-3 icon capsule — replaces the old floating dot */
   .mobile-nav button.active::before {
     content: '';
     position: absolute;
-    top: -8px;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #F5A623;
-    box-shadow: 0 0 6px #F5A623;
+    top: 6px;
+    left: 50%;
+    width: 52px;
+    height: 30px;
+    border-radius: 999px;
+    background: rgba(245, 166, 35, 0.16);
+    border: 1px solid rgba(245, 166, 35, 0.28);
+    transform: translateX(-50%);
+    animation: navpill-in 0.22s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  }
+
+  .mobile-nav button.active .nav-icon {
+    animation: navicon-pop 0.22s cubic-bezier(0.3, 1.4, 0.5, 1) both;
   }
 
   .mobile-nav button.more-btn.has-active {
-    color: #F5F7FB;
+    color: #F5A623;
+  }
+
+  @keyframes navpill-in {
+    from { transform: translateX(-50%) scale(0.5); opacity: 0; }
+    to { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+  @keyframes navicon-pop {
+    from { transform: scale(0.6); }
+    to { transform: scale(1); }
   }
 
   .mobile-nav .nav-icon {
