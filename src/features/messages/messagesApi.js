@@ -41,21 +41,22 @@ export const messagesApi = {
 };
 
 // Study-group endpoints used by GroupChat (kept here so chat API lives in one file)
+// NOTE: server mounts this router at /study-group (no /api prefix) — like /classroom.
 export const groupChatApi = {
   getMessages: ({ token, classroomId } = {}) =>
-    req(`/api/study-group/${classroomId}/messages`, { token }),
+    req(`/study-group/${classroomId}/messages`, { token }),
   send: ({ token, classroomId, text, resourceId, liveCode, replyToId }) =>
-    req(`/api/study-group/${classroomId}/messages`, {
+    req(`/study-group/${classroomId}/messages`, {
       token,
       method: "POST",
       body: { text, resourceId, liveCode, replyToId },
     }),
   sendTyping: ({ token, classroomId, name } = {}) =>
-    req(`/api/study-group/${classroomId}/typing`, { token, method: "POST", body: { name } }).catch(() => {}),
+    req(`/study-group/${classroomId}/typing`, { token, method: "POST", body: { name } }).catch(() => {}),
   react: ({ token, messageId, emoji }) =>
-    req(`/api/study-group/messages/${messageId}/reactions`, { token, method: "POST", body: { emoji } }),
+    req(`/study-group/messages/${messageId}/reactions`, { token, method: "POST", body: { emoji } }),
   pin: ({ token, messageId }) =>
-    req(`/api/study-group/messages/${messageId}/pin`, { token, method: "POST" }),
+    req(`/study-group/messages/${messageId}/pin`, { token, method: "POST" }),
   deleteMessage: ({ token, messageId }) =>
-    req(`/api/study-group/messages/${messageId}`, { token, method: "DELETE" }),
+    req(`/study-group/messages/${messageId}`, { token, method: "DELETE" }),
 };
