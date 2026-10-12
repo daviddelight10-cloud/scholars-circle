@@ -52,6 +52,10 @@
   .ob-g2 { grid-template-columns: repeat(3, 1fr); }
 }
 
+/* avatar pick — centred grid with breathing room */
+.ob-avatars { margin: 26px auto 8px; max-width: 300px; }
+.ob-avatars .avm { display: inline-flex; }
+
 /* tablet: framed column */
 @media (min-width: 640px) {
   .ob-pane { border-left: 1px solid #2a2a2a; border-right: 1px solid #2a2a2a; }

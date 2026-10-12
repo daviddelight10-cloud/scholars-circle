@@ -7231,6 +7231,8 @@ function App() {
 
               courses: data.courses || data.selectedSubjects || [],
 
+              ...(data.avatar ? { avatar: data.avatar } : {}),
+
             });
 
 

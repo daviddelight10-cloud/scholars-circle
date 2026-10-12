@@ -4,6 +4,7 @@ import HIcon from "./HIcon.jsx";
 import { lapsedSubjects } from "../../lib/homeUtils.js";
 import { levelProgress } from "../../features/streak-survival/survivalStore.js";
 import { localDayKey } from "../../lib/dayKey.js";
+import AvatarMark from "../AvatarMark.jsx";
 
 const FREEZE_COST = 15; // matches the Streak Survival in-game shop price
 const FREEZE_CAP = 3; // server cap — keeps the streak meaningful
@@ -15,12 +16,6 @@ function avColor(name) {
   for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return AV_COLORS[Math.abs(h) % AV_COLORS.length];
 }
-function initials(name) {
-  if (!name) return "?";
-  const p = name.trim().split(/\s+/);
-  return (p.length >= 2 ? p[0][0] + p[1][0] : name.slice(0, 2)).toUpperCase();
-}
-
 function Sheet({ open, onClose, children }) {
   const { setMobileNavHidden } = useUI();
   const [shown, setShown] = useState(false);
@@ -139,7 +134,7 @@ export function BoardSheet({ open, onClose, entries, userName, myIdx = -1, onInv
           return (
             <div key={e.userId || e.username || i} className={`hm-lb-row${isMe ? " me" : ""}`}>
               <span className="hm-lb-rank">{i + 1}</span>
-              <div className="hm-lb-av" style={{ background: avColor(name) }}>{initials(name)}</div>
+              <AvatarMark avatar={e.avatar} name={name} size={32} className="hm-lb-av" style={e.avatar ? {} : { background: avColor(name) }} />
               <div className="hm-lb-name">
                 <h4>{name}</h4>
                 {e.streak > 0 && (
@@ -153,7 +148,7 @@ export function BoardSheet({ open, onClose, entries, userName, myIdx = -1, onInv
         {meEntry && (
           <div className="hm-lb-row me" style={{ marginTop: 6, borderTop: "1px dashed var(--hm-stroke)" }}>
             <span className="hm-lb-rank">{myIdx + 1}</span>
-            <div className="hm-lb-av" style={{ background: avColor("You") }}>{initials("You")}</div>
+            <AvatarMark avatar={meEntry.avatar} name="You" size={32} className="hm-lb-av" style={meEntry.avatar ? {} : { background: avColor("You") }} />
             <div className="hm-lb-name"><h4>You</h4></div>
             <span className="hm-lb-xp">{(meEntry.totalXP || meEntry.xp || 0).toLocaleString()} XP</span>
           </div>

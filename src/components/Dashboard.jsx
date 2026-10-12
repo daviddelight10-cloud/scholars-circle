@@ -15,6 +15,7 @@ import StreakMoment from "./home/StreakMoment.jsx";
 import StreakSheet from "./home/StreakSheet.jsx";
 import { ShopSheet, BoardSheet, StatsSheet, GoalSheet } from "./home/HomeSheets.jsx";
 import HIcon from "./home/HIcon.jsx";
+import AvatarMark from "./AvatarMark.jsx";
 import { useStreakMoment } from "../hooks/useStreakMoment.js";
 import { useUI } from "../contexts/UIContext.jsx";
 import { API_BASE } from "../lib/constants";
@@ -42,11 +43,6 @@ function avColor(name) {
   let h = 0;
   for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return AV_COLORS[Math.abs(h) % AV_COLORS.length];
-}
-function initials(name) {
-  if (!name) return "?";
-  const p = name.trim().split(/\s+/);
-  return (p.length >= 2 ? p[0][0] + p[1][0] : name.slice(0, 2)).toUpperCase();
 }
 
 
@@ -615,9 +611,8 @@ export default function Dashboard({
                       .sort((a, b) => (b.totalXP || b.xp || 0) - (a.totalXP || a.xp || 0))
                       .slice(0, 4)
                       .map((e, i) => (
-                        <div key={e.userId || i} className="hm-p" style={{ background: avColor(e.username) }}>
-                          {initials(e.username)}
-                        </div>
+                        <AvatarMark key={e.userId || i} avatar={e.avatar} name={e.username} size={32}
+                          className="hm-p" style={e.avatar ? {} : { background: avColor(e.username) }} />
                       ))}
                   </div>
                   <h4>{leaderboard.length} scholar{leaderboard.length === 1 ? "" : "s"} on the board</h4>

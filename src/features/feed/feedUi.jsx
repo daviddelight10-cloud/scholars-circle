@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayBackClose } from "../../hooks/useOverlayBackClose.js";
+import { findAvatar, avatarKeyOf } from "../../lib/avatars.js";
 // These primitives are used outside the Feed too (roadmap topic page,
 // sheets) — the chunk must carry its own styles or portaled overlays
 // render as unstyled divs when feed.css hasn't loaded.
@@ -107,15 +108,26 @@ export function Avatar({ user, uri, name, size = 38, live = false }) {
   const displayName = name || user?.name || user?.fullName || user?.username || "?";
   const src = uri || user?.avatar;
   const [failedSrc, setFailedSrc] = useState(null);
-  const showImg = src && src !== failedSrc;
+  const okSrc = src && src !== failedSrc ? src : null;
+  const def = okSrc ? findAvatar(avatarKeyOf(okSrc)) : null;      // "char:<id>" → SVG persona
+  const emoji = okSrc && !def && !okSrc.includes(":") && !okSrc.includes("/") && [...okSrc].length <= 4 ? okSrc : null;
+  const showImg = okSrc && !def && !emoji;
   const inner = (
     <div
       className="fd-avatar"
       style={live
-        ? { fontSize: size * 0.36, background: AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }
-        : { width: size, height: size, fontSize: size * 0.36, background: AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }}
+        ? { fontSize: size * 0.36, background: def || emoji ? "transparent" : AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }
+        : { width: size, height: size, fontSize: size * 0.36, background: def || emoji ? "transparent" : AVATAR_COLORS[nameHash(displayName) % AVATAR_COLORS.length] }}
     >
-      {showImg ? <img src={src} alt="" onError={() => setFailedSrc(src)} /> : (displayName[0] || "?").toUpperCase()}
+      {def ? (
+        <svg width={size} height={size} viewBox="0 0 64 64" dangerouslySetInnerHTML={{ __html: def.svg }} />
+      ) : showImg ? (
+        <img src={okSrc} alt="" onError={() => setFailedSrc(okSrc)} />
+      ) : emoji ? (
+        <span style={{ fontSize: size * 0.62, lineHeight: 1 }}>{emoji}</span>
+      ) : (
+        (displayName[0] || "?").toUpperCase()
+      )}
     </div>
   );
   if (!live) return inner;

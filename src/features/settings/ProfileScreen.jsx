@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import "./settings.css";
 import { DISCIPLINES } from "../AITutor/disciplines.js";
-import { ACADEMIC_LEVELS, LEARNING_STYLES, AVATAR_OPTIONS, EMPTY_PROFILE, computeCompletion } from "../StudentProfile.jsx";
+import { ACADEMIC_LEVELS, LEARNING_STYLES, EMPTY_PROFILE, computeCompletion } from "../StudentProfile.jsx";
 import { getUniversities, getUniversityDepartments, FALLBACK_INSTITUTIONS } from "../../lib/universities.js";
 import { saveMyProfile } from "../../lib/profileApi.js";
 import UniversitySelect from "../../components/UniversitySelect.jsx";
+import AvatarPicker from "../../components/AvatarPicker.jsx";
+import AvatarMark from "../../components/AvatarMark.jsx";
 import PickerSheet from "./PickerSheet.jsx";
 import { API_BASE } from "../../lib/constants";
 import { planLabel } from "../../lib/plans";
@@ -253,13 +255,8 @@ export default function ProfileScreen({
       {!editing && (
         <>
           <section className="st-hero">
-            <div
-              className="st-avatar"
-              style={{ width: 56, height: 56, fontSize: 27, cursor: "pointer" }}
-              onClick={openEdit}
-              title="Tap to edit"
-            >
-              {draft.avatar || "🎓"}
+            <div onClick={openEdit} title="Tap to edit" style={{ cursor: "pointer", flexShrink: 0 }}>
+              <AvatarMark avatar={draft.avatar || "🎓"} name={displayName} size={56} className="st-avatar" style={draft.avatar ? { background: "none" } : {}} />
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div className="st-name">
@@ -384,17 +381,7 @@ export default function ProfileScreen({
             {usernameError && <div style={{ fontSize: 12, color: "var(--st-red)", marginTop: 6 }}>{usernameError}</div>}
 
             <label className="st-fl">Avatar</label>
-            <div className="st-pills">
-              {AVATAR_OPTIONS.map((emo) => (
-                <button
-                  key={emo}
-                  className={`st-pill st-press${draft.avatar === emo ? " st-sel" : ""}`}
-                  onClick={() => set("avatar", emo)}
-                >
-                  {emo}
-                </button>
-              ))}
-            </div>
+            <AvatarPicker value={draft.avatar} onPick={(v) => set("avatar", v)} size={52} />
 
             <label className="st-fl">Bio</label>
             <textarea
@@ -542,7 +529,7 @@ export default function ProfileScreen({
             <div className="st-sharecard">
               <div className="st-sc-in" ref={shareCardRef}>
                 <div className="st-sc-head">
-                  <div className="st-sc-av">{draft.avatar || "🎓"}</div>
+                  <AvatarMark avatar={draft.avatar || "🎓"} name={displayName} size={44} className="st-sc-av" style={draft.avatar ? { background: "none" } : {}} />
                   <div className="st-who">
                     <b>{displayName}</b>
                     <span>@{authUser?.username || "—"}</span>

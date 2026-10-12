@@ -6,6 +6,7 @@ import { loadSave, mutate } from "../streak-survival/survivalStore.js";
 import { loadHistory } from "../../lib/studyHistory.js";
 import { mcqRingPct } from "../../lib/researchUtils";
 import { getExamAttempts } from "../exam/examApi";
+import AvatarMark from "../../components/AvatarMark.jsx";
 
 // Answer-style options — same ids as StreakSurvival's Session setup
 const STYLE_OPTIONS = [
@@ -112,8 +113,6 @@ const IcoChevron = (p) => <I {...p}><path d="M9 6l6 6-6 6" /></I>;
 const IcoArrowRight = (p) => <I {...p}><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></I>;
 const IcoBookmark = (p) => <I {...p}><path d="M17 3H7a2 2 0 0 0-2 2v16l7-4 7 4V5a2 2 0 0 0-2-2z" /></I>;
 
-const initials = (name) =>
-  (name || "?").split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
 
 function PmTile({ icon, name, sub, tint, featured, badge, disabled, onClick, delay = 0 }) {
   return (
@@ -580,9 +579,9 @@ export default function PracticeSheet({
             {shownPeople.length > 0 && (
               <span className="pm-avatars" aria-hidden="true">
                 {shownPeople.map((p, i) =>
-                  p.avatar
-                    ? <img key={i} className="pm-avatar" src={p.avatar} alt="" />
-                    : <span key={i} className={`pm-avatar pm-av-${i}`}>{initials(p.name)}</span>
+                  <AvatarMark key={i} avatar={p.avatar} name={p.name} size={20}
+                    className={`pm-avatar${p.avatar ? "" : ` pm-av-${i}`}`}
+                    style={{ marginLeft: i === 0 ? 0 : -7, border: "2px solid #1a1a1c", background: "unset" }} />
                 )}
                 {extraPeople > 0 && <span className="pm-avatar pm-av-2">+{extraPeople}</span>}
               </span>

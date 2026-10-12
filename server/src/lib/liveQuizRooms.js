@@ -82,6 +82,7 @@ function publicParticipant(p) {
   return {
     userId: p.userId,
     username: p.username,
+    avatar: p.avatar || null,
     color: p.color,
     connected: p.connected,
     lobbyReady: p.lobbyReady,
@@ -223,17 +224,19 @@ function freshStats() {
   };
 }
 
-export function registerParticipant(room, userId, username) {
+export function registerParticipant(room, userId, username, avatar) {
   if (room.kicked.has(userId)) return { ok: false, error: "You were removed from this session" };
   let p = room.participants.get(userId);
   if (p) {
     if (username && p.username === "Scholar") p.username = username;
+    if (avatar && avatar !== p.avatar) p.avatar = avatar;
     return { ok: true, participant: p };
   }
   if (room.participants.size >= MAX_PARTICIPANTS) return { ok: false, error: "Room is full" };
   p = {
     userId,
     username: username || "Scholar",
+    avatar: avatar || null,
     color: pickColor(room),
     ws: null,
     connected: false,
@@ -719,7 +722,7 @@ function handleLifeline(room, p) {
 function handleChat(room, p, msg) {
   const text = String(msg.text || "").trim().slice(0, 300);
   if (!text) return;
-  const entry = { userId: p.userId, name: p.username, color: p.color, text, ts: Date.now() };
+  const entry = { userId: p.userId, name: p.username, avatar: p.avatar || null, color: p.color, text, ts: Date.now() };
   room.chatLog.push(entry);
   if (room.chatLog.length > 200) room.chatLog = room.chatLog.slice(-100);
   broadcast(room, { type: "chat", ...entry });
@@ -781,6 +784,7 @@ async function completeSession(room) {
     .map((p) => ({
       userId: p.userId,
       username: p.username,
+      avatar: p.avatar || null,
       color: p.color,
       score: p.score,
       points: p.points || 0,

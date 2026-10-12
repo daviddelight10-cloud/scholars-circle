@@ -3,6 +3,7 @@ import { api } from "../lib/appUtils";
 import { toast } from "../components/Toast";
 import ShareSheet from "./research-hub/ShareSheet.jsx";
 import McIcon from "./research-hub/McIcon.jsx";
+import AvatarMark from "../components/AvatarMark.jsx";
 
 const C = {
   bg: "#0B0B0D", card: "#151518", line: "#26262B",
@@ -110,9 +111,7 @@ function StudentPanel({ student, studentId, resourceTitle, token, onBack }) {
         <McIcon name="chev-r" size={13} style={{ transform: "rotate(180deg)" }} /> Back to stats
       </button>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{ width: 46, height: 46, borderRadius: "50%", background: "linear-gradient(135deg,#DAA520,#8a6d0b)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 17, color: "#0B0B0D", flexShrink: 0, overflow: "hidden" }}>
-          {s.avatar && /^https?:|data:image/.test(s.avatar) ? <img src={s.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (s.name || "S").charAt(0).toUpperCase()}
-        </div>
+        <AvatarMark avatar={s.avatar} name={s.name} size={46} style={{ background: s.avatar ? "none" : "linear-gradient(135deg,#DAA520,#8a6d0b)", color: s.avatar ? undefined : "#0B0B0D" }} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "Syne,sans-serif", lineHeight: 1.25 }}>{s.name}</div>
           {s.username && <div style={{ fontSize: 10.5, color: C.hint }}>@{s.username}</div>}

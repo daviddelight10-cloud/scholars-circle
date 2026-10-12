@@ -23,7 +23,6 @@ export const LEARNING_STYLES = [
   { id: "kinesthetic", label: "Hands-on", icon: "✋", desc: "Practice, experiments" }
 ];
 
-export const AVATAR_OPTIONS = ["🎓", "📚", "🧑‍🎓", "👨‍🎓", "👩‍🎓", "🧠", "💡", "🌟", "🚀", "🔬", "📐", "🎨", "💻", "⚖️", "⚕️", "🏛️"];
 
 export const EMPTY_PROFILE = {
   fullName: "",

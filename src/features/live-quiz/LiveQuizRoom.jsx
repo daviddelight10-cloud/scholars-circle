@@ -8,6 +8,7 @@ import VotingView from "./views/VotingView.jsx";
 import RevealView from "./views/RevealView.jsx";
 import CompleteView from "./views/CompleteView.jsx";
 import { IconBroadcast, IconBulb, IconChat, IconCheck, IconClock, IconMic, IconMicOff, IconSend, IconStop, IconVolume, IconVolumeOff, IconX } from "./icons.jsx";
+import AvatarMark from "../../components/AvatarMark.jsx";
 
 const EMOJIS = ["💡", "🔥", "👏", "❤️", "😂"];
 
@@ -31,9 +32,9 @@ function ParticipantRail({ room, myId, voice }) {
           <div className="lq-pcell" key={p.userId} title={p.username}>
             <div
               className={`lq-pcell-ava${voice.speakingIds.has(p.userId) ? " speaking" : ""}${p.connected ? "" : " offline"}${p.isHost ? " host" : ""}`}
-              style={{ background: p.color }}
+              style={{ background: p.avatar ? "transparent" : p.color }}
             >
-              {initials(p.username)}
+              {p.avatar ? <AvatarMark avatar={p.avatar} name={p.username} size={28} /> : initials(p.username)}
               {lockedIn && <span className="lq-pcell-lock"><IconCheck size={8} /></span>}
             </div>
             {(pts > 0 || delta != null) && (
@@ -280,11 +281,15 @@ export default function LiveQuizRoom({ roomId, ticket, myId, onExit }) {
             {room.chat.map((m, i) => (
               <div className={`lq-chat-msg${m.userId === myId ? " me" : ""}`} key={i}>
                 {m.userId !== myId && (
-                  <span className="lq-chat-avatar" style={{ background: m.color || "#555" }}>{initials(m.name)}</span>
+                  m.avatar
+                    ? <AvatarMark avatar={m.avatar} name={m.name} size={20} className="lq-chat-avatar" />
+                    : <span className="lq-chat-avatar" style={{ background: m.color || "#555" }}>{initials(m.name)}</span>
                 )}
                 <p className="lq-chat-bubble">{m.text}</p>
                 {m.userId === myId && (
-                  <span className="lq-chat-avatar" style={{ background: m.color || "#3B82F6" }}>{initials(m.name)}</span>
+                  m.avatar
+                    ? <AvatarMark avatar={m.avatar} name={m.name} size={20} className="lq-chat-avatar" />
+                    : <span className="lq-chat-avatar" style={{ background: m.color || "#3B82F6" }}>{initials(m.name)}</span>
                 )}
               </div>
             ))}

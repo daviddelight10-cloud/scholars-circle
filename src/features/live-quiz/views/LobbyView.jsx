@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconClock, IconCopy, IconCrown, IconList, IconShare, IconSpinner, IconUserMinus, IconUsers } from "../icons.jsx";
 import { messagesApi } from "../../messages/messagesApi.js";
+import AvatarMark from "../../../components/AvatarMark.jsx";
 
 const TIMES = [15, 20, 30, 45, 60];
 const HOLD_DELAY_MS = 350;   // pause before press-and-hold starts repeating
@@ -9,10 +10,6 @@ const SEND_THROTTLE_MS = 250; // coalesce WS sends — stays under the server ra
 
 function buzz(ms) {
   try { navigator.vibrate?.(ms); } catch {}
-}
-
-function initials(name) {
-  return (name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
 export default function LobbyView({ room, myId, actions }) {
@@ -188,12 +185,8 @@ export default function LobbyView({ room, myId, actions }) {
               {peers?.length === 0 && <p className="lq-invite-empty">No one found{peerQ ? ` for "${peerQ}"` : ""}.</p>}
               {(peers || []).map((p) => (
                 <button key={p.id} className="lq-peer-row" onClick={() => inviteFriend(p)} disabled={sentTo === p.id}>
-                  <span
-                    className="lq-peer-ava"
-                    style={p.avatar ? { backgroundImage: `url(${p.avatar})`, backgroundSize: "cover" } : { background: "#3B82F6" }}
-                  >
-                    {!p.avatar && (p.name || "?").slice(0, 2).toUpperCase()}
-                  </span>
+                  <AvatarMark avatar={p.avatar} name={p.name} size={30} className="lq-peer-ava"
+                    style={p.avatar ? { background: "unset" } : { background: "#3B82F6" }} />
                   <span className="lq-peer-name">{p.name}</span>
                   <span className="lq-peer-send">{sentTo === p.id ? "Sent ✓" : "Invite"}</span>
                 </button>
@@ -268,9 +261,8 @@ export default function LobbyView({ room, myId, actions }) {
             const ready = p.lobbyReady;
             return (
               <div className="lq-invite-card" key={p.userId}>
-                <span className="lq-invite-avatar" style={{ background: p.color, opacity: p.connected ? 1 : 0.4 }}>
-                  {initials(p.username)}
-                </span>
+                <AvatarMark avatar={p.avatar} name={p.username} size={40} className="lq-invite-avatar"
+                  style={{ background: p.avatar ? "unset" : p.color, opacity: p.connected ? 1 : 0.4 }} />
                 <p className="lq-invite-name">
                   {p.username}{p.userId === myId ? " (You)" : ""}{p.isHost ? " · Host" : ""}
                 </p>

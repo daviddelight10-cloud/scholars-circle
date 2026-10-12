@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { IconBolt, IconBrain, IconClover, IconShare, IconTrophy, IconZap } from "../icons.jsx";
 import { getLiveHistory } from "../liveQuizApi.js";
+import AvatarMark from "../../../components/AvatarMark.jsx";
 
 function initials(name) {
   return (name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -118,7 +119,9 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
         {c.leaderboard.map((u, i) => (
           <div className="lq-leaderboard-item" key={u.userId}>
             <span className="lq-lb-medal">{MEDALS[i] || `#${i + 1}`}</span>
-            <span className="lq-lb-avatar" style={{ background: u.color }}>{initials(u.username)}</span>
+            {u.avatar
+              ? <AvatarMark avatar={u.avatar} name={u.username} size={36} className="lq-lb-avatar" />
+              : <span className="lq-lb-avatar" style={{ background: u.color }}>{initials(u.username)}</span>}
             <p className="lq-lb-name">{u.username}{u.userId === myId ? " (You)" : ""}</p>
             <p className="lq-lb-score">{u.points ?? u.score}<span className="lq-lb-score-sub"> pts · {u.score}/{c.totalQuestions}</span></p>
           </div>
@@ -169,7 +172,9 @@ export default function CompleteView({ room, myId, onBackToLobby, onExit }) {
             {c.leaderboard.slice(0, 5).map((u, i) => (
               <div className={`lq-sc-row${u.userId === myId ? " me" : ""}`} key={u.userId}>
                 <span className="lq-sc-rank">{MEDALS[i] || `#${i + 1}`}</span>
-                <span className="lq-sc-ava" style={{ background: u.color }}>{initials(u.username)}</span>
+                {u.avatar
+                  ? <AvatarMark avatar={u.avatar} name={u.username} size={64} className="lq-sc-ava" />
+                  : <span className="lq-sc-ava" style={{ background: u.color }}>{initials(u.username)}</span>}
                 <span className="lq-sc-name">{u.username}</span>
                 <span className="lq-sc-pts"><b>{u.points ?? u.score}</b><i> pts · {u.score}/{c.totalQuestions}</i></span>
               </div>

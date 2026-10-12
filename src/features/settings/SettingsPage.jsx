@@ -9,6 +9,7 @@ import { API_BASE, FREE_TIER_ACHIEVEMENTS } from "../../lib/constants";
 import { planLabel } from "../../lib/plans";
 import { version } from "../../../package.json";
 import ExitPill from "../../components/ExitPill.jsx";
+import AvatarMark from "../../components/AvatarMark.jsx";
 
 const NotificationSettings = lazy(() =>
   import("../NotificationCenter.jsx").then((m) => ({ default: m.NotificationSettings }))
@@ -90,7 +91,7 @@ export default function SettingsPage({
 
       {/* Profile summary card */}
       <button className="st-pcard st-press" onClick={() => onNavigate("profile")}>
-        <div className="st-avatar">{studentProfile?.avatar || "🎓"}</div>
+        <AvatarMark avatar={studentProfile?.avatar || "🎓"} name={displayName} size={58} className="st-avatar" style={studentProfile?.avatar ? { background: "none" } : {}} />
         <div className="st-who">
           <div className="st-name">{displayName}</div>
           <div className="st-sub">{subText}</div>

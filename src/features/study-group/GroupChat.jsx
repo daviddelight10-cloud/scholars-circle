@@ -3,6 +3,7 @@ import { groupChatApi } from "../messages/messagesApi";
 import { Avatar, FdSheet } from "../feed/feedUi";
 import { MaterialPicker } from "../feed/Composer.jsx";
 import { linkify } from "../../lib/linkify.jsx";
+import { loadProfile } from "../StudentProfile.jsx";
 
 const EMOJIS = ["👍", "❤️", "🔥", "😂", "🎉"];
 const POLL_MS = 5000;
@@ -152,7 +153,7 @@ export default function GroupChat({ classroomId, token, currentUser, onOpenResou
       text: t,
       createdAt: new Date().toISOString(),
       userId: myId,
-      sender: { id: myId, name: myName, avatar: currentUser?.avatar },
+      sender: { id: myId, name: myName, avatar: currentUser?.avatar || loadProfile()?.avatar },
       resourceId: resourceId || null,
       resource: resourceId ? pickerCache?.find?.((r) => r.id === resourceId) || null : null,
       liveCode: liveCode || null,

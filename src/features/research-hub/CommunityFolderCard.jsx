@@ -1,5 +1,6 @@
 import { memo, useCallback } from "react";
 import McIcon from "./McIcon.jsx";
+import AvatarMark from "../../components/AvatarMark.jsx";
 import { tileTintStyle } from "../../lib/researchUtils.js";
 
 const ACCENTS = ["", "acc-green", "acc-pink", "acc-blue"];
@@ -93,7 +94,9 @@ function CommunityFolderCard({
           <>
             <button className="mc-ava-btn" onClick={(e) => { stop(e); onOpenProfile(owner); }} title={`View ${displayName}`}>
               <span className="mc-ava-wrap">
-                <span className="mc-ava">{(displayName || "?").charAt(0).toUpperCase()}</span>
+                {owner.avatar
+                  ? <AvatarMark avatar={owner.avatar} name={displayName} size={26} className="mc-ava" style={{ background: "unset" }} />
+                  : <span className="mc-ava">{(displayName || "?").charAt(0).toUpperCase()}</span>}
                 {isVerified && (
                   <span className="mc-mini-v"><McIcon name="verify" /></span>
                 )}

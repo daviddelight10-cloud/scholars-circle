@@ -10,6 +10,8 @@ import UniversitySelect from "../components/UniversitySelect.jsx";
 import DisciplineSelect from "../components/DisciplineSelect.jsx";
 import { MEDICAL_PROGRAMS } from "../lib/medicalPrograms.js";
 import { haptics } from "../lib/haptics.js";
+import { defaultAvatarFor } from "../lib/avatars.js";
+import AvatarPicker from "../components/AvatarPicker.jsx";
 import "./onboarding.css";
 
 const STORE_KEY = "sc_onboarded_v1";
@@ -135,7 +137,7 @@ const SUBJECT_ALIASES = {
 function ProgressBar({ filled }) {
   return (
     <div className="ob-bar">
-      {Array.from({ length: 7 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="ob-bar-seg">
           <div className="ob-bar-fill" style={{ width: i < filled ? "100%" : "0%" }} />
         </div>
@@ -201,6 +203,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
   const [uniId, setUniId] = useState(null);
   const [dailyMinutes, setDailyMinutes] = useState(45);
   const [confidence, setConfidence] = useState(null);
+  const [avatarKey, setAvatarKey] = useState(() => defaultAvatarFor(uid));
   const [uniResults, setUniResults] = useState(FALLBACK_INSTITUTIONS);
   const [xpShown, setXpShown] = useState(0);
   const timerRef = useRef(null);
@@ -232,7 +235,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
 
   // Fire the real reward (+50 XP, day-1 streak) once when the reveal mounts
   useEffect(() => {
-    if (step === 8 && !rewardRef.current) {
+    if (step === 9 && !rewardRef.current) {
       rewardRef.current = true;
       try { onSetupReward?.(); } catch {}
       if (REDUCED) return;
@@ -338,6 +341,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
       targetGrade: "A",
       studyHoursPerDay: Math.round((dailyMinutes / 60) * 10) / 10,
       courses: selectedSubjects,
+      avatar: avatarKey,
       onboarded: true,
     }).catch((e) => console.warn("Profile backend save failed:", e?.message || e));
     onComplete({
@@ -354,6 +358,7 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
       motivation,
       goals: goalText(),
       courses: selectedSubjects,
+      avatar: avatarKey,
       destination: destination || null,
     });
   }
@@ -479,6 +484,17 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
       <>
         <ProgressBar filled={6} />
         <Affirm>Almost there.</Affirm>
+        <Head title="Pick your look" sub="This is how coursemates and study circles will see you." />
+        <div className="ob-avatars">
+          <AvatarPicker value={avatarKey} onPick={(v) => { haptics.selection(); setAvatarKey(v); }} size={54} />
+        </div>
+      </>
+    );
+    foot = <WizardFooter label="Next" enabled onBack={() => go(5)} onNext={() => go(7)} />;
+  } else if (step === 7) {
+    screen = (
+      <>
+        <ProgressBar filled={7} />
         <Head title="Daily study time" sub="Small and consistent beats heroic and rare." />
         <div className="ob-g3">
           {MINUTES.map((m) => {
@@ -493,18 +509,18 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
         </div>
       </>
     );
-    foot = <WizardFooter label="Next" enabled onBack={() => go(5)} onNext={() => go(7)} />;
-  } else if (step === 7) {
+    foot = <WizardFooter label="Next" enabled onBack={() => go(6)} onNext={() => go(8)} />;
+  } else if (step === 8) {
     screen = (
       <>
-        <ProgressBar filled={7} />
+        <ProgressBar filled={8} />
         <Affirm>Last one.</Affirm>
         <Head title="How confident do you feel right now?" sub="Be honest — your plan adapts to it." />
         <RowList items={MOODS} selVal={confidence} onPick={pickMood} getVal={(m) => m.id} />
       </>
     );
-    foot = <WizardFooter label="Start studying" enabled={!!confidence} onBack={() => go(6)} onNext={() => go(8)} />;
-  } else if (step === 8) {
+    foot = <WizardFooter label="Start studying" enabled={!!confidence} onBack={() => go(7)} onNext={() => go(9)} />;
+  } else if (step === 9) {
     const sample = selectedSubjects.slice(0, 3).join(", ");
     const items = [
       `Loaded ${sample}${selectedSubjects.length > 3 ? " and more" : ""}`,
@@ -529,10 +545,10 @@ export function OnboardingWizard({ subjects = [], uid, onComplete, onSkip, onSet
           <p className="ob-xp-big">+{REDUCED ? 50 : xpShown} XP</p>
           <p className="ob-muted ob-xp-sub">for completing setup — day 1 streak started</p>
         </div>
-        <button type="button" className="ob-btnP ob-enter" onClick={() => { haptics.light(); go(9); }}>See your plan</button>
+        <button type="button" className="ob-btnP ob-enter" onClick={() => { haptics.light(); go(10); }}>See your plan</button>
       </div>
     );
-  } else if (step === 9) {
+  } else if (step === 10) {
     screen = (
       <>
         <div className="ob-chips">

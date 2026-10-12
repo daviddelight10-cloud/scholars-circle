@@ -10,6 +10,7 @@ import { GroupsTab } from "../groups/GroupsTab";
 import { Avatar, SectionHeader, displayTitle, FdScreen } from "./feedUi";
 import { usePullToRefresh } from "../../lib/usePullToRefresh";
 import { localDayKey } from "../../lib/dayKey.js";
+import { loadProfile } from "../StudentProfile.jsx";
 import ShareSheet from "../research-hub/ShareSheet.jsx";
 import SaveToSpaceSheet from "../research-hub/SaveToSpaceSheet.jsx";
 import "../../feed.css";
@@ -62,7 +63,7 @@ export default function Feed({ authUser, token, subjects = [], onOpenTab, onOpen
       id: authUser?.id,
       name: authUser?.fullName || authUser?.username || "You",
       username: authUser?.username,
-      avatar: authUser?.avatar,
+      avatar: authUser?.avatar || loadProfile()?.avatar,
     }),
     [authUser]
   );

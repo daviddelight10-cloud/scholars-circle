@@ -34,15 +34,16 @@ function userId(req) {
 }
 
 // Prefer the display name (what friends know them as) over the username handle.
-async function displayNameFor(id, fallback) {
+// One lookup also grabs the profile avatar so lobbies can show real characters.
+async function identityFor(id, fallback) {
   try {
     const u = await prisma.user.findUnique({
       where: { id },
-      select: { username: true, fullName: true },
+      select: { username: true, fullName: true, userProfile: { select: { avatar: true } } },
     });
-    return u?.fullName || u?.username || fallback || "Scholar";
+    return { name: u?.fullName || u?.username || fallback || "Scholar", avatar: u?.userProfile?.avatar || null };
   } catch {
-    return fallback || "Scholar";
+    return { name: fallback || "Scholar", avatar: null };
   }
 }
 
@@ -112,17 +113,17 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ error: "This MCQ set is empty" });
     }
 
-    const hostName = await displayNameFor(uid, req.user.username);
+    const host = await identityFor(uid, req.user.username);
     const room = createRoom({
       hostId: uid,
-      hostName,
+      hostName: host.name,
       resourceId: mcq.sourceResourceId || null,
       mcqResourceId: mcq.id,
       title: mcq.title,
       questions: shuffle(questions),
       settings: { timePerQuestion, numQuestions },
     });
-    registerParticipant(room, uid, hostName);
+    registerParticipant(room, uid, host.name, host.avatar);
 
     const ticket = generateTicket(room.id, userId(req));
     res.json({
@@ -300,7 +301,8 @@ router.post("/join", requireAuth, async (req, res) => {
     if (!already && room.participants.size >= 8) {
       return res.status(409).json({ error: "Room is full" });
     }
-    const reg = registerParticipant(room, uid, await displayNameFor(uid, req.user.username));
+    const who = await identityFor(uid, req.user.username);
+    const reg = registerParticipant(room, uid, who.name, who.avatar);
     if (!reg.ok) return res.status(409).json({ error: reg.error });
     const ticket = generateTicket(room.id, uid);
     res.json({ roomId: room.id, code: room.code, ticket, title: room.title });

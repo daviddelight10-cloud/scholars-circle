@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { IconCheck, IconX } from "../icons.jsx";
 import { sounds } from "../sounds";
+import AvatarMark from "../../../components/AvatarMark.jsx";
 
 function initials(name) {
   return (name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -77,8 +78,8 @@ export default function RevealView({ room, myId, actions }) {
                     {whoPicked.map(([uid, a]) => {
                       const p = byId[uid];
                       return (
-                        <span key={uid} className="lq-pick-avatar" style={{ background: p?.color || "#555" }}>
-                          {initials(p?.username)}
+                        <span key={uid} className="lq-pick-avatar" style={{ background: p?.avatar ? "transparent" : p?.color || "#555", border: p?.avatar ? "none" : undefined }}>
+                          {p?.avatar ? <AvatarMark avatar={p.avatar} name={p.username} size={24} /> : initials(p?.username)}
                           {a.confidence && (
                             <span className="lq-conf-dot" style={{ background: confColor(a.confidence) }} />
                           )}
@@ -168,10 +169,10 @@ export default function RevealView({ room, myId, actions }) {
                 <div
                   key={p.userId}
                   className={`lq-ready-avatar${readySet.has(p.userId) ? " is-ready" : ""}`}
-                  style={{ background: p.color }}
+                  style={{ background: p.avatar ? "transparent" : p.color }}
                   title={p.username}
                 >
-                  {initials(p.username)}
+                  {p.avatar ? <AvatarMark avatar={p.avatar} name={p.username} size={34} /> : initials(p.username)}
                 </div>
               ))}
             </div>
