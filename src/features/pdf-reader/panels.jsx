@@ -69,7 +69,7 @@ export function NotesPanel({ marks, onJump, onClose, T, s, isMobile }) {
             {m.note && <span style={{ fontSize: 10, color: T.muted }}>📝</span>}
           </span>
           <span style={{ display: "block", fontSize: 12, color: T.text, lineHeight: 1.4 }}>
-            “{m.text.slice(0, 110)}{m.text.length > 110 ? "…" : ""}”
+            {m.text ? `“${m.text.slice(0, 110)}${m.text.length > 110 ? "…" : ""}”` : "Highlighted region"}
           </span>
           {m.note && <span style={{ display: "block", fontSize: 11.5, color: T.muted, marginTop: 2 }}>📝 {m.note}</span>}
         </div>

@@ -2234,6 +2234,12 @@ Passage:
   const screenToPdf = (p) => ({ x: p.x / scale, y: p.y / scale });
   const pdfToScreen = (p) => ({ x: p.x * scale, y: p.y * scale });
 
+  // True when the page has a rendered text layer (spans) — i.e. selectable.
+  // Scanned pages have none until OCR runs, so MARK falls back to freehand.
+  const pageHasText = (pg) => !!(textLayerRefs.current[pg]?.childElementCount);
+  const overlayEventsFor = (pg) =>
+    tool === "none" || (tool === "highlight" && pageHasText(pg)) ? "none" : "auto";
+
   const onOverlayDown = (e, pg = currentPage) => {
     if (tool === "none") return;
     e.preventDefault();
@@ -2261,7 +2267,15 @@ Passage:
     }
 
     if (tool === "erase") {
-      // Hit-test: find nearest stroke within threshold
+      // Hit-test marks first — text highlights and scanned-region boxes both
+      // live in textMarks as normalized rects.
+      const pdfP = screenToPdf(p);
+      const eb = pageDimsRef.current[pg] || { width: 1, height: 1 };
+      const nx = pdfP.x / eb.width, ny = pdfP.y / eb.height;
+      const hitMark = (textMarks[pg] || []).find((m) =>
+        m.rects.some((r) => nx >= r[0] && nx <= r[2] && ny >= r[1] && ny <= r[3]));
+      if (hitMark) { removeMark(pg, hitMark.id); return; }
+      // Freehand strokes: find nearest stroke within threshold
       const pageAnnots = annotations[pg] || [];
       const threshold = 12 / scale;
       for (let si = pageAnnots.length - 1; si >= 0; si--) {
@@ -2350,11 +2364,29 @@ Passage:
       if (pts.length < 2) return;
       // Convert to PDF coords and save
       const pdfPts = pts.map(screenToPdf);
-      const strokeColor = tool === "pen" ? penColor : highlightColor;
-      const strokeWidth = tool === "pen" ? penWidth / scale : highlightWidth / scale;
-      setAnnotations((prev) => ({
+      if (tool === "pen") {
+        setAnnotations((prev) => ({
+          ...prev,
+          [pg]: [...(prev[pg] || []), { color: penColor, width: penWidth / scale, points: pdfPts, type: "pen" }],
+        }));
+        return;
+      }
+      // Highlight only ever reaches here on pages with no text layer
+      // (scanned) — text pages select instead. Store the stroke's bounding
+      // box as a mark so it renders like a highlight and lists in
+      // Highlights & notes just like a text mark.
+      const xs = pdfPts.map((p) => p.x), ys = pdfPts.map((p) => p.y);
+      const base = pageDimsRef.current[pg] || { width: 1, height: 1 };
+      const x0 = Math.max(0, Math.min(...xs) / base.width), y0 = Math.max(0, Math.min(...ys) / base.height);
+      const x1 = Math.min(1, Math.max(...xs) / base.width), y1 = Math.min(1, Math.max(...ys) / base.height);
+      if (x1 - x0 < 0.005 || y1 - y0 < 0.005) return;
+      setTextMarks((prev) => ({
         ...prev,
-        [pg]: [...(prev[pg] || []), { color: strokeColor, width: strokeWidth, points: pdfPts, type: tool }],
+        [pg]: [...(prev[pg] || []), {
+          id: `m${Date.now().toString(36)}${Math.floor(Math.random() * 1e5)}`,
+          kind: "highlight", color: highlightColor, rects: [[x0, y0, x1, y1]],
+          text: "", note: "", createdAt: Date.now(),
+        }],
       }));
     }
   };
@@ -4014,7 +4046,7 @@ Passage:
             }}
           >
             <div style={{ fontSize: 11, color: T.muted, padding: "2px 8px 6px", maxHeight: 48, overflow: "hidden" }}>
-              “{markMenu.mark.text.slice(0, 80)}{markMenu.mark.text.length > 80 ? "…" : ""}”
+              {markMenu.mark.text ? `“${markMenu.mark.text.slice(0, 80)}${markMenu.mark.text.length > 80 ? "…" : ""}”` : "Highlighted region"}
             </div>
             <div style={{ display: "flex", gap: 4, padding: "0 4px 4px" }}>
               {HIGHLIGHT_COLORS.map((c) => (
@@ -4029,8 +4061,12 @@ Passage:
             <button style={s.selMenuItem} onClick={() => { setNoteEdit({ page: markMenu.mark.page, id: markMenu.mark.id }); setMarkMenu(null); }}>
               📝 {markMenu.mark.note ? "Edit note" : "Add note"}
             </button>
-            <button style={s.selMenuItem} onClick={() => { quizFromText(markMenu.mark.text, markMenu.mark.page); }}>❓ Make quiz question</button>
-            <button style={s.selMenuItem} onClick={() => { pendingSelRef.current = { page: markMenu.mark.page, text: markMenu.mark.text, rects: markMenu.mark.rects }; askAboutSelection("Explain this passage clearly and concisely — under 100 words:"); setMarkMenu(null); }}>✨ Ask AI</button>
+            {markMenu.mark.text && (
+              <>
+                <button style={s.selMenuItem} onClick={() => { quizFromText(markMenu.mark.text, markMenu.mark.page); }}>❓ Make quiz question</button>
+                <button style={s.selMenuItem} onClick={() => { pendingSelRef.current = { page: markMenu.mark.page, text: markMenu.mark.text, rects: markMenu.mark.rects }; askAboutSelection("Explain this passage clearly and concisely — under 100 words:"); setMarkMenu(null); }}>✨ Ask AI</button>
+              </>
+            )}
             <button style={{ ...s.selMenuItem, color: "#e35d6a" }} onClick={() => { removeMark(markMenu.mark.page, markMenu.mark.id); setMarkMenu(null); }}>
               🗑 Delete
             </button>
@@ -4486,7 +4522,7 @@ Passage:
               {renderPendingSel(currentPage)}
               <svg
                 ref={lassoSvgRef}
-                style={{ ...s.lassoOverlay, filter: pageCssFilter() }}
+                style={{ ...s.lassoOverlay, filter: pageCssFilter(), pointerEvents: overlayEventsFor(currentPage) }}
                 onPointerDown={onOverlayDown}
                 onPointerMove={onOverlayMove}
                 onPointerUp={onOverlayUp}
@@ -4665,7 +4701,7 @@ Passage:
                           style={{
                             ...s.lassoOverlay,
                             filter: pageCssFilter(),
-                            pointerEvents: tool === "none" || tool === "highlight" ? "none" : "auto",
+                            pointerEvents: overlayEventsFor(pg),
                           }}
                           onPointerDown={(e) => onOverlayDown(e, pg)}
                           onPointerMove={onOverlayMove}
