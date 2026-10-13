@@ -19,7 +19,7 @@ import "../research-hub.css";
 import { API_BASE } from "../lib/constants";
 import { canUse } from "../lib/freeTier.js";
 import { supabase } from "../lib/supabaseClient.js";
-import { getValidToken } from "../lib/authToken.js";
+import { getValidToken, ensureAppSession } from "../lib/authToken.js";
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // token prop: used when rendered in-app (overrides useParams)
@@ -81,7 +81,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
   // Track opens for the Home "Jump back in" rail
   useEffect(() => { recordRecentDoc(resource); }, [resource]);
 
-  const checkAuth = () => {
+  const checkAuth = async () => {
     try {
       const parsed = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
       if (parsed.authUser) {
@@ -90,7 +90,14 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
         return;
       }
     } catch (e) {}
-    setAuthCase("guest");
+    // OAuth returns land here — Supabase holds a session but nothing wrote
+    // scholars-circle-auth on this standalone route. Recover it, then
+    // refetch: the mount-time fetchResource raced us with a guest payload.
+    const appUser = await ensureAppSession();
+    if (!appUser) { setAuthCase("guest"); return; }
+    setUser(appUser);
+    setAuthCase("loggedin");
+    fetchResource();
   };
 
   const getCached = (key) => {

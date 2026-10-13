@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getFolderByShareToken, bookmarkFolder, unbookmarkFolder } from "../lib/foldersApi";
+import { ensureAppSession } from "../lib/authToken.js";
 import { formatViewCount } from "../lib/researchUtils";
 import { formatRelativeDate } from "./research-hub/constants.js";
 import { createLiveRoom } from "./live-quiz/liveQuizApi.js";
@@ -39,7 +40,19 @@ export default function SharedFolderView() {
   const [error, setError] = useState("");
   const [deleted, setDeleted] = useState(false);
   const [viewerToken, setViewerToken] = useState(null);
-  const [isAuthenticated] = useState(() => !!getAuth().authToken);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!getAuth().authToken);
+
+  // OAuth returns and cleared-storage sessions land here with a live
+  // Supabase session but no scholars-circle-auth — recover it once.
+  useEffect(() => {
+    if (isAuthenticated) return;
+    let live = true;
+    ensureAppSession().then((u) => {
+      if (live && u) setIsAuthenticated(true);
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [folderBookmarked, setFolderBookmarked] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [sheetFile, setSheetFile] = useState(null);

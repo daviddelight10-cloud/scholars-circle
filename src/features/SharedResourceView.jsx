@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getResourceByShareToken, unbookmarkResource } from "../lib/resourcesApi";
+import { ensureAppSession } from "../lib/authToken.js";
 import { formatViewCount } from "../lib/researchUtils";
 import { formatRelativeDate } from "./research-hub/constants.js";
 import { createLiveRoom } from "./live-quiz/liveQuizApi.js";
@@ -63,8 +64,20 @@ export default function SharedResourceView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [viewerToken, setViewerToken] = useState(null);
-  const [auth] = useState(getAuth);
+  const [auth, setAuth] = useState(getAuth);
   const isAuthenticated = !!auth.authToken;
+
+  // OAuth returns and cleared-storage sessions land here with a live
+  // Supabase session but no scholars-circle-auth — recover it once.
+  useEffect(() => {
+    if (auth.authUser) return;
+    let live = true;
+    ensureAppSession().then((u) => {
+      if (live && u) setAuth(getAuth());
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [bookmarked, setBookmarked] = useState(false);
   const [savedFolderId, setSavedFolderId] = useState(null);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);

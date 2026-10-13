@@ -71,12 +71,13 @@ export default function AuthPages() {
 
       const sessionToken = data.session?.access_token || '';
       
-      // Fetch app profile
+      // Fetch app profile — the server route is GET /auth/refresh
+      // (a POST 404s, leaving localStorage unwritten and the redirect
+      // landing the user back on a page that still thinks they're a guest)
       let appUser = null;
       try {
         const response = await fetch(`${API_BASE}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+          headers: { Authorization: `Bearer ${sessionToken}` },
         });
         const profile = await response.json();
         appUser = profile?.user || null;
@@ -84,9 +85,12 @@ export default function AuthPages() {
         console.error('Failed to fetch profile:', err);
       }
 
-      if (appUser) {
-        localStorage.setItem('scholars-circle-auth', JSON.stringify({ authUser: appUser, authToken: sessionToken }));
+      if (!appUser) {
+        setError('Signed in, but your profile could not be loaded. Please try again.');
+        return;
       }
+
+      localStorage.setItem('scholars-circle-auth', JSON.stringify({ authUser: appUser, authToken: sessionToken }));
 
       const redirectParam = safeRedirect(new URLSearchParams(window.location.search).get('redirect'), null);
       if (redirectParam) {

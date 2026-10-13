@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient.js";
+import { API_BASE } from "./constants";
 
 // ── Shared auth-token plumbing ───────────────────────────────────────────
 // Every API module used to re-implement "read the JWT from localStorage"
@@ -107,3 +108,44 @@ export async function fetchWithAuth(url, { token, ...opts } = {}) {
 }
 
 export const authFetch = fetchWithAuth;
+
+/**
+ * Resolve a full app session for surfaces outside the /app shell —
+ * shared-material links, OAuth returns, cleared storage. Fast path:
+ * stored authUser. Otherwise ask Supabase for the session (this catches
+ * OAuth hash returns, where Supabase is signed in but nothing wrote
+ * scholars-circle-auth), fetch the app profile, and write it back.
+ * Returns the authUser object, or null when no session exists.
+ */
+export async function ensureAppSession() {
+  try {
+    const stored = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
+    if (stored.authUser) return stored.authUser;
+  } catch {}
+
+  let session = null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    session = data?.session || null;
+  } catch {}
+  if (!session?.access_token) return null;
+
+  syncStoredToken(session.access_token);
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    const appUser = data?.user || null;
+    if (!appUser) return null;
+    try {
+      localStorage.setItem("scholars-circle-auth", JSON.stringify({
+        authUser: appUser,
+        authToken: session.access_token,
+      }));
+    } catch {}
+    return appUser;
+  } catch {
+    return null;
+  }
+}
