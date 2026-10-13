@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { callAI, callAIMultimodal, callAITutor, callAIStream, extractJSON } from "../lib/aiClient";
+import { callAIMultimodal, callAITutor, callAIStream, extractJSON } from "../lib/aiClient";
 import { buildSystemPrompt, buildConversationContext } from "./AITutor/prompts.js";
 import { detectDiscipline } from "./AITutor/disciplines.js";
 import { CHEMISTRY_RULES_BRIEF } from "../lib/chemistryPrompt.js";
@@ -253,19 +253,20 @@ async function generateAIResponse(query, aiConfig, conversationHistory = [], sub
     (isGeneral
       // General mode — pure text chat. No documents/practice/video fields; the
       // model only suggests a better mode via "suggestMode" when clearly needed.
-      ? `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"suggestMode":"<one of: materials|video|flashcards|quiz|exam>"}\n\n` +
+      ? `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it>","suggestMode":"<one of: materials|video|flashcards|quiz|exam>"}\n\n` +
         `Rules:\n` +
         `- "answer" is REQUIRED and must never be empty.\n` +
-        `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
+        `- "followUps": OPTIONAL — include 1-2 ONLY when the answer is a substantial explanation AND a genuinely natural next question exists (max 60 chars each). Omit the field for quick facts, greetings, lists, or when the answer already ends by asking the student something. Never pad with generic follow-ups.\n` +
         `- "suggestMode": include ONLY when another mode clearly fits the request better — flashcards for cards/memorization, quiz when they want to be tested, exam for timed/mock tests, video when they want to watch a lesson, materials when they ask for their notes/documents. Omit it otherwise.\n` +
         `- ${CHEMISTRY_RULES_BRIEF}\n` +
         `- If the student asks how to use the app, answer using the feature list above.`
-      : `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<6-8 word YouTube search query for a video lesson on this topic>","followUps":["<natural follow-up question 1>","<follow-up 2>","<follow-up 3>"],"documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"},"suggestMode":"<one of: materials|video|flashcards|quiz|exam>"${modeSchema}}\n\n` +
+      : `{"answer":"<REQUIRED — the full markdown answer the student reads. Size it to the question: a quick fact gets 1-3 sentences; an explanation/tutorial gets a well-structured answer with ## headings, bullet lists, **bold** key terms, and math like $x^2$ where helpful. If document content was provided, answer from it and mention which document>","ytQuery":"<ONLY in Video mode — 6-8 word YouTube search query>","documents":["<exact document title from the Research Hub list>"],"practice":{"subject":"<exact subject or document title from the lists above>","topic":"<exact topic label or topic phrase>"},"suggestMode":"<one of: materials|video|flashcards|quiz|exam>"${modeSchema}}\n\n` +
         `Rules:\n` +
         `- "answer" is REQUIRED and must never be empty.\n` +
-        `- "documents": list up to 3 EXACT document titles from the Research Hub list when the student asks for notes/materials/PDFs, or when a listed document clearly covers their question. Copy titles EXACTLY. Omit the field otherwise.\n` +
+        `- "documents": OPTIONAL — list up to 3 EXACT document titles ONLY when the student asks for notes/materials/PDFs, OR your answer is actually built from a listed document's content. Copy titles EXACTLY. Never attach documents just because the topic loosely matches — omit the field otherwise.\n` +
         `- Include "practice" ONLY when the student asks for practice/quiz/past questions or to be tested on a subject the MCQ sets cover. Copy labels EXACTLY from the lists above. Omit the field entirely otherwise.\n` +
-        `- "followUps": max 3, max 60 chars each, progressing basic → advanced.\n` +
+        `- "ytQuery": include ONLY in Video mode.\n` +
+        `- "followUps": OPTIONAL — include 1-2 ONLY when the answer is a substantial explanation AND a genuinely natural next question exists (max 60 chars each). Omit the field otherwise.\n` +
         `- "suggestMode": include ONLY when another mode clearly fits the request better; omit otherwise.\n` +
         `- ${CHEMISTRY_RULES_BRIEF}\n` +
         `- If the student asks how to use the app, answer using the feature list above.` +
@@ -473,9 +474,16 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onOpe
   const [saving, setSaving] = useState(false);
   const [deckSaved, setDeckSaved] = useState(false);
   const [deckSaving, setDeckSaving] = useState(false);
-  const followUps = (data.followUps || []).slice(0, 3);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const followUps = (data.followUps || []).slice(0, 2);
   // Freeform answer (new) with legacy definition+explanation fallback (old saved convos)
   const answer = data.answer || [data.definition, data.explanation].filter(Boolean).join("\n\n");
+  // Follow-ups earn their place — only under substantial answers (or the
+  // quiz/exam reply where "make it harder" is the obvious next step), never
+  // under quick facts. The prompt already makes them optional; this is the
+  // render-side gate for older/saved replies that still carry 3 chips.
+  const canShowFollowUps = showFollowUps && followUps.length > 0 &&
+    (data.mode === "quiz" || data.mode === "exam" || answer.trim().length >= 200);
   const hasBank = (data.practice?.questions?.length || 0) > 0 || (data.questions || []).length > 0;
 
   useEffect(() => () => { if (speaking) window.speechSynthesis?.cancel(); }, [speaking]);
@@ -564,26 +572,24 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onOpe
           {/* Freeform markdown answer */}
           <MarkdownText theme="gold">{answer}</MarkdownText>
 
+          {/* Extras fade in after the answer — the text streams first, these
+              arrive once and settle instead of popping mid-read */}
+          <div className="sc-extras">
+
           {/* Mode suggestion — one tap switches mode and re-asks the question */}
           {data.suggestMode && MODE_META[data.suggestMode] && onSwitchMode && (
             <div style={{ margin: "8px 0 2px" }}>
               <button
                 onClick={() => onSwitchMode(data.suggestMode, data.question || data.topic)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  padding: "6px 13px", borderRadius: 16,
-                  background: "transparent", border: `0.5px dashed ${D.border}`,
-                  color: D.accent2, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                  fontFamily: "Manrope,sans-serif", transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = D.accent; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                className="sc-sug"
               >{MODE_META[data.suggestMode].icon} Switch to {MODE_META[data.suggestMode].label} →</button>
             </div>
           )}
 
-          {/* Research Hub documents the AI cited */}
-          {(data.documents || []).length > 0 && (
+          {/* Research Hub sources — Materials mode keeps the full cards
+              (Ask AI / Quiz / Open); every other reply cites sources as
+              quiet inline chips that open the document */}
+          {(data.documents || []).length > 0 && (data.mode === "materials" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 7, margin: "10px 0 2px" }}>
               {(data.documents || []).slice(0, 3).map((doc, i) => (
                 <DocCard
@@ -595,7 +601,26 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onOpe
                 />
               ))}
             </div>
-          )}
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "8px 0 2px" }}>
+              {(data.documents || []).slice(0, 3).map((doc, i) => {
+                const meta = docTypeMeta(doc.contentType);
+                const clickable = !!(doc.shareToken && onOpenResource);
+                return (
+                  <button
+                    key={doc.shareToken || doc.id || i}
+                    className="sc-src-chip"
+                    title={doc.title}
+                    disabled={!clickable}
+                    onClick={() => clickable && onOpenResource(doc.shareToken)}
+                  >
+                    <span style={{ fontSize: 11, flexShrink: 0 }}>{meta.icon}</span>
+                    <span className="sc-src-chip-label">{doc.title}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
 
           {/* Practice card — real bank questions */}
           {data.practice && hasBank && (
@@ -640,7 +665,7 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onOpe
             </div>
           )}
 
-          {/* Slim action bar */}
+          {/* Slim action bar — Copy + Listen stay visible; Save lives in ⋯ */}
           <div style={{
             display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
             marginTop: 8, paddingTop: 8, borderTop: `0.5px solid ${D.line2}`,
@@ -654,39 +679,44 @@ function AIMessageBubble({ data, onStartPractice, onStartExam, onFollowUp, onOpe
               </button>
             )}
             {onSave && (
-              <button onClick={handleSave} disabled={saving || saved} style={iconBtn(saved)} title="Save to Research Hub">
-                {saved ? "✓ Saved" : saving ? "⏳ Saving…" : "💾 Save"}
-              </button>
+              <span style={{ position: "relative" }}>
+                {moreOpen && (
+                  <div
+                    style={{ position: "fixed", inset: 0, zIndex: 19 }}
+                    onClick={() => setMoreOpen(false)}
+                  />
+                )}
+                <button onClick={() => setMoreOpen(o => !o)} style={iconBtn(moreOpen || saved)} title="More actions">
+                  ⋯
+                </button>
+                {moreOpen && (
+                  <div className="sc-menu">
+                    <button
+                      className="sc-menu-item"
+                      disabled={saving || saved}
+                      onClick={() => { setMoreOpen(false); handleSave(); }}
+                    >{saved ? "✓ Saved" : saving ? "⏳ Saving…" : "💾 Save to Research Hub"}</button>
+                  </div>
+                )}
+              </span>
             )}
           </div>
 
-          {/* Follow-up suggestions — only on the latest reply (ChatGPT-style) */}
-          {showFollowUps && followUps.length > 0 && (
-            <div style={{ padding: "10px 0 2px" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                {followUps.map((fu, i) => (
-                  <button
-                    key={i}
-                    onClick={() => onFollowUp?.(fu)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 7, width: "100%",
-                      padding: "7px 10px", borderRadius: 9,
-                      background: "transparent", border: `0.5px solid ${D.line}`,
-                      fontSize: 12, color: D.muted, cursor: "pointer",
-                      fontFamily: "Manrope,sans-serif", textAlign: "left",
-                      transition: "all 0.15s",
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.background = D.accent; e.currentTarget.style.color = D.text; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = D.muted; }}
-                  >
-                    <span style={{ fontSize: 10, color: D.faint, flexShrink: 0 }}>💡</span>
-                    <span>{fu}</span>
-                    <span style={{ marginLeft: "auto", fontSize: 11, color: D.faint }}>→</span>
-                  </button>
-                ))}
-              </div>
+          {/* Follow-up suggestions — only on the latest reply, only when the
+              model judged them useful, as quiet inline chips */}
+          {canShowFollowUps && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 0 2px" }}>
+              {followUps.map((fu, i) => (
+                <button
+                  key={i}
+                  className="sc-fu-chip"
+                  onClick={() => onFollowUp?.(fu)}
+                >{fu}</button>
+              ))}
             </div>
           )}
+
+          </div>{/* /sc-extras */}
         </div>
       </div>
     </div>
@@ -1727,6 +1757,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
   const [streamCtl, setStreamCtl]   = useState(null); // AbortController for the in-flight tutor stream
   const [streamStatus, setStreamStatus] = useState(null); // "Searching your Research Hub…" etc.
   const bottomRef                   = useRef(null);
+  const chatScrollRef               = useRef(null);
+  const stickRef                    = useRef(true);  // auto-scroll only while pinned to bottom
+  const [newBelow, setNewBelow]     = useState(false); // "↓ New" pill when scrolled up during a reply
   const docTextCache                = useRef({}); // resourceId -> { text, images }
 
   async function handleDocSelect(file) {
@@ -1767,9 +1800,19 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     }
   }
 
+  // Auto-scroll only while the reader is pinned to the bottom — if they've
+  // scrolled up to re-read, the stream doesn't yank them down; the append
+  // sites raise the "↓ New" pill instead (see onToken / ask / loadConvo).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (stickRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, view]);
+
+  function handleChatScroll(e) {
+    const el = e.currentTarget;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 90;
+    stickRef.current = nearBottom;
+    if (nearBottom) setNewBelow(false);
+  }
 
   // ── Research Hub: refresh the document list (seeded from localStorage) ──
   useEffect(() => {
@@ -1879,6 +1922,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     setMsgs(revived);
     const lastAi = [...revived].reverse().find(m => m.type === "ai");
     setData(lastAi?.data || null);
+    stickRef.current = true; // opening a conversation lands on the latest reply
     setView("chat");
     setCurrentId(c.id);
     // Restore the pinned document context (re-resolve to the live resource if possible)
@@ -2059,8 +2103,11 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
     setView("chat");
     setLoading(true);
 
-    // Build user message with optional attachment
+    // Build user message with optional attachment — sending always re-pins
+    // the scroll so your own question + reply stay in view
     const userMsg = { type: "user", text: q, attachment: attach ? { ...attach } : null };
+    stickRef.current = true;
+    setNewBelow(false);
     setMsgs(p => [...p, userMsg, { type: "loading" }]);
     const capturedAttachment = attach;
     setAttachment(null);
@@ -2141,6 +2188,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         lastRaw = acc;
         setStreamStatus(null);
         const partial = extractPartialAnswer(acc);
+        if (!stickRef.current) setNewBelow(true); // reader scrolled up mid-stream
         setMsgs(p => p.map((m, i) =>
           i === p.length - 1 && (m.type === "loading" || m.type === "streaming")
             ? { type: "streaming", partial }
@@ -2246,7 +2294,9 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         }
         citedDocs = citedDocs.slice(0, 3);
       } else {
-        citedDocs = citedDocs.slice(0, askMode === "general" ? 0 : 1);
+        // Outside a materials request: keep only the document we actually
+        // read — it renders as a quiet source chip, never as cards
+        citedDocs = citedDocs.slice(0, 1);
       }
 
       const ytQuery = aiRes?.ytQuery || `${q} explained`;
@@ -2309,6 +2359,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         finalMsgs = base.concat({ type: "ai", data: result });
         setData(result);
       }
+      if (!stickRef.current) setNewBelow(true);
       setMsgs(finalMsgs);
       setView("chat");
       persistConvo(finalMsgs, finalMsgs[finalMsgs.length - 1]?.data || null, q, pinnedDoc, pinnedVideo);
@@ -2331,6 +2382,30 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
       <style>{FONTS + `
         .sc-ol *{box-sizing:border-box}
         .sc-ol input::placeholder,.sc-ol textarea::placeholder{color:#4A5266}
+        .sc-ol .sc-extras{animation:scFadeUp .4s ease .06s both}
+        @keyframes scFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        .sc-ol .sc-fu-chip{display:inline-flex;align-items:center;padding:6px 12px;border-radius:14px;background:transparent;border:0.5px solid rgba(255,255,255,0.09);font-size:11px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;text-align:left;transition:all .15s}
+        .sc-ol .sc-fu-chip:hover{border-color:rgba(255,215,0,.45);background:#1e1e22;color:#EDEFF5}
+        .sc-ol .sc-fu-chip:active{transform:scale(.96)}
+        .sc-ol .sc-src-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:12px;background:#1a1a1c;border:0.5px solid rgba(255,255,255,0.09);font-size:11px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;max-width:240px;transition:all .15s}
+        .sc-ol .sc-src-chip:disabled{cursor:default}
+        .sc-ol .sc-src-chip:not(:disabled):hover{border-color:rgba(255,215,0,.45);color:#FFD700}
+        .sc-ol .sc-src-chip:not(:disabled):active{transform:scale(.97)}
+        .sc-ol .sc-src-chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .sc-ol .sc-sug{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:16px;background:transparent;border:0.5px dashed rgba(255,215,0,.55);color:#FFD700;font-size:11px;font-weight:600;cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
+        .sc-ol .sc-sug:hover{background:#1e1e22}
+        .sc-ol .sc-sug:active{transform:scale(.97)}
+        .sc-ol .sc-chip{padding:7px 13px;border-radius:20px;background:#1e1e22;border:0.5px solid rgba(255,255,255,0.09);font-size:11px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;transition:all .15s}
+        .sc-ol .sc-chip:hover{border-color:#FFD700;color:#FFD700}
+        .sc-ol .sc-chip:active{transform:scale(.96)}
+        .sc-ol .sc-menu{position:absolute;bottom:calc(100% + 5px);left:0;background:#1a1a1c;border:0.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:4px;z-index:20;min-width:180px;box-shadow:0 10px 30px rgba(0,0,0,.55);animation:scFadeUp .18s ease both}
+        .sc-ol .sc-menu-item{display:block;width:100%;padding:8px 11px;border-radius:7px;background:transparent;border:none;font-size:11.5px;color:#9AA3B5;cursor:pointer;font-family:Manrope,sans-serif;text-align:left;font-weight:600;transition:all .12s}
+        .sc-ol .sc-menu-item:hover{background:#1e1e22;color:#EDEFF5}
+        .sc-ol .sc-menu-item:disabled{opacity:.6;cursor:default}
+        .sc-ol .sc-skel{height:10px;border-radius:5px;background:linear-gradient(90deg,#17171b 25%,#232329 50%,#17171b 75%);background-size:200% 100%;animation:scShimmer 1.3s linear infinite}
+        @keyframes scShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+        .sc-ol .sc-newpill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:6px 15px;border-radius:16px;background:#1e1e22;border:0.5px solid rgba(255,215,0,.45);color:#FFD700;font-size:11px;font-weight:700;cursor:pointer;font-family:Manrope,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:5;animation:scFadeUp .2s ease both}
+        @media (prefers-reduced-motion:reduce){.sc-ol .sc-extras,.sc-ol .sc-newpill,.sc-ol .sc-menu{animation:none}.sc-ol .sc-skel{animation:none;opacity:.6}}
       `}</style>
 
       <div className="sc-ol" style={{
@@ -2439,7 +2514,12 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
         {/* ══ VIEW: CHAT (unified — includes AI responses inline) ══ */}
         {view === "chat" && (
           <>
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", scrollbarWidth: "none" }}>
+            <div style={{ flex: 1, minHeight: 0, position: "relative", display: "flex", flexDirection: "column" }}>
+            <div
+              ref={chatScrollRef}
+              onScroll={handleChatScroll}
+              style={{ flex: 1, overflowY: "auto", padding: "14px 14px 8px", scrollbarWidth: "none" }}
+            >
               <div style={{ maxWidth: 780, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
               {messages.length === 0 ? (
                 <>
@@ -2462,14 +2542,7 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                     {buildChips(subjects, resources).map(c => (
                       <button
                         key={c} onClick={() => ask(c)}
-                        style={{
-                          padding: "7px 13px", borderRadius: 20,
-                          background: D.accent, border: `0.5px solid ${D.line}`,
-                          fontSize: 11, color: D.muted, cursor: "pointer",
-                          fontFamily: "Manrope,sans-serif", transition: "all 0.15s",
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = D.border; e.currentTarget.style.color = D.accent2; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = D.line; e.currentTarget.style.color = D.muted; }}
+                        className="sc-chip"
                       >{c}</button>
                     ))}
                   </div>
@@ -2514,22 +2587,29 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
                         </div>
                       )}
                       {m.type === "loading" && (
-                        <div style={{ alignSelf: "flex-start", display: "flex", gap: 9, alignItems: "center" }}>
+                        <div style={{ alignSelf: "flex-start", display: "flex", gap: 9, alignItems: "flex-start", flex: 1 }}>
                           <div style={{
-                            width: 28, height: 28, borderRadius: 9, flexShrink: 0,
+                            width: 28, height: 28, borderRadius: 9, flexShrink: 0, marginTop: 2,
                             background: D.accent, border: `0.5px solid ${D.border}`,
                             display: "flex", alignItems: "center", justifyContent: "center",
                             fontSize: 13, color: D.accent2,
                           }}>✦</div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             {streamStatus && (
-                              <span style={{
+                              <div style={{
                                 fontSize: 12, color: D.muted, fontFamily: "Manrope,sans-serif",
                                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                                 maxWidth: 320, animation: "scBlink 1.6s ease-in-out infinite",
-                              }}>{streamStatus}</span>
+                                marginBottom: 9, marginTop: 4,
+                              }}>{streamStatus}</div>
                             )}
-                            <TypingDots />
+                            {/* Answer-shaped skeleton — the bubble already looks
+                                like the reply that's forming, not a spinner */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 7, maxWidth: 280, marginTop: streamStatus ? 0 : 4 }}>
+                              <div className="sc-skel" style={{ width: "100%" }} />
+                              <div className="sc-skel" style={{ width: "76%" }} />
+                              <div className="sc-skel" style={{ width: "48%" }} />
+                            </div>
                           </div>
                         </div>
                       )}
@@ -2616,6 +2696,19 @@ export default function AISectionOverlay({ aiConfig, subjects, onExit, defaultVi
               )}
               <div ref={bottomRef} />
               </div>
+            </div>
+
+            {/* "↓ New" pill — reader scrolled up while a reply streamed in */}
+            {newBelow && (
+              <button
+                className="sc-newpill"
+                onClick={() => {
+                  stickRef.current = true;
+                  setNewBelow(false);
+                  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >↓ New messages</button>
+            )}
             </div>
 
             {/* Pinned document context — follow-ups keep reading this doc */}
