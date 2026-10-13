@@ -1,23 +1,8 @@
 import { API_BASE } from "../../lib/constants";
-
-function getAuthToken() {
-  try {
-    return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || null;
-  } catch {
-    return null;
-  }
-}
+import { authFetch } from "../../lib/authToken.js";
 
 async function request(path, options = {}) {
-  const token = getAuthToken();
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  const res = await authFetch(`${API_BASE}${path}`, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;

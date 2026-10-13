@@ -1,4 +1,5 @@
 import { API_BASE } from "../../lib/constants";
+import { fetchWithAuth } from "../../lib/authToken.js";
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
 // docKeyFromUrl lives in src/lib/researchUtils.js (shared with community PDF cards)
@@ -65,9 +66,8 @@ export function getProxiedUrl(fileUrl) {
 
 // Fetch PDF via proxy with auth headers (pdf.js can't send custom headers)
 export async function fetchProxiedPdf(fileUrl) {
-  const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-  const res = await fetch(getProxiedUrl(fileUrl), {
-    headers: authData.authToken ? { Authorization: `Bearer ${authData.authToken}` } : {},
+  const res = await fetchWithAuth(getProxiedUrl(fileUrl), {
+    headers: {}, // binary fetch — no JSON content-type
   });
   if (!res.ok) throw new Error(`Failed to fetch PDF (${res.status})`);
   const buffer = await res.arrayBuffer();

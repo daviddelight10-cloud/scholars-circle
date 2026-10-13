@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { fetchWithAuth } from "../../lib/authToken.js";
 import { createLiveRoom } from "../live-quiz/liveQuizApi.js";
 
 import { listFolders, listCommunityFolders, createFolder, getFolder, deleteFolder as apiDeleteFolder, restoreFolder as apiRestoreFolder, purgeFolder as apiPurgeFolder, getRecycleBin, bookmarkFolder as apiBookmarkFolder, unbookmarkFolder as apiUnbookmarkFolder, updateFolder as apiUpdateFolder, updateFolderBookmark as apiUpdateFolderBookmark } from "../../lib/foldersApi";
@@ -1321,9 +1322,6 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     if (data.folderId) formData.append("folderId", data.folderId);
     if (userProfile?.universityId) formData.append("universityId", userProfile.universityId);
 
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    const token = authData.authToken;
-
     // Simulate progress since fetch() doesn't support upload progress events
     const progressInterval = setInterval(() => {
       setUploadProgress((prev) => Math.min(prev + 5, 90));
@@ -1333,11 +1331,8 @@ export default function ResearchHub({ onBack, onStreakUpdate, onXpUpdate, active
     const timeoutId = setTimeout(() => controller.abort(), 300_000);
 
     try {
-      const response = await fetch(`${API_BASE}/api/resources`, {
+      const response = await fetchWithAuth(`${API_BASE}/api/resources`, {
         method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: formData,
         signal: controller.signal,
       });

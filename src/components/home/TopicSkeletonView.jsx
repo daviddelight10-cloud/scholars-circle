@@ -19,13 +19,7 @@ import {
 const PRESET_SET = new Set(PRESET_SUBJECTS.filter((s) => s !== "Custom"));
 const FILE_TYPES = ["pdf", "docx", "pptx", "txt", "image", "doc", "note", "tutorial_question"];
 
-async function authFetch(url, opts = {}) {
-  let token = null;
-  try { token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken; } catch {}
-  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...opts, headers, credentials: "include" });
-}
+import { authFetch } from "../../lib/authToken.js";
 
 export default function TopicSkeletonView({ courseCode: initialCourseCode, onExit, onOpenResource, onStartStudying, authUser }) {
   const [courses, setCourses] = useState([]);

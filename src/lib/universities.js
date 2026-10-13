@@ -1,18 +1,7 @@
 import { API_BASE as BASE } from "./constants.js";
 import { NIGERIAN_INSTITUTIONS } from "./nigerianInstitutions.js";
 
-async function authFetch(url, opts = {}) {
-  let token = null;
-  try { token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken; } catch {}
-  return fetch(url, {
-    ...opts,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(opts.headers || {}),
-    },
-  });
-}
+import { authFetch } from "./authToken.js";
 
 export async function getUniversities(query) {
   const params = new URLSearchParams();

@@ -4,14 +4,7 @@ import { getDepartments, createDepartment, updateDepartment, deleteDepartment } 
 const BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://scholars-circle-production.up.railway.app";
 const EMOJI_OPTIONS = ["🩺","💉","🔬","💊","🦷","🧬","🏥","⚕️","🧪","📋","🫀","🧠","👁️","🦴","🩻","📐","⚖️","🌿","💻","🎓"];
 
-async function authFetch(url, opts = {}) {
-  let token = null;
-  try { token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken; } catch {}
-  return fetch(url, {
-    ...opts,
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts.headers || {}) },
-  });
-}
+import { authFetch } from "../../lib/authToken.js";
 
 async function getSubjects() {
   const res = await fetch(`${BASE}/subjects`);

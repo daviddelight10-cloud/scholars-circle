@@ -1,13 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { API_BASE } from "../../lib/constants.js";
-
-function getAuthToken() {
-  try {
-    return JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || null;
-  } catch {
-    return null;
-  }
-}
+import { authFetch } from "../../lib/authToken.js";
 
 function getUsername() {
   try {
@@ -25,13 +18,8 @@ function getWsBase() {
 }
 
 async function api(path, opts = {}) {
-  const token = getAuthToken();
-  const res = await fetch(`${API_BASE}/api/osce-rooms${path}`, {
+  const res = await authFetch(`${API_BASE}/api/osce-rooms${path}`, {
     method: opts.method || "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));

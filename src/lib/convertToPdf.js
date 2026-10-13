@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { detectFileType, detectFileTypeSync } from "./detectMimeType";
 import { API_BASE } from "./constants";
+import { fetchWithAuth } from "./authToken.js";
 
 const MAMMOTH_CDN = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
 
@@ -24,15 +25,6 @@ async function ensureScript(src, windowKey) {
   await _scriptPromises[src];
 }
 
-
-function getAuthToken() {
-  try {
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    return authData.authToken;
-  } catch {
-    return null;
-  }
-}
 
 function replaceExt(filename, newExt) {
   const idx = filename.lastIndexOf(".");
@@ -485,17 +477,13 @@ async function pptxToPdfClient(file, onProgress) {
   const formData = new FormData();
   formData.append("file", uploadFile);
 
-  const token = getAuthToken();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120000);
 
   let res;
   try {
-    res = await fetch(`${API_BASE}/api/resources/convert-pptx`, {
+    res = await fetchWithAuth(`${API_BASE}/api/resources/convert-pptx`, {
       method: "POST",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
       body: formData,
       signal: controller.signal,
     });

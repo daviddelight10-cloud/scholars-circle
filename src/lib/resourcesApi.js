@@ -1,14 +1,5 @@
 import { API_BASE } from "./constants.js";
-
-function authFetch(url, opts = {}) {
-  let token = null;
-  try {
-    token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authToken;
-  } catch {}
-  const headers = { "Content-Type": "application/json", ...opts.headers };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...opts, headers, credentials: "include" });
-}
+import { authFetch } from "./authToken.js";
 
 export async function getResourceByShareToken(shareToken) {
   const res = await authFetch(`${API_BASE}/api/resources/${shareToken}`);

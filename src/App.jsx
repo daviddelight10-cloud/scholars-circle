@@ -29,6 +29,7 @@ import { COINS_PER_SESSION, SUBJECTS, XP_PER_CORRECT, STREAK_BONUS, MODE_MULTIPL
 
 
 import { supabase } from "./lib/supabaseClient.js";
+import { clearSessionDeadFlag } from "./lib/authToken.js";
 import { createClient } from "@supabase/supabase-js";
 
 
@@ -1748,8 +1749,58 @@ function App() {
       if (event === "TOKEN_REFRESHED" && session) {
         setToken(session.access_token);
       }
+      if (event === "SIGNED_IN") {
+        clearSessionDeadFlag();
+      }
+      if (event === "SIGNED_OUT") {
+        // Supabase gave up refreshing — try one last getSession() recovery
+        // before dropping to login, so a transient refresh failure can't
+        // strand the app on a dead token with every request 401ing.
+        supabase.auth.getSession()
+          .then(({ data: { session: s } }) => {
+            if (s?.access_token) {
+              setToken(s.access_token);
+            } else {
+              setToken("");
+              setAuth((a) => ({ ...a, user: null }));
+            }
+          })
+          .catch(() => {
+            setToken("");
+            setAuth((a) => ({ ...a, user: null }));
+          });
+      }
     });
     return () => data?.subscription?.unsubscribe();
+  }, []);
+
+
+
+  // Keep the session warm + react to the fetch layer's session signals:
+  // on visibility/focus, refresh the token before the next API call;
+  // sc:token-refreshed syncs React state after a fetch self-heals a 401;
+  // sc:session-dead means no recoverable session → drop to login.
+  useEffect(() => {
+    const kick = () => {
+      supabase.auth.getSession()
+        .then(({ data: { session } }) => {
+          if (session?.access_token) setToken(session.access_token);
+        })
+        .catch(() => {});
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") kick(); };
+    const onRefreshed = (e) => { if (e.detail) setToken(e.detail); };
+    const onDead = () => { setToken(""); setAuth((a) => ({ ...a, user: null })); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", kick);
+    window.addEventListener("sc:token-refreshed", onRefreshed);
+    window.addEventListener("sc:session-dead", onDead);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", kick);
+      window.removeEventListener("sc:token-refreshed", onRefreshed);
+      window.removeEventListener("sc:session-dead", onDead);
+    };
   }, []);
 
 

@@ -1,19 +1,10 @@
 import { API_BASE } from "../../lib/constants";
-
-function authHeaders(token) {
-  if (token) return { Authorization: `Bearer ${token}` };
-  try {
-    const authData = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}");
-    return authData.authToken ? { Authorization: `Bearer ${authData.authToken}` } : {};
-  } catch {
-    return {};
-  }
-}
+import { authFetch } from "../../lib/authToken.js";
 
 async function req(path, { token, method = "GET", body } = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await authFetch(`${API_BASE}${path}`, {
+    token,
     method,
-    headers: { ...authHeaders(token), ...(body ? { "Content-Type": "application/json" } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {

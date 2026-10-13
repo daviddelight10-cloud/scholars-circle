@@ -1,12 +1,6 @@
 import { API_BASE } from "./constants";
 
-async function authFetch(url, opts = {}) {
-  let token = null;
-  try { token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken; } catch {}
-  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...opts, headers, credentials: "include" });
-}
+import { authFetch } from "./authToken.js";
 
 const CACHE_PREFIX = "sc_study_cache_";
 const STALE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days

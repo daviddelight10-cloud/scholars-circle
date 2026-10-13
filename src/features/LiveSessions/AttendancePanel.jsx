@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { API_BASE } from "../../lib/constants";
+import { fetchWithAuth } from "../../lib/authToken.js";
 
 
 async function authFetch(path, token) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetchWithAuth(`${API_BASE}${path}`, { token });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   return res.json();
 }

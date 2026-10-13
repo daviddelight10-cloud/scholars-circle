@@ -1,5 +1,6 @@
 import { LEAGUES, API_BASE } from "./constants";
 import { tzOffsetMinutes } from "./dayKey.js";
+import { fetchWithAuth } from "./authToken.js";
 
 export function shuffle(arr) {
   const copy = [...arr];
@@ -66,15 +67,12 @@ export function safeRedirect(param, fallback = "/app") {
   return param;
 }
 
-export async function api(path, { token, method = "GET", body } = {}) {  const res = await fetch(`${API_BASE}${path}`, {
+export async function api(path, { token, method = "GET", body } = {}) {  const res = await fetchWithAuth(`${API_BASE}${path}`, {
+    token,
     method,
     // Dead-network guard: navigator.onLine lies on broken WiFi/captive
     // portals — without a timeout a fetch can hang ~2min at TCP level.
     ...(AbortSignal.timeout ? { signal: AbortSignal.timeout(15000) } : {}),
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const data = await res.json().catch(() => ({}));

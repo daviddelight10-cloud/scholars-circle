@@ -1,11 +1,10 @@
 import { API_BASE } from "../../lib/constants";
+import { fetchWithAuth } from "../../lib/authToken.js";
 
 async function req(path, { method = "GET", token, body, formData } = {}) {
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  if (!formData) headers["Content-Type"] = "application/json";
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetchWithAuth(`${API_BASE}${path}`, {
+    token,
     method,
-    headers,
     body: formData ? formData : body ? JSON.stringify(body) : undefined
   });
   const data = await res.json().catch(() => ({}));

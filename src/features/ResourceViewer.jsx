@@ -19,6 +19,7 @@ import "../research-hub.css";
 import { API_BASE } from "../lib/constants";
 import { canUse } from "../lib/freeTier.js";
 import { supabase } from "../lib/supabaseClient.js";
+import { getValidToken } from "../lib/authToken.js";
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // token prop: used when rendered in-app (overrides useParams)
@@ -62,6 +63,15 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // Fresh JWT for the PDF-proxy iframe — a stale stored token would 401 the
+  // embed, so resolve through Supabase (auto-refresh) instead of localStorage.
+  const [authJwt, setAuthJwt] = useState("");
+  useEffect(() => {
+    let live = true;
+    getValidToken().then((t) => { if (live && t) setAuthJwt(t); });
+    return () => { live = false; };
   }, []);
 
   useEffect(() => {
@@ -357,7 +367,7 @@ export default function ResourceViewer({ token: tokenProp, onBack, onQuizComplet
               <>
                 {resource.description && <p style={{ marginTop: 8, marginBottom: 8, color: "var(--text-muted, #9AA3B5)" }}>{resource.description}</p>}
                 <iframe
-                  src={`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}&token=${encodeURIComponent(JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}").authToken || "")}`}
+                  src={`${API_BASE}/api/resources/proxy-pdf?url=${encodeURIComponent(resource.fileUrl)}&token=${encodeURIComponent(authJwt)}`}
                   title={resource.title}
                   style={{ width: "100%", height: "400px", border: "none", borderRadius: "8px", marginTop: 12, background: "var(--item-bg, #0a0a0a)" }}
                 />

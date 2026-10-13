@@ -1,16 +1,9 @@
 import { API_BASE } from "./constants.js";
+import { authFetch } from "./authToken.js";
 
 export async function submitReport({ targetType, targetId, reason, note }) {
-  let token = null;
-  try {
-    token = JSON.parse(localStorage.getItem("scholars-circle-auth") || "{}")?.authToken;
-  } catch {}
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/reports`, {
+  const res = await authFetch(`${API_BASE}/api/reports`, {
     method: "POST",
-    headers,
-    credentials: "include",
     body: JSON.stringify({ targetType, targetId, reason, note }),
   });
   if (!res.ok) {

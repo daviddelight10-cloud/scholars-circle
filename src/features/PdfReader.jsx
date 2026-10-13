@@ -17,6 +17,7 @@ import {
 import { rateQuestion } from "./streak-survival/fsrsBridge.js";
 import { questEvent } from "./streak-survival/survivalStore.js";
 import { API_BASE } from "../lib/constants";
+import { fetchWithAuth, getValidToken } from "../lib/authToken.js";
 import { docKeyFromUrl } from "../lib/researchUtils.js";
 import pdfjsLib, { loadPdfJs } from "../lib/pdfjs.js";
 
@@ -313,7 +314,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
         try {
           // Streamed/ranged load — pdf.js range-requests chunks through the
           // proxy so page 1 paints before the whole file downloads.
-          const token = getAuthToken();
+          const token = await getValidToken();
           const loadingTask = pdfjs.getDocument({
             url: getProxiedUrl(fileUrl),
             httpHeaders: token ? { Authorization: `Bearer ${token}` } : {},
@@ -1161,9 +1162,7 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const token = getAuthToken();
     if (!token) return;
     let cancelled = false;
-    fetch(`${API_BASE}/api/resources/shared-annotations/${encodeURIComponent(docKey)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetchWithAuth(`${API_BASE}/api/resources/shared-annotations/${encodeURIComponent(docKey)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled && Array.isArray(d?.annotations)) setSharedAnnots(d.annotations); })
       .catch(() => {});
@@ -1184,9 +1183,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (shareBusy) return;
     setShareBusy(true);
     try {
-      const r = await fetch(`${API_BASE}/api/resources/shared-annotations`, {
+      const r = await fetchWithAuth(`${API_BASE}/api/resources/shared-annotations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           docKey, page: sel.page, kind: "highlight",
           color: "rgba(255,211,77,0.35)", rects: sel.rects,
@@ -1215,9 +1213,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     if (shareBusy) return;
     setShareBusy(true);
     try {
-      const r = await fetch(`${API_BASE}/api/resources/shared-annotations`, {
+      const r = await fetchWithAuth(`${API_BASE}/api/resources/shared-annotations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ docKey, page: commentsFor, kind: "comment", body: txt.slice(0, 2000) }),
       });
       const d = await r.json().catch(() => null);
@@ -1235,9 +1232,8 @@ export default function PdfReader({ fileUrl, title, initialFullscreen = false, o
     const token = getAuthToken();
     if (!token) return;
     try {
-      const r = await fetch(`${API_BASE}/api/resources/shared-annotations/${id}`, {
+      const r = await fetchWithAuth(`${API_BASE}/api/resources/shared-annotations/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error();
       setSharedAnnots((prev) => prev.filter((a) => a.id !== id));
