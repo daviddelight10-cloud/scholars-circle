@@ -3,5 +3,8 @@ Allow: /
 Disallow: /app
 Disallow: /teacher
 Disallow: /folders/
+Disallow: /resources/
+Disallow: /live/
+Disallow: /offline.html
 
 Sitemap: https://scholarscircle.com.ng/sitemap.xml

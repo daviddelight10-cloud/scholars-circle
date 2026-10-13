@@ -66,6 +66,17 @@
       ],
       "destination": "https://scholars-circle-production.up.railway.app/og/folder/:token"
     },
+    {
+      "source": "/blog/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Ww]hats[Aa]pp|[Tt]elegram|facebookexternalhit|Facebot|[Tt]witterbot|[Ss]lackbot|[Dd]iscordbot|[Ll]inkedIn[Bb]ot|[Gg]ooglebot|bingbot|Applebot|[Pp]interest|redditbot|Embedly|SkypeUriPreview|vkShare).*"
+        }
+      ],
+      "destination": "/og/blog/:slug.html"
+    },
     { "source": "/((?!api/|sitemap\\.xml|robots\\.txt).*)", "destination": "/index.html" }
   ]
 }
